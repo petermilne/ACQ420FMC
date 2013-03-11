@@ -53,8 +53,21 @@
 int acq420_major = 60;
 module_param(acq420_major, int, 0);
 
+/* we _shouldn't need any globals, but right now there's no obvious way round */
 
+int ndevices;
+module_param(ndevices, int, 0);
 
+/* driver supports multiple devices.
+ * ideally we'd have no globals here at all, but it works, for now
+ */
+#define MAXDEVICES 6
+struct acq420_dev* acq420_devices[MAXDEVICES];
+
+struct proc_dir_entry *acq400_proc_root;
+
+// @@todo pgm: crude
+const char* acq420_names[] = { "0", "1", "2", "3", "4", "5" };
 
 static void acq420_reset_fifo(struct acq420_dev *acq420_dev)
 {
@@ -145,52 +158,6 @@ static u32 acq420_get_interrupt(struct acq420_dev *acq420_dev)
 	return status;
 }
 
-// static int __init acq420_findirq(void)
-// {
-	// int timeout = 20;
-	// unsigned long cookie;
-	// int foundIRQ;
-
-	// // DBG(SMC_DEBUG_FUNC, "--> %s\n", __FUNCTION__);
-
-	// cookie = probe_irq_on();
-
-	// printk("Pre-probe interrupt mask is : 0x%08x\n", (u32)cookie);
-	// /*
-	 // * Force a SW interrupt
-	 // */
-	// acq420_enable_interrupt();
-	// acq420_force_interrupt(0x1);
-
-	// /*
-	 // * Wait until positive that the interrupt has been generated
-	 // */
-	// do {
-		// int int_status;
-		// udelay(10);
-		// int_status = acq420_get_interrupt();
-		// printk("IRQ status is 0x%08x\n", int_status);
-		// if (int_status & 0x1)
-			 // break;		/* got the interrupt */
-	// } while (--timeout);
-
-	// /*
-	 // * there is really nothing that I can do here if timeout fails,
-	 // * as autoirq_report will return a 0 anyway, which is what I
-	 // * want in this case.	 Plus, the clean up is needed in both
-	 // * cases.
-	 // */
-
-	 // foundIRQ =  probe_irq_off(cookie);
-	 // printk("Auto-detected IRQ at %d\n", foundIRQ);
-
-	// /* and disable all interrupts again */
-	// acq420_force_interrupt(0x0);
-	// acq420_disable_interrupt();
-
-	// /* and return what I found */
-	// return foundIRQ;
-// }
 
 /* File operations */
 int acq420_open(struct inode *inode, struct file *filp)
@@ -462,19 +429,16 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		status *= 4;
 		// printk("FIFO contains %d samples\n", status);
 		// printk("Transfer wants %d bytes\n", dev->count);
-		if ((dev->this_count + status) >= dev->count)
-		{
+		if ((dev->this_count + status) >= dev->count) {
 			acq420_disable_fifo(dev);
 			status = dev->count - dev->this_count;
-			if (status == 0x0)
-			{
+			if (status == 0x0) {
 				// printk("Breaking!\n");
 				break;
 			}
 		}
 
-		if (status >= 0x1000)
-		{
+		if (status >= 0x1000) {
 			status=0x1000;
 		}
 		/* Lock the DMA device */
@@ -506,7 +470,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		status = acq420_get_fifo_status(dev);
 		// printk("FIFO has been drained to %d samples\n", status);
 
-	}while(status >= HITIDE-16);
+	} while(status >= HITIDE-16);
 
 
 	acq420_enable_interrupt(dev);
@@ -605,9 +569,11 @@ static struct seq_operations acq420_proc_seq_ops = {
 
 static int acq420_proc_open(struct inode *inode, struct file *file)
 {
-	struct acq420_dev *dev = container_of(inode->i_cdev, struct acq420_dev, cdev);
-	file->private_data = dev;       /* For use elsewhere */
-        return seq_open(file, &acq420_proc_seq_ops);
+	// @@todo .. could do better?
+        seq_open(file, &acq420_proc_seq_ops);
+        ((struct seq_file*)file->private_data)->private =
+        		acq420_devices[file->f_path.dentry->d_iname[0] -'0'];
+        return 0;
 }
 
 static struct file_operations acq420_proc_ops = {
@@ -621,30 +587,36 @@ static struct file_operations acq420_proc_ops = {
 static int acq420_remove(struct platform_device *pdev)
 {
 	// @@todo : tricky needs some kind of container_of() function.
-#ifdef PGMCOMOUT
-        cdev_del(&acq420_dev->cdev);
 
-        remove_proc_entry("driver/acq420", NULL);
+	if (pdev->id == -1){
+		return -1;
+	}else{
+		struct acq420_dev* acq420_dev = acq420_devices[pdev->id];
 
-        unregister_chrdev_region(acq420_dev->devno, 1);
+		cdev_del(&acq420_dev->cdev);
 
-        /* Unmap the I/O memory */
-        if (acq420_dev->dev_virtaddr) {
-                iounmap(acq420_dev->dev_virtaddr);
-                release_mem_region(acq420_dev->dev_physaddr,
-                        acq420_dev->dev_addrsize);
-        }
+		remove_proc_entry("driver/acq420", NULL);
 
-        /* Free the PL330 buffer client data descriptors */
-        if (acq420_dev->client_data) {
-                kfree(acq420_dev->client_data);
-        }
+		unregister_chrdev_region(acq420_dev->devno, 1);
 
-        if (acq420_dev) {
-                kfree(acq420_dev);
-        }
-#endif
-        return 0;
+		/* Unmap the I/O memory */
+		if (acq420_dev->dev_virtaddr) {
+			iounmap(acq420_dev->dev_virtaddr);
+			release_mem_region(acq420_dev->dev_physaddr,
+					acq420_dev->dev_addrsize);
+		}
+
+		/* Free the PL330 buffer client data descriptors */
+		if (acq420_dev->client_data) {
+			kfree(acq420_dev->client_data);
+		}
+
+		if (acq420_dev) {
+			kfree(acq420_dev);
+		}
+
+		return 0;
+	}
 }
 
 #ifdef CONFIG_OF
@@ -657,32 +629,43 @@ MODULE_DEVICE_TABLE(of, xfifodma_of_match);
 #define xfifodma_of_match NULL
 #endif /* CONFIG_OF */
 
-
-static int acq420_probe(struct platform_device *pdev)
+static int acq420_init_pl330(struct acq420_dev* acq420_dev)
 {
-        int status, rc;
-        struct proc_dir_entry *proc_entry;
-        struct resource *acq420_resource;
-        struct acq420_dev* acq420_dev;
+        acq420_dev->client_data =
+        	kzalloc(sizeof(struct pl330_client_data), GFP_KERNEL);
 
-        /* Get our platform device resources */
-        PDEBUG("We have %d resources\n", pdev->num_resources);
-        acq420_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-        if (acq420_resource == NULL) {
-                dev_err(&pdev->dev, "No resources found\n");
-                return -ENODEV;
+        if (!acq420_dev->client_data) {
+               return -1;
         }
 
-        /* Allocate a private structure to manage this device */
-        acq420_dev = kzalloc(sizeof(struct acq420_dev), GFP_KERNEL);
-        if (acq420_dev == NULL) {
-                dev_err(&pdev->dev,
-                        "unable to allocate device structure\n");
-                return -ENOMEM;
-        }
-        init_waitqueue_head(&acq420_dev->waitq);
+        acq420_dev->client_data->dev_addr =
+                acq420_dev->dev_physaddr + AXI_FIFO;
+        acq420_dev->client_data->dev_bus_des.burst_size = 4;
+        acq420_dev->client_data->dev_bus_des.burst_len =
+                acq420_dev->burst_length;
+        acq420_dev->client_data->mem_bus_des.burst_size = 4;
+        acq420_dev->client_data->mem_bus_des.burst_len =
+                acq420_dev->burst_length;
+        return 0;
+}
 
-        /* Get our device properties from the device tree, if they exist */
+static void acq420_init_proc(struct acq420_dev* acq420_dev)
+/* create unique stats entry under /proc/acq420/ */
+{
+	struct proc_dir_entry *proc_entry;
+
+	if (!acq400_proc_root){
+		acq400_proc_root = proc_mkdir("driver/acq420", 0);
+	}
+	proc_entry = create_proc_entry(acq420_names[ndevices], 0, acq400_proc_root);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops;
+	}
+}
+
+static void acq420_device_tree_init(struct acq420_dev* acq420_dev)
+{
+	struct platform_device *pdev = acq420_dev->pdev;
         if (pdev->dev.of_node) {
                 if (of_property_read_u32(pdev->dev.of_node, "dma-channel",
                         &acq420_dev->dma_channel) < 0) {
@@ -710,11 +693,45 @@ static int acq420_probe(struct platform_device *pdev)
                         "DMA burst length is %d\n",
                         acq420_dev->burst_length);
         }
+}
 
+static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
+/* Allocate and init a private structure to manage this device */
+{
+	struct acq420_dev* acq420_dev = kzalloc(sizeof(struct acq420_dev), GFP_KERNEL);
+        if (acq420_dev == NULL) {
+                return NULL;
+        }
+        init_waitqueue_head(&acq420_dev->waitq);
+
+        acq420_dev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
         acq420_dev->pdev = pdev;
+        mutex_init(&acq420_dev->mutex);
+        return acq420_dev;
+}
+static int acq420_probe(struct platform_device *pdev)
+{
+        int status;
+        struct resource *acq420_resource;
+        struct acq420_dev* acq420_dev = acq420_allocate_dev(pdev);
+
+        if (!acq420_dev){
+        	dev_err(&pdev->dev,
+        			"unable to allocate device structure\n");
+        	return -ENOMEM;
+        }
+        /* Get our platform device resources */
+        dev_info(&pdev->dev, "id:%d We have %d resources\n", pdev->id, pdev->num_resources);
+        acq420_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+        if (acq420_resource == NULL) {
+                dev_err(&pdev->dev, "No resources found\n");
+                return -ENODEV;
+        }
+
+        acq420_device_tree_init(acq420_dev);
 
         acq420_dev->devno = MKDEV(acq420_major, XFIFO_DMA_MINOR);
-        PDEBUG("devno is 0x%0x, pdev id is %d\n", acq420_dev->devno, XFIFO_DMA_MINOR);
+        dev_dbg(&pdev->dev, "devno is 0x%0x, pdev id is %d\n", acq420_dev->devno, XFIFO_DMA_MINOR);
 
         status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
@@ -727,10 +744,6 @@ static int acq420_probe(struct platform_device *pdev)
         cdev_init(&acq420_dev->cdev, &acq420_fops);
         acq420_dev->cdev.owner = THIS_MODULE;
         acq420_dev->cdev.ops = &acq420_fops;
-
-        /* Initialize our device mutex */
-        mutex_init(&acq420_dev->mutex);
-
         acq420_dev->dev_physaddr = acq420_resource->start;
         acq420_dev->dev_addrsize = acq420_resource->end -
                 acq420_resource->start + 1;
@@ -741,45 +754,25 @@ static int acq420_probe(struct platform_device *pdev)
                 status = -ENODEV;
                 goto fail;
         }
-        acq420_dev->dev_virtaddr = ioremap(acq420_dev->dev_physaddr,
-                acq420_dev->dev_addrsize);
-        PDEBUG("acq420: mapped 0x%0x to 0x%0x\n", acq420_dev->dev_physaddr,
-                (unsigned int)acq420_dev->dev_virtaddr);
+        acq420_dev->dev_virtaddr =
+        	ioremap(acq420_dev->dev_physaddr, acq420_dev->dev_addrsize);
+        dev_dbg(&pdev->dev, "acq420: mapped 0x%0x to 0x%0x\n",
+        	acq420_dev->dev_physaddr, (unsigned int)acq420_dev->dev_virtaddr);
 
-        acq420_dev->client_data = kmalloc(sizeof(struct pl330_client_data),
-                GFP_KERNEL);
-        if (!acq420_dev->client_data) {
-                dev_err(&pdev->dev, "can't allocate PL330 client data\n");
-                goto fail;
+        if (acq420_init_pl330(acq420_dev)){
+        	dev_err(&pdev->dev, "can't allocate PL330 client data\n");
+        	status = -1;
+        	goto fail;
         }
-        memset(acq420_dev->client_data, 0, sizeof(struct pl330_client_data));
-
-        acq420_dev->client_data->dev_addr =
-                acq420_dev->dev_physaddr + AXI_FIFO;
-        acq420_dev->client_data->dev_bus_des.burst_size = 4;
-        acq420_dev->client_data->dev_bus_des.burst_len =
-                acq420_dev->burst_length;
-        acq420_dev->client_data->mem_bus_des.burst_size = 4;
-        acq420_dev->client_data->mem_bus_des.burst_len =
-                acq420_dev->burst_length;
-
         status = cdev_add(&acq420_dev->cdev, acq420_dev->devno, 1);
+        acq420_init_proc(acq420_dev);
 
-        /* Create statistics entry under /proc */
-        proc_entry = create_proc_entry("driver/acq420", 0, NULL);
-        if (proc_entry) {
-                proc_entry->proc_fops = &acq420_proc_ops;
-        }
-
-
-	acq420_dev->irq = ADC_HT_INT; //acq420_findirq();
-	rc = request_threaded_irq(
+        status = request_threaded_irq(
 		acq420_dev->irq, 
 		acq420_int_handler, 
 		fire_dma, 
 		IRQF_SHARED, "ACQ420_FMC FIFO HighTide", acq420_dev);
-
-	if (rc)	{
+	if (status)	{
 		printk("%s unable to secure IRQ%d\n", "ACQ420", 
 			acq420_dev->irq);
 		goto fail;
@@ -787,6 +780,7 @@ static int acq420_probe(struct platform_device *pdev)
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
+        acq420_devices[ndevices++] = acq420_dev;
         return 0;
 
         fail:
