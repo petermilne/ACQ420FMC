@@ -1,6 +1,6 @@
 # Cross compiler makefile for FIFO DMA example
 KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
-obj-m := ACQ420_FMC.o
+obj-m := acq420FMC_drv.o
 
 all:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
