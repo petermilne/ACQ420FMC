@@ -832,14 +832,18 @@ static int acq420_probe(struct platform_device *pdev)
         }
 
 
-		acq420_dev->irq = ADC_HT_INT; //acq420_findirq();
-		/* no need to take the address of a function, it's already an address .. */
-		rc = request_threaded_irq(acq420_dev->irq, acq420_int_handler, fire_dma, IRQF_SHARED, "ACQ420_FMC FIFO HighTide", acq420_dev);
-		printk("Checking IRQ\n");
-		if (rc)
-		{
-			printk("%s unable to secure IRQ%d\n", "ACQ420", acq420_dev->irq);
-		}
+	acq420_dev->irq = ADC_HT_INT; //acq420_findirq();
+	rc = request_threaded_irq(
+		acq420_dev->irq, 
+		acq420_int_handler, 
+		fire_dma, 
+		IRQF_SHARED, "ACQ420_FMC FIFO HighTide", acq420_dev);
+
+	if (rc)	{
+		printk("%s unable to secure IRQ%d\n", "ACQ420", 
+			acq420_dev->irq);
+		goto fail;
+	}
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
@@ -864,14 +868,14 @@ static struct platform_driver acq420_driver = {
 static void __exit acq420_exit(void)
 {
 	// free_irq(acq420_dev->irq, &acq420_dev->pdev->dev);
-     platform_driver_unregister(&acq420_driver);
+	platform_driver_unregister(&acq420_driver);
 }
 
 static int __init acq420_init(void)
 {
         int status;
 
-	   printk("Loading D-TACQ ACQ420 FMC Driver for Slot %d\n", 0);
+	printk("Loading D-TACQ ACQ420 FMC Driver for Slot %d\n", 0);
         status = platform_driver_register(&acq420_driver);
 
         return status;
