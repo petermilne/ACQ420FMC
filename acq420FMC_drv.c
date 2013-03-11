@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     */
+/* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     	 */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2012 Craig Noble, D-TACQ Solutions Ltd                    *
  *                      <craig dot noble at D hyphen TACQ dot com>           *
@@ -45,83 +45,18 @@
 #include <mach/pl330.h>
 #include <linux/of.h>
 
+#include "acq420FMC.h"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
 
-/* Offsets for control registers in the AXI MM2S FIFO */
-#define AXI_FIFO              0x0
-#define AXI_FIFO_LEN          0x1000
-
-#define ALG_CTRL		0x1000
-#define ALG_HITIDE		0x1004
-#define ALG_SAMPLES		0x1008
-#define ALG_STATUS		0x100C
-#define ALG_INT_CTRL		0x1010
-#define ALG_INT_FORCE		0x1014
-#define ALG_INT_STAT		0x1018
-
-
-#define ALG_CTRL_ADC_ENABLE	(1 << 4)
-#define ALG_CTRL_ADC_RESET	(1 << 3)
-#define ALG_CTRL_FIFO_ENABLE	(1 << 2)
-#define ALG_CTRL_FIFO_RESET	(1 << 1)
-#define ALG_CTRL_ALG_ENABLE	(1 << 0)
-
-#define ADC_HT_INT		91
-#define HITIDE			0x40
-
-#define MODULE_NAME             "acq420"
-#define XFIFO_DMA_MINOR         0
-
 int acq420_major = 60;
 module_param(acq420_major, int, 0);
 
-dma_addr_t write_buffer;
 
-DECLARE_WAIT_QUEUE_HEAD(acq420_wait);
 
-struct acq420_dev {
-	dev_t devno;
-	struct mutex mutex;
-	struct cdev cdev;
-	struct platform_device *pdev;
 
-	struct pl330_client_data *client_data;
-
-	u32 dma_channel;
-	u32 fifo_depth;
-	u32 burst_length;
-	u32 irq;		/* device IRQ number	*/
-	u32 DMA_READY;
-
-	/* Current DMA buffer information */
-	dma_addr_t buffer_d_addr;
-	void *buffer_v_addr;
-	size_t count;
-	size_t this_count;
-	int busy;
-
-	/* Hardware device constants */
-	u32 dev_physaddr;
-	void *dev_virtaddr;
-	u32 dev_addrsize;
-
-	/* Driver reference counts */
-	u32 writers;
-
-	/* Driver statistics */
-	u32 bytes_written;
-	u32 writes;
-	u32 reads;
-	u32 opens;
-	u32 closes;
-	u32 errors;
-};
-
-struct acq420_dev *acq420_dev;
-
-static void acq420_reset_fifo(void)
+static void acq420_reset_fifo(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
@@ -136,7 +71,7 @@ static void acq420_reset_fifo(void)
 
 }
 
-static void acq420_enable_fifo(void)
+static void acq420_enable_fifo(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
@@ -145,7 +80,7 @@ static void acq420_enable_fifo(void)
 
 }
 
-static void acq420_disable_fifo(void)
+static void acq420_disable_fifo(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
@@ -154,14 +89,14 @@ static void acq420_disable_fifo(void)
 
 }
 
-static u32 acq420_get_fifo_status(void)
+static u32 acq420_get_fifo_status(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_SAMPLES);
 	return status;
 }
 
-static void acq420_enable_interrupt(void)
+static void acq420_enable_interrupt(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_CTRL);
@@ -172,7 +107,7 @@ static void acq420_enable_interrupt(void)
 
 }
 
-static void acq420_disable_interrupt(void)
+static void acq420_disable_interrupt(struct acq420_dev *acq420_dev)
 {
 	u32 status, control;
 	control = ioread32(acq420_dev->dev_virtaddr + ALG_INT_CTRL);
@@ -186,7 +121,7 @@ static void acq420_disable_interrupt(void)
 
 }
 
-static void acq420_clear_interrupt(void)
+static void acq420_clear_interrupt(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_STAT);
@@ -203,7 +138,7 @@ static void acq420_clear_interrupt(void)
 
 // }
 
-static u32 acq420_get_interrupt(void)
+static u32 acq420_get_interrupt(struct acq420_dev *acq420_dev)
 {
 	u32 status;
 	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_STAT);
@@ -343,9 +278,9 @@ static void acq420_fault_callback(unsigned int channel,
                 fault_type, fault_address, channel);
 
         dev->errors++;
-        acq420_reset_fifo();
+        acq420_reset_fifo(dev);
         dev->busy = 0;
-        wake_up_interruptible(&acq420_wait);
+        wake_up_interruptible(&dev->waitq);
 }
 
 static void acq420_done_callback(unsigned int channel, void *data)
@@ -357,7 +292,7 @@ static void acq420_done_callback(unsigned int channel, void *data)
         dev->bytes_written += dev->count;
         dev->busy = 0;
 
-        wake_up_interruptible(&acq420_wait);
+        wake_up_interruptible(&dev->waitq);
 }
 
 ssize_t acq420_read(struct file *filp, char __user *buf, size_t count,
@@ -396,24 +331,24 @@ ssize_t acq420_read(struct file *filp, char __user *buf, size_t count,
 		goto fail_client_data;
 	}
 
-	acq420_enable_fifo();
-	acq420_reset_fifo();
+	acq420_enable_fifo(dev);
+	acq420_reset_fifo(dev);
 
 	dev->DMA_READY = 1;
 
 	/*Wait for FIFO to fill*/
-	acq420_enable_interrupt();
+	acq420_enable_interrupt(dev);
 
 	/* Kick off the DMA */
 	mutex_unlock(&dev->mutex);
 
 	do{
-		wait_event_interruptible(acq420_wait, dev->busy == 0);
+		wait_event_interruptible(dev->waitq, dev->busy == 0);
 	}while(dev->this_count < count);
 
 	/* Cleanup after transfer */
 	// printk("Clearing the capture FIFO\n");
-	acq420_reset_fifo();
+	acq420_reset_fifo(dev);
 
 	/* Retrieve our DMA buffer with the user data */
 	copy_to_user(buf, dev->buffer_v_addr, count);
@@ -491,13 +426,13 @@ ssize_t acq420_write(struct file *filp, const char __user *buf, size_t count,
         /* Load our DMA buffer with the user data */
         copy_from_user(dev->buffer_v_addr, buf, transfer_size);
 
-        acq420_reset_fifo();
+        acq420_reset_fifo(dev);
         /* Kick off the DMA */
         enable_dma(dev->dma_channel);
 
         mutex_unlock(&dev->mutex);
 
-        wait_event_interruptible(acq420_wait, dev->busy == 0);
+        wait_event_interruptible(dev->waitq, dev->busy == 0);
 
         /* Deallocate the DMA buffer and free the channel */
         free_dma(dev->dma_channel);
@@ -523,13 +458,13 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	u32 status;
 
 	do{
-		status = acq420_get_fifo_status();
+		status = acq420_get_fifo_status(dev);
 		status *= 4;
 		// printk("FIFO contains %d samples\n", status);
 		// printk("Transfer wants %d bytes\n", dev->count);
 		if ((dev->this_count + status) >= dev->count)
 		{
-			acq420_disable_fifo();
+			acq420_disable_fifo(dev);
 			status = dev->count - dev->this_count;
 			if (status == 0x0)
 			{
@@ -566,15 +501,15 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		enable_dma(dev->dma_channel);
 
 		/* Wait for Completion*/
-		wait_event_interruptible(acq420_wait, dev->busy == 0);
+		wait_event_interruptible(dev->waitq, dev->busy == 0);
 
-		status = acq420_get_fifo_status();
+		status = acq420_get_fifo_status(dev);
 		// printk("FIFO has been drained to %d samples\n", status);
 
 	}while(status >= HITIDE-16);
 
 
-	acq420_enable_interrupt();
+	acq420_enable_interrupt(dev);
 
 	return IRQ_HANDLED;
 }
@@ -583,19 +518,19 @@ static irqreturn_t acq420_int_handler(int irq, void *dev_id)
 {
 	irqreturn_t irq_status;
 	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
-	u32 status = acq420_get_interrupt();
+	u32 status = acq420_get_interrupt(dev);
 	// u32 samples = acq420_get_fifo_status();
 
 
-	iowrite32((0xCAFEBABE) , acq420_dev->dev_virtaddr);
+	iowrite32((0xCAFEBABE), dev->dev_virtaddr);
 
 	// printk("FIFO contains %d samples\n", samples);
 
 	if (status == 0x1 && dev->DMA_READY == 1) {
 		dev->DMA_READY = 0;
 	}
-	acq420_disable_interrupt();
-	acq420_clear_interrupt();
+	acq420_disable_interrupt(dev);
+	acq420_clear_interrupt(dev);
 	// printk("Got an IRQ!\n");
 
 	irq_status = IRQ_WAKE_THREAD;
@@ -614,7 +549,7 @@ struct file_operations acq420_fops = {
 static void *acq420_proc_seq_start(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
-                return acq420_dev;
+                return s->private;
         }
 
         return NULL;
@@ -670,6 +605,8 @@ static struct seq_operations acq420_proc_seq_ops = {
 
 static int acq420_proc_open(struct inode *inode, struct file *file)
 {
+	struct acq420_dev *dev = container_of(inode->i_cdev, struct acq420_dev, cdev);
+	file->private_data = dev;       /* For use elsewhere */
         return seq_open(file, &acq420_proc_seq_ops);
 }
 
@@ -683,6 +620,8 @@ static struct file_operations acq420_proc_ops = {
 
 static int acq420_remove(struct platform_device *pdev)
 {
+	// @@todo : tricky needs some kind of container_of() function.
+#ifdef PGMCOMOUT
         cdev_del(&acq420_dev->cdev);
 
         remove_proc_entry("driver/acq420", NULL);
@@ -704,7 +643,7 @@ static int acq420_remove(struct platform_device *pdev)
         if (acq420_dev) {
                 kfree(acq420_dev);
         }
-
+#endif
         return 0;
 }
 
@@ -724,7 +663,7 @@ static int acq420_probe(struct platform_device *pdev)
         int status, rc;
         struct proc_dir_entry *proc_entry;
         struct resource *acq420_resource;
-
+        struct acq420_dev* acq420_dev;
 
         /* Get our platform device resources */
         PDEBUG("We have %d resources\n", pdev->num_resources);
@@ -741,6 +680,7 @@ static int acq420_probe(struct platform_device *pdev)
                         "unable to allocate device structure\n");
                 return -ENOMEM;
         }
+        init_waitqueue_head(&acq420_dev->waitq);
 
         /* Get our device properties from the device tree, if they exist */
         if (pdev->dev.of_node) {
