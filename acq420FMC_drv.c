@@ -46,6 +46,9 @@
 #include <linux/of.h>
 
 #include "acq420FMC.h"
+
+#define REVID "0.2"
+
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -142,14 +145,14 @@ static void acq420_clear_interrupt(struct acq420_dev *acq420_dev)
 
 }
 
-// static void acq420_force_interrupt(int interrupt)
-// {
-	// u32 status;
-	// status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_FORCE);
-	// iowrite32((interrupt)
-			// , acq420_dev->dev_virtaddr + ALG_INT_FORCE);
-
-// }
+/*
+static void acq420_force_interrupt(int interrupt)
+{
+	u32 status;
+	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_FORCE);
+	iowrite32((interrupt), acq420_dev->dev_virtaddr + ALG_INT_FORCE);
+}
+*/
 
 static u32 acq420_get_interrupt(struct acq420_dev *acq420_dev)
 {
@@ -183,8 +186,7 @@ int acq420_open(struct inode *inode, struct file *filp)
                 if (dev->writers || dev->busy) {
                         retval = -EBUSY;
                         goto out;
-                }
-                else {
+                } else {
                         dev->writers++;
                 }
                 break;
@@ -193,8 +195,7 @@ int acq420_open(struct inode *inode, struct file *filp)
                 if (dev->writers || dev->busy) {
                         retval = -EBUSY;
                         goto out;
-                }
-                else {
+                } else {
                         dev->writers++;
                 }
         }
@@ -309,9 +310,9 @@ ssize_t acq420_read(struct file *filp, char __user *buf, size_t count,
 	/* Kick off the DMA */
 	mutex_unlock(&dev->mutex);
 
-	do{
+	do {
 		wait_event_interruptible(dev->waitq, dev->busy == 0);
-	}while(dev->this_count < count);
+	} while(dev->this_count < count);
 
 	/* Cleanup after transfer */
 	// printk("Clearing the capture FIFO\n");
@@ -424,7 +425,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
 	u32 status;
 
-	do{
+	do {
 		status = acq420_get_fifo_status(dev);
 		status *= 4;
 		// printk("FIFO contains %d samples\n", status);
@@ -484,7 +485,6 @@ static irqreturn_t acq420_int_handler(int irq, void *dev_id)
 	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
 	u32 status = acq420_get_interrupt(dev);
 	// u32 samples = acq420_get_fifo_status();
-
 
 	iowrite32((0xCAFEBABE), dev->dev_virtaddr);
 
@@ -569,7 +569,7 @@ static struct seq_operations acq420_proc_seq_ops = {
 
 static int acq420_proc_open(struct inode *inode, struct file *file)
 {
-	// @@todo .. could do better?
+	// @@todo hack .. could do better?
         seq_open(file, &acq420_proc_seq_ops);
         ((struct seq_file*)file->private_data)->private =
         		acq420_devices[file->f_path.dentry->d_iname[0] -'0'];
@@ -784,7 +784,7 @@ static int acq420_probe(struct platform_device *pdev)
         return 0;
 
         fail:
-	   printk("Bailout!\n");
+        	dev_err(&pdev->dev, "Bailout!\n");
         acq420_remove(pdev);
         return status;
 }
@@ -809,7 +809,7 @@ static int __init acq420_init(void)
 {
         int status;
 
-	printk("Loading D-TACQ ACQ420 FMC Driver for Slot %d\n", 0);
+	printk("D-TACQ ACQ420 FMC Driver %s\n", REVID);
         status = platform_driver_register(&acq420_driver);
 
         return status;
@@ -821,7 +821,7 @@ module_exit(acq420_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ420_FMC Driver");
 MODULE_AUTHOR("D-TACQ Solutions.");
-MODULE_VERSION("0.1");
+MODULE_VERSION(REVID);
 
 
 
