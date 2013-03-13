@@ -154,13 +154,38 @@ static ssize_t store_gains(
 
 static DEVICE_ATTR(gains, S_IRUGO|S_IWUGO, show_gains, store_gains);
 
+static ssize_t show_simulate(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 simulate = acq420_devices[dev->id]->ramp_en != 0;
+	return sprintf(buf, "%u\n", simulate);
+}
 
+static ssize_t store_simulate(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 simulate;
+	if (sscanf(buf, "%u", &simulate) == 1){
+		acq420_devices[dev->id]->ramp_en = simulate != 0;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
 
 void acq420_createSysfs(struct device *dev)
 {
 	DEVICE_CREATE_FILE(dev, &dev_attr_clkdiv);
 	DEVICE_CREATE_FILE(dev, &dev_attr_gains);
+	DEVICE_CREATE_FILE(dev, &dev_attr_simulate);
 }
 
 

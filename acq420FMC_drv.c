@@ -22,7 +22,7 @@
 
 #include "acq420FMC.h"
 
-#define REVID "0.4"
+#define REVID "0.5"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -78,12 +78,16 @@ static void acq420_reset_fifo(struct acq420_dev *adev)
 static void acq420_enable_fifo(struct acq420_dev *adev)
 {
 	u32 status = acq420_get_fifo_status(adev);
+	if (adev->ramp_en){
+		status |= ALG_CTRL_RAMP_ENABLE;
+	}
 	acq420wr32(adev, ALG_CTRL, status|ALG_CTRL_ENABLE_ALL);
 }
 
 static void acq420_disable_fifo(struct acq420_dev *adev)
 {
 	u32 status = acq420_get_fifo_status(adev);
+	status &= ~ALG_CTRL_RAMP_ENABLE;
 	acq420wr32(adev, ALG_CTRL, status & ~ALG_CTRL_ENABLE_ALL);
 }
 

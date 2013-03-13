@@ -51,7 +51,7 @@
 #define ALG_CLKDIV		(ALG_BASE+0x40)
 #define ALG_GAIN		(ALG_BASE+0x44)
 
-
+#define ALG_CTRL_RAMP_ENABLE 	(1 << 5)
 #define ALG_CTRL_ADC_ENABLE	(1 << 4)
 #define ALG_CTRL_ADC_RESET	(1 << 3)
 #define ALG_CTRL_FIFO_ENABLE	(1 << 2)
@@ -107,6 +107,8 @@ struct acq420_dev {
 	u32 opens;
 	u32 closes;
 	u32 errors;
+
+	int ramp_en;
 };
 
 extern struct acq420_dev* acq420_devices[];
