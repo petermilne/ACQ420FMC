@@ -18,36 +18,11 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/platform_device.h>
-#include <linux/seq_file.h>
-#include <linux/proc_fs.h>
-#include <linux/err.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/dma-mapping.h>
-#include <linux/dmapool.h>
-#include <linux/mutex.h>
-#include <linux/sched.h>
-#include <linux/wait.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/delay.h>
-#include <asm/uaccess.h>
-#include <asm/sizes.h>
-#include <asm/dma.h>
-#include <asm/mach/dma.h>
-#include <asm/io.h>
-#include <mach/pl330.h>
-#include <linux/of.h>
+
 
 #include "acq420FMC.h"
 
-#define REVID "0.2"
+#define REVID "0.3"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -71,13 +46,18 @@ struct proc_dir_entry *acq400_proc_root;
 
 // @@todo pgm: crude
 const char* acq420_names[] = { "0", "1", "2", "3", "4", "5" };
+const char* acq420_devnames[] = {
+	"acq420.0", "acq420.1", "acq420.2",
+	"acq420.3", "acq420.4", "acq420.5",
+};
 
-static void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
+
+void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 {
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
 
-static u32 acq420rd32(struct acq420_dev *adev, int offset)
+u32 acq420rd32(struct acq420_dev *adev, int offset)
 {
 	return ioread32(adev->dev_virtaddr + offset);
 }
@@ -719,7 +699,10 @@ static int acq420_probe(struct platform_device *pdev)
         acq420_dev->devno = MKDEV(acq420_major, XFIFO_DMA_MINOR);
         dev_dbg(&pdev->dev, "devno is 0x%0x, pdev id is %d\n", acq420_dev->devno, XFIFO_DMA_MINOR);
 
-        status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
+        // dynamic
+        status = alloc_chrdev_region(&acq420_dev->devno,
+        		XFIFO_DMA_MINOR, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
+        //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
                 dev_err(&pdev->dev, "unable to register chrdev %d\n",
                         acq420_major);
@@ -766,7 +749,9 @@ static int acq420_probe(struct platform_device *pdev)
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
+        pdev->id = ndevices;
         acq420_devices[ndevices++] = acq420_dev;
+        acq420_createSysfs(&pdev->dev);
         return 0;
 
         fail:

@@ -8,18 +8,48 @@
 #ifndef ACQ420FMC_H_
 #define ACQ420FMC_H_
 
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/platform_device.h>
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+#include <linux/err.h>
+#include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
+#include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <linux/interrupt.h>
+#include <linux/irq.h>
+#include <linux/delay.h>
+#include <asm/uaccess.h>
+#include <asm/sizes.h>
+#include <asm/dma.h>
+#include <asm/mach/dma.h>
+#include <asm/io.h>
+#include <mach/pl330.h>
+#include <linux/of.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */
 #define AXI_FIFO              0x0
 #define AXI_FIFO_LEN          0x1000
 
-#define ALG_CTRL		0x1000
-#define ALG_HITIDE		0x1004
-#define ALG_SAMPLES		0x1008
-#define ALG_STATUS		0x100C
-#define ALG_INT_CTRL		0x1010
-#define ALG_INT_FORCE		0x1014
-#define ALG_INT_STAT		0x1018
+#define ALG_BASE		0x1000
+#define ALG_CTRL		(ALG_BASE+0x00)
+#define ALG_HITIDE		(ALG_BASE+0x04)
+#define ALG_SAMPLES		(ALG_BASE+0x08)
+#define ALG_STATUS		(ALG_BASE+0x0C)
+#define ALG_INT_CTRL		(ALG_BASE+0x10)
+#define ALG_INT_FORCE		(ALG_BASE+0x14)
+#define ALG_INT_STAT		(ALG_BASE+0x18)
+
+#define ALG_CLKDIV		(ALG_BASE+0x40)
+#define ALG_GAIN		(ALG_BASE+0x44)
 
 
 #define ALG_CTRL_ADC_ENABLE	(1 << 4)
@@ -37,7 +67,7 @@
 #define MODULE_NAME             "acq420"
 #define XFIFO_DMA_MINOR         0
 
-
+#define ACQ420_MINOR_MAX	10			/* room at the top .. SWAG */
 
 struct acq420_dev {
 	dev_t devno;
@@ -79,5 +109,11 @@ struct acq420_dev {
 	u32 errors;
 };
 
+extern struct acq420_dev* acq420_devices[];
+
+void acq420_createSysfs(struct device *dev);
+
+void acq420wr32(struct acq420_dev *adev, int offset, u32 value);
+u32 acq420rd32(struct acq420_dev *adev, int offset);
 
 #endif /* ACQ420FMC_H_ */
