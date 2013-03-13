@@ -95,11 +95,72 @@ static ssize_t store_clkdiv(
 
 static DEVICE_ATTR(clkdiv, S_IRUGO|S_IWUGO, show_clkdiv, store_clkdiv);
 
+unsigned get_gain(u32 gains, int chan)
+{
+	return (gains >> chan*2) & 0x3;
+}
+
+unsigned set_gain(u32 gains, int chan, u32 value)
+{
+	u32 mask = 0x3 << chan*2;
+	gains &= ~mask;
+	gains |= (value&0x3) << chan*2;
+	return gains;
+}
+static ssize_t show_gains(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+	return sprintf(buf, "%u%u%u%u\n",
+			get_gain(gains, 0), get_gain(gains, 1),
+			get_gain(gains, 2), get_gain(gains, 3));
+}
+
+static ssize_t store_gains(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	char gx[4];
+
+	if (sscanf(buf, "%c%c%c%c", gx+0, gx+1, gx+2, gx+3) == 4){
+		u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+		int ic;
+		for (ic = 0; ic < 4; ++ic){
+			if (gx[ic] >= '0' && gx[ic] <= '3'){
+				gains = set_gain(gains, ic, gx[ic]-'0');
+			}else{
+				switch(gx[ic]) {
+				case '-':
+				case 'x':
+				case 'X':
+					break;
+				default:
+					dev_warn(dev, "bad value at %c at %d", gx[ic], ic);
+				}
+			}
+		}
+		dev_dbg(dev, "set gains: %02x", gains);
+		acq420wr32(acq420_devices[dev->id], ALG_GAIN, gains);
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(gains, S_IRUGO|S_IWUGO, show_gains, store_gains);
+
+
 
 
 void acq420_createSysfs(struct device *dev)
 {
 	DEVICE_CREATE_FILE(dev, &dev_attr_clkdiv);
+	DEVICE_CREATE_FILE(dev, &dev_attr_gains);
 }
 
 

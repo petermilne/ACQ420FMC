@@ -22,14 +22,13 @@
 
 #include "acq420FMC.h"
 
-#define REVID "0.3"
+#define REVID "0.4"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
 
-int acq420_major = 60;
-module_param(acq420_major, int, 0);
+
 
 /* we _shouldn't need any globals, but right now there's no obvious way round */
 
@@ -696,16 +695,11 @@ static int acq420_probe(struct platform_device *pdev)
 
         acq420_device_tree_init(acq420_dev);
 
-        acq420_dev->devno = MKDEV(acq420_major, XFIFO_DMA_MINOR);
-        dev_dbg(&pdev->dev, "devno is 0x%0x, pdev id is %d\n", acq420_dev->devno, XFIFO_DMA_MINOR);
-
-        // dynamic
         status = alloc_chrdev_region(&acq420_dev->devno,
         		XFIFO_DMA_MINOR, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
-                dev_err(&pdev->dev, "unable to register chrdev %d\n",
-                        acq420_major);
+                dev_err(&pdev->dev, "unable to register chrdev\n");
                 goto fail;
         }
 
