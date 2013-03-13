@@ -72,77 +72,69 @@ struct proc_dir_entry *acq400_proc_root;
 // @@todo pgm: crude
 const char* acq420_names[] = { "0", "1", "2", "3", "4", "5" };
 
-static void acq420_reset_fifo(struct acq420_dev *acq420_dev)
+static void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
-	iowrite32((status | ALG_CTRL_ADC_RESET | ALG_CTRL_FIFO_RESET)
-			, acq420_dev->dev_virtaddr + ALG_CTRL);
+	iowrite32(value, adev->dev_virtaddr + offset);
+}
 
+static u32 acq420rd32(struct acq420_dev *adev, int offset)
+{
+	return ioread32(adev->dev_virtaddr + offset);
+}
+
+static u32 acq420_get_fifo_status(struct acq420_dev *adev)
+{
+	return acq420rd32(adev, ALG_CTRL);
+}
+
+static void acq420_reset_fifo(struct acq420_dev *adev)
+{
+	u32 status = acq420rd32(adev, ALG_CTRL);
+
+	acq420wr32(adev, ALG_CTRL, status | ALG_CTRL_RESETALL);
 	/* Release reset */
-	iowrite32(status, acq420_dev->dev_virtaddr + ALG_CTRL);
-
-	// printk("Using Control Address : 0x%08x\n", acq420_dev->dev_virtaddr + ALG_CTRL);
-	// printk("Got 0x%08x from control address\n");
-
+	acq420wr32(adev, ALG_CTRL, status);
 }
 
-static void acq420_enable_fifo(struct acq420_dev *acq420_dev)
+static void acq420_enable_fifo(struct acq420_dev *adev)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
-	iowrite32((status | ALG_CTRL_ADC_ENABLE | ALG_CTRL_FIFO_ENABLE | ALG_CTRL_ALG_ENABLE)
-			, acq420_dev->dev_virtaddr + ALG_CTRL);
-
+	u32 status = acq420_get_fifo_status(adev);
+	acq420wr32(adev, ALG_CTRL, status|ALG_CTRL_ENABLE_ALL);
 }
 
-static void acq420_disable_fifo(struct acq420_dev *acq420_dev)
+static void acq420_disable_fifo(struct acq420_dev *adev)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_CTRL);
-	status &= ~(ALG_CTRL_ADC_ENABLE | ALG_CTRL_FIFO_ENABLE | ALG_CTRL_ALG_ENABLE);
-	iowrite32(status, acq420_dev->dev_virtaddr + ALG_CTRL);
-
+	u32 status = acq420_get_fifo_status(adev);
+	acq420wr32(adev, ALG_CTRL, status & ~ALG_CTRL_ENABLE_ALL);
 }
 
-static u32 acq420_get_fifo_status(struct acq420_dev *acq420_dev)
+
+static void acq420_enable_interrupt(struct acq420_dev *adev)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_SAMPLES);
-	return status;
+	u32 status = acq420rd32(adev, ALG_INT_CTRL);
+	acq420wr32(adev, ALG_HITIDE, 	HITIDE);
+	acq420wr32(adev, ALG_INT_CTRL,	status|0x1);
 }
 
-static void acq420_enable_interrupt(struct acq420_dev *acq420_dev)
+static void acq420_disable_interrupt(struct acq420_dev *adev)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_CTRL);
-	iowrite32(HITIDE
-			, acq420_dev->dev_virtaddr + ALG_HITIDE);
-	iowrite32((status | 0x1)
-			, acq420_dev->dev_virtaddr + ALG_INT_CTRL);
-
-}
-
-static void acq420_disable_interrupt(struct acq420_dev *acq420_dev)
-{
-	u32 status, control;
-	control = ioread32(acq420_dev->dev_virtaddr + ALG_INT_CTRL);
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_STAT);
-
+	//u32 control = acq420rd32(adev, ALG_INT_CTRL);
+	//u32 status  = acq420rd32(adev, ALG_INT_STAT);
 	// printk("Interrupt status is 0x%08x\n", status);
-	control &= ~0x1;
+	//control &= ~0x1;
 	// printk("New interrupt enable is 0x%08x\n", control);
-	iowrite32((0x0)
-			, acq420_dev->dev_virtaddr + ALG_INT_CTRL);
 
+	acq420wr32(adev, ALG_INT_CTRL, 0x0);
 }
 
-static void acq420_clear_interrupt(struct acq420_dev *acq420_dev)
+static u32 acq420_get_interrupt(struct acq420_dev *adev)
 {
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_STAT);
-	iowrite32(status, acq420_dev->dev_virtaddr + ALG_INT_STAT);
+	return acq420rd32(adev, ALG_INT_STAT);
+}
 
+static void acq420_clear_interrupt(struct acq420_dev *adev)
+{
+	acq420wr32(adev, ALG_INT_STAT, acq420_get_interrupt(adev));
 }
 
 /*
@@ -154,12 +146,6 @@ static void acq420_force_interrupt(int interrupt)
 }
 */
 
-static u32 acq420_get_interrupt(struct acq420_dev *acq420_dev)
-{
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_STAT);
-	return status;
-}
 
 
 /* File operations */
