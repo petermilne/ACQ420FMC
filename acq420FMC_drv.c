@@ -22,7 +22,7 @@
 
 #include "acq420FMC.h"
 
-#define REVID "0.5"
+#define REVID "0.6"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -33,7 +33,21 @@
 /* we _shouldn't need any globals, but right now there's no obvious way round */
 
 int ndevices;
-module_param(ndevices, int, 0);
+module_param(ndevices, int, 0444);
+MODULE_PARM_DESC(ndevices, "number of devices found in probe");
+
+int adc_18b = 1;
+module_param(adc_18b, int, 0444);
+MODULE_PARM_DESC(adc_18b, "set TRUE on load if 18 bit devices fitted [1]");
+
+int data_32b = 0;
+module_param(data_32b, int, 0444);
+MODULE_PARM_DESC(data_32b, "set TRUE on load if 32 bit data required [0]");
+
+int ADC_CONV_TIME = ALG_ADC_CONV_TIME_DEF;
+module_param(ADC_CONV_TIME, int, 0444);
+MODULE_PARM_DESC(ADC_CONV_TIME, "hardware tweak, change at load only");
+
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -120,6 +134,13 @@ static void acq420_clear_interrupt(struct acq420_dev *adev)
 	acq420wr32(adev, ALG_INT_STAT, acq420_get_interrupt(adev));
 }
 
+static void acq420_init_defaults(struct acq420_dev *adev)
+{
+	acq420wr32(adev, ALG_ADC_CONV_TIME, ADC_CONV_TIME);
+	acq420wr32(adev, ALG_ADC_OPTS,
+			(adc_18b? ALG_ADC_OPTS_IS_18B: 0)|
+			(data_32b? ALG_ADC_OPTS_32B_data: 0));
+}
 /*
 static void acq420_force_interrupt(int interrupt)
 {
@@ -750,6 +771,7 @@ static int acq420_probe(struct platform_device *pdev)
         pdev->id = ndevices;
         acq420_devices[ndevices++] = acq420_dev;
         acq420_createSysfs(&pdev->dev);
+        acq420_init_defaults(acq420_dev);
         return 0;
 
         fail:

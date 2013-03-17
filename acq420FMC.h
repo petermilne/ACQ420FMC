@@ -51,6 +51,12 @@
 #define ALG_CLKDIV		(ALG_BASE+0x40)
 #define ALG_GAIN		(ALG_BASE+0x44)
 
+#define ALG_ADC_OPTS 		(ALG_BASE+0x48)
+
+#define ALG_ADC_CONV_TIME 	(ALG_BASE+0x4C) /*(mask 0x000000FF)*/
+
+
+
 #define ALG_CTRL_RAMP_ENABLE 	(1 << 5)
 #define ALG_CTRL_ADC_ENABLE	(1 << 4)
 #define ALG_CTRL_ADC_RESET	(1 << 3)
@@ -60,6 +66,12 @@
 
 #define ALG_CTRL_RESETALL 	(ALG_CTRL_ADC_RESET | ALG_CTRL_FIFO_RESET)
 #define ALG_CTRL_ENABLE_ALL	(ALG_CTRL_ADC_ENABLE | ALG_CTRL_FIFO_ENABLE | ALG_CTRL_ALG_ENABLE)
+
+
+#define ALG_ADC_OPTS_32B_data 	(1 << 1)
+#define ALG_ADC_OPTS_IS_18B 	(1 << 0)
+
+#define ALG_ADC_CONV_TIME_DEF	0x36
 
 #define ADC_HT_INT		91
 #define HITIDE			0x40
