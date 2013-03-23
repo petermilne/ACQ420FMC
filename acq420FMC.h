@@ -124,6 +124,7 @@ struct acq420_dev {
 
 	struct list_head buffers;
 	char irq_name[40];
+	struct proc_dir_entry *proc_entry;
 };
 
 extern struct acq420_dev* acq420_devices[];

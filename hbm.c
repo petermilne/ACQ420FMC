@@ -1,0 +1,99 @@
+/* ------------------------------------------------------------------------- */
+/* hbm.c  		                     	 */
+/* ------------------------------------------------------------------------- */
+/*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                    *
+ *                      <peter dot milne at D hyphen TACQ dot com>           *
+ *   Created on: Mar 23, 2013
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or modify     *
+ *  it under the terms of Version 2 of the GNU General Public License        *
+ *  as published by the Free Software Foundation;                            *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program; if not, write to the Free Software              *
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
+/* ------------------------------------------------------------------------- */
+
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/fs.h>
+#include <linux/gfp.h>
+#include <linux/ioctl.h>
+#include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/list.h>
+
+#include <linux/dmaengine.h>
+
+#define CONFIG_PCI 1
+#include <linux/pci.h>
+#include <linux/time.h>
+#include <linux/init.h>
+#include <linux/timex.h>
+#include <linux/vmalloc.h>
+#include <linux/mm.h>
+#include <linux/moduleparam.h>
+#include <linux/mutex.h>
+
+
+#include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/poll.h>
+
+
+#include "hbm.h"
+
+static int getOrder(int len)
+{
+	int order;
+	len /= PAGE_SIZE;
+
+	for (order = 0; 1 << order < len; ++order){
+		;
+	}
+	return order;
+}
+
+int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir)
+{
+	int order = getOrder(len);
+	int ix;
+	INIT_LIST_HEAD(buffers);
+
+
+	len = (1 << order) * PAGE_SIZE;
+
+	for (ix = 0; ix < nbuffers; ++ix){
+		struct HBM* hbm = kzalloc(sizeof(struct HBM), GFP_KERNEL);
+		hbm->va = (void*) __get_free_pages(GFP_KERNEL, order);
+		hbm->pa = dma_map_single(dev, hbm->va, len, dir);
+		hbm->len = len;
+		hbm->dir = dir;
+		hbm->ix = ix;
+		hbm->bstate = BS_EMPTY;
+		list_add_tail(&hbm->list, buffers);
+	}
+
+	return 0;
+}
+
+int hbm_free(struct device *dev, struct list_head *buffers)
+{
+	struct HBM* hbm;
+	struct HBM* temp;
+
+	list_for_each_entry_safe(hbm, temp, buffers, list){
+		list_del(&hbm->list);
+		dma_unmap_single(dev, hbm->pa, hbm->len, hbm->dir);
+		free_pages((unsigned long)hbm->va, getOrder(hbm->len));
+		kfree(hbm);
+	}
+
+	return 0;
+}

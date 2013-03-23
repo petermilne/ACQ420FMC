@@ -21,8 +21,9 @@
 
 
 #include "acq420FMC.h"
+#include "hbm.h"
 
-#define REVID "0.7"
+#define REVID "0.8"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -48,6 +49,13 @@ int ADC_CONV_TIME = ALG_ADC_CONV_TIME_DEF;
 module_param(ADC_CONV_TIME, int, 0444);
 MODULE_PARM_DESC(ADC_CONV_TIME, "hardware tweak, change at load only");
 
+int nbuffers = 16;
+module_param(nbuffers, int, 0444);
+MODULE_PARM_DESC(nbuffers, "number of capture buffers");
+
+int bufferlen = 0x10000;
+module_param(bufferlen, int, 0444);
+MODULE_PARM_DESC(bufferlen, "length of capture buffer");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -519,7 +527,7 @@ static void acq420_proc_seq_stop(struct seq_file *s, void *v)
 {
 }
 
-static int acq420_proc_seq_show(struct seq_file *s, void *v)
+static int acq420_proc_seq_show_dma(struct seq_file *s, void *v)
 {
         struct acq420_dev *dev;
 
@@ -549,26 +557,93 @@ static int acq420_proc_seq_show(struct seq_file *s, void *v)
         return 0;
 }
 
-/* SEQ operations for /proc */
-static struct seq_operations acq420_proc_seq_ops = {
-        .start = acq420_proc_seq_start,
-        .next = acq420_proc_seq_next,
-        .stop = acq420_proc_seq_stop,
-        .show = acq420_proc_seq_show
-};
 
-static int acq420_proc_open(struct inode *inode, struct file *file)
+
+static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 {
-	// @@todo hack .. could do better?
-        seq_open(file, &acq420_proc_seq_ops);
-        ((struct seq_file*)file->private_data)->private =
-        		acq420_devices[file->f_path.dentry->d_iname[0] -'0'];
+	seq_open(file, seq_ops);
+	// @@todo hack .. assumes parent is the id .. could do better?
+	((struct seq_file*)file->private_data)->private =
+	            acq420_devices[file->f_path.dentry->d_parent->d_iname[0] -'0'];
+	return 0;
+}
+static int acq420_proc_open_dmac(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_dma = {
+	        .start = acq420_proc_seq_start,
+	        .next = acq420_proc_seq_next,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_dma
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_dma);
+}
+
+static void *acq420_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
+{
+        if (*pos == 0) {
+        	struct acq420_dev *dev = s->private;
+        	seq_printf(s, "Buffers\n");
+        	return dev->buffers.next;
+        }
+
+        return NULL;
+}
+
+static void *acq420_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq420_dev *dev = s->private;
+	struct list_head* list = v;
+	if (list->next != &dev->buffers){
+		(*pos)++;
+		return list->next;
+	}else{
+		return NULL;
+	}
+}
+
+
+
+static int acq420_proc_seq_show_buffers(struct seq_file *s, void *v)
+{
+        struct acq420_dev *dev = s->private;
+        struct HBM * hbm = list_entry(v, struct HBM, list);
+
+        if (mutex_lock_interruptible(&dev->mutex)) {
+                return -EINTR;
+        }
+
+        seq_printf(s, "[%02d] va:%p pa:0x%08x len:%d dir:%d state:%d\n",
+        		hbm->ix, hbm->va, hbm->pa, hbm->len, hbm->dir, hbm->bstate);
+        mutex_unlock(&dev->mutex);
         return 0;
 }
 
-static struct file_operations acq420_proc_ops = {
+
+static int acq420_proc_open_buffers(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_buffers = {
+	        .start = acq420_proc_seq_start_buffers,
+	        .next = acq420_proc_seq_next_buffers,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_buffers
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_buffers);
+}
+static struct file_operations acq420_proc_ops_dmac = {
         .owner = THIS_MODULE,
-        .open = acq420_proc_open,
+        .open = acq420_proc_open_dmac,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
+
+static struct file_operations acq420_proc_ops_buffers = {
+        .owner = THIS_MODULE,
+        .open = acq420_proc_open_buffers,
         .read = seq_read,
         .llseek = seq_lseek,
         .release = seq_release
@@ -610,15 +685,24 @@ static void acq420_init_proc(struct acq420_dev* acq420_dev)
 /* create unique stats entry under /proc/acq420/ */
 {
 	struct proc_dir_entry *proc_entry;
+	acq420_dev->proc_entry = proc_mkdir(acq420_names[ndevices], acq400_proc_root);
 
-	proc_entry = create_proc_entry(acq420_names[ndevices], 0, acq400_proc_root);
+	proc_entry = create_proc_entry("dmac", 0, acq420_dev->proc_entry);
 	if (proc_entry) {
-		proc_entry->proc_fops = &acq420_proc_ops;
+		proc_entry->proc_fops = &acq420_proc_ops_dmac;
 	}
+	proc_entry = create_proc_entry("buffers", 0, acq420_dev->proc_entry);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops_buffers;
+	}
+
+
 }
 
 static void acq420_del_proc(struct acq420_dev* acq420_dev)
 {
+	remove_proc_entry("dmac", acq420_dev->proc_entry);
+	remove_proc_entry("buffers", acq420_dev->proc_entry);
 	remove_proc_entry(acq420_names[acq420_dev->pdev->id], acq400_proc_root);
 }
 static void acq420_device_tree_init(struct acq420_dev* acq420_dev)
@@ -740,6 +824,12 @@ static int acq420_probe(struct platform_device *pdev)
 			acq420_dev->irq);
 		goto fail;
 	}
+
+	if (hbm_allocate(&pdev->dev,
+			nbuffers, bufferlen, &acq420_dev->buffers, DMA_FROM_DEVICE)){
+		dev_err(&pdev->dev, "failed to allocate buffers");
+		goto fail;
+	}
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
@@ -747,6 +837,7 @@ static int acq420_probe(struct platform_device *pdev)
         acq420_devices[ndevices++] = acq420_dev;
         acq420_createSysfs(&pdev->dev);
         acq420_init_defaults(acq420_dev);
+
         return 0;
 
         fail:
@@ -766,6 +857,7 @@ static int acq420_remove(struct platform_device *pdev)
 		if (acq420_dev == 0){
 			return -1;
 		}
+		hbm_free(&pdev->dev, &acq420_dev->buffers);
 		acq420_delSysfs(&acq420_dev->pdev->dev);
 		acq420_del_proc(acq420_dev);
 		cdev_del(&acq420_dev->cdev);
