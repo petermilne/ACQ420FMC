@@ -22,7 +22,7 @@
 
 #include "acq420FMC.h"
 
-#define REVID "0.6"
+#define REVID "0.7"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -574,40 +574,7 @@ static struct file_operations acq420_proc_ops = {
         .release = seq_release
 };
 
-static int acq420_remove(struct platform_device *pdev)
-{
-	// @@todo : tricky needs some kind of container_of() function.
 
-	if (pdev->id == -1){
-		return -1;
-	}else{
-		struct acq420_dev* acq420_dev = acq420_devices[pdev->id];
-
-		cdev_del(&acq420_dev->cdev);
-
-		remove_proc_entry("driver/acq420", NULL);
-
-		unregister_chrdev_region(acq420_dev->devno, 1);
-
-		/* Unmap the I/O memory */
-		if (acq420_dev->dev_virtaddr) {
-			iounmap(acq420_dev->dev_virtaddr);
-			release_mem_region(acq420_dev->dev_physaddr,
-					acq420_dev->dev_addrsize);
-		}
-
-		/* Free the PL330 buffer client data descriptors */
-		if (acq420_dev->client_data) {
-			kfree(acq420_dev->client_data);
-		}
-
-		if (acq420_dev) {
-			kfree(acq420_dev);
-		}
-
-		return 0;
-	}
-}
 
 #ifdef CONFIG_OF
 static struct of_device_id xfifodma_of_match[] __devinitdata = {
@@ -644,15 +611,16 @@ static void acq420_init_proc(struct acq420_dev* acq420_dev)
 {
 	struct proc_dir_entry *proc_entry;
 
-	if (!acq400_proc_root){
-		acq400_proc_root = proc_mkdir("driver/acq420", 0);
-	}
 	proc_entry = create_proc_entry(acq420_names[ndevices], 0, acq400_proc_root);
 	if (proc_entry) {
 		proc_entry->proc_fops = &acq420_proc_ops;
 	}
 }
 
+static void acq420_del_proc(struct acq420_dev* acq420_dev)
+{
+	remove_proc_entry(acq420_names[acq420_dev->pdev->id], acq400_proc_root);
+}
 static void acq420_device_tree_init(struct acq420_dev* acq420_dev)
 {
 	struct platform_device *pdev = acq420_dev->pdev;
@@ -699,6 +667,9 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
         mutex_init(&acq420_dev->mutex);
         return acq420_dev;
 }
+
+static int acq420_remove(struct platform_device *pdev);
+
 static int acq420_probe(struct platform_device *pdev)
 {
         int status;
@@ -710,6 +681,7 @@ static int acq420_probe(struct platform_device *pdev)
         			"unable to allocate device structure\n");
         	return -ENOMEM;
         }
+        pdev->id = ndevices;
         /* Get our platform device resources */
         dev_info(&pdev->dev, "id:%d We have %d resources\n", pdev->id, pdev->num_resources);
         acq420_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -755,11 +727,14 @@ static int acq420_probe(struct platform_device *pdev)
         status = cdev_add(&acq420_dev->cdev, acq420_dev->devno, 1);
         acq420_init_proc(acq420_dev);
 
-        status = request_threaded_irq(
-		acq420_dev->irq, 
-		acq420_int_handler, 
-		fire_dma, 
-		IRQF_SHARED, "ACQ420_FMC FIFO HighTide", acq420_dev);
+        snprintf(acq420_dev->irq_name, sizeof(acq420_dev->irq_name),
+        		"ACQ420_FMC.%d FIFO HighTide", acq420_dev->pdev->id);
+
+        status = devm_request_threaded_irq(
+        		&acq420_dev->pdev->dev, acq420_dev->irq,
+        		acq420_int_handler, fire_dma,
+        		IRQF_SHARED, acq420_dev->irq_name, acq420_dev);
+
 	if (status)	{
 		printk("%s unable to secure IRQ%d\n", "ACQ420", 
 			acq420_dev->irq);
@@ -768,7 +743,7 @@ static int acq420_probe(struct platform_device *pdev)
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
-        pdev->id = ndevices;
+
         acq420_devices[ndevices++] = acq420_dev;
         acq420_createSysfs(&pdev->dev);
         acq420_init_defaults(acq420_dev);
@@ -780,6 +755,38 @@ static int acq420_probe(struct platform_device *pdev)
         return status;
 }
 
+static int acq420_remove(struct platform_device *pdev)
+/* undo all the probe things in reverse */
+{
+	if (pdev->id == -1){
+		return -1;
+	}else{
+		struct acq420_dev* acq420_dev = acq420_devices[pdev->id];
+
+		if (acq420_dev == 0){
+			return -1;
+		}
+		acq420_delSysfs(&acq420_dev->pdev->dev);
+		acq420_del_proc(acq420_dev);
+		cdev_del(&acq420_dev->cdev);
+		unregister_chrdev_region(acq420_dev->devno, 1);
+
+		/* Unmap the I/O memory */
+		if (acq420_dev->dev_virtaddr) {
+			iounmap(acq420_dev->dev_virtaddr);
+			release_mem_region(acq420_dev->dev_physaddr,
+					acq420_dev->dev_addrsize);
+		}
+		/* Free the PL330 buffer client data descriptors */
+		if (acq420_dev->client_data) {
+			kfree(acq420_dev->client_data);
+		}
+
+		kfree(acq420_dev);
+
+		return 0;
+	}
+}
 static struct platform_driver acq420_driver = {
         .driver = {
                 .name = MODULE_NAME,
@@ -792,8 +799,8 @@ static struct platform_driver acq420_driver = {
 
 static void __exit acq420_exit(void)
 {
-	// free_irq(acq420_dev->irq, &acq420_dev->pdev->dev);
 	platform_driver_unregister(&acq420_driver);
+	remove_proc_entry("driver/acq420", NULL);
 }
 
 static int __init acq420_init(void)
@@ -801,6 +808,7 @@ static int __init acq420_init(void)
         int status;
 
 	printk("D-TACQ ACQ420 FMC Driver %s\n", REVID);
+	acq400_proc_root = proc_mkdir("driver/acq420", 0);
         status = platform_driver_register(&acq420_driver);
 
         return status;

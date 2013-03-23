@@ -188,5 +188,11 @@ void acq420_createSysfs(struct device *dev)
 	DEVICE_CREATE_FILE(dev, &dev_attr_simulate);
 }
 
+void acq420_delSysfs(struct device *dev)
+{
+	device_remove_file(dev, &dev_attr_clkdiv);
+	device_remove_file(dev, &dev_attr_gains);
+	device_remove_file(dev, &dev_attr_simulate);
+}
 
 

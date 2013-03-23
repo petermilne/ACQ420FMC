@@ -121,11 +121,15 @@ struct acq420_dev {
 	u32 errors;
 
 	int ramp_en;
+
+	struct list_head buffers;
+	char irq_name[40];
 };
 
 extern struct acq420_dev* acq420_devices[];
 
 void acq420_createSysfs(struct device *dev);
+void acq420_delSysfs(struct device *dev);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value);
 u32 acq420rd32(struct acq420_dev *adev, int offset);
