@@ -79,7 +79,16 @@
 #define MODULE_NAME             "acq420"
 #define XFIFO_DMA_MINOR         0
 
-#define ACQ420_MINOR_MAX	10			/* room at the top .. SWAG */
+/*
+ *  Minor encoding
+ *  0 : the original device
+ *  100..164 : buffers
+ *  200..231 : channels when available
+ */
+#define ACQ420_MINOR_MAX	240
+#define ACQ420_MINOR_BUF	100
+#define ACQ420_MINOR_CHAN	200
+
 
 struct acq420_dev {
 	dev_t devno;
@@ -123,14 +132,19 @@ struct acq420_dev {
 	int ramp_en;
 
 	struct list_head buffers;
-	char irq_name[40];
 	struct proc_dir_entry *proc_entry;
 };
 
 extern struct acq420_dev* acq420_devices[];
+extern const char* acq420_names[];
 
 void acq420_createSysfs(struct device *dev);
 void acq420_delSysfs(struct device *dev);
+
+void acq420_module_init_proc(void);
+void acq420_module_remove_proc(void);
+void acq420_init_proc(struct acq420_dev* acq420_dev, int idev);
+void acq420_del_proc(struct acq420_dev* acq420_dev);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value);
 u32 acq420rd32(struct acq420_dev *adev, int offset);
