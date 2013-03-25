@@ -77,7 +77,7 @@
 #define HITIDE			0x40
 
 #define MODULE_NAME             "acq420"
-#define XFIFO_DMA_MINOR         0
+
 
 /*
  *  Minor encoding
@@ -85,11 +85,16 @@
  *  100..164 : buffers
  *  200..231 : channels when available
  */
+#define ACQ420_MINOR_0	        0
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
+#define ACQ420_MINOR_BUF2	199
 #define ACQ420_MINOR_CHAN	200
+#define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
 
+#define BUFFER(minor) ((minor) > ACQ420_MINOR_BUF)
 
+/** acq420_dev one descriptor per device */
 struct acq420_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -132,8 +137,20 @@ struct acq420_dev {
 	int ramp_en;
 
 	struct list_head buffers;
+	struct HBM** hb;
 	struct proc_dir_entry *proc_entry;
 };
+
+
+/** acq420_path_descriptor - one per open path */
+struct acq420_path_descriptor {
+	struct acq420_dev* dev;
+	int minor;
+};
+
+#define PD(filp)		((struct acq420_path_descriptor*)filp->private_data)
+#define PDSZ			(sizeof (struct acq420_path_descriptor))
+#define ACQ420_DEV(filp)	(PD(filp)->dev)
 
 extern struct acq420_dev* acq420_devices[];
 extern const char* acq420_names[];

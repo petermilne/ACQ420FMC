@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     	 */
+/* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2012 Craig Noble, D-TACQ Solutions Ltd                    *
  *                      <craig dot noble at D hyphen TACQ dot com>           *
@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.8"
+#define REVID "0.85"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -56,6 +56,14 @@ MODULE_PARM_DESC(nbuffers, "number of capture buffers");
 int bufferlen = 0x10000;
 module_param(bufferlen, int, 0444);
 MODULE_PARM_DESC(bufferlen, "length of capture buffer");
+
+int hitide = HITIDE;
+module_param(hitide, int, 0644);
+MODULE_PARM_DESC(hitide, "hitide value (words)");
+
+int lotide = HITIDE/2;
+module_param(lotide, int, 0644);
+MODULE_PARM_DESC(lotide, "lotide value (words)");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -117,7 +125,7 @@ static void acq420_disable_fifo(struct acq420_dev *adev)
 static void acq420_enable_interrupt(struct acq420_dev *adev)
 {
 	u32 status = acq420rd32(adev, ALG_INT_CTRL);
-	acq420wr32(adev, ALG_HITIDE, 	HITIDE);
+	acq420wr32(adev, ALG_HITIDE, 	hitide);
 	acq420wr32(adev, ALG_INT_CTRL,	status|0x1);
 }
 
@@ -161,14 +169,10 @@ static void acq420_force_interrupt(int interrupt)
 
 
 /* File operations */
-int acq420_open(struct inode *inode, struct file *filp)
+int acq420_open_main(struct inode *inode, struct file *file)
 {
-        struct acq420_dev *dev;
-        int retval;
-
-        retval = 0;
-        dev = container_of(inode->i_cdev, struct acq420_dev, cdev);
-        filp->private_data = dev;       /* For use elsewhere */
+        int rc = 0;
+        struct acq420_dev* dev = ACQ420_DEV(file);
 
         if (mutex_lock_interruptible(&dev->mutex)) {
                 return -ERESTARTSYS;
@@ -177,12 +181,12 @@ int acq420_open(struct inode *inode, struct file *filp)
         /* We're only going to allow one write at a time, so manage that via
          * reference counts
          */
-        switch (filp->f_flags & O_ACCMODE) {
+        switch (file->f_flags & O_ACCMODE) {
         case O_RDONLY:
                 break;
         case O_WRONLY:
                 if (dev->writers || dev->busy) {
-                        retval = -EBUSY;
+                        rc = -EBUSY;
                         goto out;
                 } else {
                         dev->writers++;
@@ -191,7 +195,7 @@ int acq420_open(struct inode *inode, struct file *filp)
         case O_RDWR:
         default:
                 if (dev->writers || dev->busy) {
-                        retval = -EBUSY;
+                        rc = -EBUSY;
                         goto out;
                 } else {
                         dev->writers++;
@@ -202,19 +206,85 @@ int acq420_open(struct inode *inode, struct file *filp)
 
 out:
         mutex_unlock(&dev->mutex);
-        return retval;
+        return rc;
 }
 
-int acq420_release(struct inode *inode, struct file *filp)
+static int acq420_dma_open(struct inode *inode, struct file *file)
 {
-        struct acq420_dev *dev = filp->private_data;
+	return 0;
+}
+
+int acq420_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
+/**
+ * mmap the host buffer.
+ */
+{
+	struct acq420_dev* adev = ACQ420_DEV(file);
+	int ibuf = BUFFER(PD(file)->minor);
+	struct HBM *hb = adev->hb[ibuf];
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = hb->len;
+	unsigned pfn = hb->pa >> PAGE_SHIFT;
+
+	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+int acq420_open_hb(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_fops_dma = {
+		.open = acq420_dma_open,
+		.mmap = acq420_dma_mmap_host
+	};
+	file->f_op = &acq420_fops_dma;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
+int acq420_open(struct inode *inode, struct file *file)
+{
+
+        struct acq420_dev *dev;
+        int minor;
+
+        file->private_data = kzalloc(PDSZ, GFP_KERNEL);
+
+        PD(file)->dev = dev = container_of(inode->i_cdev, struct acq420_dev, cdev);
+        PD(file)->minor = minor = MINOR(inode->i_rdev);
+
+        dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
+
+        if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
+        	return acq420_open_hb(inode, file);
+        } else if (minor >= ACQ420_MINOR_CHAN && minor <= ACQ420_MINOR_CHAN2){
+        	return -ENODEV;  	// @@todo maybe later0
+        } else{
+        	return acq420_open_main(inode, file);
+        }
+}
+
+int acq420_release(struct inode *inode, struct file *file)
+{
+        struct acq420_dev *dev = ACQ420_DEV(file);
 
         if (mutex_lock_interruptible(&dev->mutex)) {
                 return -EINTR;
         }
 
         /* Manage writes via reference counts */
-        switch (filp->f_flags & O_ACCMODE) {
+        switch (file->f_flags & O_ACCMODE) {
         case O_RDONLY:
                 break;
         case O_WRONLY:
@@ -229,6 +299,7 @@ int acq420_release(struct inode *inode, struct file *filp)
 
         mutex_unlock(&dev->mutex);
 
+        kfree(PD(file));
         return 0;
 }
 
@@ -261,10 +332,10 @@ static void acq420_done_callback(unsigned int channel, void *data)
         wake_up_interruptible(&dev->waitq);
 }
 
-ssize_t acq420_read(struct file *filp, char __user *buf, size_t count,
+ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
-	struct acq420_dev *dev = filp->private_data;
+	struct acq420_dev *dev = ACQ420_DEV(file);
 
 	// u64 checkval= 0;
 	int retval = 0;
@@ -336,10 +407,10 @@ fail_buffer:
 	return retval;
 }
 
-ssize_t acq420_write(struct file *filp, const char __user *buf, size_t count,
+ssize_t acq420_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 {
-        struct acq420_dev *dev = filp->private_data;
+        struct acq420_dev *dev = ACQ420_DEV(file);
         size_t transfer_size;
 
         int retval = 0;
@@ -421,24 +492,23 @@ fail_buffer:
 static irqreturn_t fire_dma(int irq, void *dev_id)
 {
 	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
-	u32 status;
+	u32 status = acq420_get_fifo_status(dev);
 
 	do {
-		status = acq420_get_fifo_status(dev);
-		status *= 4;
+		int bytes = status * 4;
 		// printk("FIFO contains %d samples\n", status);
 		// printk("Transfer wants %d bytes\n", dev->count);
-		if ((dev->this_count + status) >= dev->count) {
+		if ((dev->this_count + bytes) >= dev->count) {
 			acq420_disable_fifo(dev);
-			status = dev->count - dev->this_count;
-			if (status == 0x0) {
+			bytes = dev->count - dev->this_count;
+			if (bytes == 0x0) {
 				// printk("Breaking!\n");
 				break;
 			}
 		}
 
-		if (status >= 0x1000) {
-			status=0x1000;
+		if (bytes >= 0x1000) {
+			bytes=0x1000;
 		}
 		/* Lock the DMA device */
 		dev->busy = 1;
@@ -449,7 +519,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		/* Setup DMA */
 		set_dma_mode(dev->dma_channel, DMA_MODE_READ);
 		set_dma_addr(dev->dma_channel, (dev->buffer_d_addr + dev->this_count));
-		set_dma_count(dev->dma_channel, (size_t)(status));
+		set_dma_count(dev->dma_channel, (size_t)bytes);
 		set_pl330_client_data(dev->dma_channel, dev->client_data);
 		set_pl330_done_callback(dev->dma_channel,
 			acq420_done_callback, dev);
@@ -458,7 +528,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		set_pl330_incr_dev_addr(dev->dma_channel, 0);
 
 		/* Update the Count status */
-		dev->this_count += status;
+		dev->this_count += bytes;
 
 		/* Kick off the DMA */
 		enable_dma(dev->dma_channel);
@@ -467,9 +537,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		wait_event_interruptible(dev->waitq, dev->busy == 0);
 
 		status = acq420_get_fifo_status(dev);
-		// printk("FIFO has been drained to %d samples\n", status);
-
-	} while(status >= HITIDE-16);
+	} while(status >= lotide);
 
 
 	acq420_enable_interrupt(dev);
@@ -612,7 +680,7 @@ static int acq420_probe(struct platform_device *pdev)
         acq420_device_tree_init(acq420_dev);
 
         status = alloc_chrdev_region(&acq420_dev->devno,
-        		XFIFO_DMA_MINOR, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
+        		ACQ420_MINOR_0, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
                 dev_err(&pdev->dev, "unable to register chrdev\n");
@@ -622,7 +690,6 @@ static int acq420_probe(struct platform_device *pdev)
         /* Register with the kernel as a character device */
         cdev_init(&acq420_dev->cdev, &acq420_fops);
         acq420_dev->cdev.owner = THIS_MODULE;
-        acq420_dev->cdev.ops = &acq420_fops;
         acq420_dev->dev_physaddr = acq420_resource->start;
         acq420_dev->dev_addrsize = acq420_resource->end -
                 acq420_resource->start + 1;
@@ -643,7 +710,7 @@ static int acq420_probe(struct platform_device *pdev)
         	status = -1;
         	goto fail;
         }
-        status = cdev_add(&acq420_dev->cdev, acq420_dev->devno, 1);
+        status = cdev_add(&acq420_dev->cdev, acq420_dev->devno, ACQ420_MINOR_MAX);
         acq420_init_proc(acq420_dev, ndevices);
 
         status = devm_request_threaded_irq(
@@ -662,6 +729,15 @@ static int acq420_probe(struct platform_device *pdev)
 			nbuffers, bufferlen, &acq420_dev->buffers, DMA_FROM_DEVICE)){
 		dev_err(&pdev->dev, "failed to allocate buffers");
 		goto fail;
+	}else{
+		struct HBM* cursor;
+		int ix = 0;
+		acq420_dev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
+		list_for_each_entry(cursor, &acq420_dev->buffers, list){
+			WARN_ON(cursor->ix != ix);
+			acq420_dev->hb[cursor->ix] = cursor;
+			ix++;
+		}
 	}
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
@@ -693,6 +769,7 @@ static int acq420_remove(struct platform_device *pdev)
 		hbm_free(&pdev->dev, &acq420_dev->buffers);
 		acq420_delSysfs(&acq420_dev->pdev->dev);
 		acq420_del_proc(acq420_dev);
+		dev_dbg(&pdev->dev, "cdev_del %p\n", &acq420_dev->cdev);
 		cdev_del(&acq420_dev->cdev);
 		unregister_chrdev_region(acq420_dev->devno, 1);
 
