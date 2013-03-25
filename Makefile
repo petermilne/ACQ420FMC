@@ -5,11 +5,19 @@ obj-m := acq420FMC.o
 
 acq420FMC-objs := acq420FMC_drv.o acq420_sysfs.o acq420_proc.o hbm.o
 
-all:
-	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
+all: modules apps
+	
 
+apps: mmap
+
+modules:
+	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
+	
 clean:
 	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions
+	
+mmap: mmap.o
+	$(CC) -o mmap mmap.o -L../lib -lpopt
 	
 zynq:
 	./make.zynq
