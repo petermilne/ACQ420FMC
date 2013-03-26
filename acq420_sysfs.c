@@ -173,12 +173,44 @@ static ssize_t store_simulate(
 
 static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
+static ssize_t show_stats(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct STATS *stats = &acq420_devices[dev->id]->stats;
+	return sprintf(buf, "fifo_ints=%u dma_transactions=%u\n",
+			stats->fifo_interrupts, stats->dma_transactions);
+}
+
+static ssize_t store_stats(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct STATS *stats = &acq420_devices[dev->id]->stats;
+	u32 clr;
+
+	if (sscanf(buf, "%u", &clr) == 1){
+		if (clr){
+			memset(stats, 0, sizeof(struct STATS));
+		}
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
+
 
 void acq420_createSysfs(struct device *dev)
 {
 	DEVICE_CREATE_FILE(dev, &dev_attr_clkdiv);
 	DEVICE_CREATE_FILE(dev, &dev_attr_gains);
 	DEVICE_CREATE_FILE(dev, &dev_attr_simulate);
+	DEVICE_CREATE_FILE(dev, &dev_attr_stats);
 }
 
 void acq420_delSysfs(struct device *dev)
@@ -186,6 +218,7 @@ void acq420_delSysfs(struct device *dev)
 	device_remove_file(dev, &dev_attr_clkdiv);
 	device_remove_file(dev, &dev_attr_gains);
 	device_remove_file(dev, &dev_attr_simulate);
+	device_remove_file(dev, &dev_attr_stats);
 }
 
 

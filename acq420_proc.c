@@ -69,11 +69,11 @@ static int acq420_proc_seq_show_dma(struct seq_file *s, void *v)
         seq_printf(s, "FIFO Depth:              %d bytes\n", dev->fifo_depth);
         seq_printf(s, "Burst Length:            %d words\n", dev->burst_length);
         seq_printf(s, "\n");
-        seq_printf(s, "Opens:                   %d\n", dev->opens);
-        seq_printf(s, "Writes:                  %d\n", dev->writes);
-        seq_printf(s, "Bytes Written:           %d\n", dev->bytes_written);
-        seq_printf(s, "Closes:                  %d\n", dev->closes);
-        seq_printf(s, "Errors:                  %d\n", dev->errors);
+        seq_printf(s, "Opens:                   %d\n", dev->stats.opens);
+        seq_printf(s, "Writes:                  %d\n", dev->stats.writes);
+        seq_printf(s, "Bytes Written:           %d\n", dev->stats.bytes_written);
+        seq_printf(s, "Closes:                  %d\n", dev->stats.closes);
+        seq_printf(s, "Errors:                  %d\n", dev->stats.errors);
         seq_printf(s, "Busy:                    %d\n", dev->busy);
         seq_printf(s, "\n");
 
