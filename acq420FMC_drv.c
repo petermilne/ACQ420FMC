@@ -61,7 +61,7 @@ int hitide = HITIDE;
 module_param(hitide, int, 0644);
 MODULE_PARM_DESC(hitide, "hitide value (words)");
 
-int lotide = HITIDE/2;
+int lotide = HITIDE/4;
 module_param(lotide, int, 0644);
 MODULE_PARM_DESC(lotide, "lotide value (words)");
 
@@ -215,9 +215,9 @@ int getHeadroom(struct acq420_dev* adev)
 int acq420_open_main(struct inode *inode, struct file *file)
 {
         int rc = 0;
-        struct acq420_dev* dev = ACQ420_DEV(file);
+        struct acq420_dev* adev = ACQ420_DEV(file);
 
-        if (mutex_lock_interruptible(&dev->mutex)) {
+        if (mutex_lock_interruptible(&adev->mutex)) {
                 return -ERESTARTSYS;
         }
 
@@ -228,27 +228,27 @@ int acq420_open_main(struct inode *inode, struct file *file)
         case O_RDONLY:
                 break;
         case O_WRONLY:
-                if (dev->writers || dev->busy) {
+                if (adev->writers || adev->busy) {
                         rc = -EBUSY;
                         goto out;
                 } else {
-                        dev->writers++;
+                        adev->writers++;
                 }
                 break;
         case O_RDWR:
         default:
-                if (dev->writers || dev->busy) {
+                if (adev->writers || adev->busy) {
                         rc = -EBUSY;
                         goto out;
                 } else {
-                        dev->writers++;
+                        adev->writers++;
                 }
         }
 
-        dev->opens++;
+        adev->stats.opens++;
 
 out:
-        mutex_unlock(&dev->mutex);
+        mutex_unlock(&adev->mutex);
         return rc;
 }
 
@@ -371,9 +371,9 @@ int acq420_open(struct inode *inode, struct file *file)
 
 int acq420_release(struct inode *inode, struct file *file)
 {
-        struct acq420_dev *dev = ACQ420_DEV(file);
+        struct acq420_dev *adev = ACQ420_DEV(file);
 
-        if (mutex_lock_interruptible(&dev->mutex)) {
+        if (mutex_lock_interruptible(&adev->mutex)) {
                 return -EINTR;
         }
 
@@ -382,16 +382,16 @@ int acq420_release(struct inode *inode, struct file *file)
         case O_RDONLY:
                 break;
         case O_WRONLY:
-                dev->writers--;
+                adev->writers--;
                 break;
         case O_RDWR:
         default:
-                dev->writers--;
+                adev->writers--;
         }
 
-        dev->closes++;
+        adev->stats.closes++;
 
-        mutex_unlock(&dev->mutex);
+        mutex_unlock(&adev->mutex);
 
         kfree(PD(file));
         return 0;
@@ -402,16 +402,16 @@ static void acq420_fault_callback(unsigned int channel,
         unsigned int fault_address,
         void *data)
 {
-        struct acq420_dev *dev = data;
+        struct acq420_dev *adev = data;
 
-        dev_err(&dev->pdev->dev,
+        dev_err(&adev->pdev->dev,
                 "DMA fault type 0x%08x at address 0x%0x on channel %d\n",
                 fault_type, fault_address, channel);
 
-        dev->errors++;
-        acq420_reset_fifo(dev);
-        dev->busy = 0;
-        wake_up_interruptible(&dev->waitq);
+        adev->stats.errors++;
+        acq420_reset_fifo(adev);
+        adev->busy = 0;
+        wake_up_interruptible(&adev->waitq);
 }
 
 static void acq420_done_callback(unsigned int channel, void *data)
@@ -420,7 +420,7 @@ static void acq420_done_callback(unsigned int channel, void *data)
 
 	   // printk("DMA Done!");
 
-        dev->bytes_written += dev->count;
+        dev->stats.bytes_written += dev->count;
         dev->busy = 0;
 
         wake_up_interruptible(&dev->waitq);
@@ -440,7 +440,7 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	}
 
 	adev->oneshot = 1;
-	adev->reads++;
+	adev->stats.reads++;
 	adev->count = count;
 	adev->this_count = 0;
 	adev->busy = 1;
@@ -648,6 +648,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		enable_dma(adev->dma_channel);
 
 		add_fifo_histo(adev, status);
+		adev->stats.dma_transactions++;
 
 		/* Wait for Completion*/
 		wait_event_interruptible(adev->waitq, adev->busy == 0);
@@ -665,23 +666,19 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 
 static irqreturn_t acq420_int_handler(int irq, void *dev_id)
 {
-	irqreturn_t irq_status;
-	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
-	u32 status = acq420_get_interrupt(dev);
-	// u32 samples = acq420_get_fifo_status();
+	struct acq420_dev *adev = (struct acq420_dev *)dev_id;
+	u32 status = acq420_get_interrupt(adev);
+	irqreturn_t irq_status = IRQ_WAKE_THREAD;
 
-	iowrite32((0xCAFEBABE), dev->dev_virtaddr);
+	iowrite32((0xCAFEBABE), adev->dev_virtaddr);
 
-	// printk("FIFO contains %d samples\n", samples);
-
-	if (status == 0x1 && dev->DMA_READY == 1) {
-		dev->DMA_READY = 0;
+	if (status == 0x1 && adev->DMA_READY == 1) {
+		adev->DMA_READY = 0;
 	}
-	acq420_disable_interrupt(dev);
-	acq420_clear_interrupt(dev);
-	// printk("Got an IRQ!\n");
+	acq420_disable_interrupt(adev);
+	acq420_clear_interrupt(adev);
+	adev->stats.fifo_interrupts++;
 
-	irq_status = IRQ_WAKE_THREAD;
 	return irq_status;
 }
 
