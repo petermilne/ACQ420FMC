@@ -1,0 +1,11 @@
+#!/bin/sh
+
+do_it_one() {
+dd if=/dev/acq420.$1.c bs=65536 count=100000 of=/dev/null &
+}
+
+for dev in 0 1 2 3 4 5
+do
+	do_it_one $dev
+done
+

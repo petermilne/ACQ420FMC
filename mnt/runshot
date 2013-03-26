@@ -1,0 +1,7 @@
+#!/bin/sh
+SITE=${1:-0}
+NSAM=${2:-262144}
+let NBYTES="$NSAM*4*4"
+
+dd if=/dev/ACQ420_FMC${SITE} bs=$NBYTES count=1 2>/dev/null
+
