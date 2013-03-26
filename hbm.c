@@ -64,8 +64,6 @@ int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *bu
 {
 	int order = getOrder(len);
 	int ix;
-	INIT_LIST_HEAD(buffers);
-
 
 	len = (1 << order) * PAGE_SIZE;
 

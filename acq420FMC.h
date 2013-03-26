@@ -136,37 +136,45 @@ struct acq420_dev {
 	/* Driver reference counts */
 	u32 writers;
 
+	struct STATS {
 	/* Driver statistics */
-	u32 bytes_written;
-	u32 writes;
-	u32 reads;
-	u32 opens;
-	u32 closes;
-	u32 errors;
+		u32 bytes_written;
+		u32 writes;
+		u32 reads;
+		u32 opens;
+		u32 closes;
+		u32 errors;
+
+		u32 fifo_interrupts;
+		u32 dma_transactions;
+	} stats;
 
 	int ramp_en;
 
-	struct list_head buffers;
+	struct mutex list_mutex;
+	struct list_head EMPTIES;	/* empties waiting isr       */
+	struct list_head REFILLS;	/* full buffers waiting app  */
+	struct list_head OPENS;		/* buffers in use by app (1) */
 	struct HBM** hb;
 	int nbuffers;
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
-	struct {
+	struct CURSOR {
 		struct HBM* hb;
 		int offset;
 	} cursor;
+	wait_queue_head_t refill_ready;
 
 	unsigned *fifo_histo;
 };
 
-#define EMPTIES	buffers
-#define REFILLS buffers
 
 /** acq420_path_descriptor - one per open path */
 struct acq420_path_descriptor {
 	struct acq420_dev* dev;
 	int minor;
+	struct HBM *hbm;
 };
 
 #define PD(filp)		((struct acq420_path_descriptor*)filp->private_data)

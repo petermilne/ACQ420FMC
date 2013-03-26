@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.92"
+#define REVID "0.94"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -181,9 +181,11 @@ static void acq420_force_interrupt(int interrupt)
 void getEmpty(struct acq420_dev* adev)
 {
 	if (!list_empty(&adev->EMPTIES)){
+		mutex_lock(&adev->list_mutex);
 		adev->cursor.hb = list_first_entry(
 				&adev->EMPTIES, struct HBM, list);
 		list_del(&adev->cursor.hb->list);
+		mutex_unlock(&adev->list_mutex);
 		adev->cursor.hb->bstate = BS_FILLING;
 		adev->cursor.offset = 0;
 	} else {
@@ -193,8 +195,32 @@ void getEmpty(struct acq420_dev* adev)
 
 void putFull(struct acq420_dev* adev)
 {
+	mutex_lock(&adev->list_mutex);
 	adev->cursor.hb->bstate = BS_FULL;
 	list_add_tail(&adev->cursor.hb->list, &adev->REFILLS);
+	mutex_unlock(&adev->list_mutex);
+}
+
+int getFull(struct acq420_dev* adev)
+{
+	if (wait_event_interruptible(
+			adev->refill_ready,
+			!list_empty(&adev->REFILLS))){
+		return -EINTR;
+	}
+	mutex_lock(&adev->list_mutex);
+	list_move_tail(adev->REFILLS.prev, &adev->OPENS);
+	list_first_entry(&adev->OPENS, struct HBM, list)->bstate = BS_FULL_APP;
+	mutex_unlock(&adev->list_mutex);
+	return 0;
+}
+
+void putEmpty(struct acq420_dev* adev)
+{
+	mutex_lock(&adev->list_mutex);
+	list_first_entry(&adev->OPENS, struct HBM, list)->bstate = BS_EMPTY;
+	list_move_tail(adev->OPENS.prev, &adev->EMPTIES);
+	mutex_unlock(&adev->list_mutex);
 }
 int getHeadroom(struct acq420_dev* adev)
 {
@@ -323,11 +349,88 @@ ssize_t acq420_histo_read(
 	return count;
 }
 
+int acq420_continuous_start(struct inode *inode, struct file *file)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+
+	adev->oneshot = 0;
+
+	if (request_dma(adev->dma_channel, MODULE_NAME)) {
+		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
+			adev->dma_channel);
+		return -EBUSY;
+	}
+
+	if (mutex_lock_interruptible(&adev->mutex)) {
+		return -EINTR;
+	}
+	acq420_clear_histo(adev);
+	acq420_enable_fifo(adev);
+	acq420_reset_fifo(adev);
+
+	adev->DMA_READY = 1;
+	adev->busy = 1;
+	/*Wait for FIFO to fill*/
+	acq420_enable_interrupt(adev);
+
+	/* Kick off the DMA */
+	mutex_unlock(&adev->mutex);
+
+	return 0;
+}
+
+ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+	int rc = 0;
+	char lbuf[8];
+	struct HBM *hbm;
+
+
+	adev->stats.reads++;
+	adev->count = count;
+	adev->this_count = 0;
+
+	if (!list_empty(&adev->OPENS)){
+		putEmpty(adev);
+	}
+	if ((rc = getFull(adev)) != 0){
+		dev_warn(DEVP(adev), "interrupted\n");
+		return rc;
+	}
+
+	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
+	rc = sprintf(lbuf, "%03d\n", hbm->ix);
+	rc = copy_to_user(buf, lbuf, rc);
+	if (rc){
+		return -rc;
+	}
+
+	return count;
+}
+int acq420_continuous_stop(struct inode *inode, struct file *file)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+	acq420_reset_fifo(adev);
+	acq420_disable_fifo(adev);
+
+	free_dma(adev->dma_channel);
+
+	if (!list_empty(&adev->OPENS)){
+		putEmpty(adev);
+	}
+	return acq420_release(inode, file);
+}
+int acq420_null_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
 int acq420_open_histo(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq420_fops_histo = {
 			.read = acq420_histo_read,
-			.release = acq420_release
+			.release = acq420_null_release
 	};
 	file->f_op = &acq420_fops_histo;
 	if (file->f_op->open){
@@ -336,6 +439,26 @@ int acq420_open_histo(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+
+int acq420_open_continuous(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_fops_continuous = {
+			.open = acq420_continuous_start,
+			.read = acq420_continuous_read,
+			.release = acq420_continuous_stop
+	};
+	int rc = acq420_open_main(inode, file);
+	if (rc){
+		return rc;
+	}
+	file->f_op = &acq420_fops_continuous;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
 int acq420_open(struct inode *inode, struct file *file)
 {
 
@@ -356,8 +479,7 @@ int acq420_open(struct inode *inode, struct file *file)
         } else {
         	switch(minor){
         	case ACQ420_MINOR_CONTINUOUS:
-        		dev_warn(&dev->pdev->dev, "@@todo");
-        		return -ENODEV;
+        		return acq420_open_continuous(inode, file);
         	case ACQ420_MINOR_HISTO:
         		return acq420_open_histo(inode, file);
         	case ACQ420_MINOR_0:
@@ -652,6 +774,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 
 		/* Wait for Completion*/
 		wait_event_interruptible(adev->waitq, adev->busy == 0);
+		wake_up_interruptible(&adev->refill_ready);
 		adev->cursor.offset += bytes;
 		if (adev->oneshot){
 			adev->this_count += bytes;
@@ -776,11 +899,17 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
                 return NULL;
         }
         init_waitqueue_head(&adev->waitq);
+        init_waitqueue_head(&adev->refill_ready);
 
         adev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
         adev->pdev = pdev;
         mutex_init(&adev->mutex);
         adev->fifo_histo = kzalloc(DATA_FIFO_SZ*sizeof(u32), GFP_KERNEL);
+
+        INIT_LIST_HEAD(&adev->EMPTIES);
+        INIT_LIST_HEAD(&adev->REFILLS);
+        INIT_LIST_HEAD(&adev->OPENS);
+        mutex_init(&adev->list_mutex);
         return adev;
 }
 
@@ -854,14 +983,14 @@ static int acq420_probe(struct platform_device *pdev)
 	}
 
 	if (hbm_allocate(DEVP(adev),
-			nbuffers, bufferlen, &adev->buffers, DMA_FROM_DEVICE)){
+			nbuffers, bufferlen, &adev->EMPTIES, DMA_FROM_DEVICE)){
 		dev_err(&pdev->dev, "failed to allocate buffers");
 		goto fail;
 	}else{
 		struct HBM* cursor;
 		int ix = 0;
 		adev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
-		list_for_each_entry(cursor, &adev->buffers, list){
+		list_for_each_entry(cursor, &adev->EMPTIES, list){
 			WARN_ON(cursor->ix != ix);
 			adev->hb[cursor->ix] = cursor;
 			ix++;
@@ -896,7 +1025,8 @@ static int acq420_remove(struct platform_device *pdev)
 		if (acq420_dev == 0){
 			return -1;
 		}
-		hbm_free(&pdev->dev, &acq420_dev->buffers);
+		hbm_free(&pdev->dev, &acq420_dev->EMPTIES);
+		hbm_free(&pdev->dev, &acq420_dev->REFILLS);
 		acq420_delSysfs(&acq420_dev->pdev->dev);
 		acq420_del_proc(acq420_dev);
 		dev_dbg(&pdev->dev, "cdev_del %p\n", &acq420_dev->cdev);
