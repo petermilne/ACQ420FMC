@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.91"
+#define REVID "0.92"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -799,7 +799,7 @@ static int acq420_probe(struct platform_device *pdev)
         	dev_err(DEVP(adev), "unable to allocate device structure\n");
         	return -ENOMEM;
         }
-        pdev->id = ndevices;
+        pdev->dev.id = ndevices;
         /* Get our platform device resources */
         dev_dbg(DEVP(adev), "id:%d We have %d resources\n", pdev->id, pdev->num_resources);
         acq420_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -847,7 +847,7 @@ static int acq420_probe(struct platform_device *pdev)
         status = devm_request_threaded_irq(
         		DEVP(adev), adev->irq,
         		acq420_int_handler, fire_dma,
-        		IRQF_SHARED, acq420_devnames[adev->pdev->id],
+        		IRQF_SHARED, acq420_devnames[DEVP(adev)->id],
         		adev);
 
 	if (status)	{
