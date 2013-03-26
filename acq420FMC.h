@@ -39,6 +39,8 @@
 #define AXI_FIFO              0x0
 #define AXI_FIFO_LEN          0x1000
 
+
+
 #define ALG_BASE		0x1000
 #define ALG_CTRL		(ALG_BASE+0x00)
 #define ALG_HITIDE		(ALG_BASE+0x04)
@@ -55,7 +57,10 @@
 
 #define ALG_ADC_CONV_TIME 	(ALG_BASE+0x4C) /*(mask 0x000000FF)*/
 
+#define ALG_HITIDE_MASK		0x0000fff
 
+#define DATA_FIFO_SZ	      	255
+#define STATUS_TO_HISTO(stat)	(((stat)&ALG_HITIDE_MASK)>>4)
 
 #define ALG_CTRL_RAMP_ENABLE 	(1 << 5)
 #define ALG_CTRL_ADC_ENABLE	(1 << 4)
@@ -74,7 +79,7 @@
 #define ALG_ADC_CONV_TIME_DEF	0x36
 
 #define ADC_HT_INT		91
-#define HITIDE			0x40
+#define HITIDE			2048
 
 #define MODULE_NAME             "acq420"
 
@@ -86,6 +91,8 @@
  *  200..231 : channels when available
  */
 #define ACQ420_MINOR_0	        0
+#define ACQ420_MINOR_CONTINUOUS	1
+#define ACQ420_MINOR_HISTO	2
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -112,8 +119,8 @@ struct acq420_dev {
 	u32 DMA_READY;
 
 	/* Current DMA buffer information */
-	dma_addr_t buffer_d_addr;
-	void *buffer_v_addr;
+	/*dma_addr_t buffer_d_addr;
+	void *buffer_v_addr;*/
 	size_t count;
 	size_t this_count;
 	int busy;
@@ -138,9 +145,20 @@ struct acq420_dev {
 
 	struct list_head buffers;
 	struct HBM** hb;
+	int nbuffers;
+
+	int oneshot;
 	struct proc_dir_entry *proc_entry;
+	struct {
+		struct HBM* hb;
+		int offset;
+	} cursor;
+
+	unsigned *fifo_histo;
 };
 
+#define EMPTIES	buffers
+#define REFILLS buffers
 
 /** acq420_path_descriptor - one per open path */
 struct acq420_path_descriptor {
@@ -151,6 +169,7 @@ struct acq420_path_descriptor {
 #define PD(filp)		((struct acq420_path_descriptor*)filp->private_data)
 #define PDSZ			(sizeof (struct acq420_path_descriptor))
 #define ACQ420_DEV(filp)	(PD(filp)->dev)
+#define DEVP(adev)		(&(adev)->pdev->dev)
 
 extern struct acq420_dev* acq420_devices[];
 extern const char* acq420_names[];
@@ -166,4 +185,7 @@ void acq420_del_proc(struct acq420_dev* acq420_dev);
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value);
 u32 acq420rd32(struct acq420_dev *adev, int offset);
 
+int getHeadroom(struct acq420_dev *adev);
+
+#define MAXDMA	0x1000
 #endif /* ACQ420FMC_H_ */

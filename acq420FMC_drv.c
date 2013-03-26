@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.85"
+#define REVID "0.89"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -80,6 +80,7 @@ const char* acq420_devnames[] = {
 	"acq420.3", "acq420.4", "acq420.5",
 };
 
+int acq420_release(struct inode *inode, struct file *file);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 {
@@ -91,42 +92,42 @@ u32 acq420rd32(struct acq420_dev *adev, int offset)
 	return ioread32(adev->dev_virtaddr + offset);
 }
 
-static u32 acq420_get_fifo_status(struct acq420_dev *adev)
+static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 {
-	return acq420rd32(adev, ALG_CTRL);
+	return acq420rd32(adev, ALG_SAMPLES);
 }
 
 static void acq420_reset_fifo(struct acq420_dev *adev)
+/* Raise and Release reset */
 {
-	u32 status = acq420rd32(adev, ALG_CTRL);
+	u32 ctrl = acq420rd32(adev, ALG_CTRL);
 
-	acq420wr32(adev, ALG_CTRL, status | ALG_CTRL_RESETALL);
-	/* Release reset */
-	acq420wr32(adev, ALG_CTRL, status);
+	acq420wr32(adev, ALG_CTRL, ctrl | ALG_CTRL_RESETALL);
+	acq420wr32(adev, ALG_CTRL, ctrl);
 }
 
 static void acq420_enable_fifo(struct acq420_dev *adev)
 {
-	u32 status = acq420_get_fifo_status(adev);
+	u32 ctrl = acq420rd32(adev, ALG_CTRL);
 	if (adev->ramp_en){
-		status |= ALG_CTRL_RAMP_ENABLE;
+		ctrl |= ALG_CTRL_RAMP_ENABLE;
 	}
-	acq420wr32(adev, ALG_CTRL, status|ALG_CTRL_ENABLE_ALL);
+	acq420wr32(adev, ALG_CTRL, ctrl|ALG_CTRL_ENABLE_ALL);
 }
 
 static void acq420_disable_fifo(struct acq420_dev *adev)
 {
-	u32 status = acq420_get_fifo_status(adev);
-	status &= ~ALG_CTRL_RAMP_ENABLE;
-	acq420wr32(adev, ALG_CTRL, status & ~ALG_CTRL_ENABLE_ALL);
+	u32 ctrl = acq420rd32(adev, ALG_CTRL);
+	ctrl &= ~ALG_CTRL_RAMP_ENABLE;
+	acq420wr32(adev, ALG_CTRL, ctrl & ~ALG_CTRL_ENABLE_ALL);
 }
 
 
 static void acq420_enable_interrupt(struct acq420_dev *adev)
 {
-	u32 status = acq420rd32(adev, ALG_INT_CTRL);
+	u32 int_ctrl = acq420rd32(adev, ALG_INT_CTRL);
 	acq420wr32(adev, ALG_HITIDE, 	hitide);
-	acq420wr32(adev, ALG_INT_CTRL,	status|0x1);
+	acq420wr32(adev, ALG_INT_CTRL,	int_ctrl|0x1);
 }
 
 static void acq420_disable_interrupt(struct acq420_dev *adev)
@@ -157,6 +158,11 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 			(adc_18b? ALG_ADC_OPTS_IS_18B: 0)|
 			(data_32b? ALG_ADC_OPTS_32B_data: 0));
 }
+
+static void acq420_clear_histo(struct acq420_dev *adev)
+{
+	memset(adev->fifo_histo, 0, DATA_FIFO_SZ*sizeof(u32));
+}
 /*
 static void acq420_force_interrupt(int interrupt)
 {
@@ -165,6 +171,37 @@ static void acq420_force_interrupt(int interrupt)
 	iowrite32((interrupt), acq420_dev->dev_virtaddr + ALG_INT_FORCE);
 }
 */
+
+void getEmpty(struct acq420_dev* adev)
+{
+	if (!list_empty(&adev->EMPTIES)){
+		adev->cursor.hb = list_first_entry(
+				&adev->EMPTIES, struct HBM, list);
+		list_del(&adev->cursor.hb->list);
+		adev->cursor.hb->bstate = BS_FILLING;
+		adev->cursor.offset = 0;
+	} else {
+		dev_warn(&adev->pdev->dev, "get Empty: Q is EMPTY!\n");
+	}
+}
+
+void putFull(struct acq420_dev* adev)
+{
+	adev->cursor.hb->bstate = BS_FULL;
+	list_add_tail(&adev->cursor.hb->list, &adev->REFILLS);
+}
+int getHeadroom(struct acq420_dev* adev)
+{
+	if (!adev->oneshot){
+		if (adev->cursor.hb == 0){
+			getEmpty(adev);
+		} else if (adev->cursor.offset >= adev->cursor.hb->len){
+			putFull(adev);
+			getEmpty(adev);
+		}
+	}
+	return adev->cursor.hb->len - adev->cursor.offset;
+}
 
 
 
@@ -253,6 +290,46 @@ int acq420_open_hb(struct inode *inode, struct file *file)
 	}
 }
 
+
+
+ssize_t acq420_histo_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	unsigned *the_histo = ACQ420_DEV(file)->fifo_histo;
+	int maxentries = DATA_FIFO_SZ+1;
+	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	int rc;
+
+	if (cursor >= maxentries){
+		return 0;
+	}else{
+		int headroom = (maxentries - cursor) * sizeof(unsigned);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, the_histo+cursor, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count/sizeof(unsigned);
+	return count;
+}
+
+int acq420_open_histo(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_fops_histo = {
+			.read = acq420_histo_read,
+			.release = acq420_release
+	};
+	file->f_op = &acq420_fops_histo;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 int acq420_open(struct inode *inode, struct file *file)
 {
 
@@ -270,8 +347,19 @@ int acq420_open(struct inode *inode, struct file *file)
         	return acq420_open_hb(inode, file);
         } else if (minor >= ACQ420_MINOR_CHAN && minor <= ACQ420_MINOR_CHAN2){
         	return -ENODEV;  	// @@todo maybe later0
-        } else{
-        	return acq420_open_main(inode, file);
+        } else {
+        	switch(minor){
+        	case ACQ420_MINOR_CONTINUOUS:
+        		dev_warn(&dev->pdev->dev, "@@todo");
+        		return -ENODEV;
+        	case ACQ420_MINOR_HISTO:
+        		return acq420_open_histo(inode, file);
+        	case ACQ420_MINOR_0:
+        		return acq420_open_main(inode, file);
+        	default:
+        		return -ENODEV;
+        	}
+
         }
 }
 
@@ -335,81 +423,85 @@ static void acq420_done_callback(unsigned int channel, void *data)
 ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
-	struct acq420_dev *dev = ACQ420_DEV(file);
+	struct acq420_dev *adev = ACQ420_DEV(file);
+	struct HBM hbm = {};
 
 	// u64 checkval= 0;
-	int retval = 0;
+	int rc = 0;
 
-	if (mutex_lock_interruptible(&dev->mutex)) {
+	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
 
-	dev->reads++;
-	dev->count = count;
-	dev->this_count = 0;
+	adev->oneshot = 1;
+	adev->reads++;
+	adev->count = count;
+	adev->this_count = 0;
+	adev->busy = 1;
 
 	/** @@todo pgm: in a streaming system, preallocate streaming dma buffers (not coherent) */
 	/* Allocate a DMA buffer for the transfer */
-	dev->buffer_v_addr = 0;
-	dev->buffer_v_addr = dma_zalloc_coherent(&dev->pdev->dev, count,
-		&dev->buffer_d_addr, GFP_KERNEL);
-	if (!dev->buffer_v_addr) {
-		dev_err(&dev->pdev->dev,
+
+	hbm.va = dma_zalloc_coherent(DEVP(adev), count, &hbm.pa, GFP_KERNEL);
+	if (!hbm.va) {
+		dev_err(&adev->pdev->dev,
 			"coherent DMA buffer allocation failed\n");
-		retval = -ENOMEM;
+		rc = -ENOMEM;
 		goto fail_buffer;
 	}
+	hbm.len = count;
+	adev->cursor.hb = &hbm;
+	adev->cursor.offset = 0;
 
-	if (request_dma(dev->dma_channel, MODULE_NAME)) {
-		dev_err(&dev->pdev->dev,
-			"unable to alloc DMA channel %d\n",
-			dev->dma_channel);
-		retval = -EBUSY;
+	if (request_dma(adev->dma_channel, MODULE_NAME)) {
+		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
+			adev->dma_channel);
+		rc = -EBUSY;
 		goto fail_client_data;
 	}
 
-	acq420_enable_fifo(dev);
-	acq420_reset_fifo(dev);
+	acq420_clear_histo(adev);
+	acq420_enable_fifo(adev);
+	acq420_reset_fifo(adev);
 
-	dev->DMA_READY = 1;
+	adev->DMA_READY = 1;
 
 	/*Wait for FIFO to fill*/
-	acq420_enable_interrupt(dev);
+	acq420_enable_interrupt(adev);
 
 	/* Kick off the DMA */
-	mutex_unlock(&dev->mutex);
+	mutex_unlock(&adev->mutex);
 
 	do {
-		wait_event_interruptible(dev->waitq, dev->busy == 0);
-	} while(dev->this_count < count);
+		if (wait_event_interruptible(adev->waitq, adev->busy == 0)){
+			rc = -EINTR;
+			break;
+		}
+	} while(adev->this_count < count);
 
-	/* Cleanup after transfer */
-	// printk("Clearing the capture FIFO\n");
-	acq420_reset_fifo(dev);
+	acq420_reset_fifo(adev);
+	acq420_disable_fifo(adev);
 
-	/* Retrieve our DMA buffer with the user data */
-	copy_to_user(buf, dev->buffer_v_addr, count);
+	copy_to_user(buf, hbm.va, count);
 
-	/* Deallocate the DMA buffer and free the channel */
-	free_dma(dev->dma_channel);
+	free_dma(adev->dma_channel);
 
-	// printk("Freeing memory!\n");
-	dma_free_coherent(&dev->pdev->dev, count, dev->buffer_v_addr,
-		dev->buffer_d_addr);
-
+	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
+	adev->cursor.hb = 0;
 	return count;
 
 fail_client_data:
-	dma_free_coherent(&dev->pdev->dev, count, dev->buffer_v_addr,
-		dev->buffer_d_addr);
+	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
+
 fail_buffer:
-	mutex_unlock(&dev->mutex);
-	return retval;
+	mutex_unlock(&adev->mutex);
+	return rc;
 }
 
 ssize_t acq420_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 {
+#if 0
         struct acq420_dev *dev = ACQ420_DEV(file);
         size_t transfer_size;
 
@@ -487,60 +579,59 @@ fail_client_data:
 fail_buffer:
         mutex_unlock(&dev->mutex);
         return retval;
+#else
+        return -EINVAL;
+#endif
 }
 
+static void init_dmac_consts(struct acq420_dev *adev)
+{
+	set_dma_mode(adev->dma_channel, DMA_MODE_READ);
+	set_pl330_client_data(adev->dma_channel, adev->client_data);
+	set_pl330_done_callback(adev->dma_channel, acq420_done_callback, adev);
+	set_pl330_fault_callback(adev->dma_channel, acq420_fault_callback, adev);
+	set_pl330_incr_dev_addr(adev->dma_channel, 0);
+}
+
+static void add_fifo_histo(struct acq420_dev *adev, u32 status)
+{
+	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
+}
 static irqreturn_t fire_dma(int irq, void *dev_id)
 {
-	struct acq420_dev *dev = (struct acq420_dev *)dev_id;
-	u32 status = acq420_get_fifo_status(dev);
+	struct acq420_dev *adev = (struct acq420_dev *)dev_id;
+	u32 status = acq420_get_fifo_samples(adev);
 
 	do {
+		int headroom = min(getHeadroom(adev), MAXDMA);
 		int bytes = status * 4;
-		// printk("FIFO contains %d samples\n", status);
-		// printk("Transfer wants %d bytes\n", dev->count);
-		if ((dev->this_count + bytes) >= dev->count) {
-			acq420_disable_fifo(dev);
-			bytes = dev->count - dev->this_count;
-			if (bytes == 0x0) {
-				// printk("Breaking!\n");
-				break;
-			}
+
+		bytes = min(bytes, headroom);
+
+		if (headroom == 0){
+			dev_info(DEVP(adev), "headroom==0, quit count:%d\n",
+					adev->this_count);
+			return IRQ_HANDLED;
 		}
 
-		if (bytes >= 0x1000) {
-			bytes=0x1000;
-		}
-		/* Lock the DMA device */
-		dev->busy = 1;
+		adev->busy = 1;
+		init_dmac_consts(adev);		/* @@todo move this out the loop */
+		set_dma_addr(adev->dma_channel, adev->cursor.hb->pa + adev->cursor.offset);
+		set_dma_count(adev->dma_channel, (size_t)bytes);
+		enable_dma(adev->dma_channel);
 
-		// printk("Loading DMA for %d bytes\n", (status));
-		// printk("Trigger point was set at %d\n", HITIDE);
-
-		/* Setup DMA */
-		set_dma_mode(dev->dma_channel, DMA_MODE_READ);
-		set_dma_addr(dev->dma_channel, (dev->buffer_d_addr + dev->this_count));
-		set_dma_count(dev->dma_channel, (size_t)bytes);
-		set_pl330_client_data(dev->dma_channel, dev->client_data);
-		set_pl330_done_callback(dev->dma_channel,
-			acq420_done_callback, dev);
-		set_pl330_fault_callback(dev->dma_channel,
-			acq420_fault_callback, dev);
-		set_pl330_incr_dev_addr(dev->dma_channel, 0);
-
-		/* Update the Count status */
-		dev->this_count += bytes;
-
-		/* Kick off the DMA */
-		enable_dma(dev->dma_channel);
+		add_fifo_histo(adev, status);
 
 		/* Wait for Completion*/
-		wait_event_interruptible(dev->waitq, dev->busy == 0);
-
-		status = acq420_get_fifo_status(dev);
+		wait_event_interruptible(adev->waitq, adev->busy == 0);
+		adev->cursor.offset += bytes;
+		if (adev->oneshot){
+			adev->this_count += bytes;
+		}
+		status = acq420_get_fifo_samples(adev);
 	} while(status >= lotide);
 
-
-	acq420_enable_interrupt(dev);
+	acq420_enable_interrupt(adev);
 
 	return IRQ_HANDLED;
 }
@@ -643,16 +734,17 @@ static void acq420_device_tree_init(struct acq420_dev* acq420_dev)
 static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
 /* Allocate and init a private structure to manage this device */
 {
-	struct acq420_dev* acq420_dev = kzalloc(sizeof(struct acq420_dev), GFP_KERNEL);
-        if (acq420_dev == NULL) {
+	struct acq420_dev* adev = kzalloc(sizeof(struct acq420_dev), GFP_KERNEL);
+        if (adev == NULL) {
                 return NULL;
         }
-        init_waitqueue_head(&acq420_dev->waitq);
+        init_waitqueue_head(&adev->waitq);
 
-        acq420_dev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
-        acq420_dev->pdev = pdev;
-        mutex_init(&acq420_dev->mutex);
-        return acq420_dev;
+        adev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
+        adev->pdev = pdev;
+        mutex_init(&adev->mutex);
+        adev->fifo_histo = kzalloc(DATA_FIFO_SZ*sizeof(u32), GFP_KERNEL);
+        return adev;
 }
 
 static int acq420_remove(struct platform_device *pdev);
@@ -661,9 +753,9 @@ static int acq420_probe(struct platform_device *pdev)
 {
         int status;
         struct resource *acq420_resource;
-        struct acq420_dev* acq420_dev = acq420_allocate_dev(pdev);
+        struct acq420_dev* adev = acq420_allocate_dev(pdev);
 
-        if (!acq420_dev){
+        if (!adev){
         	dev_err(&pdev->dev,
         			"unable to allocate device structure\n");
         	return -ENOMEM;
@@ -677,9 +769,9 @@ static int acq420_probe(struct platform_device *pdev)
                 return -ENODEV;
         }
 
-        acq420_device_tree_init(acq420_dev);
+        acq420_device_tree_init(adev);
 
-        status = alloc_chrdev_region(&acq420_dev->devno,
+        status = alloc_chrdev_region(&adev->devno,
         		ACQ420_MINOR_0, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
@@ -688,64 +780,66 @@ static int acq420_probe(struct platform_device *pdev)
         }
 
         /* Register with the kernel as a character device */
-        cdev_init(&acq420_dev->cdev, &acq420_fops);
-        acq420_dev->cdev.owner = THIS_MODULE;
-        acq420_dev->dev_physaddr = acq420_resource->start;
-        acq420_dev->dev_addrsize = acq420_resource->end -
+        cdev_init(&adev->cdev, &acq420_fops);
+        adev->cdev.owner = THIS_MODULE;
+        adev->dev_physaddr = acq420_resource->start;
+        adev->dev_addrsize = acq420_resource->end -
                 acq420_resource->start + 1;
-        if (!request_mem_region(acq420_dev->dev_physaddr,
-                acq420_dev->dev_addrsize, MODULE_NAME)) {
+        if (!request_mem_region(adev->dev_physaddr,
+                adev->dev_addrsize, MODULE_NAME)) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
-                        acq420_dev->dev_physaddr);
+                        adev->dev_physaddr);
                 status = -ENODEV;
                 goto fail;
         }
-        acq420_dev->dev_virtaddr =
-        	ioremap(acq420_dev->dev_physaddr, acq420_dev->dev_addrsize);
+        adev->dev_virtaddr =
+        	ioremap(adev->dev_physaddr, adev->dev_addrsize);
         dev_dbg(&pdev->dev, "acq420: mapped 0x%0x to 0x%0x\n",
-        	acq420_dev->dev_physaddr, (unsigned int)acq420_dev->dev_virtaddr);
+        	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
-        if (acq420_init_pl330(acq420_dev)){
+        if (acq420_init_pl330(adev)){
         	dev_err(&pdev->dev, "can't allocate PL330 client data\n");
         	status = -1;
         	goto fail;
         }
-        status = cdev_add(&acq420_dev->cdev, acq420_dev->devno, ACQ420_MINOR_MAX);
-        acq420_init_proc(acq420_dev, ndevices);
+        status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
+        acq420_init_proc(adev, ndevices);
 
         status = devm_request_threaded_irq(
-        		&acq420_dev->pdev->dev, acq420_dev->irq,
+        		&adev->pdev->dev, adev->irq,
         		acq420_int_handler, fire_dma,
-        		IRQF_SHARED, acq420_devnames[acq420_dev->pdev->id],
-        		acq420_dev);
+        		IRQF_SHARED, acq420_devnames[adev->pdev->id],
+        		adev);
 
 	if (status)	{
 		printk("%s unable to secure IRQ%d\n", "ACQ420", 
-			acq420_dev->irq);
+			adev->irq);
 		goto fail;
 	}
 
 	if (hbm_allocate(&pdev->dev,
-			nbuffers, bufferlen, &acq420_dev->buffers, DMA_FROM_DEVICE)){
+			nbuffers, bufferlen, &adev->buffers, DMA_FROM_DEVICE)){
 		dev_err(&pdev->dev, "failed to allocate buffers");
 		goto fail;
 	}else{
 		struct HBM* cursor;
 		int ix = 0;
-		acq420_dev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
-		list_for_each_entry(cursor, &acq420_dev->buffers, list){
+		adev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
+		list_for_each_entry(cursor, &adev->buffers, list){
 			WARN_ON(cursor->ix != ix);
-			acq420_dev->hb[cursor->ix] = cursor;
+			adev->hb[cursor->ix] = cursor;
 			ix++;
 		}
+		dev_info(&pdev->dev, "setting nbuffers %d\n", ix);
+		adev->nbuffers = ix;
 	}
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
 
-        acq420_devices[ndevices++] = acq420_dev;
+        acq420_devices[ndevices++] = adev;
         acq420_createSysfs(&pdev->dev);
-        acq420_init_defaults(acq420_dev);
+        acq420_init_defaults(adev);
 
         return 0;
 

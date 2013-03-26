@@ -107,9 +107,9 @@ static int acq420_proc_open_dmac(struct inode *inode, struct file *file)
 static void *acq420_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
-        	struct acq420_dev *dev = s->private;
+        	struct acq420_dev *adev = s->private;
         	seq_printf(s, "Buffers\n");
-        	return dev->buffers.next;
+        	return adev->hb[0];
         }
 
         return NULL;
@@ -117,11 +117,10 @@ static void *acq420_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 
 static void *acq420_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *pos)
 {
-	struct acq420_dev *dev = s->private;
-	struct list_head* list = v;
-	if (list->next != &dev->buffers){
-		(*pos)++;
-		return list->next;
+	struct acq420_dev *adev = s->private;
+
+	if (++*pos < adev->nbuffers){
+		return adev->hb[*pos];
 	}else{
 		return NULL;
 	}
@@ -132,7 +131,7 @@ static void *acq420_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *p
 static int acq420_proc_seq_show_buffers(struct seq_file *s, void *v)
 {
         struct acq420_dev *dev = s->private;
-        struct HBM * hbm = list_entry(v, struct HBM, list);
+        struct HBM * hbm = v;
 
         if (mutex_lock_interruptible(&dev->mutex)) {
                 return -EINTR;
