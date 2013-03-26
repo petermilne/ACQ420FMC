@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.89"
+#define REVID "0.91"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -84,12 +84,18 @@ int acq420_release(struct inode *inode, struct file *file);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 {
+	dev_dbg(DEVP(adev), "acq420wr32 %p = %08x\n",
+			adev->dev_virtaddr + offset, value);
+
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
 
 u32 acq420rd32(struct acq420_dev *adev, int offset)
 {
-	return ioread32(adev->dev_virtaddr + offset);
+	u32 rc = ioread32(adev->dev_virtaddr + offset);
+	dev_dbg(DEVP(adev), "acq420rd32 %p = %08x\n",
+			adev->dev_virtaddr + offset, rc);
+	return rc;
 }
 
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
@@ -584,6 +590,27 @@ fail_buffer:
 #endif
 }
 
+int acq420_mmap_bar(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = adev->dev_addrsize;
+	unsigned pfn = adev->dev_physaddr >> PAGE_SHIFT;
+
+	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
 static void init_dmac_consts(struct acq420_dev *adev)
 {
 	set_dma_mode(adev->dma_channel, DMA_MODE_READ);
@@ -663,7 +690,8 @@ struct file_operations acq420_fops = {
         .read = acq420_read,
         .write = acq420_write,
         .open = acq420_open,
-        .release = acq420_release
+        .release = acq420_release,
+        .mmap = acq420_mmap_bar
 };
 
 
@@ -699,35 +727,47 @@ static int acq420_init_pl330(struct acq420_dev* acq420_dev)
         return 0;
 }
 
-static void acq420_device_tree_init(struct acq420_dev* acq420_dev)
+static void acq420_device_tree_init(struct acq420_dev* adev)
 {
-	struct platform_device *pdev = acq420_dev->pdev;
-        if (pdev->dev.of_node) {
-                if (of_property_read_u32(pdev->dev.of_node, "dma-channel",
-                        &acq420_dev->dma_channel) < 0) {
-                        dev_warn(&pdev->dev,
-                                "DMA channel unspecified - assuming 0\n");
-                        acq420_dev->dma_channel = 0;
+	struct device_node *of_node = adev->pdev->dev.of_node;
+
+        if (of_node) {
+        	u32 irqs[OF_IRQ_COUNT];
+
+                if (of_property_read_u32(of_node, "dma-channel",
+                        &adev->dma_channel) < 0) {
+                        dev_warn(DEVP(adev),
+                        	"DMA channel unspecified - assuming 0\n");
+                        adev->dma_channel = 0;
                 }
-                dev_info(&pdev->dev,
-                        "read DMA channel is %d\n", acq420_dev->dma_channel);
-                if (of_property_read_u32(pdev->dev.of_node, "fifo-depth",
-                        &acq420_dev->fifo_depth) < 0) {
-                        dev_warn(&pdev->dev,
+                dev_dbg(DEVP(adev),
+                        "read DMA channel is %d\n", adev->dma_channel);
+
+                if (of_property_read_u32(of_node, "fifo-depth",
+                        &adev->fifo_depth) < 0) {
+                        dev_warn(DEVP(adev),
                                 "depth unspecified, assuming 0xffffffff\n");
-                        acq420_dev->fifo_depth = 0xffffffff;
+                        adev->fifo_depth = 0xffffffff;
                 }
-                dev_info(&pdev->dev,
-                        "DMA fifo depth is %d\n", acq420_dev->fifo_depth);
-                if (of_property_read_u32(pdev->dev.of_node, "burst-length",
-                        &acq420_dev->burst_length) < 0) {
-                        dev_warn(&pdev->dev,
+                dev_dbg(DEVP(adev),
+                		"DMA fifo depth is %d\n", adev->fifo_depth);
+
+                if (of_property_read_u32(of_node, "burst-length",
+                        &adev->burst_length) < 0) {
+                        dev_warn(DEVP(adev),
                                 "burst length unspecified - assuming 1\n");
-                        acq420_dev->burst_length = 1;
+                        adev->burst_length = 1;
                 }
-                dev_info(&pdev->dev,
-                        "DMA burst length is %d\n",
-                        acq420_dev->burst_length);
+                dev_dbg(DEVP(adev), "DMA burst length is %d\n",
+                        adev->burst_length);
+
+                if (of_property_read_u32_array(
+                		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
+                	dev_warn(DEVP(adev), "failed to find IRQ values");
+                }else{
+                	adev->irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
+                	//irqs[OF_IRQ_STATUS]
+                }
         }
 }
 
@@ -756,13 +796,12 @@ static int acq420_probe(struct platform_device *pdev)
         struct acq420_dev* adev = acq420_allocate_dev(pdev);
 
         if (!adev){
-        	dev_err(&pdev->dev,
-        			"unable to allocate device structure\n");
+        	dev_err(DEVP(adev), "unable to allocate device structure\n");
         	return -ENOMEM;
         }
         pdev->id = ndevices;
         /* Get our platform device resources */
-        dev_info(&pdev->dev, "id:%d We have %d resources\n", pdev->id, pdev->num_resources);
+        dev_dbg(DEVP(adev), "id:%d We have %d resources\n", pdev->id, pdev->num_resources);
         acq420_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
         if (acq420_resource == NULL) {
                 dev_err(&pdev->dev, "No resources found\n");
@@ -794,11 +833,11 @@ static int acq420_probe(struct platform_device *pdev)
         }
         adev->dev_virtaddr =
         	ioremap(adev->dev_physaddr, adev->dev_addrsize);
-        dev_dbg(&pdev->dev, "acq420: mapped 0x%0x to 0x%0x\n",
+        dev_dbg(DEVP(adev), "acq420: mapped 0x%0x to 0x%0x\n",
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         if (acq420_init_pl330(adev)){
-        	dev_err(&pdev->dev, "can't allocate PL330 client data\n");
+        	dev_err(DEVP(adev), "can't allocate PL330 client data\n");
         	status = -1;
         	goto fail;
         }
@@ -806,7 +845,7 @@ static int acq420_probe(struct platform_device *pdev)
         acq420_init_proc(adev, ndevices);
 
         status = devm_request_threaded_irq(
-        		&adev->pdev->dev, adev->irq,
+        		DEVP(adev), adev->irq,
         		acq420_int_handler, fire_dma,
         		IRQF_SHARED, acq420_devnames[adev->pdev->id],
         		adev);
@@ -817,7 +856,7 @@ static int acq420_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	if (hbm_allocate(&pdev->dev,
+	if (hbm_allocate(DEVP(adev),
 			nbuffers, bufferlen, &adev->buffers, DMA_FROM_DEVICE)){
 		dev_err(&pdev->dev, "failed to allocate buffers");
 		goto fail;
@@ -830,7 +869,7 @@ static int acq420_probe(struct platform_device *pdev)
 			adev->hb[cursor->ix] = cursor;
 			ix++;
 		}
-		dev_info(&pdev->dev, "setting nbuffers %d\n", ix);
+		dev_dbg(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 	}
         //acq420_reset_fifo();
