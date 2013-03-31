@@ -165,6 +165,7 @@ struct acq420_dev {
 		int offset;
 	} cursor;
 	wait_queue_head_t refill_ready;
+	int refill_error;
 
 	unsigned *fifo_histo;
 };

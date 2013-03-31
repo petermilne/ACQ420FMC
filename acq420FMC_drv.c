@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.94"
+#define REVID "0.97"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -203,23 +203,30 @@ void putFull(struct acq420_dev* adev)
 
 int getFull(struct acq420_dev* adev)
 {
+	struct HBM *hbm;
 	if (wait_event_interruptible(
 			adev->refill_ready,
-			!list_empty(&adev->REFILLS))){
+			!list_empty(&adev->REFILLS) || adev->refill_error)){
 		return -EINTR;
+	} else if (adev->refill_error){
+		return 1;
 	}
+
 	mutex_lock(&adev->list_mutex);
-	list_move_tail(adev->REFILLS.prev, &adev->OPENS);
-	list_first_entry(&adev->OPENS, struct HBM, list)->bstate = BS_FULL_APP;
+	hbm = list_first_entry(&adev->REFILLS, struct HBM, list);
+	list_move_tail(&hbm->list, &adev->OPENS);
+	hbm->bstate = BS_FULL_APP;
 	mutex_unlock(&adev->list_mutex);
 	return 0;
 }
 
 void putEmpty(struct acq420_dev* adev)
 {
+	struct HBM *hbm;
 	mutex_lock(&adev->list_mutex);
-	list_first_entry(&adev->OPENS, struct HBM, list)->bstate = BS_EMPTY;
-	list_move_tail(adev->OPENS.prev, &adev->EMPTIES);
+	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
+	hbm->bstate = BS_EMPTY;
+	list_move_tail(&hbm->list, &adev->EMPTIES);
 	mutex_unlock(&adev->list_mutex);
 }
 int getHeadroom(struct acq420_dev* adev)
@@ -381,11 +388,13 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 
 ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
+/* NB: waits for a full buffer to ARRIVE, but only returns the 2 char ID */
 {
 	struct acq420_dev *adev = ACQ420_DEV(file);
 	int rc = 0;
 	char lbuf[8];
 	struct HBM *hbm;
+	int nread;
 
 
 	adev->stats.reads++;
@@ -396,18 +405,30 @@ ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count
 		putEmpty(adev);
 	}
 	if ((rc = getFull(adev)) != 0){
-		dev_warn(DEVP(adev), "interrupted\n");
-		return rc;
+		if (adev->refill_error){
+			dev_warn(DEVP(adev), "refill error\n");
+			adev->refill_error = 0;
+			return -1;
+		}else{
+			dev_warn(DEVP(adev), "interrupted\n");
+			return rc;
+		}
 	}
 
+	if (list_empty(&adev->OPENS)){
+		dev_warn(DEVP(adev), "no buffer available");
+		return -1;
+	}
 	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
-	rc = sprintf(lbuf, "%03d\n", hbm->ix);
-	rc = copy_to_user(buf, lbuf, rc);
+	dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
+
+	nread = sprintf(lbuf, "%02d\n", hbm->ix);
+	rc = copy_to_user(buf, lbuf, nread);
 	if (rc){
 		return -rc;
 	}
 
-	return count;
+	return nread;
 }
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
@@ -420,6 +441,17 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
+	mutex_lock(&adev->list_mutex);
+	{
+		struct HBM *cur;
+		struct HBM *tmp;
+		list_for_each_entry_safe(cur, tmp, &adev->REFILLS, list){
+			cur->bstate = BS_EMPTY;
+			list_move_tail(&cur->list, &adev->EMPTIES);
+		}
+	}
+	mutex_unlock(&adev->list_mutex);
+
 	return acq420_release(inode, file);
 }
 int acq420_null_release(struct inode *inode, struct file *file)
@@ -758,8 +790,10 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		bytes = min(bytes, headroom);
 
 		if (headroom == 0){
-			dev_info(DEVP(adev), "headroom==0, quit count:%d\n",
+			dev_info(DEVP(adev), "headroom==0, quit count:%d set error\n",
 					adev->this_count);
+			adev->refill_error = 1;
+			wake_up_interruptible(&adev->refill_ready);
 			return IRQ_HANDLED;
 		}
 
