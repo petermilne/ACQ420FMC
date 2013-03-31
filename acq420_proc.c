@@ -115,6 +115,7 @@ static void *acq420_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
         return NULL;
 }
 
+
 static void *acq420_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *pos)
 {
 	struct acq420_dev *adev = s->private;
@@ -126,8 +127,92 @@ static void *acq420_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *p
 	}
 }
 
+static void *acq420_proc_seq_start_EMPTIES(struct seq_file *s, loff_t *pos)
+{
+        if (*pos == 0) {
+        	struct acq420_dev *adev = s->private;
+        	if (!list_empty(&adev->EMPTIES)){
+        		return list_first_entry(&adev->EMPTIES, struct HBM, list);
+        	}
+        }
 
+        return NULL;
+}
 
+static void *acq420_proc_seq_next_EMPTIES(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq420_dev *adev = s->private;
+	int tpos = 0;
+	struct HBM *hbm;
+
+	++*pos;
+
+	list_for_each_entry(hbm, &adev->EMPTIES, list){
+		if (tpos++ == *pos){
+			return hbm;
+		}
+	}
+
+	return NULL;
+}
+
+static void *acq420_proc_seq_start_REFILLS(struct seq_file *s, loff_t *pos)
+{
+        if (*pos == 0) {
+        	struct acq420_dev *adev = s->private;
+        	if (!list_empty(&adev->REFILLS)){
+        		return list_first_entry(&adev->REFILLS, struct HBM, list);
+        	}
+        }
+
+        return NULL;
+}
+
+static void *acq420_proc_seq_next_REFILLS(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq420_dev *adev = s->private;
+	int tpos = 0;
+	struct HBM *hbm;
+
+	++*pos;
+
+	list_for_each_entry(hbm, &adev->REFILLS, list){
+		if (tpos++ == *pos){
+			return hbm;
+		}
+	}
+
+	return NULL;
+}
+
+static void *acq420_proc_seq_start_OPENS(struct seq_file *s, loff_t *pos)
+{
+        if (*pos == 0) {
+        	struct acq420_dev *adev = s->private;
+        	if (!list_empty(&adev->OPENS)){
+        		return list_first_entry(&adev->OPENS, struct HBM, list);
+        	}
+        }
+
+        return NULL;
+}
+
+static void *acq420_proc_seq_next_OPENS(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq420_dev *adev = s->private;
+	int tpos = 0;
+	struct HBM *hbm;
+
+	++*pos;
+
+	list_for_each_entry(hbm, &adev->OPENS, list){
+		if (tpos++ == *pos){
+			return hbm;
+		}
+	}
+
+	return NULL;
+}
 static int acq420_proc_seq_show_buffers(struct seq_file *s, void *v)
 {
         struct acq420_dev *dev = s->private;
@@ -156,6 +241,45 @@ static int acq420_proc_open_buffers(struct inode *inode, struct file *file)
 
 	return intDevFromProcFile(file, &acq420_proc_seq_ops_buffers);
 }
+
+static int acq420_proc_open_EMPTIES(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_buffers = {
+	        .start = acq420_proc_seq_start_EMPTIES,
+	        .next = acq420_proc_seq_next_EMPTIES,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_buffers
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_buffers);
+}
+
+static int acq420_proc_open_REFILLS(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_buffers = {
+	        .start = acq420_proc_seq_start_REFILLS,
+	        .next = acq420_proc_seq_next_REFILLS,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_buffers
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_buffers);
+}
+
+static int acq420_proc_open_OPENS(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_buffers = {
+	        .start = acq420_proc_seq_start_OPENS,
+	        .next = acq420_proc_seq_next_OPENS,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_buffers
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_buffers);
+}
 static struct file_operations acq420_proc_ops_dmac = {
         .owner = THIS_MODULE,
         .open = acq420_proc_open_dmac,
@@ -172,6 +296,29 @@ static struct file_operations acq420_proc_ops_buffers = {
         .release = seq_release
 };
 
+static struct file_operations acq420_proc_ops_EMPTIES = {
+        .owner = THIS_MODULE,
+        .open = acq420_proc_open_EMPTIES,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
+
+static struct file_operations acq420_proc_ops_REFILLS = {
+        .owner = THIS_MODULE,
+        .open = acq420_proc_open_REFILLS,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
+
+static struct file_operations acq420_proc_ops_OPENS = {
+        .owner = THIS_MODULE,
+        .open = acq420_proc_open_OPENS,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
 
 void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 /* create unique stats entry under /proc/acq420/ */
@@ -186,6 +333,18 @@ void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 	proc_entry = create_proc_entry("buffers", 0, acq420_dev->proc_entry);
 	if (proc_entry) {
 		proc_entry->proc_fops = &acq420_proc_ops_buffers;
+	}
+	proc_entry = create_proc_entry("EMPTIES", 0, acq420_dev->proc_entry);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops_EMPTIES;
+	}
+	proc_entry = create_proc_entry("REFILLS", 0, acq420_dev->proc_entry);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops_REFILLS;
+	}
+	proc_entry = create_proc_entry("OPENS", 0, acq420_dev->proc_entry);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops_OPENS;
 	}
 }
 
