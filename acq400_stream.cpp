@@ -95,6 +95,7 @@ void stream()
 		int ib = atoi(buf);
 		assert(ib >= 0);
 		assert(ib < nbuffers);
+//		fprintf(stderr, "%d %p\n", ib, buffers[ib].pdata);
 		write(1, buffers[ib].pdata, bufferlen);
 	}
 }

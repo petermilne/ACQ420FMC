@@ -53,34 +53,47 @@ static void acq420_proc_seq_stop(struct seq_file *s, void *v)
 
 static int acq420_proc_seq_show_dma(struct seq_file *s, void *v)
 {
-        struct acq420_dev *dev;
+        struct acq420_dev *adev = v;
 
-        dev = v;
-        if (mutex_lock_interruptible(&dev->mutex)) {
+        if (mutex_lock_interruptible(&adev->mutex)) {
                 return -EINTR;
         }
 
         seq_printf(s, "\nFIFO DMA Test:\n\n");
-        seq_printf(s, "Device Physical Address: 0x%0x\n", dev->dev_physaddr);
+        seq_printf(s, "Device Physical Address: 0x%0x\n", adev->dev_physaddr);
         seq_printf(s, "Device Virtual Address:  0x%0x\n",
-                (u32)dev->dev_virtaddr);
-        seq_printf(s, "Device Address Space:    %d bytes\n", dev->dev_addrsize);
-        seq_printf(s, "DMA Channel:             %d\n", dev->dma_channel);
-        seq_printf(s, "FIFO Depth:              %d bytes\n", dev->fifo_depth);
-        seq_printf(s, "Burst Length:            %d words\n", dev->burst_length);
+                (u32)adev->dev_virtaddr);
+        seq_printf(s, "Device Address Space:    %d bytes\n", adev->dev_addrsize);
+        seq_printf(s, "DMA Channel:             %d\n", adev->dma_channel);
+        seq_printf(s, "FIFO Depth:              %d bytes\n", adev->fifo_depth);
+        seq_printf(s, "Burst Length:            %d words\n", adev->burst_length);
         seq_printf(s, "\n");
-        seq_printf(s, "Opens:                   %d\n", dev->stats.opens);
-        seq_printf(s, "Writes:                  %d\n", dev->stats.writes);
-        seq_printf(s, "Bytes Written:           %d\n", dev->stats.bytes_written);
-        seq_printf(s, "Closes:                  %d\n", dev->stats.closes);
-        seq_printf(s, "Errors:                  %d\n", dev->stats.errors);
-        seq_printf(s, "Busy:                    %d\n", dev->busy);
+        seq_printf(s, "Opens:                   %d\n", adev->stats.opens);
+        seq_printf(s, "Writes:                  %d\n", adev->stats.writes);
+        seq_printf(s, "Bytes Written:           %d\n", adev->stats.bytes_written);
+        seq_printf(s, "Closes:                  %d\n", adev->stats.closes);
+        seq_printf(s, "Errors:                  %d\n", adev->stats.errors);
+        seq_printf(s, "Busy:                    %d\n", adev->busy);
         seq_printf(s, "\n");
 
-        mutex_unlock(&dev->mutex);
+        mutex_unlock(&adev->mutex);
         return 0;
 }
 
+static int acq420_proc_seq_show_stats(struct seq_file *s, void *v)
+{
+        struct acq420_dev *adev = v;
+
+        if (mutex_lock_interruptible(&adev->mutex)) {
+                return -EINTR;
+        }
+
+        seq_printf(s, "ngets=%d\nnputs=%d\n", adev->rt.nget, adev->rt.nput);
+        seq_printf(s, "refill_error=%d\nplease_stop=%d\n",
+        		adev->rt.refill_error, adev->rt.please_stop);
+        mutex_unlock(&adev->mutex);
+        return 0;
+}
 
 
 static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
@@ -99,6 +112,19 @@ static int acq420_proc_open_dmac(struct inode *inode, struct file *file)
 	        .next = acq420_proc_seq_next,
 	        .stop = acq420_proc_seq_stop,
 	        .show = acq420_proc_seq_show_dma
+	};
+
+	return intDevFromProcFile(file, &acq420_proc_seq_ops_dma);
+}
+
+static int acq420_proc_open_stats(struct inode *inode, struct file *file)
+{
+	/* SEQ operations for /proc */
+	static struct seq_operations acq420_proc_seq_ops_dma = {
+	        .start = acq420_proc_seq_start,
+	        .next = acq420_proc_seq_next,
+	        .stop = acq420_proc_seq_stop,
+	        .show = acq420_proc_seq_show_stats
 	};
 
 	return intDevFromProcFile(file, &acq420_proc_seq_ops_dma);
@@ -320,6 +346,13 @@ static struct file_operations acq420_proc_ops_OPENS = {
         .release = seq_release
 };
 
+static struct file_operations acq420_proc_ops_stats = {
+        .owner = THIS_MODULE,
+        .open = acq420_proc_open_stats,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
 void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 /* create unique stats entry under /proc/acq420/ */
 {
@@ -345,6 +378,10 @@ void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 	proc_entry = create_proc_entry("OPENS", 0, acq420_dev->proc_entry);
 	if (proc_entry) {
 		proc_entry->proc_fops = &acq420_proc_ops_OPENS;
+	}
+	proc_entry = create_proc_entry("stats", 0, acq420_dev->proc_entry);
+	if (proc_entry) {
+		proc_entry->proc_fops = &acq420_proc_ops_stats;
 	}
 }
 

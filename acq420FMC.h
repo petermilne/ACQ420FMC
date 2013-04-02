@@ -102,7 +102,9 @@
 #define ACQ420_MINOR_CHAN	200
 #define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
 
-#define BUFFER(minor) ((minor) > ACQ420_MINOR_BUF)
+#define IS_BUFFER(minor) \
+	((minor) >= ACQ420_MINOR_BUF && (minor) <= ACQ420_MINOR_BUF2)
+#define BUFFER(minor) 		((minor) - ACQ420_MINOR_BUF)
 
 /** acq420_dev one descriptor per device */
 struct acq420_dev {
@@ -156,7 +158,7 @@ struct acq420_dev {
 	struct list_head REFILLS;	/* full buffers waiting app  */
 	struct list_head OPENS;		/* buffers in use by app (1) */
 	struct HBM** hb;
-	int nbuffers;
+	int nbuffers;			/* number of buffers available */
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
@@ -165,9 +167,15 @@ struct acq420_dev {
 		int offset;
 	} cursor;
 	wait_queue_head_t refill_ready;
-	int refill_error;
 
 	unsigned *fifo_histo;
+
+	struct RUN_TIME {
+		int refill_error;
+		int please_stop;
+		unsigned nget;
+		unsigned nput;
+	} rt;
 };
 
 
@@ -200,4 +208,9 @@ u32 acq420rd32(struct acq420_dev *adev, int offset);
 int getHeadroom(struct acq420_dev *adev);
 
 #define MAXDMA	0x1000
+
+#define GET_FULL_OK		0
+#define GET_FULL_DONE 		1
+#define GET_FULL_REFILL_ERR	2
+
 #endif /* ACQ420FMC_H_ */

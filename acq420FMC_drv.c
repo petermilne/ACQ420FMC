@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.97"
+#define REVID "0.98"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -64,6 +64,10 @@ MODULE_PARM_DESC(hitide, "hitide value (words)");
 int lotide = HITIDE/4;
 module_param(lotide, int, 0644);
 MODULE_PARM_DESC(lotide, "lotide value (words)");
+
+int run_buffers = 0;
+module_param(run_buffers, int, 0644);
+MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -188,6 +192,7 @@ void getEmpty(struct acq420_dev* adev)
 		mutex_unlock(&adev->list_mutex);
 		adev->cursor.hb->bstate = BS_FILLING;
 		adev->cursor.offset = 0;
+		++adev->rt.nget;
 	} else {
 		dev_warn(&adev->pdev->dev, "get Empty: Q is EMPTY!\n");
 	}
@@ -198,7 +203,13 @@ void putFull(struct acq420_dev* adev)
 	mutex_lock(&adev->list_mutex);
 	adev->cursor.hb->bstate = BS_FULL;
 	list_add_tail(&adev->cursor.hb->list, &adev->REFILLS);
+	adev->cursor.hb = 0;
+	adev->cursor.offset = 0;
 	mutex_unlock(&adev->list_mutex);
+	++adev->rt.nput;
+	if (run_buffers && adev->rt.nput >= run_buffers){
+		adev->rt.please_stop = 1;
+	}
 }
 
 int getFull(struct acq420_dev* adev)
@@ -206,10 +217,14 @@ int getFull(struct acq420_dev* adev)
 	struct HBM *hbm;
 	if (wait_event_interruptible(
 			adev->refill_ready,
-			!list_empty(&adev->REFILLS) || adev->refill_error)){
+			!list_empty(&adev->REFILLS) ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop)){
 		return -EINTR;
-	} else if (adev->refill_error){
-		return 1;
+	} else if (adev->rt.please_stop){
+		return GET_FULL_DONE;
+	} else if (adev->rt.refill_error){
+		return GET_FULL_REFILL_ERR;
 	}
 
 	mutex_lock(&adev->list_mutex);
@@ -217,7 +232,7 @@ int getFull(struct acq420_dev* adev)
 	list_move_tail(&hbm->list, &adev->OPENS);
 	hbm->bstate = BS_FULL_APP;
 	mutex_unlock(&adev->list_mutex);
-	return 0;
+	return GET_FULL_OK;
 }
 
 void putEmpty(struct acq420_dev* adev)
@@ -302,6 +317,10 @@ int acq420_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
 	unsigned long psize = hb->len;
 	unsigned pfn = hb->pa >> PAGE_SHIFT;
 
+	if (!IS_BUFFER(PD(file)->minor)){
+		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
+		return -1;
+	}
 	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
 		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
 
@@ -371,6 +390,22 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
+
+#if 0
+	// @@todo .. attempt to recycle last buffer. BLOWS!
+	if (adev->cursor.hb){
+		mutex_lock(&adev->list_mutex);
+		dev_info(DEVP(adev), "recycle hb: %p\n", adev->cursor.hb);
+		dev_info(DEVP(adev), "recycle hb: [%d] va:%p pa:%08x\n",
+			adev->cursor.hb->ix, adev->cursor.hb->va, adev->cursor.hb->pa);
+		adev->cursor.hb->bstate = BS_EMPTY;
+		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
+		adev->cursor.hb = 0;
+		adev->cursor.offset = 0;
+		dev_info(DEVP(adev), "cleared cursor\n");
+		mutex_unlock(&adev->list_mutex);
+	}
+#endif
 	acq420_clear_histo(adev);
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
@@ -401,18 +436,24 @@ ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count
 	adev->count = count;
 	adev->this_count = 0;
 
+	if (adev->rt.please_stop){
+		return -1;		/* EOF ? */
+	}
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
-	if ((rc = getFull(adev)) != 0){
-		if (adev->refill_error){
-			dev_warn(DEVP(adev), "refill error\n");
-			adev->refill_error = 0;
-			return -1;
-		}else{
-			dev_warn(DEVP(adev), "interrupted\n");
-			return rc;
-		}
+	switch((rc = getFull(adev))){
+	case GET_FULL_OK:
+		break;
+	case GET_FULL_DONE:
+		dev_warn(DEVP(adev), "finished");
+		return -1;		/* finished  ret 0 WBN? */
+	case GET_FULL_REFILL_ERR:
+		dev_warn(DEVP(adev), "refill error\n");
+		return -1;
+	default:
+		dev_warn(DEVP(adev), "interrupted\n");
+		return rc;
 	}
 
 	if (list_empty(&adev->OPENS)){
@@ -450,6 +491,12 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 			list_move_tail(&cur->list, &adev->EMPTIES);
 		}
 	}
+	/* dangerous - causes DMA in flight to fail
+	if (adev->cursor.hb){
+		adev->cursor.hb->bstate = BS_EMPTY;
+		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
+		adev->cursor.hb = 0;
+	} */
 	mutex_unlock(&adev->list_mutex);
 
 	return acq420_release(inode, file);
@@ -620,6 +667,7 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 		goto fail_client_data;
 	}
 
+	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
@@ -789,10 +837,14 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 
 		bytes = min(bytes, headroom);
 
+		if (adev->rt.please_stop){
+			wake_up_interruptible(&adev->refill_ready);
+			return IRQ_HANDLED;
+		}
 		if (headroom == 0){
 			dev_info(DEVP(adev), "headroom==0, quit count:%d set error\n",
 					adev->this_count);
-			adev->refill_error = 1;
+			adev->rt.refill_error = 1;
 			wake_up_interruptible(&adev->refill_ready);
 			return IRQ_HANDLED;
 		}
