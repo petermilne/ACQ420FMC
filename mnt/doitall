@@ -4,8 +4,21 @@ do_it_one() {
 dd if=/dev/acq420.$1.c bs=65536 count=100000 of=/dev/null &
 }
 
-for dev in 0 1 2 3 4 5
+UUTS=$*
+if [ "$UUTS" = "" ]; then
+	UUTS="0 1 2 3 4 5"
+fi
+
+for dev in $UUTS
 do
 	do_it_one $dev
 done
+
+trap "kill 0" INT
+
+for dev in $UUTS
+do
+	wait
+done
+
 

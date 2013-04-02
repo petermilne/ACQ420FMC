@@ -1,6 +1,7 @@
 #!/bin/sh
 
 NSAM=4194304
+BLEN=262144
 
 build_hb() {
 	MAJOR=$1
@@ -61,7 +62,7 @@ if [ $notloaded -ne 0 ]; then
 
 	mount -t debugfs none /sys/kernel/debug/
 	echo file acq420FMC_drv.c +p > /sys/kernel/debug/dynamic_debug/control
-	insmod /lib/modules/d-tacq/acq420FMC.ko
+	insmod /lib/modules/d-tacq/acq420FMC.ko bufferlen=$BLEN
 	grep acq420 /proc/devices |  build_nodes
 	build_knobs
 fi

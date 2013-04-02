@@ -1,0 +1,12 @@
+UUT=${UUT:-0}
+HB="${*:-00}"
+
+export PATH=$PATH:/mnt
+
+for hb in $HB
+do
+	echo $hb
+	mmap -f /dev/acq420.$UUT.hb/$hb -l 65536 | hd32 | head
+	mmap -f /dev/acq420.$UUT.hb/$hb -l 65536 | hd32 | tail
+done
+
