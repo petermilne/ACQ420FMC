@@ -334,11 +334,17 @@ int acq420_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
 		return 0;
 	}
 }
+
+
 int acq420_open_hb(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq420_fops_dma = {
 		.open = acq420_dma_open,
-		.mmap = acq420_dma_mmap_host
+		.mmap = acq420_dma_mmap_host,
+		// sendfile method is no more.. it's probably not quite this easy ..
+		// sure enough, it's not !
+		// most likely the HB's have to be on a block device ..
+		.splice_read	= generic_file_splice_read
 	};
 	file->f_op = &acq420_fops_dma;
 	if (file->f_op->open){

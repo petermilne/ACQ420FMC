@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <sys/types.h>
+#include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -50,35 +51,77 @@ unsigned int bufferlen;
 int devnum = 0;
 
 int control_handle;
+int use_sendfile;
 
 struct Buffer {
 	int fd;
 	void *pdata;
 	const char* fname;
+	int buffer_len;
+
+	virtual int writeBuffer(int out_fd) {
+		return write(out_fd, pdata, buffer_len);
+	}
+
+	Buffer(const char* _fname, int _buffer_len, bool mapme = true) :
+		fname(_fname),
+		buffer_len(_buffer_len)
+	{
+		fd = open(fname, O_RDONLY);
+		assert(fd > 0);
+
+		if (mapme){
+			pdata = mmap(0, bufferlen, PROT_READ, MAP_SHARED, fd, 0);
+			assert(pdata != MAP_FAILED);
+		} else {
+			pdata = 0;
+		}
+	}
+
+	static Buffer* create(const char* root, int ibuf, int _buffer_len);
 };
 
-Buffer* buffers;
+struct TurboBuffer : public Buffer {
+	virtual int writeBuffer(int out_fd) {
+		return sendfile(out_fd, fd, 0, buffer_len);
+	}
+	TurboBuffer(const char* _fname, int _buffer_len) :
+		Buffer(_fname, _buffer_len, false)
+	{}
+};
+
+
+Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
+{
+	char* fname = new char[128];
+	sprintf(fname, "%s.hb/%02d", root, ibuf);
+
+	if (use_sendfile){
+		return new TurboBuffer(fname, _buffer_len);
+	} else {
+		return new Buffer(fname, _buffer_len);
+	}
+}
+
+Buffer** buffers;
 const char* root;
 
 void init() {
 	assert(getKnob(PROOT"/nbuffers", &nbuffers) > 0);
 	assert(getKnob(PROOT"/bufferlen", &bufferlen) > 0);
 
-	buffers = new Buffer[nbuffers];
+	if (getenv("ACQ400_WRBUFLEN")){
+		bufferlen = atol(getenv("ACQ400_WRBUFLEN"));
+	}
+
+	buffers = new Buffer* [nbuffers];
 
 	char *_root = new char [128];
 	sprintf(_root, "/dev/acq420.%d", devnum);
 	root = _root;
 
 	for (int ii = 0; ii < nbuffers; ++ii){
-		char* fname = new char[128];
-		sprintf(fname, "%s.hb/%02d", root, ii);
-		buffers[ii].fd = open(fname, O_RDONLY);
-		assert(buffers[ii].fd > 0);
-		buffers[ii].pdata = mmap(0, bufferlen, PROT_READ,
-				MAP_SHARED, buffers[ii].fd, 0);
-		assert(buffers[ii].pdata != MAP_FAILED);
-		buffers[ii].fname = fname;
+		buffers[ii] = Buffer::create(root, ii, bufferlen);
 	}
 }
 
@@ -95,8 +138,7 @@ void stream()
 		int ib = atoi(buf);
 		assert(ib >= 0);
 		assert(ib < nbuffers);
-//		fprintf(stderr, "%d %p\n", ib, buffers[ib].pdata);
-		write(1, buffers[ib].pdata, bufferlen);
+		buffers[ib]->writeBuffer(1);
 	}
 }
 
@@ -105,14 +147,13 @@ int main(int argc, char* argv[])
 	if (getenv("ACQ400_DEVNUM")){
 		devnum = atol(getenv("ACQ400_DEVNUM"));
 	}
+	if (getenv("ACQ400_SENDFILE")){
+		use_sendfile = atol(getenv("ACQ400_SENDFILE"));
+	}
 	if (argc > 1){
 		devnum = atoi(argv[1]);
 	}
 	init();
-
-	if (getenv("ACQ400_WRBUFLEN")){
-		bufferlen = atol(getenv("ACQ400_WRBUFLEN"));
-	}
 	stream();
 	return 0;
 }
