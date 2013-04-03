@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.98"
+#define REVID "0.99"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -182,7 +182,7 @@ static void acq420_force_interrupt(int interrupt)
 }
 */
 
-void getEmpty(struct acq420_dev* adev)
+int getEmpty(struct acq420_dev* adev)
 {
 	if (!list_empty(&adev->EMPTIES)){
 		mutex_lock(&adev->list_mutex);
@@ -193,8 +193,10 @@ void getEmpty(struct acq420_dev* adev)
 		adev->cursor.hb->bstate = BS_FILLING;
 		adev->cursor.offset = 0;
 		++adev->rt.nget;
+		return 0;
 	} else {
 		dev_warn(&adev->pdev->dev, "get Empty: Q is EMPTY!\n");
+		return -1;
 	}
 }
 
@@ -248,10 +250,14 @@ int getHeadroom(struct acq420_dev* adev)
 {
 	if (!adev->oneshot){
 		if (adev->cursor.hb == 0){
-			getEmpty(adev);
+			if (getEmpty(adev)){
+				return 0;
+			}
 		} else if (adev->cursor.offset >= adev->cursor.hb->len){
 			putFull(adev);
-			getEmpty(adev);
+			if (getEmpty(adev)){
+				return 0;
+			}
 		}
 	}
 	return adev->cursor.hb->len - adev->cursor.offset;
@@ -412,6 +418,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->list_mutex);
 	}
 #endif
+	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
