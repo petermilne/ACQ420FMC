@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "popt.h"
 
 #define PROOT	"/sys/module/acq420FMC/parameters"
 
@@ -51,44 +52,88 @@ unsigned int bufferlen;
 int devnum = 0;
 
 int control_handle;
-int use_sendfile;
 
-struct Buffer {
+#define BM_NULL	'n'
+#define BM_SENDFILE 's'
+int buffer_mode;
+
+int verbose;
+
+class Buffer {
+
+protected:
 	int fd;
-	void *pdata;
 	const char* fname;
 	int buffer_len;
 
-	virtual int writeBuffer(int out_fd) {
-		return write(out_fd, pdata, buffer_len);
-	}
+public:
+	virtual int writeBuffer(int out_fd) = 0;
 
-	Buffer(const char* _fname, int _buffer_len, bool mapme = true) :
+	Buffer(const char* _fname, int _buffer_len):
 		fname(_fname),
 		buffer_len(_buffer_len)
 	{
 		fd = open(fname, O_RDONLY);
 		assert(fd > 0);
-
-		if (mapme){
-			pdata = mmap(0, bufferlen, PROT_READ, MAP_SHARED, fd, 0);
-			assert(pdata != MAP_FAILED);
-		} else {
-			pdata = 0;
-		}
 	}
-
 	static Buffer* create(const char* root, int ibuf, int _buffer_len);
 };
 
-struct TurboBuffer : public Buffer {
+class NullBuffer: public Buffer {
+public:
+	NullBuffer(const char* _fname, int _buffer_len):
+		Buffer(_fname, _buffer_len)
+	{}
 	virtual int writeBuffer(int out_fd) {
-		return sendfile(out_fd, fd, 0, buffer_len);
+		return buffer_len;
+	}
+};
+class MapBuffer: public Buffer {
+private:
+	void *pdata;
+
+public:
+	virtual int writeBuffer(int out_fd) {
+		return write(out_fd, pdata, buffer_len);
+	}
+
+	MapBuffer(const char* _fname, int _buffer_len) :
+		Buffer(_fname, _buffer_len)
+	{
+		pdata = mmap(0, bufferlen, PROT_READ, MAP_SHARED, fd, 0);
+		assert(pdata != MAP_FAILED);
+	}
+};
+
+class TurboBuffer : public Buffer {
+private:
+	static int fake_fd;
+public:
+	virtual int writeBuffer(int out_fd) {
+		// driver doesn't do sendfile yet .. fake it.
+		lseek(fake_fd, 0, SEEK_SET);
+		return sendfile(out_fd, fake_fd, 0, buffer_len);
 	}
 	TurboBuffer(const char* _fname, int _buffer_len) :
-		Buffer(_fname, _buffer_len, false)
-	{}
+		Buffer(_fname, _buffer_len)
+	{
+		if (!fake_fd){
+			FILE* fp = fopen("/tmp/fakeit", "w");
+			assert(fp != 0);
+
+			int imax = bufferlen/sizeof(unsigned);
+
+			for (int cursor = 0; cursor < imax; ++cursor){
+				fwrite(&cursor, sizeof(cursor), 1, fp);
+			}
+			fclose(fp);
+			fake_fd = open("/tmp/fakeit", O_RDONLY);
+			assert(fake_fd >= 0);
+		}
+	}
 };
+
+int TurboBuffer::fake_fd;
 
 
 Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
@@ -96,24 +141,50 @@ Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 	char* fname = new char[128];
 	sprintf(fname, "%s.hb/%02d", root, ibuf);
 
-	if (use_sendfile){
+	switch(buffer_mode){
+	case BM_NULL:
+		return new NullBuffer(fname, _buffer_len);
+	case BM_SENDFILE:
 		return new TurboBuffer(fname, _buffer_len);
-	} else {
-		return new Buffer(fname, _buffer_len);
+	default:
+		return new MapBuffer(fname, _buffer_len);
 	}
 }
 
 Buffer** buffers;
 const char* root;
 
-void init() {
+struct poptOption opt_table[] = {
+	{ "wrbuflen", 0, POPT_ARG_INT, &bufferlen, 0, 	"reduce buffer len"	},
+	{ "null-copy", 0, POPT_ARG_NONE, 0, 'n', 	"no output copy"	},
+	{ "sendfile",  0, POPT_ARG_NONE, 0, 's',
+			"use sendfile to transmit (fake)"			},
+	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"		},
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
+
+void init(int argc, const char** argv) {
 	assert(getKnob(PROOT"/nbuffers", &nbuffers) > 0);
 	assert(getKnob(PROOT"/bufferlen", &bufferlen) > 0);
 
-	if (getenv("ACQ400_WRBUFLEN")){
-		bufferlen = atol(getenv("ACQ400_WRBUFLEN"));
+	poptContext opt_context =
+			poptGetContext(argv[0], argc, argv, opt_table, 0);
+	int rc;
+	while ( (rc = poptGetNextOpt( opt_context )) > 0 ){
+		switch(rc){
+		case 'n':
+			buffer_mode = BM_NULL;
+			break;
+		case 's':
+			buffer_mode = BM_SENDFILE;
+			break;
+		}
 	}
-
+	const char* devc = poptGetArg(opt_context);
+	if (devc){
+		devnum = atoi(devc);
+	}
 	buffers = new Buffer* [nbuffers];
 
 	char *_root = new char [128];
@@ -133,27 +204,23 @@ void stream()
 	assert(fc > 0);
 
 	char buf[80];
+	int rc;
 
-	while(read(fc, buf, 80) > 0){
+	while((rc = read(fc, buf, 80)) > 0){
+		buf[rc] = '\0';
 		int ib = atoi(buf);
 		assert(ib >= 0);
 		assert(ib < nbuffers);
+		if (verbose){
+			fprintf(stderr, "%s", buf);
+		}
 		buffers[ib]->writeBuffer(1);
 	}
 }
 
-int main(int argc, char* argv[])
+int main(int argc, const char** argv)
 {
-	if (getenv("ACQ400_DEVNUM")){
-		devnum = atol(getenv("ACQ400_DEVNUM"));
-	}
-	if (getenv("ACQ400_SENDFILE")){
-		use_sendfile = atol(getenv("ACQ400_SENDFILE"));
-	}
-	if (argc > 1){
-		devnum = atoi(argv[1]);
-	}
-	init();
+	init(argc, argv);
 	stream();
 	return 0;
 }
