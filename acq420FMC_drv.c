@@ -69,6 +69,9 @@ int run_buffers = 0;
 module_param(run_buffers, int, 0644);
 MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)");
 
+int FIFERR = ALG_STATUS_FIFO_ERR;
+module_param(FIFERR, int, 0644);
+MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
@@ -172,6 +175,17 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 static void acq420_clear_histo(struct acq420_dev *adev)
 {
 	memset(adev->fifo_histo, 0, DATA_FIFO_SZ*sizeof(u32));
+}
+
+int acq420_isFifoError(struct acq420_dev *adev)
+{
+	u32 fifsta = acq420rd32(adev, ALG_STATUS);
+	int err = (fifsta&FIFERR) != 0;
+	if (err){
+		dev_warn(DEVP(adev), "FIFERR mask:%08x actual:%08x\n",
+				FIFERR, fifsta);
+	}
+	return err;
 }
 /*
 static void acq420_force_interrupt(int interrupt)
@@ -879,6 +893,11 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 			adev->this_count += bytes;
 		}
 		status = acq420_get_fifo_samples(adev);
+		if (acq420_isFifoError(adev)){
+			adev->rt.refill_error = 1;
+			wake_up_interruptible(&adev->refill_ready);
+			return IRQ_HANDLED;
+		}
 	} while(status >= lotide);
 
 	acq420_enable_interrupt(adev);
