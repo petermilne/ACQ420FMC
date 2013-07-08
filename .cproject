@@ -382,7 +382,7 @@
 						<buildArguments/>
 						<buildTarget>zynq</buildTarget>
 						<stopOnError>true</stopOnError>
-						<useDefaultCommand>true</useDefaultCommand>
+						<useDefaultCommand>false</useDefaultCommand>
 						<runAllBuilders>true</runAllBuilders>
 					</target>
 				</buildTargets>

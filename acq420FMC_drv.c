@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.99"
+#define REVID "0.993"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -380,7 +380,7 @@ ssize_t acq420_histo_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	unsigned *the_histo = ACQ420_DEV(file)->fifo_histo;
-	int maxentries = DATA_FIFO_SZ+1;
+	int maxentries = DATA_FIFO_SZ;
 	unsigned cursor = *f_pos;	/* f_pos counts in entries */
 	int rc;
 
@@ -432,6 +432,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->list_mutex);
 	}
 #endif
+	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
 	acq420_enable_fifo(adev);
@@ -528,6 +529,43 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 
 	return acq420_release(inode, file);
 }
+
+ssize_t acq420_hb0_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+	char HB0[16];
+
+	int rc;
+	/* force wait until next .. this is very conservative, we could
+	 * stash the hb0 in DESCR for use between calls.
+	 * But this way is self-regulating. This is for human monitor,
+	 * not an attempt to handle ALL the data
+	 */
+	unsigned hb0_count = adev->rt.hb0_count;
+
+	if (wait_event_interruptible(
+			adev->hb0_marker,
+			adev->rt.hb0_count != hb0_count ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop)){
+		return -EINTR;
+	} else if (adev->rt.please_stop){
+		return -GET_FULL_DONE;
+	} else if (adev->rt.refill_error){
+		return -GET_FULL_REFILL_ERR;
+	}
+	sprintf(HB0, "%02d\n", adev->rt.hb0_ix);
+	count = min(count, strlen(HB0));
+	rc = copy_to_user(buf, HB0, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
 int acq420_null_release(struct inode *inode, struct file *file)
 {
 	return 0;
@@ -565,6 +603,20 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 	}
 }
 
+int acq420_open_hb0(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_fops_histo = {
+			.read = acq420_hb0_read,
+			.release = acq420_null_release
+	};
+	file->f_op = &acq420_fops_histo;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
 int acq420_open(struct inode *inode, struct file *file)
 {
 
@@ -588,6 +640,8 @@ int acq420_open(struct inode *inode, struct file *file)
         		return acq420_open_continuous(inode, file);
         	case ACQ420_MINOR_HISTO:
         		return acq420_open_histo(inode, file);
+        	case ACQ420_MINOR_HB0:
+        		return acq420_open_hb0(inode, file);
         	case ACQ420_MINOR_0:
         		return acq420_open_main(inode, file);
         	default:
@@ -866,6 +920,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 
 		if (adev->rt.please_stop){
 			wake_up_interruptible(&adev->refill_ready);
+			wake_up_interruptible(&adev->hb0_marker);
 			return IRQ_HANDLED;
 		}
 		if (headroom == 0){
@@ -873,6 +928,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 					adev->this_count);
 			adev->rt.refill_error = 1;
 			wake_up_interruptible(&adev->refill_ready);
+			wake_up_interruptible(&adev->hb0_marker);
 			return IRQ_HANDLED;
 		}
 
@@ -888,6 +944,12 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		/* Wait for Completion*/
 		wait_event_interruptible(adev->waitq, adev->busy == 0);
 		wake_up_interruptible(&adev->refill_ready);
+		if (adev->cursor.hb->ix == 0){
+			adev->rt.hb0_count++;
+			// in the future, we could mask in more buffers .. */
+			adev->rt.hb0_ix = adev->cursor.hb->ix;
+			wake_up_interruptible(&adev->hb0_marker);
+		}
 		adev->cursor.offset += bytes;
 		if (adev->oneshot){
 			adev->this_count += bytes;
@@ -1018,6 +1080,7 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
         }
         init_waitqueue_head(&adev->waitq);
         init_waitqueue_head(&adev->refill_ready);
+        init_waitqueue_head(&adev->hb0_marker);
 
         adev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
         adev->pdev = pdev;

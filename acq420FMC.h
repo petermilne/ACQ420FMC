@@ -60,10 +60,10 @@
 
 #define ALG_ADC_CONV_TIME 	(ALG_BASE+0x4C) /*(mask 0x000000FF)*/
 
-#define ALG_HITIDE_MASK		0x0000fff
+#define ALG_HITIDE_MASK		0x0007fff
 
-#define DATA_FIFO_SZ	      	255
-#define STATUS_TO_HISTO(stat)	(((stat)&ALG_HITIDE_MASK)>>4)
+#define DATA_FIFO_SZ	      	256
+#define STATUS_TO_HISTO(stat)	(((stat)&ALG_HITIDE_MASK)>>7)
 
 #define ALG_CTRL_RAMP_ENABLE 	(1 << 5)
 #define ALG_CTRL_ADC_ENABLE	(1 << 4)
@@ -103,6 +103,7 @@
 #define ACQ420_MINOR_0	        0
 #define ACQ420_MINOR_CONTINUOUS	1
 #define ACQ420_MINOR_HISTO	2
+#define ACQ420_MINOR_HB0	3	// block on HB0 fill
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -174,6 +175,7 @@ struct acq420_dev {
 		int offset;
 	} cursor;
 	wait_queue_head_t refill_ready;
+	wait_queue_head_t hb0_marker;
 
 	unsigned *fifo_histo;
 
@@ -182,6 +184,8 @@ struct acq420_dev {
 		int please_stop;
 		unsigned nget;
 		unsigned nput;
+		unsigned hb0_count;
+		unsigned hb0_ix;
 	} rt;
 };
 
