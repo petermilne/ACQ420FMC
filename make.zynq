@@ -1,4 +1,5 @@
 #!/bin/bash
+
+STUFF=${*:-all}
 export CROSS_COMPILE=arm-xilinx-linux-gnueabi-
-make ARCH=arm modules
-CC=arm-xilinx-linux-gnueabi-gcc CXX=arm-xilinx-linux-gnueabi-g++ make apps
+CC=${CROSS_COMPILE}gcc CXX=${CROSS_COMPILE}g++ make ARCH=arm ${STUFF}
