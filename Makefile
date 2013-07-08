@@ -2,11 +2,20 @@
 KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
 obj-m := acq420FMC.o
 
+DC=$(shell date +%y%m%d%H%M%S)
+SEQ=10
 
 acq420FMC-objs := acq420FMC_drv.o acq420_sysfs.o acq420_proc.o hbm.o
 
 all: modules apps
 	
+date:
+	echo $(DC)
+
+package: all
+	cp mmap acq400_stream opkg/usr/local/bin
+	cp *.ko opkg/usr/local/lib/modules
+	tar cvzf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 
 apps: mmap acq400_stream
 
