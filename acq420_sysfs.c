@@ -147,6 +147,76 @@ static ssize_t store_gains(
 
 static DEVICE_ATTR(gains, S_IRUGO|S_IWUGO, show_gains, store_gains);
 
+
+static ssize_t show_gain(
+	int chan,
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+
+	return sprintf(buf, "%u\n", get_gain(gains, chan));
+}
+
+static ssize_t store_gain(
+		int chan,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count)
+{
+	char gx;
+
+	if (sscanf(buf, "%c", &gx) == 1){
+		u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+		if (gx >= '0' && gx <= '3'){
+			gains = set_gain(gains, chan, gx-'0');
+		}else{
+			switch(gx) {
+			case '-':
+			case 'x':
+			case 'X':
+				break;
+			default:
+				dev_warn(dev, "bad value at %c at %d", gx, chan);
+			}
+		}
+
+		dev_dbg(dev, "set gain: %02x", gains);
+		acq420wr32(acq420_devices[dev->id], ALG_GAIN, gains);
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+#define MAKE_GAIN(CH)							\
+static ssize_t show_gain##CH(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_gain(CH - 1, dev, attr, buf);			\
+}									\
+									\
+static ssize_t store_gain##CH(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_gain(CH - 1, dev, attr, buf, count);		\
+}									\
+static DEVICE_ATTR(gain##CH, S_IRUGO|S_IWUGO, show_gain##CH, store_gain##CH)
+
+MAKE_GAIN(1);
+MAKE_GAIN(2);
+MAKE_GAIN(3);
+MAKE_GAIN(4);
+
+
 static ssize_t show_simulate(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -211,6 +281,10 @@ void acq420_createSysfs(struct device *dev)
 	DEVICE_CREATE_FILE(dev, &dev_attr_gains);
 	DEVICE_CREATE_FILE(dev, &dev_attr_simulate);
 	DEVICE_CREATE_FILE(dev, &dev_attr_stats);
+	DEVICE_CREATE_FILE(dev, &dev_attr_gain1);
+	DEVICE_CREATE_FILE(dev, &dev_attr_gain2);
+	DEVICE_CREATE_FILE(dev, &dev_attr_gain3);
+	DEVICE_CREATE_FILE(dev, &dev_attr_gain4);
 }
 
 void acq420_delSysfs(struct device *dev)
@@ -219,6 +293,10 @@ void acq420_delSysfs(struct device *dev)
 	device_remove_file(dev, &dev_attr_gains);
 	device_remove_file(dev, &dev_attr_simulate);
 	device_remove_file(dev, &dev_attr_stats);
+	device_remove_file(dev, &dev_attr_gain1);
+	device_remove_file(dev, &dev_attr_gain2);
+	device_remove_file(dev, &dev_attr_gain3);
+	device_remove_file(dev, &dev_attr_gain4);
 }
 
 
