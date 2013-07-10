@@ -218,7 +218,7 @@ u32 acq420rd32(struct acq420_dev *adev, int offset);
 
 int getHeadroom(struct acq420_dev *adev);
 
-#define MAXDMA	0x1000
+#define MAXDMA	0x4000
 
 #define GET_FULL_OK		0
 #define GET_FULL_DONE 		1

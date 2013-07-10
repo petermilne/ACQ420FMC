@@ -61,7 +61,7 @@ int hitide = HITIDE;
 module_param(hitide, int, 0644);
 MODULE_PARM_DESC(hitide, "hitide value (words)");
 
-int lotide = HITIDE/4;
+int lotide = HITIDE-4;
 module_param(lotide, int, 0644);
 MODULE_PARM_DESC(lotide, "lotide value (words)");
 
