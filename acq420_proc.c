@@ -353,6 +353,18 @@ static struct file_operations acq420_proc_ops_stats = {
         .llseek = seq_lseek,
         .release = seq_release
 };
+
+
+static int dma0_proc_read(
+	char *buf, char **start, off_t offset, int len, int* eof, void* data )
+{
+	unsigned *bp = (unsigned*)buf;
+	int ii;
+	for (ii = 0; ii < 16; ++ii){
+		*bp++ = ii;
+	}
+	return ii*sizeof(unsigned);
+}
 void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 /* create unique stats entry under /proc/acq420/ */
 {
@@ -383,6 +395,8 @@ void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 	if (proc_entry) {
 		proc_entry->proc_fops = &acq420_proc_ops_stats;
 	}
+
+	create_proc_read_entry("dmac0", 0, acq420_dev->proc_entry, dma0_proc_read, 0);
 }
 
 void acq420_del_proc(struct acq420_dev* acq420_dev)
