@@ -32,7 +32,8 @@
 #include <asm/dma.h>
 #include <asm/mach/dma.h>
 #include <asm/io.h>
-#include <mach/pl330.h>
+//#include <mach/pl330.h>
+#include <linux/amba/pl330.h>
 #include <linux/of.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */

@@ -407,11 +407,13 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 
 	adev->oneshot = 0;
 
+#ifdef PGMCOMOUT
 	if (request_dma(adev->dma_channel, MODULE_NAME)) {
 		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
 			adev->dma_channel);
 		return -EBUSY;
 	}
+#endif
 
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
@@ -504,9 +506,9 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	struct acq420_dev *adev = ACQ420_DEV(file);
 	acq420_reset_fifo(adev);
 	acq420_disable_fifo(adev);
-
+#ifdef PGMCOMOUT
 	free_dma(adev->dma_channel);
-
+#endif
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
@@ -741,12 +743,14 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	adev->cursor.hb = &hbm;
 	adev->cursor.offset = 0;
 
+#ifdef PGMCOMOUT
 	if (request_dma(adev->dma_channel, MODULE_NAME)) {
 		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
 			adev->dma_channel);
 		rc = -EBUSY;
 		goto fail_client_data;
 	}
+#endif
 
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
@@ -772,9 +776,9 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	acq420_disable_fifo(adev);
 
 	copy_to_user(buf, hbm.va, count);
-
+#ifdef PGMCOMOUT
 	free_dma(adev->dma_channel);
-
+#endif
 	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
 	adev->cursor.hb = 0;
 	return count;
@@ -816,11 +820,13 @@ int acq420_mmap_bar(struct file* file, struct vm_area_struct* vma)
 
 static void init_dmac_consts(struct acq420_dev *adev)
 {
+#ifdef PGMCOMOUT
 	set_dma_mode(adev->dma_channel, DMA_MODE_READ);
 	set_pl330_client_data(adev->dma_channel, adev->client_data);
 	set_pl330_done_callback(adev->dma_channel, acq420_done_callback, adev);
 	set_pl330_fault_callback(adev->dma_channel, acq420_fault_callback, adev);
 	set_pl330_incr_dev_addr(adev->dma_channel, 0);
+#endif
 }
 
 static void add_fifo_histo(struct acq420_dev *adev, u32 status)
@@ -853,11 +859,16 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		}
 
 		adev->busy = 1;
+#ifdef PGMCOMOUT
 		init_dmac_consts(adev);		/* @@todo move this out the loop */
 		set_dma_addr(adev->dma_channel, adev->cursor.hb->pa + adev->cursor.offset);
 		set_dma_count(adev->dma_channel, (size_t)bytes);
 		enable_dma(adev->dma_channel);
 
+
+		dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
+			void *dest, void *src, size_t len);
+#endif
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
 
@@ -918,7 +929,7 @@ struct file_operations acq420_fops = {
 
 
 #ifdef CONFIG_OF
-static struct of_device_id xfifodma_of_match[] __devinitdata = {
+static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,ACQ420_FMC", },
         { /* end of table */}
 };
@@ -929,6 +940,7 @@ MODULE_DEVICE_TABLE(of, xfifodma_of_match);
 
 static int acq420_init_pl330(struct acq420_dev* acq420_dev)
 {
+#ifdef PGMCOMOUT
         acq420_dev->client_data =
         	kzalloc(sizeof(struct pl330_client_data), GFP_KERNEL);
 
@@ -944,6 +956,7 @@ static int acq420_init_pl330(struct acq420_dev* acq420_dev)
         acq420_dev->client_data->mem_bus_des.burst_size = 4;
         acq420_dev->client_data->mem_bus_des.burst_len =
                 acq420_dev->burst_length;
+#endif
         return 0;
 }
 

@@ -358,12 +358,19 @@ static struct file_operations acq420_proc_ops_stats = {
 static int dma0_proc_read(
 	char *buf, char **start, off_t offset, int len, int* eof, void* data )
 {
-	unsigned *bp = (unsigned*)buf;
-	int ii;
-	for (ii = 0; ii < 16; ++ii){
-		*bp++ = ii;
+#ifdef PGMCOMOUT
+	unsigned nbytes;
+	char *prog = get_pl330_dma_program(0, &nbytes);
+
+	if (prog != NULL && nbytes > 0){
+		memcpy(buf, prog, nbytes);
+		return nbytes;
+	}else{
+		return -1;
 	}
-	return ii*sizeof(unsigned);
+#else
+	return -1;
+#endif
 }
 void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
 /* create unique stats entry under /proc/acq420/ */
