@@ -64,9 +64,9 @@ static int acq420_proc_seq_show_dma(struct seq_file *s, void *v)
         seq_printf(s, "Device Virtual Address:  0x%0x\n",
                 (u32)adev->dev_virtaddr);
         seq_printf(s, "Device Address Space:    %d bytes\n", adev->dev_addrsize);
-        seq_printf(s, "DMA Channel:             %d\n", adev->dma_channel);
-        seq_printf(s, "FIFO Depth:              %d bytes\n", adev->fifo_depth);
-        seq_printf(s, "Burst Length:            %d words\n", adev->burst_length);
+        seq_printf(s, "DMA Channel:             %d\n", adev->of_prams.dma_channel);
+        seq_printf(s, "FIFO Depth:              %d bytes\n", adev->of_prams.fifo_depth);
+        seq_printf(s, "Burst Length:            %d words\n", adev->of_prams.burst_length);
         seq_printf(s, "\n");
         seq_printf(s, "Opens:                   %d\n", adev->stats.opens);
         seq_printf(s, "Writes:                  %d\n", adev->stats.writes);

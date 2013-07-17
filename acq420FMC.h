@@ -126,10 +126,13 @@ struct acq420_dev {
 
 	struct pl330_client_data *client_data;
 
-	u32 dma_channel;
-	u32 fifo_depth;
-	u32 burst_length;
-	u32 irq;		/* device IRQ number	*/
+	struct OF_PRAMS {
+		u32 dma_channel;
+		u32 fifo_depth;
+		u32 burst_length;
+		u32 irq;
+	} of_prams;
+
 	u32 DMA_READY;
 
 	/* Current DMA buffer information */

@@ -730,7 +730,7 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	adev->busy = 1;
 
 	/** @@todo pgm: in a streaming system, preallocate streaming dma buffers (not coherent) */
-	/* Allocate a DMA buffer for the transfer */
+	/* Allocate a DMA buffer for the transfer this is INSANE FIXME! */
 
 	hbm.va = dma_zalloc_coherent(DEVP(adev), count, &hbm.pa, GFP_KERNEL);
 	if (!hbm.va) {
@@ -782,8 +782,9 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
 	adev->cursor.hb = 0;
 	return count;
-
+#ifdef PGMCOMOUT
 fail_client_data:
+#endif
 	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
 
 fail_buffer:
@@ -968,37 +969,37 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
         	u32 irqs[OF_IRQ_COUNT];
 
                 if (of_property_read_u32(of_node, "dma-channel",
-                        &adev->dma_channel) < 0) {
+                        &adev->of_prams.dma_channel) < 0) {
                         dev_warn(DEVP(adev),
                         	"DMA channel unspecified - assuming 0\n");
-                        adev->dma_channel = 0;
+                        adev->of_prams.dma_channel = 0;
                 }
-                dev_dbg(DEVP(adev),
-                        "read DMA channel is %d\n", adev->dma_channel);
+                dev_info(DEVP(adev),
+                        "read DMA channel is %d\n", adev->of_prams.dma_channel);
 
                 if (of_property_read_u32(of_node, "fifo-depth",
-                        &adev->fifo_depth) < 0) {
+                        &adev->of_prams.fifo_depth) < 0) {
                         dev_warn(DEVP(adev),
                                 "depth unspecified, assuming 0xffffffff\n");
-                        adev->fifo_depth = 0xffffffff;
+                        adev->of_prams.fifo_depth = 0xffffffff;
                 }
-                dev_dbg(DEVP(adev),
-                		"DMA fifo depth is %d\n", adev->fifo_depth);
+                dev_info(DEVP(adev),
+                		"DMA fifo depth is %d\n", adev->of_prams.fifo_depth);
 
                 if (of_property_read_u32(of_node, "burst-length",
-                        &adev->burst_length) < 0) {
+                        &adev->of_prams.burst_length) < 0) {
                         dev_warn(DEVP(adev),
                                 "burst length unspecified - assuming 1\n");
-                        adev->burst_length = 1;
+                        adev->of_prams.burst_length = 1;
                 }
-                dev_dbg(DEVP(adev), "DMA burst length is %d\n",
-                        adev->burst_length);
+                dev_info(DEVP(adev), "DMA burst length is %d\n",
+                        adev->of_prams.burst_length);
 
                 if (of_property_read_u32_array(
                 		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
                 	dev_warn(DEVP(adev), "failed to find IRQ values");
                 }else{
-                	adev->irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
+                	adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
                 	//irqs[OF_IRQ_STATUS]
                 }
         }
@@ -1015,7 +1016,7 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
         init_waitqueue_head(&adev->refill_ready);
         init_waitqueue_head(&adev->hb0_marker);
 
-        adev->irq = ADC_HT_INT; /* @@todo should come from device tree? */
+
         adev->pdev = pdev;
         mutex_init(&adev->mutex);
         adev->fifo_histo = kzalloc(DATA_FIFO_SZ*sizeof(u32), GFP_KERNEL);
@@ -1049,6 +1050,11 @@ static int acq420_probe(struct platform_device *pdev)
         }
 
         acq420_device_tree_init(adev);
+
+        if (adev->of_prams.irq == 0){
+        	adev->of_prams.irq = ADC_HT_INT; /* @@todo should come from device tree? */
+        	dev_warn(&pdev->dev, "Using default IRQ %d", adev->of_prams.irq);
+        }
 
         status = alloc_chrdev_region(&adev->devno,
         		ACQ420_MINOR_0, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
@@ -1085,14 +1091,14 @@ static int acq420_probe(struct platform_device *pdev)
         acq420_init_proc(adev, ndevices);
 
         status = devm_request_threaded_irq(
-        		DEVP(adev), adev->irq,
+        		DEVP(adev), adev->of_prams.irq,
         		acq420_int_handler, fire_dma,
         		IRQF_SHARED, acq420_devnames[DEVP(adev)->id],
         		adev);
 
 	if (status)	{
 		printk("%s unable to secure IRQ%d\n", "ACQ420", 
-			adev->irq);
+			adev->of_prams.irq);
 		goto fail;
 	}
 
@@ -1109,7 +1115,7 @@ static int acq420_probe(struct platform_device *pdev)
 			adev->hb[cursor->ix] = cursor;
 			ix++;
 		}
-		dev_dbg(DEVP(adev), "setting nbuffers %d\n", ix);
+		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 	}
         //acq420_reset_fifo();
