@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 #include <linux/delay.h>
+#include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/freezer.h>
@@ -79,6 +80,16 @@ MODULE_PARM_DESC(timeout, "Transfer Timeout in msec (default: 3000), "
 #define PATTERN_OVERWRITE	0x20
 #define PATTERN_COUNT_MASK	0x1f
 
+#define MAXSTATS 	10
+
+struct STATS {
+	unsigned line;
+	unsigned ns;
+	unsigned ns_min;
+	unsigned ns_max;
+	unsigned ns_mean;
+};
+
 struct dmatest_thread {
 	struct list_head	node;
 	struct task_struct	*task;
@@ -86,7 +97,47 @@ struct dmatest_thread {
 	u8			**srcs;
 	u8			**dsts;
 	enum dma_transaction_type type;
+
+	struct STATS stats[MAXSTATS];
+	struct debugfs_blob_wrapper blob;
+	int nstats;
 };
+
+extern unsigned long long otick(void);
+extern unsigned delta_nsec(unsigned long long t0, unsigned long long t1);
+
+#define DMA_NS_INIT() \
+	do { 					\
+		ins=0; t0 = otick(); 		\
+	} while(0)
+
+#define DMA_NS(s) \
+	do { 										\
+		s[ins].line = __LINE__; 				\
+		s[ins].ns = delta_nsec(t0, otick()); 	\
+		ins++; 									\
+		BUG_ON(ins >= MAXSTATS);				\
+	} while(0)
+
+
+static void clear_stats(struct STATS *stats)
+{
+	memset(stats, 0, sizeof(struct STATS));
+}
+
+static void compute_stats(struct STATS* stats, int ins)
+{
+	int ii;
+
+	for (ii = 0; ii != ins; ++ii){
+		if (stats[ii].ns_min == 0 || stats[ii].ns_min > stats[ii].ns){
+			stats[ii].ns_min = stats[ii].ns;
+		} else if (stats[ii].ns_max < stats[ii].ns){
+			stats[ii].ns_max = stats[ii].ns;
+		}
+		stats[ii].ns_mean = (stats[ii].ns_mean*15 + stats[ii].ns)/16;
+	}
+}
 
 struct dmatest_chan {
 	struct list_head	node;
@@ -286,9 +337,12 @@ static int dmatest_func(void *data)
 	int			dst_cnt;
 	int			i;
 
+	unsigned long long t0;
+	int ins;
+
 	thread_name = current->comm;
 	set_freezable();
-
+	clear_stats(thread->stats);
 	ret = -ENOMEM;
 
 	smp_rmb();
@@ -361,21 +415,14 @@ static int dmatest_func(void *data)
 			break;
 		}
 
-
-		align = 3;
-
-		len = dmatest_random() % test_buf_size + 1;
-		len = (len >> align) << align;
-		if (!len)
-			len = 1 << align;
-		src_off = dmatest_random() % (test_buf_size - len + 1);
-		dst_off = dmatest_random() % (test_buf_size - len + 1);
-
-		src_off = (src_off >> align) << align;
-		dst_off = (dst_off >> align) << align;
+		src_off = 0;
+		dst_off = 0;
 
 		dmatest_init_srcs(thread->srcs, src_off, len);
 		dmatest_init_dsts(thread->dsts, dst_off, len);
+
+		DMA_NS_INIT();
+		DMA_NS(thread->stats);
 
 		for (i = 0; i < src_cnt; i++) {
 			u8 *buf = thread->srcs[i] + src_off;
@@ -393,6 +440,8 @@ static int dmatest_func(void *data)
 				continue;
 			}
 		}
+
+		DMA_NS(thread->stats);
 		/* map with DMA_BIDIRECTIONAL to force writeback/invalidate */
 		for (i = 0; i < dst_cnt; i++) {
 			dma_dsts[i] = dma_map_single(dev->dev, thread->dsts[i],
@@ -411,6 +460,7 @@ static int dmatest_func(void *data)
 			}
 		}
 
+		DMA_NS(thread->stats);
 		if (thread->type == DMA_MEMCPY)
 			tx = dev->device_prep_dma_memcpy(chan,
 							 dma_dsts[0] + dst_off,
@@ -431,6 +481,8 @@ static int dmatest_func(void *data)
 						     len, flags);
 		}
 
+		DMA_NS(thread->stats);
+
 		if (!tx) {
 			unmap_src(dev->dev, dma_srcs, len, src_cnt);
 			unmap_dst(dev->dev, dma_dsts, test_buf_size, dst_cnt);
@@ -448,6 +500,8 @@ static int dmatest_func(void *data)
 		tx->callback_param = &done;
 		cookie = tx->tx_submit(tx);
 
+		DMA_NS(thread->stats);
+
 		if (dma_submit_error(cookie)) {
 			pr_warning("%s: #%u: submit error %d with src_off=0x%x "
 					"dst_off=0x%x len=0x%x\n",
@@ -464,6 +518,7 @@ static int dmatest_func(void *data)
 
 		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
 
+		DMA_NS(thread->stats);
 		if (!done.done) {
 			/*
 			 * We're leaving the timed out dma operation with
@@ -524,6 +579,8 @@ static int dmatest_func(void *data)
 				thread_name, total_tests - 1,
 				src_off, dst_off, len);
 		}
+
+		compute_stats(thread->stats, ins);
 	}
 
 	ret = 0;
@@ -573,6 +630,8 @@ static void dmatest_cleanup_channel(struct dmatest_chan *dtc)
 	kfree(dtc);
 }
 
+struct dentry *root;
+
 static int dmatest_add_threads(struct dmatest_chan *dtc, enum dma_transaction_type type)
 {
 	struct dmatest_thread *thread;
@@ -612,6 +671,11 @@ static int dmatest_add_threads(struct dmatest_chan *dtc, enum dma_transaction_ty
 		/* srcbuf and dstbuf are allocated by the thread itself */
 
 		list_add_tail(&thread->node, &dtc->threads);
+
+		/** valid for threads_per_chan==1 */
+		thread->blob.data = thread->stats;
+		thread->blob.size = sizeof(struct STATS)*MAXSTATS;
+		debugfs_create_blob(dma_chan_name(chan), S_IRUGO, root, &thread->blob);
 	}
 
 	return i;
@@ -669,6 +733,8 @@ static int __init dmatest_init(void)
 	struct dma_chan *chan;
 	int err = 0;
 
+	root = debugfs_create_dir("dmatest", 0);
+
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 	for (;;) {
@@ -695,6 +761,8 @@ static void __exit dmatest_exit(void)
 {
 	struct dmatest_chan *dtc, *_dtc;
 	struct dma_chan *chan;
+
+	debugfs_remove_recursive(root);
 
 	list_for_each_entry_safe(dtc, _dtc, &dmatest_channels, node) {
 		list_del(&dtc->node);
