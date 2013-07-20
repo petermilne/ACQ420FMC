@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "0.993"
+#define REVID "1.000"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -78,6 +78,12 @@ MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 #define MAXDEVICES 6
 struct acq420_dev* acq420_devices[MAXDEVICES];
 
+#define DMA_NS_MAX	10
+int dma_ns_lines[DMA_NS_MAX];
+int dma_ns[DMA_NS_MAX];
+int dma_ns_num = DMA_NS_MAX;
+module_param_array(dma_ns, int, &dma_ns_num, 0444);
+module_param_array(dma_ns_lines, int, &dma_ns_num, 0444);
 
 
 // @@todo pgm: crude
@@ -195,6 +201,89 @@ static void acq420_force_interrupt(int interrupt)
 	iowrite32((interrupt), acq420_dev->dev_virtaddr + ALG_INT_FORCE);
 }
 */
+
+unsigned long long t0;
+int ins;
+
+/** @@todo ... hook to ZYNQ timers how? */
+
+extern unsigned long long otick(void);
+extern unsigned delta_nsec(unsigned long long t0, unsigned long long t1);
+
+#define DMA_NS_INIT \
+	do { 					\
+		ins=0; t0 = otick(); 		\
+	} while(0)
+
+#define DMA_NS \
+	do { 						\
+		dma_ns_lines[ins] = __LINE__; 		\
+		dma_ns[ins] = delta_nsec(t0, otick()); 	\
+		ins++; 					\
+		BUG_ON(ins >= DMA_NS_MAX);		\
+	} while(0)
+
+
+void timer_test(void)
+{
+	DMA_NS_INIT;
+
+	while(ins+1 < DMA_NS_MAX){
+		DMA_NS;
+	}
+}
+
+dma_cookie_t
+dma_async_memcpy_pa_to_buf(
+		struct dma_chan *chan, struct HBM *dest,
+		dma_addr_t dma_src, size_t len)
+{
+	struct dma_device *dev = chan->device;
+	struct dma_async_tx_descriptor *tx;
+	dma_cookie_t cookie;
+	unsigned long flags;
+
+	DMA_NS;
+
+	flags = DMA_SRC_NO_INCR | DMA_CTRL_ACK |
+		DMA_COMPL_SRC_UNMAP_SINGLE |
+		DMA_COMPL_DEST_UNMAP_SINGLE;
+	tx = dev->device_prep_dma_memcpy(chan, dest->pa, dma_src, len, flags);
+
+
+	DMA_NS;
+	if (!tx) {
+		return -ENOMEM;
+	}
+
+	tx->callback = NULL;
+	cookie = tx->tx_submit(tx);
+
+	DMA_NS;
+
+	preempt_disable();
+	__this_cpu_add(chan->local->bytes_transferred, len);
+	__this_cpu_inc(chan->local->memcpy_count);
+	preempt_enable();
+
+	return cookie;
+}
+
+
+int cpsc_dma_memcpy(struct dma_chan* dma_chan, struct HBM* dest, u32 src, size_t len)
+{
+	dma_cookie_t cookie;
+	DMA_NS_INIT;
+	DMA_NS;
+	if (dma_chan == 0){
+		dev_err(0, "dma_find_channel");
+		return -1;
+	}
+	cookie = dma_async_memcpy_pa_to_buf(dma_chan, dest, src, len);
+	dma_sync_wait(dma_chan, cookie);
+	DMA_NS;
+	return len;
+}
 
 int getEmpty(struct acq420_dev* adev)
 {
@@ -401,23 +490,42 @@ ssize_t acq420_histo_read(
 	return count;
 }
 
+
+
+static bool filter_true(struct dma_chan *chan, void *param)
+{
+	return true;
+}
+
+
+int get_dma_chan(struct acq420_dev *adev)
+{
+	dma_cap_mask_t mask;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+
+	adev->dma_chan = dma_request_channel(mask, filter_true, NULL);
+
+	return adev->dma_chan == 0 ? -1: 0;
+}
 int acq420_continuous_start(struct inode *inode, struct file *file)
 {
 	struct acq420_dev *adev = ACQ420_DEV(file);
 
 	adev->oneshot = 0;
 
-#ifdef PGMCOMOUT
-	if (request_dma(adev->dma_channel, MODULE_NAME)) {
-		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
-			adev->dma_channel);
-		return -EBUSY;
-	}
-#endif
-
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
+
+	if (get_dma_chan(adev)){
+		dev_err(DEVP(adev), "no dma chan");
+		return -EBUSY;
+	}
+
+
+
 
 #if 0
 	// @@todo .. attempt to recycle last buffer. BLOWS!
@@ -506,9 +614,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	struct acq420_dev *adev = ACQ420_DEV(file);
 	acq420_reset_fifo(adev);
 	acq420_disable_fifo(adev);
-#ifdef PGMCOMOUT
-	free_dma(adev->dma_channel);
-#endif
+
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
@@ -527,8 +633,11 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
 		adev->cursor.hb = 0;
 	} */
+
+
 	mutex_unlock(&adev->list_mutex);
 
+	dma_release_channel(adev->dma_chan);
 	return acq420_release(inode, file);
 }
 
@@ -716,6 +825,7 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	struct acq420_dev *adev = ACQ420_DEV(file);
 	struct HBM hbm = {};
 
+
 	// u64 checkval= 0;
 	int rc = 0;
 
@@ -743,15 +853,6 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	adev->cursor.hb = &hbm;
 	adev->cursor.offset = 0;
 
-#ifdef PGMCOMOUT
-	if (request_dma(adev->dma_channel, MODULE_NAME)) {
-		dev_err(DEVP(adev), "unable to alloc DMA channel %d\n",
-			adev->dma_channel);
-		rc = -EBUSY;
-		goto fail_client_data;
-	}
-#endif
-
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
 	acq420_enable_fifo(adev);
@@ -776,9 +877,7 @@ ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
 	acq420_disable_fifo(adev);
 
 	copy_to_user(buf, hbm.va, count);
-#ifdef PGMCOMOUT
-	free_dma(adev->dma_channel);
-#endif
+
 	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
 	adev->cursor.hb = 0;
 	return count;
@@ -842,6 +941,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	do {
 		int headroom = min(getHeadroom(adev), MAXDMA);
 		int bytes = status * 4;
+		struct HBM _cursor;
 
 		bytes = min(bytes, headroom);
 
@@ -860,16 +960,10 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		}
 
 		adev->busy = 1;
-#ifdef PGMCOMOUT
-		init_dmac_consts(adev);		/* @@todo move this out the loop */
-		set_dma_addr(adev->dma_channel, adev->cursor.hb->pa + adev->cursor.offset);
-		set_dma_count(adev->dma_channel, (size_t)bytes);
-		enable_dma(adev->dma_channel);
 
-
-		dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
-			void *dest, void *src, size_t len);
-#endif
+		_cursor = *adev->cursor.hb;
+		_cursor.pa += adev->cursor.offset;
+		cpsc_dma_memcpy(adev->dma_chan, &_cursor, FIFO_PA(adev), bytes);
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
 
@@ -1191,6 +1285,7 @@ static int __init acq420_init(void)
         int status;
 
 	printk("D-TACQ ACQ420 FMC Driver %s\n", REVID);
+	timer_test();
 	acq420_module_init_proc();
         status = platform_driver_register(&acq420_driver);
 

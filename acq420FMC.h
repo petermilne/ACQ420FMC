@@ -135,6 +135,8 @@ struct acq420_dev {
 
 	u32 DMA_READY;
 
+	struct dma_chan* dma_chan;
+
 	/* Current DMA buffer information */
 	/*dma_addr_t buffer_d_addr;
 	void *buffer_v_addr;*/
@@ -227,5 +229,8 @@ int getHeadroom(struct acq420_dev *adev);
 #define GET_FULL_OK		0
 #define GET_FULL_DONE 		1
 #define GET_FULL_REFILL_ERR	2
+
+#define FIFO_PA(adev)  ((adev)->dev_physaddr + AXI_FIFO)
+
 
 #endif /* ACQ420FMC_H_ */
