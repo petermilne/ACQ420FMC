@@ -125,7 +125,7 @@ static void clear_stats(struct STATS *stats)
 	memset(stats, 0, sizeof(struct STATS));
 }
 
-static void compute_stats(struct STATS* stats, int ins)
+static void compute_stats(struct STATS* stats, int ins, int nstats)
 {
 	int ii;
 
@@ -135,7 +135,9 @@ static void compute_stats(struct STATS* stats, int ins)
 		} else if (stats[ii].ns_max < stats[ii].ns){
 			stats[ii].ns_max = stats[ii].ns;
 		}
-		stats[ii].ns_mean = (stats[ii].ns_mean*15 + stats[ii].ns)/16;
+		if (stats[ii].ns_mean == 0 || stats[ii].ns < stats[ii].ns_mean*3){
+			stats[ii].ns_mean = (stats[ii].ns_mean*(nstats-1) + stats[ii].ns)/nstats;
+		}
 	}
 }
 
@@ -421,9 +423,6 @@ static int dmatest_func(void *data)
 		dmatest_init_srcs(thread->srcs, src_off, len);
 		dmatest_init_dsts(thread->dsts, dst_off, len);
 
-		DMA_NS_INIT();
-		DMA_NS(thread->stats);
-
 		for (i = 0; i < src_cnt; i++) {
 			u8 *buf = thread->srcs[i] + src_off;
 
@@ -441,7 +440,6 @@ static int dmatest_func(void *data)
 			}
 		}
 
-		DMA_NS(thread->stats);
 		/* map with DMA_BIDIRECTIONAL to force writeback/invalidate */
 		for (i = 0; i < dst_cnt; i++) {
 			dma_dsts[i] = dma_map_single(dev->dev, thread->dsts[i],
@@ -459,7 +457,7 @@ static int dmatest_func(void *data)
 				continue;
 			}
 		}
-
+		DMA_NS_INIT();
 		DMA_NS(thread->stats);
 		if (thread->type == DMA_MEMCPY)
 			tx = dev->device_prep_dma_memcpy(chan,
@@ -580,7 +578,8 @@ static int dmatest_func(void *data)
 				src_off, dst_off, len);
 		}
 
-		compute_stats(thread->stats, ins);
+		if (thread->nstats < 16) thread->nstats++;
+		compute_stats(thread->stats, ins, thread->nstats);
 	}
 
 	ret = 0;
