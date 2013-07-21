@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "1.000"
+#define REVID "1.001"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -966,9 +966,10 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		cpsc_dma_memcpy(adev->dma_chan, &_cursor, FIFO_PA(adev), bytes);
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
-
+#ifdef PGMCOMOUT
 		/* Wait for Completion*/
 		wait_event_interruptible(adev->waitq, adev->busy == 0);
+#endif
 		wake_up_interruptible(&adev->refill_ready);
 		if (adev->cursor.hb->ix == 0){
 			adev->rt.hb0_count++;
