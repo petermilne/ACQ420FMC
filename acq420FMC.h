@@ -49,46 +49,82 @@
 #define ADC_CTRL		(ADC_BASE+0x00)
 #define ADC_HITIDE		(ADC_BASE+0x04)
 #define ADC_FIFO_SAMPLES	(ADC_BASE+0x08)
-#define ADC_FIFO_STATUS		(ADC_BASE+0x0C)
+#define ADC_FIFO_STA		(ADC_BASE+0x0C)
 #define ADC_INT_CSR		(ADC_BASE+0x10)
 #define ADC_CLK_CTR		(ADC_BASE+0x14)
 #define ADC_SAMPLE_CTR		(ADC_BASE+0x18)
 
 #define ADC_CLKDIV		(ADC_BASE+0x40)
 #define ADC_GAIN		(ADC_BASE+0x44)
-
 #define ADC_FORMAT 		(ADC_BASE+0x48)
-
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
-#define ADC_FIFO_SAMPLE_MASK	0x0003fff
+#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
 
-#define FIFO_HISTO_SZ	      	256
-#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>7)
+#define FIFO_HISTO_SZ	      	(1<<8)
+#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>(14-8))
+
+
+
+#define ADC_CTRL_EVENT1_SHL	28
+#define ADC_CTRL_EVENT2_SHL	24
+#define ADC_CTRL_TRIG_SHL	20
+#define ADC_CTRL_CLK_SHL	16
+#define ADC_CTRL_MODE_SHL	12
+
+#define ADC_CTRL_SIG_MASK	0xf
+#define ADC_CTRL_SIG_RISING	0x8
+#define ADC_CTRL_SIG_SEL	0x7
+
+#define ADC_CTRL_MODE_EV1_EN	(1 << (3+ADC_CTRL_MODE_SHL))
+#define ADC_CTRL_MODE_EV2_EN	(1 << (2+ADC_CTRL_MODE_SHL))
+#define ADC_CTRL_MODE_HW_TRG	(1 << (1+ADC_CTRL_MODE_SHL))
+/** @todo REMOVE ME! */
+#define ADC_CTRL_MODE_HW_CLK	(1 << (1+ADC_CTRL_MODE_SHL))
+
 
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
 #define ADC_CTRL_FIFO_EN	(1 << 2)
 #define ADC_CTRL_FIFO_RST	(1 << 1)
-//#define ALG_CTRL_ALG_ENABLE	(1 << 0)
 
-#define ALG_CTRL_RESETALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
-//#define ALG_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN | ALG_CTRL_ALG_ENABLE)
+#define ADC_CTRL_RST_ALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
 #define ADC_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN)
 
-#define ALG_STATUS_FIFO_UNDER	(1<<0)
-#define ALG_STATUS_FIFO_OVER	(1<<1)
-#define ALG_STATUS_FIFO_EMPTY	(1<<2)
-#define ALG_STATUS_FIFO_FULL	(1<<3)
+#define ADC_FIFO_STA_CLK	(1<<7)
+#define ADC_FIFO_STA_TRG	(1<<6)
+#define ADC_FIFO_STA_ACC	(1<<5)
+#define ADC_FIFO_STA_ACTIVE	(1<<4)
+#define ADC_FIFO_STA_FULL	(1<<3)
+#define ADC_FIFO_STA_EMPTY	(1<<2)
+#define ADC_FIFO_STA_OVER	(1<<1)
+#define ADC_FIFO_STA_UNDER	(1<<0)
 
-#define ALG_STATUS_FIFO_ERR \
-	(ALG_STATUS_FIFO_UNDER|ALG_STATUS_FIFO_OVER|ALG_STATUS_FIFO_FULL)
+#define ADC_FIFO_STA_ERR \
+	(ADC_FIFO_STA_UNDER|ADC_FIFO_STA_OVER|ADC_FIFO_STA_FULL)
 
-#define ALG_ADC_OPTS_32B_data 	(1 << 1)
-#define ALG_ADC_OPTS_IS_18B 	(1 << 0)
 
-#define ALG_ADC_CONV_TIME_DEF	0x36
+#define ADC_INT_CSR_COS		(1<<9)
+#define ADC_INT_CSR_HITIDE	(1<<8)
+
+#define ADC_INT_CSR_COS_EN	(1<<1)
+#define ADC_INT_CSR_HITIDE_EN	(1<<0)
+
+
+#define ADC_CLK_CTR_SRC_SHL	28
+#define ADC_CLK_CTR_SRC_MASK	0xf		/* 1:16 sources */
+#define ADC_CLK_CTR_MASK	0x0fffffff	/* 28 bit count */
+
+#define ADC_SAMPLE_CTR_MASK	0x0fffffff
+
+#define ADC_CLK_DIV_MASK	0x0000ffff
+
+#define ADC_OPTS_32B_data 	(1 << 1)
+#define ADC_OPTS_IS_18B 	(1 << 0)
+
+#define ADC_CONV_TIME_500	0x96
+#define ADC_CONV_TIME_1000	0x36
 
 #define ADC_HT_INT		91
 #define HITIDE			2048
@@ -167,6 +203,8 @@ struct acq420_dev {
 	} stats;
 
 	int ramp_en;
+	int data32;
+	int adc_18b;			/* @@todo set on probe() */
 
 	struct mutex list_mutex;
 	struct list_head EMPTIES;	/* empties waiting isr       */

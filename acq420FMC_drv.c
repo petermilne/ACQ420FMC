@@ -1,8 +1,8 @@
 /* ------------------------------------------------------------------------- */
 /* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     */
 /* ------------------------------------------------------------------------- */
-/*   Copyright (C) 2012 Craig Noble, D-TACQ Solutions Ltd                    *
- *                      <craig dot noble at D hyphen TACQ dot com>           *
+/*   Copyright (C) 2013 Peter Milne, D-TACQ Solutions Ltd                    *
+ *                      <peter dot milne at D hyphen TACQ dot com>           *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or modify     *
  *  it under the terms of Version 2 of the GNU General Public License        *
@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "1.003"
+#define REVID "1.005"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -45,7 +45,7 @@ int data_32b = 0;
 module_param(data_32b, int, 0444);
 MODULE_PARM_DESC(data_32b, "set TRUE on load if 32 bit data required [0]");
 
-int adc_conv_time = ALG_ADC_CONV_TIME_DEF;
+int adc_conv_time = ADC_CONV_TIME_1000;
 module_param(adc_conv_time, int, 0444);
 MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
 
@@ -69,7 +69,7 @@ int run_buffers = 0;
 module_param(run_buffers, int, 0644);
 MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)");
 
-int FIFERR = ALG_STATUS_FIFO_ERR;
+int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 /* driver supports multiple devices.
@@ -110,6 +110,19 @@ u32 acq420rd32(struct acq420_dev *adev, int offset)
 			adev->dev_virtaddr + offset, rc);
 	return rc;
 }
+static void acq420_init_format(struct acq420_dev *adev)
+{
+	acq420wr32(adev, ADC_FORMAT,
+			(adev->adc_18b? ADC_OPTS_IS_18B: 0)|
+			(adev->data32? ADC_OPTS_32B_data: 0));
+}
+static void acq420_init_defaults(struct acq420_dev *adev)
+{
+	acq420wr32(adev, ADC_CONV_TIME, adc_conv_time);
+	adev->data32 = data_32b;
+	adev->adc_18b = adc_18b;
+	acq420_init_format(adev);
+}
 
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 {
@@ -121,7 +134,7 @@ static void acq420_reset_fifo(struct acq420_dev *adev)
 {
 	u32 ctrl = acq420rd32(adev, ADC_CTRL);
 
-	acq420wr32(adev, ADC_CTRL, ctrl | ALG_CTRL_RESETALL);
+	acq420wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_RST_ALL);
 	acq420wr32(adev, ADC_CTRL, ctrl);
 }
 
@@ -130,6 +143,9 @@ static void acq420_enable_fifo(struct acq420_dev *adev)
 	u32 ctrl = acq420rd32(adev, ADC_CTRL);
 	if (adev->ramp_en){
 		ctrl |= ADC_CTRL_RAMP_EN;
+	}else{
+		ctrl &= ~ADC_CTRL_RAMP_EN;
+		acq420_init_format(adev);
 	}
 	acq420wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
 }
@@ -173,13 +189,6 @@ static void acq420_clear_interrupt(struct acq420_dev *adev)
  */
 }
 
-static void acq420_init_defaults(struct acq420_dev *adev)
-{
-	acq420wr32(adev, ADC_CONV_TIME, adc_conv_time);
-	acq420wr32(adev, ADC_FORMAT,
-			(adc_18b? ALG_ADC_OPTS_IS_18B: 0)|
-			(data_32b? ALG_ADC_OPTS_32B_data: 0));
-}
 
 static void acq420_clear_histo(struct acq420_dev *adev)
 {
@@ -188,7 +197,7 @@ static void acq420_clear_histo(struct acq420_dev *adev)
 
 int acq420_isFifoError(struct acq420_dev *adev)
 {
-	u32 fifsta = acq420rd32(adev, ADC_FIFO_STATUS);
+	u32 fifsta = acq420rd32(adev, ADC_FIFO_STA);
 	int err = (fifsta&FIFERR) != 0;
 	if (err){
 		dev_warn(DEVP(adev), "FIFERR mask:%08x actual:%08x\n",

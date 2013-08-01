@@ -78,7 +78,7 @@ static ssize_t store_clkdiv(
 	u32 clkdiv;
 	if (sscanf(buf, "%u", &clkdiv) == 1 &&
 	    clkdiv > 1 &&
-	    clkdiv < 100000){
+	    clkdiv <= ADC_CLK_DIV_MASK){
 		acq420wr32(acq420_devices[dev->id], ADC_CLKDIV, clkdiv);
 		return count;
 	}else{
@@ -243,6 +243,32 @@ static ssize_t store_simulate(
 
 static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
+static ssize_t show_data32(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return sprintf(buf, "%u\n", acq420_devices[dev->id]->data32);
+}
+
+static ssize_t store_data32(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 data32;
+	if (sscanf(buf, "%u", &data32) == 1){
+		acq420_devices[dev->id]->data32 = data32 != 0;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(data32, S_IRUGO|S_IWUGO, show_data32, store_data32);
+
+
 static ssize_t show_stats(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -285,6 +311,7 @@ void acq420_createSysfs(struct device *dev)
 	DEVICE_CREATE_FILE(dev, &dev_attr_gain2);
 	DEVICE_CREATE_FILE(dev, &dev_attr_gain3);
 	DEVICE_CREATE_FILE(dev, &dev_attr_gain4);
+	DEVICE_CREATE_FILE(dev, &dev_attr_data32);
 }
 
 void acq420_delSysfs(struct device *dev)
@@ -297,6 +324,7 @@ void acq420_delSysfs(struct device *dev)
 	device_remove_file(dev, &dev_attr_gain2);
 	device_remove_file(dev, &dev_attr_gain3);
 	device_remove_file(dev, &dev_attr_gain4);
+	device_remove_file(dev, &dev_attr_data32);
 }
 
 
