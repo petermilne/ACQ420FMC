@@ -65,7 +65,7 @@ static ssize_t show_clkdiv(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 clkdiv = acq420rd32(acq420_devices[dev->id], ALG_CLKDIV);
+	u32 clkdiv = acq420rd32(acq420_devices[dev->id], ADC_CLKDIV);
 	return sprintf(buf, "%u\n", clkdiv);
 }
 
@@ -79,7 +79,7 @@ static ssize_t store_clkdiv(
 	if (sscanf(buf, "%u", &clkdiv) == 1 &&
 	    clkdiv > 1 &&
 	    clkdiv < 100000){
-		acq420wr32(acq420_devices[dev->id], ALG_CLKDIV, clkdiv);
+		acq420wr32(acq420_devices[dev->id], ADC_CLKDIV, clkdiv);
 		return count;
 	}else{
 		return -1;
@@ -105,7 +105,7 @@ static ssize_t show_gains(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+	u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
 	return sprintf(buf, "%u%u%u%u\n",
 			get_gain(gains, 0), get_gain(gains, 1),
 			get_gain(gains, 2), get_gain(gains, 3));
@@ -120,7 +120,7 @@ static ssize_t store_gains(
 	char gx[4];
 
 	if (sscanf(buf, "%c%c%c%c", gx+0, gx+1, gx+2, gx+3) == 4){
-		u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+		u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
 		int ic;
 		for (ic = 0; ic < 4; ++ic){
 			if (gx[ic] >= '0' && gx[ic] <= '3'){
@@ -137,7 +137,7 @@ static ssize_t store_gains(
 			}
 		}
 		dev_dbg(dev, "set gains: %02x", gains);
-		acq420wr32(acq420_devices[dev->id], ALG_GAIN, gains);
+		acq420wr32(acq420_devices[dev->id], ADC_GAIN, gains);
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");
@@ -154,7 +154,7 @@ static ssize_t show_gain(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+	u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
 
 	return sprintf(buf, "%u\n", get_gain(gains, chan));
 }
@@ -169,7 +169,7 @@ static ssize_t store_gain(
 	char gx;
 
 	if (sscanf(buf, "%c", &gx) == 1){
-		u32 gains = acq420rd32(acq420_devices[dev->id], ALG_GAIN);
+		u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
 		if (gx >= '0' && gx <= '3'){
 			gains = set_gain(gains, chan, gx-'0');
 		}else{
@@ -184,7 +184,7 @@ static ssize_t store_gain(
 		}
 
 		dev_dbg(dev, "set gain: %02x", gains);
-		acq420wr32(acq420_devices[dev->id], ALG_GAIN, gains);
+		acq420wr32(acq420_devices[dev->id], ADC_GAIN, gains);
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");

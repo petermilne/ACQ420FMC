@@ -45,36 +45,37 @@
 #define OF_IRQ_COUNT		6	/* number of items */
 #define OF_IRQ_MAGIC		32	/* add to the OF number to get actual */
 
-#define ALG_BASE		0x1000
-#define ALG_CTRL		(ALG_BASE+0x00)
-#define ALG_HITIDE		(ALG_BASE+0x04)
-#define ALG_SAMPLES		(ALG_BASE+0x08)
-#define ALG_STATUS		(ALG_BASE+0x0C)
-#define ALG_INT_CTRL		(ALG_BASE+0x10)
-#define ALG_INT_FORCE		(ALG_BASE+0x14)
-#define ALG_INT_STAT		(ALG_BASE+0x18)
+#define ADC_BASE		0x1000
+#define ADC_CTRL		(ADC_BASE+0x00)
+#define ADC_HITIDE		(ADC_BASE+0x04)
+#define ADC_FIFO_SAMPLES	(ADC_BASE+0x08)
+#define ADC_FIFO_STATUS		(ADC_BASE+0x0C)
+#define ADC_INT_CSR		(ADC_BASE+0x10)
+#define ADC_CLK_CTR		(ADC_BASE+0x14)
+#define ADC_SAMPLE_CTR		(ADC_BASE+0x18)
 
-#define ALG_CLKDIV		(ALG_BASE+0x40)
-#define ALG_GAIN		(ALG_BASE+0x44)
+#define ADC_CLKDIV		(ADC_BASE+0x40)
+#define ADC_GAIN		(ADC_BASE+0x44)
 
-#define ALG_ADC_OPTS 		(ALG_BASE+0x48)
+#define ADC_FORMAT 		(ADC_BASE+0x48)
 
-#define ALG_ADC_CONV_TIME 	(ALG_BASE+0x4C) /*(mask 0x000000FF)*/
+#define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
-#define ALG_HITIDE_MASK		0x0007fff
+#define ADC_FIFO_SAMPLE_MASK	0x0003fff
 
-#define DATA_FIFO_SZ	      	256
-#define STATUS_TO_HISTO(stat)	(((stat)&ALG_HITIDE_MASK)>>7)
+#define FIFO_HISTO_SZ	      	256
+#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>7)
 
-#define ALG_CTRL_RAMP_ENABLE 	(1 << 5)
-#define ALG_CTRL_ADC_ENABLE	(1 << 4)
-#define ALG_CTRL_ADC_RESET	(1 << 3)
-#define ALG_CTRL_FIFO_ENABLE	(1 << 2)
-#define ALG_CTRL_FIFO_RESET	(1 << 1)
-#define ALG_CTRL_ALG_ENABLE	(1 << 0)
+#define ADC_CTRL_RAMP_EN 	(1 << 5)
+#define ADC_CTRL_ADC_EN		(1 << 4)
+#define ADC_CTRL_ADC_RST	(1 << 3)
+#define ADC_CTRL_FIFO_EN	(1 << 2)
+#define ADC_CTRL_FIFO_RST	(1 << 1)
+//#define ALG_CTRL_ALG_ENABLE	(1 << 0)
 
-#define ALG_CTRL_RESETALL 	(ALG_CTRL_ADC_RESET | ALG_CTRL_FIFO_RESET)
-#define ALG_CTRL_ENABLE_ALL	(ALG_CTRL_ADC_ENABLE | ALG_CTRL_FIFO_ENABLE | ALG_CTRL_ALG_ENABLE)
+#define ALG_CTRL_RESETALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
+//#define ALG_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN | ALG_CTRL_ALG_ENABLE)
+#define ADC_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN)
 
 #define ALG_STATUS_FIFO_UNDER	(1<<0)
 #define ALG_STATUS_FIFO_OVER	(1<<1)

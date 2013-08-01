@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "1.001"
+#define REVID "1.003"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -45,9 +45,9 @@ int data_32b = 0;
 module_param(data_32b, int, 0444);
 MODULE_PARM_DESC(data_32b, "set TRUE on load if 32 bit data required [0]");
 
-int ADC_CONV_TIME = ALG_ADC_CONV_TIME_DEF;
-module_param(ADC_CONV_TIME, int, 0444);
-MODULE_PARM_DESC(ADC_CONV_TIME, "hardware tweak, change at load only");
+int adc_conv_time = ALG_ADC_CONV_TIME_DEF;
+module_param(adc_conv_time, int, 0444);
+MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
 
 int nbuffers = 16;
 module_param(nbuffers, int, 0444);
@@ -113,40 +113,40 @@ u32 acq420rd32(struct acq420_dev *adev, int offset)
 
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 {
-	return acq420rd32(adev, ALG_SAMPLES);
+	return acq420rd32(adev, ADC_FIFO_SAMPLES);
 }
 
 static void acq420_reset_fifo(struct acq420_dev *adev)
 /* Raise and Release reset */
 {
-	u32 ctrl = acq420rd32(adev, ALG_CTRL);
+	u32 ctrl = acq420rd32(adev, ADC_CTRL);
 
-	acq420wr32(adev, ALG_CTRL, ctrl | ALG_CTRL_RESETALL);
-	acq420wr32(adev, ALG_CTRL, ctrl);
+	acq420wr32(adev, ADC_CTRL, ctrl | ALG_CTRL_RESETALL);
+	acq420wr32(adev, ADC_CTRL, ctrl);
 }
 
 static void acq420_enable_fifo(struct acq420_dev *adev)
 {
-	u32 ctrl = acq420rd32(adev, ALG_CTRL);
+	u32 ctrl = acq420rd32(adev, ADC_CTRL);
 	if (adev->ramp_en){
-		ctrl |= ALG_CTRL_RAMP_ENABLE;
+		ctrl |= ADC_CTRL_RAMP_EN;
 	}
-	acq420wr32(adev, ALG_CTRL, ctrl|ALG_CTRL_ENABLE_ALL);
+	acq420wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
 }
 
 static void acq420_disable_fifo(struct acq420_dev *adev)
 {
-	u32 ctrl = acq420rd32(adev, ALG_CTRL);
-	ctrl &= ~ALG_CTRL_RAMP_ENABLE;
-	acq420wr32(adev, ALG_CTRL, ctrl & ~ALG_CTRL_ENABLE_ALL);
+	u32 ctrl = acq420rd32(adev, ADC_CTRL);
+	ctrl &= ~ADC_CTRL_RAMP_EN;
+	acq420wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_ALL);
 }
 
 
 static void acq420_enable_interrupt(struct acq420_dev *adev)
 {
-	u32 int_ctrl = acq420rd32(adev, ALG_INT_CTRL);
-	acq420wr32(adev, ALG_HITIDE, 	hitide);
-	acq420wr32(adev, ALG_INT_CTRL,	int_ctrl|0x1);
+	u32 int_ctrl = acq420rd32(adev, ADC_INT_CSR);
+	acq420wr32(adev, ADC_HITIDE, 	hitide);
+	acq420wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
 static void acq420_disable_interrupt(struct acq420_dev *adev)
@@ -157,35 +157,38 @@ static void acq420_disable_interrupt(struct acq420_dev *adev)
 	//control &= ~0x1;
 	// printk("New interrupt enable is 0x%08x\n", control);
 
-	acq420wr32(adev, ALG_INT_CTRL, 0x0);
+	acq420wr32(adev, ADC_INT_CSR, 0x0);
 }
 
 static u32 acq420_get_interrupt(struct acq420_dev *adev)
 {
-	return acq420rd32(adev, ALG_INT_STAT);
+	return acq420rd32(adev, ADC_INT_CSR);
 }
 
 static void acq420_clear_interrupt(struct acq420_dev *adev)
 {
-	acq420wr32(adev, ALG_INT_STAT, acq420_get_interrupt(adev));
+	/** @@todo: how to INTACK?
+	acq420wr32(adev, ALG_INT_CSR, acq420_get_interrupt(adev));
+ *
+ */
 }
 
 static void acq420_init_defaults(struct acq420_dev *adev)
 {
-	acq420wr32(adev, ALG_ADC_CONV_TIME, ADC_CONV_TIME);
-	acq420wr32(adev, ALG_ADC_OPTS,
+	acq420wr32(adev, ADC_CONV_TIME, adc_conv_time);
+	acq420wr32(adev, ADC_FORMAT,
 			(adc_18b? ALG_ADC_OPTS_IS_18B: 0)|
 			(data_32b? ALG_ADC_OPTS_32B_data: 0));
 }
 
 static void acq420_clear_histo(struct acq420_dev *adev)
 {
-	memset(adev->fifo_histo, 0, DATA_FIFO_SZ*sizeof(u32));
+	memset(adev->fifo_histo, 0, FIFO_HISTO_SZ*sizeof(u32));
 }
 
 int acq420_isFifoError(struct acq420_dev *adev)
 {
-	u32 fifsta = acq420rd32(adev, ALG_STATUS);
+	u32 fifsta = acq420rd32(adev, ADC_FIFO_STATUS);
 	int err = (fifsta&FIFERR) != 0;
 	if (err){
 		dev_warn(DEVP(adev), "FIFERR mask:%08x actual:%08x\n",
@@ -465,7 +468,7 @@ ssize_t acq420_histo_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	unsigned *the_histo = ACQ420_DEV(file)->fifo_histo;
-	int maxentries = DATA_FIFO_SZ;
+	int maxentries = FIFO_HISTO_SZ;
 	unsigned cursor = *f_pos;	/* f_pos counts in entries */
 	int rc;
 
@@ -1010,7 +1013,7 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
 
         adev->pdev = pdev;
         mutex_init(&adev->mutex);
-        adev->fifo_histo = kzalloc(DATA_FIFO_SZ*sizeof(u32), GFP_KERNEL);
+        adev->fifo_histo = kzalloc(FIFO_HISTO_SZ*sizeof(u32), GFP_KERNEL);
 
         INIT_LIST_HEAD(&adev->EMPTIES);
         INIT_LIST_HEAD(&adev->REFILLS);
