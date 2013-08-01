@@ -100,3 +100,17 @@ PID                             0xfe0           0xffffffff      ro      %08x
 CID                             0xff0           0xffffffff      ro      %08x
 
 
+cd CCRx
+CCR0.SRC_INC                    0x408           0x00000001      ro      %x
+CCR0.SRC_BS                     0x408           0x0000000e      ro      %x
+CCR0.SRC_BL                     0x408           0x000000f0      ro      %x
+CCR0.SRC_PROT                   0x408           0x00000700      ro      %x
+CCR0.SRC_CACHE                  0x408           0x00003800      ro      %x
+CCR0.DST_INC                    0x408           0x00004000      ro      %x
+CCR0.DST_BS                     0x408           0x00038000      ro      %x
+CCR0.DST_BL                     0x408           0x003c0000      ro      %x
+CCR0.DST_PROT                   0x408           0x01c00000      ro      %x
+CCR0.DST_CACHE                  0x408           0x0e000000      ro      %x
+CCR0.DST_ESWAP                  0x408           0x70000000      ro      %x
+
+
