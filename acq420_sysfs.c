@@ -216,6 +216,110 @@ MAKE_GAIN(2);
 MAKE_GAIN(3);
 MAKE_GAIN(4);
 
+static ssize_t show_signal(
+	int shl,
+	int mbit, const char* mbit_hi, const char* mbit_lo,
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], ADC_CTRL);
+	if (adc_ctrl&mbit){
+		u32 sel = (adc_ctrl >> shl) & ADC_CTRL_SIG_MASK;
+
+		int rising = ((adc_ctrl >> shl) & ADC_CTRL_SIG_RISING) != 0;
+
+		return sprintf(buf, "%s d%u %s\n",
+				mbit_hi, sel, rising? "RISING": "FALLING");
+	}else{
+		return sprintf(buf, "%s\n", mbit_lo);
+	}
+}
+
+static ssize_t store_signal(
+		int shl,
+		int mbit, const char* mbit_hi, const char* mbit_lo,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count)
+{
+	unsigned dx;
+	char sense;
+	char mode[16];
+	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], ADC_CTRL);
+	int nscan = sscanf(buf, "%10s d%u %c", mode, &dx, &sense);
+
+	switch(nscan){
+	case 1:
+		if (strcmp(mode, mbit_lo) == 0){
+			adc_ctrl &= ~mbit;
+			break;
+		}
+		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
+		return -1;
+	case 3:
+		if (strcmp(mode, mbit_hi) == 0){
+			int rising 	= strchr("Rr+Pp", sense) != NULL;
+			int falling 	= strchr("Ff-Nn", sense) != NULL;
+
+			if (dx > 7){
+				dev_warn(dev, "rejecting \"%s\" dx > 7", buf);
+				return -1;
+			}
+			if (!rising && !falling){
+				dev_warn(dev,
+					"rejecting \"%s\" sense must be R or F", buf);
+				return -1;
+			}
+			adc_ctrl &= ~(ADC_CTRL_SIG_MASK << shl);
+			adc_ctrl |=  (dx|(rising? ADC_CTRL_SIG_RISING:0))<<shl;
+			adc_ctrl |= mbit;
+			break;
+		}
+		/* fall thru */
+	default:
+		dev_warn(dev, "%s|%s dX R|F", mbit_lo, mbit_hi);
+		return -1;
+	}
+	/* here with success */
+	acq420wr32(acq420_devices[dev->id], ADC_CTRL, adc_ctrl);
+	return count;
+}
+
+#define MAKE_SIGNAL(SIGNAME, shl, mbit, HI, LO)							\
+static ssize_t show_##SIGNAME(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_signal(shl, mbit, HI, LO, dev, attr, buf);		\
+}									\
+									\
+static ssize_t store_##SIGNAME(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_signal(shl, mbit, HI, LO, dev, attr, buf, count);	\
+}									\
+static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
+		show_##SIGNAME, store_##SIGNAME)
+
+#define ENA	"enable"
+#define DIS	"disable"
+#define EXT	"external"
+#define SOFT	"soft"
+#define INT	"internal"
+MAKE_SIGNAL(event1, ADC_CTRL_EVENT1_SHL, ADC_CTRL_MODE_EV1_EN, ENA, DIS);
+MAKE_SIGNAL(event2, ADC_CTRL_EVENT2_SHL, ADC_CTRL_MODE_EV2_EN, ENA, DIS);
+MAKE_SIGNAL(trg,    ADC_CTRL_TRIG_SHL,	 ADC_CTRL_MODE_HW_TRG, EXT, SOFT);
+MAKE_SIGNAL(clk,    ADC_CTRL_CLK_SHL,	 ADC_CTRL_MODE_HW_CLK, EXT, INT);
+
+
+
+
 
 static ssize_t show_simulate(
 	struct device * dev,
@@ -300,31 +404,32 @@ static ssize_t store_stats(
 
 static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
 
-
+static const struct attribute *sysfs_attrs[] = {
+	&dev_attr_clkdiv.attr,
+	&dev_attr_gains.attr,
+	&dev_attr_simulate.attr,
+	&dev_attr_stats.attr,
+	&dev_attr_gain1.attr,
+	&dev_attr_gain2.attr,
+	&dev_attr_gain3.attr,
+	&dev_attr_gain4.attr,
+	&dev_attr_event1.attr,
+	&dev_attr_event2.attr,
+	&dev_attr_trg.attr,
+	&dev_attr_clk.attr,
+	&dev_attr_data32.attr,
+	NULL,
+};
 void acq420_createSysfs(struct device *dev)
 {
-	DEVICE_CREATE_FILE(dev, &dev_attr_clkdiv);
-	DEVICE_CREATE_FILE(dev, &dev_attr_gains);
-	DEVICE_CREATE_FILE(dev, &dev_attr_simulate);
-	DEVICE_CREATE_FILE(dev, &dev_attr_stats);
-	DEVICE_CREATE_FILE(dev, &dev_attr_gain1);
-	DEVICE_CREATE_FILE(dev, &dev_attr_gain2);
-	DEVICE_CREATE_FILE(dev, &dev_attr_gain3);
-	DEVICE_CREATE_FILE(dev, &dev_attr_gain4);
-	DEVICE_CREATE_FILE(dev, &dev_attr_data32);
+	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
+		dev_err(dev, "failed to create sysfs");
+	}
 }
 
 void acq420_delSysfs(struct device *dev)
 {
-	device_remove_file(dev, &dev_attr_clkdiv);
-	device_remove_file(dev, &dev_attr_gains);
-	device_remove_file(dev, &dev_attr_simulate);
-	device_remove_file(dev, &dev_attr_stats);
-	device_remove_file(dev, &dev_attr_gain1);
-	device_remove_file(dev, &dev_attr_gain2);
-	device_remove_file(dev, &dev_attr_gain3);
-	device_remove_file(dev, &dev_attr_gain4);
-	device_remove_file(dev, &dev_attr_data32);
+	sysfs_remove_files(&dev->kobj, sysfs_attrs);
 }
 
 
