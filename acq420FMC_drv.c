@@ -23,7 +23,7 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "1.007"
+#define REVID "1.008"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG

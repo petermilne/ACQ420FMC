@@ -404,6 +404,67 @@ static ssize_t store_stats(
 
 static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
 
+
+
+
+
+
+
+
+
+static ssize_t show_clk_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 counter = acq420rd32(acq420_devices[dev->id], ADC_CLK_CTR);
+	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(clk_count, S_IRUGO|S_IWUGO, show_clk_count, 0);
+
+static ssize_t show_sample_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 count = acq420rd32(acq420_devices[dev->id], ADC_SAMPLE_CTR);
+	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+
+static ssize_t show_clk_counter_src(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 counter = acq420rd32(acq420_devices[dev->id], ADC_CLK_CTR);
+	return sprintf(buf, "%u\n", counter>>ADC_CLK_CTR_SRC_SHL);
+}
+
+static ssize_t store_clk_counter_src(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 clk_counter_src;
+	if (sscanf(buf, "%u", &clk_counter_src) == 1){
+		clk_counter_src &= ADC_CLK_CTR_SRC_MASK;
+		acq420wr32(acq420_devices[dev->id], ADC_CLK_CTR,
+				clk_counter_src << ADC_CLK_CTR_SRC_SHL);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(clk_counter_src,
+		S_IRUGO|S_IWUGO, show_clk_counter_src, store_clk_counter_src);
+
+
+
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_clkdiv.attr,
 	&dev_attr_gains.attr,
@@ -418,6 +479,9 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_trg.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_data32.attr,
+	&dev_attr_clk_count.attr,
+	&dev_attr_clk_counter_src.attr,
+	&dev_attr_sample_count.attr,
 	NULL,
 };
 void acq420_createSysfs(struct device *dev)
