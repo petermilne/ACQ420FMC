@@ -240,33 +240,29 @@ dma_async_memcpy_pa_to_buf(
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
-	dma_cookie_t cookie;
-	unsigned long flags;
+	unsigned long flags = DMA_SRC_NO_INCR | DMA_CTRL_ACK |
+				DMA_COMPL_SRC_UNMAP_SINGLE |
+				DMA_COMPL_DEST_UNMAP_SINGLE;
 
 	DMA_NS;
-
-	flags = DMA_SRC_NO_INCR | DMA_CTRL_ACK |
-		DMA_COMPL_SRC_UNMAP_SINGLE |
-		DMA_COMPL_DEST_UNMAP_SINGLE;
 	tx = dev->device_prep_dma_memcpy(chan, dest->pa, dma_src, len, flags);
-
 
 	DMA_NS;
 	if (!tx) {
 		return -ENOMEM;
+	} else{
+		dma_cookie_t cookie;
+		tx->callback = NULL;
+		cookie = tx->tx_submit(tx);
+
+		DMA_NS;
+
+		preempt_disable();
+		__this_cpu_add(chan->local->bytes_transferred, len);
+		__this_cpu_inc(chan->local->memcpy_count);
+		preempt_enable();
+		return cookie;
 	}
-
-	tx->callback = NULL;
-	cookie = tx->tx_submit(tx);
-
-	DMA_NS;
-
-	preempt_disable();
-	__this_cpu_add(chan->local->bytes_transferred, len);
-	__this_cpu_inc(chan->local->memcpy_count);
-	preempt_enable();
-
-	return cookie;
 }
 
 
@@ -822,73 +818,7 @@ static void acq420_done_callback(unsigned int channel, void *data)
 ssize_t acq420_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
-	struct acq420_dev *adev = ACQ420_DEV(file);
-	struct HBM hbm = {};
-
-
-	// u64 checkval= 0;
-	int rc = 0;
-
-	if (mutex_lock_interruptible(&adev->mutex)) {
-		return -EINTR;
-	}
-
-	adev->oneshot = 1;
-	adev->stats.reads++;
-	adev->count = count;
-	adev->this_count = 0;
-	adev->busy = 1;
-
-	/** @@todo pgm: in a streaming system, preallocate streaming dma buffers (not coherent) */
-	/* Allocate a DMA buffer for the transfer this is INSANE FIXME! */
-
-	hbm.va = dma_zalloc_coherent(DEVP(adev), count, &hbm.pa, GFP_KERNEL);
-	if (!hbm.va) {
-		dev_err(&adev->pdev->dev,
-			"coherent DMA buffer allocation failed\n");
-		rc = -ENOMEM;
-		goto fail_buffer;
-	}
-	hbm.len = count;
-	adev->cursor.hb = &hbm;
-	adev->cursor.offset = 0;
-
-	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
-	acq420_clear_histo(adev);
-	acq420_enable_fifo(adev);
-	acq420_reset_fifo(adev);
-
-	adev->DMA_READY = 1;
-
-	/*Wait for FIFO to fill*/
-	acq420_enable_interrupt(adev);
-
-	/* Kick off the DMA */
-	mutex_unlock(&adev->mutex);
-
-	do {
-		if (wait_event_interruptible(adev->waitq, adev->busy == 0)){
-			rc = -EINTR;
-			break;
-		}
-	} while(adev->this_count < count);
-
-	acq420_reset_fifo(adev);
-	acq420_disable_fifo(adev);
-
-	copy_to_user(buf, hbm.va, count);
-
-	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
-	adev->cursor.hb = 0;
-	return count;
-#ifdef PGMCOMOUT
-fail_client_data:
-#endif
-	dma_free_coherent(DEVP(adev), count, hbm.va, hbm.pa);
-
-fail_buffer:
-	mutex_unlock(&adev->mutex);
-	return rc;
+	return -EINVAL;
 }
 
 ssize_t acq420_write(struct file *file, const char __user *buf, size_t count,
@@ -918,16 +848,6 @@ int acq420_mmap_bar(struct file* file, struct vm_area_struct* vma)
 	}
 }
 
-static void init_dmac_consts(struct acq420_dev *adev)
-{
-#ifdef PGMCOMOUT
-	set_dma_mode(adev->dma_channel, DMA_MODE_READ);
-	set_pl330_client_data(adev->dma_channel, adev->client_data);
-	set_pl330_done_callback(adev->dma_channel, acq420_done_callback, adev);
-	set_pl330_fault_callback(adev->dma_channel, acq420_fault_callback, adev);
-	set_pl330_incr_dev_addr(adev->dma_channel, 0);
-#endif
-}
 
 static void add_fifo_histo(struct acq420_dev *adev, u32 status)
 {
@@ -966,10 +886,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		cpsc_dma_memcpy(adev->dma_chan, &_cursor, FIFO_PA(adev), bytes);
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
-#ifdef PGMCOMOUT
-		/* Wait for Completion*/
-		wait_event_interruptible(adev->waitq, adev->busy == 0);
-#endif
+
 		wake_up_interruptible(&adev->refill_ready);
 		if (adev->cursor.hb->ix == 0){
 			adev->rt.hb0_count++;
@@ -1034,27 +951,6 @@ MODULE_DEVICE_TABLE(of, xfifodma_of_match);
 #define xfifodma_of_match NULL
 #endif /* CONFIG_OF */
 
-static int acq420_init_pl330(struct acq420_dev* acq420_dev)
-{
-#ifdef PGMCOMOUT
-        acq420_dev->client_data =
-        	kzalloc(sizeof(struct pl330_client_data), GFP_KERNEL);
-
-        if (!acq420_dev->client_data) {
-               return -1;
-        }
-
-        acq420_dev->client_data->dev_addr =
-                acq420_dev->dev_physaddr + AXI_FIFO;
-        acq420_dev->client_data->dev_bus_des.burst_size = 4;
-        acq420_dev->client_data->dev_bus_des.burst_len =
-                acq420_dev->burst_length;
-        acq420_dev->client_data->mem_bus_des.burst_size = 4;
-        acq420_dev->client_data->mem_bus_des.burst_len =
-                acq420_dev->burst_length;
-#endif
-        return 0;
-}
 
 static void acq420_device_tree_init(struct acq420_dev* adev)
 {
@@ -1177,11 +1073,6 @@ static int acq420_probe(struct platform_device *pdev)
         dev_dbg(DEVP(adev), "acq420: mapped 0x%0x to 0x%0x\n",
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
-        if (acq420_init_pl330(adev)){
-        	dev_err(DEVP(adev), "can't allocate PL330 client data\n");
-        	status = -1;
-        	goto fail;
-        }
         status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
         acq420_init_proc(adev, ndevices);
 
