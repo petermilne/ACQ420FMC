@@ -4,6 +4,7 @@ obj-m += acq420FMC.o
 obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
+obj-m += pl330.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
@@ -21,7 +22,8 @@ date:
 package: all
 	cp mmap acq400_stream opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
-	tar cvzf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
+	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
+	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 
 apps: mmap acq400_stream
 

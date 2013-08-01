@@ -4,7 +4,7 @@
 	<comment></comment>
 	<projects>
 		<project>acq4xx_kernel</project>
-		<project>zynq-kernel</project>
+		<project>linux-xlnx</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

@@ -32,6 +32,10 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/linux-xlnx/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/linux-xlnx/arch/arm/include}&quot;"/>
 								</option>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1840257800" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="__KERNEL__=1"/>
+									<listOptionValue builtIn="false" value="MODULE=1"/>
+								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.49011101" languageId="org.eclipse.cdt.core.gcc" languageName="GNU C" sourceContentType="org.eclipse.cdt.core.cSource,org.eclipse.cdt.core.cHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
 						</toolChain>
