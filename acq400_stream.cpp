@@ -38,7 +38,7 @@
 #include <string.h>
 #include "popt.h"
 
-#define PROOT	"/sys/module/acq420FMC/parameters"
+#define PROOT	"/sys/module/acq420fmc/parameters"
 
 static int getKnob(const char* knob, unsigned* value)
 {

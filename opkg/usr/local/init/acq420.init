@@ -10,7 +10,7 @@ build_hb() {
 
 	HBDIR=/dev/${NAME}.hb
 	mkdir $HBDIR
-	for hb in $(seq 0 $(cat /sys/module/acq420FMC/parameters/nbuffers))
+	for hb in $(seq 0 $(cat /sys/module/acq420fmc/parameters/nbuffers))
 	do
 		NN=$(printf "$HBDIR/%02d" $hb)
 		let minor="100+$hb"
@@ -44,7 +44,7 @@ notloaded=$?
 
 build_knobs() {
 	let ix=0
-	for dir in /sys/bus/platform/devices/*FMC
+	for dir in /sys/bus/platform/devices/*acq420fmc
 	do
 		ln -s $dir/ /dev/acq420.${ix}.knobs
 
@@ -67,12 +67,12 @@ if [ $notloaded -ne 0 ]; then
 	fi
 	/sbin/insmod $MOD
 	
-	if [ -f /mnt/acq420FMC.ko ]; then
-		MOD=/mnt/acq420FMC.ko
-	else if [ -f /usr/local/lib/modules/acq420FMC.ko ]; then
-		MOD=/usr/local/lib/modules/acq420FMC.ko
+	if [ -f /mnt/acq420fmc.ko ]; then
+		MOD=/mnt/acq420fmc.ko
+	else if [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
+		MOD=/usr/local/lib/modules/acq420fmc.ko
 		else
-			echo "ERROR, module acq420FMC.ko not found" 
+			echo "ERROR, module acq420fmc.ko not found" 
 			exit 1
 		fi
 	fi

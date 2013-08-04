@@ -217,74 +217,108 @@ MAKE_GAIN(3);
 MAKE_GAIN(4);
 
 static ssize_t show_signal(
-	int shl,
-	int mbit, const char* mbit_hi, const char* mbit_lo,
 	struct device * dev,
 	struct device_attribute *attr,
-	char * buf)
+	char * buf,
+	int shl, int mbit,
+	const char*signame, const char* mbit_hi, const char* mbit_lo)
 {
 	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], ADC_CTRL);
 	if (adc_ctrl&mbit){
 		u32 sel = (adc_ctrl >> shl) & ADC_CTRL_SIG_MASK;
-
+		unsigned dx = sel&ADC_CTRL_SIG_SEL;
 		int rising = ((adc_ctrl >> shl) & ADC_CTRL_SIG_RISING) != 0;
 
-		return sprintf(buf, "%s d%u %s\n",
-				mbit_hi, sel, rising? "RISING": "FALLING");
+		return sprintf(buf, "%s=%d,%d,%d %s d%u %s\n",
+				signame, 1, dx, rising,
+				mbit_hi, dx, rising? "RISING": "FALLING");
 	}else{
-		return sprintf(buf, "%s\n", mbit_lo);
+		return sprintf(buf, "%s=0,0,0 %s\n", signame, mbit_lo);
 	}
 }
 
-static ssize_t store_signal(
-		int shl,
-		int mbit, const char* mbit_hi, const char* mbit_lo,
-		struct device * dev,
-		struct device_attribute *attr,
-		const char * buf,
-		size_t count)
+int store_signal3(struct device* dev, int shl, int mbit,
+		unsigned imode, unsigned dx, unsigned rising)
 {
-	unsigned dx;
-	char sense;
-	char mode[16];
-	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], ADC_CTRL);
-	int nscan = sscanf(buf, "%10s d%u %c", mode, &dx, &sense);
+	struct acq420_dev* adev = acq420_devices[dev->id];
 
-	switch(nscan){
-	case 1:
-		if (strcmp(mode, mbit_lo) == 0){
+	if (adev->busy){
+		return -EBUSY;
+	}else{
+		u32 adc_ctrl = acq420rd32(adev, ADC_CTRL);
+
+		switch(imode){
+		case 0:
 			adc_ctrl &= ~mbit;
 			break;
-		}
-		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
-		return -1;
-	case 3:
-		if (strcmp(mode, mbit_hi) == 0){
-			int rising 	= strchr("Rr+Pp", sense) != NULL;
-			int falling 	= strchr("Ff-Nn", sense) != NULL;
-
+		case 1:
 			if (dx > 7){
-				dev_warn(dev, "rejecting \"%s\" dx > 7", buf);
-				return -1;
-			}
-			if (!rising && !falling){
-				dev_warn(dev,
-					"rejecting \"%s\" sense must be R or F", buf);
+				dev_warn(dev, "rejecting \"%u\" dx > 7", dx);
 				return -1;
 			}
 			adc_ctrl &= ~(ADC_CTRL_SIG_MASK << shl);
 			adc_ctrl |=  (dx|(rising? ADC_CTRL_SIG_RISING:0))<<shl;
 			adc_ctrl |= mbit;
 			break;
+		default:
+			dev_warn(dev, "BAD mode:%u", imode);
+			return -1;
 		}
-		/* fall thru */
+		acq420wr32(adev, ADC_CTRL, adc_ctrl);
+		return 0;
+	}
+}
+static ssize_t store_signal(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		int shl, int mbit, const char* mbit_hi, const char* mbit_lo)
+{
+	char sense;
+	char mode[16];
+	unsigned imode, dx, rising;
+
+	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
+	int nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);
+	if (nscan == 3){
+		if (store_signal3(dev, shl, mbit, imode, dx, rising)){
+			return -1;
+		}else{
+			return count;
+		}
+	}
+
+	/* second form: mode dDX sense : better for human scripting */
+	nscan = sscanf(buf, "%10s d%u %c", mode, &dx, &sense);
+
+	switch(nscan){
+	case 1:
+		if (strcmp(mode, mbit_lo) == 0){
+			return store_signal3(dev, shl, mbit, 0, 0, 0);
+		}
+		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
+		return -1;
+	case 3:
+		if (strcmp(mode, mbit_hi) == 0){
+			unsigned falling = strchr("Ff-Nn", sense) != NULL;
+			rising 	= strchr("Rr+Pp", sense) != NULL;
+
+			if (!rising && !falling){
+				dev_warn(dev,
+				 "rejecting \"%s\" sense must be R or F", buf);
+				return -1;
+			}else if (store_signal3(dev, shl, mbit, 1, dx, rising)){
+				return -1;
+			}else{
+				return count;
+			}
+		}
+		/* else fall thru */
 	default:
 		dev_warn(dev, "%s|%s dX R|F", mbit_lo, mbit_hi);
 		return -1;
 	}
-	/* here with success */
-	acq420wr32(acq420_devices[dev->id], ADC_CTRL, adc_ctrl);
-	return count;
 }
 
 #define MAKE_SIGNAL(SIGNAME, shl, mbit, HI, LO)							\
@@ -293,7 +327,7 @@ static ssize_t show_##SIGNAME(						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_signal(shl, mbit, HI, LO, dev, attr, buf);		\
+	return show_signal(dev, attr, buf, shl, mbit, #SIGNAME, HI, LO);\
 }									\
 									\
 static ssize_t store_##SIGNAME(						\
@@ -302,7 +336,7 @@ static ssize_t store_##SIGNAME(						\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_signal(shl, mbit, HI, LO, dev, attr, buf, count);	\
+	return store_signal(dev, attr, buf, count, shl, mbit, HI, LO);	\
 }									\
 static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 		show_##SIGNAME, store_##SIGNAME)

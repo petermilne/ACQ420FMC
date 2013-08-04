@@ -37,7 +37,7 @@
 #include <linux/of.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */
-#define AXI_FIFO              0x0
+#define AXI_FIFO              0x1000
 #define AXI_FIFO_LEN          0x1000
 
 #define OF_IRQ_HITIDE		1	/* index of HITIDE in dtb */
@@ -45,7 +45,7 @@
 #define OF_IRQ_COUNT		6	/* number of items */
 #define OF_IRQ_MAGIC		32	/* add to the OF number to get actual */
 
-#define ADC_BASE		0x1000
+#define ADC_BASE		0x2000
 #define ADC_CTRL		(ADC_BASE+0x00)
 #define ADC_HITIDE		(ADC_BASE+0x04)
 #define ADC_FIFO_SAMPLES	(ADC_BASE+0x08)
@@ -79,8 +79,7 @@
 #define ADC_CTRL_MODE_EV1_EN	(1 << (3+ADC_CTRL_MODE_SHL))
 #define ADC_CTRL_MODE_EV2_EN	(1 << (2+ADC_CTRL_MODE_SHL))
 #define ADC_CTRL_MODE_HW_TRG	(1 << (1+ADC_CTRL_MODE_SHL))
-/** @todo REMOVE ME! */
-#define ADC_CTRL_MODE_HW_CLK	(1 << (1+ADC_CTRL_MODE_SHL))
+#define ADC_CTRL_MODE_HW_CLK	(1 << (0+ADC_CTRL_MODE_SHL))
 
 
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
@@ -158,6 +157,7 @@ struct acq420_dev {
 	struct mutex mutex;
 	struct cdev cdev;
 	struct platform_device *pdev;
+	struct dentry* debug_dir;
 
 	wait_queue_head_t waitq;
 
@@ -168,6 +168,7 @@ struct acq420_dev {
 		u32 fifo_depth;
 		u32 burst_length;
 		u32 irq;
+		u32 fake;
 	} of_prams;
 
 	u32 DMA_READY;

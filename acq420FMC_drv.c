@@ -23,7 +23,8 @@
 #include "acq420FMC.h"
 #include "hbm.h"
 
-#define REVID "1.008"
+#include <linux/debugfs.h>
+#define REVID "1.022"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -92,6 +93,9 @@ const char* acq420_devnames[] = {
 	"acq420.0", "acq420.1", "acq420.2",
 	"acq420.3", "acq420.4", "acq420.5",
 };
+
+
+struct dentry* acq420_debug_root;
 
 int acq420_release(struct inode *inode, struct file *file);
 
@@ -278,17 +282,18 @@ dma_async_memcpy_pa_to_buf(
 }
 
 
-int cpsc_dma_memcpy(struct dma_chan* dma_chan, struct HBM* dest, u32 src, size_t len)
+int cpsc_dma_memcpy(struct acq420_dev* adev, struct HBM* dest, u32 src, size_t len)
 {
 	dma_cookie_t cookie;
 	DMA_NS_INIT;
 	DMA_NS;
-	if (dma_chan == 0){
-		dev_err(0, "dma_find_channel");
+	if (adev->dma_chan == 0){
+		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
+				adev, adev->pdev->dev.id);
 		return -1;
 	}
-	cookie = dma_async_memcpy_pa_to_buf(dma_chan, dest, src, len);
-	dma_sync_wait(dma_chan, cookie);
+	cookie = dma_async_memcpy_pa_to_buf(adev->dma_chan, dest, src, len);
+	dma_sync_wait(adev->dma_chan, cookie);
 	DMA_NS;
 	return len;
 }
@@ -531,6 +536,8 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		dev_err(DEVP(adev), "no dma chan");
 		return -EBUSY;
 	}
+	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
+		adev, adev->pdev->dev.id, adev->dma_chan);
 
 
 
@@ -895,7 +902,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 
 		_cursor = *adev->cursor.hb;
 		_cursor.pa += adev->cursor.offset;
-		cpsc_dma_memcpy(adev->dma_chan, &_cursor, FIFO_PA(adev), bytes);
+		cpsc_dma_memcpy(adev, &_cursor, FIFO_PA(adev), bytes);
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
 
@@ -955,7 +962,7 @@ struct file_operations acq420_fops = {
 
 #ifdef CONFIG_OF
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
-        { .compatible = "D-TACQ,ACQ420_FMC", },
+        { .compatible = "D-TACQ,acq420fmc", },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
@@ -995,6 +1002,9 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
                                 "burst length unspecified - assuming 1\n");
                         adev->of_prams.burst_length = 1;
                 }
+
+                of_property_read_u32(of_node, "fake",  &adev->of_prams.fake);
+
                 dev_info(DEVP(adev), "DMA burst length is %d\n",
                         adev->of_prams.burst_length);
 
@@ -1031,7 +1041,46 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
         return adev;
 }
 
+static void acq420_createDebugfs(struct acq420_dev* adev)
+{
+	if (!acq420_debug_root){
+		acq420_debug_root = debugfs_create_dir("acq420", 0);
+		if (!acq420_debug_root){
+			dev_warn(&adev->pdev->dev, "failed create dir acq420");
+			return;
+		}
+	}
+
+#define DBG_REG_CREATE(reg) 					\
+	debugfs_create_x32(#reg, S_IRUGO, 			\
+		adev->debug_dir, adev->dev_virtaddr+(reg))
+	adev->debug_dir = debugfs_create_dir(
+			acq420_devnames[adev->pdev->dev.id], acq420_debug_root);
+
+	if (!adev->debug_dir){
+		dev_warn(&adev->pdev->dev, "failed create dir acq420.x");
+		return;
+	}
+	DBG_REG_CREATE(ADC_CTRL);
+	DBG_REG_CREATE(ADC_HITIDE);
+	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
+	DBG_REG_CREATE(ADC_FIFO_STA);
+	DBG_REG_CREATE(ADC_INT_CSR);
+	DBG_REG_CREATE(ADC_CLK_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(ADC_CLKDIV);
+	DBG_REG_CREATE(ADC_GAIN);
+	DBG_REG_CREATE(ADC_FORMAT);
+	DBG_REG_CREATE(ADC_CONV_TIME);
+}
+
+static void acq420_removeDebugfs(struct acq420_dev* adev)
+{
+	debugfs_remove_recursive(adev->debug_dir);
+}
 static int acq420_remove(struct platform_device *pdev);
+
+#define dev_dbg	dev_info
 
 static int acq420_probe(struct platform_device *pdev)
 {
@@ -1074,7 +1123,7 @@ static int acq420_probe(struct platform_device *pdev)
         adev->dev_addrsize = acq420_resource->end -
                 acq420_resource->start + 1;
         if (!request_mem_region(adev->dev_physaddr,
-                adev->dev_addrsize, MODULE_NAME)) {
+                adev->dev_addrsize, acq420_devnames[ndevices])) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
                         adev->dev_physaddr);
                 status = -ENODEV;
@@ -1122,7 +1171,11 @@ static int acq420_probe(struct platform_device *pdev)
 
         acq420_devices[ndevices++] = adev;
         acq420_createSysfs(&pdev->dev);
-        acq420_init_defaults(adev);
+        acq420_createDebugfs(adev);
+        if (adev->of_prams.fake){
+        	dev_info(&pdev->dev, "fake device, no hardware init");
+        	return 0;
+        }
 
         return 0;
 
@@ -1138,31 +1191,33 @@ static int acq420_remove(struct platform_device *pdev)
 	if (pdev->id == -1){
 		return -1;
 	}else{
-		struct acq420_dev* acq420_dev = acq420_devices[pdev->id];
+		struct acq420_dev* adev = acq420_devices[pdev->id];
 
-		if (acq420_dev == 0){
+		if (adev == 0){
 			return -1;
 		}
-		hbm_free(&pdev->dev, &acq420_dev->EMPTIES);
-		hbm_free(&pdev->dev, &acq420_dev->REFILLS);
-		acq420_delSysfs(&acq420_dev->pdev->dev);
-		acq420_del_proc(acq420_dev);
-		dev_dbg(&pdev->dev, "cdev_del %p\n", &acq420_dev->cdev);
-		cdev_del(&acq420_dev->cdev);
-		unregister_chrdev_region(acq420_dev->devno, 1);
+
+		acq420_removeDebugfs(adev);
+		hbm_free(&pdev->dev, &adev->EMPTIES);
+		hbm_free(&pdev->dev, &adev->REFILLS);
+		acq420_delSysfs(&adev->pdev->dev);
+		acq420_del_proc(adev);
+		dev_dbg(&pdev->dev, "cdev_del %p\n", &adev->cdev);
+		cdev_del(&adev->cdev);
+		unregister_chrdev_region(adev->devno, 1);
 
 		/* Unmap the I/O memory */
-		if (acq420_dev->dev_virtaddr) {
-			iounmap(acq420_dev->dev_virtaddr);
-			release_mem_region(acq420_dev->dev_physaddr,
-					acq420_dev->dev_addrsize);
+		if (adev->dev_virtaddr) {
+			iounmap(adev->dev_virtaddr);
+			release_mem_region(adev->dev_physaddr,
+					adev->dev_addrsize);
 		}
 		/* Free the PL330 buffer client data descriptors */
-		if (acq420_dev->client_data) {
-			kfree(acq420_dev->client_data);
+		if (adev->client_data) {
+			kfree(adev->client_data);
 		}
 
-		kfree(acq420_dev);
+		kfree(adev);
 
 		return 0;
 	}
