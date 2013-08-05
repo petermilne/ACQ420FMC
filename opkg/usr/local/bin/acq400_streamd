@@ -1,5 +1,6 @@
 #!/bin/sh
-
+# if there's a previous hanging instance, kill it and drop out
+# client can retry at an appropriate moment to restart..
 
 SITE=$1
 PID=/var/run/acq400_stream.$SITE.pid
@@ -8,12 +9,12 @@ if [ -e $PID ]; then
 	logger -t acq400_streamd kill $PID $(cat $PID)
 	kill -9 $(cat $PID)
 	rm $PID
-	sleep 0.1
+else	
+	acq400_stream $1 &
+	echo $! >$PID
+	wait
+	rm $PID
 fi
 
-acq400_stream $1 &
-echo $! >$PID
-wait
-rm $PID
 
 
