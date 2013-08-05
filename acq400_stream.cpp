@@ -240,12 +240,7 @@ Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 	case BM_SENDFILE:
 		return new TurboBuffer(fname, _buffer_len);
 	case BM_DEMUX:
-		/* HB0 only works on buffer 0 ... @@todo this could change */
-		if (ibuf == 0){
-			return new DemuxBuffer(fname, _buffer_len);
-		}else{
-			return new NullBuffer(fname, _buffer_len);
-		}
+		return new DemuxBuffer(fname, _buffer_len);
 	default:
 		return new MapBuffer(fname, _buffer_len);
 	}

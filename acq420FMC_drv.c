@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "1.026"
+#define REVID "1.033"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -74,6 +74,7 @@ MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)")
 int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
+
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
@@ -329,6 +330,7 @@ void putFull(struct acq420_dev* adev)
 	if (run_buffers && adev->rt.nput >= run_buffers){
 		adev->rt.please_stop = 1;
 	}
+	wake_up_interruptible(&adev->refill_ready);
 }
 
 int getFull(struct acq420_dev* adev)
@@ -584,6 +586,7 @@ ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count
 	char lbuf[8];
 	struct HBM *hbm;
 	int nread;
+	unsigned long now;
 
 
 	adev->stats.reads++;
@@ -615,6 +618,19 @@ ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count
 		return -1;
 	}
 	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
+
+	/* update every hb0 or at least once per second */
+	now = get_seconds();
+	// this kludge because EPICS updates 4 buffers at a time
+	if (hbm->ix == 3 || (now != adev->hb0_last && (hbm->ix&3) == 3)){
+		dev_dbg(DEVP(adev), "last:%lu now:%lu ix:%u",
+				adev->hb0_last, now, adev->cursor.hb->ix);
+
+		adev->rt.hb0_count++;
+		adev->rt.hb0_ix = hbm->ix&~3;
+		adev->hb0_last = now;
+		wake_up_interruptible(&adev->hb0_marker);
+	}
 	dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 
 	nread = sprintf(lbuf, "%02d\n", hbm->ix);
@@ -905,6 +921,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	struct acq420_dev *adev = (struct acq420_dev *)dev_id;
 	u32 status = acq420_get_fifo_samples(adev);
 
+
 	do {
 		int headroom = min(getHeadroom(adev), MAXDMA);
 		int bytes = status * 4;
@@ -932,13 +949,6 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		add_fifo_histo(adev, status);
 		adev->stats.dma_transactions++;
 
-		wake_up_interruptible(&adev->refill_ready);
-		if (adev->cursor.hb->ix == 0){
-			adev->rt.hb0_count++;
-			// in the future, we could mask in more buffers .. */
-			adev->rt.hb0_ix = adev->cursor.hb->ix;
-			wake_up_interruptible(&adev->hb0_marker);
-		}
 		adev->cursor.offset += bytes;
 		if (adev->oneshot){
 			adev->this_count += bytes;

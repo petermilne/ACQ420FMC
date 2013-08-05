@@ -222,6 +222,7 @@ struct acq420_dev {
 	} cursor;
 	wait_queue_head_t refill_ready;
 	wait_queue_head_t hb0_marker;
+	unsigned long hb0_last;
 
 	unsigned *fifo_histo;
 
