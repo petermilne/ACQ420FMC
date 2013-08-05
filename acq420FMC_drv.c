@@ -24,7 +24,8 @@
 #include "hbm.h"
 
 #include <linux/debugfs.h>
-#define REVID "1.022"
+#include <linux/poll.h>
+#define REVID "1.026"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -648,7 +649,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
 		adev->cursor.hb = 0;
 	} */
-
+	adev->busy = 0;
 
 	mutex_unlock(&adev->list_mutex);
 
@@ -656,6 +657,30 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	return acq420_release(inode, file);
 }
 
+static unsigned int acq420_continuous_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq420_dev *adev = ACQ420_DEV(file);
+
+	if (!list_empty(&adev->REFILLS)){
+		return POLLIN|POLLRDNORM;
+	}else if (adev->rt.refill_error){
+		return POLLERR;
+	}else if (adev->rt.please_stop){
+		return POLLHUP;
+	}else{
+		poll_wait(file, &adev->refill_ready, poll_table);
+		if (!list_empty(&adev->REFILLS)){
+			return POLLIN|POLLRDNORM;
+		}else if (adev->rt.refill_error){
+			return POLLERR;
+		}else if (adev->rt.please_stop){
+			return POLLHUP;
+		}else{
+			return 0;
+		}
+	}
+}
 ssize_t acq420_hb0_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
@@ -710,12 +735,15 @@ int acq420_open_histo(struct inode *inode, struct file *file)
 	}
 }
 
+
+
 int acq420_open_continuous(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq420_fops_continuous = {
 			.open = acq420_continuous_start,
 			.read = acq420_continuous_read,
-			.release = acq420_continuous_stop
+			.release = acq420_continuous_stop,
+			.poll = acq420_continuous_poll
 	};
 	int rc = acq420_open_main(inode, file);
 	if (rc){
@@ -897,8 +925,6 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 			wake_up_interruptible(&adev->hb0_marker);
 			return IRQ_HANDLED;
 		}
-
-		adev->busy = 1;
 
 		_cursor = *adev->cursor.hb;
 		_cursor.pa += adev->cursor.offset;
