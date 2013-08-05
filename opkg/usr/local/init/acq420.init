@@ -42,6 +42,19 @@ build_nodes() {
 lsmod | grep -q acq420FMC
 notloaded=$?
 
+add_webpage() {
+# kludge alert. The web pages don't exist yet, so wait until they might do ..
+	(
+		let SLEEP=5+$2;
+		sleep $SLEEP
+		/usr/local/bin/monitorregs $1 &
+		sed -ie '/TABAPPEND/ {
+i	<li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
+}' /var/www/d-tacq/acq_main_page.html
+	) &
+}
+
+
 build_knobs() {
 	let ix=0
 	for dir in /sys/bus/platform/devices/*acq420fmc
@@ -53,6 +66,8 @@ build_knobs() {
 		if [ $ix -ne 0 ]; then
 			echo 1 >/dev/acq420.${ix}.knobs/simulate
 		fi	
+		touch /dev/shm/AI.${IX}.wf.fin
+		add_webpage acq420.${ix} ${ix}
 		let ix=$ix+1
 	done
 }
