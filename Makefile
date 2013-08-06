@@ -20,7 +20,7 @@ date:
 	echo $(DC)
 
 package: all
-	cp mmap acq400_stream opkg/usr/local/bin
+	cp mmap acq400_stream monitorregs opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
