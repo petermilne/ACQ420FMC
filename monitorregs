@@ -1,0 +1,33 @@
+#!/bin/sh
+
+DEV=${1:-acq420.0}
+DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
+
+#httpd doesn't like names with periods..
+XMLNAME=${DEV%.*}${DEV#*.}
+
+
+dump_regs() {
+	(
+	cd $DIR
+	for file in $(ls -i | sort | awk '{ print $2 }')
+	do
+		printf "%18s %s\n" $file $(cat $file)
+	done
+	)
+}
+
+monitor() {
+	while [ 1 ]
+	do
+		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml
+		sleep 1
+	done
+}
+
+if [ "$(basename $0)" = "monitorregs" ]; then
+	monitor
+fi
+
+
+
