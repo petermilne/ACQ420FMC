@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "1.033"
+#define REVID "1.036"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -135,6 +135,11 @@ static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 	return acq420rd32(adev, ADC_FIFO_SAMPLES);
 }
 
+static u32 acq420_samples2bytes(struct acq420_dev *adev, u32 samples)
+{
+	return samples * NCHAN * BYTES_PER_CHANNEL(adev);
+}
+
 static void acq420_reset_fifo(struct acq420_dev *adev)
 /* Raise and Release reset */
 {
@@ -187,12 +192,14 @@ static u32 acq420_get_interrupt(struct acq420_dev *adev)
 	return acq420rd32(adev, ADC_INT_CSR);
 }
 
-static void acq420_clear_interrupt(struct acq420_dev *adev)
+static void acq420_clear_interrupt(struct acq420_dev *adev, u32 status)
 {
 	/** @@todo: how to INTACK?
 	acq420wr32(adev, ALG_INT_CSR, acq420_get_interrupt(adev));
  *
  */
+	/* peter assumes R/C ie write a 1 to clear the bit .. */
+	acq420wr32(adev, ADC_INT_CSR, status);
 }
 
 
@@ -921,26 +928,21 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	struct acq420_dev *adev = (struct acq420_dev *)dev_id;
 	u32 status = acq420_get_fifo_samples(adev);
 
-
 	do {
 		int headroom = min(getHeadroom(adev), MAXDMA);
-		int bytes = status * 4;
+		int bytes = acq420_samples2bytes(adev, status);
 		struct HBM _cursor;
 
 		bytes = min(bytes, headroom);
 
 		if (adev->rt.please_stop){
-			wake_up_interruptible(&adev->refill_ready);
-			wake_up_interruptible(&adev->hb0_marker);
-			return IRQ_HANDLED;
+			goto stop_exit;
 		}
 		if (headroom == 0){
 			dev_info(DEVP(adev), "headroom==0, quit count:%d set error\n",
 					adev->this_count);
 			adev->rt.refill_error = 1;
-			wake_up_interruptible(&adev->refill_ready);
-			wake_up_interruptible(&adev->hb0_marker);
-			return IRQ_HANDLED;
+			goto stop_exit;
 		}
 
 		_cursor = *adev->cursor.hb;
@@ -956,13 +958,17 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 		status = acq420_get_fifo_samples(adev);
 		if (acq420_isFifoError(adev)){
 			adev->rt.refill_error = 1;
-			wake_up_interruptible(&adev->refill_ready);
-			return IRQ_HANDLED;
+			goto stop_exit;
 		}
 	} while(status >= lotide);
 
 	acq420_enable_interrupt(adev);
 
+	return IRQ_HANDLED;
+
+stop_exit:
+	wake_up_interruptible(&adev->refill_ready);
+	wake_up_interruptible(&adev->hb0_marker);
 	return IRQ_HANDLED;
 }
 
@@ -972,13 +978,13 @@ static irqreturn_t acq420_int_handler(int irq, void *dev_id)
 	u32 status = acq420_get_interrupt(adev);
 	irqreturn_t irq_status = IRQ_WAKE_THREAD;
 
-	iowrite32((0xCAFEBABE), adev->dev_virtaddr);
+//	iowrite32((0xCAFEBABE), adev->dev_virtaddr);
 
 	if (status == 0x1 && adev->DMA_READY == 1) {
 		adev->DMA_READY = 0;
 	}
 	acq420_disable_interrupt(adev);
-	acq420_clear_interrupt(adev);
+//	acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 
 	return irq_status;

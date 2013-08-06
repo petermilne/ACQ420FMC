@@ -273,5 +273,7 @@ int getHeadroom(struct acq420_dev *adev);
 
 #define FIFO_PA(adev)  ((adev)->dev_physaddr + AXI_FIFO)
 
+#define NCHAN	4
+#define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
 #endif /* ACQ420FMC_H_ */
