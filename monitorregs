@@ -25,9 +25,7 @@ monitor() {
 	done
 }
 
-if [ "$*" != "" ]; then
-	$*
-else
+if [ "$(basename $0)" = "monitorregs" ]; then
 	monitor
 fi
 
