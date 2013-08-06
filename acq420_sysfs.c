@@ -223,11 +223,11 @@ static ssize_t show_signal(
 	int shl, int mbit,
 	const char*signame, const char* mbit_hi, const char* mbit_lo)
 {
-	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], ADC_CTRL);
+	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], TIM_CTRL);
 	if (adc_ctrl&mbit){
-		u32 sel = (adc_ctrl >> shl) & ADC_CTRL_SIG_MASK;
-		unsigned dx = sel&ADC_CTRL_SIG_SEL;
-		int rising = ((adc_ctrl >> shl) & ADC_CTRL_SIG_RISING) != 0;
+		u32 sel = (adc_ctrl >> shl) & TIM_CTRL_SIG_MASK;
+		unsigned dx = sel&TIM_CTRL_SIG_SEL;
+		int rising = ((adc_ctrl >> shl) & TIM_CTRL_SIG_RISING) != 0;
 
 		return sprintf(buf, "%s=%d,%d,%d %s d%u %s\n",
 				signame, 1, dx, rising,
@@ -245,7 +245,7 @@ int store_signal3(struct device* dev, int shl, int mbit,
 	if (adev->busy){
 		return -EBUSY;
 	}else{
-		u32 adc_ctrl = acq420rd32(adev, ADC_CTRL);
+		u32 adc_ctrl = acq420rd32(adev, TIM_CTRL);
 
 		switch(imode){
 		case 0:
@@ -256,15 +256,15 @@ int store_signal3(struct device* dev, int shl, int mbit,
 				dev_warn(dev, "rejecting \"%u\" dx > 7", dx);
 				return -1;
 			}
-			adc_ctrl &= ~(ADC_CTRL_SIG_MASK << shl);
-			adc_ctrl |=  (dx|(rising? ADC_CTRL_SIG_RISING:0))<<shl;
+			adc_ctrl &= ~(TIM_CTRL_SIG_MASK << shl);
+			adc_ctrl |=  (dx|(rising? TIM_CTRL_SIG_RISING:0))<<shl;
 			adc_ctrl |= mbit;
 			break;
 		default:
 			dev_warn(dev, "BAD mode:%u", imode);
 			return -1;
 		}
-		acq420wr32(adev, ADC_CTRL, adc_ctrl);
+		acq420wr32(adev, TIM_CTRL, adc_ctrl);
 		return 0;
 	}
 }
@@ -346,11 +346,11 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 #define EXT	"external"
 #define SOFT	"soft"
 #define INT	"internal"
-MAKE_SIGNAL(event1, ADC_CTRL_EVENT1_SHL, ADC_CTRL_MODE_EV1_EN, ENA, DIS);
-MAKE_SIGNAL(event2, ADC_CTRL_EVENT2_SHL, ADC_CTRL_MODE_EV2_EN, ENA, DIS);
-MAKE_SIGNAL(trg,    ADC_CTRL_TRIG_SHL,	 ADC_CTRL_MODE_HW_TRG, EXT, SOFT);
-MAKE_SIGNAL(clk,    ADC_CTRL_CLK_SHL,	 ADC_CTRL_MODE_HW_CLK, EXT, INT);
-
+MAKE_SIGNAL(event1, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS);
+MAKE_SIGNAL(event0, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS);
+MAKE_SIGNAL(trg,    TIM_CTRL_TRIG_SHL,	 TIM_CTRL_MODE_HW_TRG, EXT, SOFT);
+MAKE_SIGNAL(clk,    TIM_CTRL_CLK_SHL,	 TIM_CTRL_MODE_HW_CLK, EXT, INT);
+MAKE_SIGNAL(sync,   TIM_CTRL_SYNC_SHL,	 TIM_CTRL_MODE_SYNC,   EXT, INT);
 
 
 
@@ -509,7 +509,8 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_gain3.attr,
 	&dev_attr_gain4.attr,
 	&dev_attr_event1.attr,
-	&dev_attr_event2.attr,
+	&dev_attr_event0.attr,
+	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_data32.attr,
