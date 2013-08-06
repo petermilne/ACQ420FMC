@@ -47,7 +47,6 @@ add_webpage() {
 	(
 		let SLEEP=5+$2;
 		sleep $SLEEP
-		/usr/local/bin/monitorregs $1 &
 		sed -ie '/TABAPPEND/ {
 i	<li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
 }' /var/www/d-tacq/acq_main_page.html
@@ -67,6 +66,7 @@ build_knobs() {
 			echo 1 >/dev/acq420.${ix}.knobs/simulate
 		fi	
 		touch /dev/shm/AI.${IX}.wf.fin
+		/usr/local/bin/monitorregs acq420.${ix} &
 		add_webpage acq420.${ix} ${ix}
 		let ix=$ix+1
 	done

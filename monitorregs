@@ -21,11 +21,13 @@ monitor() {
 	while [ 1 ]
 	do
 		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml
-		sleep 1
+		sleep 1		
 	done
 }
 
-if [ "$(basename $0)" = "monitorregs" ]; then
+if [ "$*" != "" ]; then
+	$*
+else
 	monitor
 fi
 
