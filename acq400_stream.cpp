@@ -54,6 +54,7 @@ static int getKnob(const char* knob, unsigned* value)
 
 unsigned int nbuffers = 16;
 unsigned int bufferlen = 0x40000;
+int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
 int devnum = 0;
 
 int control_handle;
@@ -127,11 +128,12 @@ public:
 
 #define NCHAN	4
 
+template <class T>
 class DemuxBuffer: public MapBuffer {
 private:
 	int nchan;
 	int nsam;
-	short* ddata;
+	T* ddata;
 	char** fnames;
 	char OUT_ROOT[128];
 	char OUT_ROOT_NEW[128];
@@ -165,7 +167,7 @@ private:
 		system(FIN_COMMAND);
 	}
 	void demux() {
-		short* src = static_cast<short*>(pdata);
+		T* src = static_cast<T*>(pdata);
 
 		for (int isam = 0; isam < nsam; ++isam){
 			for (int ichan = 0; ichan < nchan; ++ichan){
@@ -173,10 +175,10 @@ private:
 			}
 		}
 	}
-	void writeChan(int ic, short* src, int nsam){
+	void writeChan(int ic, T* src, int nsam){
 		FILE* fp = fopen(fnames[ic], "w");
 		assert(fp);
-		fwrite(src, sizeof(short), nsam, fp);
+		fwrite(src, sizeof(T), nsam, fp);
 		fclose(fp);
 	}
 public:
@@ -194,7 +196,7 @@ public:
 		nchan(NCHAN),
 		nsam(_buffer_len/sizeof(short)/nchan)
 	{
-		ddata = new short[nsam*nchan];
+		ddata = new T[nsam*nchan];
 		make_names();
 	}
 };
@@ -240,7 +242,15 @@ Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 	case BM_SENDFILE:
 		return new TurboBuffer(fname, _buffer_len);
 	case BM_DEMUX:
-		return new DemuxBuffer(fname, _buffer_len);
+		switch(wordsize){
+		case 2:
+			return new DemuxBuffer<short>(fname, _buffer_len);
+		case 4:
+			return new DemuxBuffer<int>(fname, _buffer_len);
+		default:
+			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
+			exit(1);
+		}
 	default:
 		return new MapBuffer(fname, _buffer_len);
 	}
@@ -257,6 +267,7 @@ struct poptOption opt_table[] = {
 			"use sendfile to transmit (fake)"		    },
 	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
 	{ "hb0",       0, POPT_ARG_NONE, 0, 'h' },
+	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
