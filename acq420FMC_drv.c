@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "1.100"
+#define REVID "1.101"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -128,6 +128,7 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
 	acq420_init_format(adev);
+	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
 }
 
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
@@ -1218,7 +1219,6 @@ static int acq420_probe(struct platform_device *pdev)
         //acq420_reset_fifo();
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
-
         acq420_devices[ndevices++] = adev;
         acq420_createSysfs(&pdev->dev);
         acq420_createDebugfs(adev);
@@ -1227,10 +1227,11 @@ static int acq420_probe(struct platform_device *pdev)
         	return 0;
         }
 
+        acq420_init_defaults(adev);
         return 0;
 
-        fail:
-        	dev_err(&pdev->dev, "Bailout!\n");
+ fail:
+       	dev_err(&pdev->dev, "Bailout!\n");
         acq420_remove(pdev);
         return status;
 }
