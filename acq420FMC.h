@@ -45,15 +45,16 @@
 #define OF_IRQ_COUNT		6	/* number of items */
 #define OF_IRQ_MAGIC		32	/* add to the OF number to get actual */
 
-#define ADC_BASE		0x2000
-#define ADC_CTRL		(ADC_BASE+0x00)
-#define TIM_CTRL		(ADC_BASE+0x04)
-#define ADC_HITIDE		(ADC_BASE+0x08)
-#define ADC_FIFO_SAMPLES	(ADC_BASE+0x0C)
-#define ADC_FIFO_STA		(ADC_BASE+0x10)
-#define ADC_INT_CSR		(ADC_BASE+0x14)
-#define ADC_CLK_CTR		(ADC_BASE+0x18)
-#define ADC_SAMPLE_CTR		(ADC_BASE+0x1C)
+#define ADC_BASE		0x0000
+#define MOD_ID			(ADC_BASE+0x00)
+#define ADC_CTRL		(ADC_BASE+0x04)
+#define TIM_CTRL		(ADC_BASE+0x08)
+#define ADC_HITIDE		(ADC_BASE+0x0C)
+#define ADC_FIFO_SAMPLES	(ADC_BASE+0x10)
+#define ADC_FIFO_STA		(ADC_BASE+0x14)
+#define ADC_INT_CSR		(ADC_BASE+0x18)
+#define ADC_CLK_CTR		(ADC_BASE+0x1C)
+#define ADC_SAMPLE_CTR		(ADC_BASE+0x20)
 
 #define ADC_CLKDIV		(ADC_BASE+0x40)
 #define ADC_GAIN		(ADC_BASE+0x44)
@@ -164,6 +165,7 @@ struct acq420_dev {
 	struct cdev cdev;
 	struct platform_device *pdev;
 	struct dentry* debug_dir;
+	char *debug_names;
 
 	wait_queue_head_t waitq;
 

@@ -1085,6 +1085,7 @@ static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
 
 static void acq420_createDebugfs(struct acq420_dev* adev)
 {
+	char* pcursor;
 	if (!acq420_debug_root){
 		acq420_debug_root = debugfs_create_dir("acq420", 0);
 		if (!acq420_debug_root){
@@ -1092,10 +1093,14 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 			return;
 		}
 	}
+	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 #define DBG_REG_CREATE(reg) 					\
-	debugfs_create_x32(#reg, S_IRUGO, 			\
-		adev->debug_dir, adev->dev_virtaddr+(reg))
+	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
+	debugfs_create_x32(pcursor, S_IRUGO, 			\
+		adev->debug_dir, adev->dev_virtaddr+(reg));     \
+	pcursor += strlen(pcursor) + 1
+
 	adev->debug_dir = debugfs_create_dir(
 			acq420_devnames[adev->pdev->dev.id], acq420_debug_root);
 
@@ -1103,7 +1108,9 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 		dev_warn(&adev->pdev->dev, "failed create dir acq420.x");
 		return;
 	}
+	DBG_REG_CREATE(MOD_ID);
 	DBG_REG_CREATE(ADC_CTRL);
+	DBG_REG_CREATE(TIM_CTRL);
 	DBG_REG_CREATE(ADC_HITIDE);
 	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
 	DBG_REG_CREATE(ADC_FIFO_STA);
@@ -1119,6 +1126,7 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 static void acq420_removeDebugfs(struct acq420_dev* adev)
 {
 	debugfs_remove_recursive(adev->debug_dir);
+	kfree(adev->debug_names);
 }
 static int acq420_remove(struct platform_device *pdev);
 
