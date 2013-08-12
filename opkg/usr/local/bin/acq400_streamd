@@ -10,7 +10,14 @@ if [ -e $PID ]; then
 	kill -9 $(cat $PID)
 	rm $PID
 else	
-	acq400_stream $1 &
+	if [ -e /etc/acq400_streamd.conf ]; then
+		source /etc/acq400_streamd.conf
+		SITE_ARGS=$(eval echo \$SITE${SITE}_ARGS)
+		if [ "$SITE_ARGS" = "" ]; then
+			SITE_ARGS=$GLOBAL_ARGS
+		fi
+	fi
+	acq400_stream $SITE_ARGS $1 &
 	echo $! >$PID
 	wait
 	rm $PID

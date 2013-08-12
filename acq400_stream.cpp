@@ -55,6 +55,7 @@ static int getKnob(const char* knob, unsigned* value)
 unsigned int nbuffers = 16;
 unsigned int bufferlen = 0x40000;
 int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
+int oversampling = 1;
 int devnum = 0;
 
 int control_handle;
@@ -231,6 +232,56 @@ public:
 int TurboBuffer::fake_fd;
 
 
+template <class T>
+class OversamplingMapBuffer: public MapBuffer {
+	const int over, asr;
+	const int nsam;
+	T *outbuf;
+public:
+	OversamplingMapBuffer(const char* _fname, int _buffer_len,
+			int _oversampling, int _asr) :
+		MapBuffer(_fname, _buffer_len),
+		over(_oversampling),
+		asr(_asr),
+		nsam(_buffer_len/sizeof(T))
+	{
+		outbuf = new T[nsam * NCHAN];
+	}
+	virtual ~OversamplingMapBuffer() {
+		delete [] outbuf;
+	}
+	virtual int writeBuffer(int out_fd) {
+		T* src = static_cast<T*>(pdata);
+		int sums[NCHAN] = { 0, };
+		int nsum = 0;
+		int osam = 0;
+
+		for (int isam = 0; isam < nsam; ++isam){
+			for (int ic = 0; ic < NCHAN; ++ic){
+				sums[ic] += src[isam*NCHAN+ic];
+			}
+			if (++nsum >= over){
+				for (int ic = 0; ic < NCHAN; ++ic){
+					outbuf[osam*NCHAN+ic] = sums[ic] >> asr;
+					sums[ic] = 0;
+				}
+				++osam;
+			}
+		}
+		return write(out_fd, outbuf, osam*NCHAN*sizeof(T));
+	}
+};
+
+int ASR(int os)
+/** calculate Arith Shift Right needed to ensure no overflow for os */
+{
+	int asr = 0;
+	for (; 1<<asr < os; ++asr){
+		;
+	}
+	return asr;
+}
+
 Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 {
 	char* fname = new char[128];
@@ -252,12 +303,20 @@ Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 			exit(1);
 		}
 	default:
-		return new MapBuffer(fname, _buffer_len);
+		if (oversampling == 1){
+			return new MapBuffer(fname, _buffer_len);
+		}else if (wordsize == 2){
+			return new OversamplingMapBuffer<short>(
+			fname, _buffer_len, oversampling, ASR(oversampling));
+		}else{
+			return new OversamplingMapBuffer<int> (
+			fname, _buffer_len, oversampling, ASR(oversampling));
+		}
 	}
 }
 
 Buffer** buffers;
-const char* root;
+
 const char* stream_fmt = "%s.c";
 
 struct poptOption opt_table[] = {
@@ -268,11 +327,15 @@ struct poptOption opt_table[] = {
 	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
 	{ "hb0",       0, POPT_ARG_NONE, 0, 'h' },
 	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
+	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0, "set oversampling"},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
 
+const char* root;
 void init(int argc, const char** argv) {
+
+
 	getKnob(PROOT"/nbuffers", &nbuffers);
 	getKnob(PROOT"/bufferlen", &bufferlen);
 
