@@ -243,9 +243,9 @@ public:
 		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
-		nsam(_buffer_len/sizeof(T))
+		nsam(_buffer_len/sizeof(T)/NCHAN)
 	{
-		outbuf = new T[nsam * NCHAN];
+		outbuf = new T[nsam*NCHAN/over];
 	}
 	virtual ~OversamplingMapBuffer() {
 		delete [] outbuf;
@@ -266,8 +266,10 @@ public:
 					sums[ic] = 0;
 				}
 				++osam;
+				nsum = 0;
 			}
 		}
+
 		return write(out_fd, outbuf, osam*NCHAN*sizeof(T));
 	}
 };

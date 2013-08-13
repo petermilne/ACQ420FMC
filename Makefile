@@ -37,7 +37,7 @@ mmap: mmap.o
 	$(CC) -o mmap mmap.o -L../lib -lpopt
 	
 acq400_stream: acq400_stream.o
-	$(CXX) -o acq400_stream acq400_stream.o -L../lib -lpopt
+	$(CXX) -O3 -o acq400_stream acq400_stream.o -L../lib -lpopt
 	
 zynq:
 	./make.zynq
