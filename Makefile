@@ -24,6 +24,9 @@ package: all
 	cp *.ko opkg/usr/local/lib/modules
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
+	rm -f ../PACKAGES/$(SEQ)-acq420*
+	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
+
 
 apps: mmap acq400_stream
 
