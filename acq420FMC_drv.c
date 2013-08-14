@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.005"
+#define REVID "2.006"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -103,8 +103,8 @@ int acq420_release(struct inode *inode, struct file *file);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 {
-	dev_dbg(DEVP(adev), "acq420wr32 %p = %08x\n",
-			adev->dev_virtaddr + offset, value);
+	dev_dbg(DEVP(adev), "acq420wr32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, value);
 
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
@@ -112,8 +112,8 @@ void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
 u32 acq420rd32(struct acq420_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
-	dev_dbg(DEVP(adev), "acq420rd32 %p = %08x\n",
-			adev->dev_virtaddr + offset, rc);
+	dev_dbg(DEVP(adev), "acq420rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
 	return rc;
 }
 static void acq420_init_format(struct acq420_dev *adev)
@@ -135,6 +135,7 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 
 static void acq435_init_defaults(struct acq420_dev *adev)
 {
+	dev_info(DEVP(adev), "acq435_init_defaults()");
 	adev->data32 = 1;
 	adev->nchan_enabled = 32;
 	adev->word_size = 4;
@@ -236,9 +237,16 @@ void acq435_onStart(struct acq420_dev *adev)
 {
 	u32 ctrl = acq420rd32(adev, ADC_CTRL);
 
-	ctrl &= ~ADC_CTRL_ENABLE_ALL;
+	dev_info(DEVP(adev), "acq435_onStart()");
+	ctrl = 0;
 
 	acq420wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
+
+	if (adev->ramp_en){
+		ctrl |= ADC_CTRL_RAMP_EN;
+	}else{
+		ctrl &= ~ADC_CTRL_RAMP_EN;
+	}
 	// set mode (assume done)
 	// set clkdiv (assume done)
 	// set timing bus (assume done)
@@ -250,6 +258,10 @@ void acq435_onStart(struct acq420_dev *adev)
 	if (!adev->is_slave){
 		acq420wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 		acq420wr32(adev, ADC_CTRL, ctrl);
+	}
+
+	if (ctrl&ADC_CTRL_RAMP_EN){
+		dev_info(DEVP(adev), "acq435_onStart() RAMP MODE");
 	}
 }
 
@@ -616,6 +628,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	if (IS_ACQ435(adev)){
 		acq435_onStart(adev);
 	} else {
+		dev_info(DEVP(adev), "acq420 start:");
 		acq420_enable_fifo(adev);
 		acq420_reset_fifo(adev);
 	}
