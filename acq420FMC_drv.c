@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "1.101"
+#define REVID "2.003"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -129,8 +129,20 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 	adev->adc_18b = adc_18b;
 	acq420_init_format(adev);
 	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+	adev->nchan_enabled = 4;
+	adev->word_size = adev->data32? 4: 2;
 }
 
+static void acq435_init_defaults(struct acq420_dev *adev)
+{
+	adev->data32 = 1;
+	adev->nchan_enabled = 32;
+	adev->word_size = 4;
+	hitide = 512;
+	lotide = hitide - 4;
+	acq420wr32(adev, ADC_CLKDIV, 16);
+	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+}
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 {
 	return acq420rd32(adev, ADC_FIFO_SAMPLES);
@@ -138,7 +150,7 @@ static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 
 static u32 acq420_samples2bytes(struct acq420_dev *adev, u32 samples)
 {
-	return samples * NCHAN * BYTES_PER_CHANNEL(adev);
+	return samples * adev->nchan_enabled * adev->word_size;
 }
 
 static void acq420_reset_fifo(struct acq420_dev *adev)
@@ -165,7 +177,7 @@ static void acq420_enable_fifo(struct acq420_dev *adev)
 static void acq420_disable_fifo(struct acq420_dev *adev)
 {
 	u32 ctrl = acq420rd32(adev, ADC_CTRL);
-	ctrl &= ~ADC_CTRL_RAMP_EN;
+	ctrl |= ~ADC_CTRL_FIFO_RST;
 	acq420wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_ALL);
 }
 
@@ -218,6 +230,35 @@ int acq420_isFifoError(struct acq420_dev *adev)
 				FIFERR, fifsta);
 	}
 	return err;
+}
+
+void acq435_onStart(struct acq420_dev *adev)
+{
+	u32 ctrl = acq420rd32(adev, ADC_CTRL);
+
+	ctrl &= ~ADC_CTRL_ENABLE_ALL;
+
+	acq420wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
+	// set mode (assume done)
+	// set clkdiv (assume done)
+	// set timing bus (assume done)
+
+	acq420wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
+	acq420wr32(adev, ADC_CTRL, ctrl);
+	acq420wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
+	acq420wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
+	if (!adev->is_slave){
+		acq420wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
+		acq420wr32(adev, ADC_CTRL, ctrl);
+	}
+}
+
+static void acq400_getID(struct acq420_dev *adev)
+{
+	u32 modid = acq420rd32(adev, MOD_ID);
+	adev->mod_id = modid >> MOD_ID_TYPE_SHL;
+
+	dev_info(DEVP(adev), "Device MODID %08x", modid);
 }
 /*
 static void acq420_force_interrupt(int interrupt)
@@ -571,8 +612,13 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq420_clear_histo(adev);
-	acq420_enable_fifo(adev);
-	acq420_reset_fifo(adev);
+
+	if (IS_ACQ435(adev)){
+		acq435_onStart(adev);
+	} else {
+		acq420_enable_fifo(adev);
+		acq420_reset_fifo(adev);
+	}
 
 	adev->DMA_READY = 1;
 	adev->busy = 1;
@@ -1119,9 +1165,15 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 	DBG_REG_CREATE(ADC_CLK_CTR);
 	DBG_REG_CREATE(ADC_SAMPLE_CTR);
 	DBG_REG_CREATE(ADC_CLKDIV);
-	DBG_REG_CREATE(ADC_GAIN);
-	DBG_REG_CREATE(ADC_FORMAT);
-	DBG_REG_CREATE(ADC_CONV_TIME);
+	if (IS_ACQ420(adev)){
+		DBG_REG_CREATE(ADC_GAIN);
+		DBG_REG_CREATE(ADC_FORMAT);
+		DBG_REG_CREATE(ADC_CONV_TIME);
+	} else if (IS_ACQ435(adev)){
+		DBG_REG_CREATE(ACQ435_MODE);
+	}
+
+
 }
 
 static void acq420_removeDebugfs(struct acq420_dev* adev)
@@ -1220,14 +1272,22 @@ static int acq420_probe(struct platform_device *pdev)
         dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
         acq420_devices[ndevices++] = adev;
-        acq420_createSysfs(&pdev->dev);
-        acq420_createDebugfs(adev);
+
         if (adev->of_prams.fake){
         	dev_info(&pdev->dev, "fake device, no hardware init");
         	return 0;
         }
+        acq400_getID(adev);
+        acq420_createSysfs(&pdev->dev);
+        acq420_createDebugfs(adev);
 
-        acq420_init_defaults(adev);
+        if (IS_ACQ435(adev)){
+        	dev_info(&pdev->dev, "ACQ435 device init");
+        	acq435_init_defaults(adev);
+        } else {
+        	dev_info(&pdev->dev, "ACQ420 device init");
+        	acq420_init_defaults(adev);
+        }
         return 0;
 
  fail:

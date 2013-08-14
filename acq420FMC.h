@@ -61,12 +61,26 @@
 #define ADC_FORMAT 		(ADC_BASE+0x48)
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
+#define ACQ435_MODE		(ADC_BASE+0x44)
+
 #define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
 
 #define FIFO_HISTO_SZ	      	(1<<8)
 #define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>(14-8))
 
 
+#define MOD_ID_TYPE_SHL		24
+#define MOD_ID_VERSION_SHL	16
+#define MOD_ID_REV_SHL		0
+
+#define MOD_ID_ACQ420FMC	1
+#define MOD_ID_ACQ435ELF	2
+#define MOD_ID_ACQ430FMC	3
+#define MOD_ID_ACQ440FMC	4
+#define MOD_ID_ACQ425ELF	5
+
+#define MOD_ID_AO420		0x80
+#define MOD_ID_AO421		0x81
 
 
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
@@ -136,6 +150,15 @@
 #define ADC_HT_INT		91
 #define HITIDE			2048
 
+
+#define ACQ435_MODE_HIRES_512	(1<<4)
+#define ACQ435_MODE_B3DIS	(1<<3)
+#define ACQ435_MODE_B2DIS	(1<<2)
+#define ACQ435_MODE_B1DIS	(1<<1)
+#define ACQ435_MODE_B0DIS	(1<<0)
+
+#define ACQ435_MODE_BXDIS	0xf
+
 #define MODULE_NAME             "acq420"
 
 
@@ -168,6 +191,7 @@ struct acq420_dev {
 	struct dentry* debug_dir;
 	char *debug_names;
 
+	int mod_id;
 	wait_queue_head_t waitq;
 
 	struct pl330_client_data *client_data;
@@ -215,6 +239,9 @@ struct acq420_dev {
 	int ramp_en;
 	int data32;
 	int adc_18b;			/* @@todo set on probe() */
+	int nchan_enabled;
+	int word_size;
+	int is_slave;			/** @@todo how does this get set? */
 
 	struct mutex list_mutex;
 	struct list_head EMPTIES;	/* empties waiting isr       */
@@ -284,5 +311,8 @@ int getHeadroom(struct acq420_dev *adev);
 
 #define NCHAN	4
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
+
+#define IS_ACQ420(adev) ((adev)->mod_id == MOD_ID_ACQ420FMC)
+#define IS_ACQ435(adev) ((adev)->mod_id == MOD_ID_ACQ435ELF)
 
 #endif /* ACQ420FMC_H_ */

@@ -386,7 +386,8 @@ static ssize_t show_data32(
 	struct device_attribute *attr,
 	char * buf)
 {
-	return sprintf(buf, "%u\n", acq420_devices[dev->id]->data32);
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->data32);
 }
 
 static ssize_t store_data32(
@@ -395,9 +396,11 @@ static ssize_t store_data32(
 	const char * buf,
 	size_t count)
 {
+	struct acq420_dev *adev = acq420_devices[dev->id];
 	u32 data32;
-	if (sscanf(buf, "%u", &data32) == 1){
-		acq420_devices[dev->id]->data32 = data32 != 0;
+	if (!IS_ACQ435(adev) && sscanf(buf, "%u", &data32) == 1){
+		adev->data32 = data32 != 0;
+		adev->word_size = data32? 4: 2;
 		return count;
 	}else{
 		return -1;
@@ -437,13 +440,6 @@ static ssize_t store_stats(
 }
 
 static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
-
-
-
-
-
-
-
 
 
 static ssize_t show_clk_count(
@@ -498,31 +494,125 @@ static DEVICE_ATTR(clk_counter_src,
 		S_IRUGO|S_IWUGO, show_clk_counter_src, store_clk_counter_src);
 
 
+static ssize_t show_hi_res_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	u32 mode = acq420rd32(adev, ACQ435_MODE);
+	return sprintf(buf, "%u\n", (mode&ACQ435_MODE_HIRES_512)? 1: 0);
+}
+
+static ssize_t store_hi_res_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	u32 hi_res_mode;
+	if (sscanf(buf, "%u", &hi_res_mode) == 1){
+		u32 mode = acq420rd32(adev, ACQ435_MODE);
+		if (hi_res_mode == 0){
+			mode &= ~ACQ435_MODE_HIRES_512;
+		}else{
+			mode |= ACQ435_MODE_HIRES_512;
+		}
+		hi_res_mode &= ADC_CLK_CTR_SRC_MASK;
+		acq420wr32(adev, ACQ435_MODE, mode);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(hi_res_mode,
+		S_IRUGO|S_IWUGO, show_hi_res_mode, store_hi_res_mode);
+
+/** NB inverted to 1: enabled */
+static ssize_t show_bank_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	u32 mode = acq420rd32(adev, ACQ435_MODE) & ACQ435_MODE_BXDIS;
+	return sprintf(buf, "%x\n", ~mode & ACQ435_MODE_BXDIS);
+}
+
+static ssize_t store_bank_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	u32 bank_mask;
+	if (sscanf(buf, "%u", &bank_mask) == 1){
+		u32 mode = acq420rd32(adev, ACQ435_MODE);
+
+		mode &= ~ACQ435_MODE_BXDIS;
+		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
+		mode |= bank_mask;
+
+		acq420wr32(adev, ACQ435_MODE, mode);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(bank_mask,
+		S_IRUGO|S_IWUGO, show_bank_mask, store_bank_mask);
+
+
 
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_clkdiv.attr,
-	&dev_attr_gains.attr,
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
-	&dev_attr_gain1.attr,
-	&dev_attr_gain2.attr,
-	&dev_attr_gain3.attr,
-	&dev_attr_gain4.attr,
 	&dev_attr_event1.attr,
 	&dev_attr_event0.attr,
 	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
 	&dev_attr_clk.attr,
-	&dev_attr_data32.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
+	&dev_attr_data32.attr,
 	NULL,
+};
+
+static const struct attribute *acq420_attrs[] = {
+	&dev_attr_gains.attr,
+	&dev_attr_gain1.attr,
+	&dev_attr_gain2.attr,
+	&dev_attr_gain3.attr,
+	&dev_attr_gain4.attr,
+
+	NULL
+};
+static const struct attribute *acq435_attrs[] = {
+	&dev_attr_hi_res_mode.attr,
+	&dev_attr_bank_mask.attr,
+	NULL
 };
 void acq420_createSysfs(struct device *dev)
 {
+	struct acq420_dev *adev = acq420_devices[dev->id];
+
 	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
 		dev_err(dev, "failed to create sysfs");
+	}
+	if (IS_ACQ435(adev)){
+		if (sysfs_create_files(&dev->kobj, acq435_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
+	}else{
+		if (sysfs_create_files(&dev->kobj, acq420_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
 	}
 }
 
