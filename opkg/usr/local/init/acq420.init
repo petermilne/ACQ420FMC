@@ -62,12 +62,13 @@ build_knobs() {
 		ln -s $dir/ /dev/acq420.${ix}.knobs
 
 		echo 200 >/dev/acq420.${ix}.knobs/clkdiv
-		echo 0000 >/dev/acq420.${ix}.knobs/gains
-		if [ $ix -ne 0 ]; then
-			echo 1 >/dev/acq420.${ix}.knobs/simulate
-		fi	
-		touch /dev/shm/AI.${IX}.wf.fin
+		if [ -e /dev/acq420.${ix}.knobs/gains ]; then
+			echo 0000 >/dev/acq420.${ix}.knobs/gains
+		fi
+		touch /dev/shm/AI.${ix}.wf.fin
 		add_webpage acq420.${ix} ${ix}
+		
+		mkdir /etc/acq400/${ix}
 		let ix=$ix+1
 	done
 }
