@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.003"
+#define REVID "2.005"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1074,7 +1074,8 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
                         adev->of_prams.dma_channel = 0;
                 }
                 dev_info(DEVP(adev),
-                        "read DMA channel is %d\n", adev->of_prams.dma_channel);
+                        "acq420_device_tree_init() read DMA channel is %d\n",
+                        adev->of_prams.dma_channel);
 
                 if (of_property_read_u32(of_node, "fifo-depth",
                         &adev->of_prams.fifo_depth) < 0) {
@@ -1083,7 +1084,8 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
                         adev->of_prams.fifo_depth = 0xffffffff;
                 }
                 dev_info(DEVP(adev),
-                		"DMA fifo depth is %d\n", adev->of_prams.fifo_depth);
+                	"acq420_device_tree_init() DMA fifo depth is %d\n",
+                	adev->of_prams.fifo_depth);
 
                 if (of_property_read_u32(of_node, "burst-length",
                         &adev->of_prams.burst_length) < 0) {
@@ -1094,7 +1096,8 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
 
                 of_property_read_u32(of_node, "fake",  &adev->of_prams.fake);
 
-                dev_info(DEVP(adev), "DMA burst length is %d\n",
+                dev_info(DEVP(adev),
+                	"acq420_device_tree_init() DMA burst length is %d\n",
                         adev->of_prams.burst_length);
 
                 if (of_property_read_u32_array(
@@ -1102,7 +1105,6 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
                 	dev_warn(DEVP(adev), "failed to find IRQ values");
                 }else{
                 	adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
-                	//irqs[OF_IRQ_STATUS]
                 }
         }
 }
@@ -1268,8 +1270,6 @@ static int acq420_probe(struct platform_device *pdev)
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 	}
-        //acq420_reset_fifo();
-        dev_info(&pdev->dev, "added ACQ420 FMC successfully\n");
 
         acq420_devices[ndevices++] = adev;
 

@@ -567,8 +567,20 @@ static DEVICE_ATTR(bank_mask,
 		S_IRUGO|S_IWUGO, show_bank_mask, store_bank_mask);
 
 
+static ssize_t show_module_type(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->mod_id);
+}
+
+
+static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
 
 static const struct attribute *sysfs_attrs[] = {
+	&dev_attr_module_type.attr,
 	&dev_attr_clkdiv.attr,
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
