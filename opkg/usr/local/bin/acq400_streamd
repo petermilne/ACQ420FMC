@@ -5,19 +5,27 @@
 SITE=$1
 PID=/var/run/acq400_stream.$SITE.pid
 
+source /etc/sysconfig/acq400.conf
+
 if [ -e $PID ]; then
 	logger -t acq400_streamd kill $PID $(cat $PID)
 	kill -9 $(cat $PID)
 	rm $PID
 else	
-	if [ -e /etc/acq400_streamd.conf ]; then
-		source /etc/acq400_streamd.conf
-		SITE_ARGS=$(eval echo \$SITE${SITE}_ARGS)
-		if [ "$SITE_ARGS" = "" ]; then
-			SITE_ARGS=$GLOBAL_ARGS
-		fi
+	if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
+		source /etc/sysconfig/acq400_streamd.conf
 	fi
-	acq400_stream $SITE_ARGS $1 &
+	SITE_KNOBS=/etc/acq400/$SITE
+	if [ -e $SITE_KNOBS ]; then
+		if [ -e $SITE_KNOBS/SAMPLE_SIZE ]; then
+			SAMPLE_SIZE="-w $(cat $SITE_KNOBS/SAMPLE_SIZE)"
+		fi
+		if [ -e $SITE_KNOBS/OVERSAMPLING ]; then
+			OVERSAMPLING="-O $(cat $SITE_KNOBS/OVERSAMPLING)"
+		fi
+		SITE_ARGS=$(eval echo \$SITE${SITE}_ARGS)
+	fi
+	acq400_stream $SAMPLE_SIZE $OVERSAMPLING $1 &
 	echo $! >$PID
 	wait
 	rm $PID
