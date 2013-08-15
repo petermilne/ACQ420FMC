@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.007"
+#define REVID "2.008"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -254,6 +254,8 @@ void acq435_onStart(struct acq420_dev *adev)
 	acq420wr32(adev, ADC_CTRL, ctrl);
 	acq420wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
 	acq420wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
+	/** clear FIFO flags .. workaround hw bug */
+	acq420wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
 	if (!adev->is_slave){
 		acq420wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 		acq420wr32(adev, ADC_CTRL, ctrl);
@@ -263,7 +265,14 @@ void acq435_onStart(struct acq420_dev *adev)
 		dev_info(DEVP(adev), "acq435_onStart() RAMP MODE");
 	}
 }
-
+void acq420_onStart(struct acq420_dev *adev)
+{
+	dev_info(DEVP(adev), "acq420_onStart()");
+	acq420_enable_fifo(adev);
+	acq420_reset_fifo(adev);
+	/** clear FIFO flags .. workaround hw bug */
+	acq420wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
+}
 static void acq400_getID(struct acq420_dev *adev)
 {
 	u32 modid = acq420rd32(adev, MOD_ID);
@@ -627,9 +636,8 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	if (IS_ACQ435(adev)){
 		acq435_onStart(adev);
 	} else {
-		dev_info(DEVP(adev), "acq420 start:");
-		acq420_enable_fifo(adev);
-		acq420_reset_fifo(adev);
+		acq420_onStart(adev);
+
 	}
 
 	adev->DMA_READY = 1;
