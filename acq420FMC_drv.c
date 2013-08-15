@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.006"
+#define REVID "2.007"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -178,7 +178,6 @@ static void acq420_enable_fifo(struct acq420_dev *adev)
 static void acq420_disable_fifo(struct acq420_dev *adev)
 {
 	u32 ctrl = acq420rd32(adev, ADC_CTRL);
-	ctrl |= ~ADC_CTRL_FIFO_RST;
 	acq420wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_ALL);
 }
 
@@ -711,7 +710,7 @@ ssize_t acq420_continuous_read(struct file *file, char __user *buf, size_t count
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq420_dev *adev = ACQ420_DEV(file);
-	acq420_reset_fifo(adev);
+	//acq420_reset_fifo(adev);
 	acq420_disable_fifo(adev);
 
 	if (!list_empty(&adev->OPENS)){
