@@ -3,24 +3,51 @@
 SITE=${1:-0}
 
 KDIR=/dev/acq420.$SITE.knobs
+SDIR=/etc/acq400/$SITE
+
+do_site_knob() {
+	K=$1 V=$2
+
+	if [ "$V" != "$K" ]; then
+		echo $V > $SDIR/$K
+	else
+		if [ "x$K" = "x/help" ]; then
+			ls -1 $SDIR/
+		elif [ -e $SDIR/$K ]; then
+			cat $SDIR/$K
+		else
+			echo FILE $SDIR/$K not found
+		fi
+	fi
+}
+
+do_driver_knob() {
+	K=$1; V=$2
+	if [ "x$K" = "xhelp" ]; then
+		ls -1 $KDIR/
+	elif [ -e $KDIR/$K ]; then
+		# check no '='
+		if [ "$V" != "$K" ]; then
+			echo $V > $KDIR/$K
+		else
+			cat $KDIR/$K
+		fi
+	else
+		echo ERROR knob $KDIR/$K not found
+	fi
+}
 
 if [ -d $KDIR ]; then
-	cd /dev/acq420.0.knobs/
 	EOF=NO
 	while [ "$EOF" = "NO"  ]; do
 		read CMD
 		if [ $? -eq 0 ]; then
 			KNOB=${CMD%%=*}
 			VALUE=${CMD##*=}
-			if [ -e $KNOB ]; then
-				# check no '='
-				if [ "$VALUE" != "$KNOB" ]; then
-					echo $VALUE > $KNOB
-				else
-					cat $KNOB
-				fi
+			if [ "x${KNOB:0:1}" = "x/" ]; then
+				do_site_knob $KNOB $VALUE
 			else
-				echo ERROR knob $KNOB not found
+				do_driver_knob $KNOB $VALUE
 			fi
 		else
 			EOF=YES
