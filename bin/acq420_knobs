@@ -1,0 +1,33 @@
+#!/bin/sh
+
+SITE=${1:-0}
+
+KDIR=/dev/acq420.$SITE.knobs
+
+if [ -d $KDIR ]; then
+	cd /dev/acq420.0.knobs/
+	EOF=NO
+	while [ "$EOF" = "NO"  ]; do
+		read CMD
+		if [ $? -eq 0 ]; then
+			KNOB=${CMD%%=*}
+			VALUE=${CMD##*=}
+			if [ -e $KNOB ]; then
+				# check no '='
+				if [ "$VALUE" != "$KNOB" ]; then
+					echo $VALUE > $KNOB
+				else
+					cat $KNOB
+				fi
+			else
+				echo ERROR knob $KNOB not found
+			fi
+		else
+			EOF=YES
+		fi
+	done
+else
+	/usr/bin/logger -t acq420_knobs ERROR $KDIR not found
+	sleep 100
+	exit 1
+fi
