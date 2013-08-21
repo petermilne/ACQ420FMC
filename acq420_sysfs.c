@@ -469,6 +469,17 @@ static ssize_t store_shot(
 
 static DEVICE_ATTR(shot, S_IRUGO|S_IWUGO, show_shot, store_shot);
 
+static ssize_t show_run(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->stats.run);
+}
+
+
+static DEVICE_ATTR(run, S_IRUGO, show_run, 0);
 
 
 static ssize_t show_clk_count(
@@ -623,6 +634,7 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_sample_count.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
+	&dev_attr_run.attr,
 	NULL,
 };
 

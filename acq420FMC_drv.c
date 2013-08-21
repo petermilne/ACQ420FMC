@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.010"
+#define REVID "2.011"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -600,6 +600,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 
 	adev->oneshot = 0;
 	adev->stats.shot++;
+	adev->stats.run = 1;
 
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
@@ -745,6 +746,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	mutex_unlock(&adev->list_mutex);
 
 	dma_release_channel(adev->dma_chan);
+	adev->stats.run = 0;
 	return acq420_release(inode, file);
 }
 
