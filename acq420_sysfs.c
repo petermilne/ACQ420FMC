@@ -441,6 +441,35 @@ static ssize_t store_stats(
 
 static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
 
+static ssize_t show_shot(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->stats.shot);
+}
+
+static ssize_t store_shot(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	u32 set;
+
+	if (sscanf(buf, "%u", &set) == 1){
+		adev->stats.shot = set;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(shot, S_IRUGO|S_IWUGO, show_shot, store_shot);
+
+
 
 static ssize_t show_clk_count(
 	struct device * dev,
@@ -593,6 +622,7 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
 	&dev_attr_data32.attr,
+	&dev_attr_shot.attr,
 	NULL,
 };
 

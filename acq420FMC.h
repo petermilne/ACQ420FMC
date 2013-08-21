@@ -235,6 +235,7 @@ struct acq420_dev {
 
 		u32 fifo_interrupts;
 		u32 dma_transactions;
+		int shot;
 	} stats;
 
 	int ramp_en;
