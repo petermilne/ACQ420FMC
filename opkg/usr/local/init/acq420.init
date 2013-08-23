@@ -55,6 +55,16 @@ i	<li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
 }
 
 
+set_nchan() {
+## @@todo : read NCHAN from PROM 
+	MTYPE=$(cat /dev/acq420.$1.knobs/module_type)
+	case $MTYPE in
+	2)
+		mkdir -p /etc/sysconfig/acq400/$1
+		echo 32 >/etc/sysconfig/acq400/$1/nchan;;
+	esac
+}
+
 build_knobs() {
 	let ix=0
 	for dir in /sys/bus/platform/devices/*acq420fmc
@@ -67,7 +77,8 @@ build_knobs() {
 		fi
 		touch /dev/shm/AI.${ix}.wf.fin
 		add_webpage acq420.${ix} ${ix}
-		
+	
+		set_nchan ${ix}
 		mkdir /etc/acq400/${ix}
 		let ix=$ix+1
 	done
