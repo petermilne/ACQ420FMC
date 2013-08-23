@@ -56,12 +56,13 @@ i	<li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
 
 
 set_nchan() {
+	SITE=$1
+	MTYPE=$2
 ## @@todo : read NCHAN from PROM 
-	MTYPE=$(cat /dev/acq420.$1.knobs/module_type)
 	case $MTYPE in
 	2)
-		mkdir -p /etc/sysconfig/acq400/$1
-		echo 32 >/etc/sysconfig/acq400/$1/nchan;;
+		mkdir -p /etc/acq400/$SITE
+		echo 32 >/etc/acq400/$SITE/nchan;;
 	esac
 }
 
@@ -71,14 +72,22 @@ build_knobs() {
 	do
 		ln -s $dir/ /dev/acq420.${ix}.knobs
 
-		echo 200 >/dev/acq420.${ix}.knobs/clkdiv
-		if [ -e /dev/acq420.${ix}.knobs/gains ]; then
+		MTYPE=$(cat /$dir/module_type)
+		case $MTYPE in
+		2)
+			CLKDIV=8;;
+		*)
+			CLKDIV=200;;
+		esac
+		echo $CLKDIV >/$dir/clkdiv
+
+		if [ -e $dir/gains ]; then
 			echo 0000 >/dev/acq420.${ix}.knobs/gains
 		fi
 		touch /dev/shm/AI.${ix}.wf.fin
 		add_webpage acq420.${ix} ${ix}
+		set_nchan ${ix} ${MTYPE}
 	
-		set_nchan ${ix}
 		mkdir /etc/acq400/${ix}
 		let ix=$ix+1
 	done
