@@ -75,6 +75,7 @@ build_knobs() {
 		MTYPE=$(cat /$dir/module_type)
 		case $MTYPE in
 		2)
+			echo 4 >/etc/acq400/${ix}/SAMPLE_SIZE
 			CLKDIV=8;;
 		*)
 			CLKDIV=200;;
