@@ -198,7 +198,7 @@ public:
 	}
 	DemuxBuffer(const char* _fname, int _buffer_len) :
 		MapBuffer(_fname, _buffer_len),
-		nchan(nchan),
+		nchan(::nchan),
 		nsam(_buffer_len/sizeof(short)/nchan)
 	{
 		ddata = new T[nsam*nchan];
@@ -247,28 +247,30 @@ public:
 		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
-		nsam(_buffer_len/sizeof(T)/nchan)
+		nsam(_buffer_len/sizeof(T)/::nchan)
 	{
-		outbuf = new T[nsam*nchan/over];
+		outbuf = new T[nsam*::nchan/over];
 	}
 	virtual ~OversamplingMapBuffer() {
 		delete [] outbuf;
 	}
 	virtual int writeBuffer(int out_fd) {
 		T* src = static_cast<T*>(pdata);
-		int sums[nchan];
+		int sums[::nchan];
 		int nsum = 0;
 		int osam = 0;
 
-		memset(sums, 0, sizeof(sums));
+		for (int ic = 0; ic < ::nchan; ++ic){
+			sums[ic] = 0;
+		}
 
 		for (int isam = 0; isam < nsam; ++isam){
-			for (int ic = 0; ic < nchan; ++ic){
-				sums[ic] += src[isam*nchan+ic];
+			for (int ic = 0; ic < ::nchan; ++ic){
+				sums[ic] += src[isam*::nchan+ic];
 			}
 			if (++nsum >= over){
-				for (int ic = 0; ic < nchan; ++ic){
-					outbuf[osam*nchan+ic] = sums[ic] >> asr;
+				for (int ic = 0; ic < ::nchan; ++ic){
+					outbuf[osam*::nchan+ic] = sums[ic] >> asr;
 					sums[ic] = 0;
 				}
 				++osam;
@@ -276,7 +278,7 @@ public:
 			}
 		}
 
-		return write(out_fd, outbuf, osam*nchan*sizeof(T));
+		return write(out_fd, outbuf, osam*::nchan*sizeof(T));
 	}
 };
 
@@ -334,7 +336,7 @@ struct poptOption opt_table[] = {
 			"use sendfile to transmit (fake)"		    },
 	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
 	{ "hb0",       0, POPT_ARG_NONE, 0, 'h' },
-	{ "nchan",    'N', POPT_ARG_INT, &nchan, 0 },
+	{ "nchan",    'N', POPT_ARG_INT, &::nchan, 0 },
 	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
 	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0, "set oversampling"},
 	POPT_AUTOHELP
