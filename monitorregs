@@ -26,7 +26,11 @@ monitor() {
 }
 
 if [ "$(basename $0)" = "monitorregs" ]; then
-	monitor
+	if [ -d $DIR ]; then
+		monitor
+	else
+		echo ERROR: monitor dir not found: $DIR
+	fi
 fi
 
 

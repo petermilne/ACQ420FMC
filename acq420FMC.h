@@ -198,6 +198,7 @@ struct acq420_dev {
 	struct pl330_client_data *client_data;
 
 	struct OF_PRAMS {
+		u32 site;
 		u32 dma_channel;
 		u32 fifo_depth;
 		u32 burst_length;
@@ -296,7 +297,7 @@ void acq420_delSysfs(struct device *dev);
 
 void acq420_module_init_proc(void);
 void acq420_module_remove_proc(void);
-void acq420_init_proc(struct acq420_dev* acq420_dev, int idev);
+void acq420_init_proc(struct acq420_dev* acq420_dev);
 void acq420_del_proc(struct acq420_dev* acq420_dev);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value);

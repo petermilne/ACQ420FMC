@@ -2,7 +2,7 @@
 
 SITE=${1:-0}
 
-KDIR=/dev/acq420.$SITE.knobs
+KDIR=/dev/acq400.$SITE.knobs
 SDIR=/etc/acq400/$SITE
 
 do_site_knob() {
@@ -54,7 +54,7 @@ if [ -d $KDIR ]; then
 		fi
 	done
 else
-	/usr/bin/logger -t acq420_knobs ERROR $KDIR not found
+	/usr/bin/logger -t acq400_knobs ERROR $KDIR not found
 	sleep 100
 	exit 1
 fi

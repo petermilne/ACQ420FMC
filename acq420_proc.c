@@ -372,11 +372,12 @@ static int dma0_proc_read(
 	return -1;
 #endif
 }
-void acq420_init_proc(struct acq420_dev* acq420_dev, int idev)
+void acq420_init_proc(struct acq420_dev* acq420_dev)
 /* create unique stats entry under /proc/acq420/ */
 {
 	struct proc_dir_entry *proc_entry;
-	acq420_dev->proc_entry = proc_mkdir(acq420_names[idev], acq400_proc_root);
+	acq420_dev->proc_entry = proc_mkdir(
+		acq420_names[acq420_dev->of_prams.site], acq400_proc_root);
 
 	proc_entry = create_proc_entry("dmac", 0, acq420_dev->proc_entry);
 	if (proc_entry) {

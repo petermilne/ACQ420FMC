@@ -29,7 +29,7 @@ build_nodes() {
 			ID=${M_DEV#*.}
 
 			mknod /dev/ACQ420_FMC${ID}	c ${MAJOR} 0
-			mknod /dev/${NAME} 			c ${MAJOR} 0
+			mknod /dev/${NAME} 		c ${MAJOR} 0
 			mknod /dev/${NAME}.c 		c ${MAJOR} 1
 			mknod /dev/${NAME}.histo 	c ${MAJOR} 2
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
@@ -39,7 +39,7 @@ build_nodes() {
 }
 
 
-lsmod | grep -q acq420FMC
+lsmod | grep -q acq4.0FMC
 notloaded=$?
 
 add_webpage() {
@@ -66,34 +66,38 @@ set_nchan() {
 	esac
 }
 
-build_knobs() {
-	let ix=0
-	for dir in /sys/bus/platform/devices/*acq420fmc
-	do
-		ln -s $dir/ /dev/acq420.${ix}.knobs
+build_knobs_device() {
+	dir=$1
+	site=$(cat $dir/site)
+	ln -s $dir/ /dev/acq400.${site}.knobs
+	mkdir /etc/acq400/${site}
 
-		MTYPE=$(cat /$dir/module_type)
-		case $MTYPE in
-		2)
-			echo 4 >/etc/acq400/${ix}/SAMPLE_SIZE
-			CLKDIV=8;;
-		*)
-			CLKDIV=200;;
-		esac
-		echo $CLKDIV >/$dir/clkdiv
+	MTYPE=$(cat /$dir/module_type)
+	case $MTYPE in
+	2)
+		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
+		CLKDIV=8;;
+	*)
+		CLKDIV=200;;
+	esac
+	echo $CLKDIV >/$dir/clkdiv
 
-		if [ -e $dir/gains ]; then
-			echo 0000 >/dev/acq420.${ix}.knobs/gains
-		fi
-		touch /dev/shm/AI.${ix}.wf.fin
-		add_webpage acq420.${ix} ${ix}
-		set_nchan ${ix} ${MTYPE}
-	
-		mkdir /etc/acq400/${ix}
-		let ix=$ix+1
-	done
+	if [ -e $dir/gains ]; then
+		echo 0000 >/dev/acq400.${site}.knobs/gains
+	fi
+	touch /dev/shm/AI.${site}.wf.fin
+	add_webpage acq400.${site} ${site}
+	set_nchan ${site} ${MTYPE}
 }
 
+build_knobs() {
+	for dir in /sys/bus/platform/devices/*acq400fmc
+	do
+		if [ -e $dir/site ]; then
+			build_knobs_device $dir
+		fi
+	done
+}
 
 
 if [ $notloaded -ne 0 ]; then
@@ -106,6 +110,7 @@ if [ $notloaded -ne 0 ]; then
 	
 	if [ -f /mnt/acq420fmc.ko ]; then
 		MOD=/mnt/acq420fmc.ko
+		echo "WARNING using override driver $MOD"
 	else if [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
 		MOD=/usr/local/lib/modules/acq420fmc.ko
 		else
@@ -116,8 +121,9 @@ if [ $notloaded -ne 0 ]; then
 
 #	mount -t debugfs none /sys/kernel/debug/
 	echo "file acq420FMC_drv.c +p" > /sys/kernel/debug/dynamic_debug/control
-	insmod $MOD bufferlen=$BLEN
-	grep acq420 /proc/devices |  build_nodes
+	source /etc/sites
+	insmod $MOD bufferlen=$BLEN good_sites=$good_sites
+	grep acq4.0 /proc/devices |  build_nodes
 	build_knobs
 fi
 

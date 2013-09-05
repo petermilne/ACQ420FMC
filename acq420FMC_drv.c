@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.011"
+#define REVID "2.107"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -89,16 +89,34 @@ module_param_array(dma_ns, int, &dma_ns_num, 0444);
 module_param_array(dma_ns_lines, int, &dma_ns_num, 0444);
 
 
-// @@todo pgm: crude
-const char* acq420_names[] = { "0", "1", "2", "3", "4", "5" };
-const char* acq420_devnames[] = {
-	"acq420.0", "acq420.1", "acq420.2",
-	"acq420.3", "acq420.4", "acq420.5",
-};
+int good_sites[MAXDEVICES];
+int good_sites_count = 0;
+module_param_array(good_sites, int, &good_sites_count, 0444);
 
+// @@todo pgm: crude: index by site, index from 10
+const char* acq420_names[] = { "x", "1", "2", "3", "4", "5", "6" };
+const char* acq420_devnames[] = {
+	"xxxxxx.x", "acq400.1", "acq400.2",
+	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
+};
+//#define dev_dbg	dev_info
 
 struct dentry* acq420_debug_root;
 
+
+int isGoodSite(int site)
+{
+	int ii;
+	if (site <= 0 || site > MAXDEVICES){
+		return 0;
+	}
+	for (ii = 0; ii < good_sites_count; ++ii){
+		if (good_sites[ii] == site){
+			return 1;
+		}
+	}
+	return 0;
+}
 int acq420_release(struct inode *inode, struct file *file);
 
 void acq420wr32(struct acq420_dev *adev, int offset, u32 value)
@@ -275,7 +293,11 @@ void acq420_onStart(struct acq420_dev *adev)
 }
 static void acq400_getID(struct acq420_dev *adev)
 {
-	u32 modid = acq420rd32(adev, MOD_ID);
+	u32 modid;
+
+	dev_info(DEVP(adev), "About to read MODID from %p\n", adev->dev_virtaddr+MOD_ID);
+
+	modid = acq420rd32(adev, MOD_ID);
 	adev->mod_id = modid >> MOD_ID_TYPE_SHL;
 
 	dev_info(DEVP(adev), "Device MODID %08x", modid);
@@ -1074,7 +1096,7 @@ struct file_operations acq420_fops = {
 
 #ifdef CONFIG_OF
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
-        { .compatible = "D-TACQ,acq420fmc", },
+        { .compatible = "D-TACQ,acq400fmc", },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
@@ -1083,13 +1105,28 @@ MODULE_DEVICE_TABLE(of, xfifodma_of_match);
 #endif /* CONFIG_OF */
 
 
-static void acq420_device_tree_init(struct acq420_dev* adev)
+static int acq420_device_tree_init(struct acq420_dev* adev)
 {
 	struct device_node *of_node = adev->pdev->dev.of_node;
 
         if (of_node) {
         	u32 irqs[OF_IRQ_COUNT];
 
+        	if (of_property_read_u32(of_node, "site",
+        			&adev->of_prams.site) < 0){
+        		dev_warn(DEVP(adev), "error: site NOT specified in DT\n");
+        		return -1;
+        	}else{
+        		if (!isGoodSite(adev->of_prams.site)){
+        			dev_warn(DEVP(adev),
+        					"warning: site %d NOT GOOD\n",
+        					adev->of_prams.site);
+        			return -1;
+        		}else{
+        			dev_info(DEVP(adev), "site:%d GOOD\n",
+        					adev->of_prams.site);
+        		}
+        	}
                 if (of_property_read_u32(of_node, "dma-channel",
                         &adev->of_prams.dma_channel) < 0) {
                         dev_warn(DEVP(adev),
@@ -1129,7 +1166,10 @@ static void acq420_device_tree_init(struct acq420_dev* adev)
                 }else{
                 	adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
                 }
+
+                return 0;
         }
+        return -1;
 }
 
 static struct acq420_dev* acq420_allocate_dev(struct platform_device *pdev)
@@ -1159,7 +1199,7 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 {
 	char* pcursor;
 	if (!acq420_debug_root){
-		acq420_debug_root = debugfs_create_dir("acq420", 0);
+		acq420_debug_root = debugfs_create_dir("acq400", 0);
 		if (!acq420_debug_root){
 			dev_warn(&adev->pdev->dev, "failed create dir acq420");
 			return;
@@ -1174,10 +1214,10 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 	pcursor += strlen(pcursor) + 1
 
 	adev->debug_dir = debugfs_create_dir(
-			acq420_devnames[adev->pdev->dev.id], acq420_debug_root);
+			acq420_devnames[adev->of_prams.site], acq420_debug_root);
 
 	if (!adev->debug_dir){
-		dev_warn(&adev->pdev->dev, "failed create dir acq420.x");
+		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
 		return;
 	}
 	DBG_REG_CREATE(MOD_ID);
@@ -1210,6 +1250,7 @@ static int acq420_remove(struct platform_device *pdev);
 
 #define dev_dbg	dev_info
 
+
 static int acq420_probe(struct platform_device *pdev)
 {
         int status;
@@ -1229,15 +1270,18 @@ static int acq420_probe(struct platform_device *pdev)
                 return -ENODEV;
         }
 
-        acq420_device_tree_init(adev);
+        if (acq420_device_tree_init(adev)){
+        	status = -ENODEV;
+        	goto remove;
+        }
 
         if (adev->of_prams.irq == 0){
         	adev->of_prams.irq = ADC_HT_INT; /* @@todo should come from device tree? */
         	dev_warn(&pdev->dev, "Using default IRQ %d", adev->of_prams.irq);
         }
 
-        status = alloc_chrdev_region(&adev->devno,
-        		ACQ420_MINOR_0, ACQ420_MINOR_MAX, acq420_devnames[ndevices]);
+        status = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
+        		ACQ420_MINOR_MAX, acq420_devnames[adev->of_prams.site]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (status < 0) {
                 dev_err(&pdev->dev, "unable to register chrdev\n");
@@ -1251,7 +1295,7 @@ static int acq420_probe(struct platform_device *pdev)
         adev->dev_addrsize = acq420_resource->end -
                 acq420_resource->start + 1;
         if (!request_mem_region(adev->dev_physaddr,
-                adev->dev_addrsize, acq420_devnames[ndevices])) {
+                adev->dev_addrsize, acq420_devnames[adev->of_prams.site])) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
                         adev->dev_physaddr);
                 status = -ENODEV;
@@ -1263,12 +1307,12 @@ static int acq420_probe(struct platform_device *pdev)
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
-        acq420_init_proc(adev, ndevices);
+        acq420_init_proc(adev);
 
         status = devm_request_threaded_irq(
         		DEVP(adev), adev->of_prams.irq,
         		acq420_int_handler, fire_dma,
-        		IRQF_SHARED, acq420_devnames[DEVP(adev)->id],
+        		IRQF_SHARED, acq420_devnames[adev->of_prams.site],
         		adev);
 
 	if (status)	{
@@ -1300,6 +1344,7 @@ static int acq420_probe(struct platform_device *pdev)
         	dev_info(&pdev->dev, "fake device, no hardware init");
         	return 0;
         }
+
         acq400_getID(adev);
         acq420_createSysfs(&pdev->dev);
         acq420_createDebugfs(adev);
@@ -1315,6 +1360,7 @@ static int acq420_probe(struct platform_device *pdev)
 
  fail:
        	dev_err(&pdev->dev, "Bailout!\n");
+ remove:
         acq420_remove(pdev);
         return status;
 }

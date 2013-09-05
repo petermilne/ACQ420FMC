@@ -619,6 +619,18 @@ static ssize_t show_module_type(
 
 static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
 
+static ssize_t show_site(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->of_prams.site);
+}
+
+
+static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
+
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_clkdiv.attr,
@@ -635,6 +647,7 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
+	&dev_attr_site.attr,
 	NULL,
 };
 
