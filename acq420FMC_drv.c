@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.108"
+#define REVID "2.112"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -96,7 +96,7 @@ module_param_array(good_sites, int, &good_sites_count, 0444);
 // @@todo pgm: crude: index by site, index from 10
 const char* acq420_names[] = { "x", "1", "2", "3", "4", "5", "6" };
 const char* acq420_devnames[] = {
-	"xxxxxx.x", "acq400.1", "acq400.2",
+	"acq400.0", "acq400.1", "acq400.2",
 	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
 };
 //#define dev_dbg	dev_info
@@ -107,7 +107,7 @@ struct dentry* acq420_debug_root;
 int isGoodSite(int site)
 {
 	int ii;
-	if (site <= 0 || site > MAXDEVICES){
+	if (site < 0 || site > MAXDEVICES){
 		return 0;
 	}
 	for (ii = 0; ii < good_sites_count; ++ii){
@@ -134,9 +134,9 @@ u32 acq420rd32(struct acq420_dev *adev, int offset)
 			adev->dev_virtaddr + offset, offset, rc);
 	return rc;
 }
-static void acq420_init_format(struct acq420_dev *adev)
+static u32 acq420_set_fmt(struct acq420_dev *adev, u32 adc_ctrl)
+/* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
-	u32 adc_ctrl = acq420rd32(adev, ADC_CTRL);
 	if (adev->adc_18b){
 		adc_ctrl |= ADC_CTRL_18B;
 	}else{
@@ -147,15 +147,14 @@ static void acq420_init_format(struct acq420_dev *adev)
 	}else{
 		adc_ctrl &= ~ADC_CTRL32B_data;
 	}
-	acq420wr32(adev, ADC_CTRL, adc_ctrl);
+	return adc_ctrl;
 }
 static void acq420_init_defaults(struct acq420_dev *adev)
 {
 	acq420wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
-	acq420_init_format(adev);
-	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|acq420_set_fmt(adev, 0));
 	adev->nchan_enabled = 4;
 	adev->word_size = adev->data32? 4: 2;
 }
@@ -197,7 +196,7 @@ static void acq420_enable_fifo(struct acq420_dev *adev)
 		ctrl |= ADC_CTRL_RAMP_EN;
 	}else{
 		ctrl &= ~ADC_CTRL_RAMP_EN;
-		acq420_init_format(adev);
+		ctrl = acq420_set_fmt(adev, ctrl);
 	}
 	acq420wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
 }
@@ -1106,6 +1105,7 @@ struct file_operations acq420_fops = {
 #ifdef CONFIG_OF
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq400fmc", },
+        { .compatible = "D-TACQ,acq420fmc", },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);

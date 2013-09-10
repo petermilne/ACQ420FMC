@@ -91,7 +91,7 @@ build_knobs_device() {
 }
 
 build_knobs() {
-	for dir in /sys/bus/platform/devices/*acq400fmc
+	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do
 		if [ -e $dir/site ]; then
 			build_knobs_device $dir
