@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.107"
+#define REVID "2.108"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -136,9 +136,18 @@ u32 acq420rd32(struct acq420_dev *adev, int offset)
 }
 static void acq420_init_format(struct acq420_dev *adev)
 {
-	acq420wr32(adev, ADC_FORMAT,
-			(adev->adc_18b? ADC_OPTS_IS_18B: 0)|
-			(adev->data32? ADC_OPTS_32B_data: 0));
+	u32 adc_ctrl = acq420rd32(adev, ADC_CTRL);
+	if (adev->adc_18b){
+		adc_ctrl |= ADC_CTRL_18B;
+	}else{
+		adc_ctrl &= ~ADC_CTRL_18B;
+	}
+	if (adev->data32){
+		adc_ctrl |= ADC_CTRL32B_data;
+	}else{
+		adc_ctrl &= ~ADC_CTRL32B_data;
+	}
+	acq420wr32(adev, ADC_CTRL, adc_ctrl);
 }
 static void acq420_init_defaults(struct acq420_dev *adev)
 {
@@ -298,7 +307,7 @@ static void acq400_getID(struct acq420_dev *adev)
 	dev_info(DEVP(adev), "About to read MODID from %p\n", adev->dev_virtaddr+MOD_ID);
 
 	modid = acq420rd32(adev, MOD_ID);
-	adev->mod_id = modid >> MOD_ID_TYPE_SHL;
+	adev->mod_id = modid;
 
 	dev_info(DEVP(adev), "Device MODID %08x", modid);
 }
@@ -1232,7 +1241,6 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 	DBG_REG_CREATE(ADC_CLKDIV);
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
-		DBG_REG_CREATE(ADC_FORMAT);
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ435(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
@@ -1346,6 +1354,15 @@ static int acq420_probe(struct platform_device *pdev)
         }
 
         acq400_getID(adev);
+        if (IS_ACQ420(adev)){
+        	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
+        	if (rev < 3){
+        		dev_err(DEVP(adev),
+        		  "OBSOLETE FPGA IMAGE %u < 3, please update", rev);
+        	}else{
+        		dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
+        	}
+        }
         acq420_createSysfs(&pdev->dev);
         acq420_createDebugfs(adev);
 

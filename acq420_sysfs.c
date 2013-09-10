@@ -613,7 +613,7 @@ static ssize_t show_module_type(
 	char * buf)
 {
 	struct acq420_dev *adev = acq420_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->mod_id);
+	return sprintf(buf, "%u\n", adev->mod_id>>MOD_ID_TYPE_SHL);
 }
 
 

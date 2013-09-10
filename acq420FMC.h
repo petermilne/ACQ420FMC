@@ -58,7 +58,9 @@
 
 #define ADC_CLKDIV		(ADC_BASE+0x40)
 #define ADC_GAIN		(ADC_BASE+0x44)
+/* obsolete R3
 #define ADC_FORMAT 		(ADC_BASE+0x48)
+*/
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
@@ -72,6 +74,7 @@
 #define MOD_ID_TYPE_SHL		24
 #define MOD_ID_VERSION_SHL	16
 #define MOD_ID_REV_SHL		0
+#define MOD_ID_REV_MASK		0x0000ffff
 
 #define MOD_ID_ACQ420FMC	1
 #define MOD_ID_ACQ435ELF	2
@@ -83,6 +86,8 @@
 #define MOD_ID_AO421		0x81
 
 
+#define ADC_CTRL32B_data	(1 << 7)
+#define ADC_CTRL_18B		(1 << 6)
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
@@ -141,9 +146,6 @@
 #define ADC_SAMPLE_CTR_MASK	0x0fffffff
 
 #define ADC_CLK_DIV_MASK	0x0000ffff
-
-#define ADC_OPTS_32B_data 	(1 << 1)
-#define ADC_OPTS_IS_18B 	(1 << 0)
 
 #define ADC_CONV_TIME_500	0x96
 #define ADC_CONV_TIME_1000	0x36
@@ -316,7 +318,7 @@ int getHeadroom(struct acq420_dev *adev);
 #define NCHAN	4
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
-#define IS_ACQ420(adev) ((adev)->mod_id == MOD_ID_ACQ420FMC)
-#define IS_ACQ435(adev) ((adev)->mod_id == MOD_ID_ACQ435ELF)
+#define IS_ACQ420(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC)
+#define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
 
 #endif /* ACQ420FMC_H_ */
