@@ -37,7 +37,9 @@
 #include <unistd.h>
 #include <string.h>
 #include "popt.h"
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #define PROOT	"/sys/module/acq420fmc/parameters"
 
 #define NCHAN	4
@@ -343,6 +345,25 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
+
+char *getRoot(int devnum)
+{
+	char *_root = new char [128];
+	struct stat sb;
+
+	sprintf(_root, "/dev/acq420.%d", devnum);
+	if (stat(_root, &sb) == 0){
+		return _root;
+	}
+
+	sprintf(_root, "/dev/acq400.%d", devnum);
+	if (stat(_root, &sb) == 0){
+		return _root;
+	}
+
+	fprintf(stderr, "ERROR: /dev/acq4x0.%d NOT FOUND\n", devnum);
+	exit(1);
+}
 const char* root;
 void init(int argc, const char** argv) {
 
@@ -373,9 +394,8 @@ void init(int argc, const char** argv) {
 	}
 	buffers = new Buffer* [nbuffers];
 
-	char *_root = new char [128];
-	sprintf(_root, "/dev/acq420.%d", devnum);
-	root = _root;
+	root = getRoot(devnum);
+
 
 	for (int ii = 0; ii < nbuffers; ++ii){
 		buffers[ii] = Buffer::create(root, ii, bufferlen);
