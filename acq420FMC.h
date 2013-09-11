@@ -48,6 +48,7 @@
 #define ADC_BASE		0x0000
 #define MOD_ID			(ADC_BASE+0x00)
 #define ADC_CTRL		(ADC_BASE+0x04)
+#define DAC_CTRL		ADC_CTRL
 #define TIM_CTRL		(ADC_BASE+0x08)
 #define ADC_HITIDE		(ADC_BASE+0x0C)
 #define ADC_FIFO_SAMPLES	(ADC_BASE+0x10)
@@ -64,6 +65,7 @@
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
+#define AO420_RANGE		(ADC_BASE+0x44)
 
 #define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
 
@@ -82,10 +84,10 @@
 #define MOD_ID_ACQ440FMC	4
 #define MOD_ID_ACQ425ELF	5
 
-#define MOD_ID_AO420		0x80
-#define MOD_ID_AO421		0x81
+#define MOD_ID_AO420FMC		0x40
+#define MOD_ID_AO421FMC		0x41
 
-
+#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
 #define ADC_CTRL_18B		(1 << 6)
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
@@ -96,7 +98,7 @@
 #define ADC_CTRL_MODULE_EN	(1 << 0)
 
 #define ADC_CTRL_RST_ALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
-#define ADC_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN)
+#define ADC_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN|ADC_CTRL_MODULE_EN)
 
 
 #define TIM_CTRL_EVENT1_SHL	28
@@ -165,6 +167,8 @@
 #define MODULE_NAME             "acq420"
 
 
+/* AO420FMC */
+
 /*
  *  Minor encoding
  *  0 : the original device
@@ -185,6 +189,7 @@
 	((minor) >= ACQ420_MINOR_BUF && (minor) <= ACQ420_MINOR_BUF2)
 #define BUFFER(minor) 		((minor) - ACQ420_MINOR_BUF)
 
+#define AO_CHAN	4
 /** acq420_dev one descriptor per device */
 struct acq420_dev {
 	dev_t devno;
@@ -276,6 +281,13 @@ struct acq420_dev {
 		unsigned hb0_count;
 		unsigned hb0_ix;
 	} rt;
+
+	struct AO_Immediate {
+		union {
+			short ch[AO_CHAN];
+			unsigned lw[AO_CHAN/2];
+		} _u;
+	} AO_immediate;
 };
 
 
@@ -320,5 +332,8 @@ int getHeadroom(struct acq420_dev *adev);
 
 #define IS_ACQ420(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC)
 #define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
+#define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
+#define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
+
 
 #endif /* ACQ420FMC_H_ */

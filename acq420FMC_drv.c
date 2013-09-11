@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.112"
+#define REVID "2.113"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1106,6 +1106,8 @@ struct file_operations acq420_fops = {
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq400fmc", },
         { .compatible = "D-TACQ,acq420fmc", },
+        { .compatible = "D-TACQ,acq435elf", },
+        { .compatible = "D-TACQ,ao420fmc",  },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
@@ -1244,6 +1246,8 @@ static void acq420_createDebugfs(struct acq420_dev* adev)
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ435(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
+	} else if (IS_ACQ420(adev)){
+		DBG_REG_CREATE(AO420_RANGE);
 	}
 
 

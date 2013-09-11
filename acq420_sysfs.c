@@ -631,6 +631,8 @@ static ssize_t show_site(
 
 static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
 
+
+
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_clkdiv.attr,
@@ -665,21 +667,179 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_bank_mask.attr,
 	NULL
 };
+
+static ssize_t show_dac_range(
+	int chan,
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 ranges = acq420rd32(acq420_devices[dev->id], AO420_RANGE);
+
+	return sprintf(buf, "%u\n", ranges>>chan & 1);
+}
+
+static ssize_t store_dac_range(
+		int chan,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count)
+{
+	int gx;
+
+	if (sscanf(buf, "%d", &gx) == 1){
+		u32 ranges = acq420rd32(acq420_devices[dev->id], AO420_RANGE);
+		unsigned bit = 1 << chan;
+		if (gx){
+			ranges |= 1<<bit;
+		}else{
+			ranges &= ~bit;
+		}
+
+		dev_dbg(dev, "set gain: %02x", ranges);
+		acq420wr32(acq420_devices[dev->id], AO420_RANGE, ranges);
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+#define MAKE_DAC_RANGE(NAME, BIT)					\
+static ssize_t show_dac_range##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_dac_range(BIT, dev, attr, buf);			\
+}									\
+									\
+static ssize_t store_dac_range##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_dac_range(BIT, dev, attr, buf, count);		\
+}									\
+static DEVICE_ATTR(dac_range_##NAME, S_IRUGO|S_IWUGO, 			\
+		show_dac_range##NAME, store_dac_range##NAME)
+
+MAKE_DAC_RANGE(01, 0);
+MAKE_DAC_RANGE(02, 1);
+MAKE_DAC_RANGE(03, 2);
+MAKE_DAC_RANGE(04, 3);
+MAKE_DAC_RANGE(REF, 4);
+
+static void ao420_flushImmediate(struct acq420_dev *adev)
+{
+	unsigned *src = adev->AO_immediate._u.lw;
+	void *fifo = adev->dev_virtaddr + AXI_FIFO;
+	int imax = AO_CHAN/2;
+	int ii = 0;
+
+	for (ii = 0; ii < imax; ++ii){
+		iowrite32(src[ii], fifo + ii*sizeof(unsigned));
+	}
+}
+
+static ssize_t show_dac_immediate(
+	int chan,
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	short chx = adev->AO_immediate._u.ch[chan];
+
+	return sprintf(buf, "0x%04x %d\n", chx, chx);
+}
+
+static ssize_t store_dac_immediate(
+		int chan,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count)
+{
+	struct acq420_dev *adev = acq420_devices[dev->id];
+	int chx;
+
+	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
+		unsigned cr = acq420rd32(adev, DAC_CTRL);
+		adev->AO_immediate._u.ch[chan] = chx;
+
+		if ((cr&DAC_CTRL_LL) == 0){
+			cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
+		}
+		acq420wr32(adev, DAC_CTRL, cr);
+		ao420_flushImmediate(adev);
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+#define MAKE_DAC_IMMEDIATE(NAME, CH)					\
+static ssize_t show_dac_immediate_##NAME(				\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_dac_immediate(CH, dev, attr, buf);			\
+}									\
+									\
+static ssize_t store_dac_immediate_##NAME(				\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_dac_immediate(CH, dev, attr, buf, count);		\
+}									\
+static DEVICE_ATTR(AO_##NAME, S_IRUGO|S_IWUGO, 			\
+		show_dac_immediate_##NAME, store_dac_immediate_##NAME)
+
+MAKE_DAC_IMMEDIATE(01, 0);
+MAKE_DAC_IMMEDIATE(02, 1);
+MAKE_DAC_IMMEDIATE(03, 2);
+MAKE_DAC_IMMEDIATE(04, 3);
+
+
+static const struct attribute *ao420_attrs[] = {
+	&dev_attr_dac_range_01.attr,
+	&dev_attr_dac_range_02.attr,
+	&dev_attr_dac_range_03.attr,
+	&dev_attr_dac_range_04.attr,
+	&dev_attr_dac_range_REF.attr,
+	&dev_attr_AO_01.attr,
+	&dev_attr_AO_02.attr,
+	&dev_attr_AO_03.attr,
+	&dev_attr_AO_04.attr,
+	NULL
+};
 void acq420_createSysfs(struct device *dev)
 {
 	struct acq420_dev *adev = acq420_devices[dev->id];
+	const struct attribute **specials = 0;
 
 	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
 		dev_err(dev, "failed to create sysfs");
 	}
-	if (IS_ACQ435(adev)){
-		if (sysfs_create_files(&dev->kobj, acq435_attrs)){
-			dev_err(dev, "failed to create sysfs");
-		}
+	if (IS_ACQ420(adev)){
+		specials = acq420_attrs;
+	}else if (IS_ACQ435(adev)){
+		specials = acq435_attrs;
+	}else if (IS_AO420(adev)){
+		specials = ao420_attrs;
 	}else{
-		if (sysfs_create_files(&dev->kobj, acq420_attrs)){
-			dev_err(dev, "failed to create sysfs");
-		}
+		return;
+	}
+
+	if (sysfs_create_files(&dev->kobj, specials)){
+		dev_err(dev, "failed to create sysfs");
 	}
 }
 
