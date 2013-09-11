@@ -151,6 +151,7 @@ static u32 acq420_set_fmt(struct acq420_dev *adev, u32 adc_ctrl)
 }
 static void acq420_init_defaults(struct acq420_dev *adev)
 {
+	dev_info(DEVP(adev), "ACQ420 device init");
 	acq420wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
@@ -161,7 +162,7 @@ static void acq420_init_defaults(struct acq420_dev *adev)
 
 static void acq435_init_defaults(struct acq420_dev *adev)
 {
-	dev_info(DEVP(adev), "acq435_init_defaults()");
+	dev_info(DEVP(adev), "ACQ435 device init");
 	adev->data32 = 1;
 	adev->nchan_enabled = 32;
 	adev->word_size = 4;
@@ -169,6 +170,11 @@ static void acq435_init_defaults(struct acq420_dev *adev)
 	lotide = hitide - 4;
 	acq420wr32(adev, ADC_CLKDIV, 16);
 	acq420wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+}
+
+static void ao420_init_defaults(struct acq420_dev *adev)
+{
+	dev_info(DEVP(adev), "AO420 device init");
 }
 static u32 acq420_get_fifo_samples(struct acq420_dev *adev)
 {
@@ -1367,16 +1373,19 @@ static int acq420_probe(struct platform_device *pdev)
         		dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
         	}
         }
+
+        if (IS_ACQ420(adev)){
+                acq420_init_defaults(adev);
+        }else if (IS_ACQ435(adev)){
+        	acq435_init_defaults(adev);
+        }else if (IS_AO420(adev)){
+        	ao420_init_defaults(adev);
+        }else{
+        	dev_warn(DEVP(adev), "no custom init for module type %x",
+        			(adev)->mod_id>>MOD_ID_TYPE_SHL);
+        }
         acq420_createSysfs(&pdev->dev);
         acq420_createDebugfs(adev);
-
-        if (IS_ACQ435(adev)){
-        	dev_info(&pdev->dev, "ACQ435 device init");
-        	acq435_init_defaults(adev);
-        } else {
-        	dev_info(&pdev->dev, "ACQ420 device init");
-        	acq420_init_defaults(adev);
-        }
         return 0;
 
  fail:
