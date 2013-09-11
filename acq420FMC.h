@@ -190,8 +190,8 @@
 #define BUFFER(minor) 		((minor) - ACQ420_MINOR_BUF)
 
 #define AO_CHAN	4
-/** acq420_dev one descriptor per device */
-struct acq420_dev {
+/** acq400_dev one descriptor per device */
+struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
 	struct cdev cdev;
@@ -291,33 +291,33 @@ struct acq420_dev {
 };
 
 
-/** acq420_path_descriptor - one per open path */
-struct acq420_path_descriptor {
-	struct acq420_dev* dev;
+/** acq400_path_descriptor - one per open path */
+struct acq400_path_descriptor {
+	struct acq400_dev* dev;
 	int minor;
 	struct HBM *hbm;
 };
 
-#define PD(filp)		((struct acq420_path_descriptor*)filp->private_data)
-#define PDSZ			(sizeof (struct acq420_path_descriptor))
-#define ACQ420_DEV(filp)	(PD(filp)->dev)
+#define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
+#define PDSZ			(sizeof (struct acq400_path_descriptor))
+#define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)
 
-extern struct acq420_dev* acq420_devices[];
-extern const char* acq420_names[];
+extern struct acq400_dev* acq400_devices[];
+extern const char* acq400_names[];
 
-void acq420_createSysfs(struct device *dev);
-void acq420_delSysfs(struct device *dev);
+void acq400_createSysfs(struct device *dev);
+void acq400_delSysfs(struct device *dev);
 
-void acq420_module_init_proc(void);
-void acq420_module_remove_proc(void);
-void acq420_init_proc(struct acq420_dev* acq420_dev);
-void acq420_del_proc(struct acq420_dev* acq420_dev);
+void acq400_module_init_proc(void);
+void acq400_module_remove_proc(void);
+void acq400_init_proc(struct acq400_dev* acq420_dev);
+void acq400_del_proc(struct acq400_dev* acq420_dev);
 
-void acq420wr32(struct acq420_dev *adev, int offset, u32 value);
-u32 acq420rd32(struct acq420_dev *adev, int offset);
+void acq400wr32(struct acq400_dev *adev, int offset, u32 value);
+u32 acq400rd32(struct acq400_dev *adev, int offset);
 
-int getHeadroom(struct acq420_dev *adev);
+int getHeadroom(struct acq400_dev *adev);
 
 #define MAXDMA	0x4000
 

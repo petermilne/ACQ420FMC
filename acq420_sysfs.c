@@ -65,7 +65,7 @@ static ssize_t show_clkdiv(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 clkdiv = acq420rd32(acq420_devices[dev->id], ADC_CLKDIV);
+	u32 clkdiv = acq400rd32(acq400_devices[dev->id], ADC_CLKDIV);
 	return sprintf(buf, "%u\n", clkdiv);
 }
 
@@ -79,7 +79,7 @@ static ssize_t store_clkdiv(
 	if (sscanf(buf, "%u", &clkdiv) == 1 &&
 	    clkdiv >= 1 &&
 	    clkdiv <= ADC_CLK_DIV_MASK){
-		acq420wr32(acq420_devices[dev->id], ADC_CLKDIV, clkdiv);
+		acq400wr32(acq400_devices[dev->id], ADC_CLKDIV, clkdiv);
 		return count;
 	}else{
 		return -1;
@@ -105,7 +105,7 @@ static ssize_t show_gains(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
+	u32 gains = acq400rd32(acq400_devices[dev->id], ADC_GAIN);
 	return sprintf(buf, "%u%u%u%u\n",
 			get_gain(gains, 0), get_gain(gains, 1),
 			get_gain(gains, 2), get_gain(gains, 3));
@@ -120,7 +120,7 @@ static ssize_t store_gains(
 	char gx[4];
 
 	if (sscanf(buf, "%c%c%c%c", gx+0, gx+1, gx+2, gx+3) == 4){
-		u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
+		u32 gains = acq400rd32(acq400_devices[dev->id], ADC_GAIN);
 		int ic;
 		for (ic = 0; ic < 4; ++ic){
 			if (gx[ic] >= '0' && gx[ic] <= '3'){
@@ -137,7 +137,7 @@ static ssize_t store_gains(
 			}
 		}
 		dev_dbg(dev, "set gains: %02x", gains);
-		acq420wr32(acq420_devices[dev->id], ADC_GAIN, gains);
+		acq400wr32(acq400_devices[dev->id], ADC_GAIN, gains);
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");
@@ -154,7 +154,7 @@ static ssize_t show_gain(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
+	u32 gains = acq400rd32(acq400_devices[dev->id], ADC_GAIN);
 
 	return sprintf(buf, "%u\n", get_gain(gains, chan));
 }
@@ -169,7 +169,7 @@ static ssize_t store_gain(
 	char gx;
 
 	if (sscanf(buf, "%c", &gx) == 1){
-		u32 gains = acq420rd32(acq420_devices[dev->id], ADC_GAIN);
+		u32 gains = acq400rd32(acq400_devices[dev->id], ADC_GAIN);
 		if (gx >= '0' && gx <= '3'){
 			gains = set_gain(gains, chan, gx-'0');
 		}else{
@@ -184,7 +184,7 @@ static ssize_t store_gain(
 		}
 
 		dev_dbg(dev, "set gain: %02x", gains);
-		acq420wr32(acq420_devices[dev->id], ADC_GAIN, gains);
+		acq400wr32(acq400_devices[dev->id], ADC_GAIN, gains);
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");
@@ -223,7 +223,7 @@ static ssize_t show_signal(
 	int shl, int mbit,
 	const char*signame, const char* mbit_hi, const char* mbit_lo)
 {
-	u32 adc_ctrl = acq420rd32(acq420_devices[dev->id], TIM_CTRL);
+	u32 adc_ctrl = acq400rd32(acq400_devices[dev->id], TIM_CTRL);
 	if (adc_ctrl&mbit){
 		u32 sel = (adc_ctrl >> shl) & TIM_CTRL_SIG_MASK;
 		unsigned dx = sel&TIM_CTRL_SIG_SEL;
@@ -240,12 +240,12 @@ static ssize_t show_signal(
 int store_signal3(struct device* dev, int shl, int mbit,
 		unsigned imode, unsigned dx, unsigned rising)
 {
-	struct acq420_dev* adev = acq420_devices[dev->id];
+	struct acq400_dev* adev = acq400_devices[dev->id];
 
 	if (adev->busy){
 		return -EBUSY;
 	}else{
-		u32 adc_ctrl = acq420rd32(adev, TIM_CTRL);
+		u32 adc_ctrl = acq400rd32(adev, TIM_CTRL);
 
 		switch(imode){
 		case 0:
@@ -264,7 +264,7 @@ int store_signal3(struct device* dev, int shl, int mbit,
 			dev_warn(dev, "BAD mode:%u", imode);
 			return -1;
 		}
-		acq420wr32(adev, TIM_CTRL, adc_ctrl);
+		acq400wr32(adev, TIM_CTRL, adc_ctrl);
 		return 0;
 	}
 }
@@ -360,7 +360,7 @@ static ssize_t show_simulate(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 simulate = acq420_devices[dev->id]->ramp_en != 0;
+	u32 simulate = acq400_devices[dev->id]->ramp_en != 0;
 	return sprintf(buf, "%u\n", simulate);
 }
 
@@ -372,7 +372,7 @@ static ssize_t store_simulate(
 {
 	u32 simulate;
 	if (sscanf(buf, "%u", &simulate) == 1){
-		acq420_devices[dev->id]->ramp_en = simulate != 0;
+		acq400_devices[dev->id]->ramp_en = simulate != 0;
 		return count;
 	}else{
 		return -1;
@@ -386,7 +386,7 @@ static ssize_t show_data32(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%u\n", adev->data32);
 }
 
@@ -396,7 +396,7 @@ static ssize_t store_data32(
 	const char * buf,
 	size_t count)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 data32;
 	if (!IS_ACQ435(adev) && sscanf(buf, "%u", &data32) == 1){
 		adev->data32 = data32 != 0;
@@ -415,7 +415,7 @@ static ssize_t show_stats(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct STATS *stats = &acq420_devices[dev->id]->stats;
+	struct STATS *stats = &acq400_devices[dev->id]->stats;
 	return sprintf(buf, "fifo_ints=%u dma_transactions=%u\n",
 			stats->fifo_interrupts, stats->dma_transactions);
 }
@@ -426,7 +426,7 @@ static ssize_t store_stats(
 	const char * buf,
 	size_t count)
 {
-	struct STATS *stats = &acq420_devices[dev->id]->stats;
+	struct STATS *stats = &acq400_devices[dev->id]->stats;
 	u32 clr;
 
 	if (sscanf(buf, "%u", &clr) == 1){
@@ -446,7 +446,7 @@ static ssize_t show_shot(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%d\n", adev->stats.shot);
 }
 
@@ -456,7 +456,7 @@ static ssize_t store_shot(
 	const char * buf,
 	size_t count)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 set;
 
 	if (sscanf(buf, "%u", &set) == 1){
@@ -474,7 +474,7 @@ static ssize_t show_run(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%d\n", adev->stats.run);
 }
 
@@ -487,7 +487,7 @@ static ssize_t show_clk_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 counter = acq420rd32(acq420_devices[dev->id], ADC_CLK_CTR);
+	u32 counter = acq400rd32(acq400_devices[dev->id], ADC_CLK_CTR);
 	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -498,7 +498,7 @@ static ssize_t show_sample_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 count = acq420rd32(acq420_devices[dev->id], ADC_SAMPLE_CTR);
+	u32 count = acq400rd32(acq400_devices[dev->id], ADC_SAMPLE_CTR);
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -509,7 +509,7 @@ static ssize_t show_clk_counter_src(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 counter = acq420rd32(acq420_devices[dev->id], ADC_CLK_CTR);
+	u32 counter = acq400rd32(acq400_devices[dev->id], ADC_CLK_CTR);
 	return sprintf(buf, "%u\n", counter>>ADC_CLK_CTR_SRC_SHL);
 }
 
@@ -522,7 +522,7 @@ static ssize_t store_clk_counter_src(
 	u32 clk_counter_src;
 	if (sscanf(buf, "%u", &clk_counter_src) == 1){
 		clk_counter_src &= ADC_CLK_CTR_SRC_MASK;
-		acq420wr32(acq420_devices[dev->id], ADC_CLK_CTR,
+		acq400wr32(acq400_devices[dev->id], ADC_CLK_CTR,
 				clk_counter_src << ADC_CLK_CTR_SRC_SHL);
 		return count;
 	}else{
@@ -539,8 +539,8 @@ static ssize_t show_hi_res_mode(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
-	u32 mode = acq420rd32(adev, ACQ435_MODE);
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 mode = acq400rd32(adev, ACQ435_MODE);
 	return sprintf(buf, "%u\n", (mode&ACQ435_MODE_HIRES_512)? 1: 0);
 }
 
@@ -550,17 +550,17 @@ static ssize_t store_hi_res_mode(
 	const char * buf,
 	size_t count)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 hi_res_mode;
 	if (sscanf(buf, "%u", &hi_res_mode) == 1){
-		u32 mode = acq420rd32(adev, ACQ435_MODE);
+		u32 mode = acq400rd32(adev, ACQ435_MODE);
 		if (hi_res_mode == 0){
 			mode &= ~ACQ435_MODE_HIRES_512;
 		}else{
 			mode |= ACQ435_MODE_HIRES_512;
 		}
 		hi_res_mode &= ADC_CLK_CTR_SRC_MASK;
-		acq420wr32(adev, ACQ435_MODE, mode);
+		acq400wr32(adev, ACQ435_MODE, mode);
 		return count;
 	}else{
 		return -1;
@@ -576,8 +576,8 @@ static ssize_t show_bank_mask(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
-	u32 mode = acq420rd32(adev, ACQ435_MODE) & ACQ435_MODE_BXDIS;
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 mode = acq400rd32(adev, ACQ435_MODE) & ACQ435_MODE_BXDIS;
 	return sprintf(buf, "%x\n", ~mode & ACQ435_MODE_BXDIS);
 }
 
@@ -587,16 +587,16 @@ static ssize_t store_bank_mask(
 	const char * buf,
 	size_t count)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 bank_mask;
 	if (sscanf(buf, "%u", &bank_mask) == 1){
-		u32 mode = acq420rd32(adev, ACQ435_MODE);
+		u32 mode = acq400rd32(adev, ACQ435_MODE);
 
 		mode &= ~ACQ435_MODE_BXDIS;
 		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
 		mode |= bank_mask;
 
-		acq420wr32(adev, ACQ435_MODE, mode);
+		acq400wr32(adev, ACQ435_MODE, mode);
 		return count;
 	}else{
 		return -1;
@@ -612,7 +612,7 @@ static ssize_t show_module_type(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%u\n", adev->mod_id>>MOD_ID_TYPE_SHL);
 }
 
@@ -624,7 +624,7 @@ static ssize_t show_site(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%u\n", adev->of_prams.site);
 }
 
@@ -674,7 +674,7 @@ static ssize_t show_dac_range(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 ranges = acq420rd32(acq420_devices[dev->id], AO420_RANGE);
+	u32 ranges = acq400rd32(acq400_devices[dev->id], AO420_RANGE);
 
 	return sprintf(buf, "%u\n", ranges>>chan & 1);
 }
@@ -689,7 +689,7 @@ static ssize_t store_dac_range(
 	int gx;
 
 	if (sscanf(buf, "%d", &gx) == 1){
-		u32 ranges = acq420rd32(acq420_devices[dev->id], AO420_RANGE);
+		u32 ranges = acq400rd32(acq400_devices[dev->id], AO420_RANGE);
 		unsigned bit = 1 << chan;
 		if (gx){
 			ranges |= 1<<bit;
@@ -698,7 +698,7 @@ static ssize_t store_dac_range(
 		}
 
 		dev_dbg(dev, "set gain: %02x", ranges);
-		acq420wr32(acq420_devices[dev->id], AO420_RANGE, ranges);
+		acq400wr32(acq400_devices[dev->id], AO420_RANGE, ranges);
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");
@@ -732,7 +732,7 @@ MAKE_DAC_RANGE(03, 2);
 MAKE_DAC_RANGE(04, 3);
 MAKE_DAC_RANGE(REF, 4);
 
-static void ao420_flushImmediate(struct acq420_dev *adev)
+static void ao420_flushImmediate(struct acq400_dev *adev)
 {
 	unsigned *src = adev->AO_immediate._u.lw;
 	void *fifo = adev->dev_virtaddr + AXI_FIFO;
@@ -750,7 +750,7 @@ static ssize_t show_dac_immediate(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	short chx = adev->AO_immediate._u.ch[chan];
 
 	return sprintf(buf, "0x%04x %d\n", chx, chx);
@@ -763,17 +763,17 @@ static ssize_t store_dac_immediate(
 		const char * buf,
 		size_t count)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	int chx;
 
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
-		unsigned cr = acq420rd32(adev, DAC_CTRL);
+		unsigned cr = acq400rd32(adev, DAC_CTRL);
 		adev->AO_immediate._u.ch[chan] = chx;
 
 		if ((cr&DAC_CTRL_LL) == 0){
 			cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		}
-		acq420wr32(adev, DAC_CTRL, cr);
+		acq400wr32(adev, DAC_CTRL, cr);
 		ao420_flushImmediate(adev);
 		return count;
 	}else{
@@ -820,9 +820,9 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_04.attr,
 	NULL
 };
-void acq420_createSysfs(struct device *dev)
+void acq400_createSysfs(struct device *dev)
 {
-	struct acq420_dev *adev = acq420_devices[dev->id];
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	const struct attribute **specials = 0;
 
 	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
@@ -843,7 +843,7 @@ void acq420_createSysfs(struct device *dev)
 	}
 }
 
-void acq420_delSysfs(struct device *dev)
+void acq400_delSysfs(struct device *dev)
 {
 	sysfs_remove_files(&dev->kobj, sysfs_attrs);
 }
