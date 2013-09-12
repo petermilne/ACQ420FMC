@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* ACQ420_FMC_drv.c  ACQ420 FMC D-TACQ DRIVER		                     */
+/* acq400_drv.c  D-TACQ ACQ400 FMC  DRIVER		                     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2013 Peter Milne, D-TACQ Solutions Ltd                    *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
@@ -20,7 +20,7 @@
 
 
 
-#include "acq420FMC.h"
+#include "acq400.h"
 #include "hbm.h"
 
 #include <linux/debugfs.h>

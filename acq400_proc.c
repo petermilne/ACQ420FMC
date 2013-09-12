@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* acq420_proc.c  		                     	 */
+/* acq400_proc.c  		                     	 */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                    *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
@@ -20,13 +20,13 @@
 /* ------------------------------------------------------------------------- */
 
 /*
- * acq420_proc.c
+ * acq400_proc.c
  *
  *  Created on: Mar 24, 2013
  *      Author: pgm
  */
 
-#include "acq420FMC.h"
+#include "acq400.h"
 #include "hbm.h"
 
 static struct proc_dir_entry *acq400_proc_root;

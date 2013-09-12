@@ -9,7 +9,7 @@ obj-m += pl330.o
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
 
-acq420fmc-objs := acq420FMC_drv.o acq420_sysfs.o acq420_proc.o hbm.o zynq-timer.o
+acq420fmc-objs := acq400_drv.o acq400_sysfs.o acq400_proc.o hbm.o zynq-timer.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
@@ -28,7 +28,7 @@ package: all
 	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
 
 
-apps: mmap acq400_stream
+apps: mmap acq400_stream bigmac
 
 modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
@@ -41,6 +41,11 @@ mmap: mmap.o
 	
 acq400_stream: acq400_stream.o
 	$(CXX) -O3 -o acq400_stream acq400_stream.o -L../lib -lpopt
+
+bigmac: bigmac.o
+	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
+		-ftree-vectorize -ftree-vectorizer-verbose=3 \
+		-O3 -o bigmac bigmac.o -L../lib -lpopt
 	
 zynq:
 	./make.zynq

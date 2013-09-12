@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* rtm-t-sysfs.c RTM-T PCIe Host Side driver, sysfs (knobs)	             */
+/* acq400_sysfs.c D-TACQ ACQ400 series driver, sysfs (knobs)	             */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2010 Peter Milne, D-TACQ Solutions Ltd
  *                      <Peter dot Milne at D hyphen TACQ dot com>
@@ -50,7 +50,7 @@
 #include <linux/module.h>
 #include <linux/user.h>
 
-#include "acq420FMC.h"
+#include "acq400.h"
 
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
