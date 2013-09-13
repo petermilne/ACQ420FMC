@@ -103,6 +103,8 @@ const char* acq400_devnames[] = {
 
 struct dentry* acq400_debug_root;
 
+#define AO420_NBUFFERS 	2
+#define AO420_BUFFERLEN	0x200000
 
 int isGoodSite(int site)
 {
@@ -1029,6 +1031,14 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 {
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
+
+static irqreturn_t ao420_dma(int irq, void *dev_id)
+/* keep the AO420 FIFO full. Recycle buffer only */
+{
+	return IRQ_HANDLED;
+}
+
+
 static irqreturn_t fire_dma(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
@@ -1269,6 +1279,25 @@ static int acq400_remove(struct platform_device *pdev);
 #define dev_dbg	dev_info
 
 
+static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
+{
+	if (hbm_allocate(DEVP(adev), nb, bl, &adev->EMPTIES, dir)){
+		return -1;
+	}else{
+		struct HBM* cursor;
+		int ix = 0;
+		adev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
+		list_for_each_entry(cursor, &adev->EMPTIES, list){
+			WARN_ON(cursor->ix != ix);
+			adev->hb[cursor->ix] = cursor;
+			ix++;
+		}
+		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
+		adev->nbuffers = ix;
+		return 0;
+	}
+}
+
 static int acq400_probe(struct platform_device *pdev)
 {
         int status;
@@ -1327,43 +1356,35 @@ static int acq400_probe(struct platform_device *pdev)
         status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
         acq400_init_proc(adev);
 
-        status = devm_request_threaded_irq(
-        		DEVP(adev), adev->of_prams.irq,
-        		acq400_int_handler, fire_dma,
-        		IRQF_SHARED, acq400_devnames[adev->of_prams.site],
-        		adev);
-
-	if (status)	{
-		printk("%s unable to secure IRQ%d\n", "ACQ420", 
-			adev->of_prams.irq);
-		goto fail;
-	}
-
-	if (hbm_allocate(DEVP(adev),
-			nbuffers, bufferlen, &adev->EMPTIES, DMA_FROM_DEVICE)){
-		dev_err(&pdev->dev, "failed to allocate buffers");
-		goto fail;
-	}else{
-		struct HBM* cursor;
-		int ix = 0;
-		adev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
-		list_for_each_entry(cursor, &adev->EMPTIES, list){
-			WARN_ON(cursor->ix != ix);
-			adev->hb[cursor->ix] = cursor;
-			ix++;
-		}
-		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
-		adev->nbuffers = ix;
-	}
-
-        acq400_devices[ndevices++] = adev;
-
         if (adev->of_prams.fake){
-        	dev_info(&pdev->dev, "fake device, no hardware init");
-        	return 0;
+          	dev_info(&pdev->dev, "fake device, no hardware init");
+          	return 0;
         }
 
         acq400_getID(adev);
+
+        status = devm_request_threaded_irq(
+          		DEVP(adev), adev->of_prams.irq,
+          		acq400_int_handler,
+          		IS_AO420(adev)? ao420_dma: fire_dma,
+          		IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+          		adev);
+
+  	if (status)	{
+  		printk("%s unable to secure IRQ%d\n", "ACQ420",
+  			adev->of_prams.irq);
+  		goto fail;
+  	}
+
+
+        if (allocate_hbm(adev,
+        		IS_AO420(adev)? AO420_NBUFFERS: bufferlen,
+        		IS_AO420(adev)? AO420_BUFFERLEN: bufferlen,
+        		IS_AO420(adev)? DMA_FROM_DEVICE: DMA_FROM_DEVICE)){
+        	dev_err(&pdev->dev, "failed to allocate buffers");
+        	goto fail;
+        }
+
         if (IS_ACQ420(adev)){
         	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
         	if (rev < 3){
@@ -1386,6 +1407,7 @@ static int acq400_probe(struct platform_device *pdev)
         }
         acq400_createSysfs(&pdev->dev);
         acq400_createDebugfs(adev);
+        acq400_devices[ndevices++] = adev;
         return 0;
 
  fail:

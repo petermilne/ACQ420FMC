@@ -84,8 +84,8 @@
 #define MOD_ID_ACQ440FMC	4
 #define MOD_ID_ACQ425ELF	5
 
-#define MOD_ID_AO420FMC		0x40
-#define MOD_ID_AO421FMC		0x41
+#define MOD_ID_AO420FMC		0x80
+#define MOD_ID_AO421FMC		0x81
 
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
