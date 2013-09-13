@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.128"
+#define REVID "2.129"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1055,7 +1055,7 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 	int ii;
 
 	for (ii = 0; ii < nwords; ++ ii){
-		to[ii] = from[ii];
+		iowrite32(from[ii], to+ii);
 	}
 }
 

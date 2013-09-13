@@ -779,7 +779,7 @@ static void ao420_flushImmediate(struct acq400_dev *adev)
 
 	for (ii = 0; ii < imax; ++ii){
 		dev_dbg(DEVP(adev), "fifo write: %p = 0x%08x\n",
-				src[ii], fifo + ii*sizeof(unsigned));
+				fifo + ii*sizeof(unsigned), src[ii]);
 		iowrite32(src[ii], fifo + ii*sizeof(unsigned));
 	}
 }
@@ -817,7 +817,7 @@ static ssize_t store_dac_immediate(
 		ao420_flushImmediate(adev);
 		return count;
 	}else{
-		dev_warn(dev, "rejecting input args != 4");
+		dev_warn(dev, "rejecting input args != 0x%04x or %d");
 		return -1;
 	}
 }
