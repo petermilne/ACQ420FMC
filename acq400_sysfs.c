@@ -843,6 +843,60 @@ MAKE_DAC_IMMEDIATE(03, 2);
 MAKE_DAC_IMMEDIATE(04, 3);
 
 
+static ssize_t show_playloop_length(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->AO_playloop.length);
+}
+
+static ssize_t store_playloop_length(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (sscanf(buf, "%u", &adev->AO_playloop.length) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_length,
+		S_IRUGO|S_IWUGO, show_playloop_length, store_playloop_length);
+
+static ssize_t show_playloop_cursor(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->AO_playloop.cursor);
+}
+
+static ssize_t store_playloop_cursor(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (sscanf(buf, "%u", &adev->AO_playloop.cursor) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_cursor,
+		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
+
+
+
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -853,6 +907,8 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_02.attr,
 	&dev_attr_AO_03.attr,
 	&dev_attr_AO_04.attr,
+	&dev_attr_playloop_length.attr,
+	&dev_attr_playloop_cursor.attr,
 	NULL
 };
 void acq400_createSysfs(struct device *dev)

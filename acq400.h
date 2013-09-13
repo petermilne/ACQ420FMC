@@ -288,6 +288,11 @@ struct acq400_dev {
 			unsigned lw[AO_CHAN/2];
 		} _u;
 	} AO_immediate;
+
+	struct {
+		int length;
+		int cursor;
+	} AO_playloop;
 };
 
 
