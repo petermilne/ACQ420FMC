@@ -46,7 +46,11 @@ bigmac: bigmac.o
 	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
 		-ftree-vectorize -ftree-vectorizer-verbose=3 \
 		-O3 -o bigmac bigmac.o -L../lib -lpopt
-	
+
+bigmac.x86: bigmac.o
+	$(CXX) 	-O3 -o bigmac bigmac.o -L../lib -lpopt	
+
+		
 zynq:
 	./make.zynq
 		
