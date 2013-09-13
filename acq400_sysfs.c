@@ -619,6 +619,40 @@ static ssize_t show_module_type(
 
 static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
 
+
+static ssize_t show_module_name(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	const char* name;
+
+	switch(adev->mod_id>>MOD_ID_TYPE_SHL){
+	case MOD_ID_ACQ420FMC:
+		name = "acq420fmc"; break;
+	case MOD_ID_ACQ435ELF:
+		name = "acq435elf"; break;
+	case MOD_ID_ACQ430FMC:
+		name = "acq430fmc"; break;
+	case MOD_ID_ACQ440FMC:
+		name = "acq440fmc"; break;
+	case MOD_ID_ACQ425ELF:
+		name = "acq425elf"; break;
+	case MOD_ID_AO420FMC:
+		name = "ao420fmc"; break;
+	case MOD_ID_AO421FMC:
+		name = "ao421fmc"; break;
+	default:
+		name = "unknown";
+		break;
+	}
+	return sprintf(buf, "%s\n", name);
+}
+
+
+static DEVICE_ATTR(module_name, S_IRUGO, show_module_type, 0);
+
 static ssize_t show_site(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -635,6 +669,7 @@ static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
 
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_module_type.attr,
+	&dev_attr_module_name.attr,
 	&dev_attr_clkdiv.attr,
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
