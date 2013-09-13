@@ -36,7 +36,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <arm_neon.h>
+
 
 #define NCHAN 	4
 /* mac testbench */
@@ -72,6 +72,8 @@ void cmac(short *dst, const short* src, const int nsam, const int nchan,
 	}
 }
 
+#ifdef HASNEON
+#include <arm_neon.h>
 void nmac(short * dst, const short * src, const int nsam, const int nchan,
 		const short* gains, const short* offsets)
 {
@@ -105,6 +107,8 @@ void nmac2(short * dst, const short * src, const int nsam, const int nchan,
 		vst1q_s16(dst, DST);
 	}
 }
+#endif
+
 int main(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -140,12 +144,14 @@ int main(int argc, const char** argv)
 	if (strcmp(test, "cmac") == 0){
 		cmac(dst, src, bufferlen, NCHAN, gains, offsets);
 	}
+#ifdef HASNEON
 	if (strcmp(test, "nmac") == 0){
 		nmac(dst, src, bufferlen, NCHAN, gains, offsets);
 	}
 	if (strcmp(test, "nmac2") == 0){
 		nmac2(dst, src, bufferlen, NCHAN, gains, offsets);
 	}
+#endif
 
 	if (outfile){
 		FILE *fp = fopen(outfile, "w");
