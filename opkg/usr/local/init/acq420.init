@@ -4,6 +4,7 @@ NSAM=4194304
 #BLEN=262144
 BLEN=524288
 
+
 build_hb() {
 	MAJOR=$1
 	NAME=$2
@@ -77,6 +78,8 @@ build_knobs_device() {
 	2)
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
+	64)	
+		ao420_init ${site};;
 	*)
 		CLKDIV=200;;
 	esac

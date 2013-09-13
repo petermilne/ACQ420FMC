@@ -778,6 +778,8 @@ static void ao420_flushImmediate(struct acq400_dev *adev)
 	int ii = 0;
 
 	for (ii = 0; ii < imax; ++ii){
+		dev_dbg(DEVP(adev), "fifo write: %p = 0x%08x\n",
+				src[ii], fifo + ii*sizeof(unsigned));
 		iowrite32(src[ii], fifo + ii*sizeof(unsigned));
 	}
 }
@@ -900,7 +902,7 @@ static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
 
 
-#define TIMEOUT 100000
+#define TIMEOUT 1000
 
 static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 {
@@ -908,14 +910,14 @@ static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 	while( ++pollcat < TIMEOUT){
 		u32 rv = acq400rd32(adev, AO420_DACSPI);
 		if ((rv&AO420_DACSPI_WC) != 0){
-			dev_info(DEVP(adev),
+			dev_dbg(DEVP(adev),
 			"poll_dacspi_complete() success after %d\n", pollcat);
 			wv &= ~(AO420_DACSPI_CW|AO420_DACSPI_WC);
 			acq400wr32(adev, AO420_DACSPI, wv);
 			return 0;
 		}
-		if (pollcat%1000){
-			dev_info(DEVP(adev),
+		if ((pollcat%100)==0){
+			dev_warn(DEVP(adev),
 					"poll_dacspi_complete %d %08x %08x\n",
 					pollcat, wv, rv);
 		}

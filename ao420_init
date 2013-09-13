@@ -1,0 +1,7 @@
+#!/bin/sh
+
+SITE=${1:-0}
+echo +++ initializing DACs
+set.sys /dev/acq400.${SITE}.knobs/dacspi 0x300000
+set.sys /dev/acq400.${SITE}.knobs/dacspi 0x400002
+set.sys /dev/acq400.${SITE}.knobs/dacspi 0x200000
