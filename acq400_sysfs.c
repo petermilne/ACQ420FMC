@@ -860,6 +860,7 @@ static ssize_t store_playloop_length(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	if (sscanf(buf, "%u", &adev->AO_playloop.length) == 1){
+		ao420_reset_playloop(adev);
 		return count;
 	}else{
 		return -1;
@@ -897,6 +898,26 @@ static DEVICE_ATTR(playloop_cursor,
 
 
 
+
+static ssize_t store_dacspi(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dacspi;
+	if (sscanf(buf, "0x%x", &dacspi) == 1 || sscanf(buf, "%d", &dacspi) == 1){
+		acq400wr32(adev, AO420_DACSPI, dacspi);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dacspi, S_IWUGO, 0, store_dacspi);
+
+
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -909,6 +930,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_04.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
+	&dev_attr_dacspi.attr,
 	NULL
 };
 void acq400_createSysfs(struct device *dev)

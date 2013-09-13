@@ -52,6 +52,7 @@
 #define TIM_CTRL		(ADC_BASE+0x08)
 #define ADC_HITIDE		(ADC_BASE+0x0C)
 #define ADC_FIFO_SAMPLES	(ADC_BASE+0x10)
+#define DAC_FIFO_SAMPLES	ADC_FIFO_SAMPLES
 #define ADC_FIFO_STA		(ADC_BASE+0x14)
 #define ADC_INT_CSR		(ADC_BASE+0x18)
 #define ADC_CLK_CTR		(ADC_BASE+0x1C)
@@ -66,6 +67,7 @@
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
+#define AO420_DACSPI		(ADC_BASE+0x48)
 
 #define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
 
@@ -84,8 +86,8 @@
 #define MOD_ID_ACQ440FMC	4
 #define MOD_ID_ACQ425ELF	5
 
-#define MOD_ID_AO420FMC		0x80
-#define MOD_ID_AO421FMC		0x81
+#define MOD_ID_AO420FMC		0x40
+#define MOD_ID_AO421FMC		0x41
 
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
@@ -316,8 +318,8 @@ void acq400_delSysfs(struct device *dev);
 
 void acq400_module_init_proc(void);
 void acq400_module_remove_proc(void);
-void acq400_init_proc(struct acq400_dev* acq420_dev);
-void acq400_del_proc(struct acq400_dev* acq420_dev);
+void acq400_init_proc(struct acq400_dev* adev);
+void acq400_del_proc(struct acq400_dev* adev);
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value);
 u32 acq400rd32(struct acq400_dev *adev, int offset);
@@ -340,5 +342,5 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
 
-
+void ao420_reset_playloop(struct acq400_dev* adev);
 #endif /* ACQ420FMC_H_ */

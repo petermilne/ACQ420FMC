@@ -44,7 +44,7 @@ acq400_stream: acq400_stream.o
 
 bigmac: bigmac.o
 	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
-		-ftree-vectorize -ftree-vectorizer-verbose=3 \
+		-DHASNEON \
 		-O3 -o bigmac bigmac.o -L../lib -lpopt
 
 bigmac.x86: bigmac.o

@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.114"
+#define REVID "2.115"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -177,6 +177,7 @@ static void acq435_init_defaults(struct acq400_dev *adev)
 static void ao420_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "AO420 device init");
+	adev->cursor.hb = adev->hb[0];
 }
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
@@ -1032,13 +1033,80 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-static irqreturn_t ao420_dma(int irq, void *dev_id)
-/* keep the AO420 FIFO full. Recycle buffer only */
-{
-	return IRQ_HANDLED;
+#define AO420_MAX_FIFO_SAMPLES	0x2000		/* SWAG */
+#define AO420_FILL_BLOCK	0x200		/* samples, SWAG */
+#define AO420_FILL_THRESHOLD	0x400		/* fill to here, must be > BLOCK */
+
+/** @todo : assumes PACKED DATA */
+#define AOSAMPLES2BYTES(xx) ((xx) * AO_CHAN * sizeof(short))
+
+static int ao420_getFifoSamples(struct acq400_dev* adev) {
+	return acq400rd32(adev, DAC_FIFO_SAMPLES);
+}
+
+static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
+	return AO420_MAX_FIFO_SAMPLES - ao420_getFifoSamples(adev);
 }
 
 
+
+void write32(volatile u32* to, volatile u32* from, int nwords)
+{
+	int ii;
+
+	for (ii = 0; ii < nwords; ++ ii){
+		to[ii] = from[ii];
+	}
+}
+
+static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
+{
+	write32(adev->dev_virtaddr+AXI_FIFO,
+		adev->cursor.hb->va+frombyte/sizeof(u32),
+		bytes/sizeof(u32));
+}
+
+static void ao420_fill_fifo(struct acq400_dev* adev)
+{
+	while(ao420_getFifoHeadroom(adev) < AO420_FILL_THRESHOLD){
+		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
+
+		remaining = min(remaining, AO420_FILL_BLOCK);
+		if (remaining){
+			ao420_write_fifo(adev,
+					AOSAMPLES2BYTES(adev->AO_playloop.cursor),
+					AOSAMPLES2BYTES(remaining));
+			adev->AO_playloop.cursor += remaining;
+		}
+
+		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
+			adev->AO_playloop.cursor = 0;
+		}
+	}
+}
+static irqreturn_t ao420_dma(int irq, void *dev_id)
+/* keep the AO420 FIFO full. Recycle buffer only */
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	if (adev->AO_playloop.length){
+		ao420_fill_fifo(adev);
+	}
+	return IRQ_HANDLED;
+}
+
+void ao420_reset_playloop(struct acq400_dev* adev)
+{
+	unsigned cr = acq400rd32(adev, DAC_CTRL);
+
+	if (adev->AO_playloop.length == 0){
+		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
+	}else{
+		cr &= ~DAC_CTRL_LL;
+		adev->AO_playloop.cursor = 0;
+	}
+
+	acq400wr32(adev, DAC_CTRL, cr);
+}
 static irqreturn_t fire_dma(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
