@@ -80,6 +80,7 @@ build_knobs_device() {
 		CLKDIV=8;;
 	64)	
 		ao420_init ${site}
+		CLKDIV=500;;
 	*)
 		CLKDIV=200;;
 	esac
