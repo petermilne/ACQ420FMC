@@ -651,7 +651,7 @@ static ssize_t show_module_name(
 }
 
 
-static DEVICE_ATTR(module_name, S_IRUGO, show_module_type, 0);
+static DEVICE_ATTR(module_name, S_IRUGO, show_module_name, 0);
 
 static ssize_t show_site(
 	struct device * dev,
@@ -678,13 +678,16 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
 	&dev_attr_clk.attr,
+	/*
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
+	*/
 	&dev_attr_site.attr,
+
 	NULL,
 };
 
@@ -897,7 +900,39 @@ static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
 
 
+#define TIMEOUT 100000
 
+static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
+{
+	unsigned pollcat = 0;
+	while( ++pollcat < TIMEOUT){
+		u32 rv = acq400rd32(adev, AO420_DACSPI);
+		if ((rv&AO420_DACSPI_WC) != 0){
+			dev_info(DEVP(adev),
+			"poll_dacspi_complete() success after %d\n", pollcat);
+			wv &= ~(AO420_DACSPI_CW|AO420_DACSPI_WC);
+			acq400wr32(adev, AO420_DACSPI, wv);
+			return 0;
+		}
+		if (pollcat%1000){
+			dev_info(DEVP(adev),
+					"poll_dacspi_complete %d %08x %08x\n",
+					pollcat, wv, rv);
+		}
+	}
+	dev_err(DEVP(adev), "poll_dacspi_complete() giving up, no completion");
+	return -1;
+}
+static ssize_t show_dacspi(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 dacspi = acq400rd32(adev, AO420_DACSPI);
+
+	return sprintf(buf, "0x%08x\n", dacspi);
+}
 
 static ssize_t store_dacspi(
 	struct device * dev,
@@ -908,14 +943,21 @@ static ssize_t store_dacspi(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned dacspi;
 	if (sscanf(buf, "0x%x", &dacspi) == 1 || sscanf(buf, "%d", &dacspi) == 1){
+		dacspi |= AO420_DACSPI_CW;
 		acq400wr32(adev, AO420_DACSPI, dacspi);
+
+		if ((dacspi&AO420_DACSPI_CW) != 0){
+			if (poll_dacspi_complete(adev, dacspi)){
+				return -1;
+			}
+		}
 		return count;
 	}else{
 		return -1;
 	}
 }
 
-static DEVICE_ATTR(dacspi, S_IWUGO, 0, store_dacspi);
+static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
 
 
 static const struct attribute *ao420_attrs[] = {
@@ -938,9 +980,11 @@ void acq400_createSysfs(struct device *dev)
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	const struct attribute **specials = 0;
 
+	dev_info(dev, "acq400_createSysfs()");
 	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
 		dev_err(dev, "failed to create sysfs");
 	}
+
 	if (IS_ACQ420(adev)){
 		specials = acq420_attrs;
 	}else if (IS_ACQ435(adev)){

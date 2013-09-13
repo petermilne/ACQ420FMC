@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.115"
+#define REVID "2.127"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1422,7 +1422,6 @@ static int acq400_probe(struct platform_device *pdev)
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
-        acq400_init_proc(adev);
 
         if (adev->of_prams.fake){
           	dev_info(&pdev->dev, "fake device, no hardware init");
@@ -1446,13 +1445,14 @@ static int acq400_probe(struct platform_device *pdev)
 
 
         if (allocate_hbm(adev,
-        		IS_AO420(adev)? AO420_NBUFFERS: bufferlen,
+        		IS_AO420(adev)? AO420_NBUFFERS: nbuffers,
         		IS_AO420(adev)? AO420_BUFFERLEN: bufferlen,
         		IS_AO420(adev)? DMA_FROM_DEVICE: DMA_FROM_DEVICE)){
         	dev_err(&pdev->dev, "failed to allocate buffers");
         	goto fail;
         }
 
+        acq400_devices[ndevices++] = adev;
         if (IS_ACQ420(adev)){
         	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
         	if (rev < 3){
@@ -1474,8 +1474,9 @@ static int acq400_probe(struct platform_device *pdev)
         			(adev)->mod_id>>MOD_ID_TYPE_SHL);
         }
         acq400_createSysfs(&pdev->dev);
+        acq400_init_proc(adev);
         acq400_createDebugfs(adev);
-        acq400_devices[ndevices++] = adev;
+
         return 0;
 
  fail:

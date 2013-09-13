@@ -169,6 +169,9 @@
 #define MODULE_NAME             "acq420"
 
 
+#define AO420_DACSPI_CW		(1U<<31)
+#define AO420_DACSPI_WC		(1U<<30)
+
 /* AO420FMC */
 
 /*
