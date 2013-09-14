@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.134"
+#define REVID "2.135"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1100,13 +1100,15 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 
 	if (adev->AO_playloop.length == 0){
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
+		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
 		cr &= ~DAC_CTRL_LL;
 		adev->AO_playloop.cursor = 0;
+		acq400wr32(adev, DAC_CTRL, cr);
+		ao420_fill_fifo(adev);
 	}
-
-	acq400wr32(adev, DAC_CTRL, cr);
 }
+
 static irqreturn_t fire_dma(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
