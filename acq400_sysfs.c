@@ -988,7 +988,7 @@ static ssize_t store_dacreset(
 		}else{
 			dac_ctrl &= ~ADC_CTRL_ADC_RST;
 		}
-		acq400wr32(adev, DAC_CTRL, dacreset);
+		acq400wr32(adev, DAC_CTRL, dac_ctrl);
 		return count;
 	}else{
 		return -1;
