@@ -678,14 +678,12 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
 	&dev_attr_clk.attr,
-	/*
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
-	*/
 	&dev_attr_site.attr,
 
 	NULL,
@@ -817,7 +815,7 @@ static ssize_t store_dac_immediate(
 		ao420_flushImmediate(adev);
 		return count;
 	}else{
-		dev_warn(dev, "rejecting input args != 0x%04x or %d");
+		dev_warn(dev, "rejecting input args != 0x%%04x or %%d");
 		return -1;
 	}
 }
@@ -961,6 +959,43 @@ static ssize_t store_dacspi(
 
 static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
 
+static ssize_t show_dacreset(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL);
+
+	return sprintf(buf, "%u\n", (dac_ctrl&ADC_CTRL_ADC_RST) != 0);
+}
+
+static ssize_t store_dacreset(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	unsigned dacreset;
+
+	dacreset |= ADC_CTRL_MODULE_EN;
+
+	if (sscanf(buf, "%d", &dacreset) == 1){
+		if (dacreset){
+			dac_ctrl |= ADC_CTRL_ADC_RST;
+		}else{
+			dac_ctrl &= ~ADC_CTRL_ADC_RST;
+		}
+		acq400wr32(adev, DAC_CTRL, dacreset);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dacreset, S_IWUGO, show_dacreset, store_dacreset);
 
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
@@ -975,6 +1010,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_dacspi.attr,
+	&dev_attr_dacreset.attr,
 	NULL
 };
 void acq400_createSysfs(struct device *dev)

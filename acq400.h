@@ -95,6 +95,7 @@
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
+
 #define ADC_CTRL_FIFO_EN	(1 << 2)
 #define ADC_CTRL_FIFO_RST	(1 << 1)
 #define ADC_CTRL_MODULE_EN	(1 << 0)
