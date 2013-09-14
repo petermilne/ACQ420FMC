@@ -980,7 +980,7 @@ static ssize_t store_dacreset(
 	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	unsigned dacreset;
 
-	dacreset |= ADC_CTRL_MODULE_EN;
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
 
 	if (sscanf(buf, "%d", &dacreset) == 1){
 		if (dacreset){
