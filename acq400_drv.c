@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.132"
+#define REVID "2.134"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -94,7 +94,7 @@ int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
 
 // @@todo pgm: crude: index by site, index from 10
-const char* acq400_names[] = { "x", "1", "2", "3", "4", "5", "6" };
+const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
 	"acq400.0", "acq400.1", "acq400.2",
 	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
@@ -1330,8 +1330,9 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ435(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
-	} else if (IS_ACQ420(adev)){
+	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
+		DBG_REG_CREATE(AO420_DACSPI);
 	}
 
 

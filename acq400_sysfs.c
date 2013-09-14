@@ -716,7 +716,7 @@ static ssize_t show_dac_range(
 }
 
 static ssize_t store_dac_range(
-		int chan,
+		int shl,
 		struct device * dev,
 		struct device_attribute *attr,
 		const char * buf,
@@ -726,9 +726,9 @@ static ssize_t store_dac_range(
 
 	if (sscanf(buf, "%d", &gx) == 1){
 		u32 ranges = acq400rd32(acq400_devices[dev->id], AO420_RANGE);
-		unsigned bit = 1 << chan;
+		unsigned bit = 1 << shl;
 		if (gx){
-			ranges |= 1<<bit;
+			ranges |= bit;
 		}else{
 			ranges &= ~bit;
 		}
@@ -742,13 +742,13 @@ static ssize_t store_dac_range(
 	}
 }
 
-#define MAKE_DAC_RANGE(NAME, BIT)					\
+#define MAKE_DAC_RANGE(NAME, SHL)					\
 static ssize_t show_dac_range##NAME(					\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_dac_range(BIT, dev, attr, buf);			\
+	return show_dac_range(SHL, dev, attr, buf);			\
 }									\
 									\
 static ssize_t store_dac_range##NAME(					\
@@ -757,15 +757,15 @@ static ssize_t store_dac_range##NAME(					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_dac_range(BIT, dev, attr, buf, count);		\
+	return store_dac_range(SHL, dev, attr, buf, count);		\
 }									\
 static DEVICE_ATTR(dac_range_##NAME, S_IRUGO|S_IWUGO, 			\
 		show_dac_range##NAME, store_dac_range##NAME)
 
-MAKE_DAC_RANGE(01, 0);
-MAKE_DAC_RANGE(02, 1);
-MAKE_DAC_RANGE(03, 2);
-MAKE_DAC_RANGE(04, 3);
+MAKE_DAC_RANGE(01,  0);
+MAKE_DAC_RANGE(02,  1);
+MAKE_DAC_RANGE(03,  2);
+MAKE_DAC_RANGE(04,  3);
 MAKE_DAC_RANGE(REF, 4);
 
 static void ao420_flushImmediate(struct acq400_dev *adev)
