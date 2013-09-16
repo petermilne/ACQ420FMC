@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.147"
+#define REVID "2.148"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1112,8 +1112,8 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 }
 
 #define AO420_MAX_FIFO_SAMPLES	0x3fff
-#define AO420_FILL_BLOCK	0x1000		/* BYTES, SWAG */
-#define AO420_FILL_THRESHOLD	0x4000		/* fill to here, must be > BLOCK */
+#define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
+#define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
 /** @todo : assumes PACKED DATA */
 #define AOSAMPLES2BYTES(xx) ((xx) * AO_CHAN * sizeof(short))
@@ -1163,7 +1163,7 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 	while(ao420_getFifoHeadroom(adev) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
-		remaining = min(remaining, AO420_FILL_BLOCK);
+		remaining = min(remaining, AO420_MAX_FILL_BLOCK);
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(remaining);
