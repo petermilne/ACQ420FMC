@@ -1111,10 +1111,14 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 /* keep the AO420 FIFO full. Recycle buffer only */
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+
 	if (adev->AO_playloop.length){
+		u32 start_samples = ao420_getFifoSamples(adev);
 		ao420_fill_fifo(adev);
 		acq420_enable_interrupt(adev);
+		add_fifo_histo(adev, start_samples);
 	}
+
 	return IRQ_HANDLED;
 }
 

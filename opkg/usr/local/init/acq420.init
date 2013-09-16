@@ -4,6 +4,7 @@ NSAM=4194304
 #BLEN=262144
 BLEN=524288
 
+ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 
 build_hb() {
 	MAJOR=$1
@@ -82,7 +83,7 @@ build_knobs_device() {
 		CLKDIV=8;;
 	64)	
 		ao420_init ${site}
-		CLKDIV=500;;
+		CLKDIV=250;;
 	*)
 		CLKDIV=200;;
 	esac
