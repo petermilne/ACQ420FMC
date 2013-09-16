@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.144"
+#define REVID "2.147"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -92,6 +92,10 @@ module_param_array(dma_ns_lines, int, &dma_ns_num, 0444);
 int good_sites[MAXDEVICES];
 int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
+
+int ao420_dma_threshold = 999999;
+module_param(ao420_dma_threshold, int, 0644);
+MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
 // @@todo pgm: crude: index by site, index from 10
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -410,6 +414,53 @@ dma_async_memcpy_pa_to_buf(
 	}
 }
 
+dma_cookie_t
+dma_async_memcpy(
+	struct dma_chan *chan, dma_addr_t src, 	dma_addr_t dest, size_t len)
+{
+	struct dma_device *dev = chan->device;
+	struct dma_async_tx_descriptor *tx;
+	unsigned long flags = DMA_DST_NO_INCR | DMA_CTRL_ACK |
+				DMA_COMPL_SRC_UNMAP_SINGLE |
+				DMA_COMPL_DEST_UNMAP_SINGLE;
+
+	DMA_NS;
+	tx = dev->device_prep_dma_memcpy(chan, dest, src, len, flags);
+
+	DMA_NS;
+	if (!tx) {
+		return -ENOMEM;
+	} else{
+		dma_cookie_t cookie;
+		tx->callback = NULL;
+		cookie = tx->tx_submit(tx);
+
+		DMA_NS;
+
+		preempt_disable();
+		__this_cpu_add(chan->local->bytes_transferred, len);
+		__this_cpu_inc(chan->local->memcpy_count);
+		preempt_enable();
+		return cookie;
+	}
+}
+
+int dma_memcpy(
+	struct acq400_dev* adev, dma_addr_t dest, dma_addr_t src, size_t len)
+{
+	dma_cookie_t cookie;
+	DMA_NS_INIT;
+	DMA_NS;
+	if (adev->dma_chan == 0){
+		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
+				adev, adev->pdev->dev.id);
+		return -1;
+	}
+	cookie = dma_async_memcpy(adev->dma_chan, src, dest, len);
+	dma_sync_wait(adev->dma_chan, cookie);
+	DMA_NS;
+	return len;
+}
 
 int cpsc_dma_memcpy(struct acq400_dev* adev, struct HBM* dest, u32 src, size_t len)
 {
@@ -652,6 +703,14 @@ int get_dma_chan(struct acq400_dev *adev)
 
 	return adev->dma_chan == 0 ? -1: 0;
 }
+
+void release_dma_chan(struct acq400_dev *adev)
+{
+	if (adev->dma_chan){
+		dma_release_channel(adev->dma_chan);
+		adev->dma_chan = 0;
+	}
+}
 int acq420_continuous_start(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
@@ -803,7 +862,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 
 	mutex_unlock(&adev->list_mutex);
 
-	dma_release_channel(adev->dma_chan);
+	release_dma_chan(adev);
 	adev->stats.run = 0;
 	return acq400_release(inode, file);
 }
@@ -1053,8 +1112,8 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 }
 
 #define AO420_MAX_FIFO_SAMPLES	0x3fff
-#define AO420_FILL_BLOCK	0x200		/* samples, SWAG */
-#define AO420_FILL_THRESHOLD	0x400		/* fill to here, must be > BLOCK */
+#define AO420_FILL_BLOCK	0x1000		/* BYTES, SWAG */
+#define AO420_FILL_THRESHOLD	0x4000		/* fill to here, must be > BLOCK */
 
 /** @todo : assumes PACKED DATA */
 #define AOSAMPLES2BYTES(xx) ((xx) * AO_CHAN * sizeof(short))
@@ -1073,8 +1132,19 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 {
 	int ii;
 
-	for (ii = 0; ii < nwords; ++ ii){
+	for (ii = 0; ii < nwords; ++ii){
 		iowrite32(from[ii], to+ii);
+	}
+}
+
+static void ao420_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
+{
+	int rc = dma_memcpy(adev,
+		adev->dev_physaddr+AXI_FIFO,
+		adev->cursor.hb->pa+frombyte, bytes);
+
+	if (rc != bytes){
+		dev_err(DEVP(adev), "dma_memcpy FAILED :%d\n", rc);
 	}
 }
 
@@ -1085,6 +1155,7 @@ static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 		bytes/sizeof(u32));
 }
 
+
 static void ao420_fill_fifo(struct acq400_dev* adev)
 {
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() headroom samples:%08x\n",
@@ -1094,9 +1165,13 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 
 		remaining = min(remaining, AO420_FILL_BLOCK);
 		if (remaining){
-			ao420_write_fifo(adev,
-					AOSAMPLES2BYTES(adev->AO_playloop.cursor),
-					AOSAMPLES2BYTES(remaining));
+			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
+			int lenbytes = AOSAMPLES2BYTES(remaining);
+			if (remaining > ao420_dma_threshold){
+				ao420_write_fifo_dma(adev, cursor, lenbytes);
+			}else{
+				ao420_write_fifo(adev, cursor, lenbytes);
+			}
 			adev->AO_playloop.cursor += remaining;
 		}
 
@@ -1127,10 +1202,18 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 
 	if (adev->AO_playloop.length == 0){
+		release_dma_chan(adev);
 		ao420_disable_interrupt(adev);
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
+		if (adev->dma_chan == 0 &&
+				ao420_dma_threshold < AO420_MAX_FIFO_SAMPLES){
+			if (get_dma_chan(adev)){
+				dev_err(DEVP(adev), "no dma chan");
+				ao420_dma_threshold = AO420_MAX_FIFO_SAMPLES;
+			}
+		}
 		acq400_clear_histo(adev);
 		cr &= ~DAC_CTRL_LL;
 		adev->AO_playloop.cursor = 0;

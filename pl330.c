@@ -1500,7 +1500,7 @@ static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 	ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
 
 	/** @@todo hack by PGM: no src_inc:: peripheral, make it 4 bytes */
-	if (rqc->src_inc == 0){
+	if (rqc->src_inc == 0 || rqc->dst_inc == 0){
 		ccr |= (2 << CC_SRCBRSTSIZE_SHFT);
 		ccr |= (2 << CC_DSTBRSTSIZE_SHFT);
 	}else{
