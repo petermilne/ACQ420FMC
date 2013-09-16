@@ -381,6 +381,51 @@ static ssize_t store_simulate(
 
 static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
+static ssize_t show_nbuffers(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->nbuffers);
+}
+
+static DEVICE_ATTR(nbuffers, S_IRUGO, show_nbuffers, 0);
+
+static ssize_t show_bufferlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->bufferlen);
+}
+
+static DEVICE_ATTR(bufferlen, S_IRUGO, show_bufferlen, 0);
+
+static ssize_t show_hitide(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->hitide);
+}
+
+static DEVICE_ATTR(hitide, S_IRUGO, show_hitide, 0);
+
+static ssize_t show_lotide(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->lotide);
+}
+
+static DEVICE_ATTR(lotide, S_IRUGO, show_lotide, 0);
+
+
 static ssize_t show_data32(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -665,7 +710,17 @@ static ssize_t show_site(
 
 static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
 
+static ssize_t show_sysclkhz(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->sysclkhz);
+}
 
+
+static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 
 static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -685,7 +740,11 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
 	&dev_attr_site.attr,
-
+	&dev_attr_nbuffers.attr,
+	&dev_attr_bufferlen.attr,
+	&dev_attr_hitide.attr,
+	&dev_attr_lotide.attr,
+	&dev_attr_sysclkhz.attr,
 	NULL,
 };
 

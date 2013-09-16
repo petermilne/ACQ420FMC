@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.135"
+#define REVID "2.144"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -136,6 +136,7 @@ u32 acq400rd32(struct acq400_dev *adev, int offset)
 			adev->dev_virtaddr + offset, offset, rc);
 	return rc;
 }
+
 static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
@@ -160,6 +161,9 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|acq420_set_fmt(adev, 0));
 	adev->nchan_enabled = 4;
 	adev->word_size = adev->data32? 4: 2;
+	adev->hitide = hitide;
+	adev->lotide = lotide;
+	adev->sysclkhz = SYSCLK_M100;
 }
 
 static void acq435_init_defaults(struct acq400_dev *adev)
@@ -168,8 +172,9 @@ static void acq435_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 1;
 	adev->nchan_enabled = 32;
 	adev->word_size = 4;
-	hitide = 512;
-	lotide = hitide - 4;
+	adev->hitide = 512;
+	adev->lotide = adev->hitide - 4;
+	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 16);
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
 }
@@ -178,6 +183,9 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "AO420 device init");
 	adev->cursor.hb = adev->hb[0];
+	adev->hitide = 2048;
+	adev->lotide = 1024;
+	adev->sysclkhz = SYSCLK_M66;
 }
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
@@ -220,7 +228,14 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 static void acq420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-	acq400wr32(adev, ADC_HITIDE, 	hitide);
+	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
+	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
+}
+
+static void ao420_enable_interrupt(struct acq400_dev *adev)
+{
+	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
+	acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
@@ -233,6 +248,10 @@ static void acq420_disable_interrupt(struct acq400_dev *adev)
 	// printk("New interrupt enable is 0x%08x\n", control);
 
 	acq400wr32(adev, ADC_INT_CSR, 0x0);
+}
+static void ao420_disable_interrupt(struct acq400_dev *adev)
+{
+	acq420_disable_interrupt(adev);
 }
 
 static u32 acq420_get_interrupt(struct acq400_dev *adev)
@@ -914,7 +933,7 @@ int acq400_open(struct inode *inode, struct file *file)
         PD(file)->dev = dev = container_of(inode->i_cdev, struct acq400_dev, cdev);
         PD(file)->minor = minor = MINOR(inode->i_rdev);
 
-        dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
+        //dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
 
         if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
         	return acq400_open_hb(inode, file);
@@ -1033,7 +1052,7 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-#define AO420_MAX_FIFO_SAMPLES	0x2000		/* SWAG */
+#define AO420_MAX_FIFO_SAMPLES	0x3fff
 #define AO420_FILL_BLOCK	0x200		/* samples, SWAG */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here, must be > BLOCK */
 
@@ -1041,7 +1060,7 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 #define AOSAMPLES2BYTES(xx) ((xx) * AO_CHAN * sizeof(short))
 
 static int ao420_getFifoSamples(struct acq400_dev* adev) {
-	return acq400rd32(adev, DAC_FIFO_SAMPLES);
+	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
 }
 
 static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
@@ -1068,7 +1087,9 @@ static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 
 static void ao420_fill_fifo(struct acq400_dev* adev)
 {
-	while(ao420_getFifoHeadroom(adev) < AO420_FILL_THRESHOLD){
+	dev_dbg(DEVP(adev), "ao420_fill_fifo() headroom samples:%08x\n",
+			ao420_getFifoHeadroom(adev));
+	while(ao420_getFifoHeadroom(adev) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
 		remaining = min(remaining, AO420_FILL_BLOCK);
@@ -1083,6 +1104,8 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 			adev->AO_playloop.cursor = 0;
 		}
 	}
+	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
+			acq400rd32(adev, DAC_FIFO_SAMPLES));
 }
 static irqreturn_t ao420_dma(int irq, void *dev_id)
 /* keep the AO420 FIFO full. Recycle buffer only */
@@ -1090,6 +1113,7 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	if (adev->AO_playloop.length){
 		ao420_fill_fifo(adev);
+		acq420_enable_interrupt(adev);
 	}
 	return IRQ_HANDLED;
 }
@@ -1099,6 +1123,7 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 
 	if (adev->AO_playloop.length == 0){
+		ao420_disable_interrupt(adev);
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
@@ -1106,6 +1131,8 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 		adev->AO_playloop.cursor = 0;
 		acq400wr32(adev, DAC_CTRL, cr);
 		ao420_fill_fifo(adev);
+		ao420_enable_interrupt(adev);
+		acq400wr32(adev, DAC_CTRL, cr|ADC_CTRL_ENABLE_ALL);
 	}
 }
 
@@ -1146,7 +1173,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 			adev->rt.refill_error = 1;
 			goto stop_exit;
 		}
-	} while(status >= lotide);
+	} while(status >= adev->lotide);
 
 	acq420_enable_interrupt(adev);
 
@@ -1163,8 +1190,6 @@ static irqreturn_t acq400_int_handler(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	u32 status = acq420_get_interrupt(adev);
 	irqreturn_t irq_status = IRQ_WAKE_THREAD;
-
-//	iowrite32((0xCAFEBABE), adev->dev_virtaddr);
 
 	if (status == 0x1 && adev->DMA_READY == 1) {
 		adev->DMA_READY = 0;
@@ -1357,7 +1382,7 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	}else{
 		struct HBM* cursor;
 		int ix = 0;
-		adev->hb = kmalloc(nbuffers*sizeof(struct HBM*), GFP_KERNEL);
+		adev->hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
 		list_for_each_entry(cursor, &adev->EMPTIES, list){
 			WARN_ON(cursor->ix != ix);
 			adev->hb[cursor->ix] = cursor;
@@ -1365,6 +1390,7 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 		}
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
+		adev->bufferlen = bl;
 		return 0;
 	}
 }

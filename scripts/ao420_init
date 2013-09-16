@@ -3,8 +3,8 @@
 SITE=${1:-0}
 KNOBS=/dev/acq400.${SITE}.knobs
 echo +++ initializing DACs
-echo "file acq400_drv.c +p"   >/sys/kernel/debug/dynamic_debug/control
-echo "file acq400_sysfs.c +p" >/sys/kernel/debug/dynamic_debug/control
+echo "file acq400_drv.c +p"   \>/sys/kernel/debug/dynamic_debug/control
+echo "file acq400_sysfs.c +p" \>/sys/kernel/debug/dynamic_debug/control
 set.sys ${KNOBS}/dacreset 1
 set.sys ${KNOBS}/dacreset 0
 set.sys ${KNOBS}/dacspi 0x300000

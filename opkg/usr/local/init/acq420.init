@@ -10,8 +10,10 @@ build_hb() {
 	NAME=$2
 
 	HBDIR=/dev/${NAME}.hb
+	NB=$(cat /dev/${NAME}.knobs/nbuffers)
 	mkdir $HBDIR
-	for hb in $(seq 0 $(cat /sys/module/acq420fmc/parameters/nbuffers))
+	let NB0=$NB-1
+	for hb in $(seq 0 $NB0)
 	do
 		NN=$(printf "$HBDIR/%02d" $hb)
 		let minor="100+$hb"
@@ -129,8 +131,8 @@ if [ $notloaded -ne 0 ]; then
 	echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
 	source /etc/sites
 	insmod $MOD bufferlen=$BLEN good_sites=$good_sites
-	grep acq4.0 /proc/devices |  build_nodes
 	build_knobs
+	grep acq4.0 /proc/devices |  build_nodes	
 fi
 
 inetd /usr/local/init/inetd.conf

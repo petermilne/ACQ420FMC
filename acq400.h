@@ -176,6 +176,8 @@
 
 /* AO420FMC */
 
+#define DAC_FIFO_SAMPLES_MASK	0x00007fff
+
 /*
  *  Minor encoding
  *  0 : the original device
@@ -267,6 +269,10 @@ struct acq400_dev {
 	struct list_head OPENS;		/* buffers in use by app (1) */
 	struct HBM** hb;
 	int nbuffers;			/* number of buffers available */
+	int bufferlen;
+	int hitide;
+	int lotide;
+	int sysclkhz;			/* system clock rate */
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
@@ -348,4 +354,8 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
 
 void ao420_reset_playloop(struct acq400_dev* adev);
+
+#define SYSCLK_M100	100000000
+#define SYSCLK_M66       66000000
+
 #endif /* ACQ420FMC_H_ */
