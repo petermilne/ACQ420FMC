@@ -270,7 +270,7 @@ static void acq420_clear_interrupt(struct acq400_dev *adev, u32 status)
 }
 
 
-static void acq420_clear_histo(struct acq400_dev *adev)
+static void acq400_clear_histo(struct acq400_dev *adev)
 {
 	memset(adev->fifo_histo, 0, FIFO_HISTO_SZ*sizeof(u32));
 }
@@ -691,7 +691,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 #endif
 	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
-	acq420_clear_histo(adev);
+	acq400_clear_histo(adev);
 
 	if (IS_ACQ435(adev)){
 		acq435_onStart(adev);
@@ -1131,6 +1131,7 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
+		acq400_clear_histo(adev);
 		cr &= ~DAC_CTRL_LL;
 		adev->AO_playloop.cursor = 0;
 		acq400wr32(adev, DAC_CTRL, cr);
