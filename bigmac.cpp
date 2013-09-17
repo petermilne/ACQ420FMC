@@ -92,12 +92,17 @@ short gains[NCHAN] = { 5, 6, 7, 8 };
 short offsets[NCHAN] = { 100, 200, 300, 400 };
 
 
+char* gainslist;
+char* offsetslist;
 
 struct poptOption opt_table[] = {
 	{ "buflen", 'L', POPT_ARG_INT, &bufferlen, 0, 	"buffer length SAMPLES" },
 	{ "test",   'T', POPT_ARG_STRING, &test, 0, "test mode" },
 	{ "out",    'o', POPT_ARG_STRING, &outfile, 0, "output to file" },
 	{ "in",     'i', POPT_ARG_STRING, &infile, 0, "input from file" },
+	{ "gains",   'G', POPT_ARG_STRING, &gainslist, 'G', "gains"},
+	{ "offsets", 'O', POPT_ARG_STRING, &offsetslist, 'O', "offsets"},
+
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -109,7 +114,10 @@ void cmac(short *dst, const short* src, const int nsam, const int nchan,
 
 	for (tt = 0; tt < nsam; ++tt, dst += nchan, src += nchan){
 		for (cc = 0; cc < nchan; ++cc){
-			dst[cc] = src[cc] * gains[cc] + offsets[cc];
+			int xx = src[cc];
+			xx *= gains[cc];
+			xx += offsets[cc];
+			dst[cc] = xx >> 16;
 		}
 	}
 }
@@ -154,18 +162,46 @@ void nmac2(short * dst, const short * src, const int nsam, const int nchan,
 }
 #endif
 
-int main(int argc, const char** argv)
+
+void ui(int argc, const char** argv)
 {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
+	int gx[4];
+	int ox[4];
 	int rc;
 	while ( (rc = poptGetNextOpt( opt_context )) > 0 ){
 		switch(rc){
+		case 'G':
+			if (sscanf(gainslist, "%d,%d,%d,%d",
+				gx+0, gx+1, gx+2, gx+3) != 4){
+				fprintf(stderr, "gainslist must be d,d,d,d\n");
+				exit(-1);
+			}else{
+				for (int ii = 0; ii < 4; ++ii){
+					gains[ii] = gx[ii];
+				}
+			}
+			break;
+		case 'O':
+			if (sscanf(offsetslist, "%d,%d,%d,%d",
+				ox+0, ox+1, ox+2, ox+3) != 4){
+				fprintf(stderr, "offsetslist must be d,d,d,d\n");
+				exit(-1);
+			}else{
+				for (int ii = 0; ii < 4; ++ii){
+					offsets[ii] = ox[ii];
+				}
+			}
+			break;
 		default:
 			;
 		}
 	}
+}
 
+void getBuffers(short **psrc, short **pdst)
+{
 	short *src = new short[bufferlen*NCHAN];
 	short *dst = new short[bufferlen*NCHAN];
 
@@ -183,6 +219,36 @@ int main(int argc, const char** argv)
 	}else{
 		memset(src, 0, sizeof(short)*bufferlen*NCHAN);
 	}
+
+	*psrc = src;
+	*pdst = dst;
+}
+
+void putBuffer(short *dst)
+{
+	if (outfile){
+		FILE *fp = fopen(outfile, "w");
+		if (!fp){
+			perror(outfile);
+			exit(1);
+		}
+		fwrite(dst, sizeof(short), bufferlen*NCHAN, fp);
+		fclose(fp);
+	}
+}
+
+
+int main(int argc, const char** argv)
+{
+	ui(argc, argv);
+
+
+	short *src;
+	short *dst;
+
+	getBuffers(&src, &dst);
+
+
 	if (strcmp(test, "memcpy") == 0){
 		memcpy(dst, src, bufferlen*NCHAN*sizeof(short));
 	}
@@ -198,14 +264,6 @@ int main(int argc, const char** argv)
 	}
 #endif
 
-	if (outfile){
-		FILE *fp = fopen(outfile, "w");
-		if (!fp){
-			perror(outfile);
-			exit(1);
-		}
-		fwrite(dst, sizeof(short), bufferlen*NCHAN, fp);
-		fclose(fp);
-	}
+	putBuffer(dst);
 	return 0;
 }
