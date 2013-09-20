@@ -176,7 +176,7 @@
 
 /* AO420FMC */
 
-#define DAC_FIFO_SAMPLES_MASK	0x00007fff
+#define DAC_FIFO_SAMPLES_MASK	0x00003fff
 
 /*
  *  Minor encoding

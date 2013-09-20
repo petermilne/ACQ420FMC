@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.148"
+#define REVID "2.156"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -239,6 +239,7 @@ static void acq420_enable_interrupt(struct acq400_dev *adev)
 static void ao420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
+	dev_info(DEVP(adev), "ao420_enable_interrupt() set lotide %u\n", adev->lotide);
 	acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
@@ -1111,7 +1112,7 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-#define AO420_MAX_FIFO_SAMPLES	0x3fff
+#define AO420_MAX_FIFO_SAMPLES	0x00003fff	/* actualite not doxy */
 #define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
@@ -1158,12 +1159,17 @@ static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 
 static void ao420_fill_fifo(struct acq400_dev* adev)
 {
-	dev_dbg(DEVP(adev), "ao420_fill_fifo() headroom samples:%08x\n",
-			ao420_getFifoHeadroom(adev));
-	while(ao420_getFifoHeadroom(adev) > AO420_FILL_THRESHOLD){
+	int headroom;
+
+	while((headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
+		remaining = min(remaining, headroom);
 		remaining = min(remaining, AO420_MAX_FILL_BLOCK);
+
+		dev_dbg(DEVP(adev), "headroom:%d remaining:%d using:%d\n",
+			headroom, adev->AO_playloop.length - adev->AO_playloop.cursor, remaining);
+
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(remaining);
