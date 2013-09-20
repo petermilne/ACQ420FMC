@@ -83,7 +83,7 @@ sys 0m 0.99s
 /* mac testbench */
 
 int bufferlen = 0x10000;
-char *test = "null-test";
+const char *test = "null-test";
 char *outfile;
 char *infile;
 
@@ -95,14 +95,18 @@ short offsets[NCHAN] = { 100, 200, 300, 400 };
 char* gainslist;
 char* offsetslist;
 
+int mmap_in;
+int mmap_out;
+
 struct poptOption opt_table[] = {
 	{ "buflen", 'L', POPT_ARG_INT, &bufferlen, 0, 	"buffer length SAMPLES" },
 	{ "test",   'T', POPT_ARG_STRING, &test, 0, "test mode" },
 	{ "out",    'o', POPT_ARG_STRING, &outfile, 0, "output to file" },
 	{ "in",     'i', POPT_ARG_STRING, &infile, 0, "input from file" },
 	{ "gains",   'G', POPT_ARG_STRING, &gainslist, 'G', "gains"},
-	{ "offsets", 'O', POPT_ARG_STRING, &offsetslist, 'O', "offsets"},
-
+	{ "dc-offsets", 'D', POPT_ARG_STRING, &offsetslist, 'D', "DC offsets"},
+	{ "mmap-in", 'I', POPT_ARG_STRING, &infile, 'I', "use mmap to access infile"},
+	{ "mmap-out", 'O', POPT_ARG_STRING, &outfile, 'O', "use mmap to access outfile"},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -183,7 +187,7 @@ void ui(int argc, const char** argv)
 				}
 			}
 			break;
-		case 'O':
+		case 'D':
 			if (sscanf(offsetslist, "%d,%d,%d,%d",
 				ox+0, ox+1, ox+2, ox+3) != 4){
 				fprintf(stderr, "offsetslist must be d,d,d,d\n");
@@ -194,16 +198,23 @@ void ui(int argc, const char** argv)
 				}
 			}
 			break;
+		case 'I':
+			mmap_in = 1; break;
+		case 'O':
+			mmap_out = 1; break;
 		default:
 			;
 		}
 	}
 }
 
+
 void getBuffers(short **psrc, short **pdst)
 {
-	short *src = new short[bufferlen*NCHAN];
-	short *dst = new short[bufferlen*NCHAN];
+	short *src = 0;
+	short *dst = 0;
+
+	int maplen = bufferlen*NCHAN*sizeof(short);
 
 	if (infile){
 		FILE* fp = fopen(infile, "r");
@@ -211,13 +222,45 @@ void getBuffers(short **psrc, short **pdst)
 			perror(infile);
 			exit(1);
 		}
-		int nread = fread(src, sizeof(short), bufferlen*NCHAN, fp);
-		if (nread != bufferlen*NCHAN){
-			fprintf(stderr, "WARNING: short read :d\n", nread);
+		if (mmap_in){
+			void* region =
+			 mmap(NULL, maplen, PROT_READ, MAP_SHARED, fileno(fp),0);
+
+			if ( region == (caddr_t)-1 ){
+				perror( "mmap infile" );
+				exit(-1);
+			}else{
+				src = (short*)region;
+			}
+		}else{
+			src = new short[bufferlen*NCHAN];
+			int nread = fread(src, sizeof(short), bufferlen*NCHAN, fp);
+			if (nread != bufferlen*NCHAN){
+				fprintf(stderr, "WARNING: short read :d\n", nread);
+			}
+			fclose(fp);
 		}
-		fclose(fp);
 	}else{
 		memset(src, 0, sizeof(short)*bufferlen*NCHAN);
+	}
+
+	if (outfile && mmap_out){
+		FILE* fp = fopen(outfile, "r+");
+		if (fp == 0){
+			perror(infile);
+			exit(1);
+		}
+		void* region =
+			 mmap(NULL, maplen, PROT_READ, MAP_SHARED, fileno(fp),0);
+
+		if ( region == (caddr_t)-1 ){
+			perror( "mmap outfile" );
+			exit(-1);
+		}else{
+			dst = (short*)region;
+		}
+	}else{
+		dst = new short[bufferlen*NCHAN];
 	}
 
 	*psrc = src;
@@ -226,7 +269,7 @@ void getBuffers(short **psrc, short **pdst)
 
 void putBuffer(short *dst)
 {
-	if (outfile){
+	if (outfile && !mmap_out){
 		FILE *fp = fopen(outfile, "w");
 		if (!fp){
 			perror(outfile);
