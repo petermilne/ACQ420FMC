@@ -86,6 +86,7 @@
 #define MOD_ID_ACQ430FMC	3
 #define MOD_ID_ACQ440FMC	4
 #define MOD_ID_ACQ425ELF	5
+#define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
 #define MOD_ID_AO421FMC		0x41
@@ -208,7 +209,7 @@ struct acq400_dev {
 	struct dentry* debug_dir;
 	char *debug_names;
 
-	int mod_id;
+	u32 mod_id;
 	wait_queue_head_t waitq;
 
 	struct pl330_client_data *client_data;
@@ -219,7 +220,6 @@ struct acq400_dev {
 		u32 fifo_depth;
 		u32 burst_length;
 		u32 irq;
-		u32 fake;
 	} of_prams;
 
 	u32 DMA_READY;
@@ -352,6 +352,8 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
 #define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
+
+#define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
 void ao420_reset_playloop(struct acq400_dev* adev);
 

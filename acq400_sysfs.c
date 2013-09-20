@@ -722,9 +722,14 @@ static ssize_t show_sysclkhz(
 
 static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 
-static const struct attribute *sysfs_attrs[] = {
+static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
+	&dev_attr_site.attr,
+	NULL
+};
+
+static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
@@ -739,7 +744,6 @@ static const struct attribute *sysfs_attrs[] = {
 	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
-	&dev_attr_site.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
 	&dev_attr_hitide.attr,
@@ -1078,10 +1082,16 @@ void acq400_createSysfs(struct device *dev)
 	const struct attribute **specials = 0;
 
 	dev_info(dev, "acq400_createSysfs()");
-	if (sysfs_create_files(&dev->kobj, sysfs_attrs)){
+	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
 		dev_err(dev, "failed to create sysfs");
 	}
 
+	if (IS_DUMMY(adev)){
+		return;
+	}
+	if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
+		dev_err(dev, "failed to create sysfs");
+	}
 	if (IS_ACQ420(adev)){
 		specials = acq420_attrs;
 	}else if (IS_ACQ435(adev)){
@@ -1099,7 +1109,8 @@ void acq400_createSysfs(struct device *dev)
 
 void acq400_delSysfs(struct device *dev)
 {
-	sysfs_remove_files(&dev->kobj, sysfs_attrs);
+	sysfs_remove_files(&dev->kobj, sysfs_base_attrs);
+	// @@todo .. undoing the rest will be interesting .. */
 }
 
 

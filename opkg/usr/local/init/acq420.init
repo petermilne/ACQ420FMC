@@ -78,6 +78,8 @@ build_knobs_device() {
 
 	MTYPE=$(cat /$dir/module_type)
 	case $MTYPE in
+	255)    
+		return;;
 	2)
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
@@ -130,7 +132,10 @@ if [ $notloaded -ne 0 ]; then
 	echo "for debug:"
 	echo "echo file acq400_drv.c +p" \> /sys/kernel/debug/dynamic_debug/control
 	echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
+	
 	source /etc/sites
+	echo insmod $MOD bufferlen=$BLEN good_sites=$good_sites
+	sleep 0.2
 	insmod $MOD bufferlen=$BLEN good_sites=$good_sites
 	build_knobs
 	grep acq4.0 /proc/devices |  build_nodes	

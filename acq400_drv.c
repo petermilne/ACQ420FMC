@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.158"
+#define REVID "2.165"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -708,7 +708,10 @@ int get_dma_chan(struct acq400_dev *adev)
 	dma_cap_set(DMA_MEMCPY, mask);
 
 	adev->dma_chan = dma_request_channel(mask, filter_true, NULL);
-
+	if (adev->dma_chan == 0){
+			dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
+					adev, adev->pdev->dev.id);
+	}
 	return adev->dma_chan == 0 ? -1: 0;
 }
 
@@ -1181,7 +1184,7 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(remaining);
-			if (remaining > ao420_dma_threshold){
+			if (adev->dma_chan != 0 && remaining > ao420_dma_threshold){
 				ao420_write_fifo_dma(adev, cursor, lenbytes);
 			}else{
 				ao420_write_fifo(adev, cursor, lenbytes);
@@ -1379,8 +1382,6 @@ static int acq400_device_tree_init(struct acq400_dev* adev)
                         adev->of_prams.burst_length = 1;
                 }
 
-                of_property_read_u32(of_node, "fake",  &adev->of_prams.fake);
-
                 dev_info(DEVP(adev),
                 	"acq400_device_tree_init() DMA burst length is %d\n",
                         adev->of_prams.burst_length);
@@ -1522,22 +1523,6 @@ static int acq400_probe(struct platform_device *pdev)
         	goto remove;
         }
 
-        if (adev->of_prams.irq == 0){
-        	adev->of_prams.irq = ADC_HT_INT; /* @@todo should come from device tree? */
-        	dev_warn(&pdev->dev, "Using default IRQ %d", adev->of_prams.irq);
-        }
-
-        status = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
-        		ACQ420_MINOR_MAX, acq400_devnames[adev->of_prams.site]);
-        //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
-        if (status < 0) {
-                dev_err(&pdev->dev, "unable to register chrdev\n");
-                goto fail;
-        }
-
-        /* Register with the kernel as a character device */
-        cdev_init(&adev->cdev, &acq400_fops);
-        adev->cdev.owner = THIS_MODULE;
         adev->dev_physaddr = acq400_resource->start;
         adev->dev_addrsize = acq400_resource->end -
                 acq400_resource->start + 1;
@@ -1553,25 +1538,37 @@ static int acq400_probe(struct platform_device *pdev)
         dev_dbg(DEVP(adev), "acq400: mapped 0x%0x to 0x%0x\n",
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
-        status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
-
-        if (adev->of_prams.fake){
-          	dev_info(&pdev->dev, "fake device, no hardware init");
-          	return 0;
-        }
-
+        acq400_devices[ndevices++] = adev;
         acq400_getID(adev);
 
+        if (IS_DUMMY(adev)){
+        	acq400_createSysfs(&pdev->dev);
+        	dev_info(DEVP(adev), "DUMMY device detected, quitting\n");
+        	return 0;
+        }
+        status = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
+        		ACQ420_MINOR_MAX, acq400_devnames[adev->of_prams.site]);
+        //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
+        if (status < 0) {
+                dev_err(&pdev->dev, "unable to register chrdev\n");
+                goto fail;
+        }
+
+        /* Register with the kernel as a character device */
+        cdev_init(&adev->cdev, &acq400_fops);
+        adev->cdev.owner = THIS_MODULE;
+        status = cdev_add(&adev->cdev, adev->devno, ACQ420_MINOR_MAX);
+        if (status < 0){
+        	goto fail;
+        }
         status = devm_request_threaded_irq(
           		DEVP(adev), adev->of_prams.irq,
           		acq400_int_handler,
           		IS_AO420(adev)? ao420_dma: fire_dma,
           		IRQF_SHARED, acq400_devnames[adev->of_prams.site],
           		adev);
-
   	if (status)	{
-  		printk("%s unable to secure IRQ%d\n", "ACQ420",
-  			adev->of_prams.irq);
+  		dev_err(DEVP(adev),"unable to get IRQ%d\n",adev->of_prams.irq);
   		goto fail;
   	}
 
@@ -1584,7 +1581,7 @@ static int acq400_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        acq400_devices[ndevices++] = adev;
+
         if (IS_ACQ420(adev)){
         	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
         	if (rev < 3){
@@ -1612,6 +1609,7 @@ static int acq400_probe(struct platform_device *pdev)
         return 0;
 
  fail:
+ 	--ndevices;
        	dev_err(&pdev->dev, "Bailout!\n");
  remove:
         acq400_remove(pdev);
