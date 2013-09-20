@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.156"
+#define REVID "2.158"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -232,26 +232,33 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 static void acq420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
+/*
+	static int maxrep;
+
+	if (++maxrep < 10){
+		dev_info(DEVP(adev), "acq420_enable_interrupt() %p\n",
+				adev->dev_physaddr);
+	}
+*/
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
 static void ao420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-	dev_info(DEVP(adev), "ao420_enable_interrupt() set lotide %u\n", adev->lotide);
-	acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
+/*
+	static int maxrep;
+
+	if (++maxrep < 10){
+		dev_info(DEVP(adev), "ao420_enable_interrupt() %p\n",
+			adev->dev_physaddr);
+	}
+*/
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
 static void acq420_disable_interrupt(struct acq400_dev *adev)
 {
-	//u32 control = acq420rd32(adev, ALG_INT_CTRL);
-	//u32 status  = acq420rd32(adev, ALG_INT_STAT);
-	// printk("Interrupt status is 0x%08x\n", status);
-	//control &= ~0x1;
-	// printk("New interrupt enable is 0x%08x\n", control);
-
 	acq400wr32(adev, ADC_INT_CSR, 0x0);
 }
 static void ao420_disable_interrupt(struct acq400_dev *adev)
@@ -762,6 +769,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 
 	adev->DMA_READY = 1;
 	adev->busy = 1;
+	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	/*Wait for FIFO to fill*/
 	acq420_enable_interrupt(adev);
 
@@ -1196,7 +1204,7 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 	if (adev->AO_playloop.length){
 		u32 start_samples = ao420_getFifoSamples(adev);
 		ao420_fill_fifo(adev);
-		acq420_enable_interrupt(adev);
+		ao420_enable_interrupt(adev);
 		add_fifo_histo(adev, start_samples);
 	}
 
@@ -1225,6 +1233,7 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 		adev->AO_playloop.cursor = 0;
 		acq400wr32(adev, DAC_CTRL, cr);
 		ao420_fill_fifo(adev);
+		acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
 		ao420_enable_interrupt(adev);
 		acq400wr32(adev, DAC_CTRL, cr|ADC_CTRL_ENABLE_ALL);
 	}
