@@ -120,15 +120,16 @@ void cmac(short *dst, const short* src, const int nsam, const int nchan,
 		const short* gains, const short* offsets)
 {
 	int tt, cc;
-	short offs[NCHAN];
+	int offs[NCHAN];
 	for (cc = 0; cc < nchan; ++cc){
-		offs[cc] = offsets[cc] << MACSCALE;
+		offs[cc] = offsets[cc];
+		offs[cc] <<= MACSCALE;
 	}
 
 	for (tt = 0; tt < nsam; ++tt, dst += nchan, src += nchan){
 		for (cc = 0; cc < nchan; ++cc){
 			int xx = src[cc];
-			xx *= gains[cc] + offs[cc];
+			xx = xx * gains[cc] + offs[cc];
 			dst[cc] = xx >> MACSCALE;
 		}
 	}
@@ -325,7 +326,7 @@ public:
 		sprintf(path, "%s/%s", root, fn);
 		FILE *fp = fopen(path, "r");
 		if (fp != 0){
-			int rc = fread(&value, sizeof(value), 1, fp);
+			int rc = fscanf(fp, "%d", &value);
 			if (rc != 1){
 				fprintf(stderr, "ERROR in fread : \"%s\", %d\n",
 						path, rc);
@@ -421,7 +422,7 @@ void init_knob(const char* root, const char* kb, int value)
 			perror(fname);
 			exit(1);
 		}
-		fwrite(&value, sizeof(int), 1, fp);
+		fprintf(fp, "%d\n", value);
 		fclose(fp);
 	}
 }
@@ -437,7 +438,7 @@ void update_knob(const char* root, const char* kb, int value)
 		perror(fname);
 		exit(1);
 	}
-	fwrite(&value, sizeof(int), 1, fp);
+	fprintf(fp, "%d\n", value);
 	fclose(fp);
 }
 void init_knobs()
@@ -497,7 +498,6 @@ int run_monitor(short *src, short *dst)
 int main(int argc, const char** argv)
 {
 	ui(argc, argv);
-
 
 	short *src;
 	short *dst;
