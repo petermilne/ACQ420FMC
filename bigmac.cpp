@@ -34,6 +34,7 @@
 #include "popt.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 /*
@@ -90,8 +91,8 @@ char *outfile;
 char *infile;
 
 /* for testing: use constant gains, offsets. @@todo These need to be set from the UI */
-short gains[NCHAN] = { 5, 6, 7, 8 };
-short offsets[NCHAN] = { 100, 200, 300, 400 };
+short gains[NCHAN] = { 1024, 1024, 1024, 1024 };
+short offsets[NCHAN] = { 0, 0, 0, 0 };
 
 
 char* gainslist;
@@ -99,6 +100,7 @@ char* offsetslist;
 
 int mmap_in;
 int mmap_out;
+int monitor;
 
 struct poptOption opt_table[] = {
 	{ "buflen", 'L', POPT_ARG_INT, &bufferlen, 0, 	"buffer length SAMPLES" },
@@ -109,6 +111,7 @@ struct poptOption opt_table[] = {
 	{ "dc-offsets", 'D', POPT_ARG_STRING, &offsetslist, 'D', "DC offsets"},
 	{ "mmap-in", 'I', POPT_ARG_STRING, &infile, 'I', "use mmap to access infile"},
 	{ "mmap-out", 'O', POPT_ARG_STRING, &outfile, 'O', "use mmap to access outfile"},
+	{ "monitor",  'M', POPT_ARG_INT, &monitor, 0, "monitor mode daemon" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -246,6 +249,7 @@ void getBuffers(short **psrc, short **pdst)
 			fclose(fp);
 		}
 	}else{
+		src = new short[bufferlen*NCHAN];
 		memset(src, 0, sizeof(short)*bufferlen*NCHAN);
 	}
 
@@ -286,17 +290,9 @@ void putBuffer(short *dst)
 }
 
 
-int main(int argc, const char** argv)
+
+int exec_mac(short * src, short* dst)
 {
-	ui(argc, argv);
-
-
-	short *src;
-	short *dst;
-
-	getBuffers(&src, &dst);
-
-
 	if (strcmp(test, "memcpy") == 0){
 		memcpy(dst, src, bufferlen*NCHAN*sizeof(short));
 	}
@@ -314,4 +310,203 @@ int main(int argc, const char** argv)
 
 	putBuffer(dst);
 	return 0;
+}
+
+#define BIGMAC_KROOT	"BIGMAC_KROOT"
+const char* kroot = "/dev/shm/awg";
+
+class Knob {
+
+public:
+	int value;
+
+	Knob(const char* root, const char* fn) : value(0) {
+		char path[132];
+		sprintf(path, "%s/%s", root, fn);
+		FILE *fp = fopen(path, "r");
+		if (fp != 0){
+			int rc = fread(&value, sizeof(value), 1, fp);
+			if (rc != 1){
+				fprintf(stderr, "ERROR in fread : \"%s\", %d\n",
+						path, rc);
+			}
+			fclose(fp);
+		}else{
+			perror(path);
+			exit(1);
+		}
+	}
+	virtual ~Knob() {
+		;
+	}
+};
+
+class KnobGroup {
+	Knob* knobs[4];
+public:
+	KnobGroup(const char* n0, const char* n1, const char* n2, const char* n3)
+	{
+		knobs[0] = new Knob(kroot, n0);
+		knobs[1] = new Knob(kroot, n1);
+		knobs[2] = new Knob(kroot, n2);
+		knobs[3] = new Knob(kroot, n3);
+	}
+	~KnobGroup(){
+		for (int ii = 0; ii < 4; ++ii){
+			delete knobs[ii];
+		}
+	}
+	bool isDifferent(KnobGroup& rhs){
+		for (int ii = 0; ii < 4; ++ii){
+			if (knobs[ii]->value != rhs.knobs[ii]->value){
+				return true;
+			}
+		}
+		return false;
+	}
+	void toValues(short* values){
+		for (int ii = 0; ii < 4; ++ii){
+			values[ii] = knobs[ii]->value;
+		}
+
+	}
+	void copyValues(KnobGroup& rhs){
+		for (int ii = 0; ii < 4; ++ii){
+			knobs[ii]->value = rhs.knobs[ii]->value;
+		}
+	}
+};
+#define GAINS 	"G1", "G2", "G3", "G4"
+#define OFFSETS "D1", "D2", "D3", "D4"
+
+//inotifywait -e close_write -r /var/run/awg/
+
+class Inotify {
+	pid_t cpid;
+public:
+	Inotify() : cpid(0) {}
+	void spawn() {
+		if (cpid == 0){
+			cpid = fork();
+			if (cpid == 0){
+				execlp("inotifywait", "inotifywait",
+					"-q",
+					"-e", "close_write",
+					"-r", kroot,
+					(char *) NULL);
+			}
+		}
+	}
+	void wait() {
+		if (!cpid){
+			spawn();
+		}
+		if (cpid){
+			int status;
+			waitpid(cpid, &status, 0);
+			cpid = 0;
+		}
+	}
+};
+
+void init_knob(const char* root, const char* kb, int value)
+{
+	char fname[132];
+	struct stat buf;
+
+	sprintf(fname, "%s/%s", root, kb);
+	if (stat(fname, &buf) != 0){
+		FILE *fp = fopen(fname, "w");
+		if (!fp){
+			perror(fname);
+			exit(1);
+		}
+		fwrite(&value, sizeof(int), 1, fp);
+		fclose(fp);
+	}
+}
+
+void update_knob(const char* root, const char* kb, int value)
+{
+	char fname[132];
+
+	sprintf(fname, "%s/%s", root, kb);
+
+	FILE *fp = fopen(fname, "w");
+	if (!fp){
+		perror(fname);
+		exit(1);
+	}
+	fwrite(&value, sizeof(int), 1, fp);
+	fclose(fp);
+}
+void init_knobs()
+{
+	char command[132];
+	struct stat buf;
+	if (stat(kroot, &buf) != 0){
+		sprintf(command, "mkdir -p %s", kroot);
+		system(command);
+	}
+	const char* gx[] = { GAINS };
+	const char* dx[] = { OFFSETS };
+
+	for (int ii = 0; ii < 4; ++ii){
+		init_knob(kroot, gx[ii], 1024);
+		init_knob(kroot, dx[ii], 0);
+	}
+}
+
+int run_monitor(short *src, short *dst)
+{
+	Inotify dmon;
+	int updates = 0;
+	if (getenv(BIGMAC_KROOT)){
+		kroot = getenv(BIGMAC_KROOT);
+	}
+	init_knobs();
+	KnobGroup gains(GAINS);
+	KnobGroup offsets(OFFSETS);
+
+	gains.toValues(::gains);
+	offsets.toValues(::offsets);
+	exec_mac(src, dst);
+
+	dmon.spawn();
+
+	while(1){
+		KnobGroup gains2(GAINS);
+		KnobGroup offsets2(OFFSETS);
+
+		if (gains2.isDifferent(gains) || offsets2.isDifferent(offsets)){
+			printf("Different\n");
+			gains.copyValues(gains2);
+			offsets.copyValues(offsets2);
+			gains.toValues(::gains);
+			offsets.toValues(::offsets);
+			exec_mac(src, dst);
+			update_knob(kroot, "update", ++updates);
+			dmon.spawn();
+		}else{
+			printf("Same\n");
+			dmon.wait();
+		}
+	}
+	return 0;	// doesn't happen ..
+}
+int main(int argc, const char** argv)
+{
+	ui(argc, argv);
+
+
+	short *src;
+	short *dst;
+
+	getBuffers(&src, &dst);
+
+	if (monitor){
+		return run_monitor(src, dst);
+	}else{
+		return exec_mac(src, dst);
+	}
 }
