@@ -100,6 +100,11 @@ build_knobs_device() {
 }
 
 build_knobs() {
+	if [ -e /sys/bus/platform/devices/40000000.acq2006sc ]; then
+		ln -s /sys/bus/platform/devices/40000000.acq2006sc \
+			/dev/acq400.0.knobs
+		add_webpage acq400.0 0
+	fi
 	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do
 		if [ -e $dir/site ]; then

@@ -336,6 +336,7 @@ void acq400_del_proc(struct acq400_dev* adev);
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value);
 u32 acq400rd32(struct acq400_dev *adev, int offset);
+u32 acq400rd32_upcount(struct acq400_dev *adev, int offset);
 
 int getHeadroom(struct acq400_dev *adev);
 
@@ -368,8 +369,9 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define ACQ2006_CLK_COUNT(n)	(ACQ2006_COUNTERS+((n)+ 0)*sizeof(u32))
 #define ACQ2006_CLK_COUNT_MASK	0x0fffffff
 #define ACQ2006_TRG_COUNT(n) 	(ACQ2006_COUNTERS+((n)+ 8)*sizeof(u32))
-#define ACQ2006_SYN_COUNT(n) 	(ACQ2006_COUNTERS+((n)+16)*sizeof(u32))
-#define ACQ2006_EVT_COUNT(n) 	(ACQ2006_COUNTERS+((n)+24)*sizeof(u32))
+#define ACQ2006_EVT_COUNT(n) 	(ACQ2006_COUNTERS+((n)+16)*sizeof(u32))
+#define ACQ2006_SYN_COUNT(n) 	(ACQ2006_COUNTERS+((n)+24)*sizeof(u32))
+
 #define ACQ2006_TRG_COUNT_MASK	0x0000ffff
 #define ACQ2006_SYN_COUNT_MASK  0x0000ffff
 #define ACQ2006_EVT_COUNT_MASK	0x0000ffff

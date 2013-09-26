@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.166"
+#define REVID "2.172"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -75,6 +75,9 @@ int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 
+int debcount;
+module_param(debcount, int, 0644);
+MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
@@ -112,16 +115,19 @@ struct dentry* acq400_debug_root;
 
 int isGoodSite(int site)
 {
-	int ii;
-	if (site < 0 || site > MAXDEVICES){
+	if (site == 0){
+		return 1;
+	}else if (site < 0 || site > MAXDEVICES){
+		return 0;
+	}else{
+		int ii;
+		for (ii = 0; ii < good_sites_count; ++ii){
+			if (good_sites[ii] == site){
+				return 1;
+			}
+		}
 		return 0;
 	}
-	for (ii = 0; ii < good_sites_count; ++ii){
-		if (good_sites[ii] == site){
-			return 1;
-		}
-	}
-	return 0;
 }
 int acq400_release(struct inode *inode, struct file *file);
 
@@ -141,6 +147,17 @@ u32 acq400rd32(struct acq400_dev *adev, int offset)
 	return rc;
 }
 
+u32 acq400rd32_upcount(struct acq400_dev *adev, int offset)
+{
+	u32 c1 = acq400rd32(adev, offset);
+	u32 c2;
+
+	while((c2 = acq400rd32(adev, offset)) < c1){
+		c1 = c2;
+		++debcount;
+	}
+	return c2;
+}
 static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
@@ -1508,7 +1525,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	for (site = 1; site <= 6; ++site){
 		char name[20];
 		sprintf(name, "CLK_%d", site);
-		DBG_REG_CREATE_2006(name, SITE2DX(site));
+		DBG_REG_CREATE_2006(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
 	}
 
 	DBG_REG_CREATE_2006("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
@@ -1516,7 +1533,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	for (site = 1; site <= 6; ++site){
 		char name[20];
 		sprintf(name, "TRG_%d", site);
-		DBG_REG_CREATE_2006(name, SITE2DX(site));
+		DBG_REG_CREATE_2006(name, ACQ2006_TRG_COUNT(SITE2DX(site)));
 	}
 
 	DBG_REG_CREATE_2006("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
@@ -1524,7 +1541,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	for (site = 1; site <= 6; ++site){
 		char name[20];
 		sprintf(name, "SYN_%d", site);
-		DBG_REG_CREATE_2006(name, SITE2DX(site));
+		DBG_REG_CREATE_2006(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
 	}
 
 	DBG_REG_CREATE_2006("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
@@ -1532,7 +1549,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	for (site = 1; site <= 6; ++site){
 		char name[20];
 		sprintf(name, "EVT_%d", site);
-		DBG_REG_CREATE_2006(name, SITE2DX(site));
+		DBG_REG_CREATE_2006(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
 	}
 }
 
@@ -1607,13 +1624,12 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400_createSysfs(&pdev->dev);
         	dev_info(DEVP(adev), "DUMMY device detected, quitting\n");
         	return 0;
-        }
-        if (IS_ACQ2006SC(adev)){
-               	//acq2006_createSysfs(&pdev->dev);
-               	//acq2006_init_proc(adev);
+        }else if (IS_ACQ2006SC(adev)){
                	acq2006_createDebugfs(adev);
+               	acq400_createSysfs(&pdev->dev);
                	return 0;
         }
+
         status = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
         		ACQ420_MINOR_MAX, acq400_devnames[adev->of_prams.site]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);

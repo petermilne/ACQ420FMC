@@ -13,6 +13,7 @@ acq420fmc-objs := acq400_drv.o acq400_sysfs.o acq400_proc.o hbm.o zynq-timer.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
+APPS := mmap acq400_stream bigmac
 
 all: modules apps
 	
@@ -20,7 +21,7 @@ date:
 	echo $(DC)
 
 package: all
-	cp mmap acq400_stream monitorregs scripts/* bin/* opkg/usr/local/bin
+	cp $(APPS) monitorregs scripts/* bin/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
@@ -28,7 +29,7 @@ package: all
 	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
 
 
-apps: mmap acq400_stream bigmac
+apps: $(APPS)
 
 modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules

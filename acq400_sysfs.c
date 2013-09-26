@@ -532,7 +532,7 @@ static ssize_t show_clk_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 counter = acq400rd32(acq400_devices[dev->id], ADC_CLK_CTR);
+	u32 counter = acq400rd32_upcount(acq400_devices[dev->id], ADC_CLK_CTR);
 	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -543,7 +543,7 @@ static ssize_t show_sample_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 count = acq400rd32(acq400_devices[dev->id], ADC_SAMPLE_CTR);
+	u32 count = acq400rd32_upcount(acq400_devices[dev->id], ADC_SAMPLE_CTR);
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -674,6 +674,8 @@ static ssize_t show_module_name(
 	const char* name;
 
 	switch(adev->mod_id>>MOD_ID_TYPE_SHL){
+	case MOD_ID_ACQ2006SC:
+		name = "acq2006sc"; break;
 	case MOD_ID_ACQ420FMC:
 		name = "acq420fmc"; break;
 	case MOD_ID_ACQ435ELF:
@@ -1076,6 +1078,92 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dacreset.attr,
 	NULL
 };
+
+#define SCOUNT_KNOB(name, reg) 						\
+static ssize_t show_clk_count_##name(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	u32 counter = acq400rd32_upcount(acq400_devices[dev->id], reg);	\
+	return sprintf(buf, "%u\n", counter);				\
+}									\
+static DEVICE_ATTR(scount_##name, S_IRUGO|S_IWUGO, show_clk_count_##name, 0)
+
+SCOUNT_KNOB(CLK_EXT, 	ACQ2006_CLK_COUNT(0));
+SCOUNT_KNOB(CLK_MB, 	ACQ2006_CLK_COUNT(1));
+SCOUNT_KNOB(CLK_S1,     ACQ2006_CLK_COUNT(SITE2DX(1)));
+SCOUNT_KNOB(CLK_S2,     ACQ2006_CLK_COUNT(SITE2DX(2)));
+SCOUNT_KNOB(CLK_S3,     ACQ2006_CLK_COUNT(SITE2DX(3)));
+SCOUNT_KNOB(CLK_S4,     ACQ2006_CLK_COUNT(SITE2DX(4)));
+SCOUNT_KNOB(CLK_S5,     ACQ2006_CLK_COUNT(SITE2DX(5)));
+SCOUNT_KNOB(CLK_S6,     ACQ2006_CLK_COUNT(SITE2DX(6)));
+
+SCOUNT_KNOB(TRG_EXT, 	ACQ2006_TRG_COUNT(0));
+SCOUNT_KNOB(TRG_MB, 	ACQ2006_TRG_COUNT(1));
+SCOUNT_KNOB(TRG_S1,     ACQ2006_TRG_COUNT(SITE2DX(1)));
+SCOUNT_KNOB(TRG_S2,     ACQ2006_TRG_COUNT(SITE2DX(2)));
+SCOUNT_KNOB(TRG_S3,     ACQ2006_TRG_COUNT(SITE2DX(3)));
+SCOUNT_KNOB(TRG_S4,     ACQ2006_TRG_COUNT(SITE2DX(4)));
+SCOUNT_KNOB(TRG_S5,     ACQ2006_TRG_COUNT(SITE2DX(5)));
+SCOUNT_KNOB(TRG_S6,     ACQ2006_TRG_COUNT(SITE2DX(6)));
+
+SCOUNT_KNOB(EVT_EXT, 	ACQ2006_EVT_COUNT(0));
+SCOUNT_KNOB(EVT_MB, 	ACQ2006_EVT_COUNT(1));
+SCOUNT_KNOB(EVT_S1,     ACQ2006_EVT_COUNT(SITE2DX(1)));
+SCOUNT_KNOB(EVT_S2,     ACQ2006_EVT_COUNT(SITE2DX(2)));
+SCOUNT_KNOB(EVT_S3,     ACQ2006_EVT_COUNT(SITE2DX(3)));
+SCOUNT_KNOB(EVT_S4,     ACQ2006_EVT_COUNT(SITE2DX(4)));
+SCOUNT_KNOB(EVT_S5,     ACQ2006_EVT_COUNT(SITE2DX(5)));
+SCOUNT_KNOB(EVT_S6,     ACQ2006_EVT_COUNT(SITE2DX(6)));
+
+SCOUNT_KNOB(SYN_EXT, 	ACQ2006_SYN_COUNT(0));
+SCOUNT_KNOB(SYN_MB, 	ACQ2006_SYN_COUNT(1));
+SCOUNT_KNOB(SYN_S1,     ACQ2006_SYN_COUNT(SITE2DX(1)));
+SCOUNT_KNOB(SYN_S2,     ACQ2006_SYN_COUNT(SITE2DX(2)));
+SCOUNT_KNOB(SYN_S3,     ACQ2006_SYN_COUNT(SITE2DX(3)));
+SCOUNT_KNOB(SYN_S4,     ACQ2006_SYN_COUNT(SITE2DX(4)));
+SCOUNT_KNOB(SYN_S5,     ACQ2006_SYN_COUNT(SITE2DX(5)));
+SCOUNT_KNOB(SYN_S6,     ACQ2006_SYN_COUNT(SITE2DX(6)));
+
+static const struct attribute *acq2006sc_attrs[] = {
+	&dev_attr_scount_CLK_EXT.attr,
+	&dev_attr_scount_CLK_MB.attr,
+	&dev_attr_scount_CLK_S1.attr,
+	&dev_attr_scount_CLK_S2.attr,
+	&dev_attr_scount_CLK_S3.attr,
+	&dev_attr_scount_CLK_S4.attr,
+	&dev_attr_scount_CLK_S5.attr,
+	&dev_attr_scount_CLK_S6.attr,
+
+	&dev_attr_scount_TRG_EXT.attr,
+	&dev_attr_scount_TRG_MB.attr,
+	&dev_attr_scount_TRG_S1.attr,
+	&dev_attr_scount_TRG_S2.attr,
+	&dev_attr_scount_TRG_S3.attr,
+	&dev_attr_scount_TRG_S4.attr,
+	&dev_attr_scount_TRG_S5.attr,
+	&dev_attr_scount_TRG_S6.attr,
+
+	&dev_attr_scount_EVT_EXT.attr,
+	&dev_attr_scount_EVT_MB.attr,
+	&dev_attr_scount_EVT_S1.attr,
+	&dev_attr_scount_EVT_S2.attr,
+	&dev_attr_scount_EVT_S3.attr,
+	&dev_attr_scount_EVT_S4.attr,
+	&dev_attr_scount_EVT_S5.attr,
+	&dev_attr_scount_EVT_S6.attr,
+
+	&dev_attr_scount_SYN_EXT.attr,
+	&dev_attr_scount_SYN_MB.attr,
+	&dev_attr_scount_SYN_S1.attr,
+	&dev_attr_scount_SYN_S2.attr,
+	&dev_attr_scount_SYN_S3.attr,
+	&dev_attr_scount_SYN_S4.attr,
+	&dev_attr_scount_SYN_S5.attr,
+	&dev_attr_scount_SYN_S6.attr,
+	NULL
+};
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
@@ -1088,19 +1176,23 @@ void acq400_createSysfs(struct device *dev)
 
 	if (IS_DUMMY(adev)){
 		return;
-	}
-	if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
-		dev_err(dev, "failed to create sysfs");
-	}
-	if (IS_ACQ420(adev)){
-		specials = acq420_attrs;
-	}else if (IS_ACQ435(adev)){
-		specials = acq435_attrs;
-	}else if (IS_AO420(adev)){
-		specials = ao420_attrs;
+	}else if (IS_ACQ2006SC(adev)){
+		specials = acq2006sc_attrs;
 	}else{
-		return;
+		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
+		if (IS_ACQ420(adev)){
+			specials = acq420_attrs;
+		}else if (IS_ACQ435(adev)){
+			specials = acq435_attrs;
+		}else if (IS_AO420(adev)){
+			specials = ao420_attrs;
+		}else{
+			return;
+		}
 	}
+
 
 	if (sysfs_create_files(&dev->kobj, specials)){
 		dev_err(dev, "failed to create sysfs");
