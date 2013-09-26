@@ -82,6 +82,8 @@ sys 0m 0.99s
 #define NCHAN 	4
 /* mac testbench */
 
+#define MACSCALE	10		/** >>10 : 1024=100% */
+
 int bufferlen = 0x10000;
 const char *test = "null-test";
 char *outfile;
@@ -115,13 +117,16 @@ void cmac(short *dst, const short* src, const int nsam, const int nchan,
 		const short* gains, const short* offsets)
 {
 	int tt, cc;
+	short offs[NCHAN];
+	for (cc = 0; cc < nchan; ++cc){
+		offs[cc] = offsets[cc] << MACSCALE;
+	}
 
 	for (tt = 0; tt < nsam; ++tt, dst += nchan, src += nchan){
 		for (cc = 0; cc < nchan; ++cc){
 			int xx = src[cc];
-			xx *= gains[cc];
-			xx += offsets[cc];
-			dst[cc] = xx >> 16;
+			xx *= gains[cc] + offs[cc];
+			dst[cc] = xx >> MACSCALE;
 		}
 	}
 }
@@ -251,7 +256,7 @@ void getBuffers(short **psrc, short **pdst)
 			exit(1);
 		}
 		void* region =
-			 mmap(NULL, maplen, PROT_READ, MAP_SHARED, fileno(fp),0);
+			 mmap(NULL, maplen, PROT_WRITE, MAP_SHARED, fileno(fp),0);
 
 		if ( region == (caddr_t)-1 ){
 			perror( "mmap outfile" );
