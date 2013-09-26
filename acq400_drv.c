@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.165"
+#define REVID "2.166"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1325,6 +1325,7 @@ static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq420fmc", },
         { .compatible = "D-TACQ,acq435elf", },
         { .compatible = "D-TACQ,ao420fmc",  },
+        { .compatible = "D-TACQ,acq2006sc"  },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
@@ -1474,6 +1475,67 @@ static void acq400_removeDebugfs(struct acq400_dev* adev)
 	debugfs_remove_recursive(adev->debug_dir);
 	kfree(adev->debug_names);
 }
+
+static void acq2006_createDebugfs(struct acq400_dev* adev)
+{
+	char* pcursor;
+	int site;
+	if (!acq400_debug_root){
+		acq400_debug_root = debugfs_create_dir("acq400", 0);
+		if (!acq400_debug_root){
+			dev_warn(&adev->pdev->dev, "failed create dir acq420");
+			return;
+		}
+	}
+	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
+
+#define DBG_REG_CREATE_2006(name, reg) 					\
+	sprintf(pcursor, "%s.0x%02x", name, reg);		\
+	debugfs_create_x32(pcursor, S_IRUGO, 			\
+		adev->debug_dir, adev->dev_virtaddr+(reg));     \
+	pcursor += strlen(pcursor) + 1
+
+	adev->debug_dir = debugfs_create_dir(
+			acq400_devnames[adev->of_prams.site], acq400_debug_root);
+
+	if (!adev->debug_dir){
+		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
+		return;
+	}
+
+	DBG_REG_CREATE_2006("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
+	DBG_REG_CREATE_2006("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
+	for (site = 1; site <= 6; ++site){
+		char name[20];
+		sprintf(name, "CLK_%d", site);
+		DBG_REG_CREATE_2006(name, SITE2DX(site));
+	}
+
+	DBG_REG_CREATE_2006("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
+	DBG_REG_CREATE_2006("TRG_MB",  ACQ2006_TRG_COUNT(MB_DX));
+	for (site = 1; site <= 6; ++site){
+		char name[20];
+		sprintf(name, "TRG_%d", site);
+		DBG_REG_CREATE_2006(name, SITE2DX(site));
+	}
+
+	DBG_REG_CREATE_2006("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
+	DBG_REG_CREATE_2006("SYN_MB",  ACQ2006_SYN_COUNT(MB_DX));
+	for (site = 1; site <= 6; ++site){
+		char name[20];
+		sprintf(name, "SYN_%d", site);
+		DBG_REG_CREATE_2006(name, SITE2DX(site));
+	}
+
+	DBG_REG_CREATE_2006("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
+	DBG_REG_CREATE_2006("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
+	for (site = 1; site <= 6; ++site){
+		char name[20];
+		sprintf(name, "EVT_%d", site);
+		DBG_REG_CREATE_2006(name, SITE2DX(site));
+	}
+}
+
 static int acq400_remove(struct platform_device *pdev);
 
 #define dev_dbg	dev_info
@@ -1546,6 +1608,12 @@ static int acq400_probe(struct platform_device *pdev)
         	dev_info(DEVP(adev), "DUMMY device detected, quitting\n");
         	return 0;
         }
+        if (IS_ACQ2006SC(adev)){
+               	//acq2006_createSysfs(&pdev->dev);
+               	//acq2006_init_proc(adev);
+               	acq2006_createDebugfs(adev);
+               	return 0;
+        }
         status = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
         		ACQ420_MINOR_MAX, acq400_devnames[adev->of_prams.site]);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
@@ -1582,6 +1650,7 @@ static int acq400_probe(struct platform_device *pdev)
         }
 
 
+
         if (IS_ACQ420(adev)){
         	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
         	if (rev < 3){
@@ -1590,9 +1659,6 @@ static int acq400_probe(struct platform_device *pdev)
         	}else{
         		dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
         	}
-        }
-
-        if (IS_ACQ420(adev)){
                 acq420_init_defaults(adev);
         }else if (IS_ACQ435(adev)){
         	acq435_init_defaults(adev);

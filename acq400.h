@@ -91,6 +91,8 @@
 #define MOD_ID_AO420FMC		0x40
 #define MOD_ID_AO421FMC		0x41
 
+#define MOD_ID_ACQ2006SC	0x80
+
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
 #define ADC_CTRL_18B		(1 << 6)
@@ -352,6 +354,7 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
 #define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
+#define IS_ACQ2006SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ2006SC)
 
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
@@ -359,5 +362,20 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define SYSCLK_M100	100000000
 #define SYSCLK_M66       66000000
+
+#define ACQ2006_COUNTERS	0x100
+
+#define ACQ2006_CLK_COUNT(n)	(ACQ2006_COUNTERS+((n)+ 0)*sizeof(u32))
+#define ACQ2006_CLK_COUNT_MASK	0x0fffffff
+#define ACQ2006_TRG_COUNT(n) 	(ACQ2006_COUNTERS+((n)+ 8)*sizeof(u32))
+#define ACQ2006_SYN_COUNT(n) 	(ACQ2006_COUNTERS+((n)+16)*sizeof(u32))
+#define ACQ2006_EVT_COUNT(n) 	(ACQ2006_COUNTERS+((n)+24)*sizeof(u32))
+#define ACQ2006_TRG_COUNT_MASK	0x0000ffff
+#define ACQ2006_SYN_COUNT_MASK  0x0000ffff
+#define ACQ2006_EVT_COUNT_MASK	0x0000ffff
+
+#define EXT_DX	0			/* External clock */
+#define MB_DX	1 			/* Motherboard clock */
+#define SITE2DX(site) 	((site)+1)
 
 #endif /* ACQ420FMC_H_ */
