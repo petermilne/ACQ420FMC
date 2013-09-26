@@ -1,8 +1,8 @@
 #!/bin/sh
 
 SITE=${1:-0}
+KDIR=${2:-/dev/acq400.$SITE.knobs}
 
-KDIR=/dev/acq400.$SITE.knobs
 SDIR=/etc/acq400/$SITE
 
 do_site_knob() {
