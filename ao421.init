@@ -1,0 +1,105 @@
+#!/bin/sh
+
+# Simple init for ao421. VALID SITE 5 ONLY
+
+# acq2006_001> cat /sys/class/gpio/gpiochip168/label 
+# tca6424
+# acq2006_001> cat /sys/class/gpio/gpiochip192/label 
+# tca6424
+
+PRSNT=$(cat /dev/gpio/fmc5_present)
+if [ $PRSNT -ne 1 ]; then
+   echo +++ ERROR: Site 5 empty
+   exit
+fi
+
+setO() {
+	echo out >$1/direction
+}
+setAL() {
+	echo 1 >$1/active_low
+}
+mkln() {
+	ln -s $PWD/$1/value /dev/gpio/$2
+	if [ "x$3" = "xAL" ]; then
+		setAL $1
+	fi
+}
+
+echo +++ export gpio168..215 as outputs
+cd /sys/class/gpio
+for pin in $(seq 168 215)
+do
+#	echo ++++ exporting $pin
+	echo $pin >export
+	setO gpio$pin
+	sleep 0.1
+done
+
+
+mkdir -p /dev/gpio/AO421/
+
+echo +++ build knobs
+
+let px=0
+
+for pin in $(seq 168 215)
+do
+	PX=$(printf "P%02d" $px)
+	mkln gpio$pin AO421/$PX
+	let px=$px+1
+done
+
+mv /dev/acq400.5.knobs /dev/.acq400.5.knobs
+mkdir -p /dev/acq400.5.knobs
+cd /dev/acq400.5.knobs
+
+for kb in /dev/.acq400.5.knobs/*
+do
+	ln -s $kb
+done
+
+ln -s /dev/gpio/AO421/P43 CH01.01
+ln -s /dev/gpio/AO421/P42 CH01.02
+ln -s /dev/gpio/AO421/P41 CH01.03
+ln -s /dev/gpio/AO421/P40 CH01.04
+ln -s /dev/gpio/AO421/P39 CH01.05
+ln -s /dev/gpio/AO421/P38 CH01.06
+ln -s /dev/gpio/AO421/P37 CH01.07
+ln -s /dev/gpio/AO421/P36 CH01.08
+ln -s /dev/gpio/AO421/P24 CH01.09
+ln -s /dev/gpio/AO421/P25 CH01.10
+ln -s /dev/gpio/AO421/P26 CH01.11
+ln -s /dev/gpio/AO421/P27 CH01.12
+ln -s /dev/gpio/AO421/P31 CH01.13
+ln -s /dev/gpio/AO421/P30 CH01.14
+ln -s /dev/gpio/AO421/P29 CH01.15
+ln -s /dev/gpio/AO421/P28 CH01.16
+ln -s /dev/gpio/AO421/P35 CH01.17
+ln -s /dev/gpio/AO421/P34 CH01.18
+ln -s /dev/gpio/AO421/P33 CH01.19
+ln -s /dev/gpio/AO421/P32 CH01.20
+
+ln -s /dev/gpio/AO421/P07 CH02.01
+ln -s /dev/gpio/AO421/P06 CH02.02
+ln -s /dev/gpio/AO421/P05 CH02.03
+ln -s /dev/gpio/AO421/P04 CH02.04
+ln -s /dev/gpio/AO421/P11 CH02.05
+ln -s /dev/gpio/AO421/P10 CH02.06
+ln -s /dev/gpio/AO421/P09 CH02.07
+ln -s /dev/gpio/AO421/P08 CH02.08
+ln -s /dev/gpio/AO421/P03 CH02.09
+ln -s /dev/gpio/AO421/P02 CH02.10
+ln -s /dev/gpio/AO421/P01 CH02.11
+ln -s /dev/gpio/AO421/P00 CH02.12
+ln -s /dev/gpio/AO421/P15 CH02.13
+ln -s /dev/gpio/AO421/P14 CH02.14
+ln -s /dev/gpio/AO421/P13 CH02.15
+ln -s /dev/gpio/AO421/P12 CH02.16
+ln -s /dev/gpio/AO421/P16 CH02.17
+ln -s /dev/gpio/AO421/P17 CH02.18
+ln -s /dev/gpio/AO421/P18 CH02.19
+ln -s /dev/gpio/AO421/P19 CH02.20
+
+
+
