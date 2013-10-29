@@ -61,6 +61,7 @@ static int getKnob(const char* knob, unsigned* value)
 unsigned int nbuffers = 16;
 unsigned int bufferlen = 0x40000;
 int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
+unsigned mask = 0xffffffff;	/** mask data with this value */
 int oversampling = 1;
 int devnum = 0;
 
@@ -138,6 +139,7 @@ public:
 template <class T>
 class DemuxBuffer: public MapBuffer {
 private:
+	const unsigned mask;
 	int nchan;
 	int nsam;
 	T* ddata;
@@ -178,7 +180,7 @@ private:
 
 		for (int isam = 0; isam < nsam; ++isam){
 			for (int ichan = 0; ichan < nchan; ++ichan){
-				ddata[ichan*nsam + isam] = *src++;
+				ddata[ichan*nsam + isam] = (*src++)&mask;
 			}
 		}
 	}
@@ -198,8 +200,9 @@ public:
 		finish();
 		return buffer_len;
 	}
-	DemuxBuffer(const char* _fname, int _buffer_len) :
+	DemuxBuffer(const char* _fname, int _buffer_len, unsigned _mask) :
 		MapBuffer(_fname, _buffer_len),
+		mask(_mask),
 		nchan(::nchan),
 		nsam(_buffer_len/sizeof(short)/nchan)
 	{
@@ -307,9 +310,9 @@ Buffer* Buffer::create(const char* root, int ibuf, int _buffer_len)
 	case BM_DEMUX:
 		switch(wordsize){
 		case 2:
-			return new DemuxBuffer<short>(fname, _buffer_len);
+			return new DemuxBuffer<short>(fname, _buffer_len, mask);
 		case 4:
-			return new DemuxBuffer<int>(fname, _buffer_len);
+			return new DemuxBuffer<int>(fname, _buffer_len, mask);
 		default:
 			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
 			exit(1);
@@ -341,6 +344,7 @@ struct poptOption opt_table[] = {
 	{ "nchan",    'N', POPT_ARG_INT, &::nchan, 0 },
 	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
 	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0, "set oversampling"},
+	{ "mask",      'M', POPT_ARG_INT, &mask, 0, "set data mask"},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
