@@ -61,7 +61,9 @@ static int getKnob(const char* knob, unsigned* value)
 unsigned int nbuffers = 16;
 unsigned int bufferlen = 0x40000;
 int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
-unsigned mask = 0xffffffff;	/** mask data with this value */
+#define FULL_MASK 0xffffffff
+unsigned mask = FULL_MASK;	/** mask data with this value */
+int m1 = 0;			/** start masking from here */
 int oversampling = 1;
 int devnum = 0;
 
@@ -139,7 +141,7 @@ public:
 template <class T>
 class DemuxBuffer: public MapBuffer {
 private:
-	const unsigned mask;
+	unsigned* mask;
 	int nchan;
 	int nsam;
 	T* ddata;
@@ -180,7 +182,7 @@ private:
 
 		for (int isam = 0; isam < nsam; ++isam){
 			for (int ichan = 0; ichan < nchan; ++ichan){
-				ddata[ichan*nsam + isam] = (*src++)&mask;
+				ddata[ichan*nsam + isam] = (*src++)&mask[ichan];
 			}
 		}
 	}
@@ -202,10 +204,13 @@ public:
 	}
 	DemuxBuffer(const char* _fname, int _buffer_len, unsigned _mask) :
 		MapBuffer(_fname, _buffer_len),
-		mask(_mask),
 		nchan(::nchan),
 		nsam(_buffer_len/sizeof(short)/nchan)
 	{
+		mask = new unsigned[nchan];
+		for (int ic = 0; ic < nchan; ++ic){
+			mask[ic] = ic < m1? FULL_MASK: _mask;
+		}
 		ddata = new T[nsam*nchan];
 		make_names();
 	}
@@ -345,6 +350,7 @@ struct poptOption opt_table[] = {
 	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
 	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0, "set oversampling"},
 	{ "mask",      'M', POPT_ARG_INT, &mask, 0, "set data mask"},
+	{ "m1",        'm', POPT_ARG_INT, &m1, 0, "index of first masked channel"},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
