@@ -70,6 +70,9 @@
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
 
+#define ACQ435_SPADN(ix)	(ADC_BASE+0x80+(ix)*sizeof(u32))
+#define ACQ435_SPAD_MAX		8
+
 #define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
 
 #define FIFO_HISTO_SZ	      	(1<<8)

@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.173"
+#define REVID "2.174"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG

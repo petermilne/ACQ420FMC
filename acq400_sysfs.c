@@ -407,6 +407,64 @@ static ssize_t store_spad(
 
 static DEVICE_ATTR(spad, S_IRUGO|S_IWUGO, show_spad, store_spad);
 
+static ssize_t show_spadN(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int ix)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 spad = acq400rd32(adev, ACQ435_SPADN(ix));
+	return sprintf(buf, "0x%08x\n", spad);
+}
+
+static ssize_t store_spadN(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int ix)
+{
+	u32 spad;
+	if (sscanf(buf, "%x", &spad) == 1){
+		struct acq400_dev* adev = acq400_devices[dev->id];
+		acq400wr32(adev, ACQ435_SPADN(ix), spad);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+
+#define MAKE_SPAD(IX)							\
+static ssize_t show_spad##IX(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_spadN(dev, attr, buf, IX);				\
+}									\
+									\
+static ssize_t store_spad##IX(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_spadN(dev, attr, buf, count, IX);			\
+}									\
+static DEVICE_ATTR(spad##IX, S_IRUGO|S_IWUGO, 				\
+		show_spad##IX, store_spad##IX)
+
+MAKE_SPAD(0);
+MAKE_SPAD(1);
+MAKE_SPAD(2);
+MAKE_SPAD(3);
+MAKE_SPAD(4);
+MAKE_SPAD(5);
+MAKE_SPAD(6);
+MAKE_SPAD(7);
+
 
 static ssize_t show_nbuffers(
 	struct device * dev,
@@ -794,6 +852,14 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_spad.attr,
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
+	&dev_attr_spad0.attr,
+	&dev_attr_spad1.attr,
+	&dev_attr_spad2.attr,
+	&dev_attr_spad3.attr,
+	&dev_attr_spad4.attr,
+	&dev_attr_spad5.attr,
+	&dev_attr_spad6.attr,
+	&dev_attr_spad7.attr,
 	NULL
 };
 
