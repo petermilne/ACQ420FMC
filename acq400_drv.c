@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.172"
+#define REVID "2.173"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -328,6 +328,11 @@ void acq435_onStart(struct acq400_dev *adev)
 		ctrl |= ADC_CTRL_RAMP_EN;
 	}else{
 		ctrl &= ~ADC_CTRL_RAMP_EN;
+	}
+	if (adev->spad_en){
+		ctrl |= ACQ435_CTRL_SPAD;
+	}else{
+		ctrl &= ~ACQ435_CTRL_SPAD;
 	}
 	// set mode (assume done)
 	// set clkdiv (assume done)

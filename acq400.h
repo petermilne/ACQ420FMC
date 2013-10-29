@@ -96,6 +96,7 @@
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
 #define ADC_CTRL_18B		(1 << 6)
+#define ACQ435_CTRL_SPAD	(1 << 6)
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
@@ -259,6 +260,7 @@ struct acq400_dev {
 	} stats;
 
 	int ramp_en;
+	int spad_en;			/** scratchpad enable */
 	int data32;
 	int adc_18b;			/* @@todo set on probe() */
 	int nchan_enabled;

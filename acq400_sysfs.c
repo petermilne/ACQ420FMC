@@ -381,6 +381,33 @@ static ssize_t store_simulate(
 
 static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
+static ssize_t show_spad(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 spad = acq400_devices[dev->id]->spad_en != 0;
+	return sprintf(buf, "%u\n", spad);
+}
+
+static ssize_t store_spad(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 spad;
+	if (sscanf(buf, "%u", &spad) == 1){
+		acq400_devices[dev->id]->spad_en = spad != 0;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(spad, S_IRUGO|S_IWUGO, show_spad, store_spad);
+
+
 static ssize_t show_nbuffers(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -764,6 +791,7 @@ static const struct attribute *acq420_attrs[] = {
 	NULL
 };
 static const struct attribute *acq435_attrs[] = {
+	&dev_attr_spad.attr,
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
 	NULL
