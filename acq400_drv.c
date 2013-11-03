@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.174"
+#define REVID "2.175"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -100,6 +100,10 @@ int ao420_dma_threshold = 999999;
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
+int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
+int ao420_mapping_count = 4;
+module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
+
 // @@todo pgm: crude: index by site, index from 10
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -112,6 +116,18 @@ struct dentry* acq400_debug_root;
 
 #define AO420_NBUFFERS 	2
 #define AO420_BUFFERLEN	0x200000
+
+/* correct for FPGA mismatch with front panel connectors */
+int ao420_physChan(int lchan /* 1..4 */ )
+{
+	int ip;
+	for (ip = 0; ip < AO_CHAN; ++ip){
+		if (ao420_mapping[ip] == lchan){
+			return ip;
+		}
+	}
+	BUG();
+}
 
 int isGoodSite(int site)
 {

@@ -83,7 +83,8 @@ sys 0m 0.99s
 #define NCHAN 	4
 /* mac testbench */
 
-#define MACSCALE	10		/** >>10 : 1024=100% */
+#define MACSCALE	16		/** >>16 32768=100% */
+#define PC100		32767		/** 100% */
 
 int bufferlen = 0x10000;
 const char *test = "null-test";
@@ -91,7 +92,7 @@ char *outfile;
 char *infile;
 
 /* for testing: use constant gains, offsets. @@todo These need to be set from the UI */
-short gains[NCHAN] = { 1024, 1024, 1024, 1024 };
+short gains[NCHAN] = { PC100, PC100, PC100, PC100 };
 short offsets[NCHAN] = { 0, 0, 0, 0 };
 
 
@@ -342,15 +343,46 @@ public:
 	}
 };
 
+#define MAPPING	"/sys/module/acq420fmc/parameters/ao420_mapping"
+
+
 class KnobGroup {
 	Knob* knobs[4];
+
+	static int mapping[4];
+	static bool done_mapping;
+
+	static void makeMapping() {
+		for (int ii = 0; ii < 4; ++ii){
+			mapping[ii] = ii;
+		}
+		FILE *fp = fopen(MAPPING, "r");
+		int ii = 0;
+		if (fp) {
+			char map[4];
+			int imax = fscanf(fp, "%d,%d,%d,%d", map+0, map+1,
+					map+2, map+3);
+			for (int ii = 0; ii < imax; ++ii){
+				mapping[ii] = map[ii] - 1;
+			}
+		}
+		printf("mapping: %d %d %d %d\n",
+			mapping[0], mapping[1], mapping[2], mapping[3]);
+	}
+
+
 public:
 	KnobGroup(const char* n0, const char* n1, const char* n2, const char* n3)
 	{
+		if (!done_mapping){
+			makeMapping();
+			done_mapping = true;
+		}
 		knobs[0] = new Knob(kroot, n0);
 		knobs[1] = new Knob(kroot, n1);
 		knobs[2] = new Knob(kroot, n2);
 		knobs[3] = new Knob(kroot, n3);
+
 	}
 	~KnobGroup(){
 		for (int ii = 0; ii < 4; ++ii){
@@ -367,7 +399,7 @@ public:
 	}
 	void toValues(short* values){
 		for (int ii = 0; ii < 4; ++ii){
-			values[ii] = knobs[ii]->value;
+			values[mapping[ii]] = knobs[ii]->value;
 		}
 
 	}
@@ -377,6 +409,10 @@ public:
 		}
 	}
 };
+
+int KnobGroup::mapping[4];
+bool KnobGroup::done_mapping;
+
 #define GAINS 	"G1", "G2", "G3", "G4"
 #define OFFSETS "D1", "D2", "D3", "D4"
 

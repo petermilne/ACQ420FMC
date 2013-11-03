@@ -385,4 +385,6 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define MB_DX	1 			/* Motherboard clock */
 #define SITE2DX(site) 	((site)+1)
 
+int ao420_physChan(int lchan /* 1..4 */ );
+
 #endif /* ACQ420FMC_H_ */

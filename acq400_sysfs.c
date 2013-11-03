@@ -921,10 +921,10 @@ static ssize_t store_dac_range##NAME(					\
 static DEVICE_ATTR(dac_range_##NAME, S_IRUGO|S_IWUGO, 			\
 		show_dac_range##NAME, store_dac_range##NAME)
 
-MAKE_DAC_RANGE(01,  0);
-MAKE_DAC_RANGE(02,  1);
-MAKE_DAC_RANGE(03,  2);
-MAKE_DAC_RANGE(04,  3);
+MAKE_DAC_RANGE(01,  ao420_physChan(1));
+MAKE_DAC_RANGE(02,  ao420_physChan(2));
+MAKE_DAC_RANGE(03,  ao420_physChan(3));
+MAKE_DAC_RANGE(04,  ao420_physChan(4));
 MAKE_DAC_RANGE(REF, 4);
 
 static void ao420_flushImmediate(struct acq400_dev *adev)
@@ -948,7 +948,7 @@ static ssize_t show_dac_immediate(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	short chx = adev->AO_immediate._u.ch[chan];
+	short chx = adev->AO_immediate._u.ch[chan = ao420_physChan(chan)];
 
 	return sprintf(buf, "0x%04x %d\n", chx, chx);
 }
@@ -963,6 +963,7 @@ static ssize_t store_dac_immediate(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int chx;
 
+	chan = ao420_physChan(chan);
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
 		unsigned cr = acq400rd32(adev, DAC_CTRL);
 		adev->AO_immediate._u.ch[chan] = chx;
@@ -999,10 +1000,10 @@ static ssize_t store_dac_immediate_##NAME(				\
 static DEVICE_ATTR(AO_##NAME, S_IRUGO|S_IWUGO, 			\
 		show_dac_immediate_##NAME, store_dac_immediate_##NAME)
 
-MAKE_DAC_IMMEDIATE(01, 0);
-MAKE_DAC_IMMEDIATE(02, 1);
-MAKE_DAC_IMMEDIATE(03, 2);
-MAKE_DAC_IMMEDIATE(04, 3);
+MAKE_DAC_IMMEDIATE(01, 1);
+MAKE_DAC_IMMEDIATE(02, 2);
+MAKE_DAC_IMMEDIATE(03, 3);
+MAKE_DAC_IMMEDIATE(04, 4);
 
 
 static ssize_t show_playloop_length(
