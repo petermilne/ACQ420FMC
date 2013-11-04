@@ -19,21 +19,23 @@ setO() {
 setAL() {
 	echo 1 >$1/active_low
 }
+setOFF() {
+	echo 0 >$1/value
+}
+
 mkln() {
 	ln -s $PWD/$1/value /dev/gpio/$2
-	if [ "x$3" = "xAL" ]; then
-		setAL $1
-	fi
 }
 
 echo +++ export gpio168..215 as outputs
 cd /sys/class/gpio
 for pin in $(seq 168 215)
 do
-#	echo ++++ exporting $pin
 	echo $pin >export
-	setO gpio$pin
-	sleep 0.1
+	GPIO=gpio$pin
+	setAL $GPIO
+	setO $GPIO
+	setOFF $GPIO
 done
 
 
@@ -47,6 +49,7 @@ for pin in $(seq 168 215)
 do
 	PX=$(printf "P%02d" $px)
 	mkln gpio$pin AO421/$PX
+	echo 0 > AO421/$PX
 	let px=$px+1
 done
 
