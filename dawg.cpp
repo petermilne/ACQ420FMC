@@ -55,19 +55,80 @@ typedef unsigned int u32;
 
 #define ALL_CLOSED_MASK  (((1<<MAXSW)<<1) - 1)
 
+
+namespace UI {
+	const char* fname = "nowhere";
+	bool dry_run;
+	int verbose;
+	int repeat_count = 1;
+	int timescaler = 1;
+	bool print_quit;
+	int site = 5;
+	int master_site = 1;
+};
+
+#define KNOBS	"./TEST"
+
+/** singleton .. */
+class Scratchpad {
+	char *root;
+	Scratchpad() {
+		root = new char[80];
+		snprintf(root, 80, "/dev/acq400.%d.knobs", UI::master_site);
+	}
+public:
+	enum SP_INDEX {
+		SP_SAMPLE_COUNT,
+		SP_MUX_STATUS,
+		SP_MUX_CH01,
+		SP_MUX_CH02,
+		SP_AWG_G1,
+		SP_AWG_G2,
+		SP_AWG_G3,
+		SP_AWG_G4,
+	};
+	enum SP_STATUS {
+		SP_MUX_STATUS_BUSY = 0xb5b5b5b5,
+		SP_MUX_STATUS_DONE = 0xd00e0000
+	};
+	static Scratchpad& instance() {
+		static Scratchpad* _instance;
+		if (!_instance){
+			_instance = new Scratchpad();
+		}
+		return *_instance;
+	}
+
+	virtual void set(enum SP_INDEX idx, u32 value){
+		char knob[80];
+		snprintf(knob, 80, "%s/spad%d", root, idx);
+		FILE* fp = fopen(knob, "w");
+		if (fp == 0){
+			perror(knob);
+			exit(1);
+		}
+		fprintf(fp, "%08x", value);
+		fclose(fp);
+	}
+};
 class DawgEntry {
 	static int last_serial;
 	int serial;
-	u32 chx[MAXCHAN];	/* should be const, but hard to init */
+
 	char* def;
 
 	list<const char*> disable_list;
 	list<const char*> enable_list;
 
+	static void setSwitches(list<const char*> &the_list, bool make);
+
+protected:
+	u32 chx[MAXCHAN];	/* should be const, but hard to init */
+
 	DawgEntry(const char* _def, const u32 _dt,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev);
 
-	static void setSwitches(list<const char*> &the_list, bool make);
+
 public:
 	static char* knobs;
 	const u32 dt;
@@ -89,20 +150,21 @@ public:
 		list<const char*> &the_list, u32 amask[], u32 bmask[]);
 	static void printList(list<const char*> &the_list, const char* label);
 
-	void exec();
+	virtual void exec();
 };
 
-namespace UI {
-const char* fname = "nowhere";
-int dry_run;
-int verbose;
-int repeat_count = 1;
-int timescaler = 1;
-bool print_quit;
-int site = 5;
+class ScratchpadReportingDawgEntry: public DawgEntry {
+
+public:
+	ScratchpadReportingDawgEntry(const char* _def, const u32 _dt,
+			const u32 _ch01, const u32 _ch02, DawgEntry* _prev):
+	DawgEntry(_def, _dt, _ch01, _ch02, _prev)
+	{}
+
+	virtual void exec();
 };
 
-#define KNOBS	"./TEST"
+
 
 int DawgEntry::last_serial;
 char* DawgEntry::knobs;
@@ -129,10 +191,7 @@ void DawgEntry::buildList(
 	for (int ic = 0; ic < MAXCHAN; ++ic){
 		// select the bits in amask not present in bmask
 		u32 active_bits = amask[ic] ^ (amask[ic]&bmask[ic]);
-/*
-		printf("ic:%d amask:%08x bmask:%08x active_bits:%08x\n",
-			ic, amask[ic], bmask[ic], active_bits);
-*/
+
 		for (int sw = 0; sw < MAXSW; ++sw){
 			if (active_bits & (1<<sw)){
 				char *elt = new char[16];
@@ -191,6 +250,8 @@ void DawgEntry::exec()
 	setSwitches(disable_list, 0);
 	setSwitches(enable_list, 1);
 }
+
+
 void DawgEntry::print()
 {
 	printf("DawgEntry [%d]: dt:%d \"%s\"  prev:[%d]\n",
@@ -212,23 +273,23 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 		return 0;
 	}else{
 		if (_prev == 0){
-			if (_dt == 0){
-				return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
-			}else{
+			if (_dt != 0){
 				fprintf(stderr, "ERROR: first entry dt not zero\n");
 				return 0;
 			}
 		}else{
-			if (_dt > _prev->dt){
-				return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
-			}else{
+			if (_dt <= _prev->dt){
 				fprintf(stderr, "ERROR: dt not monotonic\n");
 				return 0;
 			}
 		}
+		if (UI::master_site > 0 && !UI::dry_run){
+			return new ScratchpadReportingDawgEntry(
+					_def, _dt, _ch01, _ch02, _prev);
+		}else{
+			return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
+		}
 	}
-
-	return 0;
 }
 
 DawgEntry *DawgEntry::createAllOpen()
@@ -239,6 +300,16 @@ DawgEntry *DawgEntry::createAllOpen()
 		"all open",   0, 0, 0, allClosed);
 }
 
+void ScratchpadReportingDawgEntry::exec()
+{
+	Scratchpad& sp(Scratchpad::instance());
+
+	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
+	DawgEntry::exec();
+	sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
+	sp.set(Scratchpad::SP_MUX_CH02, chx[1]);
+	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_DONE);
+}
 
 
 struct poptOption opt_table[] = {
