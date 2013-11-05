@@ -41,6 +41,8 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <unistd.h>
+
 #include "popt.h"
 #include <list>
 #include <time.h>
@@ -67,6 +69,7 @@ class DawgEntry {
 
 	static void setSwitches(list<const char*> &the_list, bool make);
 public:
+	static char* knobs;
 	const u32 dt;
 	DawgEntry* prev;
 
@@ -96,11 +99,13 @@ int verbose;
 int repeat_count = 1;
 int timescaler = 1;
 bool print_quit;
+int site = 5;
 };
 
 #define KNOBS	"./TEST"
 
 int DawgEntry::last_serial;
+char* DawgEntry::knobs;
 
 DawgEntry::DawgEntry(const char* _def, const u32 _dt,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev) :
@@ -111,6 +116,11 @@ DawgEntry::DawgEntry(const char* _def, const u32 _dt,
 	serial = ++last_serial;
 	chx[0] = _ch01;
 	chx[1] = _ch02;
+
+	if (!knobs){
+		knobs = new char[32];
+		snprintf(knobs, 32, "/dev/acq400.%d.knobs", UI::site);
+	}
 }
 
 void DawgEntry::buildList(
@@ -125,7 +135,7 @@ void DawgEntry::buildList(
 */
 		for (int sw = 0; sw < MAXSW; ++sw){
 			if (active_bits & (1<<sw)){
-				char *elt = new char[8];
+				char *elt = new char[16];
 				snprintf(elt, 8, "CH%02d.%02d", ic+1, sw+1);
 				the_list.push_back(elt);
 			}
@@ -352,6 +362,7 @@ void waitFor(unsigned dt)
 }
 void run_sequence(void)
 {
+	chdir(DawgEntry::knobs);
 	list<DawgEntry*>::iterator it = instructions.begin();
 
 	(*it)->exec();
