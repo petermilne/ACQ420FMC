@@ -24,53 +24,225 @@
 
 /*
  * AWG def a series of entries
- * delta-time switchspec
- * switchspec is a glob pattern CH* in /dev/acq400.5.knobs
- * switches in spec are CLOSED, all others OPEN
- * delta-time begins 0, must be monotonic, increasing. time in msec.
+ * delta-time ch01 ch02
+  * delta-time begins 0, must be monotonic, increasing. time in msec.
+  * ch01, ch02 : 0xHHHHHHHH numbers representing state of ch0x at time dt
 
  eg
-  0 			 # OPEN all channels
-  100  CH01.01 CH01.02   # equiv: CH01.0[12]   close CH01.01,CH01.02
-  200  CH02.0[23]	 # OPEN previous channels. close CH01.02,CH01,03
-  300  			 # OPEN previous channels
+  0    0x0 0x0		# OPEN all channels
+  100  0x3 0x0   	# equiv: close CH01.01,CH01.02
+  200  0x6 0x0	 	# OPEN previous channels. close CH01.02,CH01,03
+  300  			# OPEN previous channels
 
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <strings.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include "popt.h"
 #include <list>
+#include <time.h>
 using namespace std;
 
 typedef unsigned int u32;
 
+#define MAXCHAN	2
+#define MAXSW	20
+
+#define ALL_CLOSED_MASK  (((1<<MAXSW)<<1) - 1)
+
 class DawgEntry {
-	u32 ch01;
-	u32 ch02;
-	const char* def;
-	const char* glob;
-	DawgEntry* prev;
+	static int last_serial;
+	int serial;
+	u32 chx[MAXCHAN];	/* should be const, but hard to init */
+	char* def;
+
 	list<const char*> disable_list;
 	list<const char*> enable_list;
 
+	DawgEntry(const char* _def, const u32 _dt,
+		const u32 _ch01, const u32 _ch02, DawgEntry* _prev);
+
+	static void setSwitches(list<const char*> &the_list, bool make);
 public:
 	const u32 dt;
-	DawgEntry(const char* _def, DawgEntry* _prev);
+	DawgEntry* prev;
+
 	const list<const char*>& get_disables() {
 		return disable_list;
 	}
 	const list<const char*>& get_enables() {
 		return enable_list;
 	}
+	void finalize();
+	void print();
+
+	static DawgEntry *create(const char* _def, DawgEntry* _prev);
+	static DawgEntry *createAllOpen();
+
+	static void buildList(
+		list<const char*> &the_list, u32 amask[], u32 bmask[]);
+	static void printList(list<const char*> &the_list, const char* label);
+
+	void exec();
 };
 
-FILE* seqfile;
+namespace UI {
+const char* fname = "nowhere";
 int dry_run;
 int verbose;
+int repeat_count = 1;
+int timescaler = 1;
+bool print_quit;
+};
+
+#define KNOBS	"./TEST"
+
+int DawgEntry::last_serial;
+
+DawgEntry::DawgEntry(const char* _def, const u32 _dt,
+		const u32 _ch01, const u32 _ch02, DawgEntry* _prev) :
+	dt(_dt), prev(_prev)
+{
+	def = new char[strlen(_def)+1];
+	strcpy(def, _def);
+	serial = ++last_serial;
+	chx[0] = _ch01;
+	chx[1] = _ch02;
+}
+
+void DawgEntry::buildList(
+	list<const char*> &the_list, u32 amask[], u32 bmask[])
+{
+	for (int ic = 0; ic < MAXCHAN; ++ic){
+		// select the bits in amask not present in bmask
+		u32 active_bits = amask[ic] ^ (amask[ic]&bmask[ic]);
+/*
+		printf("ic:%d amask:%08x bmask:%08x active_bits:%08x\n",
+			ic, amask[ic], bmask[ic], active_bits);
+*/
+		for (int sw = 0; sw < MAXSW; ++sw){
+			if (active_bits & (1<<sw)){
+				char *elt = new char[8];
+				snprintf(elt, 8, "CH%02d.%02d", ic+1, sw+1);
+				the_list.push_back(elt);
+			}
+		}
+	}
+}
+void DawgEntry::finalize() {
+	u32 prev_chx[2] = {};
+	if (prev){
+		prev_chx[0] = prev->chx[0];
+		prev_chx[1] = prev->chx[1];
+	}
+	buildList(disable_list, prev_chx, chx);
+	buildList(enable_list, chx, prev_chx);
+}
+
+void DawgEntry::printList(list<const char*> &the_list, const char* label)
+{
+	char* buf = new char[1024];
+
+	sprintf(buf, "	%10s :", label);
+	list<const char*>::iterator it;
+	for (it = the_list.begin(); it != the_list.end(); ++it){
+		strcat(buf, *it);
+		strcat(buf, " ");
+	}
+	printf("%s\n", buf);
+	delete [] buf;
+}
+
+void DawgEntry::setSwitches(list<const char*> &the_list, bool make)
+{
+	list<const char*>::iterator it;
+	for (it = the_list.begin(); it != the_list.end(); ++it){
+		FILE* fp = fopen(*it, "w");
+		if (!fp){
+			perror(*it);
+			exit(1);
+		}
+		fprintf(fp, "%d", make);
+		fclose(fp);
+	}
+}
+
+void DawgEntry::exec()
+{
+	if (UI::verbose > 1){
+		print();
+		if (UI::dry_run){
+			return;
+		}
+	}
+	setSwitches(disable_list, 0);
+	setSwitches(enable_list, 1);
+}
+void DawgEntry::print()
+{
+	printf("DawgEntry [%d]: dt:%d \"%s\"  prev:[%d]\n",
+			serial, dt, def, prev? prev->serial: 0);
+	printList(disable_list, "disable");
+	printList(enable_list, "enable");
+}
+
+
+
+DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
+{
+	int _dt;
+	unsigned  _ch01, _ch02;
+	int nscan;
+
+	if ((nscan = sscanf(_def, "%d %x %x", &_dt, &_ch01, &_ch02)) < 3){
+		fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
+		return 0;
+	}else{
+		if (_prev == 0){
+			if (_dt == 0){
+				return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
+			}else{
+				fprintf(stderr, "ERROR: first entry dt not zero\n");
+				return 0;
+			}
+		}else{
+			if (_dt > _prev->dt){
+				return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
+			}else{
+				fprintf(stderr, "ERROR: dt not monotonic\n");
+				return 0;
+			}
+		}
+	}
+
+	return 0;
+}
+
+DawgEntry *DawgEntry::createAllOpen()
+{
+	DawgEntry *allClosed = new DawgEntry(
+		"all closed", 0, ALL_CLOSED_MASK, ALL_CLOSED_MASK, 0);
+	DawgEntry *allOpen = new DawgEntry(
+		"all open",   0, 0, 0, allClosed);
+}
+
+
 
 struct poptOption opt_table[] = {
-	{ "dry-run", 'D', POPT_ARG_INT, &dry_run, 0,    "go through the motions, no action" },
-	{ "verbose", 'v', POPT_ARG_INT, &verbose, 0, 	"verbose" },
+	{ "dry-run", 'D', POPT_ARG_NONE, &UI::dry_run, 'D',
+			"go through the motions, no action" 	},
+	{ "verbose", 'v', POPT_ARG_INT, &UI::verbose, 0,
+			"verbose" 				},
+	{ "sequence", 's', POPT_ARG_STRING, &UI::fname, 0,
+			"sequence definition file" 		},
+	{ "print",    'p', POPT_ARG_NONE, 0, 'p'		},
+	{ "repeat",   'r', POPT_ARG_INT,  &UI::repeat_count, 0,
+			"repeat count [1]"			},
+	{ "slow",       0, POPT_ARG_INT,  &UI::timescaler, 0,
+			"slow down by factor N [1]"		},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -82,27 +254,131 @@ void ui(int argc, const char* argv[])
 	int rc;
 	while ( (rc = poptGetNextOpt( opt_context )) > 0 ){
 		switch(rc){
+		case 'p':
+			UI::print_quit = 1; break;
+		case 'D':
+			UI::verbose += 2;
+			fprintf(stderr, "Dry Run, verbose set: %d\n", UI::verbose);
+			break;
 		default:
 			;
 		}
 	}
 }
 
+
+list <DawgEntry*> instructions;
+
+char *chomp(char *line)
+{
+	char *nl;
+
+	while((nl = rindex(line, '\n')) != NULL){
+		*nl = '\0';
+	}
+	return line;
+}
 void build_sequence(void)
 {
+	FILE* fp = fopen(UI::fname, "r");
+	if (fp == 0){
+		perror(UI::fname);
+		exit(1);
+	}
+	char* seq_line = new char[256];
+	DawgEntry *prev = 0;
+	DawgEntry *now;
 
+	instructions.push_back(DawgEntry::createAllOpen());
+
+	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
+		if (strlen(seq_line) < 2){
+			continue;
+		}else if (seq_line[0] == '#'){
+			continue;
+		}else{
+			now = DawgEntry::create(chomp(seq_line), prev);
+
+			if (now){
+				instructions.push_back(now);
+				prev = now;
+			}else{
+				fprintf(stderr,
+					"ERROR: parse failed at line %d\n", nl);
+				exit(1);
+			}
+		}
+	}
+	fclose(fp);
+
+	list<DawgEntry*>::iterator it;
+
+	for (it = instructions.begin(); it != instructions.end(); ++it){
+		(*it)->finalize();
+	}
 }
 
+
+void print_sequence(void)
+{
+	list<DawgEntry*>::iterator it;
+
+	for (it = instructions.begin(); it != instructions.end(); ++it){
+		(*it)->print();
+	}
+}
+
+bool please_stop;		/* could be set by signal */
+
+void waitFor(unsigned dt)
+{
+	static int dt1;
+
+	if (dt > dt1){
+		unsigned ddt = dt - dt1;
+		struct timespec ts = {};
+		struct timespec rem;
+
+		if (ddt > 1000){
+			ts.tv_sec = ddt/1000;
+			ddt -= 1000*ts.tv_sec;
+		}
+		ts.tv_nsec = ddt*1000000;
+		if (nanosleep(&ts, &rem)){
+			nanosleep(&rem, &rem);	/* we had a signal .. continue */
+		}
+	}
+	dt1 = dt;
+}
 void run_sequence(void)
 {
+	list<DawgEntry*>::iterator it = instructions.begin();
 
+	(*it)->exec();
+	list<DawgEntry*>::iterator start = ++it;
+
+	int iter = 0;
+	while ( ++iter <= UI::repeat_count){
+		for (it = start; it != instructions.end(); ++it){
+			waitFor((*it)->dt * UI::timescaler);
+			(*it)->exec();
+		}
+
+		if (please_stop){
+			break;
+		}
+	}
 }
 
 int main(int argc, const char* argv[])
 {
 	ui(argc, argv);
 	build_sequence();
-	run_sequence();
+	if (UI::print_quit){
+		print_sequence();
+	}else{
+		run_sequence();
+	}
 	return 0;
 }
 
