@@ -36,6 +36,7 @@
 
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -46,9 +47,14 @@
 #include "popt.h"
 #include <list>
 #include <time.h>
+
+
 using namespace std;
 
 typedef unsigned int u32;
+
+
+#include "ScratchPad.h"
 
 #define MAXCHAN	2
 #define MAXSW	20
@@ -69,48 +75,7 @@ namespace UI {
 
 #define KNOBS	"./TEST"
 
-/** singleton .. */
-class Scratchpad {
-	char *root;
-	Scratchpad() {
-		root = new char[80];
-		snprintf(root, 80, "/dev/acq400.%d.knobs", UI::master_site);
-	}
-public:
-	enum SP_INDEX {
-		SP_SAMPLE_COUNT,
-		SP_MUX_STATUS,
-		SP_MUX_CH01,
-		SP_MUX_CH02,
-		SP_AWG_G1,
-		SP_AWG_G2,
-		SP_AWG_G3,
-		SP_AWG_G4,
-	};
-	enum SP_STATUS {
-		SP_MUX_STATUS_BUSY = 0xb5b5b5b5,
-		SP_MUX_STATUS_DONE = 0xd00e0000
-	};
-	static Scratchpad& instance() {
-		static Scratchpad* _instance;
-		if (!_instance){
-			_instance = new Scratchpad();
-		}
-		return *_instance;
-	}
 
-	virtual void set(enum SP_INDEX idx, u32 value){
-		char knob[80];
-		snprintf(knob, 80, "%s/spad%d", root, idx);
-		FILE* fp = fopen(knob, "w");
-		if (fp == 0){
-			perror(knob);
-			exit(1);
-		}
-		fprintf(fp, "%08x", value);
-		fclose(fp);
-	}
-};
 class DawgEntry {
 	static int last_serial;
 	int serial;
@@ -302,7 +267,7 @@ DawgEntry *DawgEntry::createAllOpen()
 
 void ScratchpadReportingDawgEntry::exec()
 {
-	Scratchpad& sp(Scratchpad::instance());
+	Scratchpad& sp(Scratchpad::instance(UI::master_site));
 
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
 	DawgEntry::exec();
