@@ -103,5 +103,8 @@ ln -s /dev/gpio/AO421/P17 CH02.18
 ln -s /dev/gpio/AO421/P18 CH02.19
 ln -s /dev/gpio/AO421/P19 CH02.20
 
+killall inetd
+echo 4235 stream tcp nowait root dawgd dawgd 5 >>/usr/local/init/inetd.conf
+inetd /usr/local/init/inetd.conf
 
 

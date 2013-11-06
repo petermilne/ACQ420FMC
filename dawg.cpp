@@ -69,12 +69,27 @@ namespace UI {
 	int repeat_count = 1;
 	int timescaler = 1;
 	bool print_quit;
+	bool interactive;
 	int site = 5;
 	int master_site = 1;
 };
 
 #define KNOBS	"./TEST"
 
+#include <stdio.h>
+#include <sys/select.h>
+
+int is_ready(int fd) {
+	fd_set fdset;
+	struct timeval timeout;
+	int ret;
+	FD_ZERO(&fdset);
+	FD_SET(fd, &fdset);
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 1;
+	//int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+	return select(fd+1, &fdset, NULL, NULL, &timeout) == 1 ? 1 : 0;
+}
 
 class DawgEntry {
 	static int last_serial;
@@ -278,7 +293,7 @@ void ScratchpadReportingDawgEntry::exec()
 
 
 struct poptOption opt_table[] = {
-	{ "dry-run", 'D', POPT_ARG_NONE, &UI::dry_run, 'D',
+	{ "dry-run", 'D', POPT_ARG_NONE, 0, 'D',
 			"go through the motions, no action" 	},
 	{ "verbose", 'v', POPT_ARG_INT, &UI::verbose, 0,
 			"verbose" 				},
@@ -289,6 +304,8 @@ struct poptOption opt_table[] = {
 			"repeat count [1]"			},
 	{ "slow",       0, POPT_ARG_INT,  &UI::timescaler, 0,
 			"slow down by factor N [1]"		},
+	{ "interactive", 'i', POPT_ARG_NONE, 0, 'i',
+			"controlled from stdin"			},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -303,8 +320,12 @@ void ui(int argc, const char* argv[])
 		case 'p':
 			UI::print_quit = 1; break;
 		case 'D':
+			UI::dry_run = 1;
 			UI::verbose += 2;
 			fprintf(stderr, "Dry Run, verbose set: %d\n", UI::verbose);
+			break;
+		case 'i':
+			UI::interactive = true;
 			break;
 		default:
 			;
@@ -396,6 +417,10 @@ void waitFor(unsigned dt)
 	}
 	dt1 = dt;
 }
+
+void prompt() {
+	printf("dawg> "); fflush(stdout);
+}
 void run_sequence(void)
 {
 	chdir(DawgEntry::knobs);
@@ -403,6 +428,10 @@ void run_sequence(void)
 
 	(*it)->exec();
 	list<DawgEntry*>::iterator start = ++it;
+
+	if (UI::interactive){
+		prompt();
+	}
 
 	int iter = 0;
 	while ( ++iter <= UI::repeat_count){
@@ -414,6 +443,20 @@ void run_sequence(void)
 		if (please_stop){
 			break;
 		}
+		if (UI::interactive){
+			if(is_ready(0)){
+				switch(getchar()){
+				case 'Q':
+					printf("user quit\n");
+					return;
+				}
+				prompt();
+			}
+		}
+	}
+
+	if (UI::interactive){
+		printf("complete\n");
 	}
 }
 
