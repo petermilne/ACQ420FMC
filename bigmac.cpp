@@ -83,7 +83,7 @@ sys 0m 0.99s
 #define NCHAN 	4
 /* mac testbench */
 
-#define MACSCALE	16		/** >>16 32768=100% */
+#define MACSCALE	15		/** >>15 32768=100% */
 #define PC100		32767		/** 100% */
 
 int bufferlen = 0x10000;
