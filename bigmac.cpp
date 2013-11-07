@@ -494,6 +494,19 @@ void init_knobs()
 	}
 }
 
+typedef unsigned int u32;
+#include "../AO421_ELF/ScratchPad.h"
+#define MASTER_SITE 	1
+
+void update_scratchpad(short gains[])
+{
+	Scratchpad sp = Scratchpad::instance(MASTER_SITE);
+
+	sp.set(Scratchpad::SP_AWG_G1, gains[0]);
+	sp.set(Scratchpad::SP_AWG_G2, gains[1]);
+	sp.set(Scratchpad::SP_AWG_G3, gains[2]);
+	sp.set(Scratchpad::SP_AWG_G4, gains[3]);
+}
 int run_monitor(short *src, short *dst)
 {
 	Inotify dmon;
@@ -522,6 +535,7 @@ int run_monitor(short *src, short *dst)
 			gains.toValues(::gains);
 			offsets.toValues(::offsets);
 			exec_mac(src, dst);
+			update_scratchpad(::gains);
 			update_knob(kroot, "update", ++updates);
 			dmon.spawn();
 		}else{
