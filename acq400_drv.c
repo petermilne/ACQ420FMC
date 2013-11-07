@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.175"
+#define REVID "2.176"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1500,6 +1500,14 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ435(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
+		DBG_REG_CREATE(ACQ435_SPADN(0));
+		DBG_REG_CREATE(ACQ435_SPADN(1));
+		DBG_REG_CREATE(ACQ435_SPADN(2));
+		DBG_REG_CREATE(ACQ435_SPADN(3));
+		DBG_REG_CREATE(ACQ435_SPADN(4));
+		DBG_REG_CREATE(ACQ435_SPADN(5));
+		DBG_REG_CREATE(ACQ435_SPADN(6));
+		DBG_REG_CREATE(ACQ435_SPADN(7));
 	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
 		DBG_REG_CREATE(AO420_DACSPI);
