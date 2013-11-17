@@ -27,6 +27,8 @@
  * delta-time ch01 ch02
   * delta-time begins 0, must be monotonic, increasing. time in msec.
   * ch01, ch02 : 0xHHHHHHHH numbers representing state of ch0x at time dt
+  * dt is the START time, the duration of the state is defined by the start
+  * time of the next state, Time 0 is instantaneous (no delay).
 
  eg
   0    0x0 0x0		# OPEN all channels
@@ -105,13 +107,13 @@ class DawgEntry {
 protected:
 	u32 chx[MAXCHAN];	/* should be const, but hard to init */
 
-	DawgEntry(const char* _def, const u32 _dt,
+	DawgEntry(const char* _def, const u32 _abstime,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev);
 
 
 public:
 	static char* knobs;
-	const u32 dt;
+	const u32 abstime;
 	DawgEntry* prev;
 
 	const list<const char*>& get_disables() {
@@ -136,9 +138,9 @@ public:
 class ScratchpadReportingDawgEntry: public DawgEntry {
 
 public:
-	ScratchpadReportingDawgEntry(const char* _def, const u32 _dt,
+	ScratchpadReportingDawgEntry(const char* _def, const u32 _abstime,
 			const u32 _ch01, const u32 _ch02, DawgEntry* _prev):
-	DawgEntry(_def, _dt, _ch01, _ch02, _prev)
+	DawgEntry(_def, _abstime, _ch01, _ch02, _prev)
 	{}
 
 	virtual void exec();
@@ -149,9 +151,9 @@ public:
 int DawgEntry::last_serial;
 char* DawgEntry::knobs;
 
-DawgEntry::DawgEntry(const char* _def, const u32 _dt,
+DawgEntry::DawgEntry(const char* _def, const u32 _abstime,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev) :
-	dt(_dt), prev(_prev)
+	abstime(_abstime), prev(_prev)
 {
 	def = new char[strlen(_def)+1];
 	strcpy(def, _def);
@@ -234,8 +236,8 @@ void DawgEntry::exec()
 
 void DawgEntry::print()
 {
-	printf("DawgEntry [%d]: dt:%d \"%s\"  prev:[%d]\n",
-			serial, dt, def, prev? prev->serial: 0);
+	printf("DawgEntry [%d]: abstime:%d \"%s\"  prev:[%d]\n",
+			serial, abstime, def, prev? prev->serial: 0);
 	printList(disable_list, "disable");
 	printList(enable_list, "enable");
 }
@@ -244,30 +246,30 @@ void DawgEntry::print()
 
 DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 {
-	int _dt;
+	int _abstime;
 	unsigned  _ch01, _ch02;
 	int nscan;
 
-	if ((nscan = sscanf(_def, "%d %x %x", &_dt, &_ch01, &_ch02)) < 3){
+	if ((nscan = sscanf(_def, "%d %x %x", &_abstime, &_ch01, &_ch02)) < 3){
 		fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
 		return 0;
 	}else{
 		if (_prev == 0){
-			if (_dt != 0){
-				fprintf(stderr, "ERROR: first entry dt not zero\n");
+			if (_abstime != 0){
+				fprintf(stderr, "ERROR: first entry abstime not zero\n");
 				return 0;
 			}
 		}else{
-			if (_dt <= _prev->dt){
-				fprintf(stderr, "ERROR: dt not monotonic\n");
+			if (_abstime <= _prev->abstime){
+				fprintf(stderr, "ERROR: abstime not monotonic\n");
 				return 0;
 			}
 		}
 		if (UI::master_site > 0 && !UI::dry_run){
 			return new ScratchpadReportingDawgEntry(
-					_def, _dt, _ch01, _ch02, _prev);
+					_def, _abstime, _ch01, _ch02, _prev);
 		}else{
-			return new DawgEntry(_def, _dt, _ch01, _ch02, _prev);
+			return new DawgEntry(_def, _abstime, _ch01, _ch02, _prev);
 		}
 	}
 }
@@ -436,7 +438,7 @@ void run_sequence(void)
 	int iter = 0;
 	while ( ++iter <= UI::repeat_count){
 		for (it = start; it != instructions.end(); ++it){
-			waitFor((*it)->dt * UI::timescaler);
+			waitFor((*it)->abstime * UI::timescaler);
 			(*it)->exec();
 		}
 
