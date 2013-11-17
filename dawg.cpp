@@ -246,31 +246,42 @@ void DawgEntry::print()
 
 DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 {
-	int _abstime;
+	static int _abstime;
 	unsigned  _ch01, _ch02;
 	int nscan;
 
-	if ((nscan = sscanf(_def, "%d %x %x", &_abstime, &_ch01, &_ch02)) < 3){
-		fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
-		return 0;
+	if (_def[0] == '+'){
+		int _dt;
+
+		if ((nscan = sscanf(_def, "%d %x %x", &_dt, &_ch01, &_ch02)) < 3){
+			fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
+			return 0;
+		}else{
+			_abstime += _dt;
+		}
 	}else{
-		if (_prev == 0){
-			if (_abstime != 0){
-				fprintf(stderr, "ERROR: first entry abstime not zero\n");
-				return 0;
-			}
-		}else{
-			if (_abstime <= _prev->abstime){
-				fprintf(stderr, "ERROR: abstime not monotonic\n");
-				return 0;
-			}
+		if ((nscan = sscanf(_def, "%d %x %x", &_abstime, &_ch01, &_ch02)) < 3){
+			fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
+			return 0;
 		}
-		if (UI::master_site > 0 && !UI::dry_run){
-			return new ScratchpadReportingDawgEntry(
-					_def, _abstime, _ch01, _ch02, _prev);
-		}else{
-			return new DawgEntry(_def, _abstime, _ch01, _ch02, _prev);
+	}
+
+	if (_prev == 0){
+		if (_abstime != 0){
+			fprintf(stderr, "ERROR: first entry abstime not zero\n");
+			return 0;
 		}
+	}else{
+		if (_abstime <= _prev->abstime){
+			fprintf(stderr, "ERROR: abstime not monotonic\n");
+			return 0;
+		}
+	}
+	if (UI::master_site > 0 && !UI::dry_run){
+		return new ScratchpadReportingDawgEntry(
+				_def, _abstime, _ch01, _ch02, _prev);
+	}else{
+		return new DawgEntry(_def, _abstime, _ch01, _ch02, _prev);
 	}
 }
 

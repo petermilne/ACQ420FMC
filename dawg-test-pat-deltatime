@@ -1,0 +1,16 @@
+# dawg-test-pat : sample test pattern for dawg
+# walk a pair of switches one shift at a time, CH01 up from 0, CH02 down from 20
+# activate four evenly spaced channels out of 20, 
+# and left-shifts them by one at a time. 
+# CH01.nn and CH02.nn are activating the same outputs:
+# dt	CH01 bit mask	CH02 bit mask
+# + indicates delta-time.
+# The time is msec until start.
+# First entry must be zero (no wait). We duplicate the first entry at the end
+# in order to stretch the final state (0x00084210) to +300
++000    0x00008421    0x00008421
++300    0x00010842    0x00010842
++300    0x00021084    0x00021084
++300    0x00042108    0x00042108
++300    0x00084210    0x00084210
++300    0x00008421    0x00008421
