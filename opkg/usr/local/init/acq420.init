@@ -146,6 +146,8 @@ if [ $notloaded -ne 0 ]; then
 	grep acq4.0 /proc/devices |  build_nodes	
 fi
 
-inetd /usr/local/init/inetd.conf
+killall -q inetd
+cat /usr/local/init/inetd.conf >>/etc/inetd.conf
+inetd /etc/inetd.conf
 
 
