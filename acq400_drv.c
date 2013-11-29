@@ -1689,7 +1689,7 @@ static int acq400_probe(struct platform_device *pdev)
         if (allocate_hbm(adev,
         		IS_AO420(adev)? AO420_NBUFFERS: nbuffers,
         		IS_AO420(adev)? AO420_BUFFERLEN: bufferlen,
-        		IS_AO420(adev)? DMA_FROM_DEVICE: DMA_FROM_DEVICE)){
+        		IS_AO420(adev)? DMA_TO_DEVICE: DMA_FROM_DEVICE)){
         	dev_err(&pdev->dev, "failed to allocate buffers");
         	goto fail;
         }
