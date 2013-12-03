@@ -8,7 +8,9 @@ SDIR=/etc/acq400/$SITE
 do_site_knob() {
 	K=$1 V=$2
 
-	if [ "$V" != "$K" ]; then
+	if [ -x $SDIR/$K ]; then
+		$SDIR/$K $V
+	elif [ "$V" != "$K" ]; then
 		echo $V > $SDIR/$K
 	else
 		if [ "x$K" = "x/help" ]; then
@@ -40,10 +42,13 @@ do_driver_knob() {
 if [ -d $KDIR ]; then
 	EOF=NO
 	while [ "$EOF" = "NO"  ]; do
-		read CMD
+		echo -n "acq400.$SITE> "
+		read CMD VALUE
 		if [ $? -eq 0 ]; then
 			KNOB=${CMD%%=*}
-			VALUE=${CMD##*=}
+			if [ "x$VALUE" = "x" ]; then
+				VALUE=${CMD##*=}
+			fi
 			if [ "x${KNOB:0:1}" = "x/" ]; then
 				do_site_knob $KNOB $VALUE
 			else
