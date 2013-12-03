@@ -50,7 +50,7 @@ if [ -d $KDIR ]; then
 				VALUE=${CMD##*=}
 			fi
 			if [ "x${KNOB:0:1}" = "x/" ]; then
-				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
+#				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
 				do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
 			else
 				do_driver_knob $KNOB $VALUE
