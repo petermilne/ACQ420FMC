@@ -21,7 +21,7 @@ do_site_knob() {
 		echo $V > $SDIR/$K
 	else
 		if [ "x$K" = "x/help" ]; then
-			ls -1 $SDIR/
+			ls -1 $SDIR/ | sed -e s%^%/%
 		elif [ -e $SDIR/$K ]; then
 			cat $SDIR/$K
 		else
