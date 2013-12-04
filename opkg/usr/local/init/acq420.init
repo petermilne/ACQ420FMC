@@ -70,11 +70,26 @@ set_nchan() {
 	esac
 }
 
+build_etc_site() {
+	mkdir /etc/acq400/${site}
+	for src in /dev/acq400.${site}.knobs/*
+	do
+		case $(basename $src) in
+		driver|subsystem|power|uevent)
+			;;
+		*)
+			ln -s ${src} /etc/acq400/${site};;
+		esac
+	done
+}
+
+
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
 	ln -s $dir/ /dev/acq400.${site}.knobs
-	mkdir /etc/acq400/${site}
+	build_etc_site ${site}
+	
 
 	MTYPE=$(cat /$dir/module_type)
 	case $MTYPE in
