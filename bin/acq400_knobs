@@ -5,12 +5,13 @@ KDIR=${2:-/dev/acq400.$SITE.knobs}
 
 SDIR=/etc/acq400/$SITE
 STATUS=0
-USE_PROMPT=1
+USE_PROMPT=0
 
 if [ -e /etc/sysconfig/acq400_knobs.cfg ]; then
 	# possible override USE_PROMPT
 	source /etc/sysconfig/acq400_knobs.cfg
 fi
+
 do_site_knob() {
 	K=$1; shift; V="$*"
 
@@ -19,30 +20,17 @@ do_site_knob() {
 		STATUS=$?
 	elif [ "$V" != "$K" ]; then
 		echo $V > $SDIR/$K
+		STATUS=$?
 	else
-		if [ "x$K" = "x/help" ]; then
-			ls -1 $SDIR/ | sed -e s%^%/%
+		if [ "x$K" = "xhelp" ]; then
+			ls -1 $SDIR/
 		elif [ -e $SDIR/$K ]; then
 			cat $SDIR/$K
+			STATUS=$?
 		else
 			echo FILE $SDIR/$K not found
+			STATUS=1
 		fi
-	fi
-}
-
-do_driver_knob() {
-	K=$1;  V=$1
-	if [ "x$K" = "xhelp" ]; then
-		ls -1 $KDIR/
-	elif [ -e $KDIR/$K ]; then
-		# check no '='
-		if [ "$V" != "$K" ]; then
-			echo $V > $KDIR/$K
-		else
-			cat $KDIR/$K
-		fi
-	else
-		echo ERROR knob $KDIR/$K not found
 	fi
 }
 
@@ -52,22 +40,28 @@ if [ -d $KDIR ]; then
 		if [ $USE_PROMPT -ne 0 ]; then
 			echo -n "acq400.$SITE:$STATUS> "
 		fi
+		STATUS=0
 		read CMD VALUE V2 V3 V4 V5
 		if [ $? -eq 0 ]; then
 			KNOB=${CMD%%=*}
 			if [ "x$VALUE" = "x" ]; then
 				VALUE=${CMD##*=}
 			fi
-			if [ "x${KNOB:0:1}" = "x/" ]; then
+			
+			if [ "x${KNOB}" = "xprompt" ]; then
+				case $VALUE in
+				on)
+					USE_PROMPT=1;;
+				off)
+					USE_PROMPT=0;;
+				esac
+			else			
 #				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
 				do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
-			else
-				do_driver_knob $KNOB $VALUE
 			fi
 		else
 			EOF=YES
 		fi
-		STATUS=0
 	done
 else
 	/usr/bin/logger -t acq400_knobs ERROR $KDIR not found
