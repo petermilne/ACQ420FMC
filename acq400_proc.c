@@ -379,32 +379,15 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	acq400_dev->proc_entry = proc_mkdir(
 		acq400_names[acq400_dev->of_prams.site], acq400_proc_root);
 
-	proc_entry = create_proc_entry("dmac", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_dmac;
-	}
-	proc_entry = create_proc_entry("buffers", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_buffers;
-	}
-	proc_entry = create_proc_entry("EMPTIES", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_EMPTIES;
-	}
-	proc_entry = create_proc_entry("REFILLS", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_REFILLS;
-	}
-	proc_entry = create_proc_entry("OPENS", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_OPENS;
-	}
-	proc_entry = create_proc_entry("stats", 0, acq400_dev->proc_entry);
-	if (proc_entry) {
-		proc_entry->proc_fops = &acq400_proc_ops_stats;
-	}
-
+	proc_create("dmac", 0, acq400_dev->proc_entry, &acq400_proc_ops_dmac);
+	proc_create("buffers", 0, acq400_dev->proc_entry, &acq400_proc_ops_buffers);
+	proc_create("EMPTIES", 0, acq400_dev->proc_entry, &acq400_proc_ops_EMPTIES);
+	proc_create("REFILLS", 0, acq400_dev->proc_entry, &acq400_proc_ops_REFILLS);
+	proc_create("OPENS", 0, acq400_dev->proc_entry, &acq400_proc_ops_OPENS);
+	proc_create("stats", 0, acq400_dev->proc_entry, &acq400_proc_ops_stats);
+/** @todo
 	create_proc_read_entry("dmac0", 0, acq400_dev->proc_entry, dma0_proc_read, 0);
+*/
 }
 
 void acq400_del_proc(struct acq400_dev* adev)
