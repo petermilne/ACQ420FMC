@@ -1,5 +1,6 @@
 # Cross compiler makefile for FIFO DMA example
 KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
+#KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx-github/linux-xlnx
 obj-m += acq420fmc.o
 obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
@@ -25,6 +26,7 @@ date:
 package: all
 	cp $(APPS) monitorregs scripts/* bin/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
+	cp acq435_decode opkg/usr/local/CARE
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
