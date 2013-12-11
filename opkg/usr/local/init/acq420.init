@@ -154,9 +154,12 @@ if [ $notloaded -ne 0 ]; then
 	echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
 	
 	source /etc/sites
-	echo insmod $MOD bufferlen=$BLEN good_sites=$good_sites
+	if [ "x$good_sites" != "x" ]; then
+		GS="good_sites=$good_sites"
+	fi
+	echo insmod $MOD bufferlen=$BLEN $GS
 	sleep 0.2
-	insmod $MOD bufferlen=$BLEN good_sites=$good_sites
+	insmod $MOD bufferlen=$BLEN $GS
 	build_knobs
 	grep acq4.0 /proc/devices |  build_nodes	
 fi
