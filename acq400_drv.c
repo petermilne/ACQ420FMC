@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.176"
+#define REVID "2.201"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1361,9 +1361,12 @@ struct file_operations acq400_fops = {
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq400fmc", },
         { .compatible = "D-TACQ,acq420fmc", },
+        { .compatible = "D-TACQ,acq430fmc", },
         { .compatible = "D-TACQ,acq435elf", },
         { .compatible = "D-TACQ,ao420fmc",  },
         { .compatible = "D-TACQ,acq2006sc"  },
+        { .compatible = "D-TACQ,acq1001sc"  },
+        { .compatible = "D-TACQ,acq1002sc"  },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
@@ -1526,6 +1529,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
 	int site;
+	int sites = IS_ACQ2006SC(adev)? 6: IS_ACQ1001SC(adev)? 2: 0;
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
 		if (!acq400_debug_root){
@@ -1551,7 +1555,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 
 	DBG_REG_CREATE_2006("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
-	for (site = 1; site <= 6; ++site){
+	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "CLK_%d", site);
 		DBG_REG_CREATE_2006(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
@@ -1559,7 +1563,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 
 	DBG_REG_CREATE_2006("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("TRG_MB",  ACQ2006_TRG_COUNT(MB_DX));
-	for (site = 1; site <= 6; ++site){
+	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "TRG_%d", site);
 		DBG_REG_CREATE_2006(name, ACQ2006_TRG_COUNT(SITE2DX(site)));
@@ -1567,7 +1571,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 
 	DBG_REG_CREATE_2006("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("SYN_MB",  ACQ2006_SYN_COUNT(MB_DX));
-	for (site = 1; site <= 6; ++site){
+	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "SYN_%d", site);
 		DBG_REG_CREATE_2006(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
@@ -1575,7 +1579,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 
 	DBG_REG_CREATE_2006("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
-	for (site = 1; site <= 6; ++site){
+	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "EVT_%d", site);
 		DBG_REG_CREATE_2006(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
@@ -1653,7 +1657,7 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400_createSysfs(&pdev->dev);
         	dev_info(DEVP(adev), "DUMMY device detected, quitting\n");
         	return 0;
-        }else if (IS_ACQ2006SC(adev)){
+        }else if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
                	acq2006_createDebugfs(adev);
                	acq400_createSysfs(&pdev->dev);
                	return 0;

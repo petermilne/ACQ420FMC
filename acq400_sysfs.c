@@ -759,6 +759,8 @@ static ssize_t show_module_name(
 	const char* name;
 
 	switch(adev->mod_id>>MOD_ID_TYPE_SHL){
+	case MOD_ID_ACQ1001SC:
+		name = "acq1001sc"; break;
 	case MOD_ID_ACQ2006SC:
 		name = "acq2006sc"; break;
 	case MOD_ID_ACQ420FMC:
@@ -1259,6 +1261,29 @@ static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_scount_SYN_S6.attr,
 	NULL
 };
+
+static const struct attribute *acq1001sc_attrs[] = {
+	&dev_attr_scount_CLK_EXT.attr,
+	&dev_attr_scount_CLK_MB.attr,
+	&dev_attr_scount_CLK_S1.attr,
+	&dev_attr_scount_CLK_S2.attr,
+
+	&dev_attr_scount_TRG_EXT.attr,
+	&dev_attr_scount_TRG_MB.attr,
+	&dev_attr_scount_TRG_S1.attr,
+	&dev_attr_scount_TRG_S2.attr,
+
+	&dev_attr_scount_EVT_EXT.attr,
+	&dev_attr_scount_EVT_MB.attr,
+	&dev_attr_scount_EVT_S1.attr,
+	&dev_attr_scount_EVT_S2.attr,
+
+	&dev_attr_scount_SYN_EXT.attr,
+	&dev_attr_scount_SYN_MB.attr,
+	&dev_attr_scount_SYN_S1.attr,
+	&dev_attr_scount_SYN_S2.attr,
+	NULL
+};
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
@@ -1273,6 +1298,8 @@ void acq400_createSysfs(struct device *dev)
 		return;
 	}else if (IS_ACQ2006SC(adev)){
 		specials = acq2006sc_attrs;
+	}else if (IS_ACQ1001SC(adev)){
+		specials = acq1001sc_attrs;
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");

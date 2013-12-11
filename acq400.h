@@ -95,6 +95,7 @@
 #define MOD_ID_AO421FMC		0x41
 
 #define MOD_ID_ACQ2006SC	0x80
+#define MOD_ID_ACQ1001SC	0x81
 
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
@@ -361,6 +362,7 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
 #define IS_ACQ2006SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ2006SC)
+#define IS_ACQ1001SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ1001SC)
 
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
