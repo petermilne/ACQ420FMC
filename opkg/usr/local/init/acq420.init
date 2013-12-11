@@ -46,19 +46,6 @@ build_nodes() {
 lsmod | grep -q acq4.0FMC
 notloaded=$?
 
-add_webpage() {
-# kludge alert. The web pages don't exist yet, so wait until they might do ..
-	(
-		let SLEEP=5+$2;
-		sleep $SLEEP
-		sed -ie '/TABAPPEND/ {
-i	<li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
-}' /var/www/d-tacq/acq_main_page.html
-		/usr/local/bin/monitorregs $1 &
-	) &
-}
-
-
 set_nchan() {
 	SITE=$1
 	MTYPE=$2
@@ -110,7 +97,7 @@ build_knobs_device() {
 		echo 0000 >/dev/acq400.${site}.knobs/gains
 	fi
 	touch /dev/shm/AI.${site}.wf.fin
-	add_webpage acq400.${site} ${site}
+	daemon /usr/local/bin/add_webpage_site acq400.${site} ${site}
 	set_nchan ${site} ${MTYPE}
 }
 
@@ -118,7 +105,7 @@ build_knobs() {
 	if [ -e /sys/bus/platform/devices/40000000.acq2006sc ]; then
 		ln -s /sys/bus/platform/devices/40000000.acq2006sc \
 			/dev/acq400.0.knobs
-		add_webpage acq400.0 0
+		daemon /usr/local/bin/add_webpage_site acq400.0 0
 	fi
 	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do

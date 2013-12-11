@@ -1,0 +1,19 @@
+#!/bin/sh
+# $1=pagename, $2=site
+if [ "x$2" = "x" ]; then
+	exit 1
+fi
+
+/usr/bin/logger -t acq420.init add_webpage $1 $2 01
+
+while [ ! -e /var/www/d-tacq/acq_main_page.html ]; do
+	sleep 1
+done
+sleep 1.$2		# avoid collision 
+
+sed -ie '/TABAPPEND/ {
+i       <li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
+}' /var/www/d-tacq/acq_main_page.html
+/usr/local/bin/monitorregs $1 &
+/usr/bin/logger -t acq420.init add_webpage $1 $2 99
+
