@@ -7,9 +7,12 @@
 # acq2006_001> cat /sys/class/gpio/gpiochip192/label 
 # tca6424
 
-PRSNT=$(cat /dev/gpio/fmc5_present)
+SITE=${1:-5}
+KDIR=/dev/acq400.${SITE}.knobs
+
+PRSNT=$(cat /dev/gpio/fmc${SITE}_present)
 if [ $PRSNT -ne 1 ]; then
-   echo +++ ERROR: Site 5 empty
+   echo +++ ERROR: Site ${SITE} empty
    exit
 fi
 
@@ -27,9 +30,21 @@ mkln() {
 	ln -s $PWD/$1/value /dev/gpio/$2
 }
 
+let bus=$SITE+1
+CHIP1=$(basename $(echo /sys/bus/i2c/devices/$bus-0023/gpio/gpiochip*))
+CHIP2=$(basename $(echo /sys/bus/i2c/devices/$bus-0022/gpio/gpiochip*))
+
+let pin00=${CHIP1#gpiochip*}
+let pin10=${CHIP2#gpiochip*}
+let pin01=$pin00+23
+let pin11=$pin10+23
+
 echo +++ export gpio168..215 as outputs
+echo +++ gpiochip 6-0022 $CHIP1 gpio $pin00 $pin01
+echo +++ gpiochip 6-0023 $CHIP2 gpio $pin10 $pin11
+
 cd /sys/class/gpio
-for pin in $(seq 168 215)
+for pin in $(seq $pin00 $pin01) $(seq $pin10 $pin11)
 do
 	echo $pin >export
 	GPIO=gpio$pin
@@ -45,18 +60,25 @@ echo +++ build knobs
 
 let px=0
 
-for pin in $(seq 168 215)
+for pin in $(seq $pin00 $pin01) $(seq $pin10 $pin11)
 do
 	PX=$(printf "P%02d" $px)
+#	echo mkln gpio$pin AO421/$PX
 	mkln gpio$pin AO421/$PX
 	let px=$px+1
 done
 
-mv /dev/acq400.5.knobs /dev/.acq400.5.knobs
-mkdir -p /dev/acq400.5.knobs
-cd /dev/acq400.5.knobs
+if [ ! -d $KDIR ]; then
+	echo ERROR: $KDIR does not exist
+	/bin/sh
+fi
 
-for kb in /dev/.acq400.5.knobs/*
+BNKDIR=$(basename $KDIR)
+mv $KDIR  /dev/.$BNKDIR
+mkdir -p $KDIR
+cd $KDIR
+
+for kb in /dev/.$BNKDIR/*
 do
 	ln -s $kb
 done
@@ -102,6 +124,13 @@ ln -s /dev/gpio/AO421/P16 CH02.17
 ln -s /dev/gpio/AO421/P17 CH02.18
 ln -s /dev/gpio/AO421/P18 CH02.19
 ln -s /dev/gpio/AO421/P19 CH02.20
+
+
+cd /etc/acq400/$SITE/
+for file in $KDIR/CH0?.??
+do
+	ln -s $file 
+done
 
 killall inetd
 echo 4235 stream tcp nowait root dawgd dawgd 5 >>/etc/inetd.conf
