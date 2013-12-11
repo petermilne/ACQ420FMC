@@ -1,9 +1,7 @@
 #!/bin/sh
 
 SITE=${1:-0}
-KDIR=${2:-/dev/acq400.$SITE.knobs}
-
-SDIR=/etc/acq400/$SITE
+SDIR=${2:-/etc/acq400/$SITE}
 STATUS=0
 USE_PROMPT=0
 
@@ -34,7 +32,7 @@ do_site_knob() {
 	fi
 }
 
-if [ -d $KDIR ]; then
+if [ -d $SDIR ]; then
 	EOF=NO
 	while [ "$EOF" = "NO"  ]; do
 		if [ $USE_PROMPT -ne 0 ]; then
@@ -64,7 +62,7 @@ if [ -d $KDIR ]; then
 		fi
 	done
 else
-	/usr/bin/logger -t acq400_knobs ERROR $KDIR not found
+	/usr/bin/logger -t acq400_knobs ERROR $SDIR not found
 	sleep 100
 	exit 1
 fi
