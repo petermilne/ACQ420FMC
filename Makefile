@@ -16,7 +16,7 @@ acq420fmc-objs := acq400_drv.o acq400_sysfs.o acq400_proc.o hbm.o zynq-timer.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
-APPS := mmap acq400_stream bigmac permute
+APPS := mmap acq400_stream bigmac permute acq435_decode
 
 all: modules apps
 	
@@ -47,6 +47,9 @@ mmap: mmap.o
 acq400_stream: acq400_stream.o
 	$(CXX) -O3 -o acq400_stream acq400_stream.o -L../lib -lpopt
 
+acq435_decode: acq435_decode.o
+	$(CXX) -O3 -o acq435_decode acq435_decode.o -L../lib -lpopt -lpthread
+	
 bigmac: bigmac.o
 	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
 		-DHASNEON \
