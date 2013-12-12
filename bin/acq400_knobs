@@ -10,6 +10,16 @@ if [ -e /etc/sysconfig/acq400_knobs.cfg ]; then
 	source /etc/sysconfig/acq400_knobs.cfg
 fi
 
+do_wildcard_query() {
+	(cd $SDIR; 
+		for file in $* 
+		do
+			if [ ! -x $file ]; then
+				echo $file $(cat $file)
+			fi
+		done
+	)
+}
 do_site_knob() {
 	K=$1; shift; V="$*"
 
@@ -45,17 +55,23 @@ if [ -d $SDIR ]; then
 			if [ "x$VALUE" = "x" ]; then
 				VALUE=${CMD##*=}
 			fi
-			
-			if [ "x${KNOB}" = "xprompt" ]; then
-				case $VALUE in
-				on)
-					USE_PROMPT=1;;
-				off)
-					USE_PROMPT=0;;
-				esac
-			else			
+
+			STRIP=$(echo $KNOB | tr -d \*\?)
+			if [ "x${KNOB}" != "x${STRIP}" ]; then
+				do_wildcard_query "${KNOB}"
+			else
+				case "x${KNOB}" in
+				xprompt)			
+					case $VALUE in
+					on)
+						USE_PROMPT=1;;
+					off)
+						USE_PROMPT=0;;
+					esac;;
+				x*)
 #				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
-				do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
+					do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
+				esac
 			fi
 		else
 			EOF=YES
