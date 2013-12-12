@@ -46,15 +46,39 @@ build_nodes() {
 lsmod | grep -q acq4.0FMC
 notloaded=$?
 
+# cat /dev/sites/1/details
+# FRU_PART_NUM="ACQ420FMC-4-1000-16"
+decode_fru() {
+	SITE=$1
+	source /dev/sites/$1/details
+	_IFS=$IFS
+	IFS='-'
+	let ii=0
+	for field in $FRU_PART_NUM
+	do
+		case $ii in
+		0)	echo $field > /etc/acq400/$1/MODEL;;
+		1)	echo $field > /etc/acq400/$1/NCHAN;;
+		2)	echo $field > /etc/acq400/$1/MAXRATE;;
+		3)	echo $field > /etc/acq400/$1/RESOLUTION;;
+		esac
+		let ii=$ii+1
+	done
+	IFS=$_IFS
+	return $ii
+}
 set_nchan() {
 	SITE=$1
 	MTYPE=$2
-## @@todo : read NCHAN from PROM 
-	case $MTYPE in
-	2)
-		mkdir -p /etc/acq400/$SITE
-		echo 32 >/etc/acq400/$SITE/nchan;;
-	esac
+	mkdir -p /etc/acq400/$SITE
+
+	decode_fru $SITE	
+	if [ $? -lt 2 ]; then
+		echo handling legacy FRU PROM in site $SITE
+		case $MTYPE in
+		2) echo 32 >/etc/acq400/$SITE/nchan;;
+		esac
+	fi
 }
 
 build_etc_site() {
@@ -82,7 +106,7 @@ build_knobs_device() {
 	case $MTYPE in
 	255)    
 		return;;
-	2)
+	2|3)
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
 	64)	
