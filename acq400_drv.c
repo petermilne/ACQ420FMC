@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.201"
+#define REVID "2.202"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -203,7 +203,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M100;
 }
 
-static void acq435_init_defaults(struct acq400_dev *adev)
+static void acq43X_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "ACQ435 device init");
 	adev->data32 = 1;
@@ -331,7 +331,7 @@ int acq420_isFifoError(struct acq400_dev *adev)
 	return err;
 }
 
-void acq435_onStart(struct acq400_dev *adev)
+void acq43X_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
@@ -801,8 +801,8 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq400_clear_histo(adev);
 
-	if (IS_ACQ435(adev)){
-		acq435_onStart(adev);
+	if (IS_ACQ43X(adev)){
+		acq43X_onStart(adev);
 	} else {
 		acq420_onStart(adev);
 
@@ -1501,16 +1501,18 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
 		DBG_REG_CREATE(ADC_CONV_TIME);
-	} else if (IS_ACQ435(adev)){
+	} else if (IS_ACQ43X(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
-		DBG_REG_CREATE(ACQ435_SPADN(0));
-		DBG_REG_CREATE(ACQ435_SPADN(1));
-		DBG_REG_CREATE(ACQ435_SPADN(2));
-		DBG_REG_CREATE(ACQ435_SPADN(3));
-		DBG_REG_CREATE(ACQ435_SPADN(4));
-		DBG_REG_CREATE(ACQ435_SPADN(5));
-		DBG_REG_CREATE(ACQ435_SPADN(6));
-		DBG_REG_CREATE(ACQ435_SPADN(7));
+		if (IS_ACQ435(adev)){
+			DBG_REG_CREATE(ACQ435_SPADN(0));
+			DBG_REG_CREATE(ACQ435_SPADN(1));
+			DBG_REG_CREATE(ACQ435_SPADN(2));
+			DBG_REG_CREATE(ACQ435_SPADN(3));
+			DBG_REG_CREATE(ACQ435_SPADN(4));
+			DBG_REG_CREATE(ACQ435_SPADN(5));
+			DBG_REG_CREATE(ACQ435_SPADN(6));
+			DBG_REG_CREATE(ACQ435_SPADN(7));
+		}
 	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
 		DBG_REG_CREATE(AO420_DACSPI);
@@ -1709,8 +1711,8 @@ static int acq400_probe(struct platform_device *pdev)
         		dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
         	}
                 acq420_init_defaults(adev);
-        }else if (IS_ACQ435(adev)){
-        	acq435_init_defaults(adev);
+        }else if (IS_ACQ43X(adev)){
+        	acq43X_init_defaults(adev);
         }else if (IS_AO420(adev)){
         	ao420_init_defaults(adev);
         }else{

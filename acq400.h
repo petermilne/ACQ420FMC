@@ -359,6 +359,9 @@ int getHeadroom(struct acq400_dev *adev);
 
 #define IS_ACQ420(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC)
 #define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
+#define IS_ACQ430(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ430FMC)
+#define IS_ACQ43X(adev)	(IS_ACQ435(adev) || IS_ACQ430(adev))
+
 #define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
 #define IS_ACQ2006SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ2006SC)

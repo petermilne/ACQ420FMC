@@ -41,44 +41,78 @@ build_nodes() {
 		fi
 	done
 }
+# daemon /usr/local/bin/add_webpage_site acq400.${site} ${site}
 
+WEB_APPEND_JOB=/tmp/acq420-web-append.job
+
+web_append()
+{
+	if [ ! -e $WEB_APPEND_JOB ]; then
+		echo '#!/bin/sh' >$WEB_APPEND_JOB
+		echo '# created by acq420.init' >> $WEB_APPEND_JOB
+		chmod a+rx $WEB_APPEND_JOB
+	fi
+	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
+}
 
 lsmod | grep -q acq4.0FMC
 notloaded=$?
 
 # cat /dev/sites/1/details
 # FRU_PART_NUM="ACQ420FMC-4-1000-16"
-decode_fru() {
-	SITE=$1
+# FRU_PART_NUM="ACQ435ELF-32FF"      no dash ..
+set_nchan() {
+	site=$1
+	mtype=$2
+	mkdir -p /etc/acq400/$site
+	KDIR=/etc/acq400/$1
 	source /dev/sites/$1/details
 	_IFS=$IFS
 	IFS='-'
 	let ii=0
+
+	# default: 4 channels
+
+	echo decode_fru site:$site mtype:$mtype
+
 	for field in $FRU_PART_NUM
 	do
 		case $ii in
-		0)	echo $field > /etc/acq400/$1/MODEL;;
-		1)	echo $field > /etc/acq400/$1/NCHAN;;
-		2)	echo $field > /etc/acq400/$1/MAXRATE;;
-		3)	echo $field > /etc/acq400/$1/RESOLUTION;;
+		0) echo $field > $KDIR/MODEL;;
+		1) echo $field | sed -e 's/[^0-9]//g' > $KDIR/NCHAN;;
+		2) echo $field > $KDIR/MAXRATE;;
+		3) echo $field > $KDIR/RESOLUTION;;
 		esac
 		let ii=$ii+1
+		if [ $ii -eq 2 -a $mtype != 1 ]; then
+			# next fields valid ACQ420 only
+			break;
+		fi
 	done
+	if [ "$FRU_PART_NUM" = "ACQ435ELF-24FF-8TF" ]; then
+		echo 32 > $KDIR/NCHAN
+	fi
+	if [ ! -e $KDIR/NCHAN ]; then
+		case $mtype in
+		2) nc=32;;
+		3) nc=8;;
+		*) nc=4;;
+		esac
+		echo $nc \> $KDIR/NCHAN
+		echo $nc > $KDIR/NCHAN
+	fi	
+	case $mtype in
+	2|3)
+		echo 128 > $KDIR/MAXRATE
+		echo 24 > $KDIR/RESOLUTION;;
+	esac
+
+# intention: nchan is "number channels enabled"
+	echo $KDIR/NCHAN $(cat $KDIR/NCHAN)
+	cat $KDIR/NCHAN > $KDIR/nchan
+
 	IFS=$_IFS
 	return $ii
-}
-set_nchan() {
-	SITE=$1
-	MTYPE=$2
-	mkdir -p /etc/acq400/$SITE
-
-	decode_fru $SITE	
-	if [ $? -lt 2 ]; then
-		echo handling legacy FRU PROM in site $SITE
-		case $MTYPE in
-		2) echo 32 >/etc/acq400/$SITE/nchan;;
-		esac
-	fi
 }
 
 build_etc_site() {
@@ -102,8 +136,8 @@ build_knobs_device() {
 	build_etc_site ${site}
 	
 
-	MTYPE=$(cat /$dir/module_type)
-	case $MTYPE in
+	mtype=$(cat /$dir/module_type)
+	case $mtype in
 	255)    
 		return;;
 	2|3)
@@ -121,15 +155,15 @@ build_knobs_device() {
 		echo 0000 >/dev/acq400.${site}.knobs/gains
 	fi
 	touch /dev/shm/AI.${site}.wf.fin
-	daemon /usr/local/bin/add_webpage_site acq400.${site} ${site}
-	set_nchan ${site} ${MTYPE}
+	web_append acq400.${site} ${site}
+	set_nchan ${site} ${mtype}
 }
 
 build_knobs() {
 	if [ -e /sys/bus/platform/devices/40000000.acq2006sc ]; then
 		ln -s /sys/bus/platform/devices/40000000.acq2006sc \
 			/dev/acq400.0.knobs
-		daemon /usr/local/bin/add_webpage_site acq400.0 0
+		web_append acq400.0 0
 	fi
 	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do
@@ -174,6 +208,9 @@ if [ $notloaded -ne 0 ]; then
 	build_knobs
 	grep acq4.0 /proc/devices |  build_nodes	
 fi
+
+
+nice daemon $WEB_APPEND_JOB
 
 killall -q inetd
 cat /usr/local/init/inetd.conf >>/etc/inetd.conf

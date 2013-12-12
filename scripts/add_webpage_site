@@ -9,7 +9,6 @@ fi
 while [ ! -e /var/www/d-tacq/acq_main_page.html ]; do
 	sleep 1
 done
-sleep 1.$2		# avoid collision 
 
 sed -ie '/TABAPPEND/ {
 i       <li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
