@@ -21,20 +21,20 @@ do_wildcard_query() {
 	)
 }
 do_site_knob() {
-	K=$1; shift; V="$*"
+	key=$1; shift; val="$*"
 
-	if [ -x $SDIR/$K ]; then
-		$SDIR/$K $V
+	if [ -x $SDIR/$key ]; then
+		$SDIR/$key $val
 		STATUS=$?
-	elif [ "$V" != "$K" ]; then
-		echo $V > $SDIR/$K
+	elif [ ! -z $val ]; then
+		echo $val > $SDIR/$key
 		STATUS=$?
 	else
-		if [ -e $SDIR/$K ]; then
-			cat $SDIR/$K
+		if [ -e $SDIR/$key ]; then
+			cat $SDIR/$key
 			STATUS=$?
 		else
-			echo FILE $SDIR/$K not found
+			echo FILE $SDIR/$key not found
 			STATUS=1
 		fi
 	fi
@@ -47,7 +47,7 @@ help() {
 help2() {
 	for file in $(ls -1 $SDIR/ )
 	do
-		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help)"
+		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help*)"
 		if [ $? -eq 0 ]; then
 			echo $HTEXT;
 		else
@@ -62,20 +62,23 @@ if [ -d $SDIR ]; then
 			echo -n "acq400.$SITE:$STATUS> "
 		fi
 		STATUS=0
-		read CMD VALUE V2 V3 V4 V5
+		read cmd v1 v2 v3 v4 v5
 		if [ $? -eq 0 ]; then
-			KNOB=${CMD%%=*}
-			if [ "x$VALUE" = "x" ]; then
-				VALUE=${CMD##*=}
+			kb=${cmd%%=*}
+			if [ -z $v1 ]; then
+				echo $cmd | grep -q =
+				if [ $? -eq 0 ]; then
+					v1=${cmd##*=}
+				fi
 			fi
 
-			STRIP=$(echo $KNOB | tr -d \*\?)
-			if [ "x${KNOB}" != "x${STRIP}" ]; then
-				do_wildcard_query "${KNOB}"
+			strip=$(echo $kb | tr -d \*\?)
+			if [ "x${kb}" != "x${strip}" ]; then
+				do_wildcard_query "${kb}"
 			else
-				case "x${KNOB}" in
+				case "x${kb}" in
 				xprompt)			
-					case $VALUE in
+					case $v1 in
 					on)
 						USE_PROMPT=1;;
 					off)
@@ -86,8 +89,9 @@ if [ -d $SDIR ]; then
 				xhelp2) 
 					help2;;
 				x*)
-#				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
-					do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
+#			echo do_site_knob $kb $v1 $v2 $v3 $v4 $v5
+				        do_site_knob $kb $v1 $v2 $v3 \
+                                                           $v4 $v5
 				esac
 			fi
 		else
