@@ -30,9 +30,7 @@ do_site_knob() {
 		echo $V > $SDIR/$K
 		STATUS=$?
 	else
-		if [ "x$K" = "xhelp" ]; then
-			ls -1 $SDIR/
-		elif [ -e $SDIR/$K ]; then
+		if [ -e $SDIR/$K ]; then
 			cat $SDIR/$K
 			STATUS=$?
 		else
@@ -42,6 +40,21 @@ do_site_knob() {
 	fi
 }
 
+help() {
+	ls -1 $SDIR/
+}
+
+help2() {
+	for file in $(ls -1 $SDIR/ )
+	do
+		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help)"
+		if [ $? -eq 0 ]; then
+			echo $HTEXT;
+		else
+			echo $file;
+		fi
+	done
+}
 if [ -d $SDIR ]; then
 	EOF=NO
 	while [ "$EOF" = "NO"  ]; do
@@ -68,6 +81,10 @@ if [ -d $SDIR ]; then
 					off)
 						USE_PROMPT=0;;
 					esac;;
+				xhelp)
+					help;;
+				xhelp2) 
+					help2;;
 				x*)
 #				echo do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
 					do_site_knob $KNOB $VALUE $V2 $V3 $V4 $V5
