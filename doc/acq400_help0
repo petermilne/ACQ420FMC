@@ -1,0 +1,71 @@
+help	help
+SIG:CLK_EXT:COUNT	external clock count
+SIG:CLK_EXT:FREQ	external clock frequency
+SIG:CLK_MB:COUNT	MB clock count
+SIG:CLK_MB:FREQ		MB clock frequency
+SIG:CLK_S1:COUNT	site 1 clock count
+SIG:CLK_S1:FREQ		site 1 clock frequency
+SIG:CLK_S2:COUNT	site 2 clock count
+SIG:CLK_S2:FREQ		site 2 clock frequency
+SIG:CLK_S3:COUNT	site 3 clock count
+SIG:CLK_S3:FREQ		site 3 clock frequency
+SIG:CLK_S4:COUNT	site 4 clock count
+SIG:CLK_S4:FREQ		site 4 clock frequency
+SIG:CLK_S5:COUNT	site 5 clock count
+SIG:CLK_S5:FREQ		site 5 clock frequency
+SIG:CLK_S6:COUNT	site 6 clock count
+SIG:CLK_S6:FREQ		site 6 clock frequency
+SIG:EVT_EXT:COUNT	external event count
+SIG:EVT_EXT:FREQ	external event frequency
+SIG:EVT_MB:COUNT	not used
+SIG:EVT_MB:FREQ		not used
+SIG:EVT_S1:COUNT	site 1 event count
+SIG:EVT_S1:FREQ		site 1 event frequency
+SIG:EVT_S2:COUNT	site 2 event count
+SIG:EVT_S2:FREQ		site 2 event frequency
+SIG:EVT_S3:COUNT	site 3 event count
+SIG:EVT_S3:FREQ		site 3 event frequency
+SIG:EVT_S4:COUNT	site 4 event count
+SIG:EVT_S4:FREQ		site 4 event frequency
+SIG:EVT_S5:COUNT	site 5 event count
+SIG:EVT_S5:FREQ		site 5 event frequency
+SIG:EVT_S6:COUNT	site 6 event count
+SIG:EVT_S6:FREQ		site 6 event frequency
+SIG:SYN_EXT:COUNT	external sync count
+SIG:SYN_EXT:FREQ	external sync frequency
+SIG:SYN_MB:COUNT	not used
+SIG:SYN_MB:FREQ		not used
+SIG:SYN_S1:COUNT	site 1 sync count
+SIG:SYN_S1:FREQ		site 1 sync frequency
+SIG:SYN_S2:COUNT	site 2 sync count
+SIG:SYN_S2:FREQ		site 2 sync frequency
+SIG:SYN_S3:COUNT	site 3 sync count
+SIG:SYN_S3:FREQ		site 3 sync frequency
+SIG:SYN_S4:COUNT	site 4 sync count
+SIG:SYN_S4:FREQ		site 4 sync frequency
+SIG:SYN_S5:COUNT	site 5 sync count
+SIG:SYN_S5:FREQ		site 5 sync frequency
+SIG:SYN_S6:COUNT	site 6 sync count
+SIG:SYN_S6:FREQ		site 5 sync frequency
+SIG:TRG_EXT:COUNT	external trig count
+SIG:TRG_EXT:FREQ	external trig frequency
+SIG:TRG_MB:COUNT	not used
+SIG:TRG_MB:FREQ		not used
+SIG:TRG_S1:COUNT	site 1 trig count
+SIG:TRG_S1:FREQ		site 1 trig frequency
+SIG:TRG_S2:COUNT	site 2 trig count
+SIG:TRG_S2:FREQ		site 2 trig frequency
+SIG:TRG_S3:COUNT	site 3 trig count
+SIG:TRG_S3:FREQ		site 3 trig frequency
+SIG:TRG_S4:COUNT	site 4 trig count
+SIG:TRG_S4:FREQ		site 4 trig frequency
+SIG:TRG_S5:COUNT	site 5 trig count
+SIG:TRG_S5:FREQ		site 5 trig frequency
+SIG:TRG_S6:COUNT	site 6 trig count
+SIG:TRG_S6:FREQ		site 6 trig frequency
+autocap	[on|off] control autocapture
+fpmux	[fpclk|xclk] control clock source
+help
+help2
+mb_clk	[FINKHz FOUTKHz]	set mb_clk frequency 
+
