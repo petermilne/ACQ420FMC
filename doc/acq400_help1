@@ -4,7 +4,7 @@ MODEL	device model / type
 NCHAN	number of channels
 RESOLUTION	resolution in bits {14,16,18,20,24}
 SAMPLE_SIZE	sample size in bytes NCHAN * RESOLUTION / 8
-SERIAL		serial number
+SERIAL	serial number
 MANUFACTURER	manufacturer
 SIG:clk_count:COUNT	clock count
 SIG:clk_count:FREQ	clock frequency
@@ -29,7 +29,7 @@ nbuffers	number of kernel buffers
 nchan	number of channels enabled
 run	reports 1 if unit is running
 sample_count	32 bit sample_count
-shot		shot number 
+shot	shot number 
 simulate	[0|1] simulation mode
 site	module site number
 spad	[0|1] scratchpad enable
@@ -44,7 +44,7 @@ spad7	[0x12345678] scratchpad 7 entry
 stats	reports some driver internals
 sync	sync=EXT,dX,edge	configure sync source
 sysclkhz	system clock rate
-trg	trg=EXT,dX,edge		configure trigger source
+trg	trg=EXT,dX,edge	configure trigger source
 AO_01	[value]	AO01 DC value
 AO_02	[value]	AO02 DC value
 AO_03	[value]	AO03 DC value
