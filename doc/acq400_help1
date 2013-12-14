@@ -45,5 +45,22 @@ stats	reports some driver internals
 sync	sync=EXT,dX,edge	configure sync source
 sysclkhz	system clock rate
 trg	trg=EXT,dX,edge		configure trigger source
-
-
+AO_01	[value]	AO01 DC value
+AO_02	[value]	AO02 DC value
+AO_03	[value]	AO03 DC value
+AO_04	[value]	AO04 DC value
+D1	[value] awg DC offset AO01
+D2	[value] awg DC offset AO02
+D3	[value] awg DC offset AO03
+D4	[value]	awg DC offset AO04
+G1	[value] awg GAIN AO01
+G2	[value] awg GAIN AO02
+G3	[value] awg GAIN AO03
+G4	[value] awg GAIN AO04
+dac_range_01	[0|1] range x1|x2 AO01
+dac_range_02	[0|1] range x1|x2 AO02
+dac_range_03	[0|1] range x1|x2 AO03
+dac_range_04	[0|1] range x1|x2 AO04
+dac_range_REF	[0|1] REF 5V|2V5  all
+playloop_cursor	awg current position
+playloop_length [length] awg pattern length
