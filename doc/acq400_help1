@@ -1,0 +1,49 @@
+help	help
+MAXRATE	maximum sample rate
+MODEL	device model / type
+NCHAN	number of channels
+RESOLUTION	resolution in bits {14,16,18,20,24}
+SAMPLE_SIZE	sample size in bytes NCHAN * RESOLUTION / 8
+SERIAL		serial number
+MANUFACTURER	manufacturer
+SIG:clk_count:COUNT	clock count
+SIG:clk_count:FREQ	clock frequency
+SIG:sample_count:COUNT	sample count
+SIG:sample_count:FREQ	sample frequency
+bank_mask [hexmask]	enabled channels
+bufferlen	kernel buffer length
+clk	clk=EXT,dX,edge  eg clk=1,0,0 external d0 FALLING, clk=0,0,0 internal
+clk_count	32 bit clock count
+clk_counter_src	[d0|d8] clock counter source "d8" is internal
+clkdiv	clock divider
+data32	[0|1] data size 16bit/2byte or 32bit/4byte
+event0	event0=ENABLE,dX,edge	configuration event0
+event1	event1=ENABLE,dX,edge 	configuration event1
+hi_res_mode	[0|1]	select high resolution mode on ADS1278 (max 50kHz)
+hitide	fifo hitide setting
+lotide	fifo lotide setting
+modalias	kernel internal module id
+module_name	kernel module name
+module_type	fpga type code
+nbuffers	number of kernel buffers
+nchan	number of channels enabled
+run	reports 1 if unit is running
+sample_count	32 bit sample_count
+shot		shot number 
+simulate	[0|1] simulation mode
+site	module site number
+spad	[0|1] scratchpad enable
+spad0	[0x12345678] scratchpad 0 entry (sample count: do not set)
+spad1	[0x12345678] scratchpad 1 entry
+spad2	[0x12345678] scratchpad 2 entry
+spad3	[0x12345678] scratchpad 3 entry
+spad4	[0x12345678] scratchpad 4 entry
+spad5	[0x12345678] scratchpad 5 entry
+spad6	[0x12345678] scratchpad 6 entry
+spad7	[0x12345678] scratchpad 7 entry
+stats	reports some driver internals
+sync	sync=EXT,dX,edge	configure sync source
+sysclkhz	system clock rate
+trg	trg=EXT,dX,edge		configure trigger source
+
+
