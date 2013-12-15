@@ -24,21 +24,19 @@ do_wildcard_query() {
 }
 do_site_knob() {
 	key=$1; shift; val="$*"
-
-	if [ -x $SDIR/$key ]; then
-		$SDIR/$key $val
+	kb=$SDIR/$key
+	
+	if [ ! -e $kb ]; then
+		echo ERROR: \"$kb\" does not exist
+	elif [ -x $kb ]; then
+		$kb $val
 		STATUS=$?
 	elif [ ! -z $val ]; then
-		echo $val > $SDIR/$key
+		echo $val > $kb
 		STATUS=$?
 	else
-		if [ -e $SDIR/$key ]; then
-			cat $SDIR/$key
-			STATUS=$?
-		else
-			echo FILE $SDIR/$key not found
-			STATUS=1
-		fi
+		cat $SDIR/$key
+		STATUS=$?
 	fi
 }
 
@@ -96,8 +94,7 @@ if [ -d $SDIR ]; then
 					help2;;
 				x*)
 #			echo do_site_knob $kb $v1 $v2 $v3 $v4 $v5
-				        do_site_knob $kb $v1 $v2 $v3 \
-                                                           $v4 $v5
+				        do_site_knob $kb $v1 $v2 $v3 $v4 $v5;;
 				esac
 			fi
 		else
