@@ -14,7 +14,9 @@ do_wildcard_query() {
 	(cd $SDIR; 
 		for file in $* 
 		do
-			if [ ! -x $file ]; then
+			if [ -x $file ]; then
+				echo $file $(exec ./$file)
+			else
 				echo $file $(cat $file)
 			fi
 		done
@@ -47,9 +49,10 @@ help() {
 help2() {
 	for file in $(ls -1 $SDIR/ )
 	do
-		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help*)"
+		echo $file:
+		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help* | cut -f2-)"
 		if [ $? -eq 0 ]; then
-			echo $HTEXT;
+			echo "	$HTEXT";
 		else
 			echo $file;
 		fi
@@ -64,6 +67,9 @@ if [ -d $SDIR ]; then
 		STATUS=0
 		read cmd v1 v2 v3 v4 v5
 		if [ $? -eq 0 ]; then
+			if [ -z $cmd ]; then
+				continue
+			fi
 			kb=${cmd%%=*}
 			if [ -z $v1 ]; then
 				echo $cmd | grep -q =
