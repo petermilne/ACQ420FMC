@@ -73,7 +73,7 @@ while [ 1 ]; do
 	if [ $? -ne 0 ]; then
 		echo END
 		exit 1
-	elif [ -z $cmd ]; then
+	elif [  "$cmd" = "" ]; then
 		continue
 	fi
 	kb=${cmd%%=*}
@@ -83,7 +83,6 @@ while [ 1 ]; do
 			v1=${cmd##*=}
 		fi
 	fi
-
 	strip=$(echo $kb | tr -d \*\?)
 	if [ "x${kb}" != "x${strip}" ]; then
 		do_wildcard_query "${kb}"
