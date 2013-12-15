@@ -26,6 +26,7 @@ date:
 package: all
 	cp $(APPS) monitorregs scripts/* bin/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
+	cp -a doc opkg/usr/share
 	cp acq435_decode opkg/usr/local/CARE
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
