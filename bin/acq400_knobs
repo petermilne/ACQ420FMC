@@ -41,7 +41,7 @@ do_site_knob() {
 		echo $val > $kb
 		STATUS=$?
 	else
-		cat $SDIR/$key
+		cat $kb
 		STATUS=$?
 	fi
 }
