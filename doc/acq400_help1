@@ -63,4 +63,4 @@ dac_range_03	[0|1] range x1|x2 AO03
 dac_range_04	[0|1] range x1|x2 AO04
 dac_range_REF	[0|1] REF 5V|2V5  all
 playloop_cursor	awg current position
-playloop_length [length] awg pattern length
+playloop_length	[length] awg pattern length
