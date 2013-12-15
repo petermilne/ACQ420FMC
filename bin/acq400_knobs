@@ -4,32 +4,38 @@ SITE=${1:-0}
 SDIR=${2:-/etc/acq400/$SITE}
 STATUS=0
 USE_PROMPT=0
+HROOT=/usr/share/doc
 
 if [ -e /etc/sysconfig/acq400_knobs.cfg ]; then
 	# possible override USE_PROMPT
 	source /etc/sysconfig/acq400_knobs.cfg
 fi
 
+if [ -e $SDIR ]; then
+	cd $SDIR
+else
+	/usr/bin/logger -t acq400_knobs ERROR $SDIR not found
+	sleep 100
+	exit 1
+fi
+
 do_wildcard_query() {
-	(cd $SDIR; 
-		for file in $* 
-		do
-			if [ -x $file ]; then
-				echo $file $(exec ./$file)
-			else
-				echo $file $(cat $file)
-			fi
-		done
-	)
+	for file in $* 
+	do
+		if [ -x $file ]; then
+			echo $file $(exec ./$file)
+		else
+			echo $file $(cat $file)
+		fi
+	done
 }
 do_site_knob() {
-	key=$1; shift; val="$*"
-	kb=$SDIR/$key
+	kb=$1; shift; val="$*"
 	
 	if [ ! -e $kb ]; then
 		echo ERROR: \"$kb\" does not exist
 	elif [ -x $kb ]; then
-		$kb $val
+		./$kb $val
 		STATUS=$?
 	elif [ ! -z $val ]; then
 		echo $val > $kb
@@ -41,14 +47,14 @@ do_site_knob() {
 }
 
 help() {
-	ls -1 $SDIR/
+	ls -1 
 }
 
 help2() {
-	for file in $(ls -1 $SDIR/ )
+	for file in $(ls -1)
 	do
 		echo $file:
-		HTEXT="$(grep -m1 $file /usr/share/doc/acq400_help* | cut -f2-)"
+		HTEXT="$(grep -m1 ^$file $HROOT/acq400_help* | cut -f2-)"
 		if [ $? -eq 0 ]; then
 			echo "	$HTEXT";
 		else
@@ -56,53 +62,47 @@ help2() {
 		fi
 	done
 }
-if [ -d $SDIR ]; then
-	EOF=NO
-	while [ "$EOF" = "NO"  ]; do
-		if [ $USE_PROMPT -ne 0 ]; then
-			echo -n "acq400.$SITE:$STATUS> "
-		fi
-		STATUS=0
-		read cmd v1 v2 v3 v4 v5
-		if [ $? -eq 0 ]; then
-			if [ -z $cmd ]; then
-				continue
-			fi
-			kb=${cmd%%=*}
-			if [ -z $v1 ]; then
-				echo $cmd | grep -q =
-				if [ $? -eq 0 ]; then
-					v1=${cmd##*=}
-				fi
-			fi
 
-			strip=$(echo $kb | tr -d \*\?)
-			if [ "x${kb}" != "x${strip}" ]; then
-				do_wildcard_query "${kb}"
-			else
-				case "x${kb}" in
-				xprompt)			
-					case $v1 in
-					on)
-						USE_PROMPT=1;;
-					off)
-						USE_PROMPT=0;;
-					esac;;
-				xhelp)
-					help;;
-				xhelp2) 
-					help2;;
-				x*)
-#			echo do_site_knob $kb $v1 $v2 $v3 $v4 $v5
-				        do_site_knob $kb $v1 $v2 $v3 $v4 $v5;;
-				esac
-			fi
-		else
-			EOF=YES
+
+while [ 1 ]; do
+	if [ $USE_PROMPT -ne 0 ]; then
+		echo -n "acq400.$SITE:$STATUS> "
+		STATUS=0
+	fi
+	read cmd v1 v2 v3 v4 v5
+	if [ $? -ne 0 ]; then
+		echo END
+		exit 1
+	elif [ -z $cmd ]; then
+		continue
+	fi
+	kb=${cmd%%=*}
+	if [ -z $v1 ]; then
+		echo $cmd | grep -q =
+		if [ $? -eq 0 ]; then
+			v1=${cmd##*=}
 		fi
-	done
-else
-	/usr/bin/logger -t acq400_knobs ERROR $SDIR not found
-	sleep 100
-	exit 1
-fi
+	fi
+
+	strip=$(echo $kb | tr -d \*\?)
+	if [ "x${kb}" != "x${strip}" ]; then
+		do_wildcard_query "${kb}"
+	else
+		case "x${kb}" in
+		xprompt)			
+			case $v1 in
+			on)
+				USE_PROMPT=1;;
+			off)
+				USE_PROMPT=0;;
+			esac;;
+		xhelp)
+			help;;
+		xhelp2) 
+			help2;;
+		x*)
+#	echo do_site_knob $kb $v1 $v2 $v3 $v4 $v5
+		        do_site_knob $kb $v1 $v2 $v3 $v4 $v5;;
+		esac
+	fi
+done
