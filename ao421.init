@@ -131,6 +131,8 @@ for file in $KDIR/CH0?.??
 do
 	ln -s $file 
 done
+ln -s /usr/local/bin/muxpattern
+
 
 killall inetd
 echo 4235 stream tcp nowait root dawgd dawgd 5 >>/etc/inetd.conf

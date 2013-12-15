@@ -319,6 +319,10 @@ struct poptOption opt_table[] = {
 			"slow down by factor N [1]"		},
 	{ "interactive", 'i', POPT_ARG_NONE, 0, 'i',
 			"controlled from stdin"			},
+	{ "site",        'S', POPT_ARG_INT, &UI::site, 0,
+			"site of AO421"				},
+	{ "master_site", 'M', POPT_ARG_INT, &UI::master_site, 0,
+			"site of ACQ435 with scratchpad"	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
