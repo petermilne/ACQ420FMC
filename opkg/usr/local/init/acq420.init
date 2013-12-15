@@ -89,6 +89,11 @@ set_nchan() {
 			break;
 		fi
 	done
+# one day, all FRU will have NCHAN, MTYPE
+	[ ! -z $FRU_NCHAN ] && echo $FRU_NCHAN > $KDIR/NCHAN
+	[ ! -z $FRU_MTYPE ] && echo $FRU_MTYPE > $KDIR/MTYPE
+
+# until then, we have to kludge
 	if [ "$FRU_PART_NUM" = "ACQ435ELF-24FF-8TF" ]; then
 		echo 32 > $KDIR/NCHAN
 	fi
@@ -107,6 +112,8 @@ set_nchan() {
 		echo 24 > $KDIR/RESOLUTION;;
 	esac
 
+	echo $FRU_SERIAL > $KDIR/SERIAL
+	echo $FRU_MAN > $KDIR/MANUFACTURER
 # intention: nchan is "number channels enabled"
 	echo $KDIR/NCHAN $(cat $KDIR/NCHAN)
 	cat $KDIR/NCHAN > $KDIR/nchan
@@ -120,7 +127,7 @@ build_etc_site() {
 	for src in /dev/acq400.${site}.knobs/*
 	do
 		case $(basename $src) in
-		driver|subsystem|power|uevent)
+		driver|subsystem|power|uevent|dacspi|dacreset)
 			;;
 		*)
 			ln -s ${src} /etc/acq400/${site};;
