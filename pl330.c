@@ -32,6 +32,13 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
+#define REVID	"1002"
+
+int channel_starts_wfp[8];
+int channel_num = 8;
+module_param_array(channel_starts_wfp, int, &channel_num, 0644);
+
+
 enum pl330_srccachectrl {
 	SCCTRL0,	/* Noncacheable and nonbufferable */
 	SCCTRL1,	/* Bufferable only */
@@ -68,6 +75,7 @@ enum pl330_reqtype {
 	DEVTOMEM,
 	DEVTODEV,
 };
+
 
 /* Register and Bit field Definitions */
 #define DS			0x0
@@ -284,6 +292,8 @@ static unsigned cmd_line;
 #define PL330_DBGMC_START(addr)		do {} while (0)
 #endif
 
+#define PGM_DEBUG(fmt, x...) printk(KERN_DEBUG fmt, x)
+
 /* The number of default descriptors */
 
 #define NR_DEFAULT_DESC	16
@@ -438,6 +448,7 @@ struct _xfer_spec {
 	u32 ccr;
 	struct pl330_req *r;
 	struct pl330_xfer *x;
+	struct pl330_thread *thrd;
 };
 
 enum dmamov_dst {
@@ -1351,6 +1362,9 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 		cyc = 1;
 	}
 
+	PGM_DEBUG("_loop: *bursts:%lu lcnt1:%u lcnt0:%u\n",
+			*bursts, lcnt1, lcnt0);
+
 	szlp = _emit_LP(1, buf, 0, 0);
 	szbrst = _bursts(1, buf, pxs, 1);
 
@@ -1381,6 +1395,11 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 		ljmp0 = off;
 	}
 
+	/* @@pgmwashere WFP in inner loop */
+	if (channel_starts_wfp[pxs->thrd->id]){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
+				channel_starts_wfp[pxs->thrd->id]-1);
+	}
 	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
 	ljmp1 = off;
 
@@ -1455,6 +1474,13 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 
 	PL330_DBGMC_START(req->mc_bus);
 
+	/* @@pgmwashere WFP in outer loop */
+	/*
+	if (channel_starts_wfp[thrd->id]){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
+				channel_starts_wfp[thrd->id]-1);
+	}
+	*/
 	/* DMAMOV CCR, ccr */
 	off += _emit_MOV(dry_run, &buf[off], CCR, pxs->ccr);
 
@@ -1550,6 +1576,7 @@ static int pl330_submit_req(void *ch_id, struct pl330_req *r)
 	if (!r || !thrd || thrd->free)
 		return -EINVAL;
 
+	xs.thrd = thrd;
 	pl330 = thrd->dmac;
 	pi = pl330->pinfo;
 	regs = pi->base;
@@ -2066,6 +2093,13 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 			__func__, __LINE__);
 		return -ENOMEM;
 	}
+	/* PGMWASHERE */
+	memset(pl330->mcode_cpu, 0, chans * pi->mcbufsz);
+	dev_info(pi->dev,
+		"mcode_cpu:0x%p bus:0x%08x c:%d sz:%d totsize:%d",
+		pl330->mcode_cpu, pl330->mcode_bus, chans, pi->mcbufsz,
+		chans * pi->mcbufsz);
+
 
 	ret = dmac_alloc_threads(pl330);
 	if (ret) {
@@ -2903,6 +2937,8 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	int num_chan;
 
 	pdat = adev->dev.platform_data;
+
+	dev_info(&adev->dev, "pl330 driver hacked by PGM %s\n", REVID);
 
 	/* Allocate a new DMAC and its Channels */
 	pdmac = devm_kzalloc(&adev->dev, sizeof(*pdmac), GFP_KERNEL);

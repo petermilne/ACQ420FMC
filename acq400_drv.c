@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.202"
+#define REVID "2.204"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -78,6 +78,17 @@ MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 int debcount;
 module_param(debcount, int, 0644);
 MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
+
+int maxdma = MAXDMA;
+module_param(maxdma, int, 0644);
+MODULE_PARM_DESC(maxdma, "set maximum DMA len bytes");
+
+
+int dma_override_len;
+module_param(dma_override_len, int, 0644);
+MODULE_PARM_DESC(dma_override_len, "DEBUG ONLY: force fixed DMA len");
+
+
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
@@ -209,7 +220,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 1;
 	adev->nchan_enabled = 32;
 	adev->word_size = 4;
-	adev->hitide = 512;
+	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 16);
@@ -438,6 +449,7 @@ dma_async_memcpy_pa_to_buf(
 	unsigned long flags = DMA_SRC_NO_INCR | DMA_CTRL_ACK |
 				DMA_COMPL_SRC_UNMAP_SINGLE |
 				DMA_COMPL_DEST_UNMAP_SINGLE;
+	/** @@todo PGM: ping/pong : DMA_WFEx (for limited x) */
 
 	DMA_NS;
 	tx = dev->device_prep_dma_memcpy(chan, dest->pa, dma_src, len, flags);
@@ -518,6 +530,13 @@ int cpsc_dma_memcpy(struct acq400_dev* adev, struct HBM* dest, u32 src, size_t l
 				adev, adev->pdev->dev.id);
 		return -1;
 	}
+	if (dma_override_len){
+		dev_warn(DEVP(adev), "DEBUG ONLY: dma_override_len set %d", dma_override_len);
+		len = dma_override_len;
+	}
+	dev_dbg(DEVP(adev), "chan:%d destpa:0x%08x srcpa:0x%08x len:%d",
+			adev->dma_chan->chan_id, dest->pa, src, len);
+
 	cookie = dma_async_memcpy_pa_to_buf(adev->dma_chan, dest, src, len);
 	dma_sync_wait(adev->dma_chan, cookie);
 	DMA_NS;
@@ -1286,7 +1305,7 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 	u32 status = acq420_get_fifo_samples(adev);
 
 	do {
-		int headroom = min(getHeadroom(adev), MAXDMA);
+		int headroom = min(getHeadroom(adev), maxdma);
 		int bytes = acq420_samples2bytes(adev, status);
 		struct HBM _cursor;
 
@@ -1590,7 +1609,6 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 
 static int acq400_remove(struct platform_device *pdev);
 
-#define dev_dbg	dev_info
 
 
 static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
