@@ -73,10 +73,14 @@
 #define ACQ435_SPADN(ix)	(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define ACQ435_SPAD_MAX		8
 
-#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
+/* doxy says this
+//#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
+ but observation says this:
+ */
+#define ADC_FIFO_SAMPLE_MASK	0x3ff
 
 #define FIFO_HISTO_SZ	      	(1<<8)
-#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>(14-8))
+#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>(10-8))
 
 
 #define MOD_ID_TYPE_SHL		24
