@@ -24,10 +24,15 @@ date:
 	echo $(DC)
 
 package: all
+	echo do NOT rm -Rf opkg/*
+	mkdir -p opkg/usr/local/bin opkg/usr/local/lib/modules \
+		opkg/usr/share opkg/usr/local/CARE \
+		opkg/usr/local/init
 	cp $(APPS) monitorregs scripts/* bin/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
 	cp acq435_decode opkg/usr/local/CARE
+	cp acq420.init inetd.conf opkg/usr/local/init
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
