@@ -16,7 +16,7 @@ acq420fmc-objs := acq400_drv.o acq400_sysfs.o acq400_proc.o hbm.o zynq-timer.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
-APPS := mmap acq400_stream bigmac permute acq435_decode
+APPS := mmap acq400_stream bigmac permute acq435_decode acq400_knobs
 
 all: modules apps
 	
@@ -51,10 +51,13 @@ mmap: mmap.o
 	$(CC) -o mmap mmap.o -L../lib -lpopt
 	
 acq400_stream: acq400_stream.o
-	$(CXX) -O3 -o acq400_stream acq400_stream.o -L../lib -lpopt
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+
+acq400_knobs: acq400_knobs.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 acq435_decode: acq435_decode.o
-	$(CXX) -O3 -o acq435_decode acq435_decode.o -L../lib -lpopt -lpthread
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
 	
 bigmac: bigmac.o
 	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
@@ -62,7 +65,7 @@ bigmac: bigmac.o
 		-O3 -o bigmac bigmac.o -L../lib -lpopt
 
 bigmac.x86: bigmac.o
-	$(CXX) 	-O3 -o bigmac bigmac.o -L../lib -lpopt	
+	$(CXX) -O3 -o $@ $^ -lpopt	
 
 		
 zynq:
