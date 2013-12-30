@@ -1393,12 +1393,8 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 
 	off = 0;
 
-	/* flushp to kickoff */
 
-	if (channel_ends_flushp[pxs->thrd->id]){
-		off += _emit_FLUSHP(dry_run, &buf[off],
-				channel_ends_flushp[pxs->thrd->id]-1);
-	}
+
 
 	if (lcnt0) {
 		off += _emit_LP(dry_run, &buf[off], 0, lcnt0);
@@ -1408,7 +1404,12 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	/* @@pgmwashere WFP in inner loop
 	 * Should be pxs->r->peri
 	 * But not sure how to set up, hence pxs->thrd->id
+	 * flushp to kickoff
 	 * */
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_FLUSHP(dry_run, &buf[off],
+				channel_ends_flushp[pxs->thrd->id]-1);
+	}
 	if (channel_starts_wfp[pxs->thrd->id]){
 		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
 				channel_starts_wfp[pxs->thrd->id]-1);
@@ -1417,11 +1418,6 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	ljmp1 = off;
 
 	off += _bursts(dry_run, &buf[off], pxs, cyc);
-
-	if (channel_ends_flushp[pxs->thrd->id]){
-		off += _emit_FLUSHP(dry_run, &buf[off],
-				channel_ends_flushp[pxs->thrd->id]-1);
-	}
 
 	lpend.cond = ALWAYS;
 	lpend.forever = false;
