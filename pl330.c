@@ -32,12 +32,15 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1002"
+#define REVID	"1004"
 
 int channel_starts_wfp[8];
 int channel_num = 8;
 module_param_array(channel_starts_wfp, int, &channel_num, 0644);
 
+int channel_ends_flushp[8];
+int channel_nump = 8;
+module_param_array(channel_ends_flushp, int, &channel_nump, 0644);
 
 enum pl330_srccachectrl {
 	SCCTRL0,	/* Noncacheable and nonbufferable */
@@ -1390,12 +1393,22 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 
 	off = 0;
 
+	/* flushp to kickoff */
+
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_FLUSHP(dry_run, &buf[off],
+				channel_ends_flushp[pxs->thrd->id]-1);
+	}
+
 	if (lcnt0) {
 		off += _emit_LP(dry_run, &buf[off], 0, lcnt0);
 		ljmp0 = off;
 	}
 
-	/* @@pgmwashere WFP in inner loop */
+	/* @@pgmwashere WFP in inner loop
+	 * Should be pxs->r->peri
+	 * But not sure how to set up, hence pxs->thrd->id
+	 * */
 	if (channel_starts_wfp[pxs->thrd->id]){
 		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
 				channel_starts_wfp[pxs->thrd->id]-1);
@@ -1404,6 +1417,11 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	ljmp1 = off;
 
 	off += _bursts(dry_run, &buf[off], pxs, cyc);
+
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_FLUSHP(dry_run, &buf[off],
+				channel_ends_flushp[pxs->thrd->id]-1);
+	}
 
 	lpend.cond = ALWAYS;
 	lpend.forever = false;
@@ -1481,6 +1499,8 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 				channel_starts_wfp[thrd->id]-1);
 	}
 	*/
+
+
 	/* DMAMOV CCR, ccr */
 	off += _emit_MOV(dry_run, &buf[off], CCR, pxs->ccr);
 
