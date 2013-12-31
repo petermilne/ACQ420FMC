@@ -25,7 +25,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.204"
+#define REVID "2.205"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1573,6 +1573,12 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
 		return;
 	}
+	DBG_REG_CREATE(MOD_ID);
+	DBG_REG_CREATE(MOD_CON);
+	DBG_REG_CREATE(DATA_ENGINE_0);
+	DBG_REG_CREATE(DATA_ENGINE_1);
+	DBG_REG_CREATE(DATA_ENGINE_2);
+	DBG_REG_CREATE(DATA_ENGINE_3);
 
 	DBG_REG_CREATE_2006("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));

@@ -93,6 +93,9 @@ public:
 		delete [] name;
 	}
 
+
+	char* getName() { return name; }
+
 	/* return >0 on success, <0 on fail */
 	virtual int set(char* buf, int maxbuf, const char* args) = 0;
 	virtual int get(char* buf, int maxbuf) = 0;
@@ -123,15 +126,14 @@ public:
 class KnobRW : public KnobRO {
 public:
 	KnobRW(const char* _name) : KnobRO(_name) {
-		printf("KnobRW: %s\n", _name);
 	}
 
 	virtual int set(char* buf, int maxbuf, const char* args) {
 		File knob(name, "w");
 		if (knob.fp == NULL){
-			return snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
+			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
 		}else{
-			return fputs(args, knob.fp);
+			return fputs(args, knob.fp) > 0? 0: -snprintf(buf, maxbuf, "ERROR:");
 		}
 	}
 	virtual void print(void) { cprint ("KnobRW"); }
@@ -146,7 +148,7 @@ public:
 		snprintf(cmd, 128, "%s %s", name, args);
 		Pipe knob(cmd, "r");
 		if (knob.fp == NULL) {
-			return snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
+			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
 		}else{
 			return fgets(buf, maxbuf, knob.fp) != NULL;
 		}
@@ -154,9 +156,10 @@ public:
 	virtual int get(char* buf, int maxbuf) {
 		Pipe knob(name, "r");
 		if (knob.fp == NULL) {
-			return snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
+			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
 		}else{
-			return fgets(buf, maxbuf, knob.fp) != NULL;
+			return fgets(buf, maxbuf, knob.fp) != NULL? 0:
+					-snprintf(buf, maxbuf, "ERROR");
 		}
 	}
 	virtual void print(void) { cprint("KnobX"); }
@@ -201,7 +204,8 @@ int do_scan()
 			perror("stat");
 		}else{
 			if (!S_ISREG(sb.st_mode)){
-				fprintf(stderr, "not a regular file:%s", alias);
+				;
+				//fprintf(stderr, "not a regular file:%s", alias);
 			}else{
 				KNOBS.push_back(Knob::create(alias, sb.st_mode));
 			}
@@ -209,13 +213,108 @@ int do_scan()
 	}
 
 	free(namelist);
+/*
+	for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+		(*it)->print();
+	}
+*/
+	char newpath[1024];
+	snprintf(newpath, 1023, "%s:%s", get_current_dir_name(), getenv("PATH"));
+
+	setenv("PATH", newpath, 1);
+	printf("set PATH: %s\n", getenv("PATH"));
+}
+
+char* chomp(char *str) {
+	char* cursor = str + strlen(str)-1;
+	while (*cursor == '\n' && cursor >= str){
+		*cursor = '\0';
+	}
+	return str;
+}
+
+bool prompt_enabled;
+bool err;
+void prompt() {
+	if (prompt_enabled){
+		printf("acq400 %d >", err);
+		fflush(stdout);
+	}else if (err){
+		;
+	}
+}
+
+int match(const char* name, const char* key)
+{
+	if (strcmp(name, key) == 0){
+		return 1;
+	}else if (fnmatch(key, name, 0) == 0){
+		return -1;
+	}else{
+		return 0;
+	}
 }
 
 int main(int argc, char* argv[])
 {
 	do_scan();
+	char* ibuf = new char[128];
+	char* obuf = new char[4096];
 
-	for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-		(*it)->print();
+
+	for (; fgets(ibuf, 128, stdin); prompt()){
+		char *args = 0;
+		int cursor;
+		char *key = 0;
+		bool is_query = false;
+
+		chomp(ibuf);
+
+		int len = strlen(ibuf);
+		if (len == 0){
+			continue;
+		}else{
+			int isep = strcspn(ibuf, "= ");
+			if (isep != strlen(ibuf)){
+				args = ibuf + strspn(ibuf+isep, "= ");
+				ibuf[isep] = '\0';
+			}else{
+				is_query = true;
+			}
+			key = ibuf;
+		}
+
+		bool found = false;
+		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+			Knob* knob = *it;
+			err = false;
+			int rc;
+			bool is_glob = true;
+			switch(match(knob->getName(), key)){
+			case 0:
+				continue;
+			case 1:
+				is_glob = false;
+				it = KNOBS.end() - 1; // fall thru, drop out
+			case -1:
+				if (is_query){
+					rc = knob->get(obuf, 4096);
+					if (is_glob){
+						printf("%s=", knob->getName());
+					}
+				}else{
+					rc = knob->set(obuf, 4096, args);
+				}
+				if (rc){
+					puts(chomp(obuf));
+				}
+				err = rc < 0;
+				found = true;
+			}
+		}
+
+		if (!found){
+			printf("ERROR:\%s\" not found\n", key);
+		}
 	}
 }

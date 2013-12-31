@@ -390,6 +390,16 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define ACQ2006_SYN_COUNT_MASK  0x0000ffff
 #define ACQ2006_EVT_COUNT_MASK	0x0000ffff
 
+#define MOD_CON			(0x0004)
+#define DATA_ENGINE_0		(0x0010)
+#define DATA_ENGINE_1		(0x0014)
+#define DATA_ENGINE_2		(0x0018)
+#define DATA_ENGINE_3		(0x001c)
+
+#define ACQ1001_MOD_CON_MOD_EN		(1<<0)
+#define ACQ1001_MOD_CON_PSU_SYNC 	(1<<1)
+#define ACQ1001_MOD_CON_FAN_EN		(1<<2)
+
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */
 #define SITE2DX(site) 	((site)+1)

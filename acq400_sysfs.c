@@ -1262,7 +1262,69 @@ static const struct attribute *acq2006sc_attrs[] = {
 	NULL
 };
 
+
+static ssize_t show_acq0000_mod_con(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned mask)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 mod_con = acq400rd32(adev, MOD_CON);
+
+	return sprintf(buf, "%u\n", (mod_con&mask) != 0);
+}
+
+static ssize_t store_acq0000_mod_con(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	unsigned mask)
+{
+	unsigned enable;
+	if (sscanf(buf, "%u", &enable) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+		u32 mod_con = acq400rd32(adev, MOD_CON);
+
+		if (enable){
+			mod_con |= mask;
+		}else{
+			mod_con &= ~mask;
+		}
+		acq400wr32(adev, MOD_CON, mod_con);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MODCON_KNOB(name, mask)						\
+static ssize_t show_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_acq0000_mod_con(dev, attr, buf, mask);		\
+}									\
+static ssize_t store_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_acq0000_mod_con(dev, attr, buf, count, mask);	\
+}									\
+static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+
+MODCON_KNOB(mod_en, 	ACQ1001_MOD_CON_MOD_EN);
+MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
+MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
+
 static const struct attribute *acq1001sc_attrs[] = {
+	&dev_attr_mod_en.attr,
+	&dev_attr_psu_sync.attr,
+	&dev_attr_fan.attr,
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
 	&dev_attr_scount_CLK_S1.attr,
