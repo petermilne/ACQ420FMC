@@ -32,7 +32,7 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1004"
+#define REVID	"1012"
 
 int channel_starts_wfp[8];
 int channel_num = 8;
@@ -1406,15 +1406,19 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	 * But not sure how to set up, hence pxs->thrd->id
 	 * flushp to kickoff
 	 * */
+	/*
 	if (channel_ends_flushp[pxs->thrd->id]){
 		off += _emit_FLUSHP(dry_run, &buf[off],
 				channel_ends_flushp[pxs->thrd->id]-1);
 	}
+	*/
 	if (channel_starts_wfp[pxs->thrd->id]){
 		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
 				channel_starts_wfp[pxs->thrd->id]-1);
+		off += _emit_LP(dry_run, &buf[off], 1, lcnt1-1);
+	}else{
+		off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
 	}
-	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
 	ljmp1 = off;
 
 	off += _bursts(dry_run, &buf[off], pxs, cyc);
@@ -1424,6 +1428,12 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	lpend.loop = 1;
 	lpend.bjump = off - ljmp1;
 	off += _emit_LPEND(dry_run, &buf[off], &lpend);
+
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_LDP(dry_run, &buf[off], BURST,
+				channel_ends_flushp[pxs->thrd->id]-1);
+		off += _emit_ST(dry_run, &buf[off], ALWAYS);
+	}
 
 	if (lcnt0) {
 		lpend.cond = ALWAYS;
@@ -1468,6 +1478,17 @@ static inline int _setup_xfer(unsigned dry_run, u8 buf[],
 	/* DMAMOV DAR, x->dst_addr */
 	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
 
+	/* @@pgmwashere WFP in outer loop */
+	/*
+	if (channel_starts_wfp[thrd->id]){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
+				channel_starts_wfp[thrd->id]-1);
+	}
+	*/
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_FLUSHP(dry_run, &buf[off],
+				channel_ends_flushp[pxs->thrd->id]-1);
+	}
 	/* Setup Loop(s) */
 	off += _setup_loops(dry_run, &buf[off], pxs);
 
@@ -1488,15 +1509,6 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 
 	PL330_DBGMC_START(req->mc_bus);
 
-	/* @@pgmwashere WFP in outer loop */
-	/*
-	if (channel_starts_wfp[thrd->id]){
-		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
-				channel_starts_wfp[thrd->id]-1);
-	}
-	*/
-
-
 	/* DMAMOV CCR, ccr */
 	off += _emit_MOV(dry_run, &buf[off], CCR, pxs->ccr);
 
@@ -1516,6 +1528,7 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 	off += _emit_SEV(dry_run, &buf[off], thrd->ev);
 	/* DMAEND */
 	off += _emit_END(dry_run, &buf[off]);
+
 
 	return off;
 }
