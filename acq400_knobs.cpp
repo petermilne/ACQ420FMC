@@ -73,7 +73,10 @@ public:
 		fp = popen(name, mode);
 	}
 	virtual ~Pipe() {
-		pclose(fp);
+		int rc = pclose(fp);
+		if (rc == -1){
+			perror("pclose");
+		}
 	}
 };
 class Knob {
@@ -150,15 +153,18 @@ public:
 		if (knob.fp == NULL) {
 			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
 		}else{
-			return fgets(buf, maxbuf, knob.fp) != NULL;
+			return fgets(buf, maxbuf, knob.fp) != NULL? 1:
+					-snprintf(buf, maxbuf, "ERROR");;
 		}
 	}
 	virtual int get(char* buf, int maxbuf) {
-		Pipe knob(name, "r");
+		char cmd[128];
+		snprintf(cmd, 128, "%s ", name);		// @@todo no trailing space, no work
+		Pipe knob(cmd, "r");
 		if (knob.fp == NULL) {
 			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
 		}else{
-			return fgets(buf, maxbuf, knob.fp) != NULL? 0:
+			return fgets(buf, maxbuf, knob.fp) != NULL? 1:
 					-snprintf(buf, maxbuf, "ERROR");
 		}
 	}
@@ -276,7 +282,7 @@ int main(int argc, char* argv[])
 		}else{
 			int isep = strcspn(ibuf, "= ");
 			if (isep != strlen(ibuf)){
-				args = ibuf + strspn(ibuf+isep, "= ");
+				args = ibuf + isep+ strspn(ibuf+isep, "= ");
 				ibuf[isep] = '\0';
 			}else{
 				is_query = true;
@@ -300,7 +306,9 @@ int main(int argc, char* argv[])
 				if (is_query){
 					rc = knob->get(obuf, 4096);
 					if (is_glob){
-						printf("%s=", knob->getName());
+						if (!strstr(obuf, knob->getName())){
+							printf("%s ", knob->getName());
+						}
 					}
 				}else{
 					rc = knob->set(obuf, 4096, args);
