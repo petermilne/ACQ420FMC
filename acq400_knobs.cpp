@@ -185,13 +185,16 @@ Knob* Knob::create(const char* _name, mode_t mode)
 	}
 }
 
-class Prompt: public Knob {
+class Prompt: public Knob
+/* singleton */
+{
 	static bool enabled;
 
-public:
 	Prompt(): Knob("prompt") {
 
 	}
+public:
+
 	char* getName() { return name; }
 
 	/* return >0 on success, <0 on fail */
@@ -210,11 +213,62 @@ public:
 
 	static void prompt();
 
+	static class Knob* create() {
+		static Knob* _instance;
+		if (!_instance){
+			return _instance = new Prompt;
+		}else{
+			_instance;
+		}
+	}
 };
+
 bool Prompt::enabled;
+
+
+
 
 vector<Knob*> KNOBS;
 typedef vector<Knob*>::iterator VKI;
+
+/*
+for file in $(ls -1)
+do
+        echo $file:
+        HTEXT="$(grep -m1 ^$file $HROOT/acq400_help* | cut -f2-)"
+        if [ $? -eq 0 ]; then
+                echo "  $HTEXT";
+        else
+                echo $file;
+        fi
+done
+*/
+
+#define HROOT "/usr/share/doc"
+
+class Help: public Knob {
+public:
+	Help() : Knob("help") {}
+	virtual int get(char* buf, int maxbuf) {
+		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+			printf("%s\n", (*it)->getName());
+		}
+		return 1;
+	}
+	virtual int set(char* buf, int maxbuf, const char* args) {
+		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+			char cmd[128];
+			char reply[128];
+			sprintf(cmd, "grep -m1 ^%s %s/acq400_help* | cut -f2 -",
+					(*it)->getName(), HROOT);
+			Pipe grep(cmd, "r");
+			if (fgets(reply, 128, grep.fp)){
+				printf("%s :\n\t%s", (*it)->getName(), reply);
+			}
+		}
+		return 1;
+	}
+};
 
 int filter(const struct dirent *dir)
 {
@@ -244,14 +298,11 @@ int do_scan()
 			}
 		}
 	}
-	KNOBS.push_back(new Prompt);
+	KNOBS.push_back(Prompt::create());
+	KNOBS.push_back(new Help);
 
 	free(namelist);
-/*
-	for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-		(*it)->print();
-	}
-*/
+
 	char newpath[1024];
 	snprintf(newpath, 1023, "%s:%s", get_current_dir_name(), getenv("PATH"));
 
