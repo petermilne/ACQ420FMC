@@ -185,6 +185,33 @@ Knob* Knob::create(const char* _name, mode_t mode)
 	}
 }
 
+class Prompt: public Knob {
+	static bool enabled;
+
+public:
+	Prompt(): Knob("prompt") {
+
+	}
+	char* getName() { return name; }
+
+	/* return >0 on success, <0 on fail */
+	virtual int set(char* buf, int maxbuf, const char* args) {
+		if (strcmp(args, "on") == 0){
+			enabled = 1;
+		}else if (strcmp(args, "off") == 0){
+			enabled = 0;
+		}
+		return 1;
+	}
+	virtual int get(char* buf, int maxbuf) {
+		return snprintf(buf, maxbuf, "%s", enabled? "on": "off");
+	}
+	virtual void print(void) { cprint("Knob"); }
+
+	static void prompt();
+
+};
+bool Prompt::enabled;
 
 vector<Knob*> KNOBS;
 typedef vector<Knob*>::iterator VKI;
@@ -217,6 +244,7 @@ int do_scan()
 			}
 		}
 	}
+	KNOBS.push_back(new Prompt);
 
 	free(namelist);
 /*
@@ -228,7 +256,6 @@ int do_scan()
 	snprintf(newpath, 1023, "%s:%s", get_current_dir_name(), getenv("PATH"));
 
 	setenv("PATH", newpath, 1);
-	printf("set PATH: %s\n", getenv("PATH"));
 }
 
 char* chomp(char *str) {
@@ -239,17 +266,19 @@ char* chomp(char *str) {
 	return str;
 }
 
-bool prompt_enabled;
 bool err;
-void prompt() {
-	if (prompt_enabled){
-		printf("acq400 %d >", err);
-		fflush(stdout);
+int site;
+
+
+
+void Prompt::prompt() {
+	if (enabled){
+		printf("acq400.%d %d >", site, err);
 	}else if (err){
 		;
 	}
+	fflush(stdout);
 }
-
 int match(const char* name, const char* key)
 {
 	if (strcmp(name, key) == 0){
@@ -261,14 +290,31 @@ int match(const char* name, const char* key)
 	}
 }
 
+void cli(int argc, char* argv[])
+{
+	char *dir;
+	char dbuf[128];
+
+	if (argc > 2){
+		dir = argv[2];
+	}else if (argc > 1){
+		site = atoi(argv[1]);
+		sprintf(dbuf, "/etc/acq400/%d", site);
+		dir = dbuf;
+	}else{
+		return;
+	}
+	chdir(dir);
+}
 int main(int argc, char* argv[])
 {
+	cli(argc, argv);
 	do_scan();
 	char* ibuf = new char[128];
 	char* obuf = new char[4096];
 
 
-	for (; fgets(ibuf, 128, stdin); prompt()){
+	for (; fgets(ibuf, 128, stdin); Prompt::prompt()){
 		char *args = 0;
 		int cursor;
 		char *key = 0;
@@ -296,6 +342,7 @@ int main(int argc, char* argv[])
 			err = false;
 			int rc;
 			bool is_glob = true;
+			obuf[0] = '\0';
 			switch(match(knob->getName(), key)){
 			case 0:
 				continue;
@@ -316,6 +363,7 @@ int main(int argc, char* argv[])
 				if (rc){
 					puts(chomp(obuf));
 				}
+
 				err = rc < 0;
 				found = true;
 			}
