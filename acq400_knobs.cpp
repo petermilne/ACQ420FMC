@@ -113,9 +113,9 @@ class NumericValidator : public Validator {
 public:
 	virtual bool isValid(char* buf, int maxbuf, const char* args) {
 		int tv;
-		if (sscanf(buf, "%d", &tv) != 1 ){
+		if (sscanf(args, "%d", &tv) != 1 ){
 			snprintf(buf, maxbuf,
-				"ERROR: NumericValidator %s not numeric", buf);
+				"ERROR: NumericValidator %s not numeric", args);
 			return false;
 		}else{
 			bool ok = tv >= rmin && tv <= rmax;
@@ -173,6 +173,16 @@ public:
 
 
 	static Knob* create(const char* _name, mode_t mode);
+
+	static int match(const char* name, const char* key) {
+		if (strcmp(name, key) == 0){
+			return 1;
+		}else if (fnmatch(key, name, 0) == 0){
+			return -1;
+		}else{
+			return 0;
+		}
+	}
 };
 
 class KnobRO : public Knob {
@@ -332,29 +342,47 @@ done
 #define HROOT "/usr/share/doc"
 
 class Help: public Knob {
+
+protected:
+	virtual int query(Knob* knob){
+		printf("%s\n", knob->getName());
+		return 1;
+	}
 public:
 	Help() : Knob("help") {}
+	Help(const char* _key) : Knob(_key) {}
 	virtual int get(char* buf, int maxbuf) {
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-			printf("%s\n", (*it)->getName());
+			query(*it);
 		}
 		return 1;
 	}
 	virtual int set(char* buf, int maxbuf, const char* args) {
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-			char cmd[128];
-			char reply[128];
-			sprintf(cmd, "grep -m1 ^%s %s/acq400_help* | cut -f2 -",
-					(*it)->getName(), HROOT);
-			Pipe grep(cmd, "r");
-			if (fgets(reply, 128, grep.fp)){
-				printf("%s :\n\t%s", (*it)->getName(), reply);
+			if (Knob::match((*it)->getName(), args)){
+				query(*it);
 			}
 		}
 		return 1;
 	}
 };
 
+class Help2: public Help {
+protected:
+	virtual int query(Knob* knob){
+		char cmd[128];
+		char reply[128];
+		sprintf(cmd, "grep -m1 ^%s %s/acq400_help* | cut -f2 -",
+					knob->getName(), HROOT);
+		Pipe grep(cmd, "r");
+		if (fgets(reply, 128, grep.fp)){
+			printf("%s :\n\t%s", knob->getName(), reply);
+		}
+		return 1;
+	}
+public:
+	Help2() : Help("help2") {}
+};
 int filter(const struct dirent *dir)
 {
         return fnmatch(pattern, dir->d_name, 0);
@@ -385,6 +413,7 @@ int do_scan()
 	}
 	KNOBS.push_back(Prompt::create());
 	KNOBS.push_back(new Help);
+	KNOBS.push_back(new Help2);
 
 	free(namelist);
 
@@ -415,16 +444,7 @@ void Prompt::prompt() {
 	}
 	fflush(stdout);
 }
-int match(const char* name, const char* key)
-{
-	if (strcmp(name, key) == 0){
-		return 1;
-	}else if (fnmatch(key, name, 0) == 0){
-		return -1;
-	}else{
-		return 0;
-	}
-}
+
 
 void cli(int argc, char* argv[])
 {
@@ -479,7 +499,7 @@ int main(int argc, char* argv[])
 			int rc;
 			bool is_glob = true;
 			obuf[0] = '\0';
-			switch(match(knob->getName(), key)){
+			switch(Knob::match(knob->getName(), key)){
 			case 0:
 				continue;
 			case 1:
