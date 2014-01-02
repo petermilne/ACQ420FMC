@@ -79,22 +79,89 @@ public:
 		}
 	}
 };
+
+class Validator {
+public:
+	virtual ~Validator() {}
+	virtual bool isValid(char* buf, int maxbuf, const char* args) = 0;
+};
+
+class NullValidator : public Validator
+/* singleton */
+{
+	NullValidator() {}
+public:
+	virtual bool isValid(char* buf, int maxbuf, const char* args) {
+		return true;
+	}
+
+	static Validator* instance() {
+		static Validator* _instance;
+		if (!_instance){
+			return _instance = new NullValidator;
+		}else{
+			return _instance;
+		}
+	}
+};
+
+class NumericValidator : public Validator {
+	int rmin, rmax;
+	NumericValidator(int _rmin, int _rmax) : rmin(_rmin), rmax(_rmax) {
+
+	}
+public:
+	virtual bool isValid(char* buf, int maxbuf, const char* args) {
+		int tv;
+		if (sscanf(buf, "%d", &tv) != 1 ){
+			snprintf(buf, maxbuf,
+				"ERROR: NumericValidator %s not numeric", buf);
+			return false;
+		}else{
+			bool ok = tv >= rmin && tv <= rmax;
+			if (!ok){
+				snprintf(buf, maxbuf,
+				"ERROR: NumericValidator %d not in range %d,%d",
+					tv, rmin, rmax);
+			}
+			return ok;
+		}
+	}
+
+	static Validator* create(const char* def){
+		const char* ndef;
+		if (ndef = strstr(def, "numeric=")){
+			int _rmin, _rmax;
+			if (sscanf(ndef, "numeric=%d,%d", &_rmin, &_rmax) == 2){
+				return new NumericValidator(_rmin, _rmax);
+			}
+		}
+
+		return 0;
+	}
+};
 class Knob {
 
 protected:
 	Knob(const char* _name) {
 		name = new char[strlen(_name)+1];
 		strcpy(name, _name);
+		validator = NullValidator::instance();
 	}
 	char* name;
+	Validator *validator;
 
 	void cprint(const char* ktype) {
 		printf("%8s %s\n", ktype, name);
+	}
+	bool isValid(char* buf, int maxbuf, const char* args){
+		return validator->isValid(buf, maxbuf, args);
 	}
 public:
 	virtual ~Knob() {
 		delete [] name;
 	}
+
 
 
 	char* getName() { return name; }
@@ -132,6 +199,9 @@ public:
 	}
 
 	virtual int set(char* buf, int maxbuf, const char* args) {
+		if (!isValid(buf, maxbuf, args)){
+			return -1;
+		}
 		File knob(name, "w");
 		if (knob.fp == NULL){
 			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
@@ -142,11 +212,15 @@ public:
 	virtual void print(void) { cprint ("KnobRW"); }
 };
 
+
 class KnobX : public Knob {
 public:
 	KnobX(const char* _name) : Knob(_name) {}
 
 	virtual int set(char* buf, int maxbuf, const char* args) {
+		if (!isValid(buf, maxbuf, args)){
+			return -1;
+		}
 		char cmd[128];
 		snprintf(cmd, 128, "%s %s", name, args);
 		Pipe knob(cmd, "r");
@@ -179,7 +253,18 @@ Knob* Knob::create(const char* _name, mode_t mode)
 	if (HASX(mode)){
 		return new KnobX(_name);
 	}else if (HASW(mode)){
-		return new KnobRW(_name);
+		Knob* knob = new KnobRW(_name);
+		char cmd[128];
+		char reply[128];
+		sprintf(cmd, "grep %s /usr/share/doc/numerics", _name);
+		Pipe pn(cmd, "r");
+		if (fgets(reply, 128, pn.fp)){
+			Validator* v = NumericValidator::create(reply);
+			if (v){
+				knob->validator = v;
+			}
+		}
+		return knob;
 	}else{
 		return new KnobRO(_name);
 	}
