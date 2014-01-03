@@ -18,14 +18,14 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-
+#define DEBUG
 
 #include "acq400.h"
 #include "hbm.h"
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>
-#define REVID "2.205"
+#define REVID "2.301"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -82,12 +82,6 @@ MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 int maxdma = MAXDMA;
 module_param(maxdma, int, 0644);
 MODULE_PARM_DESC(maxdma, "set maximum DMA len bytes");
-
-
-int dma_override_len;
-module_param(dma_override_len, int, 0644);
-MODULE_PARM_DESC(dma_override_len, "DEBUG ONLY: force fixed DMA len");
-
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -529,10 +523,6 @@ int cpsc_dma_memcpy(struct acq400_dev* adev, struct HBM* dest, u32 src, size_t l
 		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 				adev, adev->pdev->dev.id);
 		return -1;
-	}
-	if (dma_override_len){
-		dev_warn(DEVP(adev), "DEBUG ONLY: dma_override_len set %d", dma_override_len);
-		len = dma_override_len;
 	}
 	dev_dbg(DEVP(adev), "chan:%d destpa:0x%08x srcpa:0x%08x len:%d",
 			adev->dma_chan->chan_id, dest->pa, src, len);
@@ -1303,6 +1293,31 @@ static irqreturn_t fire_dma(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	u32 status = acq420_get_fifo_samples(adev);
+	int headroom = min(getHeadroom(adev), maxdma);
+	struct HBM _cursor;
+
+	_cursor = *adev->cursor.hb;
+	_cursor.pa += adev->cursor.offset;
+	cpsc_dma_memcpy(adev, &_cursor, FIFO_PA(adev), headroom);
+	add_fifo_histo(adev, status);
+
+	status = acq420_get_fifo_samples(adev);
+	if (acq420_isFifoError(adev)){
+		adev->rt.refill_error = 1;
+		goto stop_exit;
+	}
+	adev->cursor.offset += headroom;
+	acq420_enable_interrupt(adev);
+
+stop_exit:
+	wake_up_interruptible(&adev->refill_ready);
+	wake_up_interruptible(&adev->hb0_marker);
+	return IRQ_HANDLED;
+}
+/* static irqreturn_t fire_dma(int irq, void *dev_id)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	u32 status = acq420_get_fifo_samples(adev);
 
 	do {
 		int headroom = min(getHeadroom(adev), maxdma);
@@ -1347,7 +1362,7 @@ stop_exit:
 	wake_up_interruptible(&adev->hb0_marker);
 	return IRQ_HANDLED;
 }
-
+*/
 static irqreturn_t acq400_int_handler(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
