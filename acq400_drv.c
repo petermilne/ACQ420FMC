@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.326"
+#define REVID "2.342"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -88,7 +88,7 @@ MODULE_PARM_DESC(maxdma, "set maximum DMA len bytes");
 #define MAXDEVICES 6
 struct acq400_dev* acq400_devices[MAXDEVICES];
 
-#define DMA_NS_MAX	40
+#define DMA_NS_MAX     40
 int dma_ns_lines[DMA_NS_MAX];
 int dma_ns[DMA_NS_MAX];
 int dma_ns_num = DMA_NS_MAX;
@@ -437,8 +437,17 @@ void timer_test(void)
 #define DMA_NS_TEST
 #endif
 
+
+void acq400_dma_callback(void *param)
+{
+	struct acq400_dev* adev = (struct acq400_dev*)param;
+	adev->dma_callback_done++;
+	wake_up_interruptible(&adev->DMA_READY);
+}
+
 dma_cookie_t
 dma_async_memcpy_pa_to_buf(
+		struct acq400_dev* adev,
 		struct dma_chan *chan, struct HBM *dest,
 		dma_addr_t dma_src, size_t len, unsigned long flags)
 {
@@ -458,7 +467,8 @@ dma_async_memcpy_pa_to_buf(
 		return -ENOMEM;
 	} else{
 		dma_cookie_t cookie;
-		tx->callback = NULL;
+		tx->callback = acq400_dma_callback;
+		tx->callback_param = adev;
 		cookie = tx->tx_submit(tx);
 		dev_dbg(dev->dev, "submit(%d) done %x", chan->chan_id, cookie);
 		DMA_NS;
@@ -532,7 +542,7 @@ int cpsc_dma_memcpy(struct acq400_dev* adev, struct HBM* dest, u32 src, size_t l
 	dev_dbg(DEVP(adev), "chan:%d destpa:0x%08x srcpa:0x%08x len:%d",
 			adev->dma_chan[0]->chan_id, dest->pa, src, len);
 
-	cookie = dma_async_memcpy_pa_to_buf(adev->dma_chan[0], dest, src, len, 0);
+	cookie = dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[0], dest, src, len, 0);
 	dma_sync_wait(adev->dma_chan[0], cookie);
 	DMA_NS;
 	return len;
@@ -1131,18 +1141,6 @@ static void acq400_fault_callback(unsigned int channel,
         wake_up_interruptible(&adev->waitq);
 }
 
-static void acq400_done_callback(unsigned int channel, void *data)
-{
-        struct acq400_dev *dev = data;
-
-	   // printk("DMA Done!");
-
-        dev->stats.bytes_written += dev->count;
-        dev->busy = 0;
-
-        wake_up_interruptible(&dev->waitq);
-}
-
 ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
@@ -1310,7 +1308,7 @@ void go_rt(void)
 	sched_setscheduler(task, SCHED_FIFO, &param);
 }
 
-
+#define TIMEOUT 10000
 
 int ai_data_loop(void *data)
 {
@@ -1320,10 +1318,10 @@ int ai_data_loop(void *data)
 	int nloop = 0;
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
-	dma_async_memcpy_pa_to_buf(adev->dma_chan[chan], hbm, \
+	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
 			FIFO_PA(adev), hbm->len, flags[chan])
 #define DMA_ASYNC_MEMCPY_NWFE(adev, chan, hbm) \
-	dma_async_memcpy_pa_to_buf(adev->dma_chan[chan], hbm, \
+	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
 			FIFO_PA(adev), hbm->len, 0)
 
 
@@ -1353,6 +1351,16 @@ int ai_data_loop(void *data)
 			dev_dbg(DEVP(adev), "wait for chan %d %p %d\n", ic,
 				adev->dma_chan[ic], adev->dma_cookies[ic]);
 
+			if (wait_event_interruptible_timeout(
+					adev->DMA_READY,
+					adev->dma_callback_done || kthread_should_stop(),
+					TIMEOUT) <= 0){
+				goto quit;
+			}
+			--adev->dma_callback_done;
+			if (kthread_should_stop()){
+				goto quit;
+			}
 			while(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
 				dev_err(DEVP(adev), "dma_sync_wait nloop:%d chan:%d timeout but keeping going", nloop, ic);
 					//break;
@@ -1381,6 +1389,7 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	volatile u32 status = acq420_get_interrupt(adev);
 
+	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
 	acq420_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
@@ -1503,6 +1512,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
                 return NULL;
         }
         init_waitqueue_head(&adev->waitq);
+        init_waitqueue_head(&adev->DMA_READY);
         init_waitqueue_head(&adev->refill_ready);
         init_waitqueue_head(&adev->hb0_marker);
 

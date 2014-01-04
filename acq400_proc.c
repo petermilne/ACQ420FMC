@@ -266,27 +266,10 @@ static struct file_operations acq400_proc_ops_stats = {
 };
 
 
-static int dma0_proc_read(
-	char *buf, char **start, off_t offset, int len, int* eof, void* data )
-{
-#ifdef PGMCOMOUT
-	unsigned nbytes;
-	char *prog = get_pl330_dma_program(0, &nbytes);
 
-	if (prog != NULL && nbytes > 0){
-		memcpy(buf, prog, nbytes);
-		return nbytes;
-	}else{
-		return -1;
-	}
-#else
-	return -1;
-#endif
-}
 void acq400_init_proc(struct acq400_dev* acq400_dev)
 /* create unique stats entry under /proc/acq420/ */
 {
-	struct proc_dir_entry *proc_entry;
 	acq400_dev->proc_entry = proc_mkdir(
 		acq400_names[acq400_dev->of_prams.site], acq400_proc_root);
 
@@ -297,9 +280,6 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	proc_create("REFILLS", 0, acq400_dev->proc_entry, &acq400_proc_ops_REFILLS);
 	proc_create("OPENS", 0, acq400_dev->proc_entry, &acq400_proc_ops_OPENS);
 	proc_create("stats", 0, acq400_dev->proc_entry, &acq400_proc_ops_stats);
-/** @todo
-	create_proc_read_entry("dmac0", 0, acq400_dev->proc_entry, dma0_proc_read, 0);
-*/
 }
 
 void acq400_del_proc(struct acq400_dev* adev)

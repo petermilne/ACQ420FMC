@@ -242,7 +242,8 @@ struct acq400_dev {
 		u32 irq;
 	} of_prams;
 
-	u32 DMA_READY;
+	wait_queue_head_t DMA_READY;
+	int dma_callback_done;
 
 	struct dma_chan* dma_chan[2];
 	int dma_cookies[2];
