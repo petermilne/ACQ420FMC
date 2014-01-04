@@ -32,7 +32,9 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1004"
+#define REVID	"1106"
+
+#define PGM_EVENT0	8
 
 int channel_starts_wfp[8];
 int channel_num = 8;
@@ -295,7 +297,6 @@ static unsigned cmd_line;
 #define PL330_DBGMC_START(addr)		do {} while (0)
 #endif
 
-#define PGM_DEBUG(fmt, x...) printk(KERN_DEBUG fmt, x)
 
 /* The number of default descriptors */
 
@@ -345,6 +346,8 @@ struct pl330_info {
  * The Client may want to provide this info only for the
  * first request and a request with new settings.
  */
+
+
 struct pl330_reqcfg {
 	/* Address Incrementing */
 	unsigned dst_inc:1;
@@ -364,6 +367,9 @@ struct pl330_reqcfg {
 	enum pl330_srccachectrl scctl;
 	enum pl330_byteswap swap;
 	struct pl330_config *pcfg;
+
+	/* @pgm wait ev */
+	unsigned wait_ev;
 };
 
 /*
@@ -407,6 +413,7 @@ struct pl330_req {
 	struct pl330_xfer *x;
 	/* Hook to attach to DMAC's list of reqs with due callback */
 	struct list_head rqd;
+
 };
 
 /*
@@ -1223,6 +1230,8 @@ static bool _trigger(struct pl330_thread *thrd)
 
 	/* Set to generate interrupts for SEV */
 	writel(readl(regs + INTEN) | (1 << thrd->ev), regs + INTEN);
+	dev_info(thrd->dmac->pinfo->dev, "INTEN: %08x ES: %08x\n",
+			readl(regs + INTEN), readl(regs + ES));
 
 	/* Only manager can execute GO */
 	_execute_DBGINSN(thrd, insn, true);
@@ -1365,9 +1374,6 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 		cyc = 1;
 	}
 
-	PGM_DEBUG("_loop: *bursts:%lu lcnt1:%u lcnt0:%u\n",
-			*bursts, lcnt1, lcnt0);
-
 	szlp = _emit_LP(1, buf, 0, 0);
 	szbrst = _bursts(1, buf, pxs, 1);
 
@@ -1468,6 +1474,16 @@ static inline int _setup_xfer(unsigned dry_run, u8 buf[],
 	/* DMAMOV DAR, x->dst_addr */
 	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
 
+	/* @@pgm .. wait  for the other thread's EV */
+	switch(pxs->r->cfg->wait_ev){
+	case DMA_WAIT_EV0:
+		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0, 0);
+		break;
+	case DMA_WAIT_EV1:
+		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0+1, 0);
+		break;
+	}
+
 	/* Setup Loop(s) */
 	off += _setup_loops(dry_run, &buf[off], pxs);
 
@@ -1512,6 +1528,9 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 		x = x->next;
 	} while (x);
 
+	if (channel_starts_wfp[thrd->id]){
+		off += _emit_SEV(dry_run, &buf[off], PGM_EVENT0+thrd->id);
+	}
 	/* DMASEV peripheral/event */
 	off += _emit_SEV(dry_run, &buf[off], thrd->ev);
 	/* DMAEND */
@@ -1784,7 +1803,11 @@ static int pl330_update(const struct pl330_info *pi)
 		goto updt_exit;
 	}
 
-	for (ev = 0; ev < pi->pcfg.num_events; ev++) {
+	/* Jassi assumes that where there's an event, there's a thread
+	 * ain't necessarily so. Let's make it that threads=irqs, ignore rest
+	 */
+	//for (ev = 0; ev < pi->pcfg.num_events; ev++) {
+	for (ev = 0; ev < pi->pcfg.num_chan; ev++) {
 		if (val & (1 << ev)) { /* Event occurred */
 			struct pl330_thread *thrd;
 			u32 inten = readl(regs + INTEN);
@@ -2833,9 +2856,10 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	if (!desc)
 		return NULL;
 
-
+	/* @@pgm .. secret sauce */
 	desc->rqcfg.src_inc = (flags&DMA_SRC_NO_INCR)? 0: 1;
 	desc->rqcfg.dst_inc = (flags&DMA_DST_NO_INCR)? 0: 1;
+	desc->rqcfg.wait_ev = flags&(DMA_WAIT_EV0|DMA_WAIT_EV1);
 	desc->req.rqtype = MEMTOMEM;
 
 	/* Select max possible burst size */
@@ -3075,6 +3099,8 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 		pi->pcfg.data_bus_width / 8, pi->pcfg.num_chan,
 		pi->pcfg.num_peri, pi->pcfg.num_events);
 
+	dev_info(&adev->dev, "pgm: INTEN at %p set 0x%08x\n",
+			pi->base+INTEN, readl(pi->base+INTEN));
 	return 0;
 probe_err3:
 	amba_set_drvdata(adev, NULL);

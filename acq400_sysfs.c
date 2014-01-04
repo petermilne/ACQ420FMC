@@ -1223,46 +1223,6 @@ SCOUNT_KNOB(SYN_S4,     ACQ2006_SYN_COUNT(SITE2DX(4)));
 SCOUNT_KNOB(SYN_S5,     ACQ2006_SYN_COUNT(SITE2DX(5)));
 SCOUNT_KNOB(SYN_S6,     ACQ2006_SYN_COUNT(SITE2DX(6)));
 
-static const struct attribute *acq2006sc_attrs[] = {
-	&dev_attr_scount_CLK_EXT.attr,
-	&dev_attr_scount_CLK_MB.attr,
-	&dev_attr_scount_CLK_S1.attr,
-	&dev_attr_scount_CLK_S2.attr,
-	&dev_attr_scount_CLK_S3.attr,
-	&dev_attr_scount_CLK_S4.attr,
-	&dev_attr_scount_CLK_S5.attr,
-	&dev_attr_scount_CLK_S6.attr,
-
-	&dev_attr_scount_TRG_EXT.attr,
-	&dev_attr_scount_TRG_MB.attr,
-	&dev_attr_scount_TRG_S1.attr,
-	&dev_attr_scount_TRG_S2.attr,
-	&dev_attr_scount_TRG_S3.attr,
-	&dev_attr_scount_TRG_S4.attr,
-	&dev_attr_scount_TRG_S5.attr,
-	&dev_attr_scount_TRG_S6.attr,
-
-	&dev_attr_scount_EVT_EXT.attr,
-	&dev_attr_scount_EVT_MB.attr,
-	&dev_attr_scount_EVT_S1.attr,
-	&dev_attr_scount_EVT_S2.attr,
-	&dev_attr_scount_EVT_S3.attr,
-	&dev_attr_scount_EVT_S4.attr,
-	&dev_attr_scount_EVT_S5.attr,
-	&dev_attr_scount_EVT_S6.attr,
-
-	&dev_attr_scount_SYN_EXT.attr,
-	&dev_attr_scount_SYN_MB.attr,
-	&dev_attr_scount_SYN_S1.attr,
-	&dev_attr_scount_SYN_S2.attr,
-	&dev_attr_scount_SYN_S3.attr,
-	&dev_attr_scount_SYN_S4.attr,
-	&dev_attr_scount_SYN_S5.attr,
-	&dev_attr_scount_SYN_S6.attr,
-	NULL
-};
-
-
 static ssize_t show_acq0000_mod_con(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1321,7 +1281,104 @@ MODCON_KNOB(mod_en, 	ACQ1001_MOD_CON_MOD_EN);
 MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
 MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
 
+static ssize_t show_data_engine(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const unsigned EE)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 engine = acq400rd32(adev, DATA_ENGINE(EE));
+
+	return sprintf(buf, "0x%08x\n", engine);
+}
+
+static ssize_t store_data_engine(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const unsigned EE)
+{
+	unsigned engine;
+	if (sscanf(buf, "%x", &engine) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+		acq400wr32(adev, DATA_ENGINE(EE), engine);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define DATA_ENGINE_KNOB(name)						\
+static ssize_t show_data_engine_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_data_engine(dev, attr, buf, name);			\
+}									\
+static ssize_t store_data_engine_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_data_engine(dev, attr, buf, count,  name);		\
+}									\
+static DEVICE_ATTR(data_engine_##name, 					\
+	S_IRUGO|S_IWUGO, show_data_engine_##name, store_data_engine_##name)
+
+DATA_ENGINE_KNOB(0);
+
+static const struct attribute *acq2006sc_attrs[] = {
+	&dev_attr_data_engine_0.attr,
+	&dev_attr_mod_en.attr,
+	&dev_attr_psu_sync.attr,
+
+	&dev_attr_scount_CLK_EXT.attr,
+	&dev_attr_scount_CLK_MB.attr,
+	&dev_attr_scount_CLK_S1.attr,
+	&dev_attr_scount_CLK_S2.attr,
+	&dev_attr_scount_CLK_S3.attr,
+	&dev_attr_scount_CLK_S4.attr,
+	&dev_attr_scount_CLK_S5.attr,
+	&dev_attr_scount_CLK_S6.attr,
+
+	&dev_attr_scount_TRG_EXT.attr,
+	&dev_attr_scount_TRG_MB.attr,
+	&dev_attr_scount_TRG_S1.attr,
+	&dev_attr_scount_TRG_S2.attr,
+	&dev_attr_scount_TRG_S3.attr,
+	&dev_attr_scount_TRG_S4.attr,
+	&dev_attr_scount_TRG_S5.attr,
+	&dev_attr_scount_TRG_S6.attr,
+
+	&dev_attr_scount_EVT_EXT.attr,
+	&dev_attr_scount_EVT_MB.attr,
+	&dev_attr_scount_EVT_S1.attr,
+	&dev_attr_scount_EVT_S2.attr,
+	&dev_attr_scount_EVT_S3.attr,
+	&dev_attr_scount_EVT_S4.attr,
+	&dev_attr_scount_EVT_S5.attr,
+	&dev_attr_scount_EVT_S6.attr,
+
+	&dev_attr_scount_SYN_EXT.attr,
+	&dev_attr_scount_SYN_MB.attr,
+	&dev_attr_scount_SYN_S1.attr,
+	&dev_attr_scount_SYN_S2.attr,
+	&dev_attr_scount_SYN_S3.attr,
+	&dev_attr_scount_SYN_S4.attr,
+	&dev_attr_scount_SYN_S5.attr,
+	&dev_attr_scount_SYN_S6.attr,
+	NULL
+};
+
+
+
+
 static const struct attribute *acq1001sc_attrs[] = {
+	&dev_attr_data_engine_0.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_fan.attr,

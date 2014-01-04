@@ -62,7 +62,6 @@ u32* va_base;
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
 #define MAXSTACK 4
-#define CPS_MEMORY_SIZE	0x200
 
 static struct dentry *dstack[MAXSTACK];
 static int istack;
@@ -150,8 +149,8 @@ static int __init pl330_fs_init(void)
 	dev_info(0, REVID);
 
 	pl330_fs_regs_info.pwrite =
-			pl330_fs_regs_info.pread  =
-			pl330_fs_regs_info.pcache = ioremap(0xF8003000, 0x1000);
+	pl330_fs_regs_info.pread  =
+	pl330_fs_regs_info.pcache = ioremap(0xF8003000, 0x1000);
 
 
 	dstack[istack = 0] = top = debugfs_create_dir("pl330", NULL);

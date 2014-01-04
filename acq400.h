@@ -8,7 +8,14 @@
 #ifndef ACQ420FMC_H_
 #define ACQ420FMC_H_
 
+#include <asm/uaccess.h>
+#include <asm/sizes.h>
+
+
+#include <linux/dmaengine.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/sched/rt.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -27,14 +34,16 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
-#include <asm/uaccess.h>
-#include <asm/sizes.h>
-#include <asm/dma.h>
-#include <asm/mach/dma.h>
-#include <asm/io.h>
+
+#include <linux/debugfs.h>
+#include <linux/poll.h>
 //#include <mach/pl330.h>
 #include <linux/amba/pl330.h>
 #include <linux/of.h>
+
+#include <asm/dma.h>
+#include <asm/mach/dma.h>
+#include <asm/io.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */
 #define AXI_FIFO              0x1000
@@ -235,7 +244,12 @@ struct acq400_dev {
 
 	u32 DMA_READY;
 
-	struct dma_chan* dma_chan;
+	struct dma_chan* dma_chan[2];
+	int dma_cookies[2];
+	struct task_struct* w_task;
+	wait_queue_head_t w_waitq;
+	int task_active;
+
 
 	/* Current DMA buffer information */
 	/*dma_addr_t buffer_d_addr;
@@ -277,6 +291,7 @@ struct acq400_dev {
 
 	struct mutex list_mutex;
 	struct list_head EMPTIES;	/* empties waiting isr       */
+	struct list_head INFLIGHT;	/* buffers in Q 	     */
 	struct list_head REFILLS;	/* full buffers waiting app  */
 	struct list_head OPENS;		/* buffers in use by app (1) */
 	struct HBM** hb;
@@ -395,6 +410,8 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define DATA_ENGINE_1		(0x0014)
 #define DATA_ENGINE_2		(0x0018)
 #define DATA_ENGINE_3		(0x001c)
+
+#define DATA_ENGINE(e)		(0x0010+((e)*4))
 
 #define ACQ1001_MOD_CON_MOD_EN		(1<<0)
 #define ACQ1001_MOD_CON_PSU_SYNC 	(1<<1)
