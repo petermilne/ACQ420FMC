@@ -1804,7 +1804,7 @@ static int pl330_update(const struct pl330_info *pi)
 	}
 
 	/* Jassi assumes that where there's an event, there's a thread
-	 * ain't necessarily so. Let's make it that threads=irqs, ignore rest
+	 * ain't necessarily so. Let's make it that threads==irqs, ignore rest
 	 */
 	//for (ev = 0; ev < pi->pcfg.num_events; ev++) {
 	for (ev = 0; ev < pi->pcfg.num_chan; ev++) {

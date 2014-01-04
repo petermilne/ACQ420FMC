@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.325"
+#define REVID "2.326"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -610,23 +610,6 @@ void putEmpty(struct acq400_dev* adev)
 	list_move_tail(&hbm->list, &adev->EMPTIES);
 	mutex_unlock(&adev->list_mutex);
 }
-int getHeadroom(struct acq400_dev* adev)
-{
-	if (!adev->oneshot){
-		if (adev->cursor.hb == 0){
-			if (getEmpty(adev)){
-				return 0;
-			}
-		} else if (adev->cursor.offset >= adev->cursor.hb->len){
-			putFull(adev);
-			if (getEmpty(adev)){
-				return 0;
-			}
-		}
-	}
-	return adev->cursor.hb->len - adev->cursor.offset;
-}
-
 
 
 /* File operations */
@@ -1331,6 +1314,7 @@ void go_rt(void)
 
 int ai_data_loop(void *data)
 {
+	struct acq400_dev *adev = (struct acq400_dev *)data;
 	/* wait for event from OTHER channel */
 	unsigned flags[2] = { DMA_WAIT_EV1, DMA_WAIT_EV0 };
 	int nloop = 0;
@@ -1342,7 +1326,7 @@ int ai_data_loop(void *data)
 	dma_async_memcpy_pa_to_buf(adev->dma_chan[chan], hbm, \
 			FIFO_PA(adev), hbm->len, 0)
 
-	struct acq400_dev *adev = (struct acq400_dev *)data;
+
 	struct HBM* hbm0 = getEmpty(adev);
 	struct HBM* hbm1 = getEmpty(adev);
 
@@ -1365,6 +1349,7 @@ int ai_data_loop(void *data)
 	for(; !kthread_should_stop(); ++nloop){
 		int ic;
 		for (ic = 0; ic < 2 && !kthread_should_stop(); ++ic){
+			struct HBM* hbm;
 			dev_dbg(DEVP(adev), "wait for chan %d %p %d\n", ic,
 				adev->dma_chan[ic], adev->dma_cookies[ic]);
 
@@ -1378,7 +1363,8 @@ int ai_data_loop(void *data)
 			dev_dbg(DEVP(adev), "SUCCESS: SYNC %d done\n", ic);
 
 			putFull(adev);
-			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, getEmpty(adev));
+			hbm = getEmpty(adev);
+			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, hbm);
 			dma_async_issue_pending(adev->dma_chan[ic]);
 			acq420_enable_interrupt(adev);
 		}
