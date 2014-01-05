@@ -32,7 +32,7 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1107"
+#define REVID	"1111"
 
 #define PGM_EVENT0	8
 
@@ -1539,6 +1539,7 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 	return off;
 }
 
+#define AXI_BS_SZ	2 	/* 64 bit bus: 1<<2 = 4bytes wide */
 static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 {
 	u32 ccr = 0;
@@ -1557,14 +1558,29 @@ static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 	if (rqc->insnaccess)
 		ccr |= CC_SRCIA | CC_DSTIA;
 
-	ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
-	ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
-
-	/** @@todo hack by PGM: no src_inc:: peripheral, make it 4 bytes */
-	if (rqc->src_inc == 0 || rqc->dst_inc == 0){
-		ccr |= (2 << CC_SRCBRSTSIZE_SHFT);
-		ccr |= (2 << CC_DSTBRSTSIZE_SHFT);
+	/** @@pgm todo hack by PGM: no xxx_inc::
+	 * peripheral, make it 4 bytes
+	 * but the partner is MEMORY, make it a short fat transfer
+	 * */
+	if (rqc->src_inc == 0){
+		ccr |= (AXI_BS_SZ << CC_SRCBRSTSIZE_SHFT);
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		ccr |= (rqc->brst_size << CC_DSTBRSTSIZE_SHFT);
+		if (rqc->brst_size > AXI_BS_SZ){
+			int dst_len = rqc->brst_len >> (rqc->brst_size-AXI_BS_SZ);
+			ccr |= (((dst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+		}
+	}else if (rqc->dst_inc == 0){
+		ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
+		if (rqc->brst_size > AXI_BS_SZ){
+			int src_len = rqc->brst_len >> (rqc->brst_size-AXI_BS_SZ);
+			ccr |= (((src_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		}
+		ccr |= (AXI_BS_SZ << CC_DSTBRSTSIZE_SHFT);
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
 	}else{
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
 		ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
 	}
 	ccr |= (rqc->scctl << CC_SRCCCTRL_SHFT);
@@ -2836,7 +2852,6 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 	return &desc->txd;
 }
 
-int pgm_prep_dma_memcpy_debug_count;
 
 static struct dma_async_tx_descriptor *
 pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
