@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.342"
+#define REVID "2.344"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -50,7 +50,7 @@ int adc_conv_time = ADC_CONV_TIME_1000;
 module_param(adc_conv_time, int, 0444);
 MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
 
-int nbuffers = 16;
+int nbuffers = 64;
 module_param(nbuffers, int, 0444);
 MODULE_PARM_DESC(nbuffers, "number of capture buffers");
 
@@ -1316,6 +1316,7 @@ int ai_data_loop(void *data)
 	/* wait for event from OTHER channel */
 	unsigned flags[2] = { DMA_WAIT_EV1, DMA_WAIT_EV0 };
 	int nloop = 0;
+	int ic;
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
 	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
@@ -1345,7 +1346,6 @@ int ai_data_loop(void *data)
 
 
 	for(; !kthread_should_stop(); ++nloop){
-		int ic;
 		for (ic = 0; ic < 2 && !kthread_should_stop(); ++ic){
 			struct HBM* hbm;
 			dev_dbg(DEVP(adev), "wait for chan %d %p %d\n", ic,
@@ -1378,6 +1378,11 @@ int ai_data_loop(void *data)
 		}
 	}
 quit:
+	for (ic = 0; ic < 2; ++ic){
+		struct dma_chan *chan = adev->dma_chan[ic];
+		chan->device->device_control(chan, DMA_TERMINATE_ALL, 0);
+	}
+
 	adev->task_active = 0;
 	return 0;
 #undef DMA_ASYNC_MEMCPY

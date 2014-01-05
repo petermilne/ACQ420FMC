@@ -36,11 +36,11 @@
 
 #define PGM_EVENT0	8
 
-int channel_starts_wfp[8];
+int channel_starts_wfp[8] = { 1, 1, };
 int channel_num = 8;
 module_param_array(channel_starts_wfp, int, &channel_num, 0644);
 
-int channel_ends_flushp[8];
+int channel_ends_flushp[8] = { 1, 1, };
 int channel_nump = 8;
 module_param_array(channel_ends_flushp, int, &channel_nump, 0644);
 

@@ -31,8 +31,8 @@
 
 static struct proc_dir_entry *acq400_proc_root;
 
-/* Driver /proc filesystem operations so that we can show some statistics */
-static void *acq400_proc_seq_start(struct seq_file *s, loff_t *pos)
+/* proc_seq_single: single call to show only ..  bad use of proc_seq..*/
+static void *acq400_proc_seq_single_start(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
                 return s->private;
@@ -41,7 +41,7 @@ static void *acq400_proc_seq_start(struct seq_file *s, loff_t *pos)
         return NULL;
 }
 
-static void *acq400_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
+static void *acq400_proc_seq_single_next(struct seq_file *s, void *v, loff_t *pos)
 {
         (*pos)++;
         return NULL;
@@ -80,6 +80,24 @@ static int acq400_proc_seq_show_dma(struct seq_file *s, void *v)
         return 0;
 }
 
+static int acq400_proc_seq_show_qstats(struct seq_file *s, void *v)
+{
+        struct acq400_dev *adev = v;
+        int stats[_BS_MAX] = {};
+        int ibuf;
+        int istat;
+
+        mutex_lock(&adev->list_mutex);
+        for (ibuf = 0; ibuf < adev->nbuffers; ++ibuf){
+        	stats[adev->hb[ibuf]->bstate]++;
+        }
+        mutex_unlock(&adev->list_mutex);
+
+        for(istat = 0; istat < _BS_MAX; ++istat){
+        	seq_printf(s, "%d%c", stats[istat], istat+1==_BS_MAX? '\n':',');
+        }
+        return 0;
+}
 static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
 {
         struct acq400_dev *adev = v;
@@ -106,10 +124,9 @@ static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 }
 static int acq400_proc_open_dmac(struct inode *inode, struct file *file)
 {
-	/* SEQ operations for /proc */
 	static struct seq_operations acq400_proc_seq_ops_dma = {
-	        .start = acq400_proc_seq_start,
-	        .next = acq400_proc_seq_next,
+	        .start = acq400_proc_seq_single_start,
+	        .next = acq400_proc_seq_single_next,
 	        .stop = acq400_proc_seq_stop,
 	        .show = acq400_proc_seq_show_dma
 	};
@@ -117,12 +134,22 @@ static int acq400_proc_open_dmac(struct inode *inode, struct file *file)
 	return intDevFromProcFile(file, &acq400_proc_seq_ops_dma);
 }
 
+static int acq400_proc_open_qstats(struct inode *inode, struct file *file)
+{
+	static struct seq_operations acq400_proc_seq_ops_qstats = {
+	        .start = acq400_proc_seq_single_start,
+	        .next = acq400_proc_seq_single_next,
+	        .stop = acq400_proc_seq_stop,
+	        .show = acq400_proc_seq_show_qstats
+	};
+
+	return intDevFromProcFile(file, &acq400_proc_seq_ops_qstats);
+}
 static int acq400_proc_open_stats(struct inode *inode, struct file *file)
 {
-	/* SEQ operations for /proc */
 	static struct seq_operations acq400_proc_seq_ops_dma = {
-	        .start = acq400_proc_seq_start,
-	        .next = acq400_proc_seq_next,
+	        .start = acq400_proc_seq_single_start,
+	        .next = acq400_proc_seq_single_next,
 	        .stop = acq400_proc_seq_stop,
 	        .show = acq400_proc_seq_show_stats
 	};
@@ -248,6 +275,15 @@ static struct file_operations acq400_proc_ops_dmac = {
         .release = seq_release
 };
 
+static struct file_operations acq400_proc_ops_qstats = {
+        .owner = THIS_MODULE,
+        .open = acq400_proc_open_qstats,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
+
+
 static struct file_operations acq400_proc_ops_buffers = {
         .owner = THIS_MODULE,
         .open = acq400_proc_open_buffers,
@@ -280,6 +316,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	proc_create("REFILLS", 0, acq400_dev->proc_entry, &acq400_proc_ops_REFILLS);
 	proc_create("OPENS", 0, acq400_dev->proc_entry, &acq400_proc_ops_OPENS);
 	proc_create("stats", 0, acq400_dev->proc_entry, &acq400_proc_ops_stats);
+	proc_create("Qstats", 0, acq400_dev->proc_entry, &acq400_proc_ops_qstats);
 }
 
 void acq400_del_proc(struct acq400_dev* adev)
