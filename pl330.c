@@ -32,7 +32,7 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1106"
+#define REVID	"1107"
 
 #define PGM_EVENT0	8
 
@@ -1230,7 +1230,7 @@ static bool _trigger(struct pl330_thread *thrd)
 
 	/* Set to generate interrupts for SEV */
 	writel(readl(regs + INTEN) | (1 << thrd->ev), regs + INTEN);
-	dev_info(thrd->dmac->pinfo->dev, "INTEN: %08x ES: %08x\n",
+	dev_dbg(thrd->dmac->pinfo->dev, "INTEN: %08x ES: %08x\n",
 			readl(regs + INTEN), readl(regs + ES));
 
 	/* Only manager can execute GO */
