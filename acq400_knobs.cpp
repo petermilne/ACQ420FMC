@@ -72,9 +72,16 @@ public:
 	Pipe(const char* name, const char* mode = "r") {
 		fp = popen(name, mode);
 	}
+	int close() {
+		int rc = 0;
+		if (fp) {
+			rc = pclose(fp);
+			fp = 0;
+		}
+		return rc;
+	}
 	virtual ~Pipe() {
-		int rc = pclose(fp);
-		if (rc == -1){
+		if (close() == -1){
 			perror("pclose");
 		}
 	}
@@ -224,6 +231,7 @@ public:
 
 
 class KnobX : public Knob {
+	int runcmd(const char* cmd, char* buf, int maxbuf);
 public:
 	KnobX(const char* _name) : Knob(_name) {}
 
@@ -233,27 +241,38 @@ public:
 		}
 		char cmd[128];
 		snprintf(cmd, 128, "%s %s", name, args);
-		Pipe knob(cmd, "r");
-		if (knob.fp == NULL) {
-			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
-		}else{
-			return fgets(buf, maxbuf, knob.fp) != NULL? 1:
-					-snprintf(buf, maxbuf, "ERROR");;
-		}
+		return runcmd(cmd, buf, maxbuf);
+
 	}
 	virtual int get(char* buf, int maxbuf) {
 		char cmd[128];
 		snprintf(cmd, 128, "%s ", name);		// @@todo no trailing space, no work
-		Pipe knob(cmd, "r");
-		if (knob.fp == NULL) {
-			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
-		}else{
-			return fgets(buf, maxbuf, knob.fp) != NULL? 1:
-					-snprintf(buf, maxbuf, "ERROR");
-		}
+		return runcmd(cmd, buf, maxbuf);
 	}
 	virtual void print(void) { cprint("KnobX"); }
 };
+
+int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
+	Pipe knob(cmd, "r");
+	if (knob.fp == NULL) {
+		return -snprintf(buf, maxbuf,
+				"ERROR: failed to open \"%s\"\n", name);
+	}
+	char* cursor;
+	for (char* cursor = buf;
+		(cursor = fgets(cursor, maxbuf-(cursor-buf), knob.fp)) != NULL;
+		cursor += strlen(cursor)){
+		;
+	}
+	if (knob.close() == -1){
+		return cursor-buf > 0? 1:
+			-snprintf(buf, maxbuf, "ERROR on close");
+	}
+	return 1;
+
+}
+
+
 
 #define HASX(mode) 	(((mode)&(S_IXUSR|S_IXGRP|S_IXOTH)) != 0)
 #define HASW(mode)	(((mode)&(S_IWUSR|S_IWGRP|S_IWOTH)) != 0)
