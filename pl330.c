@@ -32,7 +32,7 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1111"
+#define REVID	"1112"
 
 #define PGM_EVENT0	8
 
