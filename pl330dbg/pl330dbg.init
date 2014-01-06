@@ -1,0 +1,9 @@
+#!/bin/sh
+/sbin/insmod /usr/local/lib/modules/debugfs2.ko 
+/sbin/insmod /usr/local/lib/modules/pl330_fs.ko 
+cd $(dirname $0)
+./load-one-line-at-a-time
+daemon $PWD/pl330-monitor 
+
+
+

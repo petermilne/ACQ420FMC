@@ -9,7 +9,7 @@ cat - <<EOF
 EOF
 }
 
-cCrR 4 7 >/dev/shm/c4r7
+cCrR 4 8 >/dev/shm/c4r8
 
 grep -q pl330 /var/www/d-tacq/acq_main_page.html
 if [ $? -ne 0 ]; then
@@ -22,7 +22,7 @@ fi
 cd /sys/kernel/debug/pl330/
 
 ls4() {
-	(ls *$1; ls *$2; ls *$3; ls *$4) | grep -v DBGINST | grep -v 'CR[0-5]'
+	(ls *$1; ls *$2; ls *$3; ls *$4) | grep -v DBGINST | grep -v '^CR[0-5]'
 }
 
 lsR() {
@@ -36,8 +36,8 @@ lsR > /var/run/pl330c
 
 while [ 1 ]
 do
-	fs2xml </var/run/pl330a -s /dev/shm/c4r7 >/dev/shm/pl330a.xml
-	fs2xml </var/run/pl330b -s /dev/shm/c4r7 >/dev/shm/pl330b.xml
+	fs2xml </var/run/pl330a -s /dev/shm/c4r8 >/dev/shm/pl330a.xml
+	fs2xml </var/run/pl330b -s /dev/shm/c4r8 >/dev/shm/pl330b.xml
 	fs2xml </var/run/pl330c >/dev/shm/pl330c.xml
 	sleep 0.5
 done
