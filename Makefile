@@ -16,7 +16,7 @@ acq420fmc-objs := acq400_drv.o acq400_sysfs.o acq400_proc.o hbm.o zynq-timer.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
-APPS := mmap acq400_stream bigmac permute acq435_decode acq400_knobs
+APPS := mmap acq400_stream bigmac permute acq435_decode acq400_knobs udp_client
 
 all: modules apps
 	
@@ -49,7 +49,10 @@ clean:
 	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions mmap acq400_stream
 	
 mmap: mmap.o
-	$(CC) -o mmap mmap.o -L../lib -lpopt
+	$(CC) -o $@ $^ -L../lib -lpopt
+	
+udp_client: udp_client.o
+	$(CC) -o $@ $^ -L../lib -lpopt
 	
 acq400_stream: acq400_stream.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt

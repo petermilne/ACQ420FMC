@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.359"
+#define REVID "2.360"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -729,7 +729,8 @@ static bool filter_true(struct dma_chan *chan, void *param)
 }
 
 
-int get_dma_chan(struct acq400_dev *adev, int ic)
+
+static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
 	dma_cap_mask_t mask;
 
@@ -744,10 +745,6 @@ int get_dma_chan(struct acq400_dev *adev, int ic)
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
-static int _get_dma_chan(struct acq400_dev *adev, int ic)
-{
-	return get_dma_chan(adev, ic);
-}
 int get_dma_channels(struct acq400_dev *adev)
 {
 	if (IS_AO420(adev)){
@@ -1242,6 +1239,24 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+void ao420_getDMA(struct acq400_dev* adev)
+{
+	if (adev->dma_chan[0] == 0 &&
+			ao420_dma_threshold < AO420_MAX_FIFO_SAMPLES){
+		if (get_dma_channels(adev)){
+			dev_err(DEVP(adev), "no dma chan");
+			ao420_dma_threshold = AO420_MAX_FIFO_SAMPLES;
+		}else{
+			if (adev->dma_chan[0] == 0){
+				dev_err(DEVP(adev), "BAD DMA CHAN!");
+			}else{
+				dev_info(DEVP(adev),
+					"ao420_reset_playloop() channel %d",
+					adev->dma_chan[0]->chan_id);
+			}
+		}
+	}
+}
 void ao420_reset_playloop(struct acq400_dev* adev)
 {
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
@@ -1252,13 +1267,8 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
-		if (adev->dma_chan == 0 &&
-				ao420_dma_threshold < AO420_MAX_FIFO_SAMPLES){
-			if (get_dma_channels(adev)){
-				dev_err(DEVP(adev), "no dma chan");
-				ao420_dma_threshold = AO420_MAX_FIFO_SAMPLES;
-			}
-		}
+		ao420_getDMA(adev);
+
 		acq400_clear_histo(adev);
 		cr &= ~DAC_CTRL_LL;
 		adev->AO_playloop.cursor = 0;
