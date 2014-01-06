@@ -136,7 +136,6 @@ if [ $notloaded -ne 0 ]; then
 		/sbin/insmod $MOD
 	fi
 	
-	
 	if [ -f /mnt/local/acq420fmc.ko ]; then
 		MOD=/mnt/local/acq420fmc.ko
 		echo "WARNING using override driver $MOD"

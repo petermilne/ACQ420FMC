@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.344"
+#define REVID "2.359"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -274,28 +274,12 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 static void acq420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-/*
-	static int maxrep;
-
-	if (++maxrep < 10){
-		dev_info(DEVP(adev), "acq420_enable_interrupt() %p\n",
-				adev->dev_physaddr);
-	}
-*/
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
 static void ao420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-/*
-	static int maxrep;
-
-	if (++maxrep < 10){
-		dev_info(DEVP(adev), "ao420_enable_interrupt() %p\n",
-			adev->dev_physaddr);
-	}
-*/
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
 
@@ -367,9 +351,18 @@ void acq43X_onStart(struct acq400_dev *adev)
 
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, ADC_CTRL, ctrl);
+	if (acq420_get_fifo_samples(adev)){
+		dev_warn(DEVP(adev), "ERROR: reset fifo but it's not empty!");
+	}
+
+	adev->fifo_isr_done = 0;
+	acq420_enable_interrupt(adev);
 	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
 	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
 
+	/* next: valid Master, Standalone only. @@todo slave? */
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
+	acq400wr32(adev, ADC_CTRL, ctrl);
 }
 void acq420_onStart(struct acq400_dev *adev)
 {
@@ -378,6 +371,8 @@ void acq420_onStart(struct acq400_dev *adev)
 	acq420_reset_fifo(adev);
 	/** clear FIFO flags .. workaround hw bug */
 	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
+	adev->fifo_isr_done = 0;
+	acq420_enable_interrupt(adev);
 }
 static void acq400_getID(struct acq400_dev *adev)
 {
@@ -518,7 +513,7 @@ int dma_memcpy(
 	dma_cookie_t cookie;
 	DMA_NS_INIT;
 	DMA_NS;
-	if (adev->dma_chan == 0){
+	if (adev->dma_chan[0] == 0){
 		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 				adev, adev->pdev->dev.id);
 		return -1;
@@ -529,24 +524,6 @@ int dma_memcpy(
 	return len;
 }
 
-int cpsc_dma_memcpy(struct acq400_dev* adev, struct HBM* dest, u32 src, size_t len)
-{
-	dma_cookie_t cookie;
-	DMA_NS_INIT;
-	DMA_NS;
-	if (adev->dma_chan == 0){
-		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
-				adev, adev->pdev->dev.id);
-		return -1;
-	}
-	dev_dbg(DEVP(adev), "chan:%d destpa:0x%08x srcpa:0x%08x len:%d",
-			adev->dma_chan[0]->chan_id, dest->pa, src, len);
-
-	cookie = dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[0], dest, src, len, 0);
-	dma_sync_wait(adev->dma_chan[0], cookie);
-	DMA_NS;
-	return len;
-}
 
 struct HBM * getEmpty(struct acq400_dev* adev)
 {
@@ -752,7 +729,7 @@ static bool filter_true(struct dma_chan *chan, void *param)
 }
 
 
-int _get_dma_chan(struct acq400_dev *adev, int ic)
+int get_dma_chan(struct acq400_dev *adev, int ic)
 {
 	dma_cap_mask_t mask;
 
@@ -767,23 +744,33 @@ int _get_dma_chan(struct acq400_dev *adev, int ic)
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
-int get_dma_chan(struct acq400_dev *adev)
+static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
-	return _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
+	return get_dma_chan(adev, ic);
+}
+int get_dma_channels(struct acq400_dev *adev)
+{
+	if (IS_AO420(adev)){
+		return _get_dma_chan(adev, 0);
+	}else{
+		return _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
+	}
 }
 
-void _release_dma_chan(struct acq400_dev *adev, int ic)
+static void _release_dma_chan(struct acq400_dev *adev, int ic)
 {
 	if (adev->dma_chan[ic]){
 		dma_release_channel(adev->dma_chan[ic]);
 		adev->dma_chan[ic] = 0;
 	}
 }
-void release_dma_chan(struct acq400_dev *adev)
+void release_dma_channels(struct acq400_dev *adev)
 {
 	_release_dma_chan(adev, 0);
 	_release_dma_chan(adev, 1);
 }
+
+
 int acq420_continuous_start(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
@@ -796,56 +783,39 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		return -EINTR;
 	}
 
-	if (get_dma_chan(adev)){
+	if (get_dma_channels(adev)){
 		dev_err(DEVP(adev), "no dma chan");
 		return -EBUSY;
 	}
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 		adev, adev->pdev->dev.id, adev->dma_chan);
 
-
-
-
-#if 0
-	// @@todo .. attempt to recycle last buffer. BLOWS!
-	if (adev->cursor.hb){
-		mutex_lock(&adev->list_mutex);
-		dev_info(DEVP(adev), "recycle hb: %p\n", adev->cursor.hb);
-		dev_info(DEVP(adev), "recycle hb: [%d] va:%p pa:%08x\n",
-			adev->cursor.hb->ix, adev->cursor.hb->va, adev->cursor.hb->pa);
-		adev->cursor.hb->bstate = BS_EMPTY;
-		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
-		adev->cursor.hb = 0;
-		adev->cursor.offset = 0;
-		dev_info(DEVP(adev), "cleared cursor\n");
-		mutex_unlock(&adev->list_mutex);
-	}
-#endif
 	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq400_clear_histo(adev);
-	adev->w_task = kthread_run(ai_data_loop, adev, devname(adev));
+	adev->dma_callback_done = 0;
+	adev->fifo_isr_done = 0;
+
+	if (adev->w_task == 0){
+		adev->w_task = kthread_run(ai_data_loop, adev, devname(adev));
+	}else{
+		dev_warn(DEVP(adev),
+			"acq420_continuous_start() task already running ?\n");
+	}
+
 
 	while(!adev->task_active){
 		yield();
 	}
+	adev->busy = 1;
+	mutex_unlock(&adev->mutex);
 
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	if (IS_ACQ43X(adev)){
 		acq43X_onStart(adev);
 	} else {
 		acq420_onStart(adev);
-
 	}
-
-	adev->busy = 1;
-
-	/*Wait for FIFO to fill*/
-	acq420_enable_interrupt(adev);
-
-	/* Kick off the DMA */
-	mutex_unlock(&adev->mutex);
-
 	return 0;
 }
 
@@ -913,38 +883,55 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 
 	return nread;
 }
+
+void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
+{
+	struct HBM *cur;
+	struct HBM *tmp;
+	list_for_each_entry_safe(cur, tmp, elist, list){
+		cur->bstate = BS_EMPTY;
+		list_move_tail(&cur->list, &adev->EMPTIES);
+	}
+}
+
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long work_task_wait = 0;
 	//acq420_reset_fifo(adev);
 	acq420_disable_fifo(adev);
-	dev_info(DEVP(adev), "kthread_stop called\n");
-	kthread_stop(adev->w_task);
-
-	if (!list_empty(&adev->OPENS)){
-		putEmpty(adev);
+	dev_dbg(DEVP(adev), "acq420_continuous_stop() kthread_stop called\n");
+	if (adev->task_active && adev->w_task){
+		kthread_stop(adev->w_task);
 	}
-	mutex_lock(&adev->list_mutex);
-	{
-		struct HBM *cur;
-		struct HBM *tmp;
-		list_for_each_entry_safe(cur, tmp, &adev->REFILLS, list){
-			cur->bstate = BS_EMPTY;
-			list_move_tail(&cur->list, &adev->EMPTIES);
+	wake_up_interruptible(&adev->DMA_READY);
+	wake_up_interruptible(&adev->w_waitq);
+
+	while(adev->task_active){
+		work_task_wait = jiffies + msecs_to_jiffies(1000);
+		while (adev->task_active){
+			yield();
+			if (time_after_eq(jiffies, work_task_wait)){
+				dev_warn(DEVP(adev), "WAITING for work task\n");
+				break;
+			}
 		}
 	}
-	/* dangerous - causes DMA in flight to fail
-	if (adev->cursor.hb){
-		adev->cursor.hb->bstate = BS_EMPTY;
-		list_move_tail(&adev->cursor.hb->list,&adev->EMPTIES);
-		adev->cursor.hb = 0;
-	} */
-	adev->busy = 0;
+	mutex_lock(&adev->mutex);
+	adev->w_task = 0;
+	mutex_unlock(&adev->mutex);
 
+	mutex_lock(&adev->list_mutex);
+	move_list_to_empty(adev, &adev->OPENS);
+	move_list_to_empty(adev, &adev->REFILLS);
+	move_list_to_empty(adev, &adev->INFLIGHT);
+	adev->busy = 0;
 	mutex_unlock(&adev->list_mutex);
 
-	release_dma_chan(adev);
+	release_dma_channels(adev);
 	adev->stats.run = 0;
+
+	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting");
 	return acq400_release(inode, file);
 }
 
@@ -1124,22 +1111,6 @@ int acq400_release(struct inode *inode, struct file *file)
         return 0;
 }
 
-static void acq400_fault_callback(unsigned int channel,
-        unsigned int fault_type,
-        unsigned int fault_address,
-        void *data)
-{
-        struct acq400_dev *adev = data;
-
-        dev_err(&adev->pdev->dev,
-                "DMA fault type 0x%08x at address 0x%0x on channel %d\n",
-                fault_type, fault_address, channel);
-
-        adev->stats.errors++;
-        acq420_reset_fifo(adev);
-        adev->busy = 0;
-        wake_up_interruptible(&adev->waitq);
-}
 
 ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
@@ -1241,7 +1212,7 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(remaining);
-			if (adev->dma_chan != 0 && remaining > ao420_dma_threshold){
+			if (adev->dma_chan[0] != 0 && remaining > ao420_dma_threshold){
 				ao420_write_fifo_dma(adev, cursor, lenbytes);
 			}else{
 				ao420_write_fifo(adev, cursor, lenbytes);
@@ -1276,14 +1247,14 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 
 	if (adev->AO_playloop.length == 0){
-		release_dma_chan(adev);
+		release_dma_channels(adev);
 		ao420_disable_interrupt(adev);
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
 		if (adev->dma_chan == 0 &&
 				ao420_dma_threshold < AO420_MAX_FIFO_SAMPLES){
-			if (get_dma_chan(adev)){
+			if (get_dma_channels(adev)){
 				dev_err(DEVP(adev), "no dma chan");
 				ao420_dma_threshold = AO420_MAX_FIFO_SAMPLES;
 			}
@@ -1308,7 +1279,7 @@ void go_rt(void)
 	sched_setscheduler(task, SCHED_FIFO, &param);
 }
 
-#define TIMEOUT 10000
+#define TIMEOUT msecs_to_jiffies(10000)
 
 int ai_data_loop(void *data)
 {
@@ -1342,8 +1313,18 @@ int ai_data_loop(void *data)
 	go_rt();
 	adev->task_active = 1;
 
-	/* wait initial hitide interrupt?, avoid dma timeout on TRIG */
-
+	if (adev->fifo_isr_done){
+		dev_warn(DEVP(adev), "fifo_isr_done EARLY\n");
+	}
+	/* wait initial hitide interrupt, avoid dma timeout on TRIG */
+	if (wait_event_interruptible(adev->w_waitq,
+			adev->fifo_isr_done || kthread_should_stop())){
+		goto quit;
+	}
+	if (kthread_should_stop()){
+		goto quit;
+	}
+	dev_dbg(DEVP(adev), "rx initial FIFO interrupt, into the work loop\n");
 
 	for(; !kthread_should_stop(); ++nloop){
 		for (ic = 0; ic < 2 && !kthread_should_stop(); ++ic){
@@ -1355,18 +1336,16 @@ int ai_data_loop(void *data)
 					adev->DMA_READY,
 					adev->dma_callback_done || kthread_should_stop(),
 					TIMEOUT) <= 0){
+				dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
 				goto quit;
 			}
 			--adev->dma_callback_done;
 			if (kthread_should_stop()){
 				goto quit;
 			}
-			while(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
-				dev_err(DEVP(adev), "dma_sync_wait nloop:%d chan:%d timeout but keeping going", nloop, ic);
-					//break;
-				if (kthread_should_stop()){
-					goto quit;
-				}
+			if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
+				dev_err(DEVP(adev), "dma_sync_wait nloop:%d chan:%d timeout", nloop, ic);
+				goto quit;
 			}
 			dev_dbg(DEVP(adev), "SUCCESS: SYNC %d done\n", ic);
 
@@ -1378,6 +1357,7 @@ int ai_data_loop(void *data)
 		}
 	}
 quit:
+	dev_info(DEVP(adev), "calling DMA_TERMINATE_ALL, both channels\n");
 	for (ic = 0; ic < 2; ++ic){
 		struct dma_chan *chan = adev->dma_chan[ic];
 		chan->device->device_control(chan, DMA_TERMINATE_ALL, 0);
@@ -1398,6 +1378,8 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	acq420_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
+	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
+	adev->fifo_isr_done = 1;
 	wake_up_interruptible(&adev->w_waitq);
 	return IRQ_HANDLED;
 }

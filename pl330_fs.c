@@ -48,7 +48,7 @@
 
 #include <linux/moduleparam.h>
 
-#define REVID "pl330_fs B1000"
+#define REVID "pl330_fs B1001"
 
 
 static struct dentry *top;
@@ -77,14 +77,14 @@ static void cd(char* dir)
 		}
 	}else{
 		if (istack+1 >= MAXSTACK){
-			dev_err(0, "stack depth %d reached", MAXSTACK);
+			dev_err(0, "stack depth %d reached\n", MAXSTACK);
 		}else{
 			struct dentry *cwd = debugfs_create_dir(dir, dstack[istack]);
 			if (cwd == 0){
-				dev_err(0, "failed to create subdir");
+				dev_err(0, "failed to create subdir\n");
 			}else{
 				dstack[++istack] = cwd;
-				dev_info(0, "cd %s OK", dir);
+				dev_info(0, "cd %s OK\n", dir);
 			}
 		}
 	}
@@ -146,7 +146,7 @@ const struct file_operations pl330_fs_fops = {
 
 static int __init pl330_fs_init(void)
 {
-	dev_info(0, REVID);
+	dev_info(0, "%s pl330_fs_init()\n", REVID);
 
 	pl330_fs_regs_info.pwrite =
 	pl330_fs_regs_info.pread  =
@@ -161,7 +161,7 @@ static int __init pl330_fs_init(void)
 
 static void __exit pl330_fs_remove(void)
 {
-	dev_info(0, REVID);
+	dev_info(0, "%s pl330_fs_remove()\n", REVID);
 	debugfs_remove(create_hook);
 	/* big leak here ... need to rm all nodes, inc Info's */
 	debugfs_remove(top);

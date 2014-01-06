@@ -244,6 +244,7 @@ struct acq400_dev {
 
 	wait_queue_head_t DMA_READY;
 	int dma_callback_done;
+	int fifo_isr_done;
 
 	struct dma_chan* dma_chan[2];
 	int dma_cookies[2];
