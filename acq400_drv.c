@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.360"
+#define REVID "2.363"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -539,7 +539,7 @@ struct HBM * getEmpty(struct acq400_dev* adev)
 		++adev->rt.nget;
 		return hbm;
 	} else {
-		dev_warn(&adev->pdev->dev, "get Empty: Q is EMPTY!\n");
+		dev_warn(DEVP(adev), "get Empty: Q is EMPTY!\n");
 		return 0;
 	}
 }
@@ -561,10 +561,27 @@ void putFull(struct acq400_dev* adev)
 		}
 		wake_up_interruptible(&adev->refill_ready);
 	}else{
-		dev_warn(&adev->pdev->dev, "putFull: Q is EMPTY!\n");
+		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
 	}
 }
+struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
+{
+	if (!list_empty(&adev->REFILLS)){
+		struct HBM *hbm;
+		mutex_lock(&adev->list_mutex);
+		hbm = list_first_entry(
+				&adev->REFILLS, struct HBM, list);
+		list_move_tail(&hbm->list, &adev->INFLIGHT);
+		hbm->bstate = BS_FILLING;
+		mutex_unlock(&adev->list_mutex);
 
+		++adev->rt.nget;
+		return hbm;
+	} else {
+		dev_warn(DEVP(adev), "getEmptyFromRefills: Q is EMPTY!\n");
+		return 0;
+	}
+}
 int getFull(struct acq400_dev* adev)
 {
 	struct HBM *hbm;
@@ -1339,6 +1356,8 @@ int ai_data_loop(void *data)
 	for(; !kthread_should_stop(); ++nloop){
 		for (ic = 0; ic < 2 && !kthread_should_stop(); ++ic){
 			struct HBM* hbm;
+			int emergency_drain_request = 0;
+
 			dev_dbg(DEVP(adev), "wait for chan %d %p %d\n", ic,
 				adev->dma_chan[ic], adev->dma_cookies[ic]);
 
@@ -1360,10 +1379,26 @@ int ai_data_loop(void *data)
 			dev_dbg(DEVP(adev), "SUCCESS: SYNC %d done\n", ic);
 
 			putFull(adev);
-			hbm = getEmpty(adev);
+			if ((hbm = getEmpty(adev)) == 0){
+				dev_warn(DEVP(adev), "Pulling data from FullQ\n");
+				hbm = getEmptyFromRefills(adev);
+				if (hbm == 0){
+					dev_err(DEVP(adev), "FAILED to pull data from FullQ, quitting\n");
+					goto quit;
+				}else{
+					++adev->stats.errors;
+					emergency_drain_request = 1;
+				}
+			}
 			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, hbm);
 			dma_async_issue_pending(adev->dma_chan[ic]);
 			acq420_enable_interrupt(adev);
+			if (emergency_drain_request){
+				mutex_lock(&adev->list_mutex);
+				move_list_to_empty(adev, &adev->REFILLS);
+				mutex_unlock(&adev->list_mutex);
+				dev_warn(DEVP(adev), "discarded FULL Q\n");
+			}
 		}
 	}
 quit:
