@@ -5,6 +5,7 @@ echo acq420.init B1000
 NSAM=4194304
 #BLEN=262144
 BLEN=524288
+NBUF=99
 
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 
@@ -39,6 +40,7 @@ build_nodes() {
 			mknod /dev/${NAME}.c 		c ${MAJOR} 1
 			mknod /dev/${NAME}.histo 	c ${MAJOR} 2
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
+			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			build_hb ${MAJOR} ${NAME}
 		fi
 	done
@@ -158,7 +160,7 @@ if [ $notloaded -ne 0 ]; then
 	fi
 	echo insmod $MOD bufferlen=$BLEN $GS
 	sleep 0.2
-	insmod $MOD bufferlen=$BLEN $GS
+	insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS
 	build_knobs
 	grep acq4.0 /proc/devices |  build_nodes	
 fi

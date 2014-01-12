@@ -209,6 +209,7 @@
 #define ACQ420_MINOR_CONTINUOUS	1
 #define ACQ420_MINOR_HISTO	2
 #define ACQ420_MINOR_HB0	3	// block on HB0 fill
+#define ACQ420_MINOR_SIDEPORTED 4	// enable, but data flow elsewhere
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -407,7 +408,9 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define ACQ2006_SYN_COUNT_MASK  0x0000ffff
 #define ACQ2006_EVT_COUNT_MASK	0x0000ffff
 
+/* SC "site 0" */
 #define MOD_CON			(0x0004)
+#define AGGREGATOR		(0x0008)
 #define DATA_ENGINE_0		(0x0010)
 #define DATA_ENGINE_1		(0x0014)
 #define DATA_ENGINE_2		(0x0018)

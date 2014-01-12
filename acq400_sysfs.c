@@ -814,7 +814,10 @@ static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
+	&dev_attr_nbuffers.attr,
+	&dev_attr_bufferlen.attr,
 	&dev_attr_site.attr,
+	&dev_attr_data32.attr,
 	NULL
 };
 
@@ -830,11 +833,8 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
-	&dev_attr_data32.attr,
 	&dev_attr_shot.attr,
 	&dev_attr_run.attr,
-	&dev_attr_nbuffers.attr,
-	&dev_attr_bufferlen.attr,
 	&dev_attr_hitide.attr,
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
@@ -1281,58 +1281,62 @@ MODCON_KNOB(mod_en, 	ACQ1001_MOD_CON_MOD_EN);
 MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
 MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
 
-static ssize_t show_data_engine(
+static ssize_t show_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const unsigned EE)
+	const unsigned offset)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 engine = acq400rd32(adev, DATA_ENGINE(EE));
+	u32 regval = acq400rd32(adev, offset);
 
-	return sprintf(buf, "0x%08x\n", engine);
+	return sprintf(buf, "0x%08x\n", regval);
 }
 
-static ssize_t store_data_engine(
+static ssize_t store_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count,
-	const unsigned EE)
+	const unsigned offset)
 {
-	unsigned engine;
-	if (sscanf(buf, "%x", &engine) == 1){
+	unsigned regval;
+	if (sscanf(buf, "%x", &regval) == 1){
 		struct acq400_dev *adev = acq400_devices[dev->id];
-		acq400wr32(adev, DATA_ENGINE(EE), engine);
+		acq400wr32(adev, offset, regval);
 		return count;
 	}else{
 		return -1;
 	}
 }
 
-#define DATA_ENGINE_KNOB(name)						\
-static ssize_t show_data_engine_##name(						\
+#define REG_KNOB(name, offset)						\
+static ssize_t show_reg_##name(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_data_engine(dev, attr, buf, name);			\
+	return show_reg(dev, attr, buf, offset);			\
 }									\
-static ssize_t store_data_engine_##name(						\
+static ssize_t store_reg_##name(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_data_engine(dev, attr, buf, count,  name);		\
+	return store_reg(dev, attr, buf, count,  offset);		\
 }									\
-static DEVICE_ATTR(data_engine_##name, 					\
-	S_IRUGO|S_IWUGO, show_data_engine_##name, store_data_engine_##name)
+static DEVICE_ATTR(name, 						\
+	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
 
-DATA_ENGINE_KNOB(0);
+REG_KNOB(aggregator, AGGREGATOR);
+REG_KNOB(data_engine_0, DATA_ENGINE(0));
+REG_KNOB(data_engine_1, DATA_ENGINE(1));
 
 static const struct attribute *acq2006sc_attrs[] = {
+	&dev_attr_aggregator.attr,
 	&dev_attr_data_engine_0.attr,
+	&dev_attr_data_engine_1.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 
@@ -1374,10 +1378,8 @@ static const struct attribute *acq2006sc_attrs[] = {
 	NULL
 };
 
-
-
-
 static const struct attribute *acq1001sc_attrs[] = {
+	&dev_attr_aggregator.attr,
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,

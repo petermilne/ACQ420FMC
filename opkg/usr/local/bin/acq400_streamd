@@ -18,6 +18,9 @@ else
 	if [ -e /etc/sysconfig/acq400_streamd.$SITE.conf ]; then
 		source /etc/sysconfig/acq400_streamd.$SITE.conf
 	fi
+	if [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
+		(/etc/sysconfig/acq400_streamd.$SITE.init) 2>&1 >/dev/null
+	fi
 	SITE_KNOBS=/etc/acq400/$SITE
 	if [ -e $SITE_KNOBS ]; then
 		if [ -e $SITE_KNOBS/SAMPLE_SIZE ]; then

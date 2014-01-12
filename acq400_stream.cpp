@@ -40,15 +40,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#define PROOT	"/sys/module/acq420fmc/parameters"
 
 #define NCHAN	4
 
 int nchan = NCHAN;
 
-static int getKnob(const char* knob, unsigned* value)
+static int getKnob(int idev, const char* knob, unsigned* value)
 {
-	FILE *fp = fopen(knob, "r");
+	char kpath[128];
+	sprintf(kpath, "/dev/acq400.%d.knobs/%s", idev, knob);
+	FILE *fp = fopen(kpath, "r");
 	if (fp){
 		int rc = fscanf(fp, "%u", value);
 		fclose(fp);
@@ -96,7 +97,10 @@ public:
 		buffer_len(_buffer_len)
 	{
 		fd = open(fname, O_RDONLY);
-		assert(fd > 0);
+		if (fd < 0){
+			perror(fname);
+			exit(1);
+		}
 	}
 
 	Buffer(const char* _fname, int _ibuf, int _buffer_len, bool nofile):
@@ -194,7 +198,10 @@ private:
 	}
 	void writeChan(int ic, T* src, int nsam){
 		FILE* fp = fopen(fnames[ic], "w");
-		assert(fp);
+		if (fp ==0){
+			perror(fnames[ic]);
+			exit(1);
+		}
 		fwrite(src, sizeof(T), nsam, fp);
 		fclose(fp);
 	}
@@ -523,8 +530,6 @@ const char* root;
 void init(int argc, const char** argv) {
 
 
-	getKnob(PROOT"/nbuffers", &nbuffers);
-	getKnob(PROOT"/bufferlen", &bufferlen);
 
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
@@ -550,6 +555,10 @@ void init(int argc, const char** argv) {
 	if (devc){
 		devnum = atoi(devc);
 	}
+
+	getKnob(devnum, "nbuffers",  &nbuffers);
+	getKnob(devnum, "bufferlen", &bufferlen);
+
 	buffers = new Buffer* [nbuffers];
 
 	root = getRoot(devnum);

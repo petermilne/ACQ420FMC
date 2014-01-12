@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.363"
+#define REVID "2.373"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -119,6 +119,9 @@ struct dentry* acq400_debug_root;
 
 #define AO420_NBUFFERS 	2
 #define AO420_BUFFERLEN	0x200000
+
+#define ACQ420_NBUFFERS	32
+#define ACQ420_BUFFERLEN bufferlen
 
 int ai_data_loop(void *data);
 
@@ -785,14 +788,8 @@ void release_dma_channels(struct acq400_dev *adev)
 }
 
 
-int acq420_continuous_start(struct inode *inode, struct file *file)
+int _acq420_continuous_start_dma(struct acq400_dev *adev)
 {
-	struct acq400_dev *adev = ACQ400_DEV(file);
-
-	adev->oneshot = 0;
-	adev->stats.shot++;
-	adev->stats.run = 1;
-
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
@@ -802,7 +799,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		return -EBUSY;
 	}
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
-		adev, adev->pdev->dev.id, adev->dma_chan);
+			adev, adev->pdev->dev.id, adev->dma_chan);
 
 	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
@@ -814,7 +811,7 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		adev->w_task = kthread_run(ai_data_loop, adev, devname(adev));
 	}else{
 		dev_warn(DEVP(adev),
-			"acq420_continuous_start() task already running ?\n");
+				"acq420_continuous_start() task already running ?\n");
 	}
 
 
@@ -823,6 +820,21 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	}
 	adev->busy = 1;
 	mutex_unlock(&adev->mutex);
+	return 0;
+}
+
+int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
+{
+	adev->oneshot = 0;
+	adev->stats.shot++;
+	adev->stats.run = 1;
+
+	if (dma_start){
+		int rc =_acq420_continuous_start_dma(adev);
+		if (rc != 0){
+			return rc;
+		}
+	}
 
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	if (IS_ACQ43X(adev)){
@@ -831,6 +843,11 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 		acq420_onStart(adev);
 	}
 	return 0;
+}
+
+int acq420_continuous_start(struct inode *inode, struct file *file)
+{
+	return _acq420_continuous_start(ACQ400_DEV(file), 1);
 }
 
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
@@ -908,13 +925,9 @@ void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
 	}
 }
 
-int acq420_continuous_stop(struct inode *inode, struct file *file)
+void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 {
-	struct acq400_dev *adev = ACQ400_DEV(file);
 	unsigned long work_task_wait = 0;
-	//acq420_reset_fifo(adev);
-	acq420_disable_fifo(adev);
-	dev_dbg(DEVP(adev), "acq420_continuous_stop() kthread_stop called\n");
 	if (adev->task_active && adev->w_task){
 		kthread_stop(adev->w_task);
 	}
@@ -944,8 +957,23 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 
 	release_dma_channels(adev);
 	adev->stats.run = 0;
+}
+
+void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
+{
+	//acq420_reset_fifo(adev);
+	acq420_disable_fifo(adev);
+	dev_dbg(DEVP(adev), "acq420_continuous_stop() kthread_stop called\n");
+
+	if (dma_stop){
+		_acq420_continuous_dma_stop(adev);
+	}
 
 	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting");
+}
+int acq420_continuous_stop(struct inode *inode, struct file *file)
+{
+	_acq420_continuous_stop(ACQ400_DEV(file), 1);
 	return acq400_release(inode, file);
 }
 
@@ -1049,6 +1077,79 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 	}
 }
 
+int acq420_sideported_start(struct inode *inode, struct file *file)
+{
+	return _acq420_continuous_start(ACQ400_DEV(file), 0);
+}
+
+ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	if (wait_event_interruptible(
+			adev->refill_ready,
+			!list_empty(&adev->REFILLS) ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop)){
+		return -EINTR;
+	} else if (adev->rt.please_stop){
+		return GET_FULL_DONE;
+	} else if (adev->rt.refill_error){
+		return GET_FULL_REFILL_ERR;
+	}
+	return 0;
+}
+
+int acq420_sideported_stop(struct inode *inode, struct file *file)
+{
+	_acq420_continuous_stop(ACQ400_DEV(file), 0);
+	return acq400_release(inode, file);
+}
+
+static unsigned int acq420_sideported_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+
+	if (!list_empty(&adev->REFILLS)){
+		return POLLIN|POLLRDNORM;
+	}else if (adev->rt.refill_error){
+		return POLLERR;
+	}else if (adev->rt.please_stop){
+		return POLLHUP;
+	}else{
+		poll_wait(file, &adev->refill_ready, poll_table);
+		if (!list_empty(&adev->REFILLS)){
+			return POLLIN|POLLRDNORM;
+		}else if (adev->rt.refill_error){
+			return POLLERR;
+		}else if (adev->rt.please_stop){
+			return POLLHUP;
+		}else{
+			return 0;
+		}
+	}
+}
+int acq420_open_sideported(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_sideported = {
+			.open = acq420_sideported_start,
+			.read = acq400_sideported_read,
+			.release = acq420_sideported_stop,
+			.poll = acq420_sideported_poll
+	};
+	int rc = acq400_open_main(inode, file);
+	if (rc){
+		return rc;
+	}
+	file->f_op = &acq400_fops_sideported;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
 int acq420_open_hb0(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_histo = {
@@ -1082,6 +1183,8 @@ int acq400_open(struct inode *inode, struct file *file)
         	return -ENODEV;  	// @@todo maybe later0
         } else {
         	switch(minor){
+        	case ACQ420_MINOR_SIDEPORTED:
+        		return acq420_open_sideported(inode, file);
         	case ACQ420_MINOR_CONTINUOUS:
         		return acq420_open_continuous(inode, file);
         	case ACQ420_MINOR_HISTO:
@@ -1306,7 +1409,9 @@ void go_rt(void)
 	sched_setscheduler(task, SCHED_FIFO, &param);
 }
 
-#define TIMEOUT msecs_to_jiffies(10000)
+#define DMA_TIMEOUT 		msecs_to_jiffies(10000)
+/* first time : infinite timeout .. we probably won't live this many jiffies */
+#define START_TIMEOUT		0x7fffffff
 
 int ai_data_loop(void *data)
 {
@@ -1315,6 +1420,7 @@ int ai_data_loop(void *data)
 	unsigned flags[2] = { DMA_WAIT_EV1, DMA_WAIT_EV0 };
 	int nloop = 0;
 	int ic;
+	long dma_timeout = START_TIMEOUT;
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
 	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
@@ -1343,18 +1449,22 @@ int ai_data_loop(void *data)
 	if (adev->fifo_isr_done){
 		dev_warn(DEVP(adev), "fifo_isr_done EARLY\n");
 	}
+#if 0
+		/* @@todo pgm: no site 0 interrupt for now */
 	/* wait initial hitide interrupt, avoid dma timeout on TRIG */
 	if (wait_event_interruptible(adev->w_waitq,
 			adev->fifo_isr_done || kthread_should_stop())){
 		goto quit;
 	}
+#endif
 	if (kthread_should_stop()){
 		goto quit;
 	}
 	dev_dbg(DEVP(adev), "rx initial FIFO interrupt, into the work loop\n");
 
 	for(; !kthread_should_stop(); ++nloop){
-		for (ic = 0; ic < 2 && !kthread_should_stop(); ++ic){
+		for (ic = 0; ic < 2 && !kthread_should_stop();
+				++ic, dma_timeout = DMA_TIMEOUT){
 			struct HBM* hbm;
 			int emergency_drain_request = 0;
 
@@ -1364,7 +1474,7 @@ int ai_data_loop(void *data)
 			if (wait_event_interruptible_timeout(
 					adev->DMA_READY,
 					adev->dma_callback_done || kthread_should_stop(),
-					TIMEOUT) <= 0){
+					dma_timeout) <= 0){
 				dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
 				goto quit;
 			}
@@ -1655,6 +1765,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	}
 	DBG_REG_CREATE(MOD_ID);
 	DBG_REG_CREATE(MOD_CON);
+	DBG_REG_CREATE(AGGREGATOR);
 	DBG_REG_CREATE(DATA_ENGINE_0);
 	DBG_REG_CREATE(DATA_ENGINE_1);
 	DBG_REG_CREATE(DATA_ENGINE_2);
@@ -1763,10 +1874,6 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400_createSysfs(&pdev->dev);
         	dev_info(DEVP(adev), "DUMMY device detected, quitting\n");
         	return 0;
-        }else if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
-               	acq2006_createDebugfs(adev);
-               	acq400_createSysfs(&pdev->dev);
-               	return 0;
         }
 
         rc = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
@@ -1784,6 +1891,25 @@ static int acq400_probe(struct platform_device *pdev)
         if (rc < 0){
         	goto fail;
         }
+
+        if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
+        	if (allocate_hbm(adev, nbuffers, bufferlen, DMA_FROM_DEVICE)){
+        		dev_err(&pdev->dev, "failed to allocate buffers");
+        		goto fail;
+        	}
+        	acq400_createSysfs(&pdev->dev);
+        	acq400_init_proc(adev);
+        	acq2006_createDebugfs(adev);
+        	return 0;
+        }
+        if (allocate_hbm(adev,
+        		IS_AO420(adev)? AO420_NBUFFERS: ACQ420_NBUFFERS,
+      			IS_AO420(adev)? AO420_BUFFERLEN: ACQ420_BUFFERLEN,
+        		IS_AO420(adev)? DMA_TO_DEVICE: DMA_FROM_DEVICE)){
+        	dev_err(&pdev->dev, "failed to allocate buffers");
+        	goto fail;
+        }
+
         if (IS_AO420(adev)){
         	rc = devm_request_threaded_irq(
         	          	DEVP(adev), adev->of_prams.irq,
@@ -1800,14 +1926,6 @@ static int acq400_probe(struct platform_device *pdev)
   		dev_err(DEVP(adev),"unable to get IRQ%d\n",adev->of_prams.irq);
   		goto fail;
   	}
-
-        if (allocate_hbm(adev,
-        		IS_AO420(adev)? AO420_NBUFFERS: nbuffers,
-        		IS_AO420(adev)? AO420_BUFFERLEN: bufferlen,
-        		IS_AO420(adev)? DMA_TO_DEVICE: DMA_FROM_DEVICE)){
-        	dev_err(&pdev->dev, "failed to allocate buffers");
-        	goto fail;
-        }
 
         if (IS_ACQ420(adev)){
         	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
