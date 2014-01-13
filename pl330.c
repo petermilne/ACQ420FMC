@@ -32,7 +32,7 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1112"
+#define REVID	"1116"
 
 #define PGM_EVENT0	8
 
@@ -1519,8 +1519,12 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 	x = pxs->r->x;
 	do {
 		/* Error if xfer length is not aligned at burst size */
-		if (x->bytes % (BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr)))
+		if (x->bytes % (BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr))){
+			dev_err(thrd->dmac->pinfo->dev,
+				"x->bytes:%d %% SIZ*LEN: %d\n",
+				x->bytes, BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr));
 			return -EINVAL;
+		}
 
 		pxs->x = x;
 		off += _setup_xfer(dry_run, &buf[off], pxs);
@@ -1572,12 +1576,13 @@ static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 		}
 	}else if (rqc->dst_inc == 0){
 		ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
+
 		if (rqc->brst_size > AXI_BS_SZ){
 			int src_len = rqc->brst_len >> (rqc->brst_size-AXI_BS_SZ);
 			ccr |= (((src_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
 		}
-		ccr |= (AXI_BS_SZ << CC_DSTBRSTSIZE_SHFT);
 		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+		ccr |= (AXI_BS_SZ << CC_DSTBRSTSIZE_SHFT);
 	}else{
 		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
 		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
