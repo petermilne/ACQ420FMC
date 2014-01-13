@@ -421,6 +421,7 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define ACQ1001_MOD_CON_MOD_EN		(1<<0)
 #define ACQ1001_MOD_CON_PSU_SYNC 	(1<<1)
 #define ACQ1001_MOD_CON_FAN_EN		(1<<2)
+#define MOD_CON_SOFT_TRIG		(1<<4)
 
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */

@@ -1280,6 +1280,7 @@ static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
 MODCON_KNOB(mod_en, 	ACQ1001_MOD_CON_MOD_EN);
 MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
 MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
+MODCON_KNOB(soft_trig,  MOD_CON_SOFT_TRIG);
 
 static ssize_t show_reg(
 	struct device * dev,
@@ -1332,13 +1333,18 @@ static DEVICE_ATTR(name, 						\
 REG_KNOB(aggregator, AGGREGATOR);
 REG_KNOB(data_engine_0, DATA_ENGINE(0));
 REG_KNOB(data_engine_1, DATA_ENGINE(1));
+REG_KNOB(data_engine_2, DATA_ENGINE(2));
+REG_KNOB(data_engine_3, DATA_ENGINE(3));
 
 static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_aggregator.attr,
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_data_engine_1.attr,
+	&dev_attr_data_engine_2.attr,
+	&dev_attr_data_engine_3.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
+	&dev_attr_soft_trig.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
@@ -1384,6 +1390,8 @@ static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_fan.attr,
+	&dev_attr_soft_trig.attr,
+
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
 	&dev_attr_scount_CLK_S1.attr,
