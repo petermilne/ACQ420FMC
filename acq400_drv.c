@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.373"
+#define REVID "2.375"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -521,8 +521,12 @@ int dma_memcpy(
 				adev, adev->pdev->dev.id);
 		return -1;
 	}
+	dev_dbg(DEVP(adev), "dma_memcpy() chan:%d src:%08x dest:%08x len:%d\n",
+			adev->dma_chan[0]->chan_id, src, dest, len);
 	cookie = dma_async_memcpy(adev->dma_chan[0], src, dest, len);
+	dev_dbg(DEVP(adev), "dma_memcpy() wait cookie:%d\n", cookie);
 	dma_sync_wait(adev->dma_chan[0], cookie);
+	dev_dbg(DEVP(adev), "dma_memcpy() wait cookie:%d done\n", cookie);
 	DMA_NS;
 	return len;
 }
@@ -1312,6 +1316,7 @@ static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 		bytes/sizeof(u32));
 }
 
+#define MIN_DMA	64
 
 static void ao420_fill_fifo(struct acq400_dev* adev)
 {
@@ -1329,8 +1334,10 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(remaining);
-			if (adev->dma_chan[0] != 0 && remaining > ao420_dma_threshold){
-				ao420_write_fifo_dma(adev, cursor, lenbytes);
+			if (adev->dma_chan[0] != 0 && remaining > max(MIN_DMA, ao420_dma_threshold)){
+				int nbuf = lenbytes/MIN_DMA;
+				ao420_write_fifo_dma(adev, cursor, nbuf*MIN_DMA);
+				ao420_write_fifo(adev, cursor, lenbytes - nbuf*MIN_DMA);
 			}else{
 				ao420_write_fifo(adev, cursor, lenbytes);
 			}
