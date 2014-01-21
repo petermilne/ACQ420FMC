@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.376"
+#define REVID "2.377"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -57,6 +57,9 @@ MODULE_PARM_DESC(nbuffers, "number of capture buffers");
 int bufferlen = 0x10000;
 module_param(bufferlen, int, 0444);
 MODULE_PARM_DESC(bufferlen, "length of capture buffer");
+
+int frontside_bufferlen = 0x10000;
+module_param(frontside_bufferlen, int, 0444);
 
 int hitide = HITIDE;
 module_param(hitide, int, 0644);
@@ -120,8 +123,8 @@ struct dentry* acq400_debug_root;
 #define AO420_NBUFFERS 	2
 #define AO420_BUFFERLEN	0x200000
 
-#define ACQ420_NBUFFERS	32
-#define ACQ420_BUFFERLEN bufferlen
+#define ACQ420_NBUFFERS	16
+#define ACQ420_BUFFERLEN frontside_bufferlen
 
 int ai_data_loop(void *data);
 
@@ -1773,6 +1776,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(MOD_ID);
 	DBG_REG_CREATE(MOD_CON);
 	DBG_REG_CREATE(AGGREGATOR);
+	DBG_REG_CREATE(AGGSTA);
 	DBG_REG_CREATE(DATA_ENGINE_0);
 	DBG_REG_CREATE(DATA_ENGINE_1);
 	DBG_REG_CREATE(DATA_ENGINE_2);

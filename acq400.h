@@ -411,6 +411,7 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 /* SC "site 0" */
 #define MOD_CON			(0x0004)
 #define AGGREGATOR		(0x0008)
+#define AGGSTA			(0x000c)
 #define DATA_ENGINE_0		(0x0010)
 #define DATA_ENGINE_1		(0x0014)
 #define DATA_ENGINE_2		(0x0018)
