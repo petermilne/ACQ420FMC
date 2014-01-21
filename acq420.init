@@ -1,10 +1,10 @@
 #!/bin/sh
 
-echo acq420.init B1000
+echo acq420.init B1001
 
-NSAM=4194304
 #BLEN=262144
-BLEN=524288
+#BLEN=524288
+BLEN=1048576
 NBUF=99
 
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
