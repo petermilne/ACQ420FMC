@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.378"
+#define REVID "2.380"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -574,6 +574,7 @@ void putFull(struct acq400_dev* adev)
 		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
 	}
 }
+
 struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
 {
 	if (!list_empty(&adev->REFILLS)){
@@ -1279,17 +1280,18 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 #define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
-/** @todo : assumes PACKED DATA */
-#define AOSAMPLES2BYTES(xx) ((xx) * AO_CHAN * sizeof(short))
+#define AOSAMPLES2BYTES(adev, xx) ((xx)*AO_CHAN*(adev)->word_size)
 
 static int ao420_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
 }
 
 static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
-	return AO420_MAX_FIFO_SAMPLES - ao420_getFifoSamples(adev);
-}
+	int nshorts = adev->word_size/2;
+	int fifomaxsam = AO420_MAX_FIFO_SAMPLES/nshorts;
 
+	return fifomaxsam - ao420_getFifoSamples(adev);
+}
 
 
 void write32(volatile u32* to, volatile u32* from, int nwords)
@@ -1335,8 +1337,8 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 			headroom, adev->AO_playloop.length - adev->AO_playloop.cursor, remaining);
 
 		if (remaining){
-			int cursor = AOSAMPLES2BYTES(adev->AO_playloop.cursor);
-			int lenbytes = AOSAMPLES2BYTES(remaining);
+			int cursor = AOSAMPLES2BYTES(adev, adev->AO_playloop.cursor);
+			int lenbytes = AOSAMPLES2BYTES(adev, remaining);
 			if (adev->dma_chan[0] != 0 && remaining > max(MIN_DMA, ao420_dma_threshold)){
 				int nbuf = lenbytes/MIN_DMA;
 				ao420_write_fifo_dma(adev, cursor, nbuf*MIN_DMA);
