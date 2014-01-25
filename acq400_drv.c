@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.377"
+#define REVID "2.378"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1390,6 +1390,12 @@ void ao420_getDMA(struct acq400_dev* adev)
 void ao420_reset_playloop(struct acq400_dev* adev)
 {
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
+
+	if (adev->data32){
+		cr |= ADC_CTRL32B_data;
+	}else{
+		cr &= ~ADC_CTRL32B_data;
+	}
 
 	if (adev->AO_playloop.length == 0){
 		release_dma_channels(adev);
