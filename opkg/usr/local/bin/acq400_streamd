@@ -5,7 +5,7 @@
 SITE=$1
 PID=/var/run/acq400_stream.$SITE.pid
 
-source /etc/sysconfig/acq400.conf
+source /etc/sysconfig/acq400.conf >/dev/null
 
 acq400_teardown $SITE
 echo $$ > $PID
@@ -14,7 +14,7 @@ if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
 	source /etc/sysconfig/acq400_streamd.conf
 fi
 if [ -e /etc/sysconfig/acq400_streamd.$SITE.conf ]; then
-	source /etc/sysconfig/acq400_streamd.$SITE.conf
+	source /etc/sysconfig/acq400_streamd.$SITE.conf >/dev/null
 fi
 if [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
 	(/etc/sysconfig/acq400_streamd.$SITE.init) 2>&1 >/dev/null
