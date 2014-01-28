@@ -33,7 +33,7 @@ if [ $SITE -eq 0 ]; then
 	sites=
 	SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
 	eval $SSPEC
-	while [ "x$sites" = "x" ]; do
+	while [ "x$sites" = "x" -o "x$sites" = "xnone" ]; do
 		sleep 1
 		logger -t acq400_streamd site0 waiting for sites
 		SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
