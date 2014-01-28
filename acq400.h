@@ -390,6 +390,8 @@ int getHeadroom(struct acq400_dev *adev);
 #define IS_ACQ2006SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ2006SC)
 #define IS_ACQ1001SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ1001SC)
 
+#define IS_ACQx00xSC(adev) (IS_ACQ2006SC(adev)||IS_ACQ1001SC(adev))
+
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
 void ao420_reset_playloop(struct acq400_dev* adev);

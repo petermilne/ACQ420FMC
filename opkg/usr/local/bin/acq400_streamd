@@ -30,8 +30,15 @@ if [ -e $SITE_KNOBS ]; then
 	SITE_ARGS=$(eval echo \$SITE${SITE}_ARGS)
 fi
 if [ $SITE -eq 0 ]; then
+	sites=
 	SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
 	eval $SSPEC
+	while [ "x$sites" = "x" ]; do
+		sleep 1
+		logger -t acq400_streamd site0 waiting for sites
+		SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
+		eval $SSPEC	
+	done
 	logger -t acq400streamd site 0 slave sites $sites
 	OIFS=$IFS;IFS=,
 	for site in $sites

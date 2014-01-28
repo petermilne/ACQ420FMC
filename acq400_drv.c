@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.391"
+#define REVID "2.399"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -276,7 +276,18 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 }
 
-
+void acq2006_aggregator_enable(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
+	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
+	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
+}
+void acq2006_aggregator_disable(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	acq400wr32(adev, AGGREGATOR, agg & ~AGG_ENABLE);
+}
 static void acq420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
@@ -831,12 +842,15 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	return 0;
 }
 
-int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
+void _onStart(struct acq400_dev *adev)
 {
 	adev->oneshot = 0;
 	adev->stats.shot++;
 	adev->stats.run = 1;
-
+}
+int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
+{
+	_onStart(adev);
 	if (dma_start){
 		int rc =_acq420_continuous_start_dma(adev);
 		if (rc != 0){
@@ -856,6 +870,21 @@ int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
 int acq420_continuous_start(struct inode *inode, struct file *file)
 {
 	return _acq420_continuous_start(ACQ400_DEV(file), 1);
+}
+
+int acq2006_continuous_start(struct inode *inode, struct file *file)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	int rc;
+
+	_onStart(adev);
+	rc =_acq420_continuous_start_dma(adev);
+	if (rc != 0){
+		return rc;
+	}
+	acq2006_aggregator_enable(adev);
+
+	return 0;
 }
 
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
@@ -986,6 +1015,14 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	return acq400_release(inode, file);
 }
 
+int acq2006_continuous_stop(struct inode *inode, struct file *file)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	acq2006_aggregator_disable(adev);
+	_acq420_continuous_dma_stop(adev);
+	return acq400_release(inode, file);
+}
+
 static unsigned int acq420_continuous_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
@@ -1074,11 +1111,22 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 			.release = acq420_continuous_stop,
 			.poll = acq420_continuous_poll
 	};
+	static struct file_operations acq2006_fops_continuous = {
+			.open = acq2006_continuous_start,
+			.read = acq400_continuous_read,
+			.release = acq2006_continuous_stop,
+			.poll = acq420_continuous_poll
+	};
+	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc = acq400_open_main(inode, file);
 	if (rc){
 		return rc;
 	}
-	file->f_op = &acq400_fops_continuous;
+	if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
+		file->f_op = &acq2006_fops_continuous;
+	}else{
+		file->f_op = &acq400_fops_continuous;
+	}
 	if (file->f_op->open){
 		return file->f_op->open(inode, file);
 	}else{
@@ -1530,7 +1578,9 @@ int ai_data_loop(void *data)
 			}
 			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, hbm);
 			dma_async_issue_pending(adev->dma_chan[ic]);
-			acq420_enable_interrupt(adev);
+			if (!IS_ACQx00xSC(adev)){
+				acq420_enable_interrupt(adev);
+			}
 			if (emergency_drain_request){
 				mutex_lock(&adev->list_mutex);
 				move_list_to_empty(adev, &adev->REFILLS);
