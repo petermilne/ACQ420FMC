@@ -1282,59 +1282,193 @@ MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
 MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
 MODCON_KNOB(soft_trig,  MOD_CON_SOFT_TRIG);
 
+int get_agg_threshold_bytes(u32 agg)
+{
+	return ((agg>>AGG_SIZE_SHL)&AGG_SIZE_MASK)*AGG_SIZE_UNIT;
+}
+
+#define AGG_SEL	"aggregator="
+#define TH_SEL	"threshold="
+
 static ssize_t show_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const unsigned offset)
+	const unsigned offset,
+	const unsigned mshift)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 regval = acq400rd32(adev, offset);
+	char mod_group[80];
+	int site;
 
-	return sprintf(buf, "0x%08x\n", regval);
+	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
+		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
+			if (strlen(mod_group) == 0){
+				strcat(mod_group, "sites=");
+			}else{
+				strcat(mod_group, ",");
+			}
+			sprintf(mod_group+strlen(mod_group), "%d", site);
+		}
+	}
+	if (strlen(mod_group) == 0){
+		sprintf(mod_group, "sites=none");
+	}
+	if (mshift == DATA_ENGINE_MSHIFT){
+		sprintf(mod_group+strlen(mod_group), " %s%d", AGG_SEL,
+				regval&DATA_ENGINE_SELECT_AGG? 1: 0);
+	}else if(mshift == AGGREGATOR_MSHIFT){
+		sprintf(mod_group+strlen(mod_group), " %s%d", TH_SEL,
+				get_agg_threshold_bytes(regval));
+	}
+
+	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
+			regval&DATA_MOVER_EN? "on": "off");
 }
 
+int _get_site(const char* valid_sites, char s)
+{
+	if (strchr(valid_sites, s) != 0){
+		return s-'0';
+	}else{
+		return -1;
+	}
+}
+int get_site(struct acq400_dev *adev, char s)
+/** @todo cant discriminate 1001, 1002... */
+{
+	if (IS_ACQ2006SC(adev)){
+		return _get_site("123456", s);
+	}else if (IS_ACQ1001SC(adev)){
+		return _get_site("12", s);
+	}else{
+		return -2;
+	}
+}
 static ssize_t store_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count,
-	const unsigned offset)
+	const unsigned offset,
+	const unsigned mshift)
 {
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned regval;
-	if (sscanf(buf, "%x", &regval) == 1){
-		struct acq400_dev *adev = acq400_devices[dev->id];
+	char* match;
+	int pass = 0;
+
+	if ((match = strstr(buf, "sites=")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		char* cursor = match+strlen("sites=");
+		int site;
+
+		regval &= ~(AGG_SITES_MASK << mshift);
+
+		if (strncmp(cursor, "none", 4) != 0){
+			for (; *cursor && *cursor != ' '; ++cursor){
+				switch(*cursor){
+				case ',':
+				case ' ':	continue;
+				case '\n':  	break;
+				default:
+					site = get_site(adev, *cursor);
+					if (site > 0){
+						regval |= AGG_MOD_EN(site, mshift);
+						break;
+					}else{
+						dev_err(dev, "bad site designator: %c", *cursor);
+						return -1;
+					}
+				}
+			}
+		}
 		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}
+	if (mshift == DATA_ENGINE_MSHIFT){
+		char *agg_sel = strstr(buf, AGG_SEL);
+		if (agg_sel){
+			int include_agg = 0;
+			if (sscanf(agg_sel, AGG_SEL"%d", &include_agg) == 1){
+				unsigned regval = acq400rd32(adev, offset);
+				if (include_agg){
+					regval |= DATA_ENGINE_SELECT_AGG;
+				}else{
+					regval &= ~DATA_ENGINE_SELECT_AGG;
+				}
+				acq400wr32(adev, offset, regval);
+				pass = 1;
+			}
+		}
+	}else if (mshift == AGGREGATOR_MSHIFT){
+		char *th_sel = strstr(buf, TH_SEL);
+		if (th_sel){
+			int thbytes = 0;
+			if (sscanf(th_sel, TH_SEL"%d", &thbytes) == 1){
+				unsigned regval = acq400rd32(adev, offset);
+				unsigned th = thbytes/AGG_SIZE_UNIT;
+				if (th > AGG_SIZE_MASK) th = AGG_SIZE_MASK;
+				regval &= ~(AGG_SIZE_MASK<<AGG_SIZE_SHL);
+				regval |= th<<AGG_SIZE_SHL;
+				acq400wr32(adev, offset, regval);
+				pass = 1;
+			}else{
+				dev_err(dev, "arg not integer (%s)", th_sel);
+				return -1;
+			}
+		}
+	}
+	if ((match = strstr(buf, "on")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		regval |= DATA_MOVER_EN;
+		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}else if ((match = strstr(buf, "off")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		regval &= ~DATA_MOVER_EN;
+		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}
+
+	if (pass){
 		return count;
 	}else{
+		/* aggregator= passes this paragraph, so put it LAST! */
+		if (sscanf(buf, "%x", &regval) == 1){
+			acq400wr32(adev, offset, regval);
+			return count;
+		}
 		return -1;
 	}
 }
 
-#define REG_KNOB(name, offset)						\
+
+#define REG_KNOB(name, offset, mshift)					\
 static ssize_t show_reg_##name(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, offset);			\
+	return show_reg(dev, attr, buf, offset, mshift);		\
 }									\
-static ssize_t store_reg_##name(						\
+static ssize_t store_reg_##name(					\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_reg(dev, attr, buf, count,  offset);		\
+	return store_reg(dev, attr, buf, count,  offset, mshift);	\
 }									\
 static DEVICE_ATTR(name, 						\
 	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
 
-REG_KNOB(aggregator, AGGREGATOR);
-REG_KNOB(data_engine_0, DATA_ENGINE(0));
-REG_KNOB(data_engine_1, DATA_ENGINE(1));
-REG_KNOB(data_engine_2, DATA_ENGINE(2));
-REG_KNOB(data_engine_3, DATA_ENGINE(3));
+REG_KNOB(aggregator, AGGREGATOR,	AGGREGATOR_MSHIFT);
+REG_KNOB(data_engine_0, DATA_ENGINE(0), DATA_ENGINE_MSHIFT);
+REG_KNOB(data_engine_1, DATA_ENGINE(1), DATA_ENGINE_MSHIFT);
+REG_KNOB(data_engine_2, DATA_ENGINE(2), DATA_ENGINE_MSHIFT);
+REG_KNOB(data_engine_3, DATA_ENGINE(3), DATA_ENGINE_MSHIFT);
 
 static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_aggregator.attr,

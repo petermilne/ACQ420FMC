@@ -123,6 +123,7 @@
 #define ADC_CTRL_MODULE_EN	(1 << 0)
 
 #define ADC_CTRL_RST_ALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
+#define ADC_CTRL_ENABLE_CAPTURE (ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN)
 #define ADC_CTRL_ENABLE_ALL	(ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN|ADC_CTRL_MODULE_EN)
 
 
@@ -418,6 +419,25 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define DATA_ENGINE_3		(0x001c)
 
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
+
+/* s=1..6 */
+#define AGG_MOD_EN(s, shift)	(1 << ((s)-1+(shift)))
+#define AGGREGATOR_MSHIFT	18
+#define DATA_ENGINE_MSHIFT	 8
+#define AGGREGATOR_ENABLE(s)	AGG_MOD_EN(s, AGGREGATOR_MSHIFT)
+#define DATA_ENGINE_ENABLE(s)	AGG_MOD_EN(s,  DATA_ENGINE_MSHIFT)
+
+#define AGG_SITES_MASK		0x3f
+#define DATA_MOVER_EN		0x1
+
+#define AGG_SIZE_MASK		0xff
+#define AGG_SIZE_SHL		8
+#define AGG_SIZE_UNIT		512
+
+#define DATA_ENGINE_SELECT_AGG	(1<<14)
+
+
+
 
 #define ACQ1001_MOD_CON_MOD_EN		(1<<0)
 #define ACQ1001_MOD_CON_PSU_SYNC 	(1<<1)

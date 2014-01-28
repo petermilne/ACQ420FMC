@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.380"
+#define REVID "2.391"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -273,7 +273,7 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 static void acq420_disable_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
-	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_ALL);
+	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 }
 
 
@@ -977,7 +977,8 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 		_acq420_continuous_dma_stop(adev);
 	}
 
-	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting");
+	dev_info(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",
+			acq400rd32(adev, ADC_CTRL));
 }
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
@@ -1299,7 +1300,7 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 	int ii;
 
 	for (ii = 0; ii < nwords; ++ii){
-		iowrite32(from[ii], to+ii);
+		iowrite32(from[ii], to);
 	}
 }
 
@@ -1314,8 +1315,17 @@ static void ao420_write_fifo_dma(struct acq400_dev* adev, int frombyte, int byte
 	}
 }
 
-static void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
+void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 {
+	/*
+	dev_dbg(DEVP(adev), "write32(%p = %p+%d, %d",
+			adev->dev_virtaddr+AXI_FIFO,
+			adev->cursor.hb->va,
+			frombyte/sizeof(u32),
+			bytes/sizeof(u32)
+	);
+	*/
+
 	write32(adev->dev_virtaddr+AXI_FIFO,
 		adev->cursor.hb->va+frombyte/sizeof(u32),
 		bytes/sizeof(u32));
