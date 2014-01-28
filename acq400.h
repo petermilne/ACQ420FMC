@@ -420,6 +420,8 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 
+#define AGG_ENABLE		(1<<0)
+#define AGG_FIFO_RESET		(1<<1)
 /* s=1..6 */
 #define AGG_MOD_EN(s, shift)	(1 << ((s)-1+(shift)))
 #define AGGREGATOR_MSHIFT	18
