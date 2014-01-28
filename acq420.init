@@ -111,11 +111,20 @@ build_knobs_device() {
 	web_append acq400.${site} ${site}	
 }
 
+build_site0() {
+	ln -s $1 /dev/acq400.0.knobs
+	web_append acq400.0 0
+	ln -s /dev/acq400.0.knobs/aggregator /etc/acq400/0/
+	for k in /dev/acq400.0.knobs/data_engine_?
+	do
+		[ -e $k ] && ln -s $k /etc/acq400/0/
+	done
+}
+
 build_knobs() {
-	if [ -e /sys/bus/platform/devices/40000000.acq2006sc ]; then
-		ln -s /sys/bus/platform/devices/40000000.acq2006sc \
-			/dev/acq400.0.knobs
-		web_append acq400.0 0
+	dir=/sys/bus/platform/devices/40000000.acq2006sc
+	if [ -e $dir ]; then
+		build_site0 $dir
 	fi
 	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do
