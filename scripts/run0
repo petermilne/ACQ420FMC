@@ -1,0 +1,45 @@
+#!/bin/sh
+# configures site 0 aggregator.
+# usage: run0 site1[,site2,..]
+
+if [ "$1" = "" ]; then
+	echo USAGE: run0 site1\[,site2..\]
+	exit 1
+fi
+
+sitelist=$1
+sites="$(echo $sitelist | tr , \ )"
+
+echo sitelist: $sitelist
+echo sites: $sites
+
+acq400_teardown
+
+let nchan=0
+for site in $sites
+do
+	if [ $nchan -eq 0 ]; then
+		d32=$(cat /etc/acq400/$site/data32)
+	else
+		if [ $d32 -ne $(cat /etc/acq400/$site/data32) ];then
+			echo WARNING: mixed data size
+		fi
+	fi
+	let nchan=${nchan}+$(cat /etc/acq400/$site/active_chan)
+done
+
+if [ ! -e /etc/acq400/0/NCHAN -o \
+	$nchan -ne $(cat /etc/acq400/0/NCHAN) ]; then
+	echo setting NCHAN=$nchan data32=$d32
+	set.sys /etc/acq400/0/NCHAN $nchan
+	set.sys /etc/acq400/0/data32 $D32
+	/usr/local/init/acq400ioc.init forcestart
+fi
+
+set.sys /dev/acq400.0.knobs/aggregator 0
+set.sys /dev/acq400.0.knobs/data_engine_0 0
+set.sys /dev/acq400.0.knobs/data_engine_0 aggregator=1 on
+set.sys /dev/acq400.0.knobs/aggregator threshold=16384 sites=${sitelist} on
+
+
+
