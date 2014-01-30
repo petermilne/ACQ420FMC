@@ -28,11 +28,11 @@ do
 	let nchan=${nchan}+$(cat /etc/acq400/$site/active_chan)
 done
 
-if [ ! -e /etc/acq400/0/NCHAN -o \
-	$nchan -ne $(cat /etc/acq400/0/NCHAN) ]; then
+if [ ! -e /etc/acq400/0/NCHAN ] || [ $nchan -ne $(cat /etc/acq400/0/NCHAN) ]
+then
 	echo setting NCHAN=$nchan data32=$d32
 	set.sys /etc/acq400/0/NCHAN $nchan
-	set.sys /etc/acq400/0/data32 $D32
+	set.sys /etc/acq400/0/data32 $d32
 	/usr/local/init/acq400ioc.init forcestart
 fi
 
