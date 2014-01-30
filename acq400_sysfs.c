@@ -701,14 +701,52 @@ static DEVICE_ATTR(hi_res_mode,
 		S_IRUGO|S_IWUGO, show_hi_res_mode, store_hi_res_mode);
 
 /** NB inverted to 1: enabled */
+
+#define BADBANKMASK 0xffffffff
+
+unsigned bank_mask_txt2int(char* txt)
+{
+	char* cursor;
+	unsigned mask = 0;
+
+	for (cursor = txt; *cursor && cursor-txt < 4; ++cursor){
+		switch(*cursor){
+		case 'A':	mask |= 1<<0; break;
+		case 'B':	mask |= 1<<1; break;
+		case 'C':	mask |= 1<<2; break;
+		case 'D':	mask |= 1<<3; break;
+		default:	return BADBANKMASK;
+		}
+	}
+	return mask;
+}
+
+char* bank_mask_int2txt(unsigned mask, char txt[])
+{
+	char* pt = txt;
+	int bit = 0;
+	for (bit = 0; bit < 4; ++bit, mask >>= 1){
+		if ((mask&1) != 0){
+			switch(bit){
+			case 0:		*pt++ = 'A'; break;
+			case 1:		*pt++ = 'B'; break;
+			case 2:		*pt++ = 'C'; break;
+			case 3:		*pt++ = 'D'; break;
+			}
+		}
+	}
+	*pt++ ='\0';
+	return txt;
+}
 static ssize_t show_bank_mask(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 mode = acq400rd32(adev, ACQ435_MODE) & ACQ435_MODE_BXDIS;
-	return sprintf(buf, "%x\n", ~mode & ACQ435_MODE_BXDIS);
+	u32 mask = ~acq400rd32(adev, ACQ435_MODE) & ACQ435_MODE_BXDIS;
+	char txt[8];
+	return sprintf(buf, "%s\n",  bank_mask_int2txt(mask, txt));
 }
 
 unsigned nbits(unsigned mask)
@@ -731,14 +769,12 @@ static ssize_t store_bank_mask(
 /* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 bank_mask;
-	if (sscanf(buf, "%u", &bank_mask) == 1){
+	u32 bank_mask = bank_mask_txt2int(buf);
+	if (bank_mask != BADBANKMASK){
 		u32 mode = acq400rd32(adev, ACQ435_MODE);
 
 		mode &= ~ACQ435_MODE_BXDIS;
-		bank_mask &= ACQ435_MODE_BXDIS;
 		adev->nchan_enabled = 8 * nbits(bank_mask);
-
 		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
 		mode |= bank_mask;
 
