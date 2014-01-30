@@ -13,6 +13,7 @@ sites="$(echo $sitelist | tr , \ )"
 echo sitelist: $sitelist
 echo sites: $sites
 
+rm -f /etc/acq400/0/run0_ready
 acq400_teardown
 
 let nchan=0
@@ -33,13 +34,15 @@ then
 	echo setting NCHAN=$nchan data32=$d32
 	set.sys /etc/acq400/0/NCHAN $nchan
 	set.sys /etc/acq400/0/data32 $d32
-	/usr/local/init/acq400ioc.init forcestart
+	/usr/local/bin/ai_monitor_all start	
 fi
 
 set.sys /dev/acq400.0.knobs/aggregator 0
 set.sys /dev/acq400.0.knobs/data_engine_0 0
-set.sys /dev/acq400.0.knobs/data_engine_0 aggregator=1 on
-set.sys /dev/acq400.0.knobs/aggregator threshold=16384 sites=${sitelist} on
+set.sys /dev/acq400.0.knobs/data_engine_0 aggregator=1 
+set.sys /dev/acq400.0.knobs/aggregator threshold=16384 sites=${sitelist}
+echo 1 > /etc/acq400/0/run0_ready
+
 
 
 
