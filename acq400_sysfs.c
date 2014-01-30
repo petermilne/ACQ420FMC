@@ -722,11 +722,13 @@ unsigned nbits(unsigned mask)
 
 	return nb;
 }
+
 static ssize_t store_bank_mask(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count)
+/* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 bank_mask;
@@ -734,9 +736,11 @@ static ssize_t store_bank_mask(
 		u32 mode = acq400rd32(adev, ACQ435_MODE);
 
 		mode &= ~ACQ435_MODE_BXDIS;
+		bank_mask &= ACQ435_MODE_BXDIS;
+		adev->nchan_enabled = 8 * nbits(bank_mask);
+
 		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
 		mode |= bank_mask;
-		adev->nchan_enabled = 8 * nbits(bank_mask);
 
 		acq400wr32(adev, ACQ435_MODE, mode);
 		return count;
