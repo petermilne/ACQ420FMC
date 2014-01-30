@@ -2,6 +2,8 @@
 # if there's a previous hanging instance, kill it and drop out
 # client can retry at an appropriate moment to restart..
 
+
+init_stream() {
 SITE=$1
 PID=/var/run/acq400_stream.$SITE.pid
 
@@ -29,6 +31,9 @@ if [ -e $SITE_KNOBS ]; then
 	fi
 	SITE_ARGS=$(eval echo \$SITE${SITE}_ARGS)
 fi
+
+RUN0_READY=/etc/acq400/0/run0_ready
+
 if [ $SITE -eq 0 ]; then
 	sites=
 	SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
@@ -39,6 +44,11 @@ if [ $SITE -eq 0 ]; then
 		SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
 		eval $SSPEC	
 	done
+	while [ ! -e $RUN0_READY ]; do
+		sleep 0.2
+		logger -t acq400_streamd site0 waiting for $RUN0_READY
+	done
+
 	logger -t acq400streamd site 0 slave sites $sites
 	OIFS=$IFS;IFS=,
 	for site in $sites
@@ -47,7 +57,14 @@ if [ $SITE -eq 0 ]; then
 	done
 	IFS=$OIFS		
 fi
-acq400_stream $SAMPLE_SIZE $OVERSAMPLING $1 &
+}
+
+SITE=$1
+init_stream $SITE 2>&1 >/var/log/acq400_streamd_$SITE.log
+
+echo $SAMPLE_SIZE $OVERSAMPLING $SITE >/tmp/acq400_streamd.$SITE.status
+
+acq400_stream $SAMPLE_SIZE $OVERSAMPLING $SITE &
 wait $!
 if [ $SITE -eq 0 ]; then
 	acq400_teardown $SITE
