@@ -711,6 +711,17 @@ static ssize_t show_bank_mask(
 	return sprintf(buf, "%x\n", ~mode & ACQ435_MODE_BXDIS);
 }
 
+unsigned nbits(unsigned mask)
+{
+	unsigned nb;
+	for(nb = 0; mask != 0; mask >>= 1){
+		if (mask&1){
+			++nb;
+		}
+	}
+
+	return nb;
+}
 static ssize_t store_bank_mask(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -725,6 +736,7 @@ static ssize_t store_bank_mask(
 		mode &= ~ACQ435_MODE_BXDIS;
 		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
 		mode |= bank_mask;
+		adev->nchan_enabled = 8 * nbits(bank_mask);
 
 		acq400wr32(adev, ACQ435_MODE, mode);
 		return count;
@@ -736,6 +748,18 @@ static ssize_t store_bank_mask(
 static DEVICE_ATTR(bank_mask,
 		S_IRUGO|S_IWUGO, show_bank_mask, store_bank_mask);
 
+
+static ssize_t show_active_chan(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->nchan_enabled);
+}
+
+static DEVICE_ATTR(active_chan,
+		S_IRUGO|S_IWUGO, show_active_chan, 0);
 
 static ssize_t show_module_type(
 	struct device * dev,
@@ -838,6 +862,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_hitide.attr,
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
+	&dev_attr_active_chan.attr,
 	NULL,
 };
 
