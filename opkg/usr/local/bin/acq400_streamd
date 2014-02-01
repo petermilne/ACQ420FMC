@@ -16,10 +16,12 @@ if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
 	source /etc/sysconfig/acq400_streamd.conf
 fi
 if [ -e /etc/sysconfig/acq400_streamd.$SITE.conf ]; then
-	source /etc/sysconfig/acq400_streamd.$SITE.conf >/dev/null
+	source /etc/sysconfig/acq400_streamd.$SITE.conf 
 fi
-if [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
-	(/etc/sysconfig/acq400_streamd.$SITE.init) 2>&1 >/dev/null
+if [ -x /mnt/local/acq400_streamd.$SITE.init ]; then
+	/mnt/local/acq400_streamd.$SITE.init
+elif [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
+	(/etc/sysconfig/acq400_streamd.$SITE.init) 
 fi
 SITE_KNOBS=/etc/acq400/$SITE
 if [ -e $SITE_KNOBS ]; then
@@ -37,6 +39,7 @@ RUN0_READY=/etc/acq400/0/run0_ready
 if [ $SITE -eq 0 ]; then
 	sites=
 	SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
+	
 	eval $SSPEC
 	while [ "x$sites" = "x" -o "x$sites" = "xnone" ]; do
 		sleep 1
@@ -44,6 +47,7 @@ if [ $SITE -eq 0 ]; then
 		SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
 		eval $SSPEC	
 	done
+	logger -t acq400_streamd site0 $SSPEC
 	while [ ! -e $RUN0_READY ]; do
 		sleep 0.2
 		logger -t acq400_streamd site0 waiting for $RUN0_READY
