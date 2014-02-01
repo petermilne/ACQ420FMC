@@ -206,7 +206,16 @@ private:
 	{
 		return data&0x000000ff;
 	}
-	void demux(bool start) {
+
+	void dump(T* src, int nwords){
+		char cmd[80];
+		sprintf(cmd, "hexdump -ve '%d/%d \"%%08x \" \"\\n\" '",
+							nchan, sizeof(T));
+		FILE *pp = popen(cmd, "w");
+		fwrite(src, sizeof(T), nwords, pp);
+		pclose(pp);
+	}
+	bool demux(bool start) {
 		T* src1 = static_cast<T*>(pdata);
 		T* src = static_cast<T*>(pdata);
 		int isam = 0;
@@ -218,9 +227,11 @@ private:
 			       ch_id(src[2]) != 0x22 ||
 			       ch_id(src[3]) != 0x23    ){
 				if (++src - src1 > nsam/100){
+					if (verbose > 1){
+						dump(src1, nchan*4);
+					}
 					fprintf(stderr, "failed to channel align\n");
-					src = src1;
-					break;
+					return true;
 				}
 			}
 		}
@@ -230,6 +241,7 @@ private:
 				*ddcursors[ichan]++ = (*src++)&mask[ichan];
 			}
 		}
+		return false;
 	}
 	bool writeChan(int ic, T* src, int nsam){
 		FILE* fp = fopen(fnames[ic], "w");
