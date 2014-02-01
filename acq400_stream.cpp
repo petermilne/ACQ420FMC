@@ -67,6 +67,8 @@ unsigned mask = FULL_MASK;	/** mask data with this value */
 int m1 = 0;			/** start masking from here */
 int oversampling = 1;
 int devnum = 0;
+const char* script_runs_on_completion = 0;
+int G_nsam = 4096;
 
 int control_handle;
 
@@ -78,6 +80,7 @@ int control_handle;
 int buffer_mode;
 
 int verbose;
+int nb_cat =1;	/* number of buffers to concatenate */
 
 class Buffer {
 
@@ -87,9 +90,11 @@ protected:
 	const int ibuf;
 	int buffer_len;
 
-
 public:
-	virtual int writeBuffer(int out_fd) = 0;
+	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
+
+
+	virtual int writeBuffer(int out_fd, int b_opts) = 0;
 
 	Buffer(const char* _fname, int _ibuf, int _buffer_len):
 		fname(_fname),
@@ -121,7 +126,7 @@ public:
 	NullBuffer(const char* _fname, int _ibuf, int _buffer_len):
 		Buffer(_fname, _ibuf, _buffer_len)
 	{}
-	virtual int writeBuffer(int out_fd) {
+	virtual int writeBuffer(int out_fd, int b_opts) {
 		return buffer_len;
 	}
 };
@@ -130,7 +135,7 @@ protected:
 	void *pdata;
 
 public:
-	virtual int writeBuffer(int out_fd) {
+	virtual int writeBuffer(int out_fd, int b_opts) {
 		return write(out_fd, pdata, buffer_len);
 	}
 
@@ -154,13 +159,17 @@ private:
 	unsigned* mask;
 	int nchan;
 	int nsam;
-	T* ddata;
+	static T** dddata;
+	static T** ddcursors;
+
+	bool data_fits_buffer;
 	char** fnames;
 	char OUT_ROOT[128];
 	char OUT_ROOT_NEW[128];
 	char OUT_ROOT_OLD[128];
 	char CLEAN_COMMAND[128];
 	char FIN_COMMAND[128];
+
 
 	void make_names() {
 		sprintf(OUT_ROOT, FMT_OUT_ROOT, devnum);
@@ -180,59 +189,106 @@ private:
 	}
 	void start() {
 		mkdir(OUT_ROOT_NEW, 0777);
+		for (int ic = 0; ic < nchan; ++ic){
+			ddcursors[ic] =	dddata[ic];
+		}
 	}
 	void finish() {
 		system(CLEAN_COMMAND);
 		rename(OUT_ROOT, OUT_ROOT_OLD);
 		rename(OUT_ROOT_NEW, OUT_ROOT);
 		system(FIN_COMMAND);
+		if (script_runs_on_completion != 0){
+			system(script_runs_on_completion);
+		}
 	}
-	void demux() {
+	static unsigned ch_id(T data)
+	{
+		return data&0x000000ff;
+	}
+	void demux(bool start) {
+		T* src1 = static_cast<T*>(pdata);
 		T* src = static_cast<T*>(pdata);
+		int isam = 0;
 
-		for (int isam = 0; isam < nsam; ++isam){
+		if (start && !data_fits_buffer){
+			/* search for start point - site 1 */
+			while (ch_id(src[0]) != 0x20 ||
+			       ch_id(src[1]) != 0x21 ||
+			       ch_id(src[2]) != 0x22 ||
+			       ch_id(src[3]) != 0x23    ){
+				if (++src - src1 > nsam/100){
+					fprintf(stderr, "failed to channel align\n");
+					src = src1;
+					break;
+				}
+			}
+		}
+		int startoff = (src - src1)/sizeof(T)/nchan;
+		for (isam = startoff; isam < nsam; ++isam){
 			for (int ichan = 0; ichan < nchan; ++ichan){
-				ddata[ichan*nsam + isam] = (*src++)&mask[ichan];
+				*ddcursors[ichan]++ = (*src++)&mask[ichan];
 			}
 		}
 	}
-	void writeChan(int ic, T* src, int nsam){
+	bool writeChan(int ic, T* src, int nsam){
 		FILE* fp = fopen(fnames[ic], "w");
 		if (fp ==0){
 			perror(fnames[ic]);
-			exit(1);
+			return true;
 		}
-		fwrite(src, sizeof(T), nsam, fp);
+		fwrite(dddata[ic], sizeof(T), ddcursors[ic]-dddata[ic], fp);
 		fclose(fp);
+		return false;
 	}
 public:
-	virtual int writeBuffer(int out_fd) {
-		start();
-		demux();
-		for (int ic = 0; ic < nchan; ++ic){
-			writeChan(ic, &ddata[ic*nsam], nsam);
+	virtual int writeBuffer(int out_fd, int b_opts) {
+		if ((b_opts&BO_START) != 0){
+			start();
 		}
-		finish();
+		demux((b_opts&BO_START));
+		if ((b_opts&BO_FINISH) != 0){
+			for (int ic = 0; ic < nchan; ++ic){
+				if (writeChan(ic, dddata[ic], nsam)){
+					// links take out from under
+					return -1;
+				}
+			}
+			finish();
+		}
 		return buffer_len;
 	}
 	DemuxBuffer(const char* _fname, int _ibuf, int _buffer_len, unsigned _mask) :
 		MapBuffer(_fname, _ibuf, _buffer_len),
 		nchan(::nchan),
-		nsam(_buffer_len/sizeof(short)/nchan)
+		nsam(_buffer_len/sizeof(T)/nchan)
 	{
 		mask = new unsigned[nchan];
 		for (int ic = 0; ic < nchan; ++ic){
 			mask[ic] = ic < m1? FULL_MASK: _mask;
 		}
-		ddata = new T[nsam*nchan];
+		if (dddata == 0){
+			dddata = new T*[nchan];
+			ddcursors = new T*[nchan];
+			for (int ic = 0; ic < nchan; ++ic){
+				ddcursors[ic] =	dddata[ic] = new T[nsam*nb_cat];
+			}
+		}
+
 		make_names();
+
+		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
 	}
 };
+
+template<class T> T** DemuxBuffer<T>::dddata;
+template<class T> T** DemuxBuffer<T>::ddcursors;
+
 class TurboBuffer : public Buffer {
 private:
 	static int fake_fd;
 public:
-	virtual int writeBuffer(int out_fd) {
+	virtual int writeBuffer(int out_fd, int b_opts) {
 		// driver doesn't do sendfile yet .. fake it.
 		lseek(fake_fd, 0, SEEK_SET);
 		return sendfile(out_fd, fake_fd, 0, buffer_len);
@@ -277,7 +333,7 @@ public:
 	virtual ~OversamplingMapBuffer() {
 		delete [] outbuf;
 	}
-	virtual int writeBuffer(int out_fd) {
+	virtual int writeBuffer(int out_fd, int b_opts) {
 		T* src = static_cast<T*>(pdata);
 		int sums[::nchan];
 		int nsum = 0;
@@ -398,7 +454,7 @@ public:
 	virtual ~ScratchpadTestBuffer() {
 
 	}
-	virtual int writeBuffer(int out_fd) {
+	virtual int writeBuffer(int out_fd, int b_opts) {
 		++buffer_count;
 		unsigned *src = static_cast<unsigned*>(pdata);
 
@@ -487,6 +543,8 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 
 Buffer** buffers;
 
+
+
 const char* stream_fmt = "%s.c";
 
 struct poptOption opt_table[] = {
@@ -499,10 +557,19 @@ struct poptOption opt_table[] = {
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
 	{ "nchan",    'N', POPT_ARG_INT, &::nchan, 0 },
-	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0, "data word size 2|4" },
-	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0, "set oversampling"},
-	{ "mask",      'M', POPT_ARG_INT, &mask, 0, "set data mask"},
-	{ "m1",        'm', POPT_ARG_INT, &m1, 0, "index of first masked channel"},
+	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0,
+			"data word size 2|4" },
+	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0,
+			"set oversampling"},
+	{ "mask",      'M', POPT_ARG_INT, &mask, 0,
+			"set data mask"},
+	{ "m1",        'm', POPT_ARG_INT, &m1, 0,
+			"index of first masked channel"},
+	{ "nsam",       0,  POPT_ARG_INT, &G_nsam, 0,
+			"desired output samples" },
+	{ "oncompletion", 0, POPT_ARG_STRING, &script_runs_on_completion, 0,
+			"run this script on completion of buffer"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -556,44 +623,89 @@ void init(int argc, const char** argv) {
 		devnum = atoi(devc);
 	}
 
+
+
 	getKnob(devnum, "nbuffers",  &nbuffers);
 	getKnob(devnum, "bufferlen", &bufferlen);
 
+	if (buffer_mode == BM_DEMUX){
+		for (nb_cat = 1;
+		     nb_cat*bufferlen/(nchan*wordsize) < G_nsam; ++nb_cat){
+			;
+		}
+		if (verbose){
+			fprintf(stderr, "BM_DEMUX bufsam:%d\n",
+					bufferlen/(nchan*wordsize));
+			fprintf(stderr, "BM_DEMUX nb_cat set %d\n", nb_cat);
+		}
+	}
 	buffers = new Buffer* [nbuffers];
 
 	root = getRoot(devnum);
-
 
 	for (int ii = 0; ii < nbuffers; ++ii){
 		buffers[ii] = Buffer::create(root, ii, bufferlen);
 	}
 }
 
-void stream()
-{
-	char fname[128];
-	sprintf(fname, stream_fmt, root);
-	int fc = open(fname, O_RDONLY);
-	assert(fc > 0);
-
-	char buf[80];
-	int rc;
-
-	while((rc = read(fc, buf, 80)) > 0){
-		buf[rc] = '\0';
-		int ib = atoi(buf);
-		assert(ib >= 0);
-		assert(ib < nbuffers);
-		if (verbose){
-			fprintf(stderr, "%s", buf);
-		}
-		buffers[ib]->writeBuffer(1);
+class StreamHead {
+protected:
+	virtual void onBuffer(int ib) {
+		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 	}
+public:
+	void stream() {
+		char fname[128];
+		sprintf(fname, stream_fmt, root);
+		int fc = open(fname, O_RDONLY);
+		assert(fc > 0);
+
+		char buf[80];
+		int rc;
+		int icat = 0;
+
+		while((rc = read(fc, buf, 80)) > 0){
+			buf[rc] = '\0';
+			int ib = atoi(buf);
+			assert(ib >= 0);
+			assert(ib <= nbuffers);
+
+			onBuffer(ib);
+		}
+	}
+	static StreamHead& instance();
+};
+
+class StreamHeadHB0: public StreamHead  {
+protected:
+	virtual void onBuffer(int ib) {
+		for (int icat = 0; icat < nb_cat; ++icat){
+			int buffer_opts = Buffer::BO_NONE;
+			if (icat == 0){
+				buffer_opts |= Buffer::BO_START;
+			}
+			if (icat+1 >= nb_cat){
+				buffer_opts |= Buffer::BO_FINISH;
+			}
+			if (verbose){
+				fprintf(stderr, "buffer:%d/%d opts:%d\n",
+						ib, nb_cat, buffer_opts);
+			}
+			buffers[ib+icat]->writeBuffer(1, buffer_opts);
+		}
+	}
+};
+
+StreamHead& StreamHead::instance() {
+	static StreamHead* _instance =
+		buffer_mode==BM_DEMUX? new StreamHeadHB0(): new StreamHead();
+	return *_instance;
 }
+
 
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-	stream();
+	StreamHead::instance().stream();
 	return 0;
 }
