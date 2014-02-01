@@ -931,7 +931,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 
 	/* update every hb0 or at least once per second */
 	now = get_seconds();
-	// this kludge because EPICS updates 4 buffers at a time
+	// this kludge because EPICS updates up to 4 buffers at a time
 	if (hbm->ix == 3 || (now != adev->hb0_last && (hbm->ix&3) == 3)){
 		dev_dbg(DEVP(adev), "last:%lu now:%lu ix:%u",
 				adev->hb0_last, now, adev->cursor.hb->ix);
@@ -1073,7 +1073,7 @@ ssize_t acq400_hb0_read(
 		return -GET_FULL_REFILL_ERR;
 	}
 	sprintf(HB0, "%02d\n", adev->rt.hb0_ix);
-	count = min(count, strlen(HB0));
+	count = min(count, strlen(HB0)+1);
 	rc = copy_to_user(buf, HB0, count);
 	if (rc){
 		return -1;
