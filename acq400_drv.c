@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.404"
+#define REVID "2.405"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -931,20 +931,20 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 
 	/* update every hb0 or at least once per second */
 	now = get_seconds();
-	// this kludge because EPICS updates up to 4 buffers at a time
-	if (hbm->ix == 3 || (now != adev->hb0_last && (hbm->ix&3) == 3)){
-		dev_dbg(DEVP(adev), "last:%lu now:%lu ix:%u",
-				adev->hb0_last, now, adev->cursor.hb->ix);
-
+	/* ratelimited to 1Hz - client gets current and previous hbm */
+	if (adev->rt.hbm_m1 != 0 && now != adev->rt.hb0_last){
 		adev->rt.hb0_count++;
-		adev->rt.hb0_ix = hbm->ix&~3;
-		adev->hb0_last = now;
+		adev->rt.hb0_ix[0] = adev->rt.hbm_m1->ix;
+		adev->rt.hb0_ix[1] = hbm->ix;
+		adev->rt.hb0_last = now;
+
 		wake_up_interruptible(&adev->hb0_marker);
 	}
 	dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 
 	nread = sprintf(lbuf, "%02d\n", hbm->ix);
 	rc = copy_to_user(buf, lbuf, nread);
+	adev->rt.hbm_m1 = hbm;
 	if (rc){
 		return -rc;
 	}
@@ -1072,7 +1072,7 @@ ssize_t acq400_hb0_read(
 	} else if (adev->rt.refill_error){
 		return -GET_FULL_REFILL_ERR;
 	}
-	sprintf(HB0, "%02d\n", adev->rt.hb0_ix);
+	sprintf(HB0, "%d %d\n", adev->rt.hb0_ix[0], adev->rt.hb0_ix[1]);
 	count = min(count, strlen(HB0)+1);
 	rc = copy_to_user(buf, HB0, count);
 	if (rc){

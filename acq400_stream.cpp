@@ -93,6 +93,10 @@ protected:
 public:
 	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
 
+	int getLen() { return buffer_len; }
+
+	virtual unsigned getItem(int ii) { return 0; }
+	virtual unsigned getSizeofItem() { return 1; }
 
 	virtual int writeBuffer(int out_fd, int b_opts) = 0;
 
@@ -139,6 +143,8 @@ public:
 		return write(out_fd, pdata, buffer_len);
 	}
 
+	void* getBase() { return pdata; }
+
 	MapBuffer(const char* _fname, int _ibuf, int _buffer_len) :
 		Buffer(_fname, _ibuf, _buffer_len)
 	{
@@ -170,6 +176,7 @@ private:
 	char CLEAN_COMMAND[128];
 	char FIN_COMMAND[128];
 
+	static int startchan;
 
 	void make_names() {
 		sprintf(OUT_ROOT, FMT_OUT_ROOT, devnum);
@@ -192,6 +199,7 @@ private:
 		for (int ic = 0; ic < nchan; ++ic){
 			ddcursors[ic] =	dddata[ic];
 		}
+		startchan = 0;
 	}
 	void finish() {
 		system(CLEAN_COMMAND);
@@ -220,28 +228,62 @@ private:
 		T* src = static_cast<T*>(pdata);
 		int isam = 0;
 
+		if (verbose > 1 && start && ch_id(src[0]) != 0x20){
+			fprintf(stderr, "handling misalign at [0] %08x\n", src[0]);
+		}
 		if (start && !data_fits_buffer){
 			/* search for start point - site 1 */
-			while (ch_id(src[0]) != 0x20 ||
-			       ch_id(src[1]) != 0x21 ||
-			       ch_id(src[2]) != 0x22 ||
-			       ch_id(src[3]) != 0x23    ){
-				if (++src - src1 > nsam/100){
+			for (; !(ch_id(src[0]) == 0x20 &&
+			         ch_id(src[1]) == 0x21 &&
+			         ch_id(src[2]) == 0x22 &&
+			         ch_id(src[3]) == 0x23    ); ++src){
+				if (src - src1 > 256){
 					if (verbose > 1){
-						dump(src1, nchan*4);
+						dump(src1, src-src1);
 					}
 					fprintf(stderr, "failed to channel align\n");
 					return true;
 				}
 			}
 		}
-		int startoff = (src - src1)/sizeof(T)/nchan;
-		for (isam = startoff; isam < nsam; ++isam){
-			for (int ichan = 0; ichan < nchan; ++ichan){
-				*ddcursors[ichan]++ = (*src++)&mask[ichan];
+
+		int startoff = (src - src1);
+
+		if (verbose && startoff){
+			fprintf(stderr, "realign: %p -> %p %d %d\n",
+					src1, src, src-src1, startoff);
+		}
+		if (verbose && startchan != 0){
+			fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
+					start, startchan, *src);
+		}
+		int ichan = startchan;
+		/* run to the end of buffer. nsam could be rounded down,
+		 * so do not use it.
+		 */
+		for (isam = startoff/nchan; true; ++isam, ichan = 0){
+			for (; ichan < nchan; ++ichan){
+				T last = (*src++)&mask[ichan];
+				*ddcursors[ichan]++ = last;
+				if ((src-src1)*sizeof(T) >= buffer_len){
+					if (verbose){
+						fprintf(stderr,
+						"END buf ch:%d last:%08x\n",
+						ichan, last);
+					}
+					if (++ichan >= nchan) ichan = 0;
+					startchan = ichan;
+
+					if (verbose){
+						fprintf(stderr,
+						"END buf startchan:%d\n", startchan);
+					}
+					return false;
+				}
 			}
 		}
-		return false;
+		/* does not happen */
+		return true;
 	}
 	bool writeChan(int ic, T* src, int nsam){
 		FILE* fp = fopen(fnames[ic], "w");
@@ -291,8 +333,14 @@ public:
 
 		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
 	}
+	virtual unsigned getItem(int ii) {
+		T* src = static_cast<T*>(pdata);
+		return src[ii];
+	}
+	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
 
+template<class T> int DemuxBuffer<T>::startchan;
 template<class T> T** DemuxBuffer<T>::dddata;
 template<class T> T** DemuxBuffer<T>::ddcursors;
 
@@ -661,53 +709,95 @@ void init(int argc, const char** argv) {
 }
 
 class StreamHead {
-protected:
-	virtual void onBuffer(int ib) {
-		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
-	}
 public:
-	void stream() {
-		char fname[128];
-		sprintf(fname, stream_fmt, root);
-		int fc = open(fname, O_RDONLY);
-		assert(fc > 0);
-
-		char buf[80];
-		int rc;
-		int icat = 0;
-
-		while((rc = read(fc, buf, 80)) > 0){
-			buf[rc] = '\0';
-			int ib = atoi(buf);
-			assert(ib >= 0);
-			assert(ib <= nbuffers);
-
-			onBuffer(ib);
-		}
-	}
+	virtual void stream();
 	static StreamHead& instance();
 };
 
+
+void StreamHead::stream() {
+	char fname[128];
+	sprintf(fname, stream_fmt, root);
+	int fc = open(fname, O_RDONLY);
+	assert(fc > 0);
+
+	char buf[80];
+	int rc;
+	int icat = 0;
+
+	while((rc = read(fc, buf, 80)) > 0){
+		buf[rc] = '\0';
+		int ib = atoi(buf);
+		assert(ib >= 0);
+		assert(ib <= nbuffers);
+		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+	}
+}
+
 class StreamHeadHB0: public StreamHead  {
 protected:
-	virtual void onBuffer(int ib) {
-		for (int icat = 0; icat < nb_cat; ++icat){
-			int buffer_opts = Buffer::BO_NONE;
-			if (icat == 0){
-				buffer_opts |= Buffer::BO_START;
-			}
-			if (icat+1 >= nb_cat){
-				buffer_opts |= Buffer::BO_FINISH;
-			}
-			if (verbose){
-				fprintf(stderr, "buffer:%d/%d opts:%d\n",
-						ib, nb_cat, buffer_opts);
-			}
-			buffers[ib+icat]->writeBuffer(1, buffer_opts);
-		}
-	}
+	virtual void stream();
 };
 
+void StreamHeadHB0::stream() {
+	char fname[128];
+	sprintf(fname, stream_fmt, root);
+	int fc = open(fname, O_RDONLY);
+	assert(fc > 0);
+
+	char buf[80];
+	int rc;
+	int icat = 0;
+	int nb = 0;
+
+	while((rc = read(fc, buf, 80)) > 0){
+		buf[rc] = '\0';
+
+
+
+		int ib[2];
+		int nscan = sscanf(buf, "%d %d", ib, ib+1);
+		assert(nscan >= 1);
+		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < nbuffers);
+		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < nbuffers);
+
+		if (verbose) fprintf(stderr, "\n\n\nUPDATE:%4d nscan:%d read: %s",
+				++nb, nscan, buf);
+
+		if (nb_cat > 1 && nscan == 2){
+			Buffer* b0 = buffers[ib[0]];
+			Buffer* b1 = buffers[ib[1]];
+			if (verbose){
+				fprintf(stderr, "b0:%p b1:%p\n", b0, b1);
+				int last = b0->getLen()/b0->getSizeofItem() - 1;
+
+				fprintf(stderr,
+				"buffer end %3d %08x %08x %08x %08x init %3d\n",
+				ib[0], 	b0->getItem(last-1), b0->getItem(last),
+				b1->getItem(0),	b1->getItem(1), ib[1]);
+				fprintf(stderr,
+				"buffer end %3d %08x %08x %08x %08x init %3d\n",
+				ib[0],
+				b0->getItem(last-1)&0x0ff,
+				b0->getItem(last)&0x0ff,
+				b1->getItem(0)&0x0ff,
+				b1->getItem(1)&0x0ff, ib[1]);
+			}
+			if (verbose > 10){
+				fprintf(stderr, "no write\n"); continue;
+			}
+			b0->writeBuffer(1, Buffer::BO_START);
+			b1->writeBuffer(1, Buffer::BO_FINISH);
+		}else if (nscan == 2){
+			Buffer* b1 = buffers[ib[1]];
+			b1->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
+		}else if (nscan == 1){
+			Buffer* b0 = buffers[ib[0]];
+			b0->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
+		}
+		if (verbose) fprintf(stderr, "UPDATE:%4d finished\n", nb);
+	}
+}
 StreamHead& StreamHead::instance() {
 	static StreamHead* _instance =
 		buffer_mode==BM_DEMUX? new StreamHeadHB0(): new StreamHead();

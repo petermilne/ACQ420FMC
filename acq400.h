@@ -313,7 +313,7 @@ struct acq400_dev {
 	} cursor;
 	wait_queue_head_t refill_ready;
 	wait_queue_head_t hb0_marker;
-	unsigned long hb0_last;
+
 
 	unsigned *fifo_histo;
 
@@ -323,7 +323,10 @@ struct acq400_dev {
 		unsigned nget;
 		unsigned nput;
 		unsigned hb0_count;
-		unsigned hb0_ix;
+		unsigned hb0_ix[2];		/* [0]: previous, [1] : current */
+
+		unsigned long hb0_last;
+		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 	} rt;
 
 	struct AO_Immediate {
