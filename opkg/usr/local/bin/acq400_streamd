@@ -7,6 +7,7 @@ init_stream() {
 SITE=$1
 PID=/var/run/acq400_stream.$SITE.pid
 
+
 source /etc/sysconfig/acq400.conf >/dev/null
 
 acq400_teardown $SITE
@@ -64,9 +65,12 @@ fi
 }
 
 SITE=$1
-init_stream $SITE 2>&1 >/var/log/acq400_streamd_$SITE.log
+LOG=/var/log/acq400_streamd_$SITE.log
 
-echo $SAMPLE_SIZE $OVERSAMPLING $SITE >/tmp/acq400_streamd.$SITE.status
+init_stream $SITE 2>&1 >$LOG
+sleep 0.1
+jobs >>$LOG
+echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 
 acq400_stream $SAMPLE_SIZE $OVERSAMPLING $SITE &
 wait $!

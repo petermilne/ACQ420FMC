@@ -704,9 +704,9 @@ static DEVICE_ATTR(hi_res_mode,
 
 #define BADBANKMASK 0xffffffff
 
-unsigned bank_mask_txt2int(char* txt)
+unsigned bank_mask_txt2int(const char* txt)
 {
-	char* cursor;
+	const char* cursor;
 	unsigned mask = 0;
 
 	for (cursor = txt; *cursor && cursor-txt < 4; ++cursor){
@@ -1535,8 +1535,44 @@ REG_KNOB(data_engine_1, DATA_ENGINE(1), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_2, DATA_ENGINE(2), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_3, DATA_ENGINE(3), DATA_ENGINE_MSHIFT);
 
+
+
+static ssize_t show_aggsta(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned mask)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned aggsta = acq400rd32(adev, AGGSTA);
+	unsigned field = aggsta&mask;
+
+	for (; (mask&0x1) == 0; mask >>=1, field >>= 1){
+		;
+	}
+
+	return sprintf(buf, "%u\n", field);
+}
+
+#define SHOW_AGGSTA(name, mask) 					\
+static ssize_t show_aggsta_##name(					\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char* buf )							\
+{									\
+	return show_aggsta(dev, attr, buf, mask);			\
+}									\
+static DEVICE_ATTR(name, S_IRUGO, show_aggsta_##name, 0)
+
+SHOW_AGGSTA(aggsta_fifo_count, AGGSTA_FIFO_COUNT);
+SHOW_AGGSTA(aggsta_fifo_stat,  AGGSTA_FIFO_STAT);
+SHOW_AGGSTA(aggsta_engine_stat, AGGSTA_ENGINE_STAT);
+
 static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_aggregator.attr,
+	&dev_attr_aggsta_fifo_count.attr,
+	&dev_attr_aggsta_fifo_stat.attr,
+	&dev_attr_aggsta_engine_stat.attr,
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_data_engine_2.attr,
@@ -1585,6 +1621,9 @@ static const struct attribute *acq2006sc_attrs[] = {
 
 static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_aggregator.attr,
+	&dev_attr_aggsta_fifo_count.attr,
+	&dev_attr_aggsta_fifo_stat.attr,
+	&dev_attr_aggsta_engine_stat.attr,
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,

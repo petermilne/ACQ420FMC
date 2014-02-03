@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.405"
+#define REVID "2.411"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -84,6 +84,9 @@ MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 int maxdma = MAXDMA;
 module_param(maxdma, int, 0644);
 MODULE_PARM_DESC(maxdma, "set maximum DMA len bytes");
+
+int agg_reset_dbg = 0;
+module_param(agg_reset_dbg, int, 0644);
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -162,10 +165,17 @@ int isGoodSite(int site)
 }
 int acq400_release(struct inode *inode, struct file *file);
 
+
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
-	dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
-			adev->dev_virtaddr + offset, offset, value);
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}else{
+		dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}
 
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
@@ -173,8 +183,13 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 u32 acq400rd32(struct acq400_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
-	dev_dbg(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
 			adev->dev_virtaddr + offset, offset, rc);
+	}else{
+		dev_dbg(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
+	}
 	return rc;
 }
 
@@ -276,11 +291,24 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 }
 
-void acq2006_aggregator_enable(struct acq400_dev *adev)
+void acq2006_aggregator_reset(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
 	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
+	acq400wr32(adev, AGGREGATOR, agg);
+	acq400rd32(adev, AGGREGATOR);
+}
+
+void acq2006_data_engine0_reset_enable(struct acq400_dev *adev)
+{
+	u32 DE0 = acq400rd32(adev, DATA_ENGINE_0);
+	acq400wr32(adev, DATA_ENGINE_0, DE0 &= ~(DE_ENABLE));
+	acq400wr32(adev, DATA_ENGINE_0, DE0 | DE_ENABLE);
+}
+void acq2006_aggregator_enable(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
 }
 void acq2006_aggregator_disable(struct acq400_dev *adev)
@@ -873,17 +901,29 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 }
 
 int acq2006_continuous_start(struct inode *inode, struct file *file)
+/* this sequence CRITICAL for a clean start
+ * (1) reset the aggregator, leaving it disabled
+ * (2) reset the data engine, leaving it enabled (0xf1000000 : waiting flush)
+ * (3) enable the DMA, sends the flush, data engine => 0xf3000000
+ * (4) enable the aggregator
+ */
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
 
 	_onStart(adev);
-	rc =_acq420_continuous_start_dma(adev);
+	adev->RW32_debug = agg_reset_dbg;
+	acq2006_aggregator_reset(adev);				/* (1) */
+	acq2006_data_engine0_reset_enable(adev);		/* (2) */
+
+	if (agg_reset_dbg) dev_info(DEVP(adev), "start dma");
+	rc =_acq420_continuous_start_dma(adev);			/* (3) */
 	if (rc != 0){
 		return rc;
 	}
-	acq2006_aggregator_enable(adev);
 
+	acq2006_aggregator_enable(adev);			/* (4) */
+	adev->RW32_debug = 0;
 	return 0;
 }
 

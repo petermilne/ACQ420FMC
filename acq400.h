@@ -292,6 +292,7 @@ struct acq400_dev {
 	int nchan_enabled;
 	int word_size;
 	int is_slave;			/** @@todo how does this get set? */
+	int RW32_debug;
 
 	struct mutex list_mutex;
 	struct list_head EMPTIES;	/* empties waiting isr       */
@@ -425,6 +426,8 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 
+#define DE_ENABLE		(1<<0)
+
 #define AGG_ENABLE		(1<<0)
 #define AGG_FIFO_RESET		(1<<1)
 /* s=1..6 */
@@ -443,7 +446,9 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define DATA_ENGINE_SELECT_AGG	(1<<14)
 
-
+#define AGGSTA_FIFO_COUNT	0x000000ff
+#define AGGSTA_FIFO_STAT	0x00000f00
+#define AGGSTA_ENGINE_STAT	0x000f0000
 
 
 #define ACQ1001_MOD_CON_MOD_EN		(1<<0)
