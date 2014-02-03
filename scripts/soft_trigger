@@ -1,4 +1,5 @@
 #!/bin/sh
+logger -t soft_trigger "trigger start"
 set.sys /dev/acq400.0.knobs/soft_trig 0
 set.sys /dev/acq400.0.knobs/soft_trig 1
 set.sys /dev/acq400.0.knobs/soft_trig 0

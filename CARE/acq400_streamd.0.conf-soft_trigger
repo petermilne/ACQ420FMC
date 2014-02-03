@@ -1,0 +1,9 @@
+#!/bin/sh
+
+log_engine() {
+	logger -t acq400_streamd \
+		"data_engine_0 $(get.sys /dev/acq400.0.knobs/data_engine_0)"
+
+}
+log_engine
+export ACQ400D_TRIG="soft_trigger"

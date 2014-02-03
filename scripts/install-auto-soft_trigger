@@ -1,0 +1,18 @@
+#!/bin/sh
+
+SF=acq400_streamd.0.conf-soft_trigger
+SRC=/usr/local/CARE/$SF
+DST=/etc/sysconfig/acq400_streamd.0.conf
+
+
+if [ "$1" = "remove" ]; then
+	echo remove auto-soft_trigger
+	sed -ie "/$SF/d" /mnt/local/rc.user
+	rm $DST
+else
+	grep -q $SF /mnt/local/rc.user
+	if [ $? ]; then
+		echo "cp $SRC $DST" >>/mnt/local/rc.user
+		cp $SRC $DST
+	fi
+fi

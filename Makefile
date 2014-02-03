@@ -31,7 +31,7 @@ package: all
 	cp $(APPS) monitorregs scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
-	cp acq435_decode reset-data-engine-0 opkg/usr/local/CARE
+	cp acq435_decode CARE/* opkg/usr/local/CARE
 	cp acq420.init inetd.conf opkg/usr/local/init
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .

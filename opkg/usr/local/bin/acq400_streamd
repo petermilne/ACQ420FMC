@@ -73,6 +73,10 @@ jobs >>$LOG
 echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 
 acq400_stream $SAMPLE_SIZE $OVERSAMPLING $SITE &
+sleep 0.1
+if [ "x$ACQ400D_TRIG" != "x" ]; then
+	$ACQ400D_TRIG	
+fi
 wait $!
 if [ $SITE -eq 0 ]; then
 	acq400_teardown $SITE
