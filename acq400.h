@@ -189,6 +189,8 @@
 #define ACQ435_MODE_B0DIS	(1<<0)
 
 #define ACQ435_MODE_BXDIS	0xf
+#define ACQ430_BANKSEL	\
+	(ACQ435_MODE_B3DIS|ACQ435_MODE_B2DIS|ACQ435_MODE_B1DIS)
 
 #define MODULE_NAME             "acq420"
 
@@ -398,6 +400,8 @@ int getHeadroom(struct acq400_dev *adev);
 
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
+#define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
+
 void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define SYSCLK_M100	100000000
@@ -442,7 +446,12 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define AGG_SIZE_MASK		0xff
 #define AGG_SIZE_SHL		8
-#define AGG_SIZE_UNIT		512
+#define AGG_SIZE_UNIT_OLD	512
+#define AGG_SIZE_UNIT_NEW	128
+
+#define AGG_SIZE_UNIT(adev)	\
+	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
+		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
 
 #define DATA_ENGINE_SELECT_AGG	(1<<14)
 

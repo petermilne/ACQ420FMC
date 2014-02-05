@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.411"
+#define REVID "2.413"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -235,10 +235,14 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
-	dev_info(DEVP(adev), "ACQ435 device init");
+	int is_acq430 = IS_ACQ430(adev);
+	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
 	adev->data32 = 1;
-	adev->nchan_enabled = 32;
+	adev->nchan_enabled = is_acq430? 8: 32;	// 32 are you sure?.
 	adev->word_size = 4;
+	if (is_acq430){
+		acq400wr32(adev, ACQ435_MODE, ACQ430_BANKSEL);
+	}
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	adev->sysclkhz = SYSCLK_M100;

@@ -528,7 +528,7 @@ static ssize_t store_data32(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 data32;
-	if (!IS_ACQ435(adev) && sscanf(buf, "%u", &data32) == 1){
+	if (!IS_ACQ43X(adev) && sscanf(buf, "%u", &data32) == 1){
 		adev->data32 = data32 != 0;
 		adev->word_size = data32? 4: 2;
 		return count;
@@ -1347,9 +1347,9 @@ MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
 MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
 MODCON_KNOB(soft_trig,  MOD_CON_SOFT_TRIG);
 
-int get_agg_threshold_bytes(u32 agg)
+int get_agg_threshold_bytes(struct acq400_dev *adev, u32 agg)
 {
-	return ((agg>>AGG_SIZE_SHL)&AGG_SIZE_MASK)*AGG_SIZE_UNIT;
+	return ((agg>>AGG_SIZE_SHL)&AGG_SIZE_MASK)*AGG_SIZE_UNIT(adev);
 }
 
 #define AGG_SEL	"aggregator="
@@ -1385,7 +1385,7 @@ static ssize_t show_reg(
 				regval&DATA_ENGINE_SELECT_AGG? 1: 0);
 	}else if(mshift == AGGREGATOR_MSHIFT){
 		sprintf(mod_group+strlen(mod_group), " %s%d", TH_SEL,
-				get_agg_threshold_bytes(regval));
+				get_agg_threshold_bytes(adev, regval));
 	}
 
 	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
@@ -1473,7 +1473,7 @@ static ssize_t store_reg(
 			int thbytes = 0;
 			if (sscanf(th_sel, TH_SEL"%d", &thbytes) == 1){
 				unsigned regval = acq400rd32(adev, offset);
-				unsigned th = thbytes/AGG_SIZE_UNIT;
+				unsigned th = thbytes/AGG_SIZE_UNIT(adev);
 				if (th > AGG_SIZE_MASK) th = AGG_SIZE_MASK;
 				regval &= ~(AGG_SIZE_MASK<<AGG_SIZE_SHL);
 				regval |= th<<AGG_SIZE_SHL;
@@ -1673,7 +1673,7 @@ void acq400_createSysfs(struct device *dev)
 		}
 		if (IS_ACQ420(adev)){
 			specials = acq420_attrs;
-		}else if (IS_ACQ435(adev)){
+		}else if (IS_ACQ43X(adev)){
 			specials = acq435_attrs;
 		}else if (IS_AO420(adev)){
 			specials = ao420_attrs;
