@@ -1288,6 +1288,50 @@ SCOUNT_KNOB(SYN_S4,     ACQ2006_SYN_COUNT(SITE2DX(4)));
 SCOUNT_KNOB(SYN_S5,     ACQ2006_SYN_COUNT(SITE2DX(5)));
 SCOUNT_KNOB(SYN_S6,     ACQ2006_SYN_COUNT(SITE2DX(6)));
 
+
+static ssize_t show_fan_percent(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned pwm = acq400rd32(adev, MOD_CON)&ACQ1001_MOD_CON_PWM_MASK;
+	unsigned fan_percent;
+
+	/* scale to 1..100 */
+	pwm >>= ACQ1001_MOD_CON_PWM_BIT;
+	pwm -= ACQ1001_MOD_CON_PWM_MIN;
+	fan_percent = (pwm*2)/5;
+	return sprintf(buf, "%u\n", fan_percent);
+}
+
+static ssize_t store_fan_percent(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned mod_con = acq400rd32(adev, MOD_CON);
+	unsigned fan_percent;
+
+	if (sscanf(buf, "%d", &fan_percent) == 1){
+		unsigned pwm = (fan_percent*5)/2;
+		pwm += ACQ1001_MOD_CON_PWM_MIN;
+		pwm <<= ACQ1001_MOD_CON_PWM_BIT;
+		pwm &= ACQ1001_MOD_CON_PWM_MASK;
+		mod_con &= ~ACQ1001_MOD_CON_PWM_MASK;
+		mod_con |= pwm;
+
+		acq400wr32(adev, MOD_CON, mod_con);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(fan_percent, S_IWUGO, show_fan_percent, store_fan_percent);
+
 static ssize_t show_acq0000_mod_con(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1299,6 +1343,8 @@ static ssize_t show_acq0000_mod_con(
 
 	return sprintf(buf, "%u\n", (mod_con&mask) != 0);
 }
+
+
 
 static ssize_t store_acq0000_mod_con(
 	struct device * dev,
@@ -1628,6 +1674,7 @@ static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_fan.attr,
+	&dev_attr_fan_percent.attr,
 	&dev_attr_soft_trig.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
