@@ -220,14 +220,15 @@ static ssize_t show_signal(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
+	unsigned REG,
 	int shl, int mbit,
 	const char*signame, const char* mbit_hi, const char* mbit_lo)
 {
-	u32 adc_ctrl = acq400rd32(acq400_devices[dev->id], TIM_CTRL);
+	u32 adc_ctrl = acq400rd32(acq400_devices[dev->id], REG);
 	if (adc_ctrl&mbit){
-		u32 sel = (adc_ctrl >> shl) & TIM_CTRL_SIG_MASK;
-		unsigned dx = sel&TIM_CTRL_SIG_SEL;
-		int rising = ((adc_ctrl >> shl) & TIM_CTRL_SIG_RISING) != 0;
+		u32 sel = (adc_ctrl >> shl) & CTRL_SIG_MASK;
+		unsigned dx = sel&CTRL_SIG_SEL;
+		int rising = ((adc_ctrl >> shl) & CTRL_SIG_RISING) != 0;
 
 		return sprintf(buf, "%s=%d,%d,%d %s d%u %s\n",
 				signame, 1, dx, rising,
@@ -237,7 +238,9 @@ static ssize_t show_signal(
 	}
 }
 
-int store_signal3(struct device* dev, int shl, int mbit,
+int store_signal3(struct device* dev,
+		unsigned REG,
+		int shl, int mbit,
 		unsigned imode, unsigned dx, unsigned rising)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
@@ -245,7 +248,7 @@ int store_signal3(struct device* dev, int shl, int mbit,
 	if (adev->busy){
 		return -EBUSY;
 	}else{
-		u32 adc_ctrl = acq400rd32(adev, TIM_CTRL);
+		u32 adc_ctrl = acq400rd32(adev, REG);
 
 		switch(imode){
 		case 0:
@@ -256,15 +259,15 @@ int store_signal3(struct device* dev, int shl, int mbit,
 				dev_warn(dev, "rejecting \"%u\" dx > 7", dx);
 				return -1;
 			}
-			adc_ctrl &= ~(TIM_CTRL_SIG_MASK << shl);
-			adc_ctrl |=  (dx|(rising? TIM_CTRL_SIG_RISING:0))<<shl;
+			adc_ctrl &= ~(CTRL_SIG_MASK << shl);
+			adc_ctrl |=  (dx|(rising? CTRL_SIG_RISING:0))<<shl;
 			adc_ctrl |= mbit;
 			break;
 		default:
 			dev_warn(dev, "BAD mode:%u", imode);
 			return -1;
 		}
-		acq400wr32(adev, TIM_CTRL, adc_ctrl);
+		acq400wr32(adev, REG, adc_ctrl);
 		return 0;
 	}
 }
@@ -273,6 +276,7 @@ static ssize_t store_signal(
 		struct device_attribute *attr,
 		const char * buf,
 		size_t count,
+		unsigned REG,
 		int shl, int mbit, const char* mbit_hi, const char* mbit_lo)
 {
 	char sense;
@@ -282,7 +286,7 @@ static ssize_t store_signal(
 	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
 	int nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);
 	if (nscan == 3){
-		if (store_signal3(dev, shl, mbit, imode, dx, rising)){
+		if (store_signal3(dev, REG, shl, mbit, imode, dx, rising)){
 			return -1;
 		}else{
 			return count;
@@ -295,7 +299,7 @@ static ssize_t store_signal(
 	switch(nscan){
 	case 1:
 		if (strcmp(mode, mbit_lo) == 0){
-			return store_signal3(dev, shl, mbit, 0, 0, 0);
+			return store_signal3(dev, REG, shl, mbit, 0, 0, 0);
 		}
 		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
 		return -1;
@@ -308,7 +312,7 @@ static ssize_t store_signal(
 				dev_warn(dev,
 				 "rejecting \"%s\" sense must be R or F", buf);
 				return -1;
-			}else if (store_signal3(dev, shl, mbit, 1, dx, rising)){
+			}else if (store_signal3(dev, REG, shl, mbit, 1, dx, rising)){
 				return -1;
 			}else{
 				return count;
@@ -321,13 +325,13 @@ static ssize_t store_signal(
 	}
 }
 
-#define MAKE_SIGNAL(SIGNAME, shl, mbit, HI, LO)							\
+#define MAKE_SIGNAL(SIGNAME, REG, shl, mbit, HI, LO)			\
 static ssize_t show_##SIGNAME(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_signal(dev, attr, buf, shl, mbit, #SIGNAME, HI, LO);\
+	return show_signal(dev, attr, buf, REG, shl, mbit, #SIGNAME, HI, LO);\
 }									\
 									\
 static ssize_t store_##SIGNAME(						\
@@ -336,7 +340,7 @@ static ssize_t store_##SIGNAME(						\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_signal(dev, attr, buf, count, shl, mbit, HI, LO);	\
+	return store_signal(dev, attr, buf, count, REG, shl, mbit, HI, LO);\
 }									\
 static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 		show_##SIGNAME, store_##SIGNAME)
@@ -346,14 +350,88 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 #define EXT	"external"
 #define SOFT	"soft"
 #define INT	"internal"
-MAKE_SIGNAL(event1, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS);
-MAKE_SIGNAL(event0, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS);
-MAKE_SIGNAL(trg,    TIM_CTRL_TRIG_SHL,	 TIM_CTRL_MODE_HW_TRG, EXT, SOFT);
-MAKE_SIGNAL(clk,    TIM_CTRL_CLK_SHL,	 TIM_CTRL_MODE_HW_CLK, EXT, INT);
-MAKE_SIGNAL(sync,   TIM_CTRL_SYNC_SHL,	 TIM_CTRL_MODE_SYNC,   EXT, INT);
+MAKE_SIGNAL(event1, TIM_CTRL, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS);
+MAKE_SIGNAL(event0, TIM_CTRL, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS);
+MAKE_SIGNAL(trg,    TIM_CTRL, TIM_CTRL_TRIG_SHL,   TIM_CTRL_MODE_HW_TRG, EXT, SOFT);
+MAKE_SIGNAL(clk,    TIM_CTRL, TIM_CTRL_CLK_SHL,	   TIM_CTRL_MODE_HW_CLK, EXT, INT);
+MAKE_SIGNAL(sync,   TIM_CTRL, TIM_CTRL_SYNC_SHL,   TIM_CTRL_MODE_SYNC,   EXT, INT);
 
 
+MAKE_SIGNAL(gpg_trg, GPG_CONTROL, GPG_CTRL_TRG_SHL, GPG_CTRL_EXT_TRG, EXT, SOFT);
+MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT);
+MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT);
 
+
+static ssize_t show_gpg_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	u32 gpg_mode = (gpg_ctrl&GPG_CTRL_MODE) >> GPG_CTRL_MODE_SHL;
+	return sprintf(buf, "%u\n", gpg_mode);
+}
+
+static ssize_t store_gpg_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_mode;
+
+	if (sscanf(buf, "%u", &gpg_mode) == 1){
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+		gpg_mode <<= GPG_CTRL_MODE_SHL;
+		gpg_mode &= GPG_CTRL_MODE;
+		gpg_ctrl &= ~GPG_CTRL_MODE;
+		gpg_ctrl |= gpg_mode;
+
+		acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(gpg_mode, S_IRUGO|S_IWUGO, show_gpg_mode, store_gpg_mode);
+
+static ssize_t show_gpg_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	return sprintf(buf, "%u\n", (gpg_ctrl&GPG_CTRL_ENABLE) != 0);
+}
+
+static ssize_t store_gpg_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_enable;
+
+	if (sscanf(buf, "%u", &gpg_enable) == 1){
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+		if (gpg_enable){
+			gpg_ctrl |= GPG_CTRL_ENABLE;
+		}else{
+			gpg_ctrl &= ~GPG_CTRL_ENABLE;
+		}
+		acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(gpg_enable, S_IRUGO|S_IWUGO, show_gpg_enable, store_gpg_enable);
 
 static ssize_t show_simulate(
 	struct device * dev,
@@ -1614,18 +1692,26 @@ SHOW_AGGSTA(aggsta_fifo_count, AGGSTA_FIFO_COUNT);
 SHOW_AGGSTA(aggsta_fifo_stat,  AGGSTA_FIFO_STAT);
 SHOW_AGGSTA(aggsta_engine_stat, AGGSTA_ENGINE_STAT);
 
-static const struct attribute *acq2006sc_attrs[] = {
+static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
 	&dev_attr_aggsta_fifo_count.attr,
 	&dev_attr_aggsta_fifo_stat.attr,
 	&dev_attr_aggsta_engine_stat.attr,
+	&dev_attr_mod_en.attr,
+	&dev_attr_psu_sync.attr,
+	&dev_attr_soft_trig.attr,
+	&dev_attr_gpg_trg.attr,
+	&dev_attr_gpg_clk.attr,
+	&dev_attr_gpg_sync.attr,
+	&dev_attr_gpg_mode.attr,
+	&dev_attr_gpg_enable.attr,
+	NULL
+};
+static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_data_engine_2.attr,
 	&dev_attr_data_engine_3.attr,
-	&dev_attr_mod_en.attr,
-	&dev_attr_psu_sync.attr,
-	&dev_attr_soft_trig.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
@@ -1666,16 +1752,10 @@ static const struct attribute *acq2006sc_attrs[] = {
 };
 
 static const struct attribute *acq1001sc_attrs[] = {
-	&dev_attr_aggregator.attr,
-	&dev_attr_aggsta_fifo_count.attr,
-	&dev_attr_aggsta_fifo_stat.attr,
-	&dev_attr_aggsta_engine_stat.attr,
 	&dev_attr_data_engine_0.attr,
-	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_fan.attr,
 	&dev_attr_fan_percent.attr,
-	&dev_attr_soft_trig.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
@@ -1710,10 +1790,15 @@ void acq400_createSysfs(struct device *dev)
 
 	if (IS_DUMMY(adev)){
 		return;
-	}else if (IS_ACQ2006SC(adev)){
-		specials = acq2006sc_attrs;
-	}else if (IS_ACQ1001SC(adev)){
-		specials = acq1001sc_attrs;
+	}else if IS_ACQx00xSC(adev){
+		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
+		if (IS_ACQ2006SC(adev)){
+			specials = acq2006sc_attrs;
+		}else if (IS_ACQ1001SC(adev)){
+			specials = acq1001sc_attrs;
+		}
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");

@@ -134,9 +134,9 @@
 #define TIM_CTRL_CLK_SHL	12
 #define TIM_CTRL_MODE_SHL	0
 
-#define TIM_CTRL_SIG_MASK	0xf
-#define TIM_CTRL_SIG_RISING	0x8
-#define TIM_CTRL_SIG_SEL	0x7
+#define CTRL_SIG_MASK	0xf
+#define CTRL_SIG_RISING	0x8
+#define CTRL_SIG_SEL	0x7
 
 #define TIM_CTRL_MODE_EV1_EN	(1 << (4+TIM_CTRL_MODE_SHL))
 #define TIM_CTRL_MODE_EV0_EN	(1 << (3+TIM_CTRL_MODE_SHL))
@@ -213,6 +213,7 @@
 #define ACQ420_MINOR_HISTO	2
 #define ACQ420_MINOR_HB0	3	// block on HB0 fill
 #define ACQ420_MINOR_SIDEPORTED 4	// enable, but data flow elsewhere
+#define ACQ420_MINOR_GPGMEM	5	// mmap 4K of this
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -430,6 +431,10 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 
+
+#define GPG_CONTROL		(0x0024)
+/* scratchpad */
+
 #define DE_ENABLE		(1<<0)
 
 #define AGG_ENABLE		(1<<0)
@@ -467,6 +472,29 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define ACQ1001_MOD_CON_PWM_BIT		8
 #define ACQ1001_MOD_CON_PWM_MASK	0x0000ff00
 #define ACQ1001_MOD_CON_PWM_MIN		0x11
+
+
+#define GPG_CTRL_TOPADDR		0x3ff00000
+#define GPG_CTRL_TRG_SEL		0x000e0000
+#define GPG_CTRL_TRG_RISING		0x00010000
+#define GPG_CTRL_SYNC_SEL		0x0000e000
+#define GPG_CTRL_SYNC_RISING		0x00001000
+#define GPG_CTRL_CLK_SEL		0x00000e00
+#define GPG_CTRL_CLK_RISING		0x00000100
+#define GPG_CTRL_EXT_TRG		0x00000040
+#define GPG_CTRL_EXT_SYNC		0x00000020
+#define GPG_CTRL_EXTCLK			0x00000010
+#define GPG_CTRL_MODE			0x00000006
+#define GPG_CTRL_ENABLE			0x00000001
+
+#define GPG_CTRL_TRG_SHL		16
+#define GPG_CTRL_SYNC_SHL		12
+#define GPG_CTRL_CLK_SHL		8
+#define GPG_CTRL_MODE_SHL		1
+
+#define GPG_MEM_BASE			0xf000
+#define GPG_MEM_SIZE			0x1000
+#define GPG_MEM_ACTUAL			0x0800
 
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */

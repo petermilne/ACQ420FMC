@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.414"
+#define REVID "2.415"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1265,6 +1265,101 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 	}
 }
 
+ssize_t acq400_gpgmem_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	char *gpg_mem = ACQ400_DEV(file)->dev_virtaddr + GPG_MEM_BASE;
+	int len = GPG_MEM_ACTUAL;
+	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	int rc;
+
+	if (cursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - cursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, gpg_mem+cursor, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
+ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	char *gpg_mem = ACQ400_DEV(file)->dev_virtaddr + GPG_MEM_BASE;
+	int len = GPG_MEM_ACTUAL;
+	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	int rc;
+
+	if (cursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - cursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user(gpg_mem+cursor, buf, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
+int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
+/**
+ * mmap the host buffer.
+ */
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = GPG_MEM_SIZE;
+	unsigned pfn = (adev->dev_physaddr + GPG_MEM_BASE) >> PAGE_SHIFT;
+
+	if (!IS_BUFFER(PD(file)->minor)){
+		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
+		return -1;
+	}
+	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+
+int acq420_open_gpgmem(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_gpgmem = {
+			.read = acq400_gpgmem_read,
+			.write = acq400_gpgmem_write,
+			.mmap = acq400_gpgmem_mmap,
+			.release = acq400_null_release
+	};
+	file->f_op = &acq400_fops_gpgmem;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
 int acq400_open(struct inode *inode, struct file *file)
 {
 
@@ -1292,6 +1387,8 @@ int acq400_open(struct inode *inode, struct file *file)
         		return acq400_open_histo(inode, file);
         	case ACQ420_MINOR_HB0:
         		return acq420_open_hb0(inode, file);
+        	case ACQ420_MINOR_GPGMEM:
+        		return acq420_open_gpgmem(inode, file);
         	case ACQ420_MINOR_0:
         		return acq400_open_main(inode, file);
         	default:
@@ -1893,6 +1990,7 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(DATA_ENGINE_1);
 	DBG_REG_CREATE(DATA_ENGINE_2);
 	DBG_REG_CREATE(DATA_ENGINE_3);
+	DBG_REG_CREATE(GPG_CONTROL);
 
 	DBG_REG_CREATE_2006("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
 	DBG_REG_CREATE_2006("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
