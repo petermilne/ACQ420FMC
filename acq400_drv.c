@@ -1268,8 +1268,9 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 ssize_t acq400_gpgmem_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
-	char *gpg_mem = ACQ400_DEV(file)->dev_virtaddr + GPG_MEM_BASE;
-	int len = GPG_MEM_ACTUAL;
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	char *gpg_mem = adev->dev_virtaddr + GPG_MEM_BASE;
+	int len = adev->gpg_cursor;
 	unsigned cursor = *f_pos;	/* f_pos counts in entries */
 	int rc;
 
@@ -1293,7 +1294,8 @@ ssize_t acq400_gpgmem_read(
 ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 {
-	char *gpg_mem = ACQ400_DEV(file)->dev_virtaddr + GPG_MEM_BASE;
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	char *gpg_mem = adev->dev_virtaddr + GPG_MEM_BASE;
 	int len = GPG_MEM_ACTUAL;
 	unsigned cursor = *f_pos;	/* f_pos counts in entries */
 	int rc;
@@ -1311,7 +1313,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 		return -1;
 	}
 
-	*f_pos += count;
+	*f_pos = adev->gpg_cursor += count;
 	return count;
 }
 
@@ -1354,6 +1356,11 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 	};
 	file->f_op = &acq400_fops_gpgmem;
 	if (file->f_op->open){
+		if (file->f_flags & O_WRONLY) {
+			struct acq400_dev* adev = ACQ400_DEV(file);
+			adev->gpg_cursor = 0;
+		}
+
 		return file->f_op->open(inode, file);
 	}else{
 		return 0;

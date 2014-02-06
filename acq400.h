@@ -318,6 +318,7 @@ struct acq400_dev {
 	wait_queue_head_t refill_ready;
 	wait_queue_head_t hb0_marker;
 
+	unsigned gpg_cursor;		/* bytes .. */
 
 	unsigned *fifo_histo;
 

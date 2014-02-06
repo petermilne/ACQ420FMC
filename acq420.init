@@ -82,7 +82,8 @@ build_etc_site() {
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
-	ln -s $dir/ /dev/acq400.${site}.knobs
+	dknobs=/dev/acq400.${site}.knobs
+	ln -s $dir/ ${dknobs}
 	build_etc_site ${site}
 	
 
@@ -107,18 +108,19 @@ build_knobs_device() {
 	set.sys /$dir/clkdiv $CLKDIV
 	echo get.sys /$dir/clkdiv $(get.sys /$dir/clkdiv)
 	if [ -e $dir/gains ]; then
-		set.sys /dev/acq400.${site}.knobs/gains 0000		
+		set.sys ${dknobs}/gains 0000		
 	fi
 	touch /dev/shm/AI.${site}.wf.fin
 	web_append acq400.${site} ${site}	
 }
 
 build_site0() {
-	ln -s $1 /dev/acq400.0.knobs
+	dknobs=/dev/acq400.0.knobs
+	ln -s $1 ${dknobs}
 	web_append acq400.0 0
-	ln -s /dev/acq400.0.knobs/aggregator /etc/acq400/0/
-	ln -s /usr/local/bin/run0 /etc/acq400/0/
-	for k in /dev/acq400.0.knobs/data_engine_?
+	ln -s ${dknobs}/aggregator /etc/acq400/0/
+	ln -s ${dknobs}/run0 /etc/acq400/0/
+	for k in ${dknobs}/data_engine_? ${dknobs}/gpg_*
 	do
 		[ -e $k ] && ln -s $k /etc/acq400/0/
 	done
