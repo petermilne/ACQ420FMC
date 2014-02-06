@@ -1753,7 +1753,6 @@ static const struct attribute *acq2006sc_attrs[] = {
 
 static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_data_engine_0.attr,
-	&dev_attr_psu_sync.attr,
 	&dev_attr_fan.attr,
 	&dev_attr_fan_percent.attr,
 

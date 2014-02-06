@@ -328,8 +328,8 @@ struct acq400_dev {
 		unsigned nget;
 		unsigned nput;
 		unsigned hb0_count;
-		unsigned hb0_ix[2];		/* [0]: previous, [1] : current */
 
+		unsigned hb0_ix[2];		/* [0]: previous, [1] : current */
 		unsigned long hb0_last;
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 	} rt;
