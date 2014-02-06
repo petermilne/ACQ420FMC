@@ -42,6 +42,7 @@ build_nodes() {
 			mknod /dev/${NAME}.histo 	c ${MAJOR} 2
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
+			[ $ID -eq 0 ] && mknod /dev/${NAME}.gpg	c ${MAJOR} 5
 			build_hb ${MAJOR} ${NAME}
 		fi
 	done
