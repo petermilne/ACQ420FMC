@@ -68,4 +68,14 @@ fpmux	[fpclk|xclk] control clock source
 help
 help2
 mb_clk	[FINKHz FOUTKHz]	set mb_clk frequency 
+run0 [site1,[site2..]]	aggregate from sites
+aggregator	displays aggregator state, do not set
+data_engine_[0123]	displays data engine state, do not set
+soft_trigger		execute a soft trigger
+gpg_clk EXT,dx,RISING	configure Gate Pulse Generator clock source
+gpg_enable [0|1]	enable GPG
+gpg_mode {0,1,2}	set GPG mode One Shot | Loop | Loop/Wait
+gpg_sync EXT,dx,RISING  configure GPG sync with (sample) clock source
+gpg_top	query gpg top address
+gpg_trg EXT,dx,RISING	configure GPG start trigger source
 

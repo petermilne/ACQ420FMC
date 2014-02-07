@@ -119,7 +119,7 @@ build_site0() {
 	ln -s $1 ${dknobs}
 	web_append acq400.0 0
 	ln -s ${dknobs}/aggregator /etc/acq400/0/
-	ln -s ${dknobs}/run0 /etc/acq400/0/
+	ln -s /usr/local/bin/run0 /etc/acq400/0/
 	for k in ${dknobs}/data_engine_? ${dknobs}/gpg_*
 	do
 		[ -e $k ] && ln -s $k /etc/acq400/0/

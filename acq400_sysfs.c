@@ -362,6 +362,37 @@ MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT);
 MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT);
 
 
+static ssize_t show_gpg_top(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
+	return sprintf(buf, "%u\n", gpg_top);
+}
+
+static ssize_t store_gpg_top(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 gpg_top;
+
+	if (sscanf(buf, "%u", &gpg_top) == 1){
+		set_gpg_top(adev, gpg_top);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(gpg_top, S_IRUGO|S_IWUGO, show_gpg_top, store_gpg_top);
+
+
 static ssize_t show_gpg_mode(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1378,7 +1409,9 @@ static ssize_t show_fan_percent(
 
 	/* scale to 1..100 */
 	pwm >>= ACQ1001_MOD_CON_PWM_BIT;
-	pwm -= ACQ1001_MOD_CON_PWM_MIN;
+	if (pwm > ACQ1001_MOD_CON_PWM_MIN){
+		pwm -= ACQ1001_MOD_CON_PWM_MIN;
+	}
 	fan_percent = (pwm*2)/5;
 	return sprintf(buf, "%u\n", fan_percent);
 }
@@ -1397,9 +1430,16 @@ static ssize_t store_fan_percent(
 		unsigned pwm = (fan_percent*5)/2;
 		pwm += ACQ1001_MOD_CON_PWM_MIN;
 		pwm <<= ACQ1001_MOD_CON_PWM_BIT;
-		pwm &= ACQ1001_MOD_CON_PWM_MASK;
+		if (pwm > ACQ1001_MOD_CON_PWM_MASK){
+			pwm = ACQ1001_MOD_CON_PWM_MASK;
+		}else{
+			pwm &= ACQ1001_MOD_CON_PWM_MASK;
+		}
 		mod_con &= ~ACQ1001_MOD_CON_PWM_MASK;
 		mod_con |= pwm;
+
+		dev_info(DEVP(adev), "store_fan_percent:%d write %08x\n",
+				fan_percent, mod_con);
 
 		acq400wr32(adev, MOD_CON, mod_con);
 		return count;
@@ -1408,7 +1448,7 @@ static ssize_t store_fan_percent(
 	}
 }
 
-static DEVICE_ATTR(fan_percent, S_IWUGO, show_fan_percent, store_fan_percent);
+static DEVICE_ATTR(fan_percent, S_IWUGO|S_IRUGO, show_fan_percent, store_fan_percent);
 
 static ssize_t show_acq0000_mod_con(
 	struct device * dev,
@@ -1700,6 +1740,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_soft_trig.attr,
+	&dev_attr_gpg_top.attr,
 	&dev_attr_gpg_trg.attr,
 	&dev_attr_gpg_clk.attr,
 	&dev_attr_gpg_sync.attr,

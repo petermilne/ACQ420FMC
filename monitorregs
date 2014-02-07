@@ -6,6 +6,18 @@ DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
 #httpd doesn't like names with periods..
 XMLNAME=${DEV%.*}${DEV#*.}
 
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat> 
+EOF
+}
+
+C2R20=/dev/shm/c2rR20
+
+[ -e $C2R20] || cCrR 2 20 > $C2R20
 
 dump_regs() {
 	(
@@ -20,7 +32,7 @@ dump_regs() {
 monitor() {
 	while [ 1 ]
 	do
-		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml
+		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
 		sleep 1		
 	done
 }

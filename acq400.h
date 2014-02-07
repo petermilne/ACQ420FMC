@@ -79,8 +79,12 @@
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
 
-#define ACQ435_SPADN(ix)	(ADC_BASE+0x80+(ix)*sizeof(u32))
-#define ACQ435_SPAD_MAX		8
+
+#define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
+#define SPADMAX			8
+
+#define ACQ435_SPADN(ix)	SPADN(ix)
+#define ACQ435_SPAD_MAX		SPADMAX
 
 /* doxy says this
 //#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
@@ -318,6 +322,8 @@ struct acq400_dev {
 	wait_queue_head_t refill_ready;
 	wait_queue_head_t hb0_marker;
 
+	unsigned char *gpg_buffer;
+	unsigned *gpg_base;
 	unsigned gpg_cursor;		/* bytes .. */
 
 	unsigned *fifo_histo;
@@ -433,7 +439,7 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 
 
-#define GPG_CONTROL		(0x0024)
+#define GPG_CONTROL		(0x0020)  /* per telecon with John 201402061145 */
 /* scratchpad */
 
 #define DE_ENABLE		(1<<0)
@@ -488,6 +494,7 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define GPG_CTRL_MODE			0x00000006
 #define GPG_CTRL_ENABLE			0x00000001
 
+#define GPG_CTRL_TOPADDR_SHL		24
 #define GPG_CTRL_TRG_SHL		16
 #define GPG_CTRL_SYNC_SHL		12
 #define GPG_CTRL_CLK_SHL		8
@@ -503,4 +510,13 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 
 int ao420_physChan(int lchan /* 1..4 */ );
 
+static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
+{
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	gpg_top <<= GPG_CTRL_TOPADDR_SHL;
+	gpg_top &= GPG_CTRL_TOPADDR;
+	gpg_ctrl &= ~GPG_CTRL_TOPADDR;
+	gpg_ctrl |= gpg_top;
+	acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+}
 #endif /* ACQ420FMC_H_ */

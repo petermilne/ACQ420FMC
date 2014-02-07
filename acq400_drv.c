@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.416"
+#define REVID "2.421"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1265,24 +1265,29 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 	}
 }
 
+int acq400_gpgmem_open(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	ioread32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	return 0;
+}
 ssize_t acq400_gpgmem_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	char *gpg_mem = adev->dev_virtaddr + GPG_MEM_BASE;
-	int len = adev->gpg_cursor;
-	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	int len = adev->gpg_cursor*sizeof(u32);
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
-	if (cursor >= len){
+	if (bcursor >= len){
 		return 0;
 	}else{
-		int headroom = (len - cursor);
+		int headroom = (len - bcursor);
 		if (count > headroom){
 			count = headroom;
 		}
 	}
-	rc = copy_to_user(buf, gpg_mem+cursor, count);
+	rc = copy_to_user(buf, adev->gpg_buffer+bcursor, count);
 	if (rc){
 		return -1;
 	}
@@ -1295,64 +1300,69 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	char *gpg_mem = adev->dev_virtaddr + GPG_MEM_BASE;
 	int len = GPG_MEM_ACTUAL;
-	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
-	if (cursor >= len){
+	if (bcursor >= len){
 		return 0;
 	}else{
-		int headroom = (len - cursor);
+		int headroom = (len - bcursor);
 		if (count > headroom){
 			count = headroom;
 		}
 	}
-	rc = copy_from_user(gpg_mem+cursor, buf, count);
+	rc = copy_from_user(adev->gpg_buffer+bcursor, buf, count);
 	if (rc){
 		return -1;
 	}
-
-	*f_pos = adev->gpg_cursor += count;
+	*f_pos += count;
+	adev->gpg_cursor += count/sizeof(u32);
 	return count;
 }
 
 int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
-/**
- * mmap the host buffer.
- */
 {
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = GPG_MEM_SIZE;
-	unsigned pfn = (adev->dev_physaddr + GPG_MEM_BASE) >> PAGE_SHIFT;
+        struct acq400_dev* adev = ACQ400_DEV(file);
+       unsigned long vsize = vma->vm_end - vma->vm_start;
+       unsigned long psize = GPG_MEM_SIZE;
+       unsigned pfn = (adev->dev_physaddr + GPG_MEM_BASE) >> PAGE_SHIFT;
 
-	if (!IS_BUFFER(PD(file)->minor)){
-		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
-		return -1;
-	}
-	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
-		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+       if (!IS_BUFFER(PD(file)->minor)){
+               dev_warn(DEVP(adev), "ERROR: device node not a buffer");
+               return -1;
+       }
+       dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
+               'D', vsize, psize, vsize>psize? "EINVAL": "OK");
 
-	if (vsize > psize){
-		return -EINVAL;                   /* request too big */
-	}
-	if (remap_pfn_range(
-		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-		return -EAGAIN;
-	}else{
-		return 0;
-	}
+       if (vsize > psize){
+               return -EINVAL;                   /* request too big */
+       }
+       if (remap_pfn_range(
+               vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+               return -EAGAIN;
+       }else{
+               return 0;
+       }
+       return 0;
 }
 
+int acq400_gpgmem_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	iowrite32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	set_gpg_top(adev, adev->gpg_cursor);
+	return 0;
+}
 
 int acq420_open_gpgmem(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_gpgmem = {
+			.open = acq400_gpgmem_open,
 			.read = acq400_gpgmem_read,
 			.write = acq400_gpgmem_write,
-			.mmap = acq400_gpgmem_mmap,
-			.release = acq400_null_release
+			.release = acq400_gpgmem_release,
+			.mmap = acq400_gpgmem_mmap
 	};
 	file->f_op = &acq400_fops_gpgmem;
 	if (file->f_op->open){
@@ -1378,7 +1388,7 @@ int acq400_open(struct inode *inode, struct file *file)
         PD(file)->dev = dev = container_of(inode->i_cdev, struct acq400_dev, cdev);
         PD(file)->minor = minor = MINOR(inode->i_rdev);
 
-        //dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
+        dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
 
         if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
         	return acq400_open_hb(inode, file);
@@ -1898,6 +1908,19 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         return adev;
 }
 
+#define DBG_REG_CREATE_NAME(name, reg) 				\
+	sprintf(pcursor, "%s.0x%02x", name, reg);		\
+	debugfs_create_x32(pcursor, S_IRUGO, 			\
+		adev->debug_dir, adev->dev_virtaddr+(reg));     \
+	pcursor += strlen(pcursor) + 1
+
+#define DBG_REG_CREATE(reg) 					\
+	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
+	debugfs_create_x32(pcursor, S_IRUGO, 			\
+		adev->debug_dir, adev->dev_virtaddr+(reg));     \
+	pcursor += strlen(pcursor) + 1
+
+
 static void acq400_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
@@ -1910,11 +1933,6 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 	}
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
-#define DBG_REG_CREATE(reg) 					\
-	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
-	debugfs_create_x32(pcursor, S_IRUGO, 			\
-		adev->debug_dir, adev->dev_virtaddr+(reg));     \
-	pcursor += strlen(pcursor) + 1
 
 	adev->debug_dir = debugfs_create_dir(
 			acq400_devnames[adev->of_prams.site], acq400_debug_root);
@@ -1938,15 +1956,13 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ43X(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
-		if (IS_ACQ435(adev)){
-			DBG_REG_CREATE(ACQ435_SPADN(0));
-			DBG_REG_CREATE(ACQ435_SPADN(1));
-			DBG_REG_CREATE(ACQ435_SPADN(2));
-			DBG_REG_CREATE(ACQ435_SPADN(3));
-			DBG_REG_CREATE(ACQ435_SPADN(4));
-			DBG_REG_CREATE(ACQ435_SPADN(5));
-			DBG_REG_CREATE(ACQ435_SPADN(6));
-			DBG_REG_CREATE(ACQ435_SPADN(7));
+		if (IS_ACQ435(adev) && IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8){
+			char name[16];
+			int ii;
+			for (ii = 0; ii < SPADMAX; ++ii){
+				snprintf(name, 16, "spad%d", ii);
+				DBG_REG_CREATE_NAME(name, SPADN(ii));
+			}
 		}
 	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
@@ -1976,11 +1992,6 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	}
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
-#define DBG_REG_CREATE_2006(name, reg) 					\
-	sprintf(pcursor, "%s.0x%02x", name, reg);		\
-	debugfs_create_x32(pcursor, S_IRUGO, 			\
-		adev->debug_dir, adev->dev_virtaddr+(reg));     \
-	pcursor += strlen(pcursor) + 1
 
 	adev->debug_dir = debugfs_create_dir(
 			acq400_devnames[adev->of_prams.site], acq400_debug_root);
@@ -1994,41 +2005,52 @@ static void acq2006_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(AGGREGATOR);
 	DBG_REG_CREATE(AGGSTA);
 	DBG_REG_CREATE(DATA_ENGINE_0);
-	DBG_REG_CREATE(DATA_ENGINE_1);
-	DBG_REG_CREATE(DATA_ENGINE_2);
-	DBG_REG_CREATE(DATA_ENGINE_3);
+	if (IS_ACQ2006SC(adev)){
+		DBG_REG_CREATE(DATA_ENGINE_1);
+		DBG_REG_CREATE(DATA_ENGINE_2);
+		DBG_REG_CREATE(DATA_ENGINE_3);
+	}
 	DBG_REG_CREATE(GPG_CONTROL);
 
-	DBG_REG_CREATE_2006("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
-	DBG_REG_CREATE_2006("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
+	DBG_REG_CREATE_NAME("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
+	DBG_REG_CREATE_NAME("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
 	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "CLK_%d", site);
-		DBG_REG_CREATE_2006(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
+		DBG_REG_CREATE_NAME(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
 	}
 
-	DBG_REG_CREATE_2006("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
-	DBG_REG_CREATE_2006("TRG_MB",  ACQ2006_TRG_COUNT(MB_DX));
+	DBG_REG_CREATE_NAME("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
+	DBG_REG_CREATE_NAME("TRG_MB",  ACQ2006_TRG_COUNT(MB_DX));
 	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "TRG_%d", site);
-		DBG_REG_CREATE_2006(name, ACQ2006_TRG_COUNT(SITE2DX(site)));
+		DBG_REG_CREATE_NAME(name, ACQ2006_TRG_COUNT(SITE2DX(site)));
 	}
 
-	DBG_REG_CREATE_2006("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
-	DBG_REG_CREATE_2006("SYN_MB",  ACQ2006_SYN_COUNT(MB_DX));
+	DBG_REG_CREATE_NAME("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
+	DBG_REG_CREATE_NAME("SYN_MB",  ACQ2006_SYN_COUNT(MB_DX));
 	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "SYN_%d", site);
-		DBG_REG_CREATE_2006(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
+		DBG_REG_CREATE_NAME(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
 	}
 
-	DBG_REG_CREATE_2006("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
-	DBG_REG_CREATE_2006("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
+	DBG_REG_CREATE_NAME("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
+	DBG_REG_CREATE_NAME("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
 	for (site = 1; site <= sites; ++site){
 		char name[20];
 		sprintf(name, "EVT_%d", site);
-		DBG_REG_CREATE_2006(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
+		DBG_REG_CREATE_NAME(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
+	}
+
+	if (IS_ACQ1001SC(adev) || (IS_ACQ2006SC(adev)&&FPGA_REV(adev) >= 8)){
+		char name[16];
+		int ii;
+		for (ii = 0; ii < SPADMAX; ++ii){
+			snprintf(name, 16, "spad%d", ii);
+			DBG_REG_CREATE_NAME(name, SPADN(ii));
+		}
 	}
 }
 
@@ -2125,6 +2147,9 @@ static int acq400_probe(struct platform_device *pdev)
         		dev_err(&pdev->dev, "failed to allocate buffers");
         		goto fail;
         	}
+        	adev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
+        	adev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+
         	acq400_createSysfs(&pdev->dev);
         	acq400_init_proc(adev);
         	acq2006_createDebugfs(adev);
@@ -2216,6 +2241,9 @@ static int acq400_remove(struct platform_device *pdev)
 		/* Free the PL330 buffer client data descriptors */
 		if (adev->client_data) {
 			kfree(adev->client_data);
+		}
+		if (adev->gpg_buffer){
+			kfree(adev->gpg_buffer);
 		}
 
 		kfree(adev);
