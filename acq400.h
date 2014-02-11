@@ -479,7 +479,7 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 #define MOD_CON_SOFT_TRIG		(1<<4)
 #define ACQ1001_MOD_CON_PWM_BIT		8
 #define ACQ1001_MOD_CON_PWM_MASK	0x0000ff00
-#define ACQ1001_MOD_CON_PWM_MIN		0x11
+#define ACQ1001_MOD_CON_PWM_MIN		0x04
 
 
 #define GPG_CTRL_TOPADDR		0x3ff00000
