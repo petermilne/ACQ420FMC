@@ -73,7 +73,8 @@ namespace UI {
 	bool print_quit;
 	bool interactive;
 	int site = 5;
-	int master_site = 1;
+	int master_site = 0;
+	int sched_fifo = 0;
 };
 
 #define KNOBS	"./TEST"
@@ -304,6 +305,18 @@ void ScratchpadReportingDawgEntry::exec()
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_DONE);
 }
 
+#include <sched.h>
+
+void set_hi_priority() {
+	struct sched_param sp = {};
+	sp.sched_priority = UI::sched_fifo;
+	int rc = sched_setscheduler(0, SCHED_FIFO, &sp);
+	if (rc != 0){
+		perror("sched_setscheduler()");
+	}else{
+		fprintf(stderr, "SCHED_FIFO set\n");
+	}
+}
 
 struct poptOption opt_table[] = {
 	{ "dry-run", 'D', POPT_ARG_NONE, 0, 'D',
@@ -323,6 +336,8 @@ struct poptOption opt_table[] = {
 			"site of AO421"				},
 	{ "master_site", 'M', POPT_ARG_INT, &UI::master_site, 0,
 			"site of ACQ435 with scratchpad"	},
+	{ "realtime", 'R',  POPT_ARG_INT, &UI::sched_fifo, 'R',
+			"set real time priority" 		},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -343,6 +358,9 @@ void ui(int argc, const char* argv[])
 			break;
 		case 'i':
 			UI::interactive = true;
+			break;
+		case 'R':
+			set_hi_priority();
 			break;
 		default:
 			;

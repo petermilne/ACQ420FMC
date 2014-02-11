@@ -50,7 +50,7 @@ public:
 	};
 	static Scratchpad& instance(int site) {
 		static Scratchpad* instances[7];	/* index from 1 */
-		assert(site >= 1 && site <= 6);
+		assert(site ==0);
 
 
 		if (!instances[site]){
