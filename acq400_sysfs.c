@@ -991,15 +991,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
-	&dev_attr_spad.attr,
-	&dev_attr_spad0.attr,
-	&dev_attr_spad1.attr,
-	&dev_attr_spad2.attr,
-	&dev_attr_spad3.attr,
-	&dev_attr_spad4.attr,
-	&dev_attr_spad5.attr,
-	&dev_attr_spad6.attr,
-	&dev_attr_spad7.attr,
+
 	NULL
 };
 
@@ -1746,6 +1738,15 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_gpg_sync.attr,
 	&dev_attr_gpg_mode.attr,
 	&dev_attr_gpg_enable.attr,
+	&dev_attr_spad.attr,
+	&dev_attr_spad0.attr,
+	&dev_attr_spad1.attr,
+	&dev_attr_spad2.attr,
+	&dev_attr_spad3.attr,
+	&dev_attr_spad4.attr,
+	&dev_attr_spad5.attr,
+	&dev_attr_spad6.attr,
+	&dev_attr_spad7.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
