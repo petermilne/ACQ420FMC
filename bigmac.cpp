@@ -102,6 +102,7 @@ char* offsetslist;
 int mmap_in;
 int mmap_out;
 int monitor;
+int playloop_site = -1;
 
 struct poptOption opt_table[] = {
 	{ "buflen", 'L', POPT_ARG_INT, &bufferlen, 0, 	"buffer length SAMPLES" },
@@ -113,6 +114,7 @@ struct poptOption opt_table[] = {
 	{ "mmap-in", 'I', POPT_ARG_STRING, &infile, 'I', "use mmap to access infile"},
 	{ "mmap-out", 'O', POPT_ARG_STRING, &outfile, 'O', "use mmap to access outfile"},
 	{ "monitor",  'M', POPT_ARG_INT, &monitor, 0, "monitor mode daemon" },
+	{ "playloop_site", 'P', POPT_ARG_INT, &playloop_site, 0, "force reset" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -477,6 +479,29 @@ void update_knob(const char* root, const char* kb, int value)
 	fprintf(fp, "%d\n", value);
 	fclose(fp);
 }
+
+int read_int_knob(const char* root, const char* kb)
+{
+	char fname[132];
+
+
+	sprintf(fname, "%s/%s", root, kb);
+
+	FILE *fp = fopen(fname, "r");
+	if (!fp){
+		perror(fname);
+		exit(1);
+	}
+	int value;
+	int nscan = fscanf(fp, "%d\n", &value);
+	fclose(fp);
+
+	if (nscan){
+		return value;
+	}else{
+		return 0;
+	}
+}
 void init_knobs()
 {
 	char command[132];
@@ -496,8 +521,20 @@ void init_knobs()
 
 typedef unsigned int u32;
 #include "../AO421_ELF/ScratchPad.h"
-#define MASTER_SITE 	1
+#define MASTER_SITE 	0
 
+void restart_awg()
+/* refresh is supposed to happen on the fly, but may be unreliable */
+{
+	if (playloop_site >= 0){
+		char site_root[80];
+		sprintf(site_root, "/dev/acq400.%d.knobs", playloop_site);
+		int len = read_int_knob(site_root, "playloop_length");
+		update_knob(site_root, "playloop_length", len);
+		printf("%s=%d\n", site_root, len);
+	}
+
+}
 void update_scratchpad(short gains[])
 {
 	Scratchpad sp = Scratchpad::instance(MASTER_SITE);
@@ -536,6 +573,7 @@ int run_monitor(short *src, short *dst)
 			offsets.toValues(::offsets);
 			exec_mac(src, dst);
 			update_scratchpad(::gains);
+			restart_awg();
 			update_knob(kroot, "update", ++updates);
 			dmon.spawn();
 		}else{
