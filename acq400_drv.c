@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.421"
+#define REVID "2.423"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -413,6 +413,22 @@ void acq43X_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 	acq400wr32(adev, ADC_CTRL, ctrl);
 }
+
+void ao420_reset_fifo(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, ADC_CTRL, ctrl);
+}
+
+void ao420_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
+	ao420_enable_interrupt(adev);
+	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
+}
+
 void acq420_onStart(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "acq420_onStart()");
@@ -1621,16 +1637,15 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
-		ao420_getDMA(adev);
-
-		acq400_clear_histo(adev);
 		cr &= ~DAC_CTRL_LL;
 		adev->AO_playloop.cursor = 0;
 		acq400wr32(adev, DAC_CTRL, cr);
+
+		ao420_getDMA(adev);
+		acq400_clear_histo(adev);
+		ao420_reset_fifo(adev);
 		ao420_fill_fifo(adev);
-		acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
-		ao420_enable_interrupt(adev);
-		acq400wr32(adev, DAC_CTRL, cr|ADC_CTRL_ENABLE_ALL);
+		ao420_onStart(adev);
 	}
 }
 

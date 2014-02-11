@@ -519,4 +519,6 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 	gpg_ctrl |= gpg_top;
 	acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
 }
+
+
 #endif /* ACQ420FMC_H_ */
