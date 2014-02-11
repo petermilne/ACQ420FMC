@@ -164,6 +164,7 @@ protected:
 	bool isValid(char* buf, int maxbuf, const char* args){
 		return validator->isValid(buf, maxbuf, args);
 	}
+
 public:
 	virtual ~Knob() {
 		delete [] name;
@@ -172,7 +173,9 @@ public:
 
 
 	char* getName() { return name; }
-
+	virtual const char* getAttr() {
+		return "";
+	}
 	/* return >0 on success, <0 on fail */
 	virtual int set(char* buf, int maxbuf, const char* args) = 0;
 	virtual int get(char* buf, int maxbuf) = 0;
@@ -193,6 +196,8 @@ public:
 };
 
 class KnobRO : public Knob {
+protected:
+
 public:
 	KnobRO(const char* _name) : Knob(_name) {}
 
@@ -208,9 +213,14 @@ public:
 		}
 	}
 	virtual void print(void) { cprint("KnobRO"); }
+	virtual const char* getAttr() {
+		return "r";
+	}
 };
 
 class KnobRW : public KnobRO {
+protected:
+
 public:
 	KnobRW(const char* _name) : KnobRO(_name) {
 	}
@@ -227,11 +237,16 @@ public:
 		}
 	}
 	virtual void print(void) { cprint ("KnobRW"); }
+	virtual const char* getAttr() {
+			return "rw";
+	}
 };
 
 
 class KnobX : public Knob {
 	int runcmd(const char* cmd, char* buf, int maxbuf);
+protected:
+
 public:
 	KnobX(const char* _name) : Knob(_name) {}
 
@@ -250,6 +265,9 @@ public:
 		return runcmd(cmd, buf, maxbuf);
 	}
 	virtual void print(void) { cprint("KnobX"); }
+	virtual const char* getAttr() {
+			return "rwx";
+	}
 };
 
 int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
@@ -395,7 +413,8 @@ protected:
 					knob->getName(), HROOT);
 		Pipe grep(cmd, "r");
 		if (fgets(reply, 128, grep.fp)){
-			printf("%s :\n\t%s", knob->getName(), reply);
+			printf("%-20s : %s\n\t%s",
+				knob->getName(), knob->getAttr(), reply);
 		}
 		return 1;
 	}
@@ -469,6 +488,7 @@ void cli(int argc, char* argv[])
 {
 	char *dir;
 	char dbuf[128];
+	char sname[32];
 
 	if (argc > 2){
 		dir = argv[2];
@@ -476,9 +496,11 @@ void cli(int argc, char* argv[])
 		site = atoi(argv[1]);
 		sprintf(dbuf, "/etc/acq400/%d", site);
 		dir = dbuf;
+		sprintf(sname, "%d", site);
 	}else{
 		return;
 	}
+	setenv("SITE", sname, 0);
 	chdir(dir);
 }
 int main(int argc, char* argv[])

@@ -29,7 +29,7 @@ do
 	fi
 	site=$(basename $spath)
 	if [ "x$*" != "x" ]; then
-		(for knob in $*; do echo $knob;done) | connect_site $site
+		echo "$*" | connect_site $site
 	else
 		connect_site $site
 	fi
