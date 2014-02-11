@@ -83,9 +83,6 @@
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define SPADMAX			8
 
-#define ACQ435_SPADN(ix)	SPADN(ix)
-#define ACQ435_SPAD_MAX		SPADMAX
-
 /* doxy says this
 //#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
  but observation says this:
@@ -117,7 +114,6 @@
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
 #define ADC_CTRL32B_data	(1 << 7)
 #define ADC_CTRL_18B		(1 << 6)
-#define ACQ435_CTRL_SPAD	(1 << 6)
 #define ADC_CTRL_RAMP_EN 	(1 << 5)
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
@@ -465,7 +461,12 @@ void ao420_reset_playloop(struct acq400_dev* adev);
 	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
 		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
 
+#define AGG_SPAD_EN		(1<<17)
+
+
 #define DATA_ENGINE_SELECT_AGG	(1<<14)
+
+
 
 #define AGGSTA_FIFO_COUNT	0x000000ff
 #define AGGSTA_FIFO_STAT	0x00000f00

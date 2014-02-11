@@ -523,7 +523,7 @@ static ssize_t show_spadN(
 	const int ix)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 spad = acq400rd32(adev, ACQ435_SPADN(ix));
+	u32 spad = acq400rd32(adev, SPADN(ix));
 	return sprintf(buf, "0x%08x\n", spad);
 }
 
@@ -537,7 +537,7 @@ static ssize_t store_spadN(
 	u32 spad;
 	if (sscanf(buf, "%x", &spad) == 1){
 		struct acq400_dev* adev = acq400_devices[dev->id];
-		acq400wr32(adev, ACQ435_SPADN(ix), spad);
+		acq400wr32(adev, SPADN(ix), spad);
 		return count;
 	}else{
 		return -1;
@@ -991,6 +991,15 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
+	&dev_attr_spad.attr,
+	&dev_attr_spad0.attr,
+	&dev_attr_spad1.attr,
+	&dev_attr_spad2.attr,
+	&dev_attr_spad3.attr,
+	&dev_attr_spad4.attr,
+	&dev_attr_spad5.attr,
+	&dev_attr_spad6.attr,
+	&dev_attr_spad7.attr,
 	NULL
 };
 
@@ -1025,17 +1034,8 @@ static const struct attribute *acq420_attrs[] = {
 	NULL
 };
 static const struct attribute *acq435_attrs[] = {
-	&dev_attr_spad.attr,
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
-	&dev_attr_spad0.attr,
-	&dev_attr_spad1.attr,
-	&dev_attr_spad2.attr,
-	&dev_attr_spad3.attr,
-	&dev_attr_spad4.attr,
-	&dev_attr_spad5.attr,
-	&dev_attr_spad6.attr,
-	&dev_attr_spad7.attr,
 	NULL
 };
 

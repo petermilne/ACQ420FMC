@@ -313,6 +313,11 @@ void acq2006_data_engine0_reset_enable(struct acq400_dev *adev)
 void acq2006_aggregator_enable(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
+	if (adev->spad_en){
+		agg |= AGG_SPAD_EN;
+	}else{
+		agg &= ~AGG_SPAD_EN;
+	}
 	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
 }
 void acq2006_aggregator_disable(struct acq400_dev *adev)
@@ -387,11 +392,7 @@ void acq43X_onStart(struct acq400_dev *adev)
 	}else{
 		ctrl &= ~ADC_CTRL_RAMP_EN;
 	}
-	if (adev->spad_en){
-		ctrl |= ACQ435_CTRL_SPAD;
-	}else{
-		ctrl &= ~ACQ435_CTRL_SPAD;
-	}
+
 	// set mode (assume done)
 	// set clkdiv (assume done)
 	// set timing bus (assume done)
