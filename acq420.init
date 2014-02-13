@@ -141,6 +141,26 @@ build_knobs() {
 	done
 }
 
+create_set_fanspeed() {
+cat - >/usr/local/bin/set.fanspeed <<EOF
+#!/bin/sh
+# set fanspeed acq1001 style
+FSPERCENT=\${1:-10}
+set.sys /dev/acq400.0.knobs/fan_percent \$FSPERCENT
+EOF
+chmod a+rx /usr/local/bin/set.fanspeed
+echo /usr/local/bin/set.fanspeed created
+}
+
+
+set_fans() {
+	if [ ! -x /usr/local/bin/set.fanspeed ]; then
+		if [ -e /dev/acq400.0.knobs/fan_percent ]; then
+			create_set_fanspeed
+		fi	
+	fi
+	[ -x /usr/local/bin/set.fanspeed ] && /usr/local/bin/set.fanspeed
+}
 
 if [ $notloaded -ne 0 ]; then
 	if [ -x /mnt/local/init.pl330.ko ]; then
@@ -178,6 +198,7 @@ if [ $notloaded -ne 0 ]; then
 	sleep 0.2
 	insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS
 	build_knobs
+	set_fans
 	grep acq4.0 /proc/devices |  build_nodes	
 fi
 
