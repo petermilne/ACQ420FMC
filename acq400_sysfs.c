@@ -361,6 +361,8 @@ MAKE_SIGNAL(gpg_trg, GPG_CONTROL, GPG_CTRL_TRG_SHL, GPG_CTRL_EXT_TRG, EXT, SOFT)
 MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT);
 MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT);
 
+MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL, ADC_CTRL_RGM_MODE_EN, ENA, DIS);
+
 
 static ssize_t show_gpg_top(
 	struct device * dev,
@@ -1064,6 +1066,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
+	&dev_attr_rgm.attr,
 	NULL,
 };
 

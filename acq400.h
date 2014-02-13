@@ -114,17 +114,20 @@
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
 
-#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC */
-#define ADC_CTRL32B_data	(1 << 7)
-#define ADC_CTRL_18B		(1 << 6)
-#define ADC_CTRL_RAMP_EN 	(1 << 5)
+#define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
+#define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
+#define ADC_CTRL_RGM_MODE_EN    (1 << 11)
+#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
+#define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
+#define ADC_CTRL_18B		(1 << 6)	/* ACQ420FMC */
+#define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)
-
 #define ADC_CTRL_FIFO_EN	(1 << 2)
 #define ADC_CTRL_FIFO_RST	(1 << 1)
-#define ADC_CTRL_MODULE_EN	(1 << 0)
+#define ADC_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
+#define ADC_CTRL_RGM_GATE_SHL	12
 
 #define ADC_CTRL_RST_ALL 	(ADC_CTRL_ADC_RST | ADC_CTRL_FIFO_RST)
 #define ADC_CTRL_ENABLE_CAPTURE (ADC_CTRL_ADC_EN | ADC_CTRL_FIFO_EN)
