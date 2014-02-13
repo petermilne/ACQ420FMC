@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.425"
+#define REVID "2.427"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1971,20 +1971,16 @@ static void acq400_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(ADC_INT_CSR);
 	DBG_REG_CREATE(ADC_CLK_CTR);
 	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
+	DBG_REG_CREATE(SW_EMB_WORD1);
+	DBG_REG_CREATE(SW_EMB_WORD2);
 	DBG_REG_CREATE(ADC_CLKDIV);
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
 		DBG_REG_CREATE(ADC_CONV_TIME);
 	} else if (IS_ACQ43X(adev)){
 		DBG_REG_CREATE(ACQ435_MODE);
-		if (IS_ACQ435(adev) && IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8){
-			char name[16];
-			int ii;
-			for (ii = 0; ii < SPADMAX; ++ii){
-				snprintf(name, 16, "spad%d", ii);
-				DBG_REG_CREATE_NAME(name, SPADN(ii));
-			}
-		}
+
 	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
 		DBG_REG_CREATE(AO420_DACSPI);

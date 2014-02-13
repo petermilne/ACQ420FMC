@@ -574,6 +574,57 @@ MAKE_SPAD(5);
 MAKE_SPAD(6);
 MAKE_SPAD(7);
 
+static ssize_t show_sw_emb_wordN(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int offset_from_base)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 sw_emb_word = acq400rd32(adev, offset_from_base);
+	return sprintf(buf, "0x%08x\n", sw_emb_word);
+}
+
+static ssize_t store_sw_emb_wordN(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int offset_from_base)
+{
+	u32 sw_emb_word;
+	if (sscanf(buf, "%x", &sw_emb_word) == 1){
+		struct acq400_dev* adev = acq400_devices[dev->id];
+		acq400wr32(adev, offset_from_base, sw_emb_word);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+
+#define MAKE_EMBW(IX)							\
+static ssize_t show_sw_emb_word##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_sw_emb_wordN(dev, attr, buf, SW_EMB_WORD##IX);	\
+}									\
+									\
+static ssize_t store_sw_emb_word##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_sw_emb_wordN(dev, attr, buf, count, SW_EMB_WORD##IX);\
+}									\
+static DEVICE_ATTR(sw_emb_word##IX, S_IRUGO|S_IWUGO, 			\
+		show_sw_emb_word##IX, store_sw_emb_word##IX)
+
+MAKE_EMBW(1);
+MAKE_EMBW(2);
 
 static ssize_t show_nbuffers(
 	struct device * dev,
@@ -1028,6 +1079,8 @@ static const struct attribute *acq420_attrs[] = {
 static const struct attribute *acq435_attrs[] = {
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
+	&dev_attr_sw_emb_word1.attr,
+	&dev_attr_sw_emb_word2.attr,
 	NULL
 };
 
