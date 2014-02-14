@@ -223,6 +223,7 @@
 #define ACQ420_MINOR_HB0	3	// block on HB0 fill
 #define ACQ420_MINOR_SIDEPORTED 4	// enable, but data flow elsewhere
 #define ACQ420_MINOR_GPGMEM	5	// mmap 4K of this
+#define ACQ420_MINOR_EVENT	6	// blocks on event
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -266,6 +267,9 @@ struct acq400_dev {
 	wait_queue_head_t w_waitq;
 	int task_active;
 
+	u32 samples_at_event;
+	u32 sample_clocks_at_event;
+	wait_queue_head_t event_waitq;
 
 	/* Current DMA buffer information */
 	/*dma_addr_t buffer_d_addr;

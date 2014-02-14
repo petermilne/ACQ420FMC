@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.428"
+#define REVID "2.433"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -349,6 +349,11 @@ static void ao420_disable_interrupt(struct acq400_dev *adev)
 static u32 acq420_get_interrupt(struct acq400_dev *adev)
 {
 	return acq400rd32(adev, ADC_INT_CSR);
+}
+
+static void acq420_set_interrupt(struct acq400_dev *adev, u32 int_csr)
+{
+	acq400wr32(adev, ADC_INT_CSR,int_csr);
 }
 
 static void acq420_clear_interrupt(struct acq400_dev *adev, u32 status)
@@ -1212,8 +1217,10 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 			adev->rt.please_stop)){
 		return -EINTR;
 	} else if (adev->rt.please_stop){
+		copy_to_user(buf, "D", 1);
 		return GET_FULL_DONE;
 	} else if (adev->rt.refill_error){
+		copy_to_user(buf, "RE", 2);
 		return GET_FULL_REFILL_ERR;
 	}
 	return 0;
@@ -1395,6 +1402,73 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 	}
 }
 
+int acq400_event_open(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	u32 int_csr = acq420_get_interrupt(adev);
+	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	return 0;
+}
+
+ssize_t acq400_event_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	char lbuf[20];
+	int rc;
+
+	if (wait_event_interruptible(
+			adev->event_waitq, adev->sample_clocks_at_event != 0)){
+		return -EINTR;
+	}
+
+	rc = snprintf(lbuf, 20, "%u %u\n",
+			adev->sample_clocks_at_event, adev->samples_at_event);
+	adev->sample_clocks_at_event = 0;
+	copy_to_user(buf, lbuf, rc);
+	return rc;
+}
+
+
+static unsigned int acq400_event_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	if (adev->sample_clocks_at_event){
+		return POLLIN;
+	}else{
+		poll_wait(file, &adev->event_waitq, poll_table);
+		if (adev->sample_clocks_at_event){
+			return POLLIN;
+		}else{
+			return 0;
+		}
+	}
+}
+int acq400_event_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	u32 int_csr = acq420_get_interrupt(adev);
+	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	return 0;
+}
+
+int acq400_open_event(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_event = {
+			.open = acq400_event_open,
+			.read = acq400_event_read,
+			.poll = acq400_event_poll,
+			.release = acq400_event_release
+	};
+	file->f_op = &acq400_fops_event;
+
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 int acq400_open(struct inode *inode, struct file *file)
 {
 
@@ -1424,6 +1498,8 @@ int acq400_open(struct inode *inode, struct file *file)
         		return acq420_open_hb0(inode, file);
         	case ACQ420_MINOR_GPGMEM:
         		return acq420_open_gpgmem(inode, file);
+        	case ACQ420_MINOR_EVENT:
+        		return acq400_open_event(inode, file);
         	case ACQ420_MINOR_0:
         		return acq400_open_main(inode, file);
         	default:
@@ -1787,12 +1863,22 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	volatile u32 status = acq420_get_interrupt(adev);
 
 	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
-	acq420_disable_interrupt(adev);
+
 	//acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	adev->fifo_isr_done = 1;
-	wake_up_interruptible(&adev->w_waitq);
+	if ((status&ADC_INT_CSR_COS) != 0){
+		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
+		adev->sample_clocks_at_event =
+				acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
+		wake_up_interruptible(&adev->event_waitq);
+	}
+	if ((status&ADC_INT_CSR_HITIDE) != 0){
+		wake_up_interruptible(&adev->w_waitq);
+	}
+
+	acq420_set_interrupt(adev, status);
 	return IRQ_HANDLED;
 }
 
@@ -1926,6 +2012,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         INIT_LIST_HEAD(&adev->OPENS);
         mutex_init(&adev->list_mutex);
         init_waitqueue_head(&adev->w_waitq);
+        init_waitqueue_head(&adev->event_waitq);
         return adev;
 }
 
@@ -2189,7 +2276,6 @@ static int acq400_probe(struct platform_device *pdev)
         }else{
         	rc = devm_request_irq(DEVP(adev), adev->of_prams.irq, acq400_isr,
         			IRQF_SHARED, acq400_devnames[adev->of_prams.site], adev);
-
         }
 
   	if (rc){
