@@ -701,6 +701,40 @@ static ssize_t store_data32(
 
 static DEVICE_ATTR(data32, S_IRUGO|S_IWUGO, show_data32, store_data32);
 
+static ssize_t show_bitslice_frame(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	return sprintf(buf, "%u\n", (ctrl&ADC_CTRL_435_EMBED_STR) != 0);
+}
+
+static ssize_t store_bitslice_frame(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 bitslice_frame;
+	if (sscanf(buf, "%u", &bitslice_frame) == 1){
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		if (bitslice_frame){
+			ctrl |= ADC_CTRL_435_EMBED_STR;
+		}else{
+			ctrl &= ~ADC_CTRL_435_EMBED_STR;
+		}
+		acq400wr32(adev, ADC_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(bitslice_frame, S_IRUGO|S_IWUGO, show_bitslice_frame, store_bitslice_frame);
+
 
 static ssize_t show_stats(
 	struct device * dev,
@@ -975,6 +1009,19 @@ static ssize_t show_module_type(
 
 static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
 
+static ssize_t show_module_role(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%s\n",
+		(adev->mod_id&MOD_ID_IS_SLAVE) ? "SLAVE": "MASTER");
+}
+
+
+static DEVICE_ATTR(module_role, S_IRUGO, show_module_role, 0);
+
 
 static ssize_t show_module_name(
 	struct device * dev,
@@ -1039,12 +1086,12 @@ static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
+	&dev_attr_module_role.attr,
 	&dev_attr_module_name.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
-
 	NULL
 };
 
@@ -1082,6 +1129,7 @@ static const struct attribute *acq420_attrs[] = {
 static const struct attribute *acq435_attrs[] = {
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
+	&dev_attr_bitslice_frame.attr,
 	&dev_attr_sw_emb_word1.attr,
 	&dev_attr_sw_emb_word2.attr,
 	NULL

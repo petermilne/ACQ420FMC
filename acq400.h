@@ -97,6 +97,7 @@
 
 
 #define MOD_ID_TYPE_SHL		24
+#define MOD_ID_IS_SLAVE		(1<<23)
 #define MOD_ID_VERSION_SHL	16
 #define MOD_ID_REV_SHL		0
 #define MOD_ID_REV_MASK		0x0000ffff
@@ -119,7 +120,8 @@
 #define ADC_CTRL_RGM_MODE_EN    (1 << 11)
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
 #define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
-#define ADC_CTRL_18B		(1 << 6)	/* ACQ420FMC */
+#define ADC_CTRL_420_18B	(1 << 6)	/* ACQ420FMC */
+#define ADC_CTRL_435_EMBED_STR	(1 << 6)	/* ACQ435 bitslice data */
 #define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
 #define ADC_CTRL_ADC_RST	(1 << 3)

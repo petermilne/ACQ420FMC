@@ -208,9 +208,9 @@ static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
 	if (adev->adc_18b){
-		adc_ctrl |= ADC_CTRL_18B;
+		adc_ctrl |= ADC_CTRL_420_18B;
 	}else{
-		adc_ctrl &= ~ADC_CTRL_18B;
+		adc_ctrl &= ~ADC_CTRL_420_18B;
 	}
 	if (adev->data32){
 		adc_ctrl |= ADC_CTRL32B_data;
