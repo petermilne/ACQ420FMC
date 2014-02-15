@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.433"
+#define REVID "2.434"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1862,9 +1862,12 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	volatile u32 status = acq420_get_interrupt(adev);
 
+	/** @@todo ... disable interrupt? BAD BAD BAD */
+	acq420_disable_interrupt(adev);
+
 	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
 
-	//acq420_clear_interrupt(adev, status);
+	acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	adev->fifo_isr_done = 1;
