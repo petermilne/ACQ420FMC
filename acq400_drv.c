@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.440"
+#define REVID "2.441"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1596,7 +1596,7 @@ static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 	int fifomaxsam = AO420_MAX_FIFO_SAMPLES/nshorts;
 
 	if (ao420_getFifoSamples(adev) > fifomaxsam){
-		return fifomaxsam;
+		return 0;
 	}else{
 		return fifomaxsam - ao420_getFifoSamples(adev);
 	}
