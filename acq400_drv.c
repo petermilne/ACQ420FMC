@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.434"
+#define REVID "2.440"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -221,11 +221,13 @@ static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 }
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
 	dev_info(DEVP(adev), "ACQ420 device init");
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|acq420_set_fmt(adev, 0));
+	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
+	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
 	adev->nchan_enabled = 4;
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = hitide;
@@ -236,6 +238,8 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
 	int is_acq430 = IS_ACQ430(adev);
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+
 	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
 	adev->data32 = 1;
 	adev->nchan_enabled = is_acq430? 8: 32;	// 32 are you sure?.
@@ -247,7 +251,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->lotide = adev->hitide - 4;
 	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 16);
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
 }
 
 static void ao420_init_defaults(struct acq400_dev *adev)
@@ -388,7 +392,6 @@ void acq43X_onStart(struct acq400_dev *adev)
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
 	dev_info(DEVP(adev), "acq435_onStart()");
-	ctrl = 0;
 
 	acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 
@@ -411,7 +414,7 @@ void acq43X_onStart(struct acq400_dev *adev)
 	}
 
 	adev->fifo_isr_done = 0;
-	acq420_enable_interrupt(adev);
+	//acq420_enable_interrupt(adev);
 	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
 	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
 
@@ -444,7 +447,7 @@ void acq420_onStart(struct acq400_dev *adev)
 	/** clear FIFO flags .. workaround hw bug */
 	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
 	adev->fifo_isr_done = 0;
-	acq420_enable_interrupt(adev);
+	//acq420_enable_interrupt(adev);
 }
 static void acq400_getID(struct acq400_dev *adev)
 {
@@ -1577,7 +1580,8 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-#define AO420_MAX_FIFO_SAMPLES	0x00003fff	/* actualite not doxy */
+#define AO420_MAX_FIFO_SAMPLES	0x00001fff	/* actualite not doxy */
+
 #define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
@@ -1591,7 +1595,11 @@ static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 	int nshorts = adev->word_size/2;
 	int fifomaxsam = AO420_MAX_FIFO_SAMPLES/nshorts;
 
-	return fifomaxsam - ao420_getFifoSamples(adev);
+	if (ao420_getFifoSamples(adev) > fifomaxsam){
+		return fifomaxsam;
+	}else{
+		return fifomaxsam - ao420_getFifoSamples(adev);
+	}
 }
 
 
@@ -1834,7 +1842,7 @@ int ai_data_loop(void *data)
 			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, hbm);
 			dma_async_issue_pending(adev->dma_chan[ic]);
 			if (!IS_ACQx00xSC(adev)){
-				acq420_enable_interrupt(adev);
+				//acq420_enable_interrupt(adev);
 			}
 			if (emergency_drain_request){
 				mutex_lock(&adev->list_mutex);
