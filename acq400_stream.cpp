@@ -40,6 +40,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
+
+#include <libgen.h>
+
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <unistd.h>
 
 #define NCHAN	4
 
@@ -72,15 +79,24 @@ int G_nsam = 4096;
 
 int control_handle;
 
+int pre;
+int post;
+
 #define BM_NULL	'n'
 #define BM_SENDFILE 's'
 #define BM_DEMUX 'h'
 #define BM_TEST	't'
+#define BM_PREPOST 'P'
 
 int buffer_mode;
 
 int verbose;
 int nb_cat =1;	/* number of buffers to concatenate */
+
+
+int sample_size() {
+	return nchan * wordsize;
+}
 
 class Buffer {
 
@@ -99,19 +115,27 @@ public:
 	virtual unsigned getSizeofItem() { return 1; }
 
 	virtual int writeBuffer(int out_fd, int b_opts) = 0;
+	virtual int copyBuffer(void* dest) { return -1; }
 
-	Buffer(const char* _fname, int _ibuf, int _buffer_len):
+	Buffer(const char* _fname, int _ibuf, int _buffer_len, bool writeable = false):
 		fname(_fname),
 		ibuf(_ibuf),
 		buffer_len(_buffer_len)
 	{
-		fd = open(fname, O_RDONLY);
+		if (writeable){
+			fd = open(fname, O_RDWR|O_CREAT, 0777);
+		}else{
+			fd = open(fname, O_RDONLY);
+		}
 		if (fd < 0){
 			perror(fname);
 			exit(1);
 		}
 	}
-
+	virtual ~Buffer() {
+		close(fd);
+	}
+/*
 	Buffer(const char* _fname, int _ibuf, int _buffer_len, bool nofile):
 		fname(_fname),
 		ibuf(_ibuf),
@@ -122,6 +146,7 @@ public:
 			assert(fd > 0);
 		}
 	}
+*/
 	static Buffer* create(const char* root, int ibuf, int _buffer_len);
 };
 
@@ -142,14 +167,42 @@ public:
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		return write(out_fd, pdata, buffer_len);
 	}
+	virtual int copyBuffer(void* dest) {
+		memcpy(dest, pdata, buffer_len);
+		return buffer_len;
+	}
 
 	void* getBase() { return pdata; }
 
-	MapBuffer(const char* _fname, int _ibuf, int _buffer_len) :
-		Buffer(_fname, _ibuf, _buffer_len)
+	int includes(void *cursor)
+	/** returns remain length if buffer includes cursor */
 	{
-		pdata = mmap(0, bufferlen, PROT_READ, MAP_SHARED, fd, 0);
+
+		char* cc = static_cast<char *>(cursor);
+		char* bp = static_cast<char *>(pdata);
+		char *be = bp + buffer_len;
+		if (cc >= bp && cc <= be){
+			return buffer_len - (cc-bp);
+		}else{
+			return 0;
+		}
+	}
+
+	MapBuffer(const char* _fname, int _ibuf, int _buffer_len,
+			bool writeable = false, void* addr_hint = 0) :
+		Buffer(_fname, _ibuf, _buffer_len, writeable)
+	{
+		if (writeable){
+			char* buffer = new char[buffer_len];
+			memset(buffer, 0, buffer_len);
+			write(fd, buffer, buffer_len);
+		}
+		pdata = mmap(addr_hint, bufferlen,
+			PROT_READ|(writeable? PROT_WRITE:0), MAP_SHARED, fd, 0);
 		assert(pdata != MAP_FAILED);
+	}
+	virtual ~MapBuffer() {
+		munmap(pdata, bufferlen);
 	}
 };
 
@@ -576,6 +629,7 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 		return new NullBuffer(fname, _ibuf, _buffer_len);
 	case BM_SENDFILE:
 		return new TurboBuffer(fname, _ibuf, _buffer_len);
+	case BM_PREPOST:
 	case BM_DEMUX:
 		switch(wordsize){
 		case 2:
@@ -630,6 +684,12 @@ struct poptOption opt_table[] = {
 	{ "oncompletion", 0, POPT_ARG_STRING, &script_runs_on_completion, 0,
 			"run this script on completion of buffer"
 	},
+	{ "pre",	0, POPT_ARG_INT, &::pre, 'P',
+			"transient capture, pre-length"
+	},
+	{ "post",       0, POPT_ARG_INT, &::post, 'O',
+			"transient capture, post-length"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -654,9 +714,14 @@ char *getRoot(int devnum)
 	exit(1);
 }
 const char* root;
+
+void acq400_stream_getstate(void);
 void init(int argc, const char** argv) {
-
-
+	char* progname = new char(strlen(argv[0]));
+	if (strcmp(progname, "acq400_stream_getstate") == 0){
+		acq400_stream_getstate();
+	}
+	delete [] progname;
 
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
@@ -672,6 +737,10 @@ void init(int argc, const char** argv) {
 		case 'h':
 			stream_fmt = "%s.hb0";
 			buffer_mode = BM_DEMUX;
+			break;
+		case 'P':
+		case 'O':
+			buffer_mode = BM_PREPOST;
 			break;
 		case BM_TEST:
 			buffer_mode = BM_TEST;
@@ -709,6 +778,30 @@ void init(int argc, const char** argv) {
 }
 
 class StreamHead {
+protected:
+	int fc;
+
+	StreamHead() {
+		char fname[128];
+		sprintf(fname, stream_fmt, root);
+		fc = open(fname, O_RDONLY);
+		assert(fc > 0);
+	}
+
+	int getBufferId() {
+		char buf[80];
+		int rc = read(fc, buf, 80);
+
+		if (rc > 0){
+			buf[rc] = '\0';
+			int ib = atoi(buf);
+			assert(ib >= 0);
+			assert(ib <= nbuffers);
+			return ib;
+		}else{
+			return rc;
+		}
+	}
 public:
 	virtual void stream();
 	static StreamHead& instance();
@@ -716,20 +809,8 @@ public:
 
 
 void StreamHead::stream() {
-	char fname[128];
-	sprintf(fname, stream_fmt, root);
-	int fc = open(fname, O_RDONLY);
-	assert(fc > 0);
-
-	char buf[80];
-	int rc;
-	int icat = 0;
-
-	while((rc = read(fc, buf, 80)) > 0){
-		buf[rc] = '\0';
-		int ib = atoi(buf);
-		assert(ib >= 0);
-		assert(ib <= nbuffers);
+	int ib;
+	while((ib = getBufferId()) >= 0){
 		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 	}
 }
@@ -740,11 +821,6 @@ protected:
 };
 
 void StreamHeadHB0::stream() {
-	char fname[128];
-	sprintf(fname, stream_fmt, root);
-	int fc = open(fname, O_RDONLY);
-	assert(fc > 0);
-
 	char buf[80];
 	int rc;
 	int icat = 0;
@@ -752,8 +828,6 @@ void StreamHeadHB0::stream() {
 
 	while((rc = read(fc, buf, 80)) > 0){
 		buf[rc] = '\0';
-
-
 
 		int ib[2];
 		int nscan = sscanf(buf, "%d %d", ib, ib+1);
@@ -798,15 +872,318 @@ void StreamHeadHB0::stream() {
 		if (verbose) fprintf(stderr, "UPDATE:%4d finished\n", nb);
 	}
 }
+
+#define OBS_ROOT "/dev/shm/transient"
+#define TOTAL_BUFFER_LIMIT	0x20000000
+
+enum STATE {
+	ST_STOP,
+	ST_RUN_PRE,
+	ST_RUN_POST,
+	ST_POSTPROCESS
+};
+
+int event_received;		/* @@todo : on signal */
+
+typedef std::vector<MapBuffer*> MBUFV;
+typedef std::vector<MapBuffer*>::iterator MBUFV_IT;
+typedef std::vector<FILE *> FPV;
+typedef std::vector<FILE *>::iterator FPV_IT;
+
+
+#define TRANSOUT	"/dev/shm/transient"
+
+
+class Demuxer {
+public:
+	virtual void demux(void *start, int nsamples) = 0;
+};
+template <class T>
+class DemuxerImpl : public Demuxer {
+	FPV ch;
+
+	void build_ch() {
+		char fname[80];
+		sprintf(fname, "mkdir -p %s", TRANSOUT);
+		system(fname);
+
+		const char* fmt = nchan > 99? "%s/%03d": "%s/%02d";
+		for (int ich = 1; ich <= nchan; ++ich){
+			sprintf(fname, fmt, TRANSOUT, ich);
+			FILE *fp = fopen(fname, "w");
+			assert(fp);
+			ch.push_back(fp);
+		}
+	}
+
+public:
+	DemuxerImpl() {
+
+	}
+	virtual ~DemuxerImpl() {
+		for (FPV_IT it = ch.begin(); it != ch.end(); ++it){
+			fclose(*it);
+		}
+	}
+
+	virtual void demux(void *start, int nsamples);
+};
+
+template <class T>
+void DemuxerImpl<T>::demux(void* start, int nsamples)
+{
+	if (ch.size() == 0){
+		build_ch();
+	}
+	T* bp = (T*)start;
+	for (int isam = 0; isam < nsamples; ++isam){
+		for (int ichan = 1; ichan <= nchan; ++ichan){
+			fwrite(bp++, sizeof(T), 1, ch[ichan]);
+		}
+	}
+}
+
+/* @@todo .. map to shm area for external monitoring. */
+struct Progress {
+	enum STATE state;
+	int pre;
+	int post;
+	unsigned long long elapsed;
+	Progress() {
+		memset(this, 0, sizeof(Progress));
+	}
+	static Progress& instance();
+
+	void print() {
+		printf("%d %d %d %llu\n", state, pre, post, elapsed);
+	}
+};
+
+Progress& Progress::instance() {
+	static Progress* _instance;
+
+	if (_instance == 0){
+		int rc = shmget(0xdeadbeef, 128, IPC_CREAT|0666);
+		if (rc == -1){
+			perror("shmget()");
+			exit(1);
+		}else{
+			void *shm = shmat(rc, 0, 0);
+			if (shm == (void*)-1){
+				perror("shmat()");
+				exit(1);
+			}else{
+				_instance = (Progress*)shm;
+				memset(_instance, 0, sizeof(Progress));
+			}
+		}
+	}
+
+	return *_instance;
+}
+
+void acq400_stream_getstate(void)
+{
+	Progress::instance().print();
+	exit(0);
+}
+class StreamHeadPrePost: public StreamHead  {
+	int pre;
+	int post;
+	Progress& actual;
+	void *ba0;
+	void *ba1;
+	int total_bs;
+	int nobufs;
+
+	int samples_buffer;
+	void *cursor;
+	void *event_cursor;	/* mark where event was detected */
+
+	std::vector <MapBuffer*> outbuffers;
+	Demuxer& demuxer;
+
+	void setState(enum STATE _state){
+		actual.state = _state;
+	}
+	void buildOutputBuffers() {
+		system("mkdir -p " OBS_ROOT);
+		ba0 = (void*)0x4000000;
+		char * ba = static_cast<char*>(ba0);
+		for (int ii = 0; ii < nobufs; ++ii, ba += ::bufferlen){
+			char *fname = new char[strlen(OBS_ROOT)+6];
+			snprintf(fname, strlen(OBS_ROOT)+6, "%s/%03d",
+					OBS_ROOT, ii);
+			outbuffers.push_back(
+				new MapBuffer(fname, ii, ::bufferlen, true, ba));
+		}
+		ba1 = ba;
+
+		for (MBUFV_IT obit = outbuffers.begin();
+				obit != outbuffers.end(); ++obit){
+			fprintf(stderr, "buffer: %p %p\n",
+				(*obit)->getBase(),
+				(char*)(*obit)->getBase()+::bufferlen);
+		}
+	}
+
+	void streamCore() {
+		int ib;
+		char* cursor = static_cast<char*>(ba0);
+		while((ib = getBufferId()) >= 0){
+			buffers[ib]->copyBuffer(cursor);
+			cursor += ::bufferlen;
+			if (cursor >= static_cast<char*>(ba1)){
+				cursor = static_cast<char*>(ba0);
+			}
+
+			actual.print();
+
+			switch(actual.state){
+			case ST_RUN_PRE:
+				if (event_received){
+					event_cursor = cursor;
+					actual.state = ST_RUN_POST;
+				}
+				break;
+			case ST_RUN_POST:
+				actual.post += samples_buffer;
+				if (actual.post > post){
+					actual.state = ST_POSTPROCESS;
+					return;
+				}
+			}
+			actual.elapsed += samples_buffer;
+		}
+	}
+	unsigned findEvent() {
+		assert(0);
+		return 0;
+	}
+	unsigned workbackfrom(unsigned evp) {
+		assert(0);
+		return 0;
+	}
+
+	int _demux(void* cursor, int nsamples) {
+		for (MBUFV_IT it = outbuffers.begin(); it < outbuffers.end(); ++it){
+			int remain = (*it)->includes(cursor);
+			if (remain){
+				int remsam = remain/::nchan;
+				demuxer.demux(cursor, remsam);
+				delete (*it);
+				outbuffers.erase(it);
+				nsamples -= remsam;
+				cursor = static_cast<void*>(
+						static_cast<char*>(cursor)+remain);
+				return remsam;
+			}
+		}
+		return 0;
+	}
+	void demux(void* cursor, int nsamples){
+		int cycles = 0;
+		while(nsamples > 0){
+			int remsam = _demux(cursor, nsamples);
+			if (remsam){
+				nsamples -= remsam;
+			}else{
+				if (++cycles > 1){
+					fprintf(stderr, "ERROR fails to locate cursor");
+					return;
+				}
+			}
+		}
+	}
+	void postProcess() {
+		if (pre){
+			unsigned epos = findEvent();
+			unsigned prestart = workbackfrom(epos);
+			void *p0 = static_cast<void*>(
+					static_cast<char*>(ba0)+prestart);
+			demux(p0, pre+post);
+		}else{
+			demux(ba0, post);
+		}
+	}
+public:
+	StreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
+			demuxer(_demuxer), pre(_pre), post(_post),
+			samples_buffer(0),
+			actual(Progress::instance())
+		{
+		setState(ST_STOP);
+		int total_bs = (pre+post)*sample_size() + ::bufferlen;
+		samples_buffer = ::bufferlen/sample_size();
+
+		while((pre+post)*sample_size() > TOTAL_BUFFER_LIMIT){
+			if (post) post -= samples_buffer/2;
+			if (pre)  pre  -= samples_buffer/2;
+		}
+
+		/* round total buffer up to multiple of sample size */
+		if (total_bs > (pre+post)*sample_size()){
+			fprintf(stderr, "WARNING reducing to fit memory pre:%d post:\n", pre, post);
+		}
+
+
+		nobufs = total_bs/::bufferlen;
+		while (nobufs*::bufferlen < total_bs || nobufs < 2){
+			++nobufs;
+		}
+
+		fprintf(stderr, "StreamHeadPrePost pre:%d post:%d\n",
+				pre, post);
+		fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
+				sample_size);
+		fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
+				total_bs, ::bufferlen, nobufs);
+
+		buildOutputBuffers();
+	}
+	/* state: PRE, POST ... keep recycling PRE, then switch to POST */
+	/* keep filling the buffers and output the buffer id's .. */
+	virtual void stream() {
+		if (pre){
+			setState(ST_RUN_PRE);
+		}else{
+			setState(ST_RUN_POST);
+		}
+		streamCore();
+		postProcess();
+	}
+};
+
 StreamHead& StreamHead::instance() {
-	static StreamHead* _instance =
-		buffer_mode==BM_DEMUX? new StreamHeadHB0(): new StreamHead();
+	static StreamHead* _instance;
+
+	if (_instance == 0){
+		switch(buffer_mode){
+		case BM_PREPOST:
+			Demuxer *demuxer;
+			if (wordsize == 4){
+				demuxer = new DemuxerImpl<int>;
+			}else{
+				demuxer = new DemuxerImpl<short>;
+			}
+			_instance = new StreamHeadPrePost(*demuxer, ::pre, ::post);
+			break;
+		case BM_DEMUX:
+			_instance = new StreamHeadHB0();
+			break;
+		default:
+			_instance = new StreamHead();
+			break;
+		}
+	}
 	return *_instance;
 }
 
 
+
 int main(int argc, const char** argv)
 {
+
 	init(argc, argv);
 	StreamHead::instance().stream();
 	return 0;
