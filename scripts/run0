@@ -17,9 +17,14 @@ rm -f /etc/acq400/0/run0_ready
 acq400_teardown
 
 let nchan=0
+spad=$(cat /etc/acq400/0/spad)
+if [ $spad -eq 1 ]; then
+	let nchan=8;
+fi
+
 for site in $sites
 do
-	if [ $nchan -eq 0 ]; then
+	if [ "x$d32" = "x" ]; then
 		d32=$(cat /etc/acq400/$site/data32)
 	else
 		if [ $d32 -ne $(cat /etc/acq400/$site/data32) ];then
