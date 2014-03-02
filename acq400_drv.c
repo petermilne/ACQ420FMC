@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.441"
+#define REVID "2.443"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1723,7 +1723,7 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 	if (adev->AO_playloop.length == 0){
 		release_dma_channels(adev);
 		ao420_disable_interrupt(adev);
-		cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
+		cr &= ~ADC_CTRL_ADC_EN;
 		acq400wr32(adev, DAC_CTRL, cr);
 	}else{
 		cr &= ~ADC_CTRL_ADC_EN;
