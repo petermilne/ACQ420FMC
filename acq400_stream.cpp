@@ -148,6 +148,10 @@ public:
 	}
 */
 	static Buffer* create(const char* root, int ibuf, int _buffer_len);
+
+	const char* getName() {
+		return fname;
+	}
 };
 
 class NullBuffer: public Buffer {
@@ -181,11 +185,15 @@ public:
 		char* cc = static_cast<char *>(cursor);
 		char* bp = static_cast<char *>(pdata);
 		char *be = bp + buffer_len;
+		int remain = 0;
 		if (cc >= bp && cc <= be){
-			return buffer_len - (cc-bp);
-		}else{
-			return 0;
+			remain =  buffer_len - (cc-bp);
 		}
+
+		if (verbose){
+			printf("%s %s ret %d\n", __func__, fname, remain);
+		}
+		return remain;
 	}
 
 	MapBuffer(const char* _fname, int _ibuf, int _buffer_len,
@@ -802,6 +810,15 @@ protected:
 			return rc;
 		}
 	}
+	void close() {
+		if (fc){
+			::close(fc);
+			fc = 0;
+		}
+	}
+	virtual ~StreamHead() {
+		close();
+	}
 public:
 	virtual void stream();
 	static StreamHead& instance();
@@ -874,7 +891,7 @@ void StreamHeadHB0::stream() {
 }
 
 #define OBS_ROOT "/dev/shm/transient"
-#define TOTAL_BUFFER_LIMIT	0x20000000
+#define TOTAL_BUFFER_LIMIT	0x08000000
 
 enum STATE {
 	ST_STOP,
@@ -896,11 +913,12 @@ typedef std::vector<FILE *>::iterator FPV_IT;
 
 class Demuxer {
 public:
-	virtual void demux(void *start, int nsamples) = 0;
+	virtual void demux(void *start, int nbytes) = 0;
 };
 template <class T>
 class DemuxerImpl : public Demuxer {
 	FPV ch;
+	int ichan;
 
 	void build_ch() {
 		char fname[80];
@@ -916,9 +934,14 @@ class DemuxerImpl : public Demuxer {
 			ch.push_back(fp);
 		}
 	}
-
+	int nextChan() {
+		if (++ichan > ::nchan){
+			ichan = 1;
+		}
+		return ichan;
+	}
 public:
-	DemuxerImpl() {
+	DemuxerImpl() : ichan(1) {
 
 	}
 	virtual ~DemuxerImpl() {
@@ -931,16 +954,17 @@ public:
 };
 
 template <class T>
-void DemuxerImpl<T>::demux(void* start, int nsamples)
+void DemuxerImpl<T>::demux(void* start, int nbytes)
 {
 	if (ch.size() == 0){
 		build_ch();
 	}
+	T* startp = (T*)start;
 	T* bp = (T*)start;
 
 	if (verbose) {
-		printf("%s start:%p nsamples:%d nchan:%d\n",
-			__func__, start, nsamples, nchan);
+		printf("%s start:%p nbytes:%d nchan:%d\n",
+			__func__, start, nbytes, nchan);
 		printf("%s start[0:] = %08x,%08x,%08x,%08x\n",
 				__func__, bp[0], bp[1], bp[2], bp[3]);
 		if (verbose > 1){
@@ -950,8 +974,8 @@ void DemuxerImpl<T>::demux(void* start, int nsamples)
 		}
 
 	}
-	for (int isam = 0; isam < nsamples; ++isam){
-		for (int ichan = 1; ichan <= nchan; ++ichan){
+	for (; (bp-startp)*sizeof(T) < nbytes;){
+		for (; (bp-startp)*sizeof(T) < nbytes; nextChan()){
 			fwrite(bp++, sizeof(T), 1, ch[ichan]);
 		}
 	}
@@ -1014,7 +1038,7 @@ class StreamHeadPrePost: public StreamHead  {
 	int nobufs;
 
 	int samples_buffer;
-	void *cursor;
+	char *cursor;
 	void *event_cursor;	/* mark where event was detected */
 
 	std::vector <MapBuffer*> outbuffers;
@@ -1038,15 +1062,18 @@ class StreamHeadPrePost: public StreamHead  {
 
 		for (MBUFV_IT obit = outbuffers.begin();
 				obit != outbuffers.end(); ++obit){
-			fprintf(stderr, "buffer: %p %p\n",
-				(*obit)->getBase(),
-				(char*)(*obit)->getBase()+::bufferlen);
+			if (verbose > 1){
+				fprintf(stderr, "buffer: %s %p %p\n",
+					(*obit)->getName(),
+					(*obit)->getBase(),
+					(char*)(*obit)->getBase()+::bufferlen);
+			}
 		}
 	}
 
 	void streamCore() {
 		int ib;
-		char* cursor = static_cast<char*>(ba0);
+		cursor = static_cast<char*>(ba0);
 		while((ib = getBufferId()) >= 0){
 			buffers[ib]->copyBuffer(cursor);
 			cursor += ::bufferlen;
@@ -1082,33 +1109,36 @@ class StreamHeadPrePost: public StreamHead  {
 		return 0;
 	}
 
-	int _demux(void* cursor, int nsamples) {
-		for (MBUFV_IT it = outbuffers.begin(); it < outbuffers.end(); ++it){
+	int _demux(int nbytes) {
+		if (verbose){
+			printf("%s cursor:%p nbytes:%d\n", __func__, cursor, nbytes);
+		}
+		for (MBUFV_IT it = outbuffers.begin(); it != outbuffers.end(); ++it){
 			int remain = (*it)->includes(cursor);
 			if (remain){
-				int remsam = remain/::nchan;
-				demuxer.demux(cursor, remsam);
+				if (remain > nbytes){
+					remain = nbytes;
+				}
+				demuxer.demux(cursor, remain);
+				char fname[128];
+				sprintf(fname, "%s", (*it)->getName());
 				delete (*it);
 				outbuffers.erase(it);
-				nsamples -= remsam;
-				cursor = static_cast<void*>(
-						static_cast<char*>(cursor)+remain);
-				return remsam;
+				unlink(fname);
+				nbytes -= remain;
+				cursor += remain;
+				return remain;
 			}
 		}
 		return 0;
 	}
-	void demux(void* cursor, int nsamples){
-		int cycles = 0;
-		while(nsamples > 0){
-			int remsam = _demux(cursor, nsamples);
-			if (remsam){
-				nsamples -= remsam;
-			}else{
-				if (++cycles > 1){
-					fprintf(stderr, "ERROR fails to locate cursor");
-					return;
-				}
+	void demux(int nsamples){
+		int nbytes = nsamples*sample_size();
+
+		while(nbytes > 0){
+			int rembytes = _demux(nbytes);
+			if (rembytes){
+				nbytes -= rembytes;
 			}
 		}
 	}
@@ -1116,11 +1146,11 @@ class StreamHeadPrePost: public StreamHead  {
 		if (pre){
 			unsigned epos = findEvent();
 			unsigned prestart = workbackfrom(epos);
-			void *p0 = static_cast<void*>(
-					static_cast<char*>(ba0)+prestart);
-			demux(p0, pre+post);
+			cursor = static_cast<char*>(ba0)+prestart;
+			demux(pre+post);
 		}else{
-			demux(ba0, post);
+			cursor = static_cast<char*>(ba0);
+			demux(post);
 		}
 	}
 public:
@@ -1140,7 +1170,9 @@ public:
 
 		/* round total buffer up to multiple of sample size */
 		if (total_bs > (pre+post)*sample_size()){
-			fprintf(stderr, "WARNING reducing to fit memory pre:%d post:\n", pre, post);
+			fprintf(stderr,
+			"WARNING reducing to fit memory pre:%d post:%d\n",
+					pre, post);
 		}
 
 
@@ -1149,12 +1181,14 @@ public:
 			++nobufs;
 		}
 
-		fprintf(stderr, "StreamHeadPrePost pre:%d post:%d\n",
+		if (verbose){
+			fprintf(stderr, "StreamHeadPrePost pre:%d post:%d\n",
 				pre, post);
-		fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
+			fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
 				sample_size);
-		fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
+			fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
 				total_bs, ::bufferlen, nobufs);
+		}
 
 		buildOutputBuffers();
 	}
@@ -1167,6 +1201,7 @@ public:
 			setState(ST_RUN_POST);
 		}
 		streamCore();
+		close();
 		postProcess();
 	}
 };
@@ -1179,10 +1214,18 @@ StreamHead& StreamHead::instance() {
 		case BM_PREPOST:
 			Demuxer *demuxer;
 			if (wordsize == 4){
-				printf("DemuxerImpl<int> sizeof int:%d\n", sizeof(int));
+				if (verbose){
+					fprintf(stderr,
+					"DemuxerImpl<int> sizeof int:%d\n",
+					sizeof(int));
+				}
 				demuxer = new DemuxerImpl<int>;
 			}else{
-				printf("DemuxerImpl<short> sizeof short:%d\n", sizeof(short));
+				if (verbose){
+					fprintf(stderr,
+					"DemuxerImpl<short> sizeof short:%d\n",
+					sizeof(short));
+				}
 				demuxer = new DemuxerImpl<short>;
 			}
 			_instance = new StreamHeadPrePost(*demuxer, ::pre, ::post);
