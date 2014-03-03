@@ -891,7 +891,7 @@ typedef std::vector<FILE *> FPV;
 typedef std::vector<FILE *>::iterator FPV_IT;
 
 
-#define TRANSOUT	"/dev/shm/transient"
+#define TRANSOUT	OBS_ROOT"/ch"
 
 
 class Demuxer {
@@ -908,6 +908,7 @@ class DemuxerImpl : public Demuxer {
 		system(fname);
 
 		const char* fmt = nchan > 99? "%s/%03d": "%s/%02d";
+		ch.push_back(0);	// [0]
 		for (int ich = 1; ich <= nchan; ++ich){
 			sprintf(fname, fmt, TRANSOUT, ich);
 			FILE *fp = fopen(fname, "w");
@@ -936,10 +937,26 @@ void DemuxerImpl<T>::demux(void* start, int nsamples)
 		build_ch();
 	}
 	T* bp = (T*)start;
+
+	if (verbose) {
+		printf("%s start:%p nsamples:%d nchan:%d\n",
+			__func__, start, nsamples, nchan);
+		printf("%s start[0:] = %08x,%08x,%08x,%08x\n",
+				__func__, bp[0], bp[1], bp[2], bp[3]);
+		if (verbose > 1){
+			FILE* pf = popen("hexdump -e '8/4 \"%08x \" \"\\n\"'", "w");
+			fwrite(bp, sizeof(T), 512, pf);
+			pclose(pf);
+		}
+
+	}
 	for (int isam = 0; isam < nsamples; ++isam){
 		for (int ichan = 1; ichan <= nchan; ++ichan){
 			fwrite(bp++, sizeof(T), 1, ch[ichan]);
 		}
+	}
+	if (verbose){
+		printf("%s 99\n", __func__);
 	}
 }
 
@@ -1162,8 +1179,10 @@ StreamHead& StreamHead::instance() {
 		case BM_PREPOST:
 			Demuxer *demuxer;
 			if (wordsize == 4){
+				printf("DemuxerImpl<int> sizeof int:%d\n", sizeof(int));
 				demuxer = new DemuxerImpl<int>;
 			}else{
+				printf("DemuxerImpl<short> sizeof short:%d\n", sizeof(short));
 				demuxer = new DemuxerImpl<short>;
 			}
 			_instance = new StreamHeadPrePost(*demuxer, ::pre, ::post);
