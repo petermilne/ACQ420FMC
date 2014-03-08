@@ -867,13 +867,15 @@ void release_dma_channels(struct acq400_dev *adev)
 
 int _acq420_continuous_start_dma(struct acq400_dev *adev)
 {
+	int rc = 0;
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
 
 	if (get_dma_channels(adev)){
 		dev_err(DEVP(adev), "no dma chan");
-		return -EBUSY;
+		rc = -EBUSY;
+		goto start_dma99;
 	}
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 			adev, adev->pdev->dev.id, adev->dma_chan);
@@ -896,8 +898,10 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		yield();
 	}
 	adev->busy = 1;
+
+start_dma99:
 	mutex_unlock(&adev->mutex);
-	return 0;
+	return rc;
 }
 
 void _onStart(struct acq400_dev *adev)
