@@ -351,7 +351,7 @@ public:
 class KnobGroup {
 	Knob* knobs[4];
 
-	static int mapping[4];
+
 	static bool done_mapping;
 
 	static void makeMapping() {
@@ -374,6 +374,8 @@ class KnobGroup {
 
 
 public:
+	static int mapping[4];
+
 	KnobGroup(const char* n0, const char* n1, const char* n2, const char* n3)
 	{
 		if (!done_mapping){
@@ -535,14 +537,20 @@ void restart_awg()
 	}
 
 }
-void update_scratchpad(short gains[])
+static void spSet(Scratchpad& sp, int ii, short offsets[], short gains[])
+{
+	sp.set(Scratchpad::SP_AWG_G1+KnobGroup::mapping[ii],
+					(offsets[ii]<<16) | gains[ii]);
+}
+
+void update_scratchpad(short offsets[], short gains[])
 {
 	Scratchpad sp = Scratchpad::instance(MASTER_SITE);
 
-	sp.set(Scratchpad::SP_AWG_G1, gains[0]);
-	sp.set(Scratchpad::SP_AWG_G2, gains[1]);
-	sp.set(Scratchpad::SP_AWG_G3, gains[2]);
-	sp.set(Scratchpad::SP_AWG_G4, gains[3]);
+	spSet(sp, 0, offsets, gains);
+	spSet(sp, 1, offsets, gains);
+	spSet(sp, 2, offsets, gains);
+	spSet(sp, 3, offsets, gains);
 }
 int run_monitor(short *src, short *dst)
 {
@@ -572,7 +580,7 @@ int run_monitor(short *src, short *dst)
 			gains.toValues(::gains);
 			offsets.toValues(::offsets);
 			exec_mac(src, dst);
-			update_scratchpad(::gains);
+			update_scratchpad(::offsets, ::gains);
 			restart_awg();
 			update_knob(kroot, "update", ++updates);
 			dmon.spawn();
