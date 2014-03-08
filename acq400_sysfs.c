@@ -536,14 +536,42 @@ static ssize_t store_spadN(
 	size_t count,
 	const int ix)
 {
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int rc = count;
 	u32 spad;
-	if (sscanf(buf, "%x", &spad) == 1){
-		struct acq400_dev* adev = acq400_devices[dev->id];
-		acq400wr32(adev, SPADN(ix), spad);
-		return count;
+	enum { ASSIGN, SETBITS, CLRBITS } mode;
+
+
+	if (sscanf(buf, "+%x", &spad) == 1){
+		mode = SETBITS;
+	}else if (sscanf(buf, "-%x", &spad) == 1){
+		mode = CLRBITS;
+	}else if (sscanf(buf, "%x", &spad) == 1){
+		mode = ASSIGN;
 	}else{
 		return -1;
 	}
+
+	if (mutex_lock_interruptible(&adev->mutex)) {
+		return -EINTR;
+	}
+	if (mode != ASSIGN){
+		u32 rspad = acq400rd32(adev, SPADN(ix));
+		switch(mode){
+		case SETBITS:
+			rspad |= spad; spad = rspad; break;
+		case CLRBITS:
+			rspad &= ~spad; spad = rspad; break;
+		default:
+			dev_err(DEVP(adev), "BAD mode %s %d", __FILE__, __LINE__);
+			goto store_spadN_99;
+		}
+	}
+	acq400wr32(adev, SPADN(ix), spad);
+
+store_spadN_99:
+	mutex_unlock(&adev->mutex);
+	return rc;
 }
 
 
