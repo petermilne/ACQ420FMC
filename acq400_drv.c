@@ -24,7 +24,7 @@
 
 
 
-#define REVID "2.443"
+#define REVID "2.444"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -87,6 +87,10 @@ MODULE_PARM_DESC(maxdma, "set maximum DMA len bytes");
 
 int agg_reset_dbg = 0;
 module_param(agg_reset_dbg, int, 0644);
+
+int quit_on_buffer_exhaustion;
+module_param(quit_on_buffer_exhaustion, int, 0644);
+MODULE_PARM_DESC(quit_on_buffer_exhaustion, "abort capture when out of buffers");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -1849,10 +1853,15 @@ int ai_data_loop(void *data)
 				//acq420_enable_interrupt(adev);
 			}
 			if (emergency_drain_request){
-				mutex_lock(&adev->list_mutex);
-				move_list_to_empty(adev, &adev->REFILLS);
-				mutex_unlock(&adev->list_mutex);
-				dev_warn(DEVP(adev), "discarded FULL Q\n");
+				if (quit_on_buffer_exhaustion){
+					dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+					goto quit;
+				}else{
+					mutex_lock(&adev->list_mutex);
+					move_list_to_empty(adev, &adev->REFILLS);
+					mutex_unlock(&adev->list_mutex);
+					dev_warn(DEVP(adev), "discarded FULL Q\n");
+				}
 			}
 		}
 	}
