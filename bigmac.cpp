@@ -523,7 +523,6 @@ void init_knobs()
 
 typedef unsigned int u32;
 #include "../AO421_ELF/ScratchPad.h"
-#define MASTER_SITE 	0
 
 void restart_awg()
 /* refresh is supposed to happen on the fly, but may be unreliable */
@@ -545,7 +544,7 @@ static void spSet(Scratchpad& sp, int ii, short offsets[], short gains[])
 
 void update_scratchpad(short offsets[], short gains[])
 {
-	Scratchpad sp = Scratchpad::instance(MASTER_SITE);
+	Scratchpad sp = Scratchpad::instance();
 
 	spSet(sp, 0, offsets, gains);
 	spSet(sp, 1, offsets, gains);
