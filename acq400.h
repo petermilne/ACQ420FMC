@@ -224,11 +224,13 @@
 #define ACQ420_MINOR_SIDEPORTED 4	// enable, but data flow elsewhere
 #define ACQ420_MINOR_GPGMEM	5	// mmap 4K of this
 #define ACQ420_MINOR_EVENT	6	// blocks on event
+#define ACQ420_MINOR_STREAMDAC	7
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
 #define ACQ420_MINOR_CHAN	200
 #define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
+
 
 #define IS_BUFFER(minor) \
 	((minor) >= ACQ420_MINOR_BUF && (minor) <= ACQ420_MINOR_BUF2)
@@ -344,7 +346,7 @@ struct acq400_dev {
 		unsigned nput;
 		unsigned hb0_count;
 
-		unsigned hb0_ix[2];		/* [0]: previous, [1] : current */
+		unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
 		unsigned long hb0_last;
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 	} rt;

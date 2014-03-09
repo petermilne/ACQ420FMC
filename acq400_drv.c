@@ -20,11 +20,12 @@
 
 
 #include "acq400.h"
+#include "acq400_debugfs.h"
 #include "hbm.h"
 
 
 
-#define REVID "2.444"
+#define REVID "2.446"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -125,7 +126,7 @@ const char* acq400_devnames[] = {
 	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
 };
 
-struct dentry* acq400_debug_root;
+
 
 #define AO420_NBUFFERS 	2
 #define AO420_BUFFERLEN	0x200000
@@ -1413,6 +1414,64 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 	}
 }
 
+
+int acq400_streamdac_open(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	ioread32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	return 0;
+}
+
+
+ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = GPG_MEM_ACTUAL;
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user(adev->gpg_buffer+bcursor, buf, count);
+	if (rc){
+		return -1;
+	}
+	*f_pos += count;
+	adev->gpg_cursor += count/sizeof(u32);
+	return count;
+}
+
+
+int acq400_streamdac_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	iowrite32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	set_gpg_top(adev, adev->gpg_cursor);
+	return 0;
+}
+
+
+int acq400_open_streamdac(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_streamdac = {
+			.open = acq400_streamdac_open,
+			.write = acq400_streamdac_write,
+			.release = acq400_streamdac_release,
+	};
+	file->f_op = &acq400_fops_streamdac;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
@@ -1513,6 +1572,8 @@ int acq400_open(struct inode *inode, struct file *file)
         		return acq400_open_event(inode, file);
         	case ACQ420_MINOR_0:
         		return acq400_open_main(inode, file);
+        	case ACQ420_MINOR_STREAMDAC:
+        		return acq400_open_streamdac(inode, file);
         	default:
         		return -ENODEV;
         	}
@@ -1853,14 +1914,16 @@ int ai_data_loop(void *data)
 				//acq420_enable_interrupt(adev);
 			}
 			if (emergency_drain_request){
+				mutex_lock(&adev->list_mutex);
+				move_list_to_empty(adev, &adev->REFILLS);
+				mutex_unlock(&adev->list_mutex);
+				dev_warn(DEVP(adev), "discarded FULL Q\n");
+
 				if (quit_on_buffer_exhaustion){
+					adev->rt.refill_error = 1;
+					wake_up_interruptible(&adev->refill_ready);
 					dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
 					goto quit;
-				}else{
-					mutex_lock(&adev->list_mutex);
-					move_list_to_empty(adev, &adev->REFILLS);
-					mutex_unlock(&adev->list_mutex);
-					dev_warn(DEVP(adev), "discarded FULL Q\n");
 				}
 			}
 		}
@@ -2040,147 +2103,6 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         return adev;
 }
 
-#define DBG_REG_CREATE_NAME(name, reg) 				\
-	sprintf(pcursor, "%s.0x%02x", name, reg);		\
-	debugfs_create_x32(pcursor, S_IRUGO, 			\
-		adev->debug_dir, adev->dev_virtaddr+(reg));     \
-	pcursor += strlen(pcursor) + 1
-
-#define DBG_REG_CREATE(reg) 					\
-	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
-	debugfs_create_x32(pcursor, S_IRUGO, 			\
-		adev->debug_dir, adev->dev_virtaddr+(reg));     \
-	pcursor += strlen(pcursor) + 1
-
-
-static void acq400_createDebugfs(struct acq400_dev* adev)
-{
-	char* pcursor;
-	if (!acq400_debug_root){
-		acq400_debug_root = debugfs_create_dir("acq400", 0);
-		if (!acq400_debug_root){
-			dev_warn(&adev->pdev->dev, "failed create dir acq420");
-			return;
-		}
-	}
-	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
-
-
-	adev->debug_dir = debugfs_create_dir(
-			acq400_devnames[adev->of_prams.site], acq400_debug_root);
-
-	if (!adev->debug_dir){
-		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
-		return;
-	}
-	DBG_REG_CREATE(MOD_ID);
-	DBG_REG_CREATE(ADC_CTRL);
-	DBG_REG_CREATE(TIM_CTRL);
-	DBG_REG_CREATE(ADC_HITIDE);
-	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
-	DBG_REG_CREATE(ADC_FIFO_STA);
-	DBG_REG_CREATE(ADC_INT_CSR);
-	DBG_REG_CREATE(ADC_CLK_CTR);
-	DBG_REG_CREATE(ADC_SAMPLE_CTR);
-	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
-	DBG_REG_CREATE(SW_EMB_WORD1);
-	DBG_REG_CREATE(SW_EMB_WORD2);
-	DBG_REG_CREATE(ADC_CLKDIV);
-	if (IS_ACQ420(adev)){
-		DBG_REG_CREATE(ADC_GAIN);
-		DBG_REG_CREATE(ADC_CONV_TIME);
-	} else if (IS_ACQ43X(adev)){
-		DBG_REG_CREATE(ACQ435_MODE);
-
-	} else if (IS_AO420(adev)){
-		DBG_REG_CREATE(AO420_RANGE);
-		DBG_REG_CREATE(AO420_DACSPI);
-	}
-
-
-}
-
-static void acq400_removeDebugfs(struct acq400_dev* adev)
-{
-	debugfs_remove_recursive(adev->debug_dir);
-	kfree(adev->debug_names);
-}
-
-static void acq2006_createDebugfs(struct acq400_dev* adev)
-{
-	char* pcursor;
-	int site;
-	int sites = IS_ACQ2006SC(adev)? 6: IS_ACQ1001SC(adev)? 2: 0;
-	if (!acq400_debug_root){
-		acq400_debug_root = debugfs_create_dir("acq400", 0);
-		if (!acq400_debug_root){
-			dev_warn(&adev->pdev->dev, "failed create dir acq420");
-			return;
-		}
-	}
-	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
-
-
-	adev->debug_dir = debugfs_create_dir(
-			acq400_devnames[adev->of_prams.site], acq400_debug_root);
-
-	if (!adev->debug_dir){
-		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
-		return;
-	}
-	DBG_REG_CREATE(MOD_ID);
-	DBG_REG_CREATE(MOD_CON);
-	DBG_REG_CREATE(AGGREGATOR);
-	DBG_REG_CREATE(AGGSTA);
-	DBG_REG_CREATE(DATA_ENGINE_0);
-	if (IS_ACQ2006SC(adev)){
-		DBG_REG_CREATE(DATA_ENGINE_1);
-		DBG_REG_CREATE(DATA_ENGINE_2);
-		DBG_REG_CREATE(DATA_ENGINE_3);
-	}
-	DBG_REG_CREATE(GPG_CONTROL);
-
-	DBG_REG_CREATE_NAME("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
-	DBG_REG_CREATE_NAME("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
-	for (site = 1; site <= sites; ++site){
-		char name[20];
-		sprintf(name, "CLK_%d", site);
-		DBG_REG_CREATE_NAME(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
-	}
-
-	DBG_REG_CREATE_NAME("TRG_EXT", ACQ2006_TRG_COUNT(EXT_DX));
-	DBG_REG_CREATE_NAME("TRG_MB",  ACQ2006_TRG_COUNT(MB_DX));
-	for (site = 1; site <= sites; ++site){
-		char name[20];
-		sprintf(name, "TRG_%d", site);
-		DBG_REG_CREATE_NAME(name, ACQ2006_TRG_COUNT(SITE2DX(site)));
-	}
-
-	DBG_REG_CREATE_NAME("SYN_EXT", ACQ2006_SYN_COUNT(EXT_DX));
-	DBG_REG_CREATE_NAME("SYN_MB",  ACQ2006_SYN_COUNT(MB_DX));
-	for (site = 1; site <= sites; ++site){
-		char name[20];
-		sprintf(name, "SYN_%d", site);
-		DBG_REG_CREATE_NAME(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
-	}
-
-	DBG_REG_CREATE_NAME("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
-	DBG_REG_CREATE_NAME("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
-	for (site = 1; site <= sites; ++site){
-		char name[20];
-		sprintf(name, "EVT_%d", site);
-		DBG_REG_CREATE_NAME(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
-	}
-
-	if (IS_ACQ1001SC(adev) || (IS_ACQ2006SC(adev)&&FPGA_REV(adev) >= 8)){
-		char name[16];
-		int ii;
-		for (ii = 0; ii < SPADMAX; ++ii){
-			snprintf(name, 16, "spad%d", ii);
-			DBG_REG_CREATE_NAME(name, SPADN(ii));
-		}
-	}
-}
 
 static int acq400_remove(struct platform_device *pdev);
 
@@ -2298,8 +2220,10 @@ static int acq400_probe(struct platform_device *pdev)
         	          	IRQF_SHARED, acq400_devnames[adev->of_prams.site],
         	          	adev);
         }else{
-        	rc = devm_request_irq(DEVP(adev), adev->of_prams.irq, acq400_isr,
-        			IRQF_SHARED, acq400_devnames[adev->of_prams.site], adev);
+        	rc = devm_request_irq(
+        			DEVP(adev), adev->of_prams.irq, acq400_isr,
+        			IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+        			adev);
         }
 
   	if (rc){
