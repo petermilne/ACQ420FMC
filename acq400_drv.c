@@ -20,8 +20,9 @@
 
 
 #include "acq400.h"
-#include "acq400_debugfs.h"
 #include "hbm.h"
+#include "acq400_debugfs.h"
+#include "acq400_lists.h"
 
 
 
@@ -70,9 +71,6 @@ int lotide = HITIDE-4;
 module_param(lotide, int, 0644);
 MODULE_PARM_DESC(lotide, "lotide value (words)");
 
-int run_buffers = 0;
-module_param(run_buffers, int, 0644);
-MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)");
 
 int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
@@ -119,7 +117,7 @@ int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
 int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
-// @@todo pgm: crude: index by site, index from 10
+// @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
 	"acq400.0", "acq400.1", "acq400.2",
@@ -609,96 +607,6 @@ int dma_memcpy(
 }
 
 
-struct HBM * getEmpty(struct acq400_dev* adev)
-{
-	if (!list_empty(&adev->EMPTIES)){
-		struct HBM *hbm;
-		mutex_lock(&adev->list_mutex);
-		hbm = list_first_entry(
-				&adev->EMPTIES, struct HBM, list);
-		list_move_tail(&hbm->list, &adev->INFLIGHT);
-		hbm->bstate = BS_FILLING;
-		mutex_unlock(&adev->list_mutex);
-
-		++adev->rt.nget;
-		return hbm;
-	} else {
-		dev_warn(DEVP(adev), "get Empty: Q is EMPTY!\n");
-		return 0;
-	}
-}
-
-void putFull(struct acq400_dev* adev)
-{
-	if (!list_empty(&adev->INFLIGHT)){
-		struct HBM *hbm;
-		mutex_lock(&adev->list_mutex);
-		hbm = list_first_entry(
-				&adev->INFLIGHT, struct HBM, list);
-		hbm->bstate = BS_FULL;
-		list_move_tail(&hbm->list, &adev->REFILLS);
-		mutex_unlock(&adev->list_mutex);
-
-		++adev->rt.nput;
-		if (run_buffers && adev->rt.nput >= run_buffers){
-			adev->rt.please_stop = 1;
-		}
-		wake_up_interruptible(&adev->refill_ready);
-	}else{
-		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
-	}
-}
-
-struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
-{
-	if (!list_empty(&adev->REFILLS)){
-		struct HBM *hbm;
-		mutex_lock(&adev->list_mutex);
-		hbm = list_first_entry(
-				&adev->REFILLS, struct HBM, list);
-		list_move_tail(&hbm->list, &adev->INFLIGHT);
-		hbm->bstate = BS_FILLING;
-		mutex_unlock(&adev->list_mutex);
-
-		++adev->rt.nget;
-		return hbm;
-	} else {
-		dev_warn(DEVP(adev), "getEmptyFromRefills: Q is EMPTY!\n");
-		return 0;
-	}
-}
-int getFull(struct acq400_dev* adev)
-{
-	struct HBM *hbm;
-	if (wait_event_interruptible(
-			adev->refill_ready,
-			!list_empty(&adev->REFILLS) ||
-			adev->rt.refill_error ||
-			adev->rt.please_stop)){
-		return -EINTR;
-	} else if (adev->rt.please_stop){
-		return GET_FULL_DONE;
-	} else if (adev->rt.refill_error){
-		return GET_FULL_REFILL_ERR;
-	}
-
-	mutex_lock(&adev->list_mutex);
-	hbm = list_first_entry(&adev->REFILLS, struct HBM, list);
-	list_move_tail(&hbm->list, &adev->OPENS);
-	hbm->bstate = BS_FULL_APP;
-	mutex_unlock(&adev->list_mutex);
-	return GET_FULL_OK;
-}
-
-void putEmpty(struct acq400_dev* adev)
-{
-	struct HBM *hbm;
-	mutex_lock(&adev->list_mutex);
-	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
-	hbm->bstate = BS_EMPTY;
-	list_move_tail(&hbm->list, &adev->EMPTIES);
-	mutex_unlock(&adev->list_mutex);
-}
 
 
 /* File operations */
