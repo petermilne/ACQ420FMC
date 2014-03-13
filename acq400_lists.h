@@ -33,4 +33,11 @@ void putEmpty(struct acq400_dev* adev);
 
 /* AO ops */
 
+struct HBM *ao_getEmpty(struct acq400_dev* adev);
+void ao_putFull(struct acq400_dev* adev, struct HBM* hbm_full);
+struct HBM *ao_getFull(struct acq400_dev* adev);
+void ao_putEmpty(struct acq400_dev* adev, struct HBM* hbm_empty);
+
+void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist);
+
 #endif /* ACQ400_LISTS_H_ */

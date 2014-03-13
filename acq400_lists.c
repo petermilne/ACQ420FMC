@@ -119,3 +119,65 @@ void putEmpty(struct acq400_dev* adev)
 	list_move_tail(&hbm->list, &adev->EMPTIES);
 	mutex_unlock(&adev->list_mutex);
 }
+
+
+struct HBM * ao_getEmpty(struct acq400_dev* adev)
+{
+	if (!list_empty(&adev->EMPTIES)){
+		struct HBM *hbm;
+		mutex_lock(&adev->list_mutex);
+		hbm = list_first_entry(
+				&adev->EMPTIES, struct HBM, list);
+		list_move_tail(&hbm->list, &adev->INFLIGHT);
+		hbm->bstate = BS_FILLING;
+		mutex_unlock(&adev->list_mutex);
+
+		++adev->rt.nget;
+		return hbm;
+	} else {
+		return 0;
+	}
+}
+
+void ao_putFull(struct acq400_dev* adev, struct HBM* hbm_full)
+{
+	mutex_lock(&adev->list_mutex);
+	hbm_full->bstate = BS_FULL;
+	list_move_tail(&hbm_full->list, &adev->REFILLS);
+	mutex_unlock(&adev->list_mutex);
+	++adev->rt.nput;
+	wake_up_interruptible(&adev->w_waitq);
+}
+
+struct HBM * ao_getFull(struct acq400_dev* adev)
+{
+	struct HBM *hbm = 0;
+	if (!list_empty(&adev->REFILLS)){
+		mutex_lock(&adev->list_mutex);
+		hbm = list_first_entry(&adev->REFILLS, struct HBM, list);
+		list_del(&hbm->list);
+		mutex_unlock(&adev->list_mutex);
+	}
+
+	return hbm;
+}
+
+void ao_putEmpty(struct acq400_dev* adev, struct HBM* hbm_empty)
+{
+	mutex_lock(&adev->list_mutex);
+	hbm_empty->bstate = BS_EMPTY;
+	list_add_tail(&hbm_empty->list, &adev->EMPTIES);
+	mutex_unlock(&adev->list_mutex);
+}
+
+void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
+{
+	struct HBM *cur;
+	struct HBM *tmp;
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry_safe(cur, tmp, elist, list){
+		cur->bstate = BS_EMPTY;
+		list_move_tail(&cur->list, &adev->EMPTIES);
+	}
+	mutex_unlock(&adev->list_mutex);
+}
