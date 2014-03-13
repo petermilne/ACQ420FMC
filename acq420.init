@@ -43,6 +43,8 @@ build_nodes() {
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.gpg	c ${MAJOR} 5
+			# only valid for AO ... fixme
+			mknod /dev/${NAME}.dac		c ${MAJOR} 7
 			build_hb ${MAJOR} ${NAME}
 		fi
 	done
@@ -79,6 +81,52 @@ build_etc_site() {
 }
 
 
+customize_acq420()
+{
+	source 	/dev/sites/$1/details
+	PN="${FRU_PART_NUM%% *}"
+	old_ifs=$IFS; IFS="-"
+	let ix=0
+	for field in $PN
+	do
+		case $ix in
+		0)			
+			case $field in
+			ACQ420FMC)	echo ACQ420FMC detected;;
+			ACQ425ELF)	echo ACQ425ELF detected;;
+			*)
+				echo "ERROR: model $field not recognized";;
+			esac;;
+		1)
+			echo NCHAN=$field;;				
+		2)
+			echo SPEED=$field			
+			case $field in
+			2000)
+				CLKDIV=50
+				ADC_CONV=26;;
+			1000)
+				CLKDIV=100
+				ADC_CONV=54;;
+			*)
+				CLKDIV=200
+				ADC_CONV=150;;
+			esac
+			echo "SPEED:$field set adc_conv_time:$ADC_CONV"
+			set.sys /dev/acq400.$1.knobs/adc_conv_time $ADC_CONV;;
+		3)
+			echo BITS=$field
+			case $BITS in
+			18)
+				set.sys /dev/acq400.$1.knobs/data32 1;;
+			*)
+				set.sys /dev/acq400.$1.knobs/data32 0;;
+			esac;;				
+		esac
+		let ix="$ix+1"
+	done
+	IFS=${old_ifs}
+}
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
@@ -92,6 +140,9 @@ build_knobs_device() {
 	echo build_knobs_device site:$site mtype:$mtype
 	
 	case $mtype in
+	1|5)	
+		customize_acq420 $site		
+		;;
 	255)    
 		return;;
 	2|3)
@@ -102,11 +153,9 @@ build_knobs_device() {
 		CLKDIV=250;;
 	*)
 		CLKDIV=200;;
-	esac
-	which set.sys
-	echo set.sys /$dir/clkdiv $CLKDIV
-	set.sys /$dir/clkdiv $CLKDIV
-	echo get.sys /$dir/clkdiv $(get.sys /$dir/clkdiv)
+	esac	
+	set.sys $dir/clkdiv $CLKDIV
+	echo get.sys $dir/clkdiv $(get.sys $dir/clkdiv)
 	if [ -e $dir/gains ]; then
 		set.sys ${dknobs}/gains 0000		
 	fi
@@ -196,7 +245,13 @@ if [ $notloaded -ne 0 ]; then
 	fi
 	echo insmod $MOD bufferlen=$BLEN $GS
 	sleep 0.2
-	insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS
+	
+	if [ -f /mnt/local/acq420_custom ]; then
+		source /mnt/local/acq420_custom
+	else
+		DRVR_CUSTOM=""
+	fi		
+	insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 	build_knobs
 	set_fans
 	grep acq4.0 /proc/devices |  build_nodes	
