@@ -209,7 +209,7 @@
 
 /* AO420FMC */
 
-#define DAC_FIFO_SAMPLES_MASK	0x00003fff
+#define DAC_FIFO_SAMPLES_MASK	0x00007fff
 
 /*
  *  Minor encoding
@@ -241,6 +241,7 @@
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
+	struct mutex awg_mutex;
 	struct cdev cdev;
 	struct platform_device *pdev;
 	struct dentry* debug_dir;
@@ -362,6 +363,9 @@ struct acq400_dev {
 		int length;
 		int cursor;
 	} AO_playloop;
+
+	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
+	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
 };
 
 
@@ -421,7 +425,7 @@ int getHeadroom(struct acq400_dev *adev);
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
-void ao420_reset_playloop(struct acq400_dev* adev);
+void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 #define SYSCLK_M100	100000000
 #define SYSCLK_M66       66000000

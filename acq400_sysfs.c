@@ -88,6 +88,36 @@ static ssize_t store_clkdiv(
 
 static DEVICE_ATTR(clkdiv, S_IRUGO|S_IWUGO, show_clkdiv, store_clkdiv);
 
+static ssize_t show_adc_conv_time(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 adc_conv_time = acq400rd32(acq400_devices[dev->id], ADC_CONV_TIME);
+	return sprintf(buf, "%u\n", adc_conv_time);
+}
+
+static ssize_t store_adc_conv_time(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 adc_conv_time;
+	if (sscanf(buf, "%u", &adc_conv_time) == 1 &&
+	    adc_conv_time >= 1 &&
+	    adc_conv_time <= ADC_CLK_DIV_MASK){
+		acq400wr32(acq400_devices[dev->id], ADC_CONV_TIME, adc_conv_time);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(adc_conv_time, S_IRUGO|S_IWUGO, show_adc_conv_time, store_adc_conv_time);
+
+
+
 unsigned get_gain(u32 gains, int chan)
 {
 	return (gains >> chan*2) & 0x3;
@@ -1151,7 +1181,7 @@ static const struct attribute *acq420_attrs[] = {
 	&dev_attr_gain2.attr,
 	&dev_attr_gain3.attr,
 	&dev_attr_gain4.attr,
-
+	&dev_attr_adc_conv_time.attr,
 	NULL
 };
 static const struct attribute *acq435_attrs[] = {
@@ -1322,8 +1352,9 @@ static ssize_t store_playloop_length(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	if (sscanf(buf, "%u", &adev->AO_playloop.length) == 1){
-		ao420_reset_playloop(adev);
+	unsigned playloop_length;
+	if (sscanf(buf, "%u", &playloop_length) == 1){
+		ao420_reset_playloop(adev, playloop_length);
 		return count;
 	}else{
 		return -1;

@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.446"
+#define REVID "2.453"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -124,10 +124,14 @@ const char* acq400_devnames[] = {
 	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
 };
 
+#define AO420_BUFFERLEN	0x20000
 
+int ao420_buffer_length = AO420_BUFFERLEN;
+module_param(ao420_buffer_length, int, 0644);
+MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
 
-#define AO420_NBUFFERS 	2
-#define AO420_BUFFERLEN	0x200000
+#define AO420_NBUFFERS 	4
+
 
 #define ACQ420_NBUFFERS	16
 #define ACQ420_BUFFERLEN frontside_bufferlen
@@ -939,15 +943,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	return nread;
 }
 
-void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
-{
-	struct HBM *cur;
-	struct HBM *tmp;
-	list_for_each_entry_safe(cur, tmp, elist, list){
-		cur->bstate = BS_EMPTY;
-		list_move_tail(&cur->list, &adev->EMPTIES);
-	}
-}
+
 
 void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 {
@@ -1264,6 +1260,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 	*f_pos += count;
 	adev->gpg_cursor += count/sizeof(u32);
 	return count;
+
 }
 
 int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
@@ -1323,10 +1320,53 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 }
 
 
+int streamdac_data_loop(void *data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	int rc = 0;
+	struct HBM* hbm_full;
+
+	dev_info(DEVP(adev), "streamdac_data_loop 01");
+
+	while(1){
+		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
+		if (wait_event_interruptible(
+				adev->w_waitq,
+				!list_empty(&adev->REFILLS) ||
+				adev->rt.please_stop)){
+			rc = -EINTR;
+			goto quit;
+		}
+		if (adev->rt.please_stop || kthread_should_stop()){
+			goto quit;
+		}
+
+		/** @@todo : FIFO filling happens here */
+		hbm_full = ao_getFull(adev);
+
+		dev_dbg(DEVP(adev), "streamdac_data_loop() after ao_getFull(), hbm:%p", hbm_full);
+		if (hbm_full == 0){
+			goto quit;
+		}
+		dev_dbg(DEVP(adev), "streamdac_data_loop() ao_putEmpty %p", hbm_full);
+		ao_putEmpty(adev, hbm_full);
+
+		dev_dbg(DEVP(adev), "streamdac_data_loop() after ao_putEmpty(), hbm:%p", hbm_full);
+		wake_up_interruptible(&adev->w_waitq);
+	}
+quit:
+	dev_info(DEVP(adev), "streamdac_data_loop 99");
+	move_list_to_empty(adev, &adev->REFILLS);
+	move_list_to_empty(adev, &adev->INFLIGHT);
+	return rc;
+}
 int acq400_streamdac_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	ioread32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	adev->stream_dac_consumer.hb = 0;
+	adev->stream_dac_consumer.offset = 0;
+	adev->w_task = kthread_run(
+		streamdac_data_loop, adev, "%s.dac", devname(adev));
 	return 0;
 }
 
@@ -1335,24 +1375,43 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int len = GPG_MEM_ACTUAL;
-	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
-	int rc;
+	int len = adev->bufferlen;
+	char* va;
+	int headroom;
 
-	if (bcursor >= len){
-		return 0;
-	}else{
-		int headroom = (len - bcursor);
-		if (count > headroom){
-			count = headroom;
+	dev_dbg(DEVP(adev), "write 01");
+
+	if (!adev->stream_dac_producer.hb){
+		while((adev->stream_dac_producer.hb = ao_getEmpty(adev)) == 0){
+			dev_dbg(DEVP(adev), "ao_getEmpty() fail");
+			if (wait_event_interruptible(
+				adev->w_waitq,
+				!list_empty(&adev->EMPTIES)) ){
+				return -EINTR;
+			}
 		}
+		adev->stream_dac_producer.offset = 0;
 	}
-	rc = copy_from_user(adev->gpg_buffer+bcursor, buf, count);
-	if (rc){
+	va = (char*)adev->stream_dac_producer.hb->va;
+	headroom = len - adev->stream_dac_producer.offset;
+	if (count > headroom){
+		count = headroom;
+	}
+
+	dev_dbg(DEVP(adev), "write copy %d", count);
+
+	if(copy_from_user(va+adev->stream_dac_producer.offset, buf, count)){
 		return -1;
 	}
+	adev->stream_dac_producer.offset += count;
+	if (adev->stream_dac_producer.offset >= len){
+		dev_dbg(DEVP(adev), "putFull %p", adev->stream_dac_producer.hb);
+		ao_putFull(adev, adev->stream_dac_producer.hb);
+		adev->stream_dac_producer.hb = 0;
+	}
+
 	*f_pos += count;
-	adev->gpg_cursor += count/sizeof(u32);
+	dev_dbg(DEVP(adev), "write 99 return %d", count);
 	return count;
 }
 
@@ -1360,8 +1419,11 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 int acq400_streamdac_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	iowrite32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
-	set_gpg_top(adev, adev->gpg_cursor);
+	dev_info(DEVP(adev), "acq400_streamdac_release()");
+	adev->rt.please_stop = 1;
+	wake_up_interruptible(&adev->w_waitq);
+	move_list_to_empty(adev, &adev->REFILLS);
+	move_list_to_empty(adev, &adev->INFLIGHT);
 	return 0;
 }
 
@@ -1622,6 +1684,9 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 {
 	int headroom;
 
+	if (mutex_lock_interruptible(&adev->awg_mutex)) {
+		return;
+	}
 	while((headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
@@ -1648,6 +1713,7 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 			adev->AO_playloop.cursor = 0;
 		}
 	}
+	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
 			acq400rd32(adev, DAC_FIFO_SAMPLES));
 }
@@ -1684,10 +1750,15 @@ void ao420_getDMA(struct acq400_dev* adev)
 		}
 	}
 }
-void ao420_reset_playloop(struct acq400_dev* adev)
+void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 
+	if (mutex_lock_interruptible(&adev->awg_mutex)) {
+		return;
+	}
+
+	adev->AO_playloop.length = 0;
 	if (adev->data32){
 		cr |= ADC_CTRL32B_data;
 	}else{
@@ -1697,20 +1768,20 @@ void ao420_reset_playloop(struct acq400_dev* adev)
 	dev_dbg(DEVP(adev), "ao420_reset_playloop(%d)",
 					adev->AO_playloop.length);
 
-	if (adev->AO_playloop.length == 0){
-		release_dma_channels(adev);
-		ao420_disable_interrupt(adev);
-		cr &= ~ADC_CTRL_ADC_EN;
-		acq400wr32(adev, DAC_CTRL, cr);
-	}else{
-		cr &= ~ADC_CTRL_ADC_EN;
-		cr &= ~DAC_CTRL_LL;
-		adev->AO_playloop.cursor = 0;
-		acq400wr32(adev, DAC_CTRL, cr);
+	cr &= ~ADC_CTRL_ADC_EN;
+	cr &= ~DAC_CTRL_LL;
+	adev->AO_playloop.cursor = 0;
+	acq400wr32(adev, DAC_CTRL, cr);
+	release_dma_channels(adev);
+	ao420_disable_interrupt(adev);
+	ao420_reset_fifo(adev);
+	acq400_clear_histo(adev);
 
+	mutex_unlock(&adev->awg_mutex);
+
+	if (playloop_length != 0){
 		ao420_getDMA(adev);
-		acq400_clear_histo(adev);
-		ao420_reset_fifo(adev);
+		adev->AO_playloop.length = playloop_length;
 		ao420_fill_fifo(adev);
 		ao420_onStart(adev);
 	}
@@ -1885,8 +1956,13 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 	acq420_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
-	wake_up_interruptible(&adev->w_waitq);
-	return IRQ_WAKE_THREAD;
+
+	if (adev->AO_playloop.length){
+		return IRQ_WAKE_THREAD;	/* canned */
+	}else{
+		wake_up_interruptible(&adev->w_waitq);  /* stream_dac */
+		return IRQ_HANDLED;
+	}
 }
 struct file_operations acq400_fops = {
         .owner = THIS_MODULE,
@@ -1999,6 +2075,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
 
         adev->pdev = pdev;
         mutex_init(&adev->mutex);
+        mutex_init(&adev->awg_mutex);
         adev->fifo_histo = kzalloc(FIFO_HISTO_SZ*sizeof(u32), GFP_KERNEL);
 
         INIT_LIST_HEAD(&adev->EMPTIES);
@@ -2115,7 +2192,7 @@ static int acq400_probe(struct platform_device *pdev)
         }
         if (allocate_hbm(adev,
         		IS_AO420(adev)? AO420_NBUFFERS: ACQ420_NBUFFERS,
-      			IS_AO420(adev)? AO420_BUFFERLEN: ACQ420_BUFFERLEN,
+      			IS_AO420(adev)? ao420_buffer_length: ACQ420_BUFFERLEN,
         		IS_AO420(adev)? DMA_TO_DEVICE: DMA_FROM_DEVICE)){
         	dev_err(&pdev->dev, "failed to allocate buffers");
         	goto fail;
