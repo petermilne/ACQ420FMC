@@ -118,9 +118,11 @@ customize_acq420()
 			echo BITS=$field
 			case $BITS in
 			18)
-				set.sys /dev/acq400.$1.knobs/data32 1;;
+				set.sys /dev/acq400.$1.knobs/data32 1
+				set.sys /dev/acq400.$1.knobs/adc_18b 1;;
 			*)
-				set.sys /dev/acq400.$1.knobs/data32 0;;
+				set.sys /dev/acq400.$1.knobs/data32 0
+				set.sys /dev/acq400.$1.knobs/adc_18b 0;;
 			esac;;				
 		esac
 		let ix="$ix+1"
@@ -140,7 +142,7 @@ build_knobs_device() {
 	echo build_knobs_device site:$site mtype:$mtype
 	
 	case $mtype in
-	1|5)	
+	1|A1)	
 		customize_acq420 $site		
 		;;
 	255)    

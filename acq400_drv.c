@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.453"
+#define REVID "2.455"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -40,7 +40,7 @@ int ndevices;
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 
-int adc_18b = 1;
+int adc_18b = 0;
 module_param(adc_18b, int, 0444);
 MODULE_PARM_DESC(adc_18b, "set TRUE on load if 18 bit devices fitted [1]");
 
@@ -266,7 +266,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "AO420 device init");
 	adev->cursor.hb = adev->hb[0];
 	adev->hitide = 2048;
-	adev->lotide = 1024;
+	adev->lotide = 0x1fff;
 	adev->sysclkhz = SYSCLK_M66;
 }
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
@@ -1619,8 +1619,13 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-#define AO420_MAX_FIFO_SAMPLES	0x00001fff	/* actualite not doxy */
+#define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
+#define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
 
+unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
+	return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
+					AO420_MAX_FIFO_SAMPLES_PACKED;
+}
 #define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
@@ -1631,8 +1636,7 @@ static int ao420_getFifoSamples(struct acq400_dev* adev) {
 }
 
 static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
-	int nshorts = adev->word_size/2;
-	int fifomaxsam = AO420_MAX_FIFO_SAMPLES/nshorts;
+	int fifomaxsam = ao420_getFifoMaxSamples(adev);
 
 	if (ao420_getFifoSamples(adev) > fifomaxsam){
 		return 0;
@@ -1735,10 +1739,10 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 void ao420_getDMA(struct acq400_dev* adev)
 {
 	if (adev->dma_chan[0] == 0 &&
-			ao420_dma_threshold < AO420_MAX_FIFO_SAMPLES){
+			ao420_dma_threshold < ao420_getFifoMaxSamples(adev)){
 		if (get_dma_channels(adev)){
 			dev_err(DEVP(adev), "no dma chan");
-			ao420_dma_threshold = AO420_MAX_FIFO_SAMPLES;
+			ao420_dma_threshold = ao420_getFifoMaxSamples(adev);
 		}else{
 			if (adev->dma_chan[0] == 0){
 				dev_err(DEVP(adev), "BAD DMA CHAN!");

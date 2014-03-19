@@ -731,6 +731,34 @@ static ssize_t show_lotide(
 static DEVICE_ATTR(lotide, S_IRUGO, show_lotide, 0);
 
 
+static ssize_t show_adc_18b(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->adc_18b);
+}
+
+static ssize_t store_adc_18b(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 adc_18b;
+	if (!IS_ACQ43X(adev) && sscanf(buf, "%u", &adc_18b) == 1){
+		adev->adc_18b = adc_18b != 0;
+		adev->word_size = adc_18b? 4: 2;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(adc_18b, S_IRUGO|S_IWUGO, show_adc_18b, store_adc_18b);
+
 static ssize_t show_data32(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1176,6 +1204,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 };
 
 static const struct attribute *acq420_attrs[] = {
+	&dev_attr_adc_18b.attr,
 	&dev_attr_gains.attr,
 	&dev_attr_gain1.attr,
 	&dev_attr_gain2.attr,
