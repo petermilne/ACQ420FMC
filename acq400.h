@@ -103,6 +103,7 @@
 #define MOD_ID_REV_MASK		0x0000ffff
 
 #define MOD_ID_ACQ420FMC	1
+#define MOD_ID_ACQ420FMC_2000	0xa1
 #define MOD_ID_ACQ435ELF	2
 #define MOD_ID_ACQ430FMC	3
 #define MOD_ID_ACQ440FMC	4
@@ -409,7 +410,9 @@ int getHeadroom(struct acq400_dev *adev);
 #define NCHAN	4
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
-#define IS_ACQ420(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC)
+#define IS_ACQ420(adev) \
+	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC ||   \
+	 (adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC_2000)
 #define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
 #define IS_ACQ430(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ430FMC)
 #define IS_ACQ43X(adev)	(IS_ACQ435(adev) || IS_ACQ430(adev))
