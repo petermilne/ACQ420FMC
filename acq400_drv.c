@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.465"
+#define REVID "2.466"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -448,7 +448,7 @@ void ao420_onStart(struct acq400_dev *adev)
 
 void acq420_onStart(struct acq400_dev *adev)
 {
-	dev_info(DEVP(adev), "acq420_onStart()");
+	dev_dbg(DEVP(adev), "acq420_onStart()");
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
 	/** clear FIFO flags .. workaround hw bug */
@@ -871,7 +871,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
 
-	dev_info(DEVP(adev), "acq2006_continuous_start() 01");
+	dev_dbg(DEVP(adev), "acq2006_continuous_start() 01");
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 	acq2006_aggregator_reset(adev);				/* (1) */
@@ -886,7 +886,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 
 	acq2006_aggregator_enable(adev);			/* (4) */
 	adev->RW32_debug = 0;
-	dev_info(DEVP(adev), "acq2006_continuous_start() 99");
+	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;
 }
 
@@ -999,7 +999,7 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 		_acq420_continuous_dma_stop(adev);
 	}
 
-	dev_info(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",
+	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",
 			acq400rd32(adev, ADC_CTRL));
 }
 int acq420_continuous_stop(struct inode *inode, struct file *file)
@@ -1833,7 +1833,7 @@ int ai_data_loop(void *data)
 			FIFO_PA(adev), hbm->len, 0)
 
 
-	dev_info(DEVP(adev), "ai_data_loop() 01");
+	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
 	hbm0 = getEmpty(adev);
 	hbm1 = getEmpty(adev);
@@ -1925,14 +1925,14 @@ int ai_data_loop(void *data)
 		}
 	}
 quit:
-	dev_info(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
+	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
 	for (ic = 0; ic < 2; ++ic){
 		struct dma_chan *chan = adev->dma_chan[ic];
 		chan->device->device_control(chan, DMA_TERMINATE_ALL, 0);
 	}
 
 	adev->task_active = 0;
-	dev_info(DEVP(adev), "ai_data_loop() 99");
+	dev_dbg(DEVP(adev), "ai_data_loop() 99");
 	return 0;
 #undef DMA_ASYNC_MEMCPY
 #undef DMA_ASYNC_MEMCPY_NWFE
