@@ -21,6 +21,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
+/* all functions call mutex_lock(&adev->list_mutex) so clients don't have to */
+
 #ifndef ACQ400_LISTS_H_
 #define ACQ400_LISTS_H_
 

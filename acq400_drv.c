@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.457"
+#define REVID "2.465"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -785,6 +785,7 @@ void release_dma_channels(struct acq400_dev *adev)
 int _acq420_continuous_start_dma(struct acq400_dev *adev)
 {
 	int rc = 0;
+	int pollcat = 0;
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
@@ -804,7 +805,12 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	adev->fifo_isr_done = 0;
 
 	if (adev->w_task == 0){
-		adev->w_task = kthread_run(ai_data_loop, adev, devname(adev));
+		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
+		adev->w_task = kthread_run(ai_data_loop, adev,
+				"%s.ai", devname(adev));
+		if (adev->w_task == ERR_PTR(-ENOMEM)){
+			BUG();
+		}
 	}else{
 		dev_warn(DEVP(adev),
 				"acq420_continuous_start() task already running ?\n");
@@ -813,6 +819,9 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 
 	while(!adev->task_active){
 		yield();
+		if ((++pollcat&0xffff) == 0){
+			dev_warn(DEVP(adev), "Polling for task active");
+		}
 	}
 	adev->busy = 1;
 
@@ -862,6 +871,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
 
+	dev_info(DEVP(adev), "acq2006_continuous_start() 01");
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 	acq2006_aggregator_reset(adev);				/* (1) */
@@ -870,11 +880,13 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	if (agg_reset_dbg) dev_info(DEVP(adev), "start dma");
 	rc =_acq420_continuous_start_dma(adev);			/* (3) */
 	if (rc != 0){
+		dev_info(DEVP(adev), "acq2006_continuous_start() 66");
 		return rc;
 	}
 
 	acq2006_aggregator_enable(adev);			/* (4) */
 	adev->RW32_debug = 0;
+	dev_info(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;
 }
 
@@ -968,12 +980,10 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 	adev->w_task = 0;
 	mutex_unlock(&adev->mutex);
 
-	mutex_lock(&adev->list_mutex);
 	move_list_to_empty(adev, &adev->OPENS);
 	move_list_to_empty(adev, &adev->REFILLS);
 	move_list_to_empty(adev, &adev->INFLIGHT);
 	adev->busy = 0;
-	mutex_unlock(&adev->list_mutex);
 
 	release_dma_channels(adev);
 	adev->stats.run = 0;
@@ -1812,6 +1822,8 @@ int ai_data_loop(void *data)
 	int nloop = 0;
 	int ic;
 	long dma_timeout = START_TIMEOUT;
+	struct HBM* hbm0;
+	struct HBM* hbm1;
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
 	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
@@ -1821,8 +1833,11 @@ int ai_data_loop(void *data)
 			FIFO_PA(adev), hbm->len, 0)
 
 
-	struct HBM* hbm0 = getEmpty(adev);
-	struct HBM* hbm1 = getEmpty(adev);
+	dev_info(DEVP(adev), "ai_data_loop() 01");
+
+	hbm0 = getEmpty(adev);
+	hbm1 = getEmpty(adev);
+
 
 	dev_dbg(DEVP(adev), "hbm0:0x%08x chan:%d\n", hbm0->pa, adev->dma_chan[0]->chan_id);
 	dev_dbg(DEVP(adev), "hbm1:0x%08x chan:%d\n", hbm1->pa, adev->dma_chan[1]->chan_id);
@@ -1897,9 +1912,7 @@ int ai_data_loop(void *data)
 				//acq420_enable_interrupt(adev);
 			}
 			if (emergency_drain_request){
-				mutex_lock(&adev->list_mutex);
 				move_list_to_empty(adev, &adev->REFILLS);
-				mutex_unlock(&adev->list_mutex);
 				dev_warn(DEVP(adev), "discarded FULL Q\n");
 
 				if (quit_on_buffer_exhaustion){
@@ -1912,13 +1925,14 @@ int ai_data_loop(void *data)
 		}
 	}
 quit:
-	dev_info(DEVP(adev), "calling DMA_TERMINATE_ALL, both channels\n");
+	dev_info(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
 	for (ic = 0; ic < 2; ++ic){
 		struct dma_chan *chan = adev->dma_chan[ic];
 		chan->device->device_control(chan, DMA_TERMINATE_ALL, 0);
 	}
 
 	adev->task_active = 0;
+	dev_info(DEVP(adev), "ai_data_loop() 99");
 	return 0;
 #undef DMA_ASYNC_MEMCPY
 #undef DMA_ASYNC_MEMCPY_NWFE
