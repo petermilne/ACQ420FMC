@@ -36,6 +36,9 @@
   200  0x6 0x0	 	# OPEN previous channels. close CH01.02,CH01,03
   300  			# OPEN previous channels
 
+ * run in debug mode, do two cycles to see:
+ * dawg -r 2 -D  -s /usr/local/CARE/dawg-test-pat-running-bit
+ *
  */
 
 #include <assert.h>
@@ -126,7 +129,7 @@ public:
 	void print();
 
 	static DawgEntry *create(const char* _def, DawgEntry* _prev);
-	static DawgEntry *createAllOpen();
+	static DawgEntry *createAllOpen(DawgEntry *prev);
 
 	static void buildList(
 		list<const char*> &the_list, u32 amask[], u32 bmask[]);
@@ -285,12 +288,15 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	}
 }
 
-DawgEntry *DawgEntry::createAllOpen()
+DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 {
-	DawgEntry *allClosed = new DawgEntry(
-		"all closed", 0, ALL_CLOSED_MASK, ALL_CLOSED_MASK, 0);
+	if (prev == 0){
+		DawgEntry *allClosed = new DawgEntry(
+			"all closed", 0, ALL_CLOSED_MASK, ALL_CLOSED_MASK, 0);
+		prev = allClosed;
+	}
 	DawgEntry *allOpen = new DawgEntry(
-		"all open",   0, 0, 0, allClosed);
+		"all open",   0, 0, 0, prev);
 	return allOpen;
 }
 
@@ -389,7 +395,7 @@ void build_sequence(void)
 	DawgEntry *prev = 0;
 	DawgEntry *now;
 
-	instructions.push_back(prev = DawgEntry::createAllOpen());
+	instructions.push_back(prev = DawgEntry::createAllOpen(prev));
 
 	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
 		if (strlen(seq_line) < 2){
@@ -411,6 +417,7 @@ void build_sequence(void)
 	}
 	fclose(fp);
 
+	instructions.push_back(DawgEntry::createAllOpen(prev));
 	list<DawgEntry*>::iterator it;
 
 	for (it = instructions.begin(); it != instructions.end(); ++it){
