@@ -29,9 +29,20 @@
 /** singleton .. */
 class Scratchpad {
 	char *root;
-	Scratchpad(int site) {
+	Scratchpad(int site = 0) {
 		root = new char[80];
 		snprintf(root, 80, "/dev/acq400.%d.knobs", site);
+	}
+	virtual void set(int idx, const char* fmt, u32 value){
+		char knob[80];
+		snprintf(knob, 80, "%s/spad%d", root, idx);
+		FILE* fp = fopen(knob, "w");
+		if (fp == 0){
+			perror(knob);
+			exit(1);
+		}
+		fprintf(fp, fmt, value);
+		fclose(fp);
 	}
 public:
 	enum SP_INDEX {
@@ -48,27 +59,23 @@ public:
 		SP_MUX_STATUS_BUSY = 0xb5b5b5b5,
 		SP_MUX_STATUS_DONE = 0xd00e0000
 	};
-	static Scratchpad& instance(int site) {
-		static Scratchpad* instances[7];	/* index from 1 */
-		assert(site ==0);
+	static Scratchpad& instance() {
+		static Scratchpad* _instance;
 
-
-		if (!instances[site]){
-			instances[site] = new Scratchpad(site);
+		if (!_instance){
+			_instance = new Scratchpad();
 		}
-		return *instances[site];
+		return *_instance;
 	}
 
-	virtual void set(enum SP_INDEX idx, u32 value){
-		char knob[80];
-		snprintf(knob, 80, "%s/spad%d", root, idx);
-		FILE* fp = fopen(knob, "w");
-		if (fp == 0){
-			perror(knob);
-			exit(1);
-		}
-		fprintf(fp, "%08x", value);
-		fclose(fp);
+	virtual void set(int idx, u32 value){
+		set(idx, "%08x", value);
+	}
+	virtual void setBits(int idx, u32 bits){
+		set(idx, "+%08x", bits);
+	}
+	virtual void clrBits(int idx, u32 bits){
+		set(idx, "-%08x", bits);
 	}
 };
 

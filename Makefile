@@ -5,7 +5,7 @@ DC=$(shell date +%y%m%d%H%M%S)
 SEQ=66
 
 
-APPS := dawg
+APPS := dawg ao421_set
 
 all: apps
 	
@@ -22,6 +22,9 @@ clean:
 	
 dawg: dawg.o
 	$(CXX) -O3 -o dawg dawg.o -L../lib -lpopt
+	
+ao421_set: ao421_set.o
+	$(CXX) -O3 -o ao421_set ao421_set.o -L../lib -lpopt
 
 zynq:
 	./make.zynq

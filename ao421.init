@@ -129,7 +129,7 @@ ln -s /dev/gpio/AO421/P19 CH02.20
 cd /etc/acq400/$SITE/
 for file in $KDIR/CH0?.??
 do
-	ln -s $file 
+	ln -s /usr/local/bin/ao421_set $(basename $file)
 done
 ln -s /usr/local/bin/muxpattern
 

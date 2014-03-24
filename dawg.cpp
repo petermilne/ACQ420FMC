@@ -73,7 +73,6 @@ namespace UI {
 	bool print_quit;
 	bool interactive;
 	int site = 5;
-	int master_site = 0;
 	int sched_fifo = 0;
 };
 
@@ -273,12 +272,12 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 			return 0;
 		}
 	}else{
-		if (_abstime <= _prev->abstime){
+		if (_abstime < _prev->abstime){
 			fprintf(stderr, "ERROR: abstime not monotonic\n");
 			return 0;
 		}
 	}
-	if (UI::master_site > 0 && !UI::dry_run){
+	if (!UI::dry_run){
 		return new ScratchpadReportingDawgEntry(
 				_def, _abstime, _ch01, _ch02, _prev);
 	}else{
@@ -292,11 +291,12 @@ DawgEntry *DawgEntry::createAllOpen()
 		"all closed", 0, ALL_CLOSED_MASK, ALL_CLOSED_MASK, 0);
 	DawgEntry *allOpen = new DawgEntry(
 		"all open",   0, 0, 0, allClosed);
+	return allOpen;
 }
 
 void ScratchpadReportingDawgEntry::exec()
 {
-	Scratchpad& sp(Scratchpad::instance(UI::master_site));
+	Scratchpad& sp(Scratchpad::instance());
 
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
 	DawgEntry::exec();
@@ -334,8 +334,6 @@ struct poptOption opt_table[] = {
 			"controlled from stdin"			},
 	{ "site",        'S', POPT_ARG_INT, &UI::site, 0,
 			"site of AO421"				},
-	{ "master_site", 'M', POPT_ARG_INT, &UI::master_site, 0,
-			"site of ACQ435 with scratchpad"	},
 	{ "realtime", 'R',  POPT_ARG_INT, &UI::sched_fifo, 'R',
 			"set real time priority" 		},
 	POPT_AUTOHELP
@@ -391,7 +389,7 @@ void build_sequence(void)
 	DawgEntry *prev = 0;
 	DawgEntry *now;
 
-	instructions.push_back(DawgEntry::createAllOpen());
+	instructions.push_back(prev = DawgEntry::createAllOpen());
 
 	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
 		if (strlen(seq_line) < 2){
