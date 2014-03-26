@@ -60,6 +60,118 @@
 	} while (0)
 
 
+/* generic show_bits, store_bits */
+
+static ssize_t show_bits(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	unsigned SHL,
+	unsigned MASK)
+{
+	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+	u32 field = (regval>>SHL)&MASK;
+
+	return sprintf(buf, "%x\n", field);
+}
+
+static ssize_t store_bits(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned SHL,
+		unsigned MASK)
+{
+	u32 field;
+	if (sscanf(buf, "%x", &field) == 1){
+		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+		regval &= ~(MASK << SHL);
+		regval |= (field&MASK) << SHL;
+		acq400wr32(acq400_devices[dev->id], REG, regval);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
+static ssize_t show_bits##NAME(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char *buf)							\
+{									\
+	return show_bits(dev, attr, buf, REG, SHL, MASK);		\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
+
+#define MAKE_BITS(NAME, REG, SHL, MASK)					\
+static ssize_t show_bits##NAME(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char *buf)							\
+{									\
+	return show_bits(dev, attr, buf, REG, SHL, MASK);		\
+}									\
+static ssize_t store_bits##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_bits(dev, attr, buf, count, REG, SHL, MASK);	\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
+
+MAKE_BITS(sync_in_clk,  HDMI_SYNC, HDMI_SYNC_IN_CLKb, 	0x1);
+MAKE_BITS(sync_in_sync, HDMI_SYNC, HDMI_SYNC_IN_SYNCb, 0x1);
+MAKE_BITS(sync_in_trg,  HDMI_SYNC, HDMI_SYNC_IN_TRGb, 	0x1);
+MAKE_BITS(sync_in_gpio, HDMI_SYNC, HDMI_SYNC_IN_GPIOb, 0x1);
+
+
+MAKE_BITS(di4_3, 	HDMI_SYNC, HDMI_SYNC_IN_CLKb, 	0x1);
+MAKE_BITS(di4_2, 	HDMI_SYNC, HDMI_SYNC_IN_SYNCb, 	0x1);
+MAKE_BITS(di4_1, 	HDMI_SYNC, HDMI_SYNC_IN_TRGb, 	0x1);
+MAKE_BITS(di4_0, 	HDMI_SYNC, HDMI_SYNC_IN_GPIOb, 	0x1);
+
+MAKE_BITS_RO(sync_out_cable_detN, HDMI_SYNC, HDMI_SYNC_OUT_CABLE_DETNb, 0x1);
+
+MAKE_BITS(sync_out_clk,  HDMI_SYNC, HDMI_SYNC_OUT_CLKb, 	0x1);
+MAKE_BITS(sync_out_sync, HDMI_SYNC, HDMI_SYNC_OUT_SYNCb, 	0x1);
+MAKE_BITS(sync_out_trg,  HDMI_SYNC, HDMI_SYNC_OUT_TRGb, 	0x1);
+MAKE_BITS(sync_out_gpio, HDMI_SYNC, HDMI_SYNC_OUT_GPIOb, 	0x1);
+
+
+MAKE_BITS(do4_3, 	HDMI_SYNC, HDMI_SYNC_OUT_CLKb, 		0x1);
+MAKE_BITS(do4_2, 	HDMI_SYNC, HDMI_SYNC_OUT_SYNCb, 	0x1);
+MAKE_BITS(do4_1, 	HDMI_SYNC, HDMI_SYNC_OUT_TRGb, 		0x1);
+MAKE_BITS(do4_0, 	HDMI_SYNC, HDMI_SYNC_OUT_GPIOb, 	0x1);
+
+static const struct attribute *hdmi_sync_attrs[] = {
+	&dev_attr_sync_in_clk.attr,
+	&dev_attr_sync_in_sync.attr,
+	&dev_attr_sync_in_trg.attr,
+	&dev_attr_sync_in_gpio.attr,
+
+	&dev_attr_di4_3.attr,
+	&dev_attr_di4_2.attr,
+	&dev_attr_di4_1.attr,
+	&dev_attr_di4_0.attr,
+
+	&dev_attr_sync_out_cable_detN.attr,
+
+	&dev_attr_sync_out_clk.attr,
+	&dev_attr_sync_out_sync.attr,
+	&dev_attr_sync_out_trg.attr,
+	&dev_attr_sync_out_gpio.attr,
+
+	&dev_attr_do4_3.attr,
+	&dev_attr_do4_2.attr,
+	&dev_attr_do4_1.attr,
+	&dev_attr_do4_0.attr,
+};
 static ssize_t show_clkdiv(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2027,6 +2139,11 @@ void acq400_createSysfs(struct device *dev)
 	}else if IS_ACQx00xSC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
 			dev_err(dev, "failed to create sysfs");
+		}
+		if (HAS_HDMI_SYNC(adev)){
+			if (sysfs_create_files(&dev->kobj, hdmi_sync_attrs)){
+				dev_err(dev, "failed to create sysfs HDMI");
+			}
 		}
 		if (IS_ACQ2006SC(adev)){
 			specials = acq2006sc_attrs;

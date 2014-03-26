@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.466"
+#define REVID "2.467"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG

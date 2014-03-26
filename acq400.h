@@ -424,6 +424,8 @@ int getHeadroom(struct acq400_dev *adev);
 
 #define IS_ACQx00xSC(adev) (IS_ACQ2006SC(adev)||IS_ACQ1001SC(adev))
 
+/** @@todo and ACQ2006r2 */
+#define HAS_HDMI_SYNC(adev)	IS_ACQ1001SC(adev)
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
@@ -445,7 +447,7 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define ACQ2006_SYN_COUNT_MASK  0x0000ffff
 #define ACQ2006_EVT_COUNT_MASK	0x0000ffff
 
-/* SC "site 0" */
+/* SC "site 0" registers */
 #define MOD_CON			(0x0004)
 #define AGGREGATOR		(0x0008)
 #define AGGSTA			(0x000c)
@@ -453,11 +455,10 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DATA_ENGINE_1		(0x0014)
 #define DATA_ENGINE_2		(0x0018)
 #define DATA_ENGINE_3		(0x001c)
-
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
-
-
-#define GPG_CONTROL		(0x0020)  /* per telecon with John 201402061145 */
+#define GPG_CTRL		(0x0020)  /* per telecon with John 201402061145 */
+#define GPG_CONTROL		GPG_CTRL
+#define HDMI_SYNC		(0x0024)
 /* scratchpad */
 
 #define DE_ENABLE		(1<<0)
@@ -527,6 +528,22 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define GPG_MEM_SIZE			0x1000
 #define GPG_MEM_ACTUAL			0x0800
 
+
+#define HDMI_SYNC_IN_CLKb		15
+#define HDMI_SYNC_IN_SYNCb		14
+#define HDMI_SYNC_IN_TRGb		13
+#define HDMI_SYNC_IN_GPIOb		12
+#define HDMI_SYNC_OUT_CABLE_DETNb	 8
+#define HDMI_SYNC_OUT_CLKb		 3
+#define HDMI_SYNC_OUT_SYNCb		 2
+#define HDMI_SYNC_OUT_TRGb		 1
+#define HDMI_SYNC_OUT_GPIOb		 0
+
+#define HDMI_SYNC_IN_SHL		12
+#define HDMI_SYNC_OUT_SHL		0
+#define HDMI_SYNC_MASK			0x0f
+
+
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */
 #define SITE2DX(site) 	((site)+1)
@@ -535,12 +552,12 @@ int ao420_physChan(int lchan /* 1..4 */ );
 
 static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 {
-	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
 	gpg_top <<= GPG_CTRL_TOPADDR_SHL;
 	gpg_top &= GPG_CTRL_TOPADDR;
 	gpg_ctrl &= ~GPG_CTRL_TOPADDR;
 	gpg_ctrl |= gpg_top;
-	acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+	acq400wr32(adev, GPG_CTRL, gpg_ctrl);
 }
 
 

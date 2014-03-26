@@ -1,0 +1,45 @@
+#!/bin/sh
+# assume HDMI loopback in place
+
+test_di4() {
+	DI4="$(echo $(cat di4_?))"
+	if [ "$DI4" = "$1" ]; then
+		echo $DI4 PASS
+	else
+		echo $DI4 FAIL
+		exit 1
+	fi
+}
+
+set_do4() {
+for dx in $(seq 0 3)
+do
+	echo $1 >do4_$dx
+	shift
+done
+}
+
+set_test() {
+	set_do4 $1
+	test_di4 "$1"
+}
+cd /dev/acq400.0.knobs
+
+if [ ! -e sync_out_cable_detN ]; then
+	echo ERROR: no sync out feature
+	exit 1
+elif [ "$(cat sync_out_cable_detN)" != "0" ]; then
+	echo ERROR: sync out cable NOT detected
+	exit 1
+fi
+
+set_test "0 0 0 0"
+set_test "1 0 0 0"
+set_test "0 1 0 0"
+set_test "0 0 1 0"
+set_test "0 0 0 1"
+set_test "0 0 0 0"
+echo TEST PASSED
+
+
+
