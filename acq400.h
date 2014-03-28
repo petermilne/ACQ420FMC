@@ -64,14 +64,19 @@
 #define ADC_FIFO_SAMPLES	(ADC_BASE+0x10)
 #define DAC_FIFO_SAMPLES	ADC_FIFO_SAMPLES
 #define ADC_FIFO_STA		(ADC_BASE+0x14)
+#define DAC_FIFO_STA		ADC_FIFO_STA
 #define ADC_INT_CSR		(ADC_BASE+0x18)
+#define DAC_INT_CSR		ADC_INT_CSR
 #define ADC_CLK_CTR		(ADC_BASE+0x1C)
+#define DAC_CLK_CTR		ADC_CLK_CTR
 #define ADC_SAMPLE_CTR		(ADC_BASE+0x20)
+#define DAC_SAMPLE_CTR		ADC_SAMPLE_CTR
 #define ADC_SAMPLE_CLK_CTR	(ADC_BASE+0x24)
 #define SW_EMB_WORD1		(ADC_BASE+0x28)
 #define SW_EMB_WORD2		(ADC_BASE+0x2c)
 
 #define ADC_CLKDIV		(ADC_BASE+0x40)
+#define DAC_CLKDIV		ADC_CLKDIV
 #define ADC_GAIN		(ADC_BASE+0x44)
 /* obsolete R3
 #define ADC_FORMAT 		(ADC_BASE+0x48)
@@ -560,5 +565,33 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 	acq400wr32(adev, GPG_CTRL, gpg_ctrl);
 }
 
+#define AOSAMPLES2BYTES(adev, xx) ((xx)*AO_CHAN*(adev)->word_size)
+
+#define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
+#define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
+
+static inline unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
+	return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
+					AO420_MAX_FIFO_SAMPLES_PACKED;
+}
+#define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
+#define AO420_FILL_THRESHOLD	0x400		/* fill to here */
+
+#define MAX_LOTIDE(adev) \
+	(ao420_getFifoMaxSamples(adev) - AO420_FILL_THRESHOLD*2)
+
+static inline int ao420_getFifoSamples(struct acq400_dev* adev) {
+	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
+}
+
+static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
+	int fifomaxsam = ao420_getFifoMaxSamples(adev);
+
+	if (ao420_getFifoSamples(adev) > fifomaxsam){
+		return 0;
+	}else{
+		return fifomaxsam - ao420_getFifoSamples(adev);
+	}
+}
 
 #endif /* ACQ420FMC_H_ */

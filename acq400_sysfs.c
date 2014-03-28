@@ -840,7 +840,22 @@ static ssize_t show_lotide(
 	return sprintf(buf, "%u\n", adev->lotide);
 }
 
-static DEVICE_ATTR(lotide, S_IRUGO, show_lotide, 0);
+static ssize_t store_lotide(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 lotide;
+	if (sscanf(buf, "%u", &lotide) == 1 && lotide <= MAX_LOTIDE(adev)){
+		adev->lotide = lotide;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(lotide, S_IRUGO|S_IWUGO, show_lotide, store_lotide);
 
 
 static ssize_t show_adc_18b(
@@ -1335,6 +1350,34 @@ static const struct attribute *acq435_attrs[] = {
 	NULL
 };
 
+
+static ssize_t show_dac_headroom(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int hr_samples = ao420_getFifoHeadroom(adev);
+	return sprintf(buf, "%d samples %d bytes\n",
+			hr_samples, AOSAMPLES2BYTES(adev, hr_samples));
+}
+
+static DEVICE_ATTR(dac_headroom, S_IRUGO, show_dac_headroom, 0);
+
+static ssize_t show_dac_fifo_samples(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int fifo_samples = ao420_getFifoSamples(adev);
+	return sprintf(buf, "%d samples %d bytes\n",
+			fifo_samples, AOSAMPLES2BYTES(adev, fifo_samples));
+}
+
+static DEVICE_ATTR(dac_fifo_samples, S_IRUGO, show_dac_fifo_samples, 0);
+
 static ssize_t show_dac_range(
 	int chan,
 	struct device * dev,
@@ -1644,6 +1687,8 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
+	&dev_attr_dac_headroom.attr,
+	&dev_attr_dac_fifo_samples.attr,
 	NULL
 };
 

@@ -150,7 +150,7 @@ build_knobs_device() {
 	2|3)
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
-	64)	
+	40)	
 		ao420_init ${site}
 		CLKDIV=250;;
 	*)

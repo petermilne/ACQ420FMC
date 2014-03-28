@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.467"
+#define REVID "2.479"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -263,7 +263,11 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 
 static void ao420_init_defaults(struct acq400_dev *adev)
 {
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO420 device init");
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
 	adev->cursor.hb = adev->hb[0];
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
@@ -274,10 +278,12 @@ static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 	return acq400rd32(adev, ADC_FIFO_SAMPLES);
 }
 
+/* @@todo not used
 static u32 acq420_samples2bytes(struct acq400_dev *adev, u32 samples)
 {
 	return samples * adev->nchan_enabled * adev->word_size;
 }
+*/
 
 static void acq420_reset_fifo(struct acq400_dev *adev)
 /* Raise and Release reset */
@@ -336,11 +342,14 @@ void acq2006_aggregator_disable(struct acq400_dev *adev)
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg & ~AGG_ENABLE);
 }
+
+/** @todo not used
 static void acq420_enable_interrupt(struct acq400_dev *adev)
 {
 	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
 	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
 }
+*/
 
 static void ao420_enable_interrupt(struct acq400_dev *adev)
 {
@@ -435,6 +444,7 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_FIFO_EN);
 	acq400wr32(adev, DAC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 }
 
@@ -1629,31 +1639,6 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
-#define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
-#define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
-
-unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
-	return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
-					AO420_MAX_FIFO_SAMPLES_PACKED;
-}
-#define AO420_MAX_FILL_BLOCK	0x1000		/* BYTES, SWAG */
-#define AO420_FILL_THRESHOLD	0x400		/* fill to here */
-
-#define AOSAMPLES2BYTES(adev, xx) ((xx)*AO_CHAN*(adev)->word_size)
-
-static int ao420_getFifoSamples(struct acq400_dev* adev) {
-	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
-}
-
-static int ao420_getFifoHeadroom(struct acq400_dev* adev) {
-	int fifomaxsam = ao420_getFifoMaxSamples(adev);
-
-	if (ao420_getFifoSamples(adev) > fifomaxsam){
-		return 0;
-	}else{
-		return fifomaxsam - ao420_getFifoSamples(adev);
-	}
-}
 
 
 void write32(volatile u32* to, volatile u32* from, int nwords)
@@ -1705,7 +1690,6 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
 		remaining = min(remaining, headroom);
-		remaining = min(remaining, AO420_MAX_FILL_BLOCK);
 
 		dev_dbg(DEVP(adev), "headroom:%d remaining:%d using:%d\n",
 			headroom, adev->AO_playloop.length - adev->AO_playloop.cursor, remaining);
@@ -1713,11 +1697,20 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 		if (remaining){
 			int cursor = AOSAMPLES2BYTES(adev, adev->AO_playloop.cursor);
 			int lenbytes = AOSAMPLES2BYTES(adev, remaining);
+
+			lenbytes = min(lenbytes, AO420_MAX_FILL_BLOCK);
+
 			if (adev->dma_chan[0] != 0 && remaining > max(MIN_DMA, ao420_dma_threshold)){
 				int nbuf = lenbytes/MIN_DMA;
-				ao420_write_fifo_dma(adev, cursor, nbuf*MIN_DMA);
-				ao420_write_fifo(adev, cursor, lenbytes - nbuf*MIN_DMA);
+				int dma_bytes = nbuf*MIN_DMA;
+
+				dev_dbg(DEVP(adev), "dma: lenbytes: %d", dma_bytes);
+				ao420_write_fifo_dma(adev, cursor, dma_bytes);
+
+				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes - dma_bytes);
+				ao420_write_fifo(adev, cursor, lenbytes - dma_bytes);
 			}else{
+				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes);
 				ao420_write_fifo(adev, cursor, lenbytes);
 			}
 			adev->AO_playloop.cursor += remaining;
