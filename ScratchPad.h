@@ -120,6 +120,11 @@ public:
 	virtual int get(int idx, u32 *value){
 		return get(idx, "%x", value);
 	}
+	virtual u32 get(int idx) {
+		u32 value;
+		get(idx, &value);
+		return value;
+	}
 	virtual void setBits(int idx, u32 bits){
 		set(idx, "+%08x", bits);
 	}
