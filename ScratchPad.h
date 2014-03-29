@@ -26,23 +26,51 @@
 #define SCRATCHPAD_H_
 
 
+#include <stdarg.h>
+
+class FileClosure {
+
+public:
+	FILE *fp;
+	FileClosure(const char* fname, const char* mode) {
+		fp = fopen(fname, mode);
+		if (fp == 0){
+			perror(fname);
+			exit(1);
+		}
+	}
+	~FileClosure() {
+		fclose(fp);
+	}
+	int printf(const char* fmt, ...){
+		va_list argp;
+		va_start(argp, fmt);
+		vfprintf(fp, fmt, argp);
+		va_end(argp);
+	}
+};
 /** singleton .. */
 class Scratchpad {
 	char *root;
-	Scratchpad(int site = 0) {
+	int errcount;
+
+	Scratchpad(int site = 0) : errcount(0) {
 		root = new char[80];
 		snprintf(root, 80, "/dev/acq400.%d.knobs", site);
 	}
 	virtual void set(int idx, const char* fmt, u32 value){
 		char knob[80];
 		snprintf(knob, 80, "%s/spad%d", root, idx);
-		FILE* fp = fopen(knob, "w");
-		if (fp == 0){
-			perror(knob);
-			exit(1);
-		}
-		fprintf(fp, fmt, value);
-		fclose(fp);
+		FileClosure fc(knob, "w");
+		fc.printf(fmt, value);
+	}
+	virtual int get(int idx, const char* fmt, u32* value) {
+		char knob[80];
+		snprintf(knob, 80, "%s/spad%d", root, idx);
+
+		FileClosure fc(knob, "r");
+
+		return fscanf(fc.fp, fmt, value) == 1? 0: -1;
 	}
 public:
 	enum SP_INDEX {
@@ -69,7 +97,28 @@ public:
 	}
 
 	virtual void set(int idx, u32 value){
-		set(idx, "%08x", value);
+		u32 v2;
+		int loopcount = 0;
+
+		do {
+			set(idx, "%08x", value);
+			get(idx, &v2);
+			if (value != v2){
+				if (++errcount < 100){
+					fprintf(stderr, "SCRATCHPAD validate ERROR, retry %d idx %d %x != %x\n",
+							++loopcount, idx, value, v2);
+					errcount = 200;
+				}
+			}
+		} while (value != v2);
+
+		if (loopcount == 0){
+			--errcount;	/* no errors? bring report back slowly */
+		}
+	}
+
+	virtual int get(int idx, u32 *value){
+		return get(idx, "%x", value);
 	}
 	virtual void setBits(int idx, u32 bits){
 		set(idx, "+%08x", bits);
