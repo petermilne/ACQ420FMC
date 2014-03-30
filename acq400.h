@@ -372,6 +372,8 @@ struct acq400_dev {
 
 	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
 	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
+
+	u32 fake_spad[SPADMAX];
 };
 
 
@@ -594,4 +596,6 @@ static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 	}
 }
 
+void set_spadN(struct acq400_dev* adev, int n, u32 value);
+u32 get_spadN(struct acq400_dev* adev, int n);
 #endif /* ACQ420FMC_H_ */

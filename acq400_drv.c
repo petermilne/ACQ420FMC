@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.479"
+#define REVID "2.481"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -90,6 +90,10 @@ module_param(agg_reset_dbg, int, 0644);
 int quit_on_buffer_exhaustion;
 module_param(quit_on_buffer_exhaustion, int, 0644);
 MODULE_PARM_DESC(quit_on_buffer_exhaustion, "abort capture when out of buffers");
+
+int fake_spad_access;
+module_param(fake_spad_access, int, 0644);
+MODULE_PARM_DESC(fake_spad_access, "access DRAM instead to trace spad fault");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -210,6 +214,23 @@ u32 acq400rd32_upcount(struct acq400_dev *adev, int offset)
 		++debcount;
 	}
 	return c2;
+}
+
+void set_spadN(struct acq400_dev* adev, int n, u32 value)
+{
+	if (fake_spad_access){
+		adev->fake_spad[n] = value;
+	}else{
+		acq400wr32(adev, SPADN(n), value);
+	}
+}
+u32 get_spadN(struct acq400_dev* adev, int n)
+{
+	if (fake_spad_access){
+		return adev->fake_spad[n];
+	}else{
+		return acq400rd32(adev, SPADN(n));
+	}
 }
 static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
@@ -1677,7 +1698,7 @@ void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 		bytes/sizeof(u32));
 }
 
-#define MIN_DMA	64
+#define MIN_DMA	256
 
 static void ao420_fill_fifo(struct acq400_dev* adev)
 {
@@ -1706,9 +1727,6 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 
 				dev_dbg(DEVP(adev), "dma: lenbytes: %d", dma_bytes);
 				ao420_write_fifo_dma(adev, cursor, dma_bytes);
-
-				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes - dma_bytes);
-				ao420_write_fifo(adev, cursor, lenbytes - dma_bytes);
 			}else{
 				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes);
 				ao420_write_fifo(adev, cursor, lenbytes);
