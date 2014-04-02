@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.481"
+#define REVID "2.482"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -91,9 +91,10 @@ int quit_on_buffer_exhaustion;
 module_param(quit_on_buffer_exhaustion, int, 0644);
 MODULE_PARM_DESC(quit_on_buffer_exhaustion, "abort capture when out of buffers");
 
-int fake_spad_access;
-module_param(fake_spad_access, int, 0644);
-MODULE_PARM_DESC(fake_spad_access, "access DRAM instead to trace spad fault");
+int modify_spad_access;
+module_param(modify_spad_access, int, 0644);
+MODULE_PARM_DESC(modify_spad_access,
+"-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -218,15 +219,25 @@ u32 acq400rd32_upcount(struct acq400_dev *adev, int offset)
 
 void set_spadN(struct acq400_dev* adev, int n, u32 value)
 {
-	if (fake_spad_access){
+	if (modify_spad_access == -1){
 		adev->fake_spad[n] = value;
 	}else{
+		if (modify_spad_access > 0){
+			acq400rd32(adev, SPADN(n));
+		}
 		acq400wr32(adev, SPADN(n), value);
+		if (modify_spad_access > 1){
+			u32 v2 = acq400rd32(adev, SPADN(n));
+			if (v2 != value){
+				dev_warn(DEVP(adev),
+					"spadN fail: w:%08x r:%08x", value, v2);
+			}
+		}
 	}
 }
 u32 get_spadN(struct acq400_dev* adev, int n)
 {
-	if (fake_spad_access){
+	if (modify_spad_access){
 		return adev->fake_spad[n];
 	}else{
 		return acq400rd32(adev, SPADN(n));
