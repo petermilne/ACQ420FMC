@@ -145,7 +145,7 @@ build_knobs_device() {
 	1|A1)	
 		customize_acq420 $site		
 		;;
-	255)    
+	FF)    
 		return;;
 	2|3)
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
