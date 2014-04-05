@@ -26,7 +26,7 @@
 
 
 
-#define REVID "2.482"
+#define REVID "2.484"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1991,7 +1991,8 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 static irqreturn_t ao400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
-	volatile u32 status = acq420_get_interrupt(adev);
+	//volatile u32 status =
+	acq420_get_interrupt(adev);
 
 	acq420_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);

@@ -52,6 +52,13 @@
 
 #include "acq400.h"
 
+#define MODIFY_REG_ACCESS_READ_BEFORE	0x1
+#define MODIFY_REG_ACCESS_READ_AFTER	0x2
+int modify_reg_access;
+module_param(modify_reg_access, int, 0644);
+MODULE_PARM_DESC(modify_spad_access,
+"1: force read before, 2: force read after");
+
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
 		if (device_create_file(dev, attr)){ 					\
@@ -746,28 +753,39 @@ MAKE_SPAD(5);
 MAKE_SPAD(6);
 MAKE_SPAD(7);
 
-static ssize_t show_sw_emb_wordN(
+static ssize_t show_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const int offset_from_base)
+	const int reg_off)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 sw_emb_word = acq400rd32(adev, offset_from_base);
-	return sprintf(buf, "0x%08x\n", sw_emb_word);
+	u32 reg = acq400rd32(adev, reg_off);
+	return sprintf(buf, "0x%08x\n", reg);
 }
 
-static ssize_t store_sw_emb_wordN(
+static ssize_t store_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count,
-	const int offset_from_base)
+	const int reg_off)
 {
-	u32 sw_emb_word;
-	if (sscanf(buf, "%x", &sw_emb_word) == 1){
+	u32 reg;
+	if (sscanf(buf, "%x", &reg) == 1){
 		struct acq400_dev* adev = acq400_devices[dev->id];
-		acq400wr32(adev, offset_from_base, sw_emb_word);
+		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_BEFORE) != 0){
+			acq400rd32(adev, reg_off);
+		}
+		acq400wr32(adev, reg_off, reg);
+		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_BEFORE) != 0){
+			u32 regr = acq400rd32(adev, reg_off);
+			if (regr != reg){
+				dev_warn(DEVP(adev),
+					"reg:%04x mismatch w:%08x r:%08x",
+					reg_off, reg, regr);
+			}
+		}
 		return count;
 	}else{
 		return -1;
@@ -775,28 +793,39 @@ static ssize_t store_sw_emb_wordN(
 }
 
 
-#define MAKE_EMBW(IX)							\
-static ssize_t show_sw_emb_word##IX(					\
+#define MAKE_REG_RO(kname, REG)						\
+static ssize_t show_reg_##REG(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_sw_emb_wordN(dev, attr, buf, SW_EMB_WORD##IX);	\
+	return show_reg(dev, attr, buf, REG);				\
 }									\
 									\
-static ssize_t store_sw_emb_word##IX(					\
+static DEVICE_ATTR(kname, S_IRUGO, show_reg_##REG, 0)
+
+#define MAKE_REG_RW(kname, REG)						\
+static ssize_t show_reg_##REG(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_reg(dev, attr, buf, REG);				\
+}									\
+									\
+static ssize_t store_reg_##REG(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_sw_emb_wordN(dev, attr, buf, count, SW_EMB_WORD##IX);\
+	return store_reg(dev, attr, buf, count, REG);	\
 }									\
-static DEVICE_ATTR(sw_emb_word##IX, S_IRUGO|S_IWUGO, 			\
-		show_sw_emb_word##IX, store_sw_emb_word##IX)
+static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
 
-MAKE_EMBW(1);
-MAKE_EMBW(2);
+MAKE_REG_RW(sw_emb_word1, SW_EMB_WORD1);
+MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2);
+MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH);
 
 static ssize_t show_nbuffers(
 	struct device * dev,
@@ -1347,6 +1376,7 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_bitslice_frame.attr,
 	&dev_attr_sw_emb_word1.attr,
 	&dev_attr_sw_emb_word2.attr,
+	&dev_attr_evt_sc_latch.attr,
 	NULL
 };
 
@@ -1861,7 +1891,7 @@ int get_agg_threshold_bytes(struct acq400_dev *adev, u32 agg)
 #define AGG_SEL	"aggregator="
 #define TH_SEL	"threshold="
 
-static ssize_t show_reg(
+static ssize_t show_agg_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
@@ -1917,7 +1947,7 @@ int get_site(struct acq400_dev *adev, char s)
 		return -2;
 	}
 }
-static ssize_t store_reg(
+static ssize_t store_agg_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
@@ -2022,7 +2052,7 @@ static ssize_t show_reg_##name(						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, offset, mshift);		\
+	return show_agg_reg(dev, attr, buf, offset, mshift);		\
 }									\
 static ssize_t store_reg_##name(					\
 	struct device * dev,						\
@@ -2030,7 +2060,7 @@ static ssize_t store_reg_##name(					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_reg(dev, attr, buf, count,  offset, mshift);	\
+	return store_agg_reg(dev, attr, buf, count,  offset, mshift);	\
 }									\
 static DEVICE_ATTR(name, 						\
 	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)

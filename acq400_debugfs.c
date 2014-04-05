@@ -80,6 +80,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 	} else if (IS_ACQ43X(adev)){
 		DBG_REG_CREATE(SW_EMB_WORD1);
 		DBG_REG_CREATE(SW_EMB_WORD2);
+		DBG_REG_CREATE(EVT_SC_LATCH);
 		DBG_REG_CREATE(ACQ435_MODE);
 	} else if (IS_AO420(adev)){
 		DBG_REG_CREATE(DAC_CTRL);
