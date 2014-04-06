@@ -18,7 +18,7 @@ fi
 
 connect_site() {
 	let port="4220+$1"
-	nc localhost 422$1
+	nc localhost $port
 }
 
 
