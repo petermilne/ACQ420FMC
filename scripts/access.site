@@ -8,7 +8,7 @@
 # N can be a glob pattern
 
 FN=$(basename $0)
-SITES=${1}
+SITES=${1:-0}
 shift
 
 if [ "x$SITES" = "x" ]; then
@@ -17,6 +17,7 @@ if [ "x$SITES" = "x" ]; then
 fi
 
 connect_site() {
+	let port="4220+$1"
 	nc localhost 422$1
 }
 
