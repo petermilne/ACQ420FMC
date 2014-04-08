@@ -375,6 +375,9 @@ struct acq400_dev {
 	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
 
 	u32 fake_spad[SPADMAX];
+
+	void (*onStart)(struct acq400_dev *adev);
+	void (*onStop)(struct acq400_dev *adev);
 };
 
 

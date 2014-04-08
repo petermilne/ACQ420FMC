@@ -141,7 +141,13 @@ MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
 #define ACQ420_NBUFFERS	16
 #define ACQ420_BUFFERLEN frontside_bufferlen
 
+
+
 int ai_data_loop(void *data);
+void acq420_onStart(struct acq400_dev *adev);
+void acq43X_onStart(struct acq400_dev *adev);
+void ao420_onStart(struct acq400_dev *adev);
+static void acq420_disable_fifo(struct acq400_dev *adev);
 
 const char* devname(struct acq400_dev *adev)
 {
@@ -272,6 +278,8 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->hitide = hitide;
 	adev->lotide = lotide;
 	adev->sysclkhz = SYSCLK_M100;
+	adev->onStart = acq420_onStart;
+	adev->onStop = acq420_disable_fifo;
 }
 
 static void acq43X_init_defaults(struct acq400_dev *adev)
@@ -291,6 +299,8 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 16);
 	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
+	adev->onStart = acq43X_onStart;
+	adev->onStop = acq420_disable_fifo;
 }
 
 static void ao420_init_defaults(struct acq400_dev *adev)
@@ -304,6 +314,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
 	adev->sysclkhz = SYSCLK_M66;
+	adev->onStart = ao420_onStart;
 }
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
@@ -435,12 +446,21 @@ int acq420_isFifoError(struct acq400_dev *adev)
 	return err;
 }
 
+void acqXXX_onStartNOP(struct acq400_dev *adev)
+{
+
+}
+void acqXXX_onStopNOP(struct acq400_dev *adev)
+{
+
+}
 void acq43X_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
 	dev_info(DEVP(adev), "acq435_onStart()");
 
+	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 
 	if (adev->ramp_en){
@@ -491,6 +511,7 @@ void ao420_onStart(struct acq400_dev *adev)
 void acq420_onStart(struct acq400_dev *adev)
 {
 	dev_dbg(DEVP(adev), "acq420_onStart()");
+	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
 	/** clear FIFO flags .. workaround hw bug */
@@ -888,12 +909,7 @@ int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
 		}
 	}
 
-	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
-	if (IS_ACQ43X(adev)){
-		acq43X_onStart(adev);
-	} else {
-		acq420_onStart(adev);
-	}
+	adev->onStart(adev);
 	return 0;
 }
 
@@ -1034,7 +1050,8 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 {
 	//acq420_reset_fifo(adev);
-	acq420_disable_fifo(adev);
+	adev->onStop(adev);
+
 	dev_dbg(DEVP(adev), "acq420_continuous_stop() kthread_stop called\n");
 
 	if (dma_stop){
@@ -2126,6 +2143,8 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         mutex_init(&adev->list_mutex);
         init_waitqueue_head(&adev->w_waitq);
         init_waitqueue_head(&adev->event_waitq);
+        adev->onStart = acqXXX_onStartNOP;
+        adev->onStop = acqXXX_onStopNOP;
         return adev;
 }
 
