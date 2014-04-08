@@ -1,0 +1,69 @@
+#!/bin/sh
+# quick hack for bolo8 in site1.
+
+/sbin/insmod /mnt/local/bolo8_drv.ko bolo8sites=1
+
+PGA=128
+LEDS=152
+
+let PGA2=$PGA+23
+let LEDS2=$LEDS+7
+
+
+cd /sys/class/gpio
+
+for gpio in $(seq $PGA $PGA2) $(seq $LEDS $LEDS2)
+do
+	echo $gpio > export
+	echo out > gpio$gpio/direction
+done
+
+mkdir -p /dev/bolo8/1
+
+LNAMES="
+ADC_1_A1
+ADC_1_A0
+ADC_2_A1
+ADC_2_A0
+ADC_3_A1
+ADC_3_A0
+ADC_4_A1
+ADC_4_A0
+ADC_5_A1
+ADC_5_A0
+ADC_6_A1
+ADC_6_A0
+ADC_7_A1
+ADC_7_A0
+ADC_8_A1
+ADC_8_A0
+DAC_REF_RANGE
+DAC_RANGE
+DAC_RESETn
+OS_DAC_RESETn
+CURR_ADC_RESET
+Unused1
+Unused2
+Unused3
+LED1
+LED2
+LED3
+LED4
+LED5
+LED6
+LED7
+LED8"
+
+let gpio=$PGA
+
+for lname in $LNAMES
+do
+	ln -s /sys/class/gpio/gpio$gpio/value /dev/bolo8/1/$lname
+	echo $lname | egrep -q n$\|LED
+	if [ $? -eq 0 ]; then
+		echo 1 > /sys/class/gpio/gpio$gpio/active_low
+	fi
+	let gpio=$gpio+1
+done
+
+

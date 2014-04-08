@@ -6,6 +6,7 @@ obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
 obj-m += pl330.o
+obj-m += bolo8_drv.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
@@ -14,12 +15,12 @@ CPPFLAGS += -O3
 
 acq420fmc-objs := acq400_drv.o \
 	acq400_debugfs.o acq400_sysfs.o acq400_lists.o \
-	acq400_proc.o hbm.o zynq-timer.o
+	acq400_proc.o hbm.o zynq-timer.o 
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
 APPS := mmap acq400_stream bigmac permute acq435_decode \
-	acq400_knobs udp_client is_ramp
+	acq400_knobs udp_client is_ramp mmaptest
 
 all: modules apps
 	
@@ -53,7 +54,10 @@ clean:
 	
 mmap: mmap.o
 	$(CC) -o $@ $^ -L../lib -lpopt
-	
+
+mmaptest: mmaptest.o
+	$(CC) -o $@ $^ -L../lib -lpopt
+		
 udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 	
