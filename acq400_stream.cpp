@@ -997,6 +997,7 @@ struct Progress {
 
 	void print() {
 		printf("%d %d %d %llu\n", state, pre, post, elapsed);
+		fflush(stdout);
 	}
 };
 
@@ -1081,7 +1082,6 @@ class StreamHeadPrePost: public StreamHead  {
 				cursor = static_cast<char*>(ba0);
 			}
 
-			actual.print();
 
 			switch(actual.state){
 			case ST_RUN_PRE:
@@ -1093,11 +1093,16 @@ class StreamHeadPrePost: public StreamHead  {
 			case ST_RUN_POST:
 				actual.post += samples_buffer;
 				if (actual.post > post){
+					actual.post = post;
 					actual.state = ST_POSTPROCESS;
+					actual.elapsed += samples_buffer;
+					actual.print();
 					return;
 				}
 			}
 			actual.elapsed += samples_buffer;
+			actual.print();
+
 		}
 	}
 	unsigned findEvent() {
@@ -1143,6 +1148,7 @@ class StreamHeadPrePost: public StreamHead  {
 		}
 	}
 	void postProcess() {
+		setState(ST_POSTPROCESS); actual.print();
 		if (pre){
 			unsigned epos = findEvent();
 			unsigned prestart = workbackfrom(epos);
@@ -1152,6 +1158,7 @@ class StreamHeadPrePost: public StreamHead  {
 			cursor = static_cast<char*>(ba0);
 			demux(post);
 		}
+		setState(ST_STOP); actual.print();
 	}
 public:
 	StreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
@@ -1169,11 +1176,13 @@ public:
 		}
 
 		/* round total buffer up to multiple of sample size */
+		/* @@todo .. nobody understands this WARNING
 		if (total_bs > (pre+post)*sample_size()){
 			fprintf(stderr,
 			"WARNING reducing to fit memory pre:%d post:%d\n",
 					pre, post);
 		}
+		*/
 
 
 		nobufs = total_bs/::bufferlen;
