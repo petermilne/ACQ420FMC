@@ -24,7 +24,7 @@ dump_regs() {
 	cd $DIR
 	for file in $(ls -i | sort | awk '{ print $2 }')
 	do
-		printf "%24s %s\n" $file $(cat $file)
+		[ -d $file ] || printf "%24s %s\n" $file $(cat $file)
 	done
 	)
 }

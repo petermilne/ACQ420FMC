@@ -20,13 +20,14 @@
 
 
 #include "acq400.h"
+#include "bolo.h"
 #include "hbm.h"
 #include "acq400_debugfs.h"
 #include "acq400_lists.h"
 
 
 
-#define REVID "2.484"
+#define REVID "2.486"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -148,6 +149,8 @@ void acq420_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
 void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
+static void bolo8_onStart(struct acq400_dev *adev);
+static void bolo8_onStop(struct acq400_dev *adev);
 
 const char* devname(struct acq400_dev *adev)
 {
@@ -267,6 +270,14 @@ static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
+	if (rev < 3){
+	   	dev_err(DEVP(adev),
+	      	"OBSOLETE FPGA IMAGE %u < 3, please update", rev);
+	}else{
+	     	dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
+	}
+
 	dev_info(DEVP(adev), "ACQ420 device init");
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = data_32b;
@@ -316,6 +327,23 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
 }
+
+
+static void bolo8_init_defaults(struct acq400_dev* adev)
+{
+	u32 syscon = acq400rd32(adev, B8_SYS_CON);
+	syscon |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, B8_SYS_CON, syscon);
+	adev->data32 = 1;
+	adev->nchan_enabled = 8;	// 32 are you sure?.
+	adev->word_size = 2;
+	adev->hitide = 128;
+	adev->lotide = adev->hitide - 4;
+	adev->sysclkhz = SYSCLK_M100;
+	acq400wr32(adev, ADC_CLKDIV, 10);
+	adev->onStart = bolo8_onStart;
+	adev->onStop = bolo8_onStop;
+}
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
 	return acq400rd32(adev, ADC_FIFO_SAMPLES);
@@ -353,6 +381,12 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
+}
+
+static void bolo8_onStop(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, B8_ADC_CON);
+	acq400wr32(adev, B8_ADC_CON, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 }
 
 void acq2006_aggregator_reset(struct acq400_dev *adev)
@@ -518,6 +552,33 @@ void acq420_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
+}
+
+
+void bolo8_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, B8_ADC_CON);
+	dev_dbg(DEVP(adev), "acq420_onStart()");
+	acq400wr32(adev, B8_ADC_HITIDE, 	adev->hitide);
+	// set clkdiv (assume done)
+	// set timing bus (assume done)
+	/** clear FIFO flags .. workaround hw bug */
+	acq400wr32(adev, B8_ADC_FIFO_STA, ADC_FIFO_FLAGS);
+
+	acq400wr32(adev, B8_ADC_CON, ctrl | ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, B8_ADC_CON, ctrl);
+	if (acq400rd32(adev, B8_ADC_SAMPLE_CNT) > 0){
+		dev_warn(DEVP(adev), "ERROR: reset fifo but it's not empty!");
+	}
+
+	adev->fifo_isr_done = 0;
+	//acq420_enable_interrupt(adev);
+	acq400wr32(adev, B8_ADC_CON, ctrl  |= ADC_CTRL_ADC_EN);
+	acq400wr32(adev, B8_ADC_CON, ctrl  |= ADC_CTRL_FIFO_EN);
+
+	/* next: valid Master, Standalone only. @@todo slave? */
+	acq400wr32(adev, B8_ADC_CON, ctrl | ADC_CTRL_ADC_RST);
+	acq400wr32(adev, B8_ADC_CON, ctrl);
 }
 static void acq400_getID(struct acq400_dev *adev)
 {
@@ -2276,23 +2337,24 @@ static int acq400_probe(struct platform_device *pdev)
   		goto fail;
   	}
 
-        if (IS_ACQ420(adev)){
-        	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
-        	if (rev < 3){
-        		dev_err(DEVP(adev),
-        		  "OBSOLETE FPGA IMAGE %u < 3, please update", rev);
-        	}else{
-        		dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
-        	}
-                acq420_init_defaults(adev);
-        }else if (IS_ACQ43X(adev)){
-        	acq43X_init_defaults(adev);
-        }else if (IS_AO420(adev)){
-        	ao420_init_defaults(adev);
-        }else{
-        	dev_warn(DEVP(adev), "no custom init for module type %x",
-        			(adev)->mod_id>>MOD_ID_TYPE_SHL);
-        }
+  	switch(GET_MOD_ID(adev)){
+  	case MOD_ID_ACQ420FMC:
+  	case MOD_ID_ACQ420FMC_2000:
+  		acq420_init_defaults(adev);
+  		break;
+  	case MOD_ID_ACQ430FMC:
+  	case MOD_ID_ACQ435ELF:
+  		acq43X_init_defaults(adev);
+  		break;
+  	case MOD_ID_AO420FMC:
+  		ao420_init_defaults(adev);
+  		break;
+  	case MOD_ID_BOLO8:
+  		bolo8_init_defaults(adev);
+  	default:
+  		dev_warn(DEVP(adev), "no custom init for module type %x",
+  		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);
+  	}
         acq400_createSysfs(&pdev->dev);
         acq400_init_proc(adev);
         acq400_createDebugfs(adev);

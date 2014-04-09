@@ -119,6 +119,8 @@
 #define MOD_ID_AO420FMC		0x40
 #define MOD_ID_AO421FMC		0x41
 
+#define MOD_ID_BOLO8		0x60
+
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
 
@@ -421,19 +423,21 @@ int getHeadroom(struct acq400_dev *adev);
 #define NCHAN	4
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
+#define GET_MOD_ID(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL)
 #define IS_ACQ420(adev) \
-	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC ||   \
-	 (adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ420FMC_2000)
-#define IS_ACQ435(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ435ELF)
-#define IS_ACQ430(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ430FMC)
+	(GET_MOD_ID(adev)==MOD_ID_ACQ420FMC || GET_MOD_ID(adev)==MOD_ID_ACQ420FMC_2000)
+#define IS_ACQ435(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ435ELF)
+#define IS_ACQ430(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ430FMC)
 #define IS_ACQ43X(adev)	(IS_ACQ435(adev) || IS_ACQ430(adev))
 
-#define IS_AO420(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO420FMC)
-#define IS_AO421(adev)  ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_AO421FMC)
-#define IS_ACQ2006SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ2006SC)
-#define IS_ACQ1001SC(adev) ((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_ACQ1001SC)
+#define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
+#define IS_AO421(adev)  (GET_MOD_ID(adev) == MOD_ID_AO421FMC)
+#define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
+#define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
 
 #define IS_ACQx00xSC(adev) (IS_ACQ2006SC(adev)||IS_ACQ1001SC(adev))
+
+#define IS_BOLO8(adev)	(GET_MOD_ID(adev) == MOD_ID_BOLO8)
 
 /** @@todo and ACQ2006r2 */
 #define HAS_HDMI_SYNC(adev)	IS_ACQ1001SC(adev)
