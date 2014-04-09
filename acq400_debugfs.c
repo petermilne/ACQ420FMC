@@ -150,6 +150,53 @@ void bolo8_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(B8_ODA_CON);
 	DBG_REG_CREATE(B8_ODA_DATA);
 }
+
+void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(DAC_CTRL);
+	DBG_REG_CREATE(TIM_CTRL);
+	DBG_REG_CREATE(DAC_LOTIDE);
+	DBG_REG_CREATE(DAC_FIFO_SAMPLES);
+	DBG_REG_CREATE(DAC_FIFO_STA);
+	DBG_REG_CREATE(DAC_INT_CSR);
+	DBG_REG_CREATE(DAC_CLK_CTR);
+	DBG_REG_CREATE(DAC_SAMPLE_CTR);
+	DBG_REG_CREATE(DAC_CLKDIV);
+	DBG_REG_CREATE(AO420_RANGE);
+	DBG_REG_CREATE(AO420_DACSPI);
+}
+
+void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(ADC_CTRL);
+	DBG_REG_CREATE(TIM_CTRL);
+	DBG_REG_CREATE(ADC_HITIDE);
+	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
+	DBG_REG_CREATE(ADC_FIFO_STA);
+	DBG_REG_CREATE(ADC_INT_CSR);
+	DBG_REG_CREATE(ADC_CLK_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
+	DBG_REG_CREATE(ADC_CLKDIV);
+}
+
+void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(ADC_GAIN);
+	DBG_REG_CREATE(ADC_CONV_TIME);
+}
+
+void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(SW_EMB_WORD1);
+	DBG_REG_CREATE(SW_EMB_WORD2);
+	DBG_REG_CREATE(EVT_SC_LATCH);
+	DBG_REG_CREATE(ACQ435_MODE);
+}
+
+
 void acq400_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
@@ -172,47 +219,25 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 	}
 	DBG_REG_CREATE(MOD_ID);
 
-	if (IS_BOLO8(adev)){
+	switch(GET_MOD_ID(adev)){
+	case MOD_ID_BOLO8:
 		bolo8_createDebugfs(adev, pcursor);
-		return;
+		break;
+	case MOD_ID_AO420FMC:
+		ao420_createDebugfs(adev, pcursor);
+		break;
+	case MOD_ID_ACQ420FMC:
+	case MOD_ID_ACQ420FMC_2000:
+		acq420_createDebugfs(adev, pcursor);
+		break;
+	case MOD_ID_ACQ435ELF:
+	case MOD_ID_ACQ430FMC:
+		acq43x_createDebugfs(adev, pcursor);
+		break;
+	default:
+		dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
+				GET_MOD_ID(adev));
 	}
-	if (!IS_AO420(adev)){
-		DBG_REG_CREATE(ADC_CTRL);
-		DBG_REG_CREATE(TIM_CTRL);
-		DBG_REG_CREATE(ADC_HITIDE);
-		DBG_REG_CREATE(ADC_FIFO_SAMPLES);
-		DBG_REG_CREATE(ADC_FIFO_STA);
-		DBG_REG_CREATE(ADC_INT_CSR);
-		DBG_REG_CREATE(ADC_CLK_CTR);
-		DBG_REG_CREATE(ADC_SAMPLE_CTR);
-		DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
-		DBG_REG_CREATE(ADC_CLKDIV);
-	}
-
-
-	if (IS_ACQ420(adev)){
-		DBG_REG_CREATE(ADC_GAIN);
-		DBG_REG_CREATE(ADC_CONV_TIME);
-	} else if (IS_ACQ43X(adev)){
-		DBG_REG_CREATE(SW_EMB_WORD1);
-		DBG_REG_CREATE(SW_EMB_WORD2);
-		DBG_REG_CREATE(EVT_SC_LATCH);
-		DBG_REG_CREATE(ACQ435_MODE);
-	} else if (IS_AO420(adev)){
-		DBG_REG_CREATE(DAC_CTRL);
-		DBG_REG_CREATE(TIM_CTRL);
-		DBG_REG_CREATE(DAC_LOTIDE);
-		DBG_REG_CREATE(DAC_FIFO_SAMPLES);
-		DBG_REG_CREATE(DAC_FIFO_STA);
-		DBG_REG_CREATE(DAC_INT_CSR);
-		DBG_REG_CREATE(DAC_CLK_CTR);
-		DBG_REG_CREATE(DAC_SAMPLE_CTR);
-		DBG_REG_CREATE(DAC_CLKDIV);
-		DBG_REG_CREATE(AO420_RANGE);
-		DBG_REG_CREATE(AO420_DACSPI);
-	}
-
-
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
