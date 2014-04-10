@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.486"
+#define REVID "2.491"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -321,6 +321,9 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
+	adev->data32 = 0;
+	adev->nchan_enabled = 4;
+	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
@@ -537,7 +540,11 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 void ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-	acq400wr32(adev, DAC_LOTIDE, 	adev->lotide);
+	u32 lotide = adev->lotide;
+	if (adev->AO_playloop.one_shot){
+		lotide = min(lotide, adev->AO_playloop.length);
+	}
+	acq400wr32(adev, DAC_LOTIDE, lotide);
 	ao420_enable_interrupt(adev);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
 }
@@ -1787,6 +1794,27 @@ void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 		bytes/sizeof(u32));
 }
 
+void _ao420_stop(struct acq400_dev* adev)
+{
+	unsigned cr = acq400rd32(adev, DAC_CTRL);
+	ao420_disable_interrupt(adev);
+
+	if (adev->data32){
+		cr |= ADC_CTRL32B_data;
+	}else{
+		cr &= ~ADC_CTRL32B_data;
+	}
+	cr &= ~ADC_CTRL_ADC_EN;
+	cr &= ~DAC_CTRL_LL;
+	adev->AO_playloop.length = 0;
+	adev->AO_playloop.cursor = 0;
+	acq400wr32(adev, DAC_CTRL, cr);
+	release_dma_channels(adev);
+
+	ao420_reset_fifo(adev);
+	acq400_clear_histo(adev);
+}
+
 #define MIN_DMA	256
 
 static void ao420_fill_fifo(struct acq400_dev* adev)
@@ -1820,11 +1848,17 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes);
 				ao420_write_fifo(adev, cursor, lenbytes);
 			}
-			adev->AO_playloop.cursor += remaining;
+			/* UGLY: has divide. */
+			adev->AO_playloop.cursor += AOBYTES2SAMPLES(adev, lenbytes);
 		}
 
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
-			adev->AO_playloop.cursor = 0;
+			if (adev->AO_playloop.one_shot){
+				ao420_disable_interrupt(adev);
+				break;
+			}else{
+				adev->AO_playloop.cursor = 0;
+			}
 		}
 	}
 	mutex_unlock(&adev->awg_mutex);
@@ -1864,32 +1898,17 @@ void ao420_getDMA(struct acq400_dev* adev)
 		}
 	}
 }
+
+
 void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
-	unsigned cr = acq400rd32(adev, DAC_CTRL);
-
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return;
 	}
 
-	adev->AO_playloop.length = 0;
-	if (adev->data32){
-		cr |= ADC_CTRL32B_data;
-	}else{
-		cr &= ~ADC_CTRL32B_data;
-	}
-
 	dev_dbg(DEVP(adev), "ao420_reset_playloop(%d)",
 					adev->AO_playloop.length);
-
-	cr &= ~ADC_CTRL_ADC_EN;
-	cr &= ~DAC_CTRL_LL;
-	adev->AO_playloop.cursor = 0;
-	acq400wr32(adev, DAC_CTRL, cr);
-	release_dma_channels(adev);
-	ao420_disable_interrupt(adev);
-	ao420_reset_fifo(adev);
-	acq400_clear_histo(adev);
+	_ao420_stop(adev);
 
 	mutex_unlock(&adev->awg_mutex);
 

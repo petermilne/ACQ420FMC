@@ -369,8 +369,9 @@ struct acq400_dev {
 	} AO_immediate;
 
 	struct {
-		int length;
-		int cursor;
+		unsigned length;
+		unsigned cursor;
+		unsigned one_shot;
 	} AO_playloop;
 
 	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
@@ -576,6 +577,7 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 }
 
 #define AOSAMPLES2BYTES(adev, xx) ((xx)*AO_CHAN*(adev)->word_size)
+#define AOBYTES2SAMPLES(adev, xx) ((xx)/AO_CHAN/(adev)->word_size)
 
 #define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
 #define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff

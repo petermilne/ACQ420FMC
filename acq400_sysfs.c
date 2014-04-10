@@ -1557,7 +1557,9 @@ static ssize_t show_playloop_length(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.length);
+	return sprintf(buf, "%u %s\n",
+			adev->AO_playloop.length,
+			adev->AO_playloop.one_shot? "ONESHOT": "");
 }
 
 static ssize_t store_playloop_length(
@@ -1568,10 +1570,15 @@ static ssize_t store_playloop_length(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned playloop_length;
-	if (sscanf(buf, "%u", &playloop_length) == 1){
+	unsigned one_shot;
+
+	switch(sscanf(buf, "%u %u", &playloop_length, &one_shot)){
+	case 2:
+		adev->AO_playloop.one_shot = one_shot != 0; /* fall thru */
+	case 1:
 		ao420_reset_playloop(adev, playloop_length);
 		return count;
-	}else{
+	default:
 		return -1;
 	}
 }
