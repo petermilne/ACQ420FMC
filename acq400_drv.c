@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.491"
+#define REVID "2.492"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -540,12 +540,14 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 void ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-	u32 lotide = adev->lotide;
-	if (adev->AO_playloop.one_shot){
-		lotide = min(lotide, adev->AO_playloop.length);
+
+	if (adev->AO_playloop.one_shot == 0 ||
+			adev->AO_playloop.length > adev->lotide){
+		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
+		ao420_enable_interrupt(adev);
+	}else{
+		acq400wr32(adev, DAC_LOTIDE, 0);
 	}
-	acq400wr32(adev, DAC_LOTIDE, lotide);
-	ao420_enable_interrupt(adev);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
 }
 
