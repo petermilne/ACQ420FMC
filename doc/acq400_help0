@@ -79,3 +79,27 @@ gpg_sync EXT,dx,RISING  configure GPG sync with (sample) clock source
 gpg_top	query gpg top address
 gpg_trg EXT,dx,RISING	configure GPG start trigger source
 
+sync_out_src_sync	V:{0,2,3} set HDMI output, V:{DO,SIG,TRG}
+sync_out_src_trg	V:{0,2,3} set HDMI output, V:{DO,SIG,TRG}
+sync_out_src_gpio	V:{0,2,3} set HDMI output, V:{DO,SIG,TRG}
+sync_out_src_clk	V:{0,2,3} set HDMI output, V:{DO,SIG,TRG}
+sync_out_src_sync_dx	{0..7} set HDMI output source line
+sync_out_src_trg_dx	{0..7} set HDMI output source line
+sync_out_src_gpio_dx	{0..7} set HDMI output source line
+sync_out_src_clk_rx	{0..7} set HDMI output source line
+
+evt_src_d0	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d1	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d2	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d3	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d4	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d5	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d6	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+evt_src_d7	V:{0,1,2,3} set Event Bus Source V:{TRG,GPG,HDMI IN, CELF}
+
+sig_src_route_sync_d0	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+sig_src_route_sync_d1	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+sig_src_route_trg_d0	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+sig_src_route_trg_d1	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+sig_src_route_clk_d0	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+sig_src_route_clk_d1	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
