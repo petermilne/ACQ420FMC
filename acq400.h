@@ -474,7 +474,10 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 #define GPG_CTRL		(0x0020)  /* per telecon with John 201402061145 */
 #define GPG_CONTROL		GPG_CTRL
-#define HDMI_SYNC		(0x0024)
+#define HDMI_SYNC_DAT		(0x0024)
+#define HDMI_SYNC_OUT_SRC	(0x0028)   	/* HSO_xx	*/
+#define EVT_BUS_SRC		(0x002c)	/* EBS_xx	*/
+#define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
 /* scratchpad */
 
 #define DE_ENABLE		(1<<0)
@@ -559,11 +562,54 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define HDMI_SYNC_OUT_SHL		0
 #define HDMI_SYNC_MASK			0x0f
 
+/* HDMI_SYNC_OUT_SRC */
+#define HSO_SYNC_SHL			24
+#define HSO_TRG_SHL			16
+#define HSO_GPIO_SHL			 8
+#define HSO_CLK_SHL			 0
+
+#define HSO_SS_SEL_SHL			3
+#define HSO_XX_SEL_MASK			(0x3)
+#define HSO_DO_SEL			(0x0)
+#define HSO_SIG_BUS_SEL			(0x2)
+#define HSO_GPG_BUS_SEL			(0x3)
+#define HSO_DX_MASK			0x7
+
+/* EVENT BUS SOURCE */
+#define EBS_MASK	0xf
+#define EBS_TRG		0x0
+#define EBS_GPG		0x1
+#define EBS_HDMI	0x2
+#define EBS_CELF	0x3
+
+#define EBS_7_SHL	28
+#define EBS_6_SHL	24
+#define EBS_5_SHL	20
+#define EBS_4_SHL	16
+#define EBS_3_SHL	12
+#define EBS_2_SHL	 8
+#define EBS_1_SHL	 4
+#define EBS_0_SHL	 0
+
+/* SIG SRC ROUTE */
+#define SSR_MASK	0xf
+#define SSR_EXT		0x0
+#define SSR_HDMI	0x1
+#define SSR_CELF	0x2
+
+#define SSR_SYNC_1_SHL	20
+#define SSR_SYNC_0_SHL	16
+#define SSR_TRG_1_SHL	12
+#define SSR_TRG_0_SHL	 8
+#define SSR_CLK_0_SHL	 4
+#define SSR_CLK_1_SHL	 0
 
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */
 #define SITE2DX(site) 	((site)+1)
 
+/* HDMI_SYNC_CON */
+#define SYNC_CON
 int ao420_physChan(int lchan /* 1..4 */ );
 
 static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)

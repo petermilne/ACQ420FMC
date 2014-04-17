@@ -132,29 +132,57 @@ static ssize_t store_bits##NAME(					\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
 
-MAKE_BITS(sync_in_clk,  HDMI_SYNC, HDMI_SYNC_IN_CLKb, 	0x1);
-MAKE_BITS(sync_in_sync, HDMI_SYNC, HDMI_SYNC_IN_SYNCb, 0x1);
-MAKE_BITS(sync_in_trg,  HDMI_SYNC, HDMI_SYNC_IN_TRGb, 	0x1);
-MAKE_BITS(sync_in_gpio, HDMI_SYNC, HDMI_SYNC_IN_GPIOb, 0x1);
+MAKE_BITS(sync_in_clk,  HDMI_SYNC_DAT, HDMI_SYNC_IN_CLKb, 	0x1);
+MAKE_BITS(sync_in_sync, HDMI_SYNC_DAT, HDMI_SYNC_IN_SYNCb, 	0x1);
+MAKE_BITS(sync_in_trg,  HDMI_SYNC_DAT, HDMI_SYNC_IN_TRGb, 	0x1);
+MAKE_BITS(sync_in_gpio, HDMI_SYNC_DAT, HDMI_SYNC_IN_GPIOb, 	0x1);
 
 
-MAKE_BITS(di4_3, 	HDMI_SYNC, HDMI_SYNC_IN_CLKb, 	0x1);
-MAKE_BITS(di4_2, 	HDMI_SYNC, HDMI_SYNC_IN_SYNCb, 	0x1);
-MAKE_BITS(di4_1, 	HDMI_SYNC, HDMI_SYNC_IN_TRGb, 	0x1);
-MAKE_BITS(di4_0, 	HDMI_SYNC, HDMI_SYNC_IN_GPIOb, 	0x1);
+MAKE_BITS(di4_3, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_CLKb, 	0x1);
+MAKE_BITS(di4_2, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_SYNCb, 	0x1);
+MAKE_BITS(di4_1, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_TRGb, 	0x1);
+MAKE_BITS(di4_0, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_GPIOb, 	0x1);
 
-MAKE_BITS_RO(sync_out_cable_detN, HDMI_SYNC, HDMI_SYNC_OUT_CABLE_DETNb, 0x1);
+MAKE_BITS_RO(sync_out_cable_detN, HDMI_SYNC_DAT, HDMI_SYNC_OUT_CABLE_DETNb, 0x1);
 
-MAKE_BITS(sync_out_clk,  HDMI_SYNC, HDMI_SYNC_OUT_CLKb, 	0x1);
-MAKE_BITS(sync_out_sync, HDMI_SYNC, HDMI_SYNC_OUT_SYNCb, 	0x1);
-MAKE_BITS(sync_out_trg,  HDMI_SYNC, HDMI_SYNC_OUT_TRGb, 	0x1);
-MAKE_BITS(sync_out_gpio, HDMI_SYNC, HDMI_SYNC_OUT_GPIOb, 	0x1);
+MAKE_BITS(sync_out_clk,  HDMI_SYNC_DAT, HDMI_SYNC_OUT_CLKb, 	0x1);
+MAKE_BITS(sync_out_sync, HDMI_SYNC_DAT, HDMI_SYNC_OUT_SYNCb, 	0x1);
+MAKE_BITS(sync_out_trg,  HDMI_SYNC_DAT, HDMI_SYNC_OUT_TRGb, 	0x1);
+MAKE_BITS(sync_out_gpio, HDMI_SYNC_DAT, HDMI_SYNC_OUT_GPIOb, 	0x1);
 
 
-MAKE_BITS(do4_3, 	HDMI_SYNC, HDMI_SYNC_OUT_CLKb, 		0x1);
-MAKE_BITS(do4_2, 	HDMI_SYNC, HDMI_SYNC_OUT_SYNCb, 	0x1);
-MAKE_BITS(do4_1, 	HDMI_SYNC, HDMI_SYNC_OUT_TRGb, 		0x1);
-MAKE_BITS(do4_0, 	HDMI_SYNC, HDMI_SYNC_OUT_GPIOb, 	0x1);
+MAKE_BITS(do4_3, 	HDMI_SYNC_DAT, HDMI_SYNC_OUT_CLKb, 	0x1);
+MAKE_BITS(do4_2, 	HDMI_SYNC_DAT, HDMI_SYNC_OUT_SYNCb, 	0x1);
+MAKE_BITS(do4_1, 	HDMI_SYNC_DAT, HDMI_SYNC_OUT_TRGb, 	0x1);
+MAKE_BITS(do4_0, 	HDMI_SYNC_DAT, HDMI_SYNC_OUT_GPIOb, 	0x1);
+
+
+MAKE_BITS(sync_out_src_sync, HDMI_SYNC_OUT_SRC, HSO_SYNC_SHL+HSO_SS_SEL_SHL, HSO_XX_SEL_MASK);
+MAKE_BITS(sync_out_src_trg,  HDMI_SYNC_OUT_SRC, HSO_TRG_SHL+HSO_SS_SEL_SHL,  HSO_XX_SEL_MASK);
+MAKE_BITS(sync_out_src_gpio, HDMI_SYNC_OUT_SRC, HSO_GPIO_SHL+HSO_SS_SEL_SHL, HSO_XX_SEL_MASK);
+MAKE_BITS(sync_out_src_clk,  HDMI_SYNC_OUT_SRC, HSO_CLK_SHL+HSO_SS_SEL_SHL,  HSO_XX_SEL_MASK);
+
+MAKE_BITS(sync_out_src_sync_dx, HDMI_SYNC_OUT_SRC, HSO_SYNC_SHL, HSO_DX_MASK);
+MAKE_BITS(sync_out_src_trg_dx,  HDMI_SYNC_OUT_SRC, HSO_TRG_SHL,  HSO_DX_MASK);
+MAKE_BITS(sync_out_src_gpio_dx, HDMI_SYNC_OUT_SRC, HSO_GPIO_SHL, HSO_DX_MASK);
+MAKE_BITS(sync_out_src_clk_dx,  HDMI_SYNC_OUT_SRC, HSO_CLK_SHL,  HSO_DX_MASK);
+
+MAKE_BITS(evt_src_d7, EVT_BUS_SRC, EBS_7_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d6, EVT_BUS_SRC, EBS_6_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d5, EVT_BUS_SRC, EBS_5_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d4, EVT_BUS_SRC, EBS_4_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d3, EVT_BUS_SRC, EBS_3_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d2, EVT_BUS_SRC, EBS_2_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d1, EVT_BUS_SRC, EBS_1_SHL, EBS_MASK);
+MAKE_BITS(evt_src_d0, EVT_BUS_SRC, EBS_0_SHL, EBS_MASK);
+
+MAKE_BITS(sig_src_route_sync_d1, SIG_SRC_ROUTE, SSR_SYNC_1_SHL, SSR_MASK);
+MAKE_BITS(sig_src_route_sync_d0, SIG_SRC_ROUTE, SSR_SYNC_0_SHL, SSR_MASK);
+MAKE_BITS(sig_src_route_trg_d1,  SIG_SRC_ROUTE, SSR_TRG_1_SHL,  SSR_MASK);
+MAKE_BITS(sig_src_route_trg_d0,  SIG_SRC_ROUTE, SSR_TRG_0_SHL,  SSR_MASK);
+MAKE_BITS(sig_src_route_clk_d1,  SIG_SRC_ROUTE, SSR_CLK_1_SHL,  SSR_MASK);
+MAKE_BITS(sig_src_route_clk_d0,  SIG_SRC_ROUTE, SSR_CLK_0_SHL,  SSR_MASK);
+
 
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
@@ -178,6 +206,32 @@ static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_do4_2.attr,
 	&dev_attr_do4_1.attr,
 	&dev_attr_do4_0.attr,
+
+	&dev_attr_sync_out_src_sync.attr,
+	&dev_attr_sync_out_src_trg.attr,
+	&dev_attr_sync_out_src_gpio.attr,
+	&dev_attr_sync_out_src_clk.attr,
+	&dev_attr_sync_out_src_sync_dx.attr,
+	&dev_attr_sync_out_src_trg_dx.attr,
+	&dev_attr_sync_out_src_gpio_dx.attr,
+	&dev_attr_sync_out_src_clk_dx.attr,
+
+	&dev_attr_evt_src_d7.attr,
+	&dev_attr_evt_src_d6.attr,
+	&dev_attr_evt_src_d5.attr,
+	&dev_attr_evt_src_d4.attr,
+	&dev_attr_evt_src_d3.attr,
+	&dev_attr_evt_src_d2.attr,
+	&dev_attr_evt_src_d1.attr,
+	&dev_attr_evt_src_d0.attr,
+
+	&dev_attr_sig_src_route_sync_d1.attr,
+	&dev_attr_sig_src_route_sync_d0.attr,
+	&dev_attr_sig_src_route_trg_d1.attr,
+	&dev_attr_sig_src_route_trg_d0.attr,
+	&dev_attr_sig_src_route_clk_d1.attr,
+	&dev_attr_sig_src_route_clk_d0.attr,
+
 };
 static ssize_t show_clkdiv(
 	struct device * dev,
