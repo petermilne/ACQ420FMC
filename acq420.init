@@ -129,11 +129,14 @@ customize_acq420()
 	done
 	IFS=${old_ifs}
 }
+
+BOLO8_SITES=""
+
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
-	dknobs=/dev/acq400.${site}.knobs
-	ln -s $dir/ ${dknobs}
+	dk=/dev/acq400.${site}.knobs
+	ln -s $dir/ ${dk}
 	build_etc_site ${site}
 	
 
@@ -153,13 +156,19 @@ build_knobs_device() {
 	40)	
 		ao420_init ${site}
 		CLKDIV=250;;
+	60)
+		if [ "x$BOLO8_SITES" != "x" ]; then
+			BOLO8_SITES="${BOLO8_SITES},"
+		fi
+		BOLO8_SITES="${BOLO8_SITES}$site"
+		CLKDIV=100;; 
 	*)
 		CLKDIV=200;;
 	esac	
-	set.sys $dir/clkdiv $CLKDIV
-	echo get.sys $dir/clkdiv $(get.sys $dir/clkdiv)
-	if [ -e $dir/gains ]; then
-		set.sys ${dknobs}/gains 0000		
+	set.sys $dk/clkdiv $CLKDIV
+	echo get.sys $dk/clkdiv $(get.sys $dk/clkdiv)
+	if [ -e $dk/gains ]; then
+		set.sys ${dk}/gains 0000		
 	fi
 	touch /dev/shm/AI.${site}.wf.fin
 	web_append acq400.${site} ${site}	
@@ -192,6 +201,10 @@ build_knobs() {
 			build_knobs_device $dir
 		fi
 	done
+	
+	if [ "x$BOLO8_SITES" != "x" ]; then
+		/usr/local/bin/bolo8.init $BOLO8_SITES
+	fi
 }
 
 create_set_fanspeed() {

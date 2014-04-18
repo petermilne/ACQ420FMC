@@ -1,24 +1,9 @@
 #!/bin/sh
 # quick hack for bolo8 in site1.
 
-/sbin/insmod /mnt/local/bolo8_drv.ko bolo8sites=1
+B8SITES=${1:-1}
 
-PGA=128
-LEDS=152
-
-let PGA2=$PGA+23
-let LEDS2=$LEDS+7
-
-
-cd /sys/class/gpio
-
-for gpio in $(seq $PGA $PGA2) $(seq $LEDS $LEDS2)
-do
-	echo $gpio > export
-	echo out > gpio$gpio/direction
-done
-
-mkdir -p /dev/bolo8/1
+/sbin/insmod /mnt/local/bolo8_drv.ko bolo8sites=$B8SITES
 
 LNAMES="
 ADC_1_A1
@@ -54,16 +39,63 @@ LED6
 LED7
 LED8"
 
-let gpio=$PGA
+init_one_b8() {
+	site=$1
+	pga=$2
+	leds=$3
+	
+	echo init site:$site pga:$pga leds:$leds
+	let pga2=$pga+23
+	let leds2=$leds+7
+	
+	for gpio in $(seq $pga $pga2) $(seq $leds $leds2)
+	do
+		echo $gpio > export
+		echo out > gpio$gpio/direction
+	done
+	
+	let gpio=$pga
+	
+	for lname in $LNAMES
+	do
+		ln -s /sys/class/gpio/gpio$gpio/value /dev/bolo8/$site/$lname
+		echo $lname | egrep -q n$\|LED
+		if [ $? -eq 0 ]; then
+			echo 1 > /sys/class/gpio/gpio$gpio/active_low
+		fi
+		let gpio=$gpio+1
+	done
+}
 
-for lname in $LNAMES
+get_gpiochip() {
+	site=$1
+	addr=$2
+	let i2c_bus=$site+1
+	
+	for chip in /sys/bus/i2c/devices/${i2c_bus}-${addr}/gpio/gpio*
+	do
+		bchip=$(basename $chip)
+		pin1=${bchip#gpiochip*}
+		#echo $chip $(basename $chip) $pin1
+		echo $pin1
+	done	
+}
+
+
+cd /sys/class/gpio
+
+
+echo WARNING: increase kernel gpio maximum if more than 2 bolos
+
+for site in $(echo $B8SITES | tr , \  )
 do
-	ln -s /sys/class/gpio/gpio$gpio/value /dev/bolo8/1/$lname
-	echo $lname | egrep -q n$\|LED
-	if [ $? -eq 0 ]; then
-		echo 1 > /sys/class/gpio/gpio$gpio/active_low
-	fi
-	let gpio=$gpio+1
+	#get_gpiochip $site 0020
+	#get_gpiochip $site 0022
+	#init_one_b8 $site 128 152
+	mkdir -p /dev/bolo8/$site
+	init_one_b8 $site $(get_gpiochip $site 0022) $(get_gpiochip $site 0020)
 done
+
+
 
 
