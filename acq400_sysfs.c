@@ -104,13 +104,29 @@ static ssize_t store_bits(
 	}
 }
 
+#define MAKE_BITS_FROM_MASK	0xdeadbeef
+
+int getSHL(unsigned mask)
+/* converts mask to shift */
+{
+	int shl;
+	for (shl = 0; (mask&1) == 0; ++shl, mask >>= 1){
+		;
+	}
+	return shl;
+}
 #define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
 static ssize_t show_bits##NAME(						\
 	struct device *dev,						\
 	struct device_attribute *attr,					\
 	char *buf)							\
 {									\
-	return show_bits(dev, attr, buf, REG, SHL, MASK);		\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return show_bits(dev, attr, buf, REG, SHL, MASK);	\
+	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 
@@ -120,7 +136,12 @@ static ssize_t show_bits##NAME(						\
 	struct device_attribute *attr,					\
 	char *buf)							\
 {									\
-	return show_bits(dev, attr, buf, REG, SHL, MASK);		\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return show_bits(dev, attr, buf, REG, SHL, MASK);	\
+	}								\
 }									\
 static ssize_t store_bits##NAME(					\
 	struct device * dev,						\
@@ -128,10 +149,16 @@ static ssize_t store_bits##NAME(					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_bits(dev, attr, buf, count, REG, SHL, MASK);	\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return store_bits(dev, attr, buf, count, REG, SHL, MASK);\
+	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
 
+MAKE_BITS(gate_sync,    ADC_CTRL,      MAKE_BITS_FROM_MASK,	ADC_CTRL_435_GATE_SYNC);
 MAKE_BITS(sync_in_clk,  HDMI_SYNC_DAT, HDMI_SYNC_IN_CLKb, 	0x1);
 MAKE_BITS(sync_in_sync, HDMI_SYNC_DAT, HDMI_SYNC_IN_SYNCb, 	0x1);
 MAKE_BITS(sync_in_trg,  HDMI_SYNC_DAT, HDMI_SYNC_IN_TRGb, 	0x1);
@@ -1431,6 +1458,7 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_sw_emb_word1.attr,
 	&dev_attr_sw_emb_word2.attr,
 	&dev_attr_evt_sc_latch.attr,
+	&dev_attr_gate_sync.attr,
 	NULL
 };
 

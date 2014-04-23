@@ -127,6 +127,7 @@
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_EN    (1 << 11)
+#define ADC_CTRL_435_GATE_SYNC	(1 << 10)	/* special resync mode */
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
 #define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
 #define ADC_CTRL_420_18B	(1 << 6)	/* ACQ420FMC */
