@@ -24,6 +24,8 @@
 #ifndef BOLO_H_
 #define BOLO_H_
 
+#define B8_AWG_MEM		0x2000
+
 #define B8_MOD_ID		0x0000
 #define B8_SYS_CON		0x0004
 #define B8_TIM_CON		0x0008
@@ -35,8 +37,9 @@
 #define B8_ADC_CON		0x0104
 #define B8_ADC_HITIDE		0x010C
 #define B8_ADC_FIFO_CNT		0x0110
-#define B8_ADC_FIFO_STA		0x011C
-#define B8_ADC_SAMPLE_CNT	0x014C
+#define B8_ADC_FIFO_STA		0x0114
+#define B8_ADC_SAMPLE_CNT	0x011C
+#define B8_ADC_CONV_TIME	0x014c
 
 #define B8_DAC_CON		0x0204
 #define B8_DAC_WAVE_TOP		0x020C
@@ -65,11 +68,15 @@
 #define B8_CAD_A7		0x039C
 #define B8_CAD_A8		0x039E	/* do not read : hi BYTE */
 
+#define B8_CAD_CON_ENABLE	(1<<4)
 
 /* Offset DAc */
 #define B8_ODA_CON		0x0404
 #define B8_ODA_DATA		0x0448
 
+#define B8_ODA_CON_ENABLE	(1<<4)
 
+
+#define B8_ADC_CONV_TIME_DEFAULT	0x36
 
 #endif /* BOLO_H_ */

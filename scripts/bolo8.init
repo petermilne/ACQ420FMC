@@ -81,6 +81,18 @@ get_gpiochip() {
 	done	
 }
 
+init_b8_hardware() 
+{
+	site=$1
+	echo init_b8_hardware ${site}
+	set.sys  /dev/bolo8/${site}/CURR_ADC_RESET 0
+	set.sys  /dev/bolo8/${site}/OS_DAC_RESETn 0
+	set.sys  /dev/bolo8/${site}/DAC_RESETn 0	
+	
+	set.sys /dev/acq400.${site}.knobs/current_adc_enable 1
+	set.sys /dev/acq400.${site}.knobs/offset_dac_enable 1
+	/usr/local/bin/ao420_init ${site}
+}
 
 cd /sys/class/gpio
 
@@ -94,6 +106,7 @@ do
 	#init_one_b8 $site 128 152
 	mkdir -p /dev/bolo8/$site
 	init_one_b8 $site $(get_gpiochip $site 0022) $(get_gpiochip $site 0020)
+	init_b8_hardware $site
 done
 
 

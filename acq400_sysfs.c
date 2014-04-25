@@ -51,6 +51,7 @@
 #include <linux/user.h>
 
 #include "acq400.h"
+#include "bolo.h"
 
 #define MODIFY_REG_ACCESS_READ_BEFORE	0x1
 #define MODIFY_REG_ACCESS_READ_AFTER	0x2
@@ -210,6 +211,8 @@ MAKE_BITS(sig_src_route_trg_d0,  SIG_SRC_ROUTE, SSR_TRG_0_SHL,  SSR_MASK);
 MAKE_BITS(sig_src_route_clk_d1,  SIG_SRC_ROUTE, SSR_CLK_1_SHL,  SSR_MASK);
 MAKE_BITS(sig_src_route_clk_d0,  SIG_SRC_ROUTE, SSR_CLK_0_SHL,  SSR_MASK);
 
+MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
+MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
@@ -1718,13 +1721,15 @@ static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 	dev_err(DEVP(adev), "poll_dacspi_complete() giving up, no completion");
 	return -1;
 }
+
+#define DACSPI(adev) (IS_BOLO8(adev)? B8_ODA_DATA: AO420_DACSPI)
 static ssize_t show_dacspi(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 dacspi = acq400rd32(adev, AO420_DACSPI);
+	u32 dacspi = acq400rd32(adev, DACSPI(adev));
 
 	return sprintf(buf, "0x%08x\n", dacspi);
 }
@@ -1739,7 +1744,7 @@ static ssize_t store_dacspi(
 	unsigned dacspi;
 	if (sscanf(buf, "0x%x", &dacspi) == 1 || sscanf(buf, "%d", &dacspi) == 1){
 		dacspi |= AO420_DACSPI_CW;
-		acq400wr32(adev, AO420_DACSPI, dacspi);
+		acq400wr32(adev, DACSPI(adev), dacspi);
 
 		if ((dacspi&AO420_DACSPI_CW) != 0){
 			if (poll_dacspi_complete(adev, dacspi)){
@@ -1811,6 +1816,14 @@ static const struct attribute *ao420_attrs[] = {
 	NULL
 };
 
+
+static const struct attribute *bolo8_attrs[] = {
+	&dev_attr_current_adc_enable.attr,
+	&dev_attr_offset_dac_enable.attr,
+	&dev_attr_dacspi.attr,
+	&dev_attr_dacreset.attr,
+	NULL
+};
 #define SCOUNT_KNOB(name, reg) 						\
 static ssize_t show_clk_count_##name(					\
 	struct device * dev,						\
@@ -2324,6 +2337,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq435_attrs;
 		}else if (IS_AO420(adev)){
 			specials = ao420_attrs;
+		}else if (IS_BOLO8(adev)){
+			specials = bolo8_attrs;
 		}else{
 			return;
 		}

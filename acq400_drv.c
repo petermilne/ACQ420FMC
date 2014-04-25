@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.501"
+#define REVID "2.505"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -122,6 +122,10 @@ MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to
 int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
 int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
+
+int b8_adc_conv_time = B8_ADC_CONV_TIME_DEFAULT;
+module_param(b8_adc_conv_time, int, 0644);
+MODULE_PARM_DESC(b8_adc_conv_time, "Number of ticks of clk_100M before commencing read back");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -337,7 +341,7 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
 	syscon |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, B8_SYS_CON, syscon);
-	adev->data32 = 1;
+	adev->data32 = data_32b;
 	adev->nchan_enabled = 8;	// 32 are you sure?.
 	adev->word_size = 2;
 	adev->hitide = 128;
@@ -346,6 +350,11 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	acq400wr32(adev, ADC_CLKDIV, 10);
 	adev->onStart = bolo8_onStart;
 	adev->onStop = bolo8_onStop;
+
+	adev->bolo8.awg_buffer = kmalloc(4096, GFP_KERNEL);
+	adev->bolo8.awg_buffer_max = 4096;
+	adev->bolo8.awg_buffer_cursor = 0;
+
 }
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
@@ -567,7 +576,8 @@ void acq420_onStart(struct acq400_dev *adev)
 void bolo8_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, B8_ADC_CON);
-	dev_dbg(DEVP(adev), "acq420_onStart()");
+	unsigned scount;
+	dev_dbg(DEVP(adev), "bolo8_onStart()");
 	acq400wr32(adev, B8_ADC_HITIDE, 	adev->hitide);
 	// set clkdiv (assume done)
 	// set timing bus (assume done)
@@ -576,10 +586,12 @@ void bolo8_onStart(struct acq400_dev *adev)
 
 	acq400wr32(adev, B8_ADC_CON, ctrl | ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, B8_ADC_CON, ctrl);
-	if (acq400rd32(adev, B8_ADC_SAMPLE_CNT) > 0){
-		dev_warn(DEVP(adev), "ERROR: reset fifo but it's not empty!");
+	if ((scount = acq400rd32(adev, B8_ADC_SAMPLE_CNT)) > 0){
+		dev_warn(DEVP(adev),
+		"ERROR: reset fifo but it's not empty! :%08x", scount);
 	}
 
+	acq400wr32(adev, B8_ADC_CONV_TIME, b8_adc_conv_time);
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
 	acq400wr32(adev, B8_ADC_CON, ctrl  |= ADC_CTRL_ADC_EN);
@@ -1581,6 +1593,8 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+
+
 int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
@@ -1648,6 +1662,104 @@ int acq400_open_event(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+
+void bolo_awg_commit(struct acq400_dev* adev)
+{
+	int nwords = adev->bolo8.awg_buffer_cursor/sizeof(u32);
+	u32 *src = (u32*)adev->bolo8.awg_buffer;
+	int ii;
+	for (ii = 0; ii < nwords; ++ii){
+		acq400wr32(adev, B8_AWG_MEM+ii, src[ii]);
+	}
+	acq400wr32(adev, B8_DAC_WAVE_TOP, nwords);
+	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|ADC_CTRL_ADC_EN);
+}
+int bolo_awg_open(struct inode *inode, struct file *file)
+/* if write mode, reset length */
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
+		adev->bolo8.awg_buffer_cursor = 0;
+	}
+	return 0;
+}
+int bolo_awg_release(struct inode *inode, struct file *file)
+/* if it was a write, commit to memory and set length */
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
+		bolo_awg_commit(adev);
+	}
+	return 0;
+}
+
+ssize_t bolo_awg_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = adev->bolo8.awg_buffer_cursor;
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, adev->bolo8.awg_buffer+bcursor, count);
+	if (rc){
+		return -1;
+	}
+
+
+	*f_pos += count;
+	return count;
+}
+
+ssize_t bolo_awg_write(
+	struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = adev->bolo8.awg_buffer_max;
+	unsigned bcursor = adev->bolo8.awg_buffer_cursor;
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user(adev->bolo8.awg_buffer+bcursor, buf, count);
+	if (rc){
+		return -1;
+	}
+	*f_pos += count;
+	adev->bolo8.awg_buffer_cursor += count;
+	return count;
+}
+
+int bolo_open_awg(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_streamdac = {
+			.open = bolo_awg_open,
+			.write = bolo_awg_write,
+			.read = bolo_awg_read,
+			.release = bolo_awg_release,
+	};
+	file->f_op = &acq400_fops_streamdac;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 int acq400_open(struct inode *inode, struct file *file)
 {
 
@@ -1683,6 +1795,8 @@ int acq400_open(struct inode *inode, struct file *file)
         		return acq400_open_main(inode, file);
         	case ACQ420_MINOR_STREAMDAC:
         		return acq400_open_streamdac(inode, file);
+        	case ACQ420_MINOR_BOLO_AWG:
+        		return bolo_open_awg(inode, file);
         	default:
         		return -ENODEV;
         	}

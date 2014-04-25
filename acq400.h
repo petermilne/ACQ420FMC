@@ -235,6 +235,7 @@
 #define ACQ420_MINOR_GPGMEM	5	// mmap 4K of this
 #define ACQ420_MINOR_EVENT	6	// blocks on event
 #define ACQ420_MINOR_STREAMDAC	7
+#define ACQ420_MINOR_BOLO_AWG	8
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -382,6 +383,12 @@ struct acq400_dev {
 
 	void (*onStart)(struct acq400_dev *adev);
 	void (*onStop)(struct acq400_dev *adev);
+
+	struct Bolo8 {
+		char* awg_buffer;
+		int awg_buffer_max;
+		int awg_buffer_cursor;
+	} bolo8;
 };
 
 
@@ -655,4 +662,6 @@ static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 
 void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
+
+
 #endif /* ACQ420FMC_H_ */

@@ -43,9 +43,14 @@ build_nodes() {
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.gpg	c ${MAJOR} 5
-			# only valid for AO ... fixme
-			mknod /dev/${NAME}.dac		c ${MAJOR} 7
 			build_hb ${MAJOR} ${NAME}
+			
+			case $(cat /dev/acq400.$ID.knobs/module_type) in
+			40)			
+				mknod /dev/${NAME}.dac c ${MAJOR} 7;;
+			60)
+				mknod /dev/${NAME}.awg c ${MAJOR} 8;;	
+			esac
 		fi
 	done
 }
@@ -132,6 +137,7 @@ customize_acq420()
 
 BOLO8_SITES=""
 
+
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
@@ -154,12 +160,12 @@ build_knobs_device() {
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
 	40)	
-		ao420_init ${site}
+		ao420_init ${site}	
 		CLKDIV=250;;
 	60)
 		if [ "x$BOLO8_SITES" != "x" ]; then
 			BOLO8_SITES="${BOLO8_SITES},"
-		fi
+		fi		
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
 	*)
