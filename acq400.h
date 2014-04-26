@@ -420,6 +420,8 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value);
 u32 acq400rd32(struct acq400_dev *adev, int offset);
 u32 acq400rd32_upcount(struct acq400_dev *adev, int offset);
 
+u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl);
+
 int getHeadroom(struct acq400_dev *adev);
 
 #define MAXDMA	0x4000

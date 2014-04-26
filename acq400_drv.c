@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.507"
+#define REVID "2.509"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -252,7 +252,7 @@ u32 get_spadN(struct acq400_dev* adev, int n)
 		return acq400rd32(adev, SPADN(n));
 	}
 }
-static u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
+u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
 	if (adev->adc_18b){
@@ -339,7 +339,7 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	acq400wr32(adev, B8_SYS_CON, syscon);
 	adev->data32 = data_32b;
 	adev->nchan_enabled = 8;	// 32 are you sure?.
-	adev->word_size = 2;
+	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	adev->sysclkhz = SYSCLK_M100;
