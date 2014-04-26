@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.505"
+#define REVID "2.507"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -123,9 +123,6 @@ int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
 int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
-int b8_adc_conv_time = B8_ADC_CONV_TIME_DEFAULT;
-module_param(b8_adc_conv_time, int, 0644);
-MODULE_PARM_DESC(b8_adc_conv_time, "Number of ticks of clk_100M before commencing read back");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -153,8 +150,7 @@ void acq420_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
 void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
-static void bolo8_onStart(struct acq400_dev *adev);
-static void bolo8_onStop(struct acq400_dev *adev);
+
 
 const char* devname(struct acq400_dev *adev)
 {
@@ -395,11 +391,6 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 }
 
-static void bolo8_onStop(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, B8_ADC_CON);
-	acq400wr32(adev, B8_ADC_CON, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
-}
 
 void acq2006_aggregator_reset(struct acq400_dev *adev)
 {
@@ -573,34 +564,7 @@ void acq420_onStart(struct acq400_dev *adev)
 }
 
 
-void bolo8_onStart(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, B8_ADC_CON);
-	unsigned scount;
-	dev_dbg(DEVP(adev), "bolo8_onStart()");
-	acq400wr32(adev, B8_ADC_HITIDE, 	adev->hitide);
-	// set clkdiv (assume done)
-	// set timing bus (assume done)
-	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, B8_ADC_FIFO_STA, ADC_FIFO_FLAGS);
 
-	acq400wr32(adev, B8_ADC_CON, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, B8_ADC_CON, ctrl);
-	if ((scount = acq400rd32(adev, B8_ADC_SAMPLE_CNT)) > 0){
-		dev_warn(DEVP(adev),
-		"ERROR: reset fifo but it's not empty! :%08x", scount);
-	}
-
-	acq400wr32(adev, B8_ADC_CONV_TIME, b8_adc_conv_time);
-	adev->fifo_isr_done = 0;
-	//acq420_enable_interrupt(adev);
-	acq400wr32(adev, B8_ADC_CON, ctrl  |= ADC_CTRL_ADC_EN);
-	acq400wr32(adev, B8_ADC_CON, ctrl  |= ADC_CTRL_FIFO_EN);
-
-	/* next: valid Master, Standalone only. @@todo slave? */
-	acq400wr32(adev, B8_ADC_CON, ctrl | ADC_CTRL_ADC_RST);
-	acq400wr32(adev, B8_ADC_CON, ctrl);
-}
 static void acq400_getID(struct acq400_dev *adev)
 {
 	u32 modid;

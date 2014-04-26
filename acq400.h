@@ -388,6 +388,7 @@ struct acq400_dev {
 		char* awg_buffer;
 		int awg_buffer_max;
 		int awg_buffer_cursor;
+		short offset_dacs[8];
 	} bolo8;
 };
 

@@ -76,7 +76,19 @@
 
 #define B8_ODA_CON_ENABLE	(1<<4)
 
+#define B8_ODA_DATA_RUN		(1<<31)
+#define B8_ODA_DATA_COMPLETE	(1<<30)
+#define B8_ODA_DATA_RDnW	(1<<23)
+#define B8_ODA_DATA_ADDR_SHL	(16)
+
+#define B8_ODA_DATA_ADDR(reg)	((0x8|(reg))<<B8_ODA_DATA_ADDR_SHL)
 
 #define B8_ADC_CONV_TIME_DEFAULT	0x36
 
+
+void bolo8_onStart(struct acq400_dev *adev);
+void bolo8_onStop(struct acq400_dev *adev);
+
+short bolo8_get_offset_dacN(struct acq400_dev *adev, int ix);
+void bolo8_set_offset_dacN(struct acq400_dev *adev, int ix, short offset);
 #endif /* BOLO_H_ */
