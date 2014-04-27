@@ -3,7 +3,7 @@
 
 B8SITES=${1:-1}
 
-/sbin/insmod /mnt/local/bolo8_drv.ko bolo8sites=$B8SITES
+/sbin/insmod  /usr/local/lib/modules/bolo8_drv.ko bolo8sites=$B8SITES
 
 LNAMES="
 ADC_1_A1
