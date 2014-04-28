@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.509"
+#define REVID "2.510"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1635,7 +1635,7 @@ void bolo_awg_commit(struct acq400_dev* adev)
 	for (ii = 0; ii < nwords; ++ii){
 		acq400wr32(adev, B8_AWG_MEM+ii, src[ii]);
 	}
-	acq400wr32(adev, B8_DAC_WAVE_TOP, nwords);
+	acq400wr32(adev, B8_DAC_WAVE_TOP, adev->bolo8.awg_buffer_cursor/sizeof(u16));
 	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|ADC_CTRL_ADC_EN);
 }
 int bolo_awg_open(struct inode *inode, struct file *file)
