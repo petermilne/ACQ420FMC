@@ -46,7 +46,7 @@
 #define B8_DAC_FIFO_STA		0x0214
 #define B8_DAC_SAMPLE_CNT	0x0220
 #define B8_DAC_SPI		0x0248
-#define B8_DAC_SPI_RBK		0x004c
+#define B8_DAC_SPI_RBK		0x024c
 
 /* Current ADc */
 #define B8_CAD_CON		0x0304
