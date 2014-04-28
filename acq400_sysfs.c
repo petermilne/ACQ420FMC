@@ -1700,16 +1700,18 @@ static DEVICE_ATTR(playloop_cursor,
 
 #define TIMEOUT 1000
 
+#define DACSPI(adev) (IS_BOLO8(adev)? B8_ODA_DATA: AO420_DACSPI)
+
 static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 {
 	unsigned pollcat = 0;
 	while( ++pollcat < TIMEOUT){
-		u32 rv = acq400rd32(adev, AO420_DACSPI);
+		u32 rv = acq400rd32(adev, DACSPI(adev));
 		if ((rv&AO420_DACSPI_WC) != 0){
 			dev_dbg(DEVP(adev),
 			"poll_dacspi_complete() success after %d\n", pollcat);
 			wv &= ~(AO420_DACSPI_CW|AO420_DACSPI_WC);
-			acq400wr32(adev, AO420_DACSPI, wv);
+			acq400wr32(adev, DACSPI(adev), wv);
 			return 0;
 		}
 		if ((pollcat%100)==0){
@@ -1722,7 +1724,7 @@ static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 	return -1;
 }
 
-#define DACSPI(adev) (IS_BOLO8(adev)? B8_ODA_DATA: AO420_DACSPI)
+
 static ssize_t show_dacspi(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1759,13 +1761,15 @@ static ssize_t store_dacspi(
 
 static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
 
+#define DAC_CTRL_RESET(adev)	(IS_BOLO8(adev)? B8_DAC_CON: DAC_CTRL)
+
 static ssize_t show_dacreset(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL_RESET(adev));
 
 	return sprintf(buf, "%u\n", (dac_ctrl&ADC_CTRL_ADC_RST) != 0);
 }
@@ -1777,7 +1781,7 @@ static ssize_t store_dacreset(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL_RESET(adev));
 	unsigned dacreset;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
@@ -1788,7 +1792,7 @@ static ssize_t store_dacreset(
 		}else{
 			dac_ctrl &= ~ADC_CTRL_ADC_RST;
 		}
-		acq400wr32(adev, DAC_CTRL, dac_ctrl);
+		acq400wr32(adev, DAC_CTRL_RESET(adev), dac_ctrl);
 		return count;
 	}else{
 		return -1;
