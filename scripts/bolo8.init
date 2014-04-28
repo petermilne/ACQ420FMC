@@ -30,14 +30,14 @@ CURR_ADC_RESET
 Unused1
 Unused2
 Unused3
-LED1
 LED2
-LED3
+LED1
 LED4
-LED5
+LED3
 LED6
-LED7
-LED8"
+LED5
+LED8
+LED7"
 
 init_one_b8() {
 	site=$1
