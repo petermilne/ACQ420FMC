@@ -36,9 +36,9 @@ static int axi_s16_get(void *data, u64 *val)
 	u32 addr = (u32)data;
 	u32 v32 = *(u32*)(addr& ~3);
 	if (addr&3){
-		*val = v32 >> 16;
-	}else{
 		*val = v32 & 0x0000ffff;
+	}else{
+		*val = v32 >> 16;
 	}
 	return 0;
 }
