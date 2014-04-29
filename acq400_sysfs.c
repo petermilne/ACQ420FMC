@@ -1700,7 +1700,7 @@ static DEVICE_ATTR(playloop_cursor,
 
 #define TIMEOUT 1000
 
-#define DACSPI(adev) (IS_BOLO8(adev)? B8_ODA_DATA: AO420_DACSPI)
+#define DACSPI(adev) (IS_BOLO8(adev)? B8_DAC_SPI: AO420_DACSPI)
 
 static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 {
