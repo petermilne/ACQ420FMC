@@ -318,7 +318,14 @@ struct acq400_dev {
 	} stats;
 
 	int ramp_en;
-	int spad_en;			/** scratchpad enable */
+
+	enum  { SP_OFF, SP_EN, SP_FRAME } SpadEn;
+	enum  { SD_SEW, SD_DI4, SD_DI32 } SpadDix;
+	struct Spad {
+		unsigned spad_en;	/* 0: off 1: spad 2:frame */
+		unsigned len;		/* 1..8 */
+		unsigned diX;		/* 0 : off 1: di4 2: di32 */
+	} spad;				/** scratchpad enable */
 	int data32;
 	int adc_18b;			/* @@todo set on probe() */
 	int nchan_enabled;
@@ -493,10 +500,32 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
 /* scratchpad */
 
+
+#define DATA_ENGINE_SELECT_AGG	(1<<14)
 #define DE_ENABLE		(1<<0)
 
-#define AGG_ENABLE		(1<<0)
+
+#define AGG_SNAP_DI_SHL		30
+#define AGG_SNAP_DI_MASK	0x3
+#define AGG_SNAP_DI_OFF		0
+#define AGG_SNAP_DI_4		2
+#define AGG_SNAP_DI_32		3
+
+#define AGG_SPAD_EN		(1<<17)
+#define AGG_SPAD_FRAME		(1<<16)
+#define AGG_SPAD_LEN_SHL	4
+#define AGG_SPAD_LEN_MASK	0x7
+
+#define AGG_SPAD_ALL_MASK \
+	(AGG_SPAD_LEN_MASK<<AGG_SPAD_LEN_SHL|\
+	  AGG_SPAD_FRAME|AGG_SPAD_EN| AGG_SNAP_DI_MASK<<AGG_SNAP_DI_SHL)
+
+#define SET_AGG_SPAD_LEN(len)	((((len)-1)&AGG_SPAD_LEN_MASK)<<AGG_SPAD_LEN_SHL)
+#define SET_AGG_SNAP_DIx(dix)	(((dix)&AGG_SNAP_DI_MASK)<<AGG_SNAP_DI_SHL)
+
 #define AGG_FIFO_RESET		(1<<1)
+#define AGG_ENABLE		(1<<0)
+
 /* s=1..6 */
 #define AGG_MOD_EN(s, shift)	(1 << ((s)-1+(shift)))
 #define AGGREGATOR_MSHIFT	18
@@ -516,10 +545,11 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
 		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
 
-#define AGG_SPAD_EN		(1<<17)
 
 
-#define DATA_ENGINE_SELECT_AGG	(1<<14)
+
+
+
 
 
 

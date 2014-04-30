@@ -103,3 +103,13 @@ sig_src_route_trg_d0	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
 sig_src_route_trg_d1	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
 sig_src_route_clk_d0	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
 sig_src_route_clk_d1	V:{0,1,2} set Signal Source routing V:{Ext,HDMI,CELF}
+
+spad	[EN[,LEN,DIX]] scratchpad EN:{0,1:8 entry, 2:frame}, DIX:{0,1:DI4,2:DI32}
+spad0	[0x12345678] scratchpad 0 entry (sample count: do not set)
+spad1	[0x12345678] scratchpad 1 entry
+spad2	[0x12345678] scratchpad 2 entry
+spad3	[0x12345678] scratchpad 3 entry
+spad4	[0x12345678] scratchpad 4 entry
+spad5	[0x12345678] scratchpad 5 entry
+spad6	[0x12345678] scratchpad 6 entry
+spad7	[0x12345678] scratchpad 7 entry

@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.520"
+#define REVID "2.521"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -410,11 +410,26 @@ void acq2006_data_engine0_reset_enable(struct acq400_dev *adev)
 void acq2006_aggregator_enable(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
-	if (adev->spad_en){
+	agg &= ~AGG_SPAD_ALL_MASK;
+
+	switch(adev->spad.spad_en){
+	default:
+		goto agg99;
+	case SP_EN:
+		agg |= SET_AGG_SPAD_LEN(adev->spad.len);
 		agg |= AGG_SPAD_EN;
-	}else{
-		agg &= ~AGG_SPAD_EN;
+		break;
+	case SP_FRAME:
+		agg |= AGG_SPAD_EN|AGG_SPAD_FRAME;
+		break;
 	}
+	switch(adev->spad.diX){
+	case SD_DI4:
+		agg |= SET_AGG_SNAP_DIx(AGG_SNAP_DI_4); break;
+	case SD_DI32:
+		agg |= SET_AGG_SNAP_DIx(AGG_SNAP_DI_32); break;
+	}
+ agg99:
 	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
 }
 void acq2006_aggregator_disable(struct acq400_dev *adev)

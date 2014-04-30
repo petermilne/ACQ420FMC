@@ -32,15 +32,7 @@ sample_count	32 bit sample_count
 shot	shot number 
 simulate	[0|1] simulation mode
 site	module site number
-spad	[0|1] scratchpad enable
-spad0	[0x12345678] scratchpad 0 entry (sample count: do not set)
-spad1	[0x12345678] scratchpad 1 entry
-spad2	[0x12345678] scratchpad 2 entry
-spad3	[0x12345678] scratchpad 3 entry
-spad4	[0x12345678] scratchpad 4 entry
-spad5	[0x12345678] scratchpad 5 entry
-spad6	[0x12345678] scratchpad 6 entry
-spad7	[0x12345678] scratchpad 7 entry
+
 stats	reports some driver internals
 sync	sync=EXT,dX,edge	configure sync source
 sysclkhz	system clock rate

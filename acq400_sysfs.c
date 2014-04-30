@@ -730,8 +730,11 @@ static ssize_t show_spad(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 spad = acq400_devices[dev->id]->spad_en != 0;
-	return sprintf(buf, "%u\n", spad);
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u,%u,%u\n",
+		adev->spad.spad_en,
+		adev->spad.spad_en==SP_EN? adev->spad.len: 0,
+		adev->spad.spad_en!=SP_OFF? adev->spad.diX: 0);
 }
 
 static ssize_t store_spad(
@@ -740,9 +743,25 @@ static ssize_t store_spad(
 	const char * buf,
 	size_t count)
 {
-	u32 spad;
-	if (sscanf(buf, "%u", &spad) == 1){
-		acq400_devices[dev->id]->spad_en = spad != 0;
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct Spad spad = { 1, 8, 0 };
+	if (sscanf(buf, "%u,%u,%u", &spad.spad_en, &spad.len, &spad.diX) > 0){
+		if (spad.diX > SD_DI32) spad.diX = SD_SEW;
+		if (spad.len > 8) spad.len = 8;
+		switch(spad.spad_en){
+		default:
+			spad.spad_en = SP_OFF;	/* fall thru */
+		case SP_OFF:
+			spad.len = 0; spad.diX = SD_SEW; break;
+			break;
+		case SP_EN:
+			if (spad.len < 1) spad.len = 8;
+			break;
+		case SP_FRAME:
+			spad.len = 0;
+			break;
+		}
+		adev->spad = spad;
 		return count;
 	}else{
 		return -1;
