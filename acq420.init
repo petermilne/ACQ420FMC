@@ -47,7 +47,9 @@ build_nodes() {
 			
 			case $(cat /dev/acq400.$ID.knobs/module_type) in
 			40)			
-				mknod /dev/${NAME}.dac c ${MAJOR} 7;;
+				mknod /dev/${NAME}.dac c ${MAJOR} 7
+				mknod /dev/${NAME}.awg c {$MAJOR} 9
+				mknod /dev/${NAME}.awgc c {$MAJOR} 10;;
 			60)
 				mknod /dev/${NAME}.awg c ${MAJOR} 8;;	
 			esac

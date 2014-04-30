@@ -236,6 +236,8 @@
 #define ACQ420_MINOR_EVENT	6	// blocks on event
 #define ACQ420_MINOR_STREAMDAC	7
 #define ACQ420_MINOR_BOLO_AWG	8
+#define AO420_MINOR_HB0_AWG_ONCE	9
+#define AO420_MINOR_HB0_AWG_LOOP	10
 #define ACQ420_MINOR_MAX	240
 #define ACQ420_MINOR_BUF	100
 #define ACQ420_MINOR_BUF2	199
@@ -370,7 +372,7 @@ struct acq400_dev {
 		} _u;
 	} AO_immediate;
 
-	struct {
+	struct AOPlayloop {
 		unsigned length;
 		unsigned cursor;
 		unsigned one_shot;

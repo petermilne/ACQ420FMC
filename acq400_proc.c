@@ -51,32 +51,18 @@ static void acq400_proc_seq_stop(struct seq_file *s, void *v)
 {
 }
 
-static int acq400_proc_seq_show_dma(struct seq_file *s, void *v)
+extern int ao420_mapping[];
+
+static int acq400_proc_seq_show_channel_mapping(struct seq_file *s, void *v)
 {
         struct acq400_dev *adev = v;
+        int *mapping = IS_AO420(adev)? ao420_mapping: 0;
+        int ii;
 
-        if (mutex_lock_interruptible(&adev->mutex)) {
-                return -EINTR;
+        for (ii = 0; ii < adev->nchan_enabled; ++ii){
+        	char sep = ii+1 >= adev->nchan_enabled? '\n': ',';
+        	seq_printf(s, "%d%c", mapping==0? ii+1: mapping[ii], sep);
         }
-
-        seq_printf(s, "\nFIFO DMA Test:\n\n");
-        seq_printf(s, "Device Physical Address: 0x%0x\n", adev->dev_physaddr);
-        seq_printf(s, "Device Virtual Address:  0x%0x\n",
-                (u32)adev->dev_virtaddr);
-        seq_printf(s, "Device Address Space:    %d bytes\n", adev->dev_addrsize);
-        seq_printf(s, "DMA Channel:             %d\n", adev->of_prams.dma_channel);
-        seq_printf(s, "FIFO Depth:              %d bytes\n", adev->of_prams.fifo_depth);
-        seq_printf(s, "Burst Length:            %d words\n", adev->of_prams.burst_length);
-        seq_printf(s, "\n");
-        seq_printf(s, "Opens:                   %d\n", adev->stats.opens);
-        seq_printf(s, "Writes:                  %d\n", adev->stats.writes);
-        seq_printf(s, "Bytes Written:           %d\n", adev->stats.bytes_written);
-        seq_printf(s, "Closes:                  %d\n", adev->stats.closes);
-        seq_printf(s, "Errors:                  %d\n", adev->stats.errors);
-        seq_printf(s, "Busy:                    %d\n", adev->busy);
-        seq_printf(s, "\n");
-
-        mutex_unlock(&adev->mutex);
         return 0;
 }
 
@@ -122,16 +108,16 @@ static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 	            acq400_devices[file->f_path.dentry->d_parent->d_iname[0] -'0'];
 	return 0;
 }
-static int acq400_proc_open_dmac(struct inode *inode, struct file *file)
+static int acq400_proc_open_channel_mappingc(struct inode *inode, struct file *file)
 {
-	static struct seq_operations acq400_proc_seq_ops_dma = {
+	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
 	        .start = acq400_proc_seq_single_start,
 	        .next = acq400_proc_seq_single_next,
 	        .stop = acq400_proc_seq_stop,
-	        .show = acq400_proc_seq_show_dma
+	        .show = acq400_proc_seq_show_channel_mapping
 	};
 
-	return intDevFromProcFile(file, &acq400_proc_seq_ops_dma);
+	return intDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
 }
 
 static int acq400_proc_open_qstats(struct inode *inode, struct file *file)
@@ -147,14 +133,14 @@ static int acq400_proc_open_qstats(struct inode *inode, struct file *file)
 }
 static int acq400_proc_open_stats(struct inode *inode, struct file *file)
 {
-	static struct seq_operations acq400_proc_seq_ops_dma = {
+	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
 	        .start = acq400_proc_seq_single_start,
 	        .next = acq400_proc_seq_single_next,
 	        .stop = acq400_proc_seq_stop,
 	        .show = acq400_proc_seq_show_stats
 	};
 
-	return intDevFromProcFile(file, &acq400_proc_seq_ops_dma);
+	return intDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
 }
 
 static void *acq400_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
@@ -267,9 +253,9 @@ DEF_PROC_OPSQ(REFILLS);
 DEF_PROC_OPSQ(OPENS);
 
 
-static struct file_operations acq400_proc_ops_dmac = {
+static struct file_operations acq400_proc_ops_channel_mappingc = {
         .owner = THIS_MODULE,
-        .open = acq400_proc_open_dmac,
+        .open = acq400_proc_open_channel_mappingc,
         .read = seq_read,
         .llseek = seq_lseek,
         .release = seq_release
@@ -309,7 +295,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	acq400_dev->proc_entry = proc_mkdir(
 		acq400_names[acq400_dev->of_prams.site], acq400_proc_root);
 
-	proc_create("dmac", 0, acq400_dev->proc_entry, &acq400_proc_ops_dmac);
+	proc_create("channel_mapping", 0, acq400_dev->proc_entry, &acq400_proc_ops_channel_mappingc);
 	proc_create("buffers", 0, acq400_dev->proc_entry, &acq400_proc_ops_buffers);
 	proc_create("EMPTIES", 0, acq400_dev->proc_entry, &acq400_proc_ops_EMPTIES);
 	proc_create("INFLIGHT", 0, acq400_dev->proc_entry, &acq400_proc_ops_INFLIGHT);
@@ -321,8 +307,6 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 
 void acq400_del_proc(struct acq400_dev* adev)
 {
-	remove_proc_entry("dmac", adev->proc_entry);
-	remove_proc_entry("buffers", adev->proc_entry);
 	remove_proc_entry(acq400_names[adev->pdev->id], acq400_proc_root);
 }
 

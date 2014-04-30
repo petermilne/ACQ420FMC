@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.512"
+#define REVID "2.514"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1712,13 +1712,105 @@ ssize_t bolo_awg_write(
 
 int bolo_open_awg(struct inode *inode, struct file *file)
 {
-	static struct file_operations acq400_fops_streamdac = {
+	static struct file_operations fops = {
 			.open = bolo_awg_open,
 			.write = bolo_awg_write,
 			.read = bolo_awg_read,
 			.release = bolo_awg_release,
 	};
-	file->f_op = &acq400_fops_streamdac;
+	file->f_op = &fops;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
+
+
+int ao420_awg_open(struct inode *inode, struct file *file)
+/* if write mode, reset length */
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
+		ao420_reset_playloop(adev, adev->AO_playloop.length = 0);
+	}
+	return 0;
+}
+int ao420_awg_release(struct inode *inode, struct file *file)
+/* if it was a write, commit to memory and set length */
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
+		adev->AO_playloop.one_shot = iminor(inode) == AO420_MINOR_HB0_AWG_ONCE;
+		ao420_reset_playloop(adev, adev->AO_playloop.length);
+	}
+	return 0;
+}
+
+ssize_t ao420_awg_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, (char*)adev->cursor.hb->va + bcursor, count);
+	if (rc){
+		return -1;
+	}
+
+
+	*f_pos += count;
+	return count;
+}
+
+ssize_t ao420_awg_write(
+	struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	unsigned bcursor = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
+	int len = adev->cursor.hb->len;
+	int rc;
+
+	count = AOSAMPLES2BYTES(adev, AOBYTES2SAMPLES(adev, count));
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user((char*)adev->cursor.hb->va + bcursor, buf, count);
+	if (rc){
+		return -1;
+	}
+	*f_pos += count;
+	adev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
+	return count;
+}
+
+int ao420_open_awg(struct inode *inode, struct file *file)
+{
+	static struct file_operations fops = {
+			.open = ao420_awg_open,
+			.write = ao420_awg_write,
+			.read = ao420_awg_read,
+			.release = ao420_awg_release,
+	};
+	file->f_op = &fops;
 	if (file->f_op->open){
 		return file->f_op->open(inode, file);
 	}else{
@@ -1762,6 +1854,9 @@ int acq400_open(struct inode *inode, struct file *file)
         		return acq400_open_streamdac(inode, file);
         	case ACQ420_MINOR_BOLO_AWG:
         		return bolo_open_awg(inode, file);
+        	case AO420_MINOR_HB0_AWG_ONCE:
+        	case AO420_MINOR_HB0_AWG_LOOP:
+        		return ao420_open_awg(inode, file);
         	default:
         		return -ENODEV;
         	}
