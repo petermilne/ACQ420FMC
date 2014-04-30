@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.517"
+#define REVID "2.520"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1998,11 +1998,13 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 {
 	int headroom;
 	int rc = 1;		/* assume more ints wanted unless complete */
+	int maxiter = 100;
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return 0;
 	}
-	while((headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
+	while(adev->AO_playloop.length != 0 &&
+	      (headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
 		remaining = min(remaining, headroom);
@@ -2039,6 +2041,10 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 			}else{
 				adev->AO_playloop.cursor = 0;
 			}
+		}
+		if (--maxiter == 0){
+			dev_warn(DEVP(adev), "ao420_fill_fifo() working too hard breaking to release mutex");
+			break;
 		}
 	}
 
