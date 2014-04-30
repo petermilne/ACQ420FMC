@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.514"
+#define REVID "2.517"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1993,12 +1993,14 @@ void _ao420_stop(struct acq400_dev* adev)
 
 #define MIN_DMA	256
 
-static void ao420_fill_fifo(struct acq400_dev* adev)
+static int ao420_fill_fifo(struct acq400_dev* adev)
+/* returns 1 if further interrupts are required */
 {
 	int headroom;
+	int rc = 1;		/* assume more ints wanted unless complete */
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
-		return;
+		return 0;
 	}
 	while((headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
@@ -2030,16 +2032,20 @@ static void ao420_fill_fifo(struct acq400_dev* adev)
 
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
 			if (adev->AO_playloop.one_shot){
+				dev_info(DEVP(adev), "ao420 oneshot done disable interrupt");
 				ao420_disable_interrupt(adev);
+				rc = 0;
 				break;
 			}else{
 				adev->AO_playloop.cursor = 0;
 			}
 		}
 	}
+
 	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
 			acq400rd32(adev, DAC_FIFO_SAMPLES));
+	return rc;
 }
 static irqreturn_t ao420_dma(int irq, void *dev_id)
 /* keep the AO420 FIFO full. Recycle buffer only */
@@ -2048,8 +2054,9 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 
 	if (adev->AO_playloop.length){
 		u32 start_samples = ao420_getFifoSamples(adev);
-		ao420_fill_fifo(adev);
-		ao420_enable_interrupt(adev);
+		if (ao420_fill_fifo(adev)){
+			ao420_enable_interrupt(adev);
+		}
 		add_fifo_histo(adev, start_samples);
 	}
 
