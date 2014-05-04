@@ -182,6 +182,17 @@ build_knobs_device() {
 	web_append acq400.${site} ${site}	
 }
 
+install_default_cal() {
+	site=$1
+	caldef=/dev/sites/${site}/caldef.xml
+	if [ ! -e ${caldef} ]; then
+		source 	/dev/sites/${site}/details
+		PN="${FRU_PART_NUM%% *}"
+		if [ -e /usr/local/cal/${PN}-defcal.xml ]; then
+			cp /usr/local/cal/${PN}-defcal.xml ${caldef}
+		fi
+	fi	
+}
 build_site0() {
 	dk=/dev/acq400.0.knobs
 	ln -s $1 ${dk}
@@ -200,18 +211,19 @@ build_site0() {
 
 build_knobs() {
 	dir=/sys/bus/platform/devices/40000000.acq2006sc
-	if [ -e $dir ]; then
-		build_site0 $dir
+	if [ -e ${dir} ]; then
+		build_site0 ${dir}
 	fi
 	for dir in /sys/bus/platform/devices/*acq4?0fmc
 	do
-		if [ -e $dir/site ]; then
-			build_knobs_device $dir
+		if [ -e ${dir}/site ]; then
+			install_default_cal $(cat ${dir}/site)
+			build_knobs_device ${dir}
 		fi
 	done
 	
-	if [ "x$BOLO8_SITES" != "x" ]; then
-		/usr/local/bin/bolo8.init $BOLO8_SITES
+	if [ "x${BOLO8_SITES}" != "x" ]; then
+		/usr/local/bin/bolo8.init ${BOLO8_SITES}
 	fi
 }
 
