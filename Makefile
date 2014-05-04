@@ -32,7 +32,8 @@ package: all
 	echo do NOT rm -Rf opkg/*
 	mkdir -p opkg/usr/local/bin opkg/usr/local/lib/modules \
 		opkg/usr/share opkg/usr/local/CARE \
-		opkg/usr/local/init/pl330dbg
+		opkg/usr/local/init/pl330dbg opkg/usr/local/cal
+	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) monitorregs scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share

@@ -188,8 +188,9 @@ install_default_cal() {
 	if [ ! -e ${caldef} ]; then
 		source 	/dev/sites/${site}/details
 		PN="${FRU_PART_NUM%% *}"
-		if [ -e /usr/local/cal/${PN}-defcal.xml ]; then
-			cp /usr/local/cal/${PN}-defcal.xml ${caldef}
+		TYP="${PN%%-*}"
+		if [ -e /usr/local/cal/${TYP}-defcal.xml ]; then
+			cp /usr/local/cal/${TYP}-defcal.xml ${caldef}
 		fi
 	fi	
 }
