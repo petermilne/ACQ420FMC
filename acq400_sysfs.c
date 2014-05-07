@@ -1161,7 +1161,7 @@ static ssize_t show_clk_count(
 	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
 }
 
-static DEVICE_ATTR(clk_count, S_IRUGO|S_IWUGO, show_clk_count, 0);
+static DEVICE_ATTR(clk_count, S_IRUGO, show_clk_count, 0);
 
 
 static ssize_t show_sample_count(
@@ -1173,7 +1173,7 @@ static ssize_t show_sample_count(
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
-static DEVICE_ATTR(sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+static DEVICE_ATTR(sample_count, S_IRUGO, show_sample_count, 0);
 
 
 
@@ -1922,7 +1922,7 @@ static ssize_t show_adc_sample_count(
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
-static DEVICE_ATTR(adc_sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+static DEVICE_ATTR(adc_sample_count, S_IRUGO, show_adc_sample_count, 0);
 
 static ssize_t show_dac_sample_count(
 	struct device * dev,
@@ -1933,7 +1933,7 @@ static ssize_t show_dac_sample_count(
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
-static DEVICE_ATTR(dac_sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+static DEVICE_ATTR(dac_sample_count, S_IRUGO, show_dac_sample_count, 0);
 
 static const struct attribute *bolo8_attrs[] = {
 	&dev_attr_current_adc_enable.attr,
@@ -1961,7 +1961,7 @@ static ssize_t show_clk_count_##name(					\
 	u32 counter = acq400rd32_upcount(acq400_devices[dev->id], reg);	\
 	return sprintf(buf, "%u\n", counter);				\
 }									\
-static DEVICE_ATTR(scount_##name, S_IRUGO|S_IWUGO, show_clk_count_##name, 0)
+static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
 
 SCOUNT_KNOB(CLK_EXT, 	ACQ2006_CLK_COUNT(0));
 SCOUNT_KNOB(CLK_MB, 	ACQ2006_CLK_COUNT(1));
