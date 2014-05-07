@@ -214,6 +214,7 @@ MAKE_BITS(sig_src_route_clk_d0,  SIG_SRC_ROUTE, SSR_CLK_0_SHL,  SSR_MASK);
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 
+
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
 	&dev_attr_sync_in_sync.attr,
@@ -464,7 +465,7 @@ static ssize_t show_signal(
 		int rising = ((adc_ctrl >> shl) & CTRL_SIG_RISING) != 0;
 
 		return sprintf(buf, "%s=%d,%d,%d %s d%u %s\n",
-				signame, 1, dx, rising,
+				signame, (adc_ctrl&mbit)>>getSHL(mbit), dx, rising,
 				mbit_hi, dx, rising? "RISING": "FALLING");
 	}else{
 		return sprintf(buf, "%s=0,0,0 %s\n", signame, mbit_lo);
@@ -483,22 +484,15 @@ int store_signal3(struct device* dev,
 	}else{
 		u32 adc_ctrl = acq400rd32(adev, REG);
 
-		switch(imode){
-		case 0:
-			adc_ctrl &= ~mbit;
-			break;
-		case 1:
+		adc_ctrl &= ~mbit;
+		if (imode != 0){
 			if (dx > 7){
 				dev_warn(dev, "rejecting \"%u\" dx > 7", dx);
 				return -1;
 			}
 			adc_ctrl &= ~(CTRL_SIG_MASK << shl);
 			adc_ctrl |=  (dx|(rising? CTRL_SIG_RISING:0))<<shl;
-			adc_ctrl |= mbit;
-			break;
-		default:
-			dev_warn(dev, "BAD mode:%u", imode);
-			return -1;
+			adc_ctrl |= imode << getSHL(mbit);
 		}
 		acq400wr32(adev, REG, adc_ctrl);
 		return 0;
@@ -594,7 +588,9 @@ MAKE_SIGNAL(gpg_trg, GPG_CONTROL, GPG_CTRL_TRG_SHL, GPG_CTRL_EXT_TRG, EXT, SOFT)
 MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT);
 MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT);
 
-MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL, ADC_CTRL_RGM_MODE_EN, ENA, DIS);
+/* MUST set RGM as well */
+MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
+		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS);
 
 
 static ssize_t show_gpg_top(
@@ -929,6 +925,9 @@ static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
 MAKE_REG_RW(sw_emb_word1, SW_EMB_WORD1);
 MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2);
 MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH);
+
+MAKE_REG_RW(rtm_translen, ADC_TRANSLEN);
+MAKE_REG_RW(accdec,ADC_ACC_DEC);
 
 static ssize_t show_nbuffers(
 	struct device * dev,
@@ -1481,6 +1480,8 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_sw_emb_word2.attr,
 	&dev_attr_evt_sc_latch.attr,
 	&dev_attr_gate_sync.attr,
+	&dev_attr_rtm_translen.attr,
+	&dev_attr_accdec.attr,
 	NULL
 };
 

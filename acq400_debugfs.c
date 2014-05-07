@@ -194,6 +194,8 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(SW_EMB_WORD2);
 	DBG_REG_CREATE(EVT_SC_LATCH);
 	DBG_REG_CREATE(ACQ435_MODE);
+	DBG_REG_CREATE(ADC_TRANSLEN);
+	DBG_REG_CREATE(ADC_ACC_DEC);
 }
 
 

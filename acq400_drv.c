@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.521"
+#define REVID "2.528"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2457,6 +2457,17 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	}
 }
 
+struct acq400_dev* acq400_lookupSite(int site)
+{
+	int is;
+	for (is = 0; is < ndevices; ++is){
+		struct acq400_dev* adev = acq400_devices[is];
+		if (adev->of_prams.site == site){
+			return adev;
+		}
+	}
+	return 0;
+}
 static int acq400_probe(struct platform_device *pdev)
 {
         int rc;

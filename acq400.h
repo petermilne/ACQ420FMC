@@ -87,6 +87,8 @@
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
+#define ADC_TRANSLEN		(ADC_BASE+0x50)
+#define ADC_ACC_DEC		(ADC_BASE+0x54)
 
 
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
@@ -126,7 +128,8 @@
 
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
-#define ADC_CTRL_RGM_MODE_EN    (1 << 11)
+#define ADC_CTRL_RGM_MODE_SHL   (10)
+#define ADC_CTRL_RGM_MODE_MASK  0x3
 #define ADC_CTRL_435_GATE_SYNC	(1 << 10)	/* special resync mode */
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
 #define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
@@ -698,5 +701,6 @@ static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
 
+struct acq400_dev* acq400_lookupSite(int site);
 
 #endif /* ACQ420FMC_H_ */
