@@ -1163,6 +1163,7 @@ static ssize_t show_clk_count(
 
 static DEVICE_ATTR(clk_count, S_IRUGO|S_IWUGO, show_clk_count, 0);
 
+
 static ssize_t show_sample_count(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1173,6 +1174,8 @@ static ssize_t show_sample_count(
 }
 
 static DEVICE_ATTR(sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+
+
 
 static ssize_t show_clk_counter_src(
 	struct device * dev,
@@ -1910,6 +1913,28 @@ MAKE_OFFSET_DAC(6);
 MAKE_OFFSET_DAC(7);
 MAKE_OFFSET_DAC(8);
 
+static ssize_t show_adc_sample_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_ADC_SAMPLE_CNT);
+	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(adc_sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+
+static ssize_t show_dac_sample_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_DAC_SAMPLE_CNT);
+	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(dac_sample_count, S_IRUGO|S_IWUGO, show_sample_count, 0);
+
 static const struct attribute *bolo8_attrs[] = {
 	&dev_attr_current_adc_enable.attr,
 	&dev_attr_offset_dac_enable.attr,
@@ -1923,6 +1948,8 @@ static const struct attribute *bolo8_attrs[] = {
 	&dev_attr_offset_dac6.attr,
 	&dev_attr_offset_dac7.attr,
 	&dev_attr_offset_dac8.attr,
+	&dev_attr_adc_sample_count.attr,
+	&dev_attr_dac_sample_count.attr,
 	NULL
 };
 #define SCOUNT_KNOB(name, reg) 						\
