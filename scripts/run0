@@ -7,6 +7,19 @@ if [ "$1" = "" ]; then
 	exit 1
 fi
 
+spad2nchan() {
+	mode=$1
+	nwords=$2
+	case $mode in
+	0)
+		echo 0;;
+	1)
+		echo $nwords;;
+	2)
+		echo 1;;
+	esac
+}
+
 sitelist=$1
 sites="$(echo $sitelist | tr , \ )"
 
@@ -17,10 +30,7 @@ rm -f /etc/acq400/0/run0_ready
 acq400_teardown
 
 let nchan=0
-spad=$(cat /etc/acq400/0/spad)
-if [ $spad -eq 1 ]; then
-	let nchan=8;
-fi
+
 
 for site in $sites
 do
@@ -33,6 +43,18 @@ do
 	fi
 	let nchan=${nchan}+$(cat /etc/acq400/$site/active_chan)
 done
+
+# channels per word
+if [ $d32 -eq 1 ]; then
+	cpw=1
+else
+	cpw=2
+fi
+
+spad3="$(tr , \  </etc/acq400/0/spad)"
+let nspad=$(spad2nchan $spad3)
+
+let nchan="$nchan+$nspad*$cpw"
 
 if [ ! -e /etc/acq400/0/NCHAN ] || [ $nchan -ne $(cat /etc/acq400/0/NCHAN) ]
 then
