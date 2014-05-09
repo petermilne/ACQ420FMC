@@ -927,7 +927,7 @@ MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2);
 MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH);
 
 MAKE_REG_RW(rtm_translen, ADC_TRANSLEN);
-MAKE_REG_RW(accdec,ADC_ACC_DEC);
+
 
 static ssize_t show_nbuffers(
 	struct device * dev,
@@ -1429,8 +1429,74 @@ static ssize_t show_sysclkhz(
 	return sprintf(buf, "%u\n", adev->sysclkhz);
 }
 
-
 static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
+
+
+static u32 acq435_get_nacc_shift(unsigned divider)
+{
+	if (divider >= 32){
+		return ADC_ACC_DEC_SHIFT_5;
+	}else if (divider >= 16){
+		return ADC_ACC_DEC_SHIFT_4;
+	}else if (divider >= 8){
+		return ADC_ACC_DEC_SHIFT_3;
+	}else if (divider >= 4){
+		return ADC_ACC_DEC_SHIFT_2;
+	}else if (divider >= 2){
+		return ADC_ACC_DEC_SHIFT_1;
+	}else{
+		return ADC_ACC_DEC_SHIFT_0;
+	}
+}
+static ssize_t show_nacc(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
+	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
+					getSHL(ADC_ACC_DEC_SHIFT_MASK);
+	unsigned divider;
+
+	for (divider = 32; divider; --divider){
+		if (acq435_get_nacc_shift(divider) == shift){
+			break;
+		}
+	}
+
+	return sprintf(buf, "%u,%u\n",
+			(acc_dec&ADC_ACC_DEC_LEN)+1, divider);
+}
+
+static ssize_t store_nacc(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 nacc;
+	u32 divider = 0;
+
+	if (sscanf(buf, "%u,%u", &nacc, &divider) > 1){
+		u32 acc_dec = nacc&ADC_ACC_DEC_LEN;
+		unsigned shift;
+
+		if (acc_dec > 0) 	acc_dec -= 1;
+		if (acc_dec == 0) 	divider = 1;
+
+		shift = acq435_get_nacc_shift(divider);
+		acc_dec |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
+		acq400wr32(adev, ADC_ACC_DEC, acc_dec);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(nacc, S_IRUGO|S_IWUGO, show_nacc, store_nacc);
+
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -1484,7 +1550,7 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_evt_sc_latch.attr,
 	&dev_attr_gate_sync.attr,
 	&dev_attr_rtm_translen.attr,
-	&dev_attr_accdec.attr,
+	&dev_attr_nacc.attr,
 	NULL
 };
 
