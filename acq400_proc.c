@@ -103,11 +103,12 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
 static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 {
 	seq_open(file, seq_ops);
-	// @@todo hack .. assumes parent is the id .. could do better?
-	const char* dname = file->f_path.dentry->d_parent->d_iname;
-	((struct seq_file*)file->private_data)->private =
-			acq400_lookupSite(dname[0] -'0');
-
+	{
+		// @@todo hack .. assumes parent is the id .. could do better?
+		const char* dname = file->f_path.dentry->d_parent->d_iname;
+		((struct seq_file*)file->private_data)->private =
+					acq400_lookupSite(dname[0] -'0');
+	}
 	return 0;
 }
 static int acq400_proc_open_channel_mappingc(struct inode *inode, struct file *file)

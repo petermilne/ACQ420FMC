@@ -659,8 +659,8 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define SSR_SYNC_0_SHL	16
 #define SSR_TRG_1_SHL	12
 #define SSR_TRG_0_SHL	 8
-#define SSR_CLK_0_SHL	 4
-#define SSR_CLK_1_SHL	 0
+#define SSR_CLK_1_SHL	 4
+#define SSR_CLK_0_SHL	 0
 
 #define EXT_DX	0			/* External clock */
 #define MB_DX	1 			/* Motherboard clock */
