@@ -225,12 +225,12 @@
 #define ADC_ACC_DEC_LEN		0x001f		/* 0:x1, 1..31: x2..32 */
 #define ADC_ACC_DEC_SHIFT_MASK	0x1f00
 
-#define ADC_ACC_DEC_SHIFT_0	0x5		/*  /1  */
-#define ADC_ACC_DEC_SHIFT_1	0x4		/*  /2  */
-#define ADC_ACC_DEC_SHIFT_2	0x3		/*  /4  */
-#define ADC_ACC_DEC_SHIFT_3	0x2		/*  /8  */
-#define ADC_ACC_DEC_SHIFT_4	0x1		/*  /16 */
-#define ADC_ACC_DEC_SHIFT_5	0x0		/*  /32 */
+#define ADC_ACC_DEC_SHIFT_5	0x5		/*  /32 */
+#define ADC_ACC_DEC_SHIFT_4	0x4		/*  /16 */
+#define ADC_ACC_DEC_SHIFT_3	0x3		/*  /8  */
+#define ADC_ACC_DEC_SHIFT_2	0x2		/*  /4  */
+#define ADC_ACC_DEC_SHIFT_1	0x1		/*  /2  */
+#define ADC_ACC_DEC_SHIFT_0	0x0		/*  /1  */
 
 /* AO420FMC */
 

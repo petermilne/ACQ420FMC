@@ -1431,23 +1431,28 @@ static ssize_t show_sysclkhz(
 
 static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 
-
-static u32 acq435_get_nacc_shift(unsigned divider)
+#define acq435_get_nacc_shift_exact 1
+#define acq435_get_nacc_shift_ge    0
+static u32 acq435_get_nacc_shift(unsigned divider, int exact)
 {
-	if (divider >= 32){
+#define EMATCH(x, y) (exact? (x) == (y): (x) >= (y))
+	if (EMATCH(divider, 32)){
 		return ADC_ACC_DEC_SHIFT_5;
-	}else if (divider >= 16){
+	}else if (EMATCH(divider, 16)){
 		return ADC_ACC_DEC_SHIFT_4;
-	}else if (divider >= 8){
+	}else if (EMATCH(divider, 8)){
 		return ADC_ACC_DEC_SHIFT_3;
-	}else if (divider >= 4){
+	}else if (EMATCH(divider, 4)){
 		return ADC_ACC_DEC_SHIFT_2;
-	}else if (divider >= 2){
+	}else if (EMATCH(divider, 2)){
 		return ADC_ACC_DEC_SHIFT_1;
-	}else{
+	}else if (EMATCH(divider, 1)){
 		return ADC_ACC_DEC_SHIFT_0;
+	}else{
+		return 0xffffffff;
 	}
 }
+
 static ssize_t show_nacc(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1459,8 +1464,8 @@ static ssize_t show_nacc(
 					getSHL(ADC_ACC_DEC_SHIFT_MASK);
 	unsigned divider;
 
-	for (divider = 32; divider; --divider){
-		if (acq435_get_nacc_shift(divider) == shift){
+	for (divider = 32; divider; divider >>= 1){
+		if (acq435_get_nacc_shift(divider,acq435_get_nacc_shift_exact) == shift){
 			break;
 		}
 	}
@@ -1480,13 +1485,14 @@ static ssize_t store_nacc(
 	u32 divider = 0;
 
 	if (sscanf(buf, "%u,%u", &nacc, &divider) > 1){
-		u32 acc_dec = nacc&ADC_ACC_DEC_LEN;
+		u32 acc_dec = nacc;
 		unsigned shift;
 
 		if (acc_dec > 0) 	acc_dec -= 1;
 		if (acc_dec == 0) 	divider = 1;
+		acc_dec &= ADC_ACC_DEC_LEN;
 
-		shift = acq435_get_nacc_shift(divider);
+		shift = acq435_get_nacc_shift(divider, acq435_get_nacc_shift_ge);
 		acc_dec |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
 		acq400wr32(adev, ADC_ACC_DEC, acc_dec);
 		return count;
