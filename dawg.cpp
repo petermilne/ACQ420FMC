@@ -66,6 +66,10 @@ typedef unsigned int u32;
 
 #define ALL_CLOSED_MASK  (((1<<MAXSW)<<1) - 1)
 
+enum StateMode {
+	UNTIL_STATE,
+	STATE_WHILE,
+};
 
 namespace UI {
 	const char* fname = "nowhere";
@@ -76,6 +80,7 @@ namespace UI {
 	bool print_quit;
 	int site = 5;
 	int sched_fifo = 0;
+	enum StateMode mode = UNTIL_STATE;
 };
 
 #define KNOBS	"./TEST"
@@ -129,6 +134,7 @@ public:
 	void print();
 
 	static DawgEntry *create(const char* _def, DawgEntry* _prev);
+	static DawgEntry *create(const char* _def, const DawgEntry* clone, DawgEntry* _prev);
 	static DawgEntry *createAllOpen(DawgEntry *prev);
 
 	static void buildList(
@@ -256,23 +262,29 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	unsigned  _ch01, _ch02;
 	int nscan;
 
+	char f1[80];
+	char f2[80];
+	char f3[80];
+
+
 	if (UI::verbose > 2){
 		fprintf(stderr, "Scanning \"%s\"\n", _def);
 	}
-	if (_def[0] == '+'){
-		int _dt;
 
-		if ((nscan = sscanf(_def, "%d %x %x", &_dt, &_ch01, &_ch02)) < 3){
-			fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
-			return 0;
-		}else{
-			_abstime += _dt;
-		}
+	if ((nscan = sscanf(_def, "%79s %79s %79s", f1, f2, f3)) < 3){
+		fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
+		return 0;
+	}
+
+	if ((UI::mode == UNTIL_STATE? f1: f3)[0] == '+'){
+		int _dt = atoi(UI::mode == UNTIL_STATE? f1: f3);
+		_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
+		_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
+		_abstime += _dt;
 	}else{
-		if ((nscan = sscanf(_def, "%d %x %x", &_abstime, &_ch01, &_ch02)) < 3){
-			fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
-			return 0;
-		}
+		_abstime = atoi(UI::mode == UNTIL_STATE? f1: f3);
+		_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
+		_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
 	}
 
 	if (_prev == 0){
@@ -296,6 +308,19 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	}
 	return entry;
 }
+
+DawgEntry* DawgEntry::create(const char* _def, const DawgEntry* clone, DawgEntry* _prev)
+{
+	DawgEntry* entry = new ScratchpadReportingDawgEntry(
+		_def, clone->abstime, clone->chx[0], clone->chx[1], _prev);
+
+	entry->finalize();
+	if (UI::verbose > 1){
+		entry->print();
+	}
+	return entry;
+}
+
 
 DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 {
@@ -357,6 +382,202 @@ void set_hi_priority() {
 	}
 }
 
+
+
+char *chomp(char *line)
+{
+	char *nl;
+
+	while((nl = rindex(line, '\n')) != NULL){
+		*nl = '\0';
+	}
+	return line;
+}
+
+
+bool please_stop;		/* could be set by signal */
+
+void waitFor(unsigned dt)
+{
+	static int dt1;
+
+	if (dt > dt1){
+		unsigned ddt = dt - dt1;
+		struct timespec ts = {};
+		struct timespec rem;
+
+		if (ddt >= 1000){
+			ts.tv_sec = ddt/1000;
+			ddt -= 1000*ts.tv_sec;
+		}
+		ts.tv_nsec = ddt*1000000;
+		if (nanosleep(&ts, &rem)){
+			nanosleep(&rem, &rem);	/* we had a signal .. continue */
+		}
+	}
+	dt1 = dt;
+}
+
+typedef list<DawgEntry*>::iterator DEI;
+
+class SequenceExecutor {
+public:
+	virtual void exec(DEI& it) = 0;
+};
+
+class UntilStateSequenceExecutor: public SequenceExecutor {
+public:
+	virtual void exec(DEI& it) {
+		waitFor((*it)->abstime * UI::timescaler);
+		(*it)->exec();
+	}
+};
+class StateWhileSequenceExecutor: public SequenceExecutor {
+public:
+	virtual void exec(DEI& it) {
+		(*it)->exec();
+		waitFor((*it)->abstime * UI::timescaler);
+	}
+};
+
+class Sequence {
+	list <DawgEntry*> instructions;
+	DEI loop_first;
+	DawgEntry* last_in_loop;
+	DawgEntry* loop_first2;		/* use this entry first second time round */
+	SequenceExecutor* executor;
+
+	void getIteratorAt(DEI& it, DawgEntry *entry) {
+		for (it = instructions.begin(); it != instructions.end(); ++it){
+			if (*it == entry){
+				return;
+			}
+		}
+		assert(false);
+	}
+
+public:
+	Sequence() : executor(new UntilStateSequenceExecutor) {}
+	void build();
+	void print();
+	void run();
+};
+
+
+
+void Sequence::build(void)
+{
+	if (UI::verbose){
+		fprintf(stderr, "\n\nbuild ----------------\n");
+	}
+	FILE* fp = fopen(UI::fname, "r");
+	if (fp == 0){
+		perror(UI::fname);
+		exit(1);
+	}
+	char* seq_line = new char[256];
+	char* first_entry_def = 0;
+	DawgEntry *prev = 0;
+	DawgEntry *now;
+	bool is_first_entry = true;
+	char style[80];
+
+	instructions.push_back(prev = DawgEntry::createAllOpen(prev));
+
+	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
+		if (strlen(seq_line) < 3){
+			continue;
+		}else if (seq_line[0] == '#'){
+			continue;
+		}else if (sscanf(seq_line, "style=%79s", style) == 1){
+			if (strcmp(style, "STATE_WHILE") == 0){
+				UI::mode = STATE_WHILE;
+				executor = new StateWhileSequenceExecutor;
+				fprintf(stderr, "set style STATE_WHILE\n");
+			}else if (strcmp(style, "UNTIL_STATE") == 0){
+				UI::mode = UNTIL_STATE;
+				executor = new UntilStateSequenceExecutor;
+				fprintf(stderr, "set style UNTIL_STATE\n");
+			}else{
+				fprintf(stderr, "ERROR: style choice STATE_WHILE or UNTIL_STATE\n");
+				exit(1);
+			}
+		}else{
+			now = DawgEntry::create(chomp(seq_line), prev);
+
+			if (now){
+				instructions.push_back(now);
+				if (is_first_entry){
+					first_entry_def = seq_line;
+					seq_line = new char[256];
+					getIteratorAt(loop_first, now);
+					is_first_entry = false;
+				}
+				prev = now;
+			}else{
+				fprintf(stderr,
+					"ERROR: parse failed at line %d\n", nl);
+				exit(1);
+			}
+		}
+	}
+	fclose(fp);
+	last_in_loop = prev;
+	loop_first2 = DawgEntry::create(strcat(first_entry_def, " loop_first2"), *loop_first, prev);
+
+	instructions.push_back(DawgEntry::createAllOpen(prev));
+
+	delete [] seq_line;
+	if (first_entry_def) delete [] first_entry_def;
+}
+
+
+void Sequence::print(void)
+{
+	DEI it;
+
+	for (it = instructions.begin(); it != instructions.end(); ++it){
+		(*it)->print();
+	}
+}
+
+
+void Sequence::run(void)
+{
+	if (UI::verbose){
+		fprintf(stderr, "\n\nrun ----------------\n");
+	}
+	chdir(DawgEntry::knobs);
+	DEI it = instructions.begin();
+
+	(*it)->exec();
+	DEI start = ++it;
+
+	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
+		if (UI::verbose){
+			fprintf(stderr, "\n\nloop: %d\n", iter);
+		}
+		for (it = start; it != instructions.end(); ++it){
+			executor->exec(it);
+			if ((*it) == last_in_loop){
+				++it;
+				break;
+			}
+		}
+
+		if (please_stop){
+			break;
+		}
+	}
+
+	if (UI::verbose){
+		fprintf(stderr, "finish up\n");
+	}
+	for (; it != instructions.end(); ++it){
+		executor->exec(it);
+	}
+}
+
 struct poptOption opt_table[] = {
 	{ "dry-run", 'D', POPT_ARG_NONE, 0, 'D',
 			"go through the motions, no action" 	},
@@ -397,173 +618,6 @@ void ui(int argc, const char* argv[])
 		default:
 			;
 		}
-	}
-}
-
-
-char *chomp(char *line)
-{
-	char *nl;
-
-	while((nl = rindex(line, '\n')) != NULL){
-		*nl = '\0';
-	}
-	return line;
-}
-
-
-bool please_stop;		/* could be set by signal */
-
-void waitFor(unsigned dt)
-{
-	static int dt1;
-
-	if (dt > dt1){
-		unsigned ddt = dt - dt1;
-		struct timespec ts = {};
-		struct timespec rem;
-
-		if (ddt >= 1000){
-			ts.tv_sec = ddt/1000;
-			ddt -= 1000*ts.tv_sec;
-		}
-		ts.tv_nsec = ddt*1000000;
-		if (nanosleep(&ts, &rem)){
-			nanosleep(&rem, &rem);	/* we had a signal .. continue */
-		}
-	}
-	dt1 = dt;
-}
-
-void prompt() {
-	printf("dawg> "); fflush(stdout);
-}
-
-typedef list<DawgEntry*>::iterator DEI;
-
-class Sequence {
-	list <DawgEntry*> instructions;
-	DEI loop_first;
-	DawgEntry* last_in_loop;
-	DawgEntry* loop_first2;		/* use this entry first second time round */
-
-	void getIteratorAt(DEI& it, DawgEntry *entry) {
-		for (it = instructions.begin(); it != instructions.end(); ++it){
-			if (*it == entry){
-				return;
-			}
-		}
-		assert(false);
-	}
-	void exec(DEI& it);
-public:
-	void build();
-	void print();
-	void run();
-};
-
-
-
-void Sequence::build(void)
-{
-	if (UI::verbose){
-		fprintf(stderr, "\n\nbuild ----------------\n");
-	}
-	FILE* fp = fopen(UI::fname, "r");
-	if (fp == 0){
-		perror(UI::fname);
-		exit(1);
-	}
-	char* seq_line = new char[256];
-	char* first_entry_def = 0;
-	DawgEntry *prev = 0;
-	DawgEntry *now;
-	bool is_first_entry = true;
-
-	instructions.push_back(prev = DawgEntry::createAllOpen(prev));
-
-	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
-		if (strlen(seq_line) < 3){
-			continue;
-		}else if (seq_line[0] == '#'){
-			continue;
-		}else{
-			now = DawgEntry::create(chomp(seq_line), prev);
-
-			if (now){
-				instructions.push_back(now);
-				if (is_first_entry){
-					first_entry_def = seq_line;
-					seq_line = new char[256];
-					getIteratorAt(loop_first, now);
-					is_first_entry = false;
-				}
-				prev = now;
-			}else{
-				fprintf(stderr,
-					"ERROR: parse failed at line %d\n", nl);
-				exit(1);
-			}
-		}
-	}
-	fclose(fp);
-	last_in_loop = prev;
-	loop_first2 = DawgEntry::create(strcat(first_entry_def, " loop_first2"), prev);
-
-	instructions.push_back(DawgEntry::createAllOpen(prev));
-
-	delete [] seq_line;
-	if (first_entry_def) delete [] first_entry_def;
-}
-
-
-void Sequence::print(void)
-{
-	DEI it;
-
-	for (it = instructions.begin(); it != instructions.end(); ++it){
-		(*it)->print();
-	}
-}
-
-void Sequence::exec(DEI& it)
-{
-	waitFor((*it)->abstime * UI::timescaler);
-	(*it)->exec();
-}
-void Sequence::run(void)
-{
-	if (UI::verbose){
-		fprintf(stderr, "\n\nrun ----------------\n");
-	}
-	chdir(DawgEntry::knobs);
-	DEI it = instructions.begin();
-
-	(*it)->exec();
-	DEI start = ++it;
-
-	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
-		if (UI::verbose){
-			fprintf(stderr, "\n\nloop: %d\n", iter);
-		}
-		for (it = start; it != instructions.end(); ++it){
-			exec(it);
-			if ((*it) == last_in_loop){
-				++it;
-				break;
-			}
-		}
-
-		if (please_stop){
-			break;
-		}
-	}
-
-	if (UI::verbose){
-		fprintf(stderr, "finish up\n");
-	}
-	for (; it != instructions.end(); ++it){
-		exec(it);
 	}
 }
 
