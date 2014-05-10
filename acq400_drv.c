@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.535"
+#define REVID "2.539"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1117,6 +1117,8 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 
 	if (dma_stop){
 		_acq420_continuous_dma_stop(adev);
+	}else{
+		adev->stats.run = 0;
 	}
 
 	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",

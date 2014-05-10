@@ -856,11 +856,12 @@ static ssize_t show_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const int reg_off)
+	const int reg_off,
+	const char* fmt)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 reg = acq400rd32(adev, reg_off);
-	return sprintf(buf, "0x%08x\n", reg);
+	return sprintf(buf, fmt, reg);
 }
 
 static ssize_t store_reg(
@@ -871,13 +872,13 @@ static ssize_t store_reg(
 	const int reg_off)
 {
 	u32 reg;
-	if (sscanf(buf, "%x", &reg) == 1){
+	if (sscanf(buf, "0x%x", &reg) == 1 || sscanf(buf, "%u", &reg) == 1){
 		struct acq400_dev* adev = acq400_devices[dev->id];
 		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_BEFORE) != 0){
 			acq400rd32(adev, reg_off);
 		}
 		acq400wr32(adev, reg_off, reg);
-		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_BEFORE) != 0){
+		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_AFTER) != 0){
 			u32 regr = acq400rd32(adev, reg_off);
 			if (regr != reg){
 				dev_warn(DEVP(adev),
@@ -892,24 +893,24 @@ static ssize_t store_reg(
 }
 
 
-#define MAKE_REG_RO(kname, REG)						\
+#define MAKE_REG_RO(kname, REG, FMT)					\
 static ssize_t show_reg_##REG(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, REG);				\
+	return show_reg(dev, attr, buf, REG, FMT);			\
 }									\
 									\
 static DEVICE_ATTR(kname, S_IRUGO, show_reg_##REG, 0)
 
-#define MAKE_REG_RW(kname, REG)						\
+#define MAKE_REG_RW(kname, REG, FMT)					\
 static ssize_t show_reg_##REG(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, REG);				\
+	return show_reg(dev, attr, buf, REG, FMT);			\
 }									\
 									\
 static ssize_t store_reg_##REG(						\
@@ -922,11 +923,11 @@ static ssize_t store_reg_##REG(						\
 }									\
 static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
 
-MAKE_REG_RW(sw_emb_word1, SW_EMB_WORD1);
-MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2);
-MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH);
+MAKE_REG_RW(sw_emb_word1, SW_EMB_WORD1, "0x%08x\n");
+MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2, "0x%08x\n");
+MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH,	"%u\n");
 
-MAKE_REG_RW(rtm_translen, ADC_TRANSLEN);
+MAKE_REG_RW(rtm_translen, ADC_TRANSLEN, "%u\n");
 
 
 static ssize_t show_nbuffers(
@@ -1484,10 +1485,11 @@ static ssize_t store_nacc(
 	u32 nacc;
 	u32 divider = 0;
 
-	if (sscanf(buf, "%u,%u", &nacc, &divider) > 1){
+	if (sscanf(buf, "%u,%u", &nacc, &divider) >= 1){
 		u32 acc_dec = nacc;
 		unsigned shift;
 
+		if (divider == 0) divider = nacc;	/* most of the time, this is what you want! */
 		if (acc_dec > 0) 	acc_dec -= 1;
 		if (acc_dec == 0) 	divider = 1;
 		acc_dec &= ADC_ACC_DEC_LEN;
