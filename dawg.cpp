@@ -278,14 +278,13 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 
 	if ((UI::mode == UNTIL_STATE? f1: f3)[0] == '+'){
 		int _dt = atoi(UI::mode == UNTIL_STATE? f1: f3);
-		_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
-		_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
 		_abstime += _dt;
 	}else{
 		_abstime = atoi(UI::mode == UNTIL_STATE? f1: f3);
-		_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
-		_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
+
 	}
+	_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
+	_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
 
 	if (_prev == 0){
 		if (_abstime != 0){
@@ -397,12 +396,16 @@ char *chomp(char *line)
 
 bool please_stop;		/* could be set by signal */
 
-void waitFor(unsigned dt)
+void waitUntil(unsigned deadline)
 {
-	static int dt1;
+	static int deadline0;
 
-	if (dt > dt1){
-		unsigned ddt = dt - dt1;
+	if (UI::verbose > 1){
+		printf("waitUntil %d\n", deadline);
+	}
+
+	if (deadline > deadline0){
+		unsigned ddt = deadline - deadline0;
 		struct timespec ts = {};
 		struct timespec rem;
 
@@ -415,7 +418,7 @@ void waitFor(unsigned dt)
 			nanosleep(&rem, &rem);	/* we had a signal .. continue */
 		}
 	}
-	dt1 = dt;
+	deadline0 = deadline;
 }
 
 typedef list<DawgEntry*>::iterator DEI;
@@ -428,7 +431,7 @@ public:
 class UntilStateSequenceExecutor: public SequenceExecutor {
 public:
 	virtual void exec(DEI& it) {
-		waitFor((*it)->abstime * UI::timescaler);
+		waitUntil((*it)->abstime * UI::timescaler);
 		(*it)->exec();
 	}
 };
@@ -436,7 +439,7 @@ class StateWhileSequenceExecutor: public SequenceExecutor {
 public:
 	virtual void exec(DEI& it) {
 		(*it)->exec();
-		waitFor((*it)->abstime * UI::timescaler);
+		waitUntil((*it)->abstime * UI::timescaler);
 	}
 };
 
@@ -618,6 +621,14 @@ void ui(int argc, const char* argv[])
 		default:
 			;
 		}
+	}
+
+	if (UI::verbose > 1){
+		printf("command line was:");
+		for (int ii = 0; ii < argc; ++ii){
+			printf("%s ", argv[ii]);
+		}
+		printf("\n");
 	}
 }
 
