@@ -458,7 +458,7 @@ void waitFor(unsigned dt)
 		struct timespec ts = {};
 		struct timespec rem;
 
-		if (ddt > 1000){
+		if (ddt >= 1000){
 			ts.tv_sec = ddt/1000;
 			ddt -= 1000*ts.tv_sec;
 		}
