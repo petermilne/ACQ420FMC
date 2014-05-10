@@ -142,7 +142,7 @@ public:
 };
 
 class ScratchpadReportingDawgEntry: public DawgEntry {
-
+	virtual void _exec();
 public:
 	ScratchpadReportingDawgEntry(const char* _def, const u32 _abstime,
 			const u32 _ch01, const u32 _ch02, DawgEntry* _prev):
@@ -301,15 +301,13 @@ DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 	return allOpen;
 }
 
-void ScratchpadReportingDawgEntry::exec()
+void ScratchpadReportingDawgEntry::_exec()
 {
 	Scratchpad& sp(Scratchpad::instance());
 
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
 	DawgEntry::exec();
-	if (UI::dry_run){
-		return;
-	}
+
 	/* BIG hammer test for MUX2 write damaging MUX1 */
 	do {
 		sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
@@ -324,6 +322,16 @@ void ScratchpadReportingDawgEntry::exec()
 			sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
 			sp.set(Scratchpad::SP_MUX_CH02, chx[1]);
 		} while (sp.get(Scratchpad::SP_MUX_CH01) != chx[0]);
+	}
+}
+
+void ScratchpadReportingDawgEntry::exec()
+{
+	if (UI::dry_run){
+		DawgEntry::exec();
+		return;
+	}else{
+		_exec();
 	}
 }
 
