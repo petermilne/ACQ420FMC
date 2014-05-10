@@ -164,7 +164,7 @@ DawgEntry::DawgEntry(const char* _def, const u32 _abstime,
 {
 	def = new char[strlen(_def)+1];
 	strcpy(def, _def);
-	serial = ++last_serial;
+	serial = last_serial++;
 	chx[0] = _ch01;
 	chx[1] = _ch02;
 
@@ -257,6 +257,9 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	unsigned  _ch01, _ch02;
 	int nscan;
 
+	if (UI::verbose > 2){
+		fprintf(stderr, "Scanning \"%s\"\n", _def);
+	}
 	if (_def[0] == '+'){
 		int _dt;
 
@@ -285,8 +288,14 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 		}
 	}
 
-	return new ScratchpadReportingDawgEntry(
+	DawgEntry* entry = new ScratchpadReportingDawgEntry(
 				_def, _abstime, _ch01, _ch02, _prev);
+
+	entry->finalize();
+	if (UI::verbose > 1){
+		entry->print();
+	}
+	return entry;
 }
 
 DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
@@ -298,6 +307,7 @@ DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 	}
 	DawgEntry *allOpen = new ScratchpadReportingDawgEntry(
 		"all open",   0, 0, 0, prev);
+	allOpen->finalize();
 	return allOpen;
 }
 
@@ -439,10 +449,19 @@ typedef list<DawgEntry*>::iterator DEI;
 
 class Sequence {
 	list <DawgEntry*> instructions;
-	DEI* loop_first;
-	DEI* loop_end;
+	DEI loop_first;
+	DawgEntry* last_in_loop;
 	DawgEntry* loop_first2;		/* use this entry first second time round */
 
+	void getIteratorAt(DEI& it, DawgEntry *entry) {
+		for (it = instructions.begin(); it != instructions.end(); ++it){
+			if (*it == entry){
+				return;
+			}
+		}
+		assert(false);
+	}
+	void exec(DEI& it);
 public:
 	void build();
 	void print();
@@ -453,19 +472,24 @@ public:
 
 void Sequence::build(void)
 {
+	if (UI::verbose){
+		fprintf(stderr, "\n\nbuild ----------------\n");
+	}
 	FILE* fp = fopen(UI::fname, "r");
 	if (fp == 0){
 		perror(UI::fname);
 		exit(1);
 	}
 	char* seq_line = new char[256];
+	char* first_entry_def = 0;
 	DawgEntry *prev = 0;
 	DawgEntry *now;
+	bool is_first_entry = true;
 
 	instructions.push_back(prev = DawgEntry::createAllOpen(prev));
 
 	for (int nl = 0; fgets(seq_line, 255, fp); ++nl){
-		if (strlen(seq_line) < 2){
+		if (strlen(seq_line) < 3){
 			continue;
 		}else if (seq_line[0] == '#'){
 			continue;
@@ -474,6 +498,12 @@ void Sequence::build(void)
 
 			if (now){
 				instructions.push_back(now);
+				if (is_first_entry){
+					first_entry_def = seq_line;
+					seq_line = new char[256];
+					getIteratorAt(loop_first, now);
+					is_first_entry = false;
+				}
 				prev = now;
 			}else{
 				fprintf(stderr,
@@ -483,13 +513,13 @@ void Sequence::build(void)
 		}
 	}
 	fclose(fp);
+	last_in_loop = prev;
+	loop_first2 = DawgEntry::create(strcat(first_entry_def, " loop_first2"), prev);
 
 	instructions.push_back(DawgEntry::createAllOpen(prev));
-	DEI it;
 
-	for (it = instructions.begin(); it != instructions.end(); ++it){
-		(*it)->finalize();
-	}
+	delete [] seq_line;
+	if (first_entry_def) delete [] first_entry_def;
 }
 
 
@@ -502,9 +532,16 @@ void Sequence::print(void)
 	}
 }
 
-
+void Sequence::exec(DEI& it)
+{
+	waitFor((*it)->abstime * UI::timescaler);
+	(*it)->exec();
+}
 void Sequence::run(void)
 {
+	if (UI::verbose){
+		fprintf(stderr, "\n\nrun ----------------\n");
+	}
 	chdir(DawgEntry::knobs);
 	DEI it = instructions.begin();
 
@@ -515,11 +552,17 @@ void Sequence::run(void)
 		prompt();
 	}
 
-	int iter = 0;
-	while ( ++iter <= UI::repeat_count){
+
+	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
+		if (UI::verbose){
+			fprintf(stderr, "\n\nloop: %d\n", iter);
+		}
 		for (it = start; it != instructions.end(); ++it){
-			waitFor((*it)->abstime * UI::timescaler);
-			(*it)->exec();
+			exec(it);
+			if ((*it) == last_in_loop){
+				++it;
+				break;
+			}
 		}
 
 		if (please_stop){
@@ -535,6 +578,13 @@ void Sequence::run(void)
 				prompt();
 			}
 		}
+	}
+
+	if (UI::verbose){
+		fprintf(stderr, "finish up\n");
+	}
+	for (; it != instructions.end(); ++it){
+		exec(it);
 	}
 
 	if (UI::interactive){
