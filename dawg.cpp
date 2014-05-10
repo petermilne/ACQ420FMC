@@ -339,23 +339,12 @@ void ScratchpadReportingDawgEntry::_exec()
 	Scratchpad& sp(Scratchpad::instance());
 
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
+
 	DawgEntry::exec();
 
-	/* BIG hammer test for MUX2 write damaging MUX1 */
-	do {
-		sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
-		sp.set(Scratchpad::SP_MUX_CH02, chx[1]);
-	} while (sp.get(Scratchpad::SP_MUX_CH01) != chx[0]);
-
+	sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
+	sp.set(Scratchpad::SP_MUX_CH02, chx[1]);
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_DONE);
-
-	/* BIG hammer test for SP_MUX_STATUS_BUSY write hosing MUX2 */
-	if (sp.get(Scratchpad::SP_MUX_CH02) != chx[1]){
-		do {
-			sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
-			sp.set(Scratchpad::SP_MUX_CH02, chx[1]);
-		} while (sp.get(Scratchpad::SP_MUX_CH01) != chx[0]);
-	}
 }
 
 void ScratchpadReportingDawgEntry::exec()
