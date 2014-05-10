@@ -74,7 +74,6 @@ namespace UI {
 	int repeat_count = 1;
 	int timescaler = 1;
 	bool print_quit;
-	bool interactive;
 	int site = 5;
 	int sched_fifo = 0;
 };
@@ -370,8 +369,6 @@ struct poptOption opt_table[] = {
 			"repeat count [1]"			},
 	{ "slow",       0, POPT_ARG_INT,  &UI::timescaler, 0,
 			"slow down by factor N [1]"		},
-	{ "interactive", 'i', POPT_ARG_NONE, 0, 'i',
-			"controlled from stdin"			},
 	{ "site",        'S', POPT_ARG_INT, &UI::site, 0,
 			"site of AO421"				},
 	{ "realtime", 'R',  POPT_ARG_INT, &UI::sched_fifo, 'R',
@@ -393,9 +390,6 @@ void ui(int argc, const char* argv[])
 			UI::dry_run = 1;
 			UI::verbose += 2;
 			fprintf(stderr, "Dry Run, verbose set: %d\n", UI::verbose);
-			break;
-		case 'i':
-			UI::interactive = true;
 			break;
 		case 'R':
 			set_hi_priority();
@@ -548,11 +542,6 @@ void Sequence::run(void)
 	(*it)->exec();
 	DEI start = ++it;
 
-	if (UI::interactive){
-		prompt();
-	}
-
-
 	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
 		if (UI::verbose){
 			fprintf(stderr, "\n\nloop: %d\n", iter);
@@ -568,16 +557,6 @@ void Sequence::run(void)
 		if (please_stop){
 			break;
 		}
-		if (UI::interactive){
-			if(is_ready(0)){
-				switch(getchar()){
-				case 'Q':
-					printf("user quit\n");
-					return;
-				}
-				prompt();
-			}
-		}
 	}
 
 	if (UI::verbose){
@@ -585,10 +564,6 @@ void Sequence::run(void)
 	}
 	for (; it != instructions.end(); ++it){
 		exec(it);
-	}
-
-	if (UI::interactive){
-		printf("complete\n");
 	}
 }
 
