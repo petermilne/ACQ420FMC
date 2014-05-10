@@ -86,19 +86,7 @@ namespace UI {
 #define KNOBS	"./TEST"
 
 #include <stdio.h>
-#include <sys/select.h>
 
-int is_ready(int fd) {
-	fd_set fdset;
-	struct timeval timeout;
-	int ret;
-	FD_ZERO(&fdset);
-	FD_SET(fd, &fdset);
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 1;
-	//int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-	return select(fd+1, &fdset, NULL, NULL, &timeout) == 1 ? 1 : 0;
-}
 
 class DawgEntry {
 	static int last_serial;
@@ -276,11 +264,11 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 		return 0;
 	}
 
-	if ((UI::mode == UNTIL_STATE? f1: f3)[0] == '+'){
-		int _dt = atoi(UI::mode == UNTIL_STATE? f1: f3);
-		_abstime += _dt;
+	char* tdef = UI::mode == UNTIL_STATE? f1: f3;
+	if (tdef[0] == '+'){
+		_abstime += atoi(tdef);
 	}else{
-		_abstime = atoi(UI::mode == UNTIL_STATE? f1: f3);
+		_abstime = atoi(tdef);
 
 	}
 	_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
