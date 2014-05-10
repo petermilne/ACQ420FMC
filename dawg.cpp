@@ -110,6 +110,7 @@ class DawgEntry {
 protected:
 	u32 chx[MAXCHAN];	/* should be const, but hard to init */
 
+
 	DawgEntry(const char* _def, const u32 _abstime,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev);
 
@@ -136,6 +137,8 @@ public:
 	static void printList(list<const char*> &the_list, const char* label);
 
 	virtual void exec();
+	/* never create an instance of DawgEntry */
+	virtual bool is_usable() = 0;
 };
 
 class ScratchpadReportingDawgEntry: public DawgEntry {
@@ -147,6 +150,7 @@ public:
 	{}
 
 	virtual void exec();
+	virtual bool is_usable() { return true; };
 };
 
 
@@ -280,22 +284,19 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 			return 0;
 		}
 	}
-	if (!UI::dry_run){
-		return new ScratchpadReportingDawgEntry(
+
+	return new ScratchpadReportingDawgEntry(
 				_def, _abstime, _ch01, _ch02, _prev);
-	}else{
-		return new DawgEntry(_def, _abstime, _ch01, _ch02, _prev);
-	}
 }
 
 DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 {
 	if (prev == 0){
-		DawgEntry *allClosed = new DawgEntry(
+		DawgEntry *allClosed = new ScratchpadReportingDawgEntry(
 			"all closed", 0, ALL_CLOSED_MASK, ALL_CLOSED_MASK, 0);
 		prev = allClosed;
 	}
-	DawgEntry *allOpen = new DawgEntry(
+	DawgEntry *allOpen = new ScratchpadReportingDawgEntry(
 		"all open",   0, 0, 0, prev);
 	return allOpen;
 }
@@ -306,6 +307,9 @@ void ScratchpadReportingDawgEntry::exec()
 
 	sp.set(Scratchpad::SP_MUX_STATUS, Scratchpad::SP_MUX_STATUS_BUSY);
 	DawgEntry::exec();
+	if (UI::dry_run){
+		return;
+	}
 	/* BIG hammer test for MUX2 write damaging MUX1 */
 	do {
 		sp.set(Scratchpad::SP_MUX_CH01, chx[0]);
