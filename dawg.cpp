@@ -268,11 +268,11 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 
 
 	if (UI::verbose > 2){
-		fprintf(stderr, "Scanning \"%s\"\n", _def);
+		printf( "Scanning \"%s\"\n", _def);
 	}
 
 	if ((nscan = sscanf(_def, "%79s %79s %79s", f1, f2, f3)) < 3){
-		fprintf(stderr, "ERROR in scan [%d] \"%s\"\n", nscan, _def);
+		printf( "ERROR in scan [%d] \"%s\"\n", nscan, _def);
 		return 0;
 	}
 
@@ -289,12 +289,12 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 
 	if (_prev == 0){
 		if (_abstime != 0){
-			fprintf(stderr, "ERROR: first entry abstime not zero\n");
+			printf( "ERROR: first entry abstime not zero\n");
 			return 0;
 		}
 	}else{
 		if (_abstime < _prev->abstime){
-			fprintf(stderr, "ERROR: abstime not monotonic\n");
+			printf( "ERROR: abstime not monotonic\n");
 			return 0;
 		}
 	}
@@ -378,7 +378,7 @@ void set_hi_priority() {
 	if (rc != 0){
 		perror("sched_setscheduler()");
 	}else{
-		fprintf(stderr, "SCHED_FIFO set\n");
+		printf( "SCHED_FIFO set\n");
 	}
 }
 
@@ -468,7 +468,7 @@ public:
 void Sequence::build(void)
 {
 	if (UI::verbose){
-		fprintf(stderr, "\n\nbuild ----------------\n");
+		printf( "\n\nbuild ----------------\n");
 	}
 	FILE* fp = fopen(UI::fname, "r");
 	if (fp == 0){
@@ -493,13 +493,13 @@ void Sequence::build(void)
 			if (strcmp(style, "STATE_WHILE") == 0){
 				UI::mode = STATE_WHILE;
 				executor = new StateWhileSequenceExecutor;
-				fprintf(stderr, "set style STATE_WHILE\n");
+				printf( "set style STATE_WHILE\n");
 			}else if (strcmp(style, "UNTIL_STATE") == 0){
 				UI::mode = UNTIL_STATE;
 				executor = new UntilStateSequenceExecutor;
-				fprintf(stderr, "set style UNTIL_STATE\n");
+				printf( "set style UNTIL_STATE\n");
 			}else{
-				fprintf(stderr, "ERROR: style choice STATE_WHILE or UNTIL_STATE\n");
+				printf( "ERROR: style choice STATE_WHILE or UNTIL_STATE\n");
 				exit(1);
 			}
 		}else{
@@ -515,7 +515,7 @@ void Sequence::build(void)
 				}
 				prev = now;
 			}else{
-				fprintf(stderr,
+				printf(
 					"ERROR: parse failed at line %d\n", nl);
 				exit(1);
 			}
@@ -545,7 +545,7 @@ void Sequence::print(void)
 void Sequence::run(void)
 {
 	if (UI::verbose){
-		fprintf(stderr, "\n\nrun ----------------\n");
+		printf( "\n\nrun ----------------\n");
 	}
 	chdir(DawgEntry::knobs);
 	DEI it = instructions.begin();
@@ -555,7 +555,7 @@ void Sequence::run(void)
 
 	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
 		if (UI::verbose){
-			fprintf(stderr, "\n\nloop: %d\n", iter);
+			printf( "\n\nloop: %d\n", iter);
 		}
 		for (it = start; it != instructions.end(); ++it){
 			executor->exec(it);
@@ -571,7 +571,7 @@ void Sequence::run(void)
 	}
 
 	if (UI::verbose){
-		fprintf(stderr, "finish up\n");
+		printf( "finish up\n");
 	}
 	for (; it != instructions.end(); ++it){
 		executor->exec(it);
@@ -610,7 +610,7 @@ void ui(int argc, const char* argv[])
 		case 'D':
 			UI::dry_run = 1;
 			UI::verbose += 2;
-			fprintf(stderr, "Dry Run, verbose set: %d\n", UI::verbose);
+			printf( "Dry Run, verbose set: %d\n", UI::verbose);
 			break;
 		case 'R':
 			set_hi_priority();
