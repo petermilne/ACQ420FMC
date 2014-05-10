@@ -397,8 +397,6 @@ void ui(int argc, const char* argv[])
 }
 
 
-list <DawgEntry*> instructions;
-
 char *chomp(char *line)
 {
 	char *nl;
@@ -408,7 +406,52 @@ char *chomp(char *line)
 	}
 	return line;
 }
-void build_sequence(void)
+
+
+bool please_stop;		/* could be set by signal */
+
+void waitFor(unsigned dt)
+{
+	static int dt1;
+
+	if (dt > dt1){
+		unsigned ddt = dt - dt1;
+		struct timespec ts = {};
+		struct timespec rem;
+
+		if (ddt >= 1000){
+			ts.tv_sec = ddt/1000;
+			ddt -= 1000*ts.tv_sec;
+		}
+		ts.tv_nsec = ddt*1000000;
+		if (nanosleep(&ts, &rem)){
+			nanosleep(&rem, &rem);	/* we had a signal .. continue */
+		}
+	}
+	dt1 = dt;
+}
+
+void prompt() {
+	printf("dawg> "); fflush(stdout);
+}
+
+typedef list<DawgEntry*>::iterator DEI;
+
+class Sequence {
+	list <DawgEntry*> instructions;
+	DEI* loop_first;
+	DEI* loop_end;
+	DawgEntry* loop_first2;		/* use this entry first second time round */
+
+public:
+	void build();
+	void print();
+	void run();
+};
+
+
+
+void Sequence::build(void)
 {
 	FILE* fp = fopen(UI::fname, "r");
 	if (fp == 0){
@@ -442,7 +485,7 @@ void build_sequence(void)
 	fclose(fp);
 
 	instructions.push_back(DawgEntry::createAllOpen(prev));
-	list<DawgEntry*>::iterator it;
+	DEI it;
 
 	for (it = instructions.begin(); it != instructions.end(); ++it){
 		(*it)->finalize();
@@ -450,48 +493,23 @@ void build_sequence(void)
 }
 
 
-void print_sequence(void)
+void Sequence::print(void)
 {
-	list<DawgEntry*>::iterator it;
+	DEI it;
 
 	for (it = instructions.begin(); it != instructions.end(); ++it){
 		(*it)->print();
 	}
 }
 
-bool please_stop;		/* could be set by signal */
 
-void waitFor(unsigned dt)
-{
-	static int dt1;
-
-	if (dt > dt1){
-		unsigned ddt = dt - dt1;
-		struct timespec ts = {};
-		struct timespec rem;
-
-		if (ddt >= 1000){
-			ts.tv_sec = ddt/1000;
-			ddt -= 1000*ts.tv_sec;
-		}
-		ts.tv_nsec = ddt*1000000;
-		if (nanosleep(&ts, &rem)){
-			nanosleep(&rem, &rem);	/* we had a signal .. continue */
-		}
-	}
-	dt1 = dt;
-}
-
-void prompt() {
-	printf("dawg> "); fflush(stdout);
-}
-void run_sequence(void)
+void Sequence::run(void)
 {
 	chdir(DawgEntry::knobs);
-	list<DawgEntry*>::iterator it = instructions.begin();
+	DEI it = instructions.begin();
 
 	(*it)->exec();
-	list<DawgEntry*>::iterator start = ++it;
+	DEI start = ++it;
 
 	if (UI::interactive){
 		prompt();
@@ -527,11 +545,14 @@ void run_sequence(void)
 int main(int argc, const char* argv[])
 {
 	ui(argc, argv);
-	build_sequence();
+
+	Sequence seq;
+	seq.build();
+
 	if (UI::print_quit){
-		print_sequence();
+		seq.print();
 	}else{
-		run_sequence();
+		seq.run();
 	}
 	return 0;
 }
