@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.539"
+#define REVID "2.540"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -271,12 +271,6 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
 	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
-	if (rev < 3){
-	   	dev_err(DEVP(adev),
-	      	"OBSOLETE FPGA IMAGE %u < 3, please update", rev);
-	}else{
-	     	dev_info(DEVP(adev), "FPGA image %u >= 3: OK", rev);
-	}
 
 	dev_info(DEVP(adev), "ACQ420 device init");
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
@@ -284,7 +278,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->adc_18b = adc_18b;
 	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
-	adev->nchan_enabled = 4;
+	adev->nchan_enabled = IS_ACQ425(adev)? 16: 4;
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
@@ -2573,23 +2567,23 @@ static int acq400_probe(struct platform_device *pdev)
   		goto fail;
   	}
 
-  	switch(GET_MOD_ID(adev)){
-  	case MOD_ID_ACQ420FMC:
-  	case MOD_ID_ACQ420FMC_2000:
+  	if (IS_ACQ42X(adev)){
   		acq420_init_defaults(adev);
-  		break;
-  	case MOD_ID_ACQ430FMC:
-  	case MOD_ID_ACQ435ELF:
-  		acq43X_init_defaults(adev);
-  		break;
-  	case MOD_ID_AO420FMC:
-  		ao420_init_defaults(adev);
-  		break;
-  	case MOD_ID_BOLO8:
-  		bolo8_init_defaults(adev);
-  	default:
-  		dev_warn(DEVP(adev), "no custom init for module type %x",
+  	}else{
+  		switch(GET_MOD_ID(adev)){
+  		case MOD_ID_ACQ430FMC:
+  		case MOD_ID_ACQ435ELF:
+  			acq43X_init_defaults(adev);
+  			break;
+  		case MOD_ID_AO420FMC:
+  			ao420_init_defaults(adev);
+  			break;
+  		case MOD_ID_BOLO8:
+  			bolo8_init_defaults(adev);
+  		default:
+  			dev_warn(DEVP(adev), "no custom init for module type %x",
   		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);
+  		}
   	}
         acq400_createSysfs(&pdev->dev);
         acq400_init_proc(adev);

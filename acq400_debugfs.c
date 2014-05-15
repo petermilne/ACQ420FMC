@@ -221,24 +221,24 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 	}
 	DBG_REG_CREATE(MOD_ID);
 
-	switch(GET_MOD_ID(adev)){
-	case MOD_ID_BOLO8:
-		bolo8_createDebugfs(adev, pcursor);
-		break;
-	case MOD_ID_AO420FMC:
-		ao420_createDebugfs(adev, pcursor);
-		break;
-	case MOD_ID_ACQ420FMC:
-	case MOD_ID_ACQ420FMC_2000:
+	if (IS_ACQ42X(adev)){
 		acq420_createDebugfs(adev, pcursor);
-		break;
-	case MOD_ID_ACQ435ELF:
-	case MOD_ID_ACQ430FMC:
-		acq43x_createDebugfs(adev, pcursor);
-		break;
-	default:
-		dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
+	}else{
+		switch(GET_MOD_ID(adev)){
+		case MOD_ID_BOLO8:
+			bolo8_createDebugfs(adev, pcursor);
+			break;
+		case MOD_ID_AO420FMC:
+			ao420_createDebugfs(adev, pcursor);
+			break;
+		case MOD_ID_ACQ435ELF:
+		case MOD_ID_ACQ430FMC:
+			acq43x_createDebugfs(adev, pcursor);
+			break;
+		default:
+			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
 				GET_MOD_ID(adev));
+		}
 	}
 }
 

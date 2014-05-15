@@ -116,6 +116,7 @@
 #define MOD_ID_ACQ430FMC	3
 #define MOD_ID_ACQ440FMC	4
 #define MOD_ID_ACQ425ELF	5
+#define MOD_ID_ACQ425ELF_2000	0xa5
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
@@ -460,8 +461,27 @@ int getHeadroom(struct acq400_dev *adev);
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
 #define GET_MOD_ID(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL)
+
+static inline int _is_acq42x(struct acq400_dev *adev) {
+	switch(GET_MOD_ID(adev)){
+	case MOD_ID_ACQ420FMC:
+	case MOD_ID_ACQ420FMC_2000:
+	case MOD_ID_ACQ425ELF:
+	case MOD_ID_ACQ425ELF_2000:
+		return true;
+	default:
+		return false;
+	}
+
+}
+
 #define IS_ACQ420(adev) \
-	(GET_MOD_ID(adev)==MOD_ID_ACQ420FMC || GET_MOD_ID(adev)==MOD_ID_ACQ420FMC_2000)
+	(GET_MOD_ID(adev) == MOD_ID_ACQ420FMC || GET_MOD_ID(adev) == MOD_ID_ACQ420FMC_2000)
+#define IS_ACQ425(adev)	\
+	(GET_MOD_ID(adev) == MOD_ID_ACQ425ELF || GET_MOD_ID(adev) == MOD_ID_ACQ425ELF_2000)
+
+#define IS_ACQ42X(adev) _is_acq42x(adev)
+
 #define IS_ACQ435(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ435ELF)
 #define IS_ACQ430(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ430FMC)
 #define IS_ACQ43X(adev)	(IS_ACQ435(adev) || IS_ACQ430(adev))

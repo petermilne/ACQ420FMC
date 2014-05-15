@@ -1394,6 +1394,7 @@ static ssize_t show_module_name(
 	case MOD_ID_ACQ440FMC:
 		name = "acq440fmc"; break;
 	case MOD_ID_ACQ425ELF:
+	case MOD_ID_ACQ425ELF_2000:
 		name = "acq425elf"; break;
 	case MOD_ID_AO420FMC:
 		name = "ao420fmc"; break;
@@ -2533,7 +2534,7 @@ void acq400_createSysfs(struct device *dev)
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");
 		}
-		if (IS_ACQ420(adev)){
+		if (IS_ACQ42X(adev)){
 			specials = acq420_attrs;
 		}else if (IS_ACQ43X(adev)){
 			specials = acq435_attrs;

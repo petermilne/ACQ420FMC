@@ -126,7 +126,10 @@ customize_acq420()
 			case $BITS in
 			18)
 				set.sys /dev/acq400.$1.knobs/data32 1
-				set.sys /dev/acq400.$1.knobs/adc_18b 1;;
+				set.sys /dev/acq400.$1.knobs/adc_18b 1
+				get.sys /dev/acq400.$1.knobs/data32
+				get.sys /dev/acq400.$1.knobs/adc_18b
+				;;
 			*)
 				set.sys /dev/acq400.$1.knobs/data32 0
 				set.sys /dev/acq400.$1.knobs/adc_18b 0;;
@@ -153,9 +156,8 @@ build_knobs_device() {
 	echo build_knobs_device site:$site mtype:$mtype
 	
 	case $mtype in
-	1|A1)	
-		customize_acq420 $site		
-		;;
+	1|A1|5|A5)	
+		customize_acq420 $site;;
 	FF)    
 		return;;
 	2|3)
