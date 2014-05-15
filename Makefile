@@ -7,6 +7,7 @@ obj-m += debugfs2.o
 obj-m += pl330_fs.o
 obj-m += pl330.o
 obj-m += bolo8_drv.o
+obj-m += acq425_drv.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
