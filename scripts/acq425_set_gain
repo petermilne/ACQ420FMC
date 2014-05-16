@@ -8,9 +8,10 @@ if [ "$id" = "gains" ]; then
 	GAINS=""
 	for ic in $(seq 1 16)
 	do
-		GAINS=$GAINS$(get_gain $ic)
+		GAINS=$GAINS$(/etc/acq400/$SITE/gain$ic)
 	done
 	echo $GAINS	
+	exit 0
 fi
 CH=${id#gain*}
 KNOB1=/dev/acq425/$SITE/ADC_${CH}_A1
