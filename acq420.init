@@ -141,6 +141,7 @@ customize_acq420()
 }
 
 BOLO8_SITES=""
+ACQ425_SITES=""
 
 
 build_knobs_device() {
@@ -156,7 +157,13 @@ build_knobs_device() {
 	echo build_knobs_device site:$site mtype:$mtype
 	
 	case $mtype in
-	1|A1|5|A5)	
+	5|A5)
+		if [ "x$ACQ425_SITES" != "x" ]; then
+			ACQ425_SITES="${ACQ425_SITES},"
+		fi		
+		ACQ425_SITES="${ACQ425_SITES}$site"
+		customize_acq420 $site;;
+	1|A1)	
 		customize_acq420 $site;;
 	FF)    
 		return;;
@@ -227,6 +234,9 @@ build_knobs() {
 	
 	if [ "x${BOLO8_SITES}" != "x" ]; then
 		/usr/local/bin/bolo8.init ${BOLO8_SITES}
+	fi
+	if [ "x${ACQ425_SITES}" != "x" ]; then
+		/usr/local/bin/acq425.init ${ACQ425_SITES}
 	fi
 }
 

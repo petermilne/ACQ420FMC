@@ -1,0 +1,32 @@
+#!/bin/sh
+
+SITE=${SITE:-1}
+
+id=$(basename $0)
+CH=${id#gain*}
+KNOB1=/dev/acq425/$SITE/ADC_${CH}_A1
+KNOB0=/dev/acq425/$SITE/ADC_${CH}_A0
+
+set_gain() {
+	set.sys $KNOB1 $1
+	set.sys $KNOB0 $2
+}
+
+get_gain() {
+	bits=$(cat $KNOB1)$(cat $KNOB0)
+	case $bits in
+	11) echo 3;;
+	10) echo 2;;
+	01) echo 1;;
+	*)  echo 0;;
+	esac
+}
+
+case $1 in
+3) set_gain $ch 1 1;;
+2) set_gain $ch 1 0;;
+1) set_gain $ch 0 1;;
+0) set_gain $ch 0 0;;
+*) get_gain $ch;;
+esac
+	

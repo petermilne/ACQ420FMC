@@ -32,7 +32,8 @@ proc link_gpio {lnames pins site gpio1} {
 			puts "lname $name pin $pin gpio $gpx"
 			exec set.sys /sys/class/gpio/export $gpx
 			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
-			exec ln -s /sys/class/gpio/gpio$gpx/value /etc/acq400/$site/$name
+			exec ln -s /sys/class/gpio/gpio$gpx/value \
+				/dev/acq425/$site/$name
 		}
 	}
 }
@@ -60,8 +61,13 @@ if { $::argc > 0 } {
 	exec /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITES
 	
 	foreach site $::argv {
+		exec mkdir -p /dev/acq425/$site
 		link_gpio $LNAMES1 $PINS1 $site [get_gpio1 $site 22]
 		link_gpio $LNAMES2 $PINS2 $site [get_gpio1 $site 23] 
+
+		for {set ic 1} {$ic <= 16} {incr ic} {
+			exec ln -s /usr/local/bin/acq425_set_gain gain$ic
+		}
 	} 	
 } else {
 	puts "usage acq425.init site1[ site 2...]	
