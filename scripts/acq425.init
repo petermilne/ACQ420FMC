@@ -66,6 +66,7 @@ if { $::argc > 0 } {
 		link_gpio $LNAMES2 $PINS2 $site [get_gpio1 $site 23] 
 
 		for {set ic 1} {$ic <= 16} {incr ic} {
+			exec rm -f /etc/acq400/$site/gain$ic
 			exec ln -s /usr/local/bin/acq425_set_gain \
 				/etc/acq400/$site/gain$ic
 		}
