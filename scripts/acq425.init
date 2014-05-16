@@ -70,6 +70,9 @@ if { $::argc > 0 } {
 			exec ln -s /usr/local/bin/acq425_set_gain \
 				/etc/acq400/$site/gain$ic
 		}
+		exec rm -f /etc/acq400/$site/gains
+		exec ln -s /usr/local/bin/acq425_set_gain \
+				/etc/acq400/$site/gains
 	} 	
 } else {
 	puts "usage acq425.init site1[ site 2...]	

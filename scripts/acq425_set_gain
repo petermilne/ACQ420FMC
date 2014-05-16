@@ -3,6 +3,15 @@
 SITE=${SITE:-1}
 
 id=$(basename $0)
+
+if [ "$id" = "gains" ]; then
+	GAINS=""
+	for ic in $(seq 1 16)
+	do
+		GAINS=$GAINS$(get_gain $ic)
+	done
+	echo $GAINS	
+fi
 CH=${id#gain*}
 KNOB1=/dev/acq425/$SITE/ADC_${CH}_A1
 KNOB0=/dev/acq425/$SITE/ADC_${CH}_A0
