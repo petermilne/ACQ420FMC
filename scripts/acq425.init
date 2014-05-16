@@ -28,7 +28,7 @@ proc link_gpio {lnames pins site gpio1} {
 		set name [lindex $lnames $ix]		
 		if { [string length $name] > 0 } {
 			set pin [string trimleft [lindex $pins $ix] P]			
-			set gpx [expr $gpio1 + $pin]
+			set gpx [expr $gpio1 + $ix]
 #			puts "lname $name pin $pin gpio $gpx"
 			exec set.sys /sys/class/gpio/export $gpx
 			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
