@@ -70,9 +70,6 @@ web_append()
 	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
 }
 
-lsmod | grep -q acq4.0FMC
-notloaded=$?
-
 
 build_etc_site() {
 	mkdir -p /etc/acq400/${site}
@@ -261,51 +258,67 @@ set_fans() {
 	[ -x /usr/local/bin/set.fanspeed ] && /usr/local/bin/set.fanspeed
 }
 
-if [ $notloaded -ne 0 ]; then
-	if [ -x /mnt/local/init.pl330.ko ]; then
-		/mnt/local/init.pl330.ko
+
+######## Execution Starts Here 
+
+if [ ! -e /etc/sites ]; then
+	echo "ERROR FPGA not loaded exit now"
+	exit 1	
+fi
+
+lsmod | grep -q acq4.0FMC
+notloaded=$?
+
+if [ $notloaded -eq 0 ]; then
+	echo "module has been loaded already quitting.."	
+	exit 1
+fi
+
+
+if [ -x /mnt/local/init.pl330.ko ]; then
+	/mnt/local/init.pl330.ko
+else
+	if [ -f /mnt/local/pl330.ko ]; then
+		MOD=/mnt/local/pl330.ko
 	else
-		if [ -f /mnt/local/pl330.ko ]; then
-			MOD=/mnt/local/pl330.ko
-		else
-			MOD=/usr/local/lib/modules/pl330.ko
-		fi
-		/sbin/insmod $MOD
+		MOD=/usr/local/lib/modules/pl330.ko
 	fi
-	
-	if [ -f /mnt/local/acq420fmc.ko ]; then
-		MOD=/mnt/local/acq420fmc.ko
-		echo "WARNING using override driver $MOD"
-	else if [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
-		MOD=/usr/local/lib/modules/acq420fmc.ko
-		else
-			echo "ERROR, module acq420fmc.ko not found" 
+	/sbin/insmod $MOD
+fi
+
+if [ -f /mnt/local/acq420fmc.ko ]; then
+	MOD=/mnt/local/acq420fmc.ko
+	echo "WARNING using override driver $MOD"
+else if [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
+	MOD=/usr/local/lib/modules/acq420fmc.ko
+	else
+		echo "ERROR, module acq420fmc.ko not found" 
 			exit 1
 		fi
 	fi
 
 #	mount -t debugfs none /sys/kernel/debug/
-	echo "for debug:"
-	echo "echo file acq400_drv.c +p" \> /sys/kernel/debug/dynamic_debug/control
-	echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
-	
-	source /etc/sites
-	if [ "x$good_sites" != "x" ]; then
-		GS="good_sites=$good_sites"
-	fi
-	echo insmod $MOD bufferlen=$BLEN $GS
-	sleep 0.2
-	
-	if [ -f /mnt/local/acq420_custom ]; then
-		source /mnt/local/acq420_custom
-	else
-		DRVR_CUSTOM=""
-	fi		
-	insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
-	build_knobs
-	set_fans
-	grep acq4.0 /proc/devices |  build_nodes	
+echo "for debug:"
+echo "echo file acq400_drv.c +p" \> /sys/kernel/debug/dynamic_debug/control
+echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
+
+source /etc/sites
+if [ "x$good_sites" != "x" ]; then
+	GS="good_sites=$good_sites"
 fi
+echo insmod $MOD bufferlen=$BLEN $GS
+sleep 0.2
+
+if [ -f /mnt/local/acq420_custom ]; then
+	source /mnt/local/acq420_custom
+else
+	DRVR_CUSTOM=""
+fi		
+insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
+build_knobs
+set_fans
+grep acq4.0 /proc/devices |  build_nodes	
+
 
 
 nice daemon $WEB_APPEND_JOB
