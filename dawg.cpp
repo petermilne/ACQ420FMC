@@ -376,25 +376,31 @@ bool please_stop;		/* could be set by signal */
 void waitUntil(unsigned deadline)
 {
 	static int deadline0;
-
-	if (UI::verbose > 1){
-		printf("waitUntil %d\n", deadline);
-	}
+	unsigned ddt;
 
 	if (deadline > deadline0){
-		unsigned ddt = deadline - deadline0;
-		struct timespec ts = {};
-		struct timespec rem;
-
-		if (ddt >= 1000){
-			ts.tv_sec = ddt/1000;
-			ddt -= 1000*ts.tv_sec;
-		}
-		ts.tv_nsec = ddt*1000000;
-		if (nanosleep(&ts, &rem)){
-			nanosleep(&rem, &rem);	/* we had a signal .. continue */
-		}
+		ddt = deadline - deadline0;
+	}else{
+		ddt = deadline;			// assume relative timing
 	}
+
+	if (UI::verbose > 1){
+		printf("waitUntil %d actual delay:%d\n", deadline, ddt);
+	}
+
+
+	struct timespec ts = {};
+	struct timespec rem;
+
+	if (ddt >= 1000){
+		ts.tv_sec = ddt/1000;
+		ddt -= 1000*ts.tv_sec;
+	}
+	ts.tv_nsec = ddt*1000000;
+	if (nanosleep(&ts, &rem)){
+		nanosleep(&rem, &rem);	/* we had a signal .. continue */
+	}
+
 	deadline0 = deadline;
 }
 
