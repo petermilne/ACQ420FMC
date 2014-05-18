@@ -1,6 +1,12 @@
 #!/bin/sh
 
-# Simple init for ao421. VALID SITE 5 ONLY
+# Simple init for ao421. VALID for single SITE ONLY
+# new from 20150520 : previously, we relied on a hacked device-tree to instantiate
+# the i2c devices. Now we want to instantiate dynamically.
+# acq425_drv.ko already does this - so we use acq425_drv.ko.
+# NB: NOT COMPATIBLE with ACQ425!
+# acq425_drv.ko will handle multiple AO421 if required, however this script would
+# need to be generalized for that to happen.
 
 # acq2006_001> cat /sys/class/gpio/gpiochip168/label 
 # tca6424
@@ -12,8 +18,8 @@ KDIR=/dev/acq400.${SITE}.knobs
 
 PRSNT=$(cat /dev/gpio/fmc${SITE}_present)
 if [ $PRSNT -ne 1 ]; then
-   echo +++ ERROR: Site ${SITE} empty
-   exit
+	echo "+++ ERROR: ao421.init site ${SITE} empty"
+	exit 1
 fi
 
 setO() {
@@ -34,14 +40,28 @@ let bus=$SITE+1
 CHIP1=$(basename $(echo /sys/bus/i2c/devices/$bus-0023/gpio/gpiochip*))
 CHIP2=$(basename $(echo /sys/bus/i2c/devices/$bus-0022/gpio/gpiochip*))
 
+if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ] then
+	echo did not locate gpiochip at $bus-0023 OR $bus-0022 attempt dynamic setting
+	/sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITE	
+	if [ $? -ne 0 ]; then
+		echo "ERROR: /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITE"
+		exit 1
+	fi
+	CHIP1=$(basename $(echo /sys/bus/i2c/devices/$bus-0023/gpio/gpiochip*))
+	CHIP2=$(basename $(echo /sys/bus/i2c/devices/$bus-0022/gpio/gpiochip*))	
+	if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ] then
+		echo "ERROR: still no gpio chips, quitting"
+		exit 1	
+	fi
+fi
+
 let pin00=${CHIP1#gpiochip*}
 let pin10=${CHIP2#gpiochip*}
 let pin01=$pin00+23
 let pin11=$pin10+23
 
-echo +++ export gpio168..215 as outputs
-echo +++ gpiochip 6-0022 $CHIP1 gpio $pin00 $pin01
-echo +++ gpiochip 6-0023 $CHIP2 gpio $pin10 $pin11
+echo "+++ ao421 SITE $SITE $bus-0022 $CHIP1 gpio $pin00 $pin01"
+echo "+++ ao421 SITE $SITE $bus-0023 $CHIP2 gpio $pin10 $pin11"
 
 cd /sys/class/gpio
 for pin in $(seq $pin00 $pin01) $(seq $pin10 $pin11)
@@ -135,7 +155,7 @@ ln -s /usr/local/bin/muxpattern
 
 
 killall inetd
-echo 4235 stream tcp nowait root dawgd dawgd 5 >>/etc/inetd.conf
+echo 4235 stream tcp nowait root dawgd dawgd ${SITE} >>/etc/inetd.conf
 inetd /etc/inetd.conf
 
 
