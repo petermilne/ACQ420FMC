@@ -40,7 +40,7 @@ let bus=$SITE+1
 CHIP1=$(basename $(echo /sys/bus/i2c/devices/$bus-0023/gpio/gpiochip*))
 CHIP2=$(basename $(echo /sys/bus/i2c/devices/$bus-0022/gpio/gpiochip*))
 
-if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ] then
+if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ]; then
 	echo did not locate gpiochip at $bus-0023 OR $bus-0022 attempt dynamic setting
 	/sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITE	
 	if [ $? -ne 0 ]; then
@@ -49,7 +49,7 @@ if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ] then
 	fi
 	CHIP1=$(basename $(echo /sys/bus/i2c/devices/$bus-0023/gpio/gpiochip*))
 	CHIP2=$(basename $(echo /sys/bus/i2c/devices/$bus-0022/gpio/gpiochip*))	
-	if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ] then
+	if [ "$CHIP1" = "gpiochip*" -o "$CHIP2" = "gpiochip*" ]; then
 		echo "ERROR: still no gpio chips, quitting"
 		exit 1	
 	fi
