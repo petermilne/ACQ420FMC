@@ -156,7 +156,7 @@ build_knobs_device() {
 	case $mtype in
 	5|A5)
 		if [ "x$ACQ425_SITES" != "x" ]; then
-			ACQ425_SITES="${ACQ425_SITES},"
+			ACQ425_SITES="${ACQ425_SITES} "
 		fi		
 		ACQ425_SITES="${ACQ425_SITES}$site"
 		customize_acq420 $site;;

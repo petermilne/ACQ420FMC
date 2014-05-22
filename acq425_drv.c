@@ -29,9 +29,6 @@
 
 #define REVID "0.005"
 
-int acq425_gpio_base = 128;
-module_param(acq425_gpio_base, int, 0644);
-
 int acq425_sites[6] = { 0,  };
 int acq425_sites_count = 0;
 module_param_array(acq425_sites, int, &acq425_sites_count, 0644);
@@ -64,15 +61,14 @@ static struct i2c_client* new_device(
 static void __init acq425_init_site(int site)
 {
 	int ch = site+1;
-	int gpio_base = acq425_gpio_base + n_acq425 * 2 * NGPIO_CHIP;
 
 	i2c_adap[site] = i2c_get_adapter(ch);
 
-	if (new_device(i2c_adap[site], PGA_TYPE, 0x22, gpio_base) == 0){
+	if (new_device(i2c_adap[site], PGA_TYPE, 0x22, -1) == 0){
 		printk("bolo8_init_site(%d) PGA1 NOT found\n", site);
 	}
 
-	if (new_device(i2c_adap[site], PGA_TYPE, 0x23, gpio_base+NGPIO_CHIP) == 0){
+	if (new_device(i2c_adap[site], PGA_TYPE, 0x23, -1) == 0){
 		printk("bolo8_init_site(%d) PGA2 NOT found\n", site);
 	}
 }
