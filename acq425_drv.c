@@ -29,10 +29,6 @@
 
 #define REVID "0.005"
 
-/* define ARCH_NR_GPIOS		256
- * we're going to run out with multiple ACQ425, so we really have to increase
- * that number ...
- */
 int acq425_gpio_base = 128;
 module_param(acq425_gpio_base, int, 0644);
 
@@ -68,7 +64,7 @@ static struct i2c_client* new_device(
 static void __init acq425_init_site(int site)
 {
 	int ch = site+1;
-	int gpio_base = acq425_gpio_base + n_acq425 * NGPIO_CHIP;
+	int gpio_base = acq425_gpio_base + n_acq425 * 2 * NGPIO_CHIP;
 
 	i2c_adap[site] = i2c_get_adapter(ch);
 
