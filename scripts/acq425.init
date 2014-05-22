@@ -8,26 +8,17 @@ set LNAMES1 [ list \
 	ADC_5_A0 ADC_5_A1 ADC_6_A0 ADC_6_A1 \
 	ADC_7_A0 ADC_7_A1 ADC_8_A0 ADC_8_A1 ]
 
-set PINS1 [ list \
-	P00 P01 P02 P03 P04 P05 P06 P07 \
-	P10 P11 P12 P13 P14 P15 P16 P17 ]
-
 set LNAMES2 [ list \
 	ADC_12_A1 ADC_12_A0 ADC_11_A1 ADC_11_A0 \
 	ADC_9_A1  ADC_9_A0  ADC_10_A1 ADC_10_A0 \
 	ADC_13_A0 ADC_13_A1 ADC_14_A0 ADC_14_A1 \
 	ADC_15_A0 ADC_15_A1 ADC_16_A0 ADC_16_A1 ]
 
-set PINS2 [ list \
-	P00 P01 P02 P03 P04 P05 P06 P07 \
-	P10 P11 P12 P13 P14 P15 P16 P17 ]
-	
-proc link_gpio {lnames pins site gpio1} {
+proc link_gpio {lnames site gpio1} {
 	set gpio2 [expr $gpio1 + 23]
 	for {set ix 0} {[expr $gpio1+$ix <= $gpio2]} {incr ix} {		
 		set name [lindex $lnames $ix]		
 		if { [string length $name] > 0 } {
-			set pin [string trimleft [lindex $pins $ix] P]			
 			set gpx [expr $gpio1 + $ix]
 #			puts "lname $name pin $pin gpio $gpx"
 			exec set.sys /sys/class/gpio/export $gpx
@@ -63,8 +54,8 @@ if { $::argc > 0 } {
 	
 	foreach site $::argv {
 		exec mkdir -p /dev/acq425/$site
-		link_gpio $LNAMES1 $PINS1 $site [get_gpio1 $site 22]
-		link_gpio $LNAMES2 $PINS2 $site [get_gpio1 $site 23] 
+		link_gpio $LNAMES1 $site [get_gpio1 $site 22]
+		link_gpio $LNAMES2 $site [get_gpio1 $site 23] 
 
 		for {set ic 1} {$ic <= 16} {incr ic} {
 			exec rm -f /etc/acq400/$site/gain$ic
