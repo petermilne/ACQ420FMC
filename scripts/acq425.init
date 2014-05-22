@@ -43,7 +43,8 @@ proc get_gpio1 {site addr} {
 	set baddr "$bus-00$addr"
 	set gpath "/sys/bus/i2c/devices/$baddr/gpio/gpiochip"
 	set gpiochip [glob "$gpath*"]
-	set pin1 [string trimleft $gpiochip $gpath]
+	set pin1 [string range $gpiochip \
+			[string length $gpath] [string length $gpiochip]]
 	#	puts "get_gpio1 returning $pin1"
 	return $pin1
 }
