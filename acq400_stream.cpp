@@ -832,6 +832,17 @@ void StreamHead::stream() {
 	}
 }
 
+class NullStreamHead: public Streamhead {
+
+public:
+	virtual void stream() {
+		int ib;
+		while((ib = getBufferId()) >= 0){
+			printf("%d\n", ib);
+		}
+	}
+};
+
 class StreamHeadHB0: public StreamHead  {
 protected:
 	virtual void stream();
@@ -1241,6 +1252,9 @@ StreamHead& StreamHead::instance() {
 			break;
 		case BM_DEMUX:
 			_instance = new StreamHeadHB0();
+			break;
+		case BM_NULL:
+			_instance = new NullStreamHead();
 			break;
 		default:
 			_instance = new StreamHead();
