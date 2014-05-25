@@ -27,7 +27,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/pca953x.h>
 
-#define REVID "0.005"
+#define REVID "0.006"
 
 int acq425_sites[6] = { 0,  };
 int acq425_sites_count = 0;
@@ -37,7 +37,7 @@ static int n_acq425;
 module_param(n_acq425, int, 0444);
 
 
-struct i2c_adapter *i2c_adap[6];
+struct i2c_adapter *i2c_adap[7];
 
 
 
