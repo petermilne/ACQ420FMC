@@ -270,7 +270,6 @@ u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
-	unsigned rev = adev->mod_id&MOD_ID_REV_MASK;
 
 	dev_info(DEVP(adev), "ACQ420 device init");
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
