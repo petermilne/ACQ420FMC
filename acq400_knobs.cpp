@@ -49,11 +49,19 @@ What does acq400_knobs do?.
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>    // std::find
 #include <vector>
+#include <string>
+#include <sstream>
 
 const char* pattern = "";
 
 using namespace std;
+
+
+bool err;
+int site;
+
 
 class File {
 public:
@@ -164,25 +172,31 @@ protected:
 	bool isValid(char* buf, int maxbuf, const char* args){
 		return validator->isValid(buf, maxbuf, args);
 	}
-
+	virtual int _set(char* buf, int maxbuf, const char* args) = 0;
 public:
 	virtual ~Knob() {
 		delete [] name;
 	}
 
-
+	vector<Knob*> peers;
 
 	char* getName() { return name; }
 	virtual const char* getAttr() {
 		return "";
 	}
 	/* return >0 on success, <0 on fail */
-	virtual int set(char* buf, int maxbuf, const char* args) = 0;
+	virtual int set(char* buf, int maxbuf, const char* args) {
+		vector<Knob*>::iterator it;
+		for (it = peers.begin(); it != peers.end(); ++it){
+			(*it)->_set(buf, maxbuf, args);
+		}
+		return _set(buf, maxbuf, args);
+	}
 	virtual int get(char* buf, int maxbuf) = 0;
 	virtual void print(void) { cprint("Knob"); }
 
 
-	static Knob* create(const char* _name, mode_t mode);
+	static Knob* create(const string _name, mode_t mode);
 
 	static int match(const char* name, const char* key) {
 		if (strcmp(name, key) == 0){
@@ -197,13 +211,13 @@ public:
 
 class KnobRO : public Knob {
 protected:
-
+	virtual int _set(char* buf, int maxbuf, const char* args) {
+		return -snprintf(buf, maxbuf, "ERROR: \"%s\" is read-only", name);
+	}
 public:
 	KnobRO(const char* _name) : Knob(_name) {}
 
-	virtual int set(char* buf, int maxbuf, const char* args) {
-		return -snprintf(buf, maxbuf, "ERROR: \"%s\" is read-only", name);
-	}
+
 	virtual int get(char* buf, int maxbuf) {
 		File knob(name, "r");
 		if (knob.fp == NULL) {
@@ -220,12 +234,7 @@ public:
 
 class KnobRW : public KnobRO {
 protected:
-
-public:
-	KnobRW(const char* _name) : KnobRO(_name) {
-	}
-
-	virtual int set(char* buf, int maxbuf, const char* args) {
+	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (!isValid(buf, maxbuf, args)){
 			return -1;
 		}
@@ -236,6 +245,11 @@ public:
 			return fputs(args, knob.fp) > 0? 0: -snprintf(buf, maxbuf, "ERROR:");
 		}
 	}
+public:
+	KnobRW(const char* _name) : KnobRO(_name) {
+	}
+
+
 	virtual void print(void) { cprint ("KnobRW"); }
 	virtual const char* getAttr() {
 			return "rw";
@@ -246,11 +260,7 @@ public:
 class KnobX : public Knob {
 	int runcmd(const char* cmd, char* buf, int maxbuf);
 protected:
-
-public:
-	KnobX(const char* _name) : Knob(_name) {}
-
-	virtual int set(char* buf, int maxbuf, const char* args) {
+	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (!isValid(buf, maxbuf, args)){
 			return -1;
 		}
@@ -259,6 +269,9 @@ public:
 		return runcmd(cmd, buf, maxbuf);
 
 	}
+public:
+	KnobX(const char* _name) : Knob(_name) {}
+
 	virtual int get(char* buf, int maxbuf) {
 		char cmd[128];
 		snprintf(cmd, 128, "%s ", name);		// @@todo no trailing space, no work
@@ -295,15 +308,111 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 #define HASX(mode) 	(((mode)&(S_IXUSR|S_IXGRP|S_IXOTH)) != 0)
 #define HASW(mode)	(((mode)&(S_IWUSR|S_IWGRP|S_IWOTH)) != 0)
 
-Knob* Knob::create(const char* _name, mode_t mode)
+
+std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+
+    return elems;
+}
+
+class PeerFinder {
+	vector<int> peers;
+	vector<string> knobs;
+
+	static PeerFinder *_instance;
+
+	PeerFinder() {
+
+	}
+
+	void fillPeerNames(vector<string>* peer_names, string knob) {
+		vector<int>::iterator it;
+		for (it = peers.begin(); it != peers.end(); ++it){
+			if (*it != site){
+				char name[80];
+				sprintf(name, "../%d/%s", *it, knob.c_str());
+				peer_names->push_back(*new string(name));
+			}
+		}
+	}
+
+	void initKnobs(vector<string> kdef) {
+		knobs = kdef;
+
+	}
+	void initPeers(vector<string> pdef) {
+		vector<string>::iterator it;
+		for(it = pdef.begin(); it != pdef.end(); ++it){
+			peers.push_back(atoi((*it).c_str()));
+		}
+	}
+public:
+	static PeerFinder* instance() {
+		if (_instance == 0){
+			_instance = new PeerFinder;
+		}
+		return _instance;
+	}
+	static PeerFinder* create(string def_file);
+
+	bool hasPeers(string knob){
+		return peers.size() > 0 &&
+		     std::find(knobs.begin(), knobs.end(), knob) != knobs.end();
+	}
+
+	vector<string>* getPeernames(string knob){
+		// peer_names belongs to client on return
+		vector<string>* peer_names = new vector<string>();
+
+		if (hasPeers(knob)){
+			fillPeerNames(peer_names, knob);
+		}
+		return peer_names;
+	}
+};
+
+PeerFinder* PeerFinder::_instance;
+
+#define PKEY "PEERS="
+#define KKEY "KNOBS="
+
+#define KEYLEN 6
+
+PeerFinder* PeerFinder::create(string def_file)
 {
+	_instance = new PeerFinder();
+	FILE *fp = fopen(def_file.c_str(), "r");
+	if(fp){
+		char defline[128];
+		while(fgets(defline, sizeof(defline), fp)){
+			if (defline[0] == '#' || strlen(defline) < 2){
+				continue;
+			}else{
+				std::vector<std::string> elems;
+				if (strncmp(PKEY, defline, KEYLEN) == 0){
+					_instance->initPeers(split(defline+KEYLEN, ',', elems));
+				}
+				if (strncmp(KKEY, defline, KEYLEN) == 0){
+					_instance->initKnobs(split(defline+KEYLEN, ',', elems));
+				}
+			}
+		}
+	}
+}
+Knob* Knob::create(const string _name, mode_t mode)
+{
+	const char* name = _name.c_str();
 	if (HASX(mode)){
-		return new KnobX(_name);
+		return new KnobX(name);
 	}else if (HASW(mode)){
-		Knob* knob = new KnobRW(_name);
+		Knob* knob = new KnobRW(name);
 		char cmd[128];
 		char reply[128];
-		sprintf(cmd, "grep %s /usr/share/doc/numerics", _name);
+		sprintf(cmd, "grep %s /usr/share/doc/numerics", name);
 		Pipe pn(cmd, "r");
 		if (fgets(reply, 128, pn.fp)){
 			Validator* v = NumericValidator::create(reply);
@@ -313,7 +422,7 @@ Knob* Knob::create(const char* _name, mode_t mode)
 		}
 		return knob;
 	}else{
-		return new KnobRO(_name);
+		return new KnobRO(name);
 	}
 }
 
@@ -325,12 +434,8 @@ class Prompt: public Knob
 	Prompt(): Knob("prompt") {
 
 	}
-public:
-
-	char* getName() { return name; }
-
 	/* return >0 on success, <0 on fail */
-	virtual int set(char* buf, int maxbuf, const char* args) {
+	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (strcmp(args, "on") == 0){
 			enabled = 1;
 		}else if (strcmp(args, "off") == 0){
@@ -338,6 +443,11 @@ public:
 		}
 		return 1;
 	}
+public:
+
+	char* getName() { return name; }
+
+
 	virtual int get(char* buf, int maxbuf) {
 		return snprintf(buf, maxbuf, "%s", enabled? "on": "off");
 	}
@@ -385,20 +495,20 @@ protected:
 		printf("%s\n", knob->getName());
 		return 1;
 	}
+	virtual int _set(char* buf, int maxbuf, const char* args) {
+		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+			if (Knob::match((*it)->getName(), args)){
+				query(*it);
+			}
+		}
+		return 1;
+	}
 public:
 	Help() : Knob("help") {}
 	Help(const char* _key) : Knob(_key) {}
 	virtual int get(char* buf, int maxbuf) {
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
 			query(*it);
-		}
-		return 1;
-	}
-	virtual int set(char* buf, int maxbuf, const char* args) {
-		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-			if (Knob::match((*it)->getName(), args)){
-				query(*it);
-			}
 		}
 		return 1;
 	}
@@ -436,6 +546,11 @@ int do_scan()
 	}
 
 	for (int ii = 0; ii < nn; ++ii){
+		if (strcmp(namelist[ii]->d_name, "peers") == 0){
+			PeerFinder::create("peers");
+		}
+	}
+	for (int ii = 0; ii < nn; ++ii){
 		char* alias = namelist[ii]->d_name;
 		struct stat sb;
 		if (stat(alias, &sb) == -1){
@@ -445,7 +560,15 @@ int do_scan()
 				;
 				//fprintf(stderr, "not a regular file:%s", alias);
 			}else{
-				KNOBS.push_back(Knob::create(alias, sb.st_mode));
+				Knob* knob = Knob::create(alias, sb.st_mode);
+				if (PeerFinder::instance()->hasPeers(alias)){
+					vector<string>* peer_names = PeerFinder::instance()->getPeernames(alias);
+					vector<string>::iterator it;
+					for (it = peer_names->begin(); it != peer_names->end(); ++it){
+						knob->peers.push_back(Knob::create(*it, sb.st_mode));
+					}
+				}
+				KNOBS.push_back(knob);
 			}
 		}
 	}
@@ -469,8 +592,6 @@ char* chomp(char *str) {
 	return str;
 }
 
-bool err;
-int site;
 
 
 
