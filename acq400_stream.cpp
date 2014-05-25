@@ -832,7 +832,7 @@ void StreamHead::stream() {
 	}
 }
 
-class NullStreamHead: public Streamhead {
+class NullStreamHead: public StreamHead {
 
 public:
 	virtual void stream() {
