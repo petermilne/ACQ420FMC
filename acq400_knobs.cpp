@@ -54,6 +54,8 @@ What does acq400_knobs do?.
 #include <string>
 #include <sstream>
 
+#include <glob.h>
+
 const char* pattern = "";
 
 using namespace std;
@@ -61,6 +63,38 @@ using namespace std;
 
 bool err;
 int site;
+
+class Knob;
+vector<Knob*> KNOBS;
+typedef vector<Knob*>::iterator VKI;
+
+
+char* chomp(char *str) {
+	char* cursor = str + strlen(str)-1;
+	while (*cursor == '\n' && cursor >= str){
+		*cursor = '\0';
+	}
+	return str;
+}
+
+
+
+inline std::vector<std::string> glob(const std::string& pat){
+    using namespace std;
+    glob_t glob_result;
+    int rc = glob(pat.c_str(), 0, NULL, &glob_result);
+    if (rc != 0){
+	    printf("ERROR: cwd %s glob %s returns %d\n",
+			    get_current_dir_name(), pat.c_str(), rc);
+    }
+    vector<string> ret;
+    for(unsigned int i=0; i < glob_result.gl_pathc; ++i){
+        ret.push_back(string(glob_result.gl_pathv[i]));
+    }
+    globfree(&glob_result);
+    return ret;
+}
+
 
 
 class File {
@@ -309,6 +343,7 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 #define HASW(mode)	(((mode)&(S_IWUSR|S_IWGRP|S_IWOTH)) != 0)
 
 
+
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
     std::string item;
@@ -426,6 +461,89 @@ Knob* Knob::create(const string _name, mode_t mode)
 	}
 }
 
+
+class GroupKnob : public Knob {
+	GroupKnob(string name) : Knob(name.c_str()) {}
+
+	virtual int _set(char* buf, int maxbuf, const char* args)
+	/* the peers do ALL the work */
+	{}
+public:
+
+	virtual int get(char* buf, int maxbuf) {
+		return peers[0]->get(buf, maxbuf);
+	}
+	static Knob* create(string name, string def);
+};
+
+#define GROUP_MODE	(S_IWUSR|S_IWGRP|S_IWOTH)
+
+Knob* GroupKnob::create(string name, string def)
+{
+	Knob* knob = new GroupKnob(name);
+	/* first collect all the peers in the same site .. they already exist */
+	/* the double iteration isn't efficient, but 666MIPS .. who cares .. */
+	vector<string> peer_names = glob(def);
+	vector<string>::iterator its;
+	for (its = peer_names.begin(); its < peer_names.end(); ++its){
+		for (VKI itk = KNOBS.begin(); itk != KNOBS.end(); ++itk){
+			if (Knob::match((*itk)->getName(), (*its).c_str()) == 1){
+				knob->peers.push_back(*itk);
+			}
+		}
+	}
+
+	/* then collect peers for other sites. we have to make them */
+	if (PeerFinder::instance()->hasPeers(name)){
+		vector<string>* peer_names = PeerFinder::instance()->getPeernames(name);
+		vector<string>::iterator it;
+		for (it = peer_names->begin(); it != peer_names->end(); ++it){
+			knob->peers.push_back(Knob::create(*it, GROUP_MODE));
+		}
+	}
+	return knob;
+}
+
+
+class Grouper {
+	static void create(vector<string> &elems);
+public:
+	static void create(string group);
+};
+
+/*
+group file
+group_name group_def
+group_def is classically a glob pattern
+in the future, it could be a comma sep list
+*/
+
+void Grouper::create(vector<string> &elems) {
+	KNOBS.push_back(GroupKnob::create(elems[0], elems[1]));
+}
+
+void Grouper::create(string def_file)
+{
+	FILE *fp = fopen(def_file.c_str(), "r");
+	if(fp){
+		char defline[128];
+		while(fgets(defline, sizeof(defline), fp)){
+			chomp(defline);
+			if (defline[0] == '#' || strlen(defline) < 2){
+				continue;
+			}else{
+				std::vector<std::string> elems;
+				split(defline, '=', elems);
+				if (elems.size() < 2){
+					fprintf(stderr, "ERROR: group def must be group=glob\n");
+				}
+				create(elems);
+			}
+		}
+	}
+	fclose(fp);
+}
+
 class Prompt: public Knob
 /* singleton */
 {
@@ -467,11 +585,6 @@ public:
 
 bool Prompt::enabled;
 
-
-
-
-vector<Knob*> KNOBS;
-typedef vector<Knob*>::iterator VKI;
 
 /*
 for file in $(ls -1)
@@ -531,6 +644,8 @@ protected:
 public:
 	Help2() : Help("help2") {}
 };
+
+
 int filter(const struct dirent *dir)
 {
         return fnmatch(pattern, dir->d_name, 0);
@@ -548,6 +663,7 @@ int do_scan()
 	for (int ii = 0; ii < nn; ++ii){
 		if (strcmp(namelist[ii]->d_name, "peers") == 0){
 			PeerFinder::create("peers");
+			break;
 		}
 	}
 	for (int ii = 0; ii < nn; ++ii){
@@ -576,20 +692,18 @@ int do_scan()
 	KNOBS.push_back(new Help);
 	KNOBS.push_back(new Help2);
 
+	for (int ii = 0; ii < nn; ++ii){
+		if (strcmp(namelist[ii]->d_name, "groups") == 0){
+			Grouper::create("groups");
+			break;
+		}
+	}
 	free(namelist);
 
 	char newpath[1024];
 	snprintf(newpath, 1023, "%s:%s", get_current_dir_name(), getenv("PATH"));
 
 	setenv("PATH", newpath, 1);
-}
-
-char* chomp(char *str) {
-	char* cursor = str + strlen(str)-1;
-	while (*cursor == '\n' && cursor >= str){
-		*cursor = '\0';
-	}
-	return str;
 }
 
 
