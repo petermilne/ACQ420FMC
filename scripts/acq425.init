@@ -66,7 +66,7 @@ if { $::argc > 0 } {
 		exec ln -s /usr/local/bin/acq425_set_gain \
 				/etc/acq400/$site/gains
 		set fp [open "/etc/acq400/$site/groups" a+]
-		puts $fp "gain=gain[0-9]*"
+		puts $fp {gain=gain[0-9]*}
 		close $fp
 	} 	
 } else {
