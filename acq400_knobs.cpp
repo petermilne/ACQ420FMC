@@ -39,7 +39,6 @@ What does acq400_knobs do?.
 */
 
 
-#define _GNU_SOURCE
 #include <dirent.h>
 #include <fnmatch.h>
 #include <stdio.h>
@@ -63,6 +62,10 @@ using namespace std;
 
 bool err;
 int site;
+
+int verbose;
+
+#define VPRINTF	if (verbose) printf
 
 class Knob;
 vector<Knob*> KNOBS;
@@ -347,10 +350,10 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
     std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
 
+    while (std::getline(ss, item, delim)) {
+	    elems.push_back(item);
+    }
     return elems;
 }
 
@@ -404,6 +407,7 @@ public:
 		vector<string>* peer_names = new vector<string>();
 
 		if (hasPeers(knob)){
+			VPRINTF("fillPeerNames() %d\n", peer_names->size());
 			fillPeerNames(peer_names, knob);
 		}
 		return peer_names;
@@ -424,6 +428,7 @@ PeerFinder* PeerFinder::create(string def_file)
 	if(fp){
 		char defline[128];
 		while(fgets(defline, sizeof(defline), fp)){
+			chomp(defline);
 			if (defline[0] == '#' || strlen(defline) < 2){
 				continue;
 			}else{
@@ -498,8 +503,10 @@ Knob* GroupKnob::create(string name, string def)
 		vector<string>* peer_names = PeerFinder::instance()->getPeernames(name);
 		vector<string>::iterator it;
 		for (it = peer_names->begin(); it != peer_names->end(); ++it){
+			VPRINTF("create Knob %s\n", (*it).c_str());
 			knob->peers.push_back(Knob::create(*it, GROUP_MODE));
 		}
+		VPRINTF("knob %s has %d peers\n", name.c_str(), knob->peers.size());
 	}
 	return knob;
 }
@@ -724,6 +731,11 @@ void cli(int argc, char* argv[])
 	char *dir;
 	char dbuf[128];
 	char sname[32];
+
+	if (getenv("VERBOSE")){
+		verbose = atoi(getenv("VERBOSE"));
+	}
+	VPRINTF("verbose set %d\n", verbose);
 
 	if (argc > 2){
 		dir = argv[2];
