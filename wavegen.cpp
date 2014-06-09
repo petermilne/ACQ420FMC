@@ -69,6 +69,7 @@ class ChanDef {
 	static char mapdef[256];
 	int ichan;
 
+
 protected:
 	const char* fname;
 	short* data;
@@ -78,6 +79,7 @@ protected:
 	ChanDef(int _ichan): ichan(_ichan), cursor(0)
 	{}
 public:
+	static int word_size;
 
 	ChanDef(const char* spec)
 	{
@@ -145,8 +147,35 @@ public:
 		}
 		fclose(fpout);
 	}
+
+	static void create(const char* spec);
 };
 
+int ChanDef::word_size = 2;
+
+template <class T>
+class ChanDefImpl: public ChanDef {
+public:
+	ChanDefImpl(const char* spec) : ChanDef(spec) {
+
+	}
+
+};
+
+void ChanDef::create(const char* spec) {
+	switch(ChanDef::word_size){
+	case 2:
+		new ChanDefImpl<short>(spec);
+		break;
+	case 4:
+		new ChanDefImpl<long>(spec);
+		break;
+	default:
+		fprintf(stderr, "ERROR: word_size MUST be 2 or 4");
+		exit(-1);
+	}
+
+}
 class NullChanDef : public ChanDef {
 
 public:
@@ -246,6 +275,7 @@ struct poptOption opt_table[] = {
 	{ "site", 's', POPT_ARG_INT, &Globs::site, 0, "site" },
 	{ "src_dir", 0, POPT_ARG_STRING, &Globs::src_dir, 0, "data directory" },
 	{ "loop",  'l', POPT_ARG_INT, &Globs::loop, 0, "runs in a loop" },
+	{ "word_size", 'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -267,7 +297,7 @@ void cli(int argc, const char** argv)
 
 	const char* arg;
 	while((arg = poptGetArg(opt_context)) != 0){
-		new ChanDef(arg);
+		ChanDef::create(arg);
 	}
 }
 
