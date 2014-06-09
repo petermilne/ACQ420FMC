@@ -60,43 +60,28 @@ namespace Globs {
 };
 
 class ChanDef {
+
+public:
 	char chan_def[132];
 	char expr[132];
 
-	void load_chan_def();
 	static vector<int> mapping;
 	static vector<ChanDef*> channels;
 	static char mapdef[256];
 	int ichan;
-
-
-protected:
 	const char* fname;
-	short* data;
 	int ndata;
 	int cursor;
 
 	ChanDef(int _ichan): ichan(_ichan), cursor(0)
 	{}
 public:
+	virtual bool fwrite1(FILE* fp) = 0;
 	static int word_size;
 
 	ChanDef(const char* spec)
 	{
-		string ss(spec);
-		string delim("=");
-		size_t pos = 0;
 
-		//cerr << "ChanDef(" << ss << ")" <<endl;
-		if ((pos = ss.find(delim)) != string::npos){
-			strcpy(chan_def, ss.substr(0, pos).c_str());
-			ss.erase(0, pos + delim.length());
-			strcpy(expr, ss.c_str());
-			load_chan_def();
-		}else{
-			fprintf(stderr, "ERROR, unable to use arg \"%s\"\n", spec);
-			exit(1);
-		}
 	}
 
 	static int nchan() {
@@ -137,11 +122,8 @@ public:
 					    	    <<chan->data[chan->cursor] << endl;
 				}
 				*/
-				fwrite(chan->data+chan->cursor, sizeof(short), 1, fpout);
-				if (chan->cursor+1 < chan->ndata){
-					if (++chan->cursor < chan->ndata){
-						++nbusy;
-					}
+				if (chan->fwrite1(fpout)){
+					++nbusy;
 				}
 			}
 		}
@@ -156,8 +138,88 @@ int ChanDef::word_size = 2;
 template <class T>
 class ChanDefImpl: public ChanDef {
 public:
-	ChanDefImpl(const char* spec) : ChanDef(spec) {
+	T* data;
 
+	virtual bool fwrite1(FILE* fp) {
+		bool busy = false;
+
+		fwrite(data+cursor, sizeof(T), 1, fp);
+		if (cursor+1 < ndata){
+			if (++cursor < ndata){
+				busy = true;
+			}
+		}
+		return busy;
+	}
+
+	void load_chan_def()
+	/* @todo: load single channel, single file, no prams. That comes later ..*/
+	{
+		int lchan = atoi(chan_def);
+
+		if (lchan < 0 || lchan > nchan()) {
+			fprintf(stderr, "ERROR: channel not in range 1..%d\n", nchan());
+		}else{
+			ichan = mapping[lchan-1] - 1;
+		}
+		fname = expr;
+		/* avoid duplicating source data */
+		for (int ii = 0; ii < channels.size(); ++ii){
+			if (strcmp(channels[ii]->fname, fname) == 0){
+				data = dynamic_cast<ChanDefImpl<T> *>(channels[ii])->data;
+				ndata = channels[ii]->ndata;
+				channels[ichan] = this;
+				return;
+			}
+		}
+		char path[256];
+		if (fname[0] == '/'){
+			sprintf(path, "%s", fname);
+		}else{
+			sprintf(path, "%s/%s", Globs::src_dir, fname);
+		}
+
+		struct stat buf;
+		if (stat(path, &buf) != 0){
+			perror(path);
+			exit(1);
+		}
+
+		cerr << "stat:" << path << " length:" << buf.st_size << endl;
+		ndata = buf.st_size/sizeof(T);
+		data = new T[ndata];
+		FILE *fp = fopen(path, "r");
+		if (fread(data, sizeof(T), ndata, fp) != ndata){
+			perror("failed to read all the data");
+			exit(1);
+		}
+		fclose(fp);
+
+		cerr << "New ChanDef:" <<ndata <<endl;
+		channels[ichan] = this;
+	}
+	ChanDefImpl(const char* spec) : ChanDef(spec) {
+		string ss(spec);
+		string delim("=");
+		size_t pos = 0;
+
+		//cerr << "ChanDef(" << ss << ")" <<endl;
+		if ((pos = ss.find(delim)) != string::npos){
+			strcpy(chan_def, ss.substr(0, pos).c_str());
+			ss.erase(0, pos + delim.length());
+			strcpy(expr, ss.c_str());
+			load_chan_def();
+		}else{
+			fprintf(stderr, "ERROR, unable to use arg \"%s\"\n", spec);
+			exit(1);
+		}
+	}
+	ChanDefImpl(int _ichan): ChanDef(_ichan)
+	{
+		data = new T[1];
+		data[0] = 0;
+		ndata = 1;
+		fname = "null";
 	}
 
 };
@@ -174,69 +236,12 @@ void ChanDef::create(const char* spec) {
 		fprintf(stderr, "ERROR: word_size MUST be 2 or 4");
 		exit(-1);
 	}
-
 }
-class NullChanDef : public ChanDef {
 
-public:
-	NullChanDef(int _ichan) : ChanDef(_ichan) {
-		data = new short[1];
-		data[0] = 0;
-		ndata = 1;
-		fname = "null";
-	}
-};
 vector<int> ChanDef::mapping;
 
 vector<ChanDef*> ChanDef::channels;
 char ChanDef::mapdef[256];
-
-void ChanDef::load_chan_def()
-/* @todo: load single channel, single file, no prams. That comes later ..*/
-{
-	int lchan = atoi(chan_def);
-
-	if (lchan < 0 || lchan > nchan()) {
-		fprintf(stderr, "ERROR: channel not in range 1..%d\n", nchan());
-	}else{
-		ichan = mapping[lchan-1] - 1;
-	}
-	fname = expr;
-	/* avoid duplicating source data */
-	for (int ii = 0; ii < channels.size(); ++ii){
-		if (strcmp(channels[ii]->fname, fname) == 0){
-			data = channels[ii]->data;
-			ndata = channels[ii]->ndata;
-			channels[ichan] = this;
-			return;
-		}
-	}
-	char path[256];
-	if (fname[0] == '/'){
-		sprintf(path, "%s", fname);
-	}else{
-		sprintf(path, "%s/%s", Globs::src_dir, fname);
-	}
-
-	struct stat buf;
-	if (stat(path, &buf) != 0){
-		perror(path);
-		exit(1);
-	}
-
-	cerr << "stat:" << path << " length:" << buf.st_size << endl;
-	ndata = buf.st_size/sizeof(short);
-	data = new short[ndata];
-	FILE *fp = fopen(path, "r");
-	if (fread(data, sizeof(short), ndata, fp) != ndata){
-		perror("failed to read all the data");
-		exit(1);
-	}
-	fclose(fp);
-
-	cerr << "New ChanDef:" <<ndata <<endl;
-	channels[ichan] = this;
-}
 
 void ChanDef::getMapping()
 {
@@ -266,7 +271,17 @@ void ChanDef::getMapping()
 	}
 
 	for (int ii = 0; ii < nchan(); ++ii){
-		channels.push_back(new NullChanDef(ii));
+		switch(ChanDef::word_size){
+		case 2:
+			channels.push_back(new ChanDefImpl<short>(ii));
+			break;
+		case 4:
+			channels.push_back(new ChanDefImpl<long>(ii));
+			break;
+		default:
+			fprintf(stderr, "ERROR: word_size MUST be 2 or 4");
+			exit(-1);
+		}
 	}
 }
 
