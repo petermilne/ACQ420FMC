@@ -81,6 +81,7 @@ int control_handle;
 
 int pre;
 int post;
+bool no_demux;
 
 #define BM_NULL	'n'
 #define BM_SENDFILE 's'
@@ -630,7 +631,7 @@ int ASR(int os)
 Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 {
 	char* fname = new char[128];
-	sprintf(fname, "%s.hb/%02d", root, _ibuf);
+	sprintf(fname, "%s.hb/%03d", root, _ibuf);
 
 	switch(buffer_mode){
 	case BM_NULL:
@@ -698,6 +699,9 @@ struct poptOption opt_table[] = {
 	{ "post",       0, POPT_ARG_INT, &::post, 'O',
 			"transient capture, post-length"
 	},
+	{ "no_demux",   0, POPT_ARG_NONE, 0, 'D',
+			"no demux after transient"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -724,6 +728,7 @@ char *getRoot(int devnum)
 const char* root;
 
 void acq400_stream_getstate(void);
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -745,6 +750,9 @@ void init(int argc, const char** argv) {
 		case 'h':
 			stream_fmt = "%s.hb0";
 			buffer_mode = BM_DEMUX;
+			break;
+		case 'D':
+			::no_demux = true;
 			break;
 		case 'P':
 		case 'O':
@@ -1169,7 +1177,6 @@ class StreamHeadPrePost: public StreamHead  {
 			cursor = static_cast<char*>(ba0);
 			demux(post);
 		}
-		setState(ST_STOP); actual.print();
 	}
 public:
 	StreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
@@ -1222,7 +1229,10 @@ public:
 		}
 		streamCore();
 		close();
-		postProcess();
+		if (!::no_demux){
+			postProcess();
+		}
+		setState(ST_STOP); actual.print();
 	}
 };
 
