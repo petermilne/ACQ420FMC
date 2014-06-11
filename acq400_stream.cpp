@@ -77,7 +77,7 @@ int m1 = 0;			/** start masking from here */
 int oversampling = 1;
 int devnum = 0;
 const char* script_runs_on_completion = 0;
-
+const char* aggregator_sites = 0;
 int nsam = 4096;
 
 int control_handle;
@@ -705,6 +705,9 @@ struct poptOption opt_table[] = {
 	{ "no_demux",   0, POPT_ARG_NONE, 0, 'D',
 			"no demux after transient"
 	},
+	{ "sites",      0, POPT_ARG_STRING, &G::aggregator_sites, 0,
+			"group of aggregated sites to lock"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -732,7 +735,58 @@ const char* root;
 
 void acq400_stream_getstate(void);
 
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
 
+static void wait_and_cleanup(pid_t child)
+{
+	int dontcare;
+        waitpid(child, &dontcare, 0);
+        kill(0, SIGTERM);
+        exit(0);
+}
+
+static void hold_open(int site)
+{
+	char devname[80];
+	sprintf(devname, "/dev/acq400.%d.cs");
+	FILE *fp = fopen(devname, "r");
+	if (fp == 0){
+		perror(devname);
+		exit(1);
+	}
+	while(fread(devname, 1, 80, fp)){
+		;
+	}
+	exit(1);
+}
+static void hold_open(const char* sites)
+{
+	int the_sites[6];
+	int nsites = sscanf(sites, "%d,%d,%d,%d,%d,%d",
+		the_sites+0, the_sites+1, the_sites+2,
+		the_sites+3, the_sites+4, the_sites+5);
+	if (nsites){
+		setpgid(0, 0);
+		pid_t child = fork();
+		if (child != 0){
+			/* original becomes reaper */
+			wait_and_cleanup(child);
+		}else{
+			for (int isite = 0; isite < nsites; ++isite){
+				child = fork();
+
+		                if (child == 0) {
+		                	hold_open(the_sites[isite]);
+		                	assert(1);
+		                }
+			}
+		}
+	}
+	/* newly forked main program continues to do its stuff */
+}
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -770,6 +824,10 @@ void init(int argc, const char** argv) {
 	const char* devc = poptGetArg(opt_context);
 	if (devc){
 		G::devnum = atoi(devc);
+	}
+
+	if (G::aggregator_sites != 0){
+		hold_open(G::aggregator_sites);
 	}
 
 	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
