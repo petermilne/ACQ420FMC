@@ -751,7 +751,7 @@ static void wait_and_cleanup(pid_t child)
 static void hold_open(int site)
 {
 	char devname[80];
-	sprintf(devname, "/dev/acq400.%d.cs");
+	sprintf(devname, "/dev/acq400.%d.cs", site);
 	FILE *fp = fopen(devname, "r");
 	if (fp == 0){
 		perror(devname);
