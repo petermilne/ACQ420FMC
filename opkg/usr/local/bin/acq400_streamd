@@ -13,6 +13,8 @@ source /etc/sysconfig/acq400.conf >/dev/null
 acq400_teardown $SITE
 echo $$ > $PID
 
+STREAM_OPTS=
+
 if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
 	source /etc/sysconfig/acq400_streamd.conf
 fi
@@ -53,14 +55,6 @@ if [ $SITE -eq 0 ]; then
 		sleep 0.2
 		logger -t acq400_streamd site0 waiting for $RUN0_READY
 	done
-
-	logger -t acq400streamd site 0 slave sites $sites
-	OIFS=$IFS;IFS=,
-	for site in $sites
-	do
-		cat /dev/acq400.$site.cs &
-	done
-	IFS=$OIFS		
 fi
 }
 
@@ -72,15 +66,18 @@ sleep 0.1
 jobs >>$LOG
 echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 
-acq400_stream $SAMPLE_SIZE $OVERSAMPLING $SITE &
+if [ "x$SSPEC" != "x" ]; then
+	echo SSPEC $SSPEC
+	SSPEC="--$SSPEC"
+fi
+acq400_stream $SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE &
+
 sleep 0.1
 if [ "x$ACQ400D_TRIG" != "x" ]; then
 	$ACQ400D_TRIG	
 fi
 wait $!
-if [ $SITE -eq 0 ]; then
-	acq400_teardown $SITE
-fi
+
 
 
 
