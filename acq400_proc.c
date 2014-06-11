@@ -179,8 +179,7 @@ static int acq400_proc_seq_show_buffers(struct seq_file *s, void *v)
                 return -EINTR;
         }
 
-        seq_printf(s, "[%02d] va:%p pa:0x%08x len:%d dir:%d state:%d\n",
-        		hbm->ix, hbm->va, hbm->pa, hbm->len, hbm->dir, hbm->bstate);
+        seq_printf(s, "%03d,%p,%d\n", hbm->ix, hbm->va, hbm->bstate);
         mutex_unlock(&dev->mutex);
         return 0;
 }

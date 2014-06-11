@@ -2,10 +2,8 @@
 
 echo acq420.init B1001
 
-#BLEN=262144
-#BLEN=524288
 BLEN=1048576
-NBUF=99
+NBUF=512
 
 [ -e /mnt/local/acq400_stream ] && cp /mnt/local/acq400_stream /usr/local/bin
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
@@ -17,13 +15,15 @@ build_hb() {
 	HBDIR=/dev/${NAME}.hb
 	NB=$(cat /dev/${NAME}.knobs/nbuffers)
 	mkdir $HBDIR
-	let NB0=$NB-1
-	for hb in $(seq 0 $NB0)
-	do
-		NN=$(printf "$HBDIR/%02d" $hb)
-		let minor="100+$hb"
-		mknod $NN c $MAJOR $minor		
-	done
+	if [ $NB -gt 0 ]; then
+		let NB0=$NB-1
+		for hb in $(seq 0 $NB0)
+		do
+			NN=$(printf "$HBDIR/%03d" $hb)
+			let minor="1000+$hb"
+			mknod $NN c $MAJOR $minor		
+		done
+	fi
 }
 build_nodes() {
 	finit=0
@@ -178,9 +178,9 @@ build_knobs_device() {
 		CLKDIV=100;; 
 	*)
 		CLKDIV=200;;
-	esac	
+	esac		
 	set.sys $dk/clkdiv $CLKDIV
-	echo get.sys $dk/clkdiv $(get.sys $dk/clkdiv)
+	echo "set clkdiv $CLKDIV get.sys $dk/clkdiv $(get.sys $dk/clkdiv)"
 	if [ -e $dk/gains ]; then
 		set.sys ${dk}/gains 0000		
 	fi
@@ -234,6 +234,9 @@ build_knobs() {
 	fi
 	if [ "x${ACQ425_SITES}" != "x" ]; then
 		/usr/local/bin/acq425.init ${ACQ425_SITES}
+		# use /mnt/local/acq420_custom
+		#		BLEN=4194304
+		#		NBUF=128
 	fi
 }
 

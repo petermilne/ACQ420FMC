@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.540"
+#define REVID "2.544"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -806,12 +806,38 @@ int acq400_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
 	}
 }
 
+ssize_t acq400_hb_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ibuf = BUFFER(PD(file)->minor);
+	struct HBM *hb = adev->hb[ibuf];
+	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (cursor >= hb->len){
+		return 0;
+	}else{
+		int headroom = hb->len - cursor;
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, (char*)hb->va + cursor, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
 
 int acq400_open_hb(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq420_fops_dma = {
 		.open = acq420_dma_open,
 		.mmap = acq400_dma_mmap_host,
+		.read = acq400_hb_read,
 		// sendfile method is no more.. it's probably not quite this easy ..
 		// sure enough, it's not !
 		// most likely the HB's have to be on a block device ..
@@ -2540,12 +2566,12 @@ static int acq400_probe(struct platform_device *pdev)
         	acq2006_createDebugfs(adev);
         	return 0;
         }
-        if (allocate_hbm(adev,
-        		IS_AO420(adev)? AO420_NBUFFERS: ACQ420_NBUFFERS,
-      			IS_AO420(adev)? ao420_buffer_length: ACQ420_BUFFERLEN,
-        		IS_AO420(adev)? DMA_TO_DEVICE: DMA_FROM_DEVICE)){
-        	dev_err(&pdev->dev, "failed to allocate buffers");
-        	goto fail;
+        if (IS_AO420(adev)){    /** @@todo AO424? */
+        	if (allocate_hbm(adev, AO420_NBUFFERS,
+        				ao420_buffer_length, DMA_TO_DEVICE)){
+        		dev_err(&pdev->dev, "failed to allocate buffers");
+        		goto fail;
+        	}
         }
 
         if (IS_AO420(adev)){
