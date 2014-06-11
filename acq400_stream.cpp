@@ -50,7 +50,6 @@
 
 #define NCHAN	4
 
-int nchan = NCHAN;
 
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
@@ -66,6 +65,9 @@ static int getKnob(int idev, const char* knob, unsigned* value)
 	}
 }
 
+/* all globals in one namespace : G */
+namespace G {
+int nchan = NCHAN;
 unsigned int nbuffers = 16;
 unsigned int bufferlen = 0x40000;
 int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
@@ -75,14 +77,15 @@ int m1 = 0;			/** start masking from here */
 int oversampling = 1;
 int devnum = 0;
 const char* script_runs_on_completion = 0;
-int G_nsam = 4096;
+
+int nsam = 4096;
 
 int control_handle;
 
 int pre;
 int post;
 bool no_demux;
-
+};
 #define BM_NULL	'n'
 #define BM_SENDFILE 's'
 #define BM_DEMUX 'h'
@@ -96,7 +99,7 @@ int nb_cat =1;	/* number of buffers to concatenate */
 
 
 int sample_size() {
-	return nchan * wordsize;
+	return G::nchan * G::wordsize;
 }
 
 class Buffer {
@@ -206,12 +209,12 @@ public:
 			memset(buffer, 0, buffer_len);
 			write(fd, buffer, buffer_len);
 		}
-		pdata = mmap(addr_hint, bufferlen,
+		pdata = mmap(addr_hint, G::bufferlen,
 			PROT_READ|(writeable? PROT_WRITE:0), MAP_SHARED, fd, 0);
 		assert(pdata != MAP_FAILED);
 	}
 	virtual ~MapBuffer() {
-		munmap(pdata, bufferlen);
+		munmap(pdata, G::bufferlen);
 	}
 };
 
@@ -241,9 +244,9 @@ private:
 	static int startchan;
 
 	void make_names() {
-		sprintf(OUT_ROOT, FMT_OUT_ROOT, devnum);
-		sprintf(OUT_ROOT_NEW, FMT_OUT_ROOT_NEW, devnum);
-		sprintf(OUT_ROOT_OLD, FMT_OUT_ROOT_OLD, devnum);
+		sprintf(OUT_ROOT, FMT_OUT_ROOT, G::devnum);
+		sprintf(OUT_ROOT_NEW, FMT_OUT_ROOT_NEW, G::devnum);
+		sprintf(OUT_ROOT_OLD, FMT_OUT_ROOT_OLD, G::devnum);
 		sprintf(CLEAN_COMMAND, "rm -Rf %s", OUT_ROOT_OLD);
 		sprintf(FIN_COMMAND,   "date >%s.fin", OUT_ROOT);
 
@@ -268,8 +271,8 @@ private:
 		rename(OUT_ROOT, OUT_ROOT_OLD);
 		rename(OUT_ROOT_NEW, OUT_ROOT);
 		system(FIN_COMMAND);
-		if (script_runs_on_completion != 0){
-			system(script_runs_on_completion);
+		if (G::script_runs_on_completion != 0){
+			system(G::script_runs_on_completion);
 		}
 	}
 	static unsigned ch_id(T data)
@@ -376,12 +379,12 @@ public:
 	}
 	DemuxBuffer(const char* _fname, int _ibuf, int _buffer_len, unsigned _mask) :
 		MapBuffer(_fname, _ibuf, _buffer_len),
-		nchan(::nchan),
-		nsam(_buffer_len/sizeof(T)/nchan)
+		nchan(G::nchan),
+		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
 		mask = new unsigned[nchan];
 		for (int ic = 0; ic < nchan; ++ic){
-			mask[ic] = ic < m1? FULL_MASK: _mask;
+			mask[ic] = ic < G::m1? FULL_MASK: _mask;
 		}
 		if (dddata == 0){
 			dddata = new T*[nchan];
@@ -422,7 +425,7 @@ public:
 			FILE* fp = fopen("/tmp/fakeit", "w");
 			assert(fp != 0);
 
-			int imax = bufferlen/sizeof(unsigned);
+			int imax = G::bufferlen/sizeof(unsigned);
 
 			for (int cursor = 0; cursor < imax; ++cursor){
 				fwrite(&cursor, sizeof(cursor), 1, fp);
@@ -448,30 +451,30 @@ public:
 		MapBuffer(_fname, _ibuf, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
-		nsam(_buffer_len/sizeof(T)/::nchan)
+		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
-		outbuf = new T[nsam*::nchan/over];
+		outbuf = new T[nsam*G::nchan/over];
 	}
 	virtual ~OversamplingMapBuffer() {
 		delete [] outbuf;
 	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		T* src = static_cast<T*>(pdata);
-		int sums[::nchan];
+		int sums[G::nchan];
 		int nsum = 0;
 		int osam = 0;
 
-		for (int ic = 0; ic < ::nchan; ++ic){
+		for (int ic = 0; ic < G::nchan; ++ic){
 			sums[ic] = 0;
 		}
 
 		for (int isam = 0; isam < nsam; ++isam){
-			for (int ic = 0; ic < ::nchan; ++ic){
-				sums[ic] += src[isam*::nchan+ic];
+			for (int ic = 0; ic < G::nchan; ++ic){
+				sums[ic] += src[isam*G::nchan+ic];
 			}
 			if (++nsum >= over){
-				for (int ic = 0; ic < ::nchan; ++ic){
-					outbuf[osam*::nchan+ic] = sums[ic] >> asr;
+				for (int ic = 0; ic < G::nchan; ++ic){
+					outbuf[osam*G::nchan+ic] = sums[ic] >> asr;
 					sums[ic] = 0;
 				}
 				++osam;
@@ -479,7 +482,7 @@ public:
 			}
 		}
 
-		return write(out_fd, outbuf, osam*::nchan*sizeof(T));
+		return write(out_fd, outbuf, osam*G::nchan*sizeof(T));
 	}
 };
 
@@ -542,7 +545,7 @@ class ScratchpadTestBuffer: public MapBuffer {
 		fprintf(stderr, ".. searching exact location\n");
 		unsigned sc1 = src[scoff()];
 
-		for (int ii = 0; ii < samples_per_buffer; ++ii, src += ::nchan){
+		for (int ii = 0; ii < samples_per_buffer; ++ii, src += G::nchan){
 			if (!isValidQuad(src, shim)){
 				fprintf(stderr, "Channel Jump at sample %d offset 0x%08x\n",
 							ii, byteoff(ii));
@@ -563,7 +566,7 @@ class ScratchpadTestBuffer: public MapBuffer {
 public:
 	ScratchpadTestBuffer(const char* _fname, int _ibuf, int _buffer_len):
 		MapBuffer(_fname, _ibuf, _buffer_len),
-		sample_size(sizeof(unsigned) * ::nchan),
+		sample_size(sizeof(unsigned) * G::nchan),
 		samples_per_buffer(_buffer_len/sample_size)
 	{
 		if (!report_done){
@@ -640,11 +643,11 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 		return new TurboBuffer(fname, _ibuf, _buffer_len);
 	case BM_PREPOST:
 	case BM_DEMUX:
-		switch(wordsize){
+		switch(G::wordsize){
 		case 2:
-			return new DemuxBuffer<short>(fname, _ibuf, _buffer_len, mask);
+			return new DemuxBuffer<short>(fname, _ibuf, _buffer_len, G::mask);
 		case 4:
-			return new DemuxBuffer<int>(fname, _ibuf, _buffer_len, mask);
+			return new DemuxBuffer<int>(fname, _ibuf, _buffer_len, G::mask);
 		default:
 			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
 			exit(1);
@@ -652,14 +655,14 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 	case BM_TEST:
 		return new ScratchpadTestBuffer(fname, _ibuf, _buffer_len);
 	default:
-		if (oversampling == 1){
+		if (G::oversampling == 1){
 			return new MapBuffer(fname, _ibuf, _buffer_len);
-		}else if (wordsize == 2){
+		}else if (G::wordsize == 2){
 			return new OversamplingMapBuffer<short>(
-			fname, _ibuf, _buffer_len, oversampling, ASR(oversampling));
+			fname, _ibuf, _buffer_len, G::oversampling, ASR(G::oversampling));
 		}else{
 			return new OversamplingMapBuffer<int> (
-			fname, _ibuf, _buffer_len, oversampling, ASR(oversampling));
+			fname, _ibuf, _buffer_len, G::oversampling, ASR(G::oversampling));
 		}
 	}
 }
@@ -671,7 +674,7 @@ Buffer** buffers;
 const char* stream_fmt = "%s.c";
 
 struct poptOption opt_table[] = {
-	{ "wrbuflen", 0, POPT_ARG_INT, &bufferlen, 0, 	"reduce buffer len" },
+	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0, 	"reduce buffer len" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL, 	"no output copy"    },
 	{ "sendfile",  0, POPT_ARG_NONE, 0, BM_SENDFILE,
 			"use sendfile to transmit (fake)"		    },
@@ -679,24 +682,24 @@ struct poptOption opt_table[] = {
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
-	{ "nchan",    'N', POPT_ARG_INT, &::nchan, 0 },
-	{ "wordsize", 'w', POPT_ARG_INT, &wordsize, 0,
+	{ "nchan",    'N', POPT_ARG_INT, &G::nchan, 0 },
+	{ "wordsize", 'w', POPT_ARG_INT, &G::wordsize, 0,
 			"data word size 2|4" },
-	{ "oversampling", 'O', POPT_ARG_INT, &oversampling, 0,
+	{ "oversampling", 'O', POPT_ARG_INT, &G::oversampling, 0,
 			"set oversampling"},
-	{ "mask",      'M', POPT_ARG_INT, &mask, 0,
+	{ "mask",      'M', POPT_ARG_INT, &G::mask, 0,
 			"set data mask"},
-	{ "m1",        'm', POPT_ARG_INT, &m1, 0,
+	{ "m1",        'm', POPT_ARG_INT, &G::m1, 0,
 			"index of first masked channel"},
-	{ "nsam",       0,  POPT_ARG_INT, &G_nsam, 0,
+	{ "nsam",       0,  POPT_ARG_INT, &G::nsam, 0,
 			"desired output samples" },
-	{ "oncompletion", 0, POPT_ARG_STRING, &script_runs_on_completion, 0,
+	{ "oncompletion", 0, POPT_ARG_STRING, &G::script_runs_on_completion, 0,
 			"run this script on completion of buffer"
 	},
-	{ "pre",	0, POPT_ARG_INT, &::pre, 'P',
+	{ "pre",	0, POPT_ARG_INT, &G::pre, 'P',
 			"transient capture, pre-length"
 	},
-	{ "post",       0, POPT_ARG_INT, &::post, 'O',
+	{ "post",       0, POPT_ARG_INT, &G::post, 'O',
 			"transient capture, post-length"
 	},
 	{ "no_demux",   0, POPT_ARG_NONE, 0, 'D',
@@ -729,6 +732,7 @@ const char* root;
 
 void acq400_stream_getstate(void);
 
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -752,7 +756,7 @@ void init(int argc, const char** argv) {
 			buffer_mode = BM_DEMUX;
 			break;
 		case 'D':
-			::no_demux = true;
+			G::no_demux = true;
 			break;
 		case 'P':
 		case 'O':
@@ -765,31 +769,29 @@ void init(int argc, const char** argv) {
 	}
 	const char* devc = poptGetArg(opt_context);
 	if (devc){
-		devnum = atoi(devc);
+		G::devnum = atoi(devc);
 	}
 
-
-
-	getKnob(devnum, "nbuffers",  &nbuffers);
-	getKnob(devnum, "bufferlen", &bufferlen);
+	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
+	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
 	if (buffer_mode == BM_DEMUX){
 		for (nb_cat = 1;
-		     nb_cat*bufferlen/(nchan*wordsize) < G_nsam; ++nb_cat){
+		     nb_cat*G::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
 			;
 		}
 		if (verbose){
 			fprintf(stderr, "BM_DEMUX bufsam:%d\n",
-					bufferlen/(nchan*wordsize));
+					G::bufferlen/(G::nchan*G::wordsize));
 			fprintf(stderr, "BM_DEMUX nb_cat set %d\n", nb_cat);
 		}
 	}
-	buffers = new Buffer* [nbuffers];
+	buffers = new Buffer* [G::nbuffers];
 
-	root = getRoot(devnum);
+	root = getRoot(G::devnum);
 
-	for (int ii = 0; ii < nbuffers; ++ii){
-		buffers[ii] = Buffer::create(root, ii, bufferlen);
+	for (int ii = 0; ii < G::nbuffers; ++ii){
+		buffers[ii] = Buffer::create(root, ii, G::bufferlen);
 	}
 }
 
@@ -812,7 +814,7 @@ protected:
 			buf[rc] = '\0';
 			int ib = atoi(buf);
 			assert(ib >= 0);
-			assert(ib <= nbuffers);
+			assert(ib <= G::nbuffers);
 			return ib;
 		}else{
 			return rc;
@@ -868,8 +870,8 @@ void StreamHeadHB0::stream() {
 		int ib[2];
 		int nscan = sscanf(buf, "%d %d", ib, ib+1);
 		assert(nscan >= 1);
-		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < nbuffers);
-		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < nbuffers);
+		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < G::nbuffers);
+		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < G::nbuffers);
 
 		if (verbose) fprintf(stderr, "\n\n\nUPDATE:%4d nscan:%d read: %s",
 				++nb, nscan, buf);
@@ -944,9 +946,9 @@ class DemuxerImpl : public Demuxer {
 		sprintf(fname, "mkdir -p %s", TRANSOUT);
 		system(fname);
 
-		const char* fmt = nchan > 99? "%s/%03d": "%s/%02d";
+		const char* fmt = G::nchan > 99? "%s/%03d": "%s/%02d";
 		ch.push_back(0);	// [0]
-		for (int ich = 1; ich <= nchan; ++ich){
+		for (int ich = 1; ich <= G::nchan; ++ich){
 			sprintf(fname, fmt, TRANSOUT, ich);
 			FILE *fp = fopen(fname, "w");
 			assert(fp);
@@ -954,7 +956,7 @@ class DemuxerImpl : public Demuxer {
 		}
 	}
 	int nextChan() {
-		if (++ichan > ::nchan){
+		if (++ichan > G::nchan){
 			ichan = 1;
 		}
 		return ichan;
@@ -983,7 +985,7 @@ void DemuxerImpl<T>::demux(void* start, int nbytes)
 
 	if (verbose) {
 		printf("%s start:%p nbytes:%d nchan:%d\n",
-			__func__, start, nbytes, nchan);
+			__func__, start, nbytes, G::nchan);
 		printf("%s start[0:] = %08x,%08x,%08x,%08x\n",
 				__func__, bp[0], bp[1], bp[2], bp[3]);
 		if (verbose > 1){
@@ -1071,12 +1073,12 @@ class StreamHeadPrePost: public StreamHead  {
 		system("mkdir -p " OBS_ROOT);
 		ba0 = (void*)0x4000000;
 		char * ba = static_cast<char*>(ba0);
-		for (int ii = 0; ii < nobufs; ++ii, ba += ::bufferlen){
+		for (int ii = 0; ii < nobufs; ++ii, ba += G::bufferlen){
 			char *fname = new char[strlen(OBS_ROOT)+6];
 			snprintf(fname, strlen(OBS_ROOT)+6, "%s/%03d",
 					OBS_ROOT, ii);
 			outbuffers.push_back(
-				new MapBuffer(fname, ii, ::bufferlen, true, ba));
+				new MapBuffer(fname, ii, G::bufferlen, true, ba));
 		}
 		ba1 = ba;
 
@@ -1086,7 +1088,7 @@ class StreamHeadPrePost: public StreamHead  {
 				fprintf(stderr, "buffer: %s %p %p\n",
 					(*obit)->getName(),
 					(*obit)->getBase(),
-					(char*)(*obit)->getBase()+::bufferlen);
+					(char*)(*obit)->getBase()+G::bufferlen);
 			}
 		}
 	}
@@ -1096,7 +1098,7 @@ class StreamHeadPrePost: public StreamHead  {
 		cursor = static_cast<char*>(ba0);
 		while((ib = getBufferId()) >= 0){
 			buffers[ib]->copyBuffer(cursor);
-			cursor += ::bufferlen;
+			cursor += G::bufferlen;
 			if (cursor >= static_cast<char*>(ba1)){
 				cursor = static_cast<char*>(ba0);
 			}
@@ -1185,8 +1187,8 @@ public:
 			actual(Progress::instance())
 		{
 		setState(ST_STOP);
-		int total_bs = (pre+post)*sample_size() + ::bufferlen;
-		samples_buffer = ::bufferlen/sample_size();
+		int total_bs = (pre+post)*sample_size() + G::bufferlen;
+		samples_buffer = G::bufferlen/sample_size();
 
 		while((pre+post)*sample_size() > TOTAL_BUFFER_LIMIT){
 			if (post) post -= samples_buffer/2;
@@ -1203,8 +1205,8 @@ public:
 		*/
 
 
-		nobufs = total_bs/::bufferlen;
-		while (nobufs*::bufferlen < total_bs || nobufs < 2){
+		nobufs = total_bs/G::bufferlen;
+		while (nobufs*G::bufferlen < total_bs || nobufs < 2){
 			++nobufs;
 		}
 
@@ -1214,7 +1216,7 @@ public:
 			fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
 				sample_size);
 			fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
-				total_bs, ::bufferlen, nobufs);
+				total_bs, G::bufferlen, nobufs);
 		}
 
 		buildOutputBuffers();
@@ -1229,7 +1231,7 @@ public:
 		}
 		streamCore();
 		close();
-		if (!::no_demux){
+		if (!G::no_demux){
 			postProcess();
 		}
 		setState(ST_STOP); actual.print();
@@ -1243,7 +1245,7 @@ StreamHead& StreamHead::instance() {
 		switch(buffer_mode){
 		case BM_PREPOST:
 			Demuxer *demuxer;
-			if (wordsize == 4){
+			if (G::wordsize == 4){
 				if (verbose){
 					fprintf(stderr,
 					"DemuxerImpl<int> sizeof int:%d\n",
@@ -1258,7 +1260,7 @@ StreamHead& StreamHead::instance() {
 				}
 				demuxer = new DemuxerImpl<short>;
 			}
-			_instance = new StreamHeadPrePost(*demuxer, ::pre, ::post);
+			_instance = new StreamHeadPrePost(*demuxer, G::pre, G::post);
 			break;
 		case BM_DEMUX:
 			_instance = new StreamHeadHB0();
