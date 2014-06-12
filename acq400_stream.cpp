@@ -47,7 +47,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <unistd.h>
-
+#include <errno.h>
 #define NCHAN	4
 
 
@@ -756,20 +756,67 @@ static void wait_and_cleanup_sighandler(int signo)
 }
 
 
-
 static void wait_and_cleanup(pid_t child)
 {
-	signal(SIGHUP, 	wait_and_cleanup_sighandler);
-	signal(SIGTERM, wait_and_cleanup_sighandler);
-	signal(SIGINT, 	wait_and_cleanup_sighandler);
-	signal(SIGCHILD,wait_and_cleanup_sighandler);
+	sigset_t  emptyset, blockset;
 
+	printf("wait_and_cleanup 01 pid %d\n", getpid());
+	sigemptyset(&blockset);
+	sigaddset(&blockset, SIGHUP);
+	sigaddset(&blockset, SIGTERM);
+	sigaddset(&blockset, SIGINT);
+	sigaddset(&blockset, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &blockset, NULL);
 
-	int dontcare;
-        waitpid(child, &dontcare, 0);
+	struct sigaction sa;
+	sa.sa_handler = wait_and_cleanup_sighandler;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGHUP, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGCHLD, &sa, NULL);
 
-//	wait_input_close_or_signal();
-        printf("wait_and_cleanup child exit(%d)\n", dontcare);
+	sigemptyset(&emptyset);
+	fd_set exceptfds;
+	FD_ZERO(&exceptfds);
+	FD_SET(0, &exceptfds);
+	fd_set readfds;
+	FD_ZERO(&readfds);
+	FD_SET(0, &readfds);
+
+	for(bool finished = false; !finished;){
+		int ready = pselect(1, &readfds, NULL, &exceptfds, NULL, &emptyset);
+
+		if (ready == -1 && errno != EINTR){
+			perror("pselect");
+			finished = true;
+			break;
+		}else if (FD_ISSET(0, &exceptfds)){
+			printf("exception on stdin\n");
+			finished = true;
+		}else if (FD_ISSET(0, &readfds)){
+			if (feof(stdin)){
+				printf("EOF\n");
+				finished = true;
+			}else if (ferror(stdin)){
+				printf("ERROR\n");
+				finished = true;
+			}else{
+				char stuff[80];
+				fgets(stuff, 80, stdin);
+
+				printf("data on stdin %s\n", stuff);
+				if (strncmp(stuff, "quit", 4) == 0){
+					finished = true;
+				}
+			}
+		}else{
+			printf("out of pselect, not sure why\n");
+		}
+	}
+
+        printf("wait_and_cleanup exterminate\n");
         kill(0, SIGTERM);
         exit(0);
 }
