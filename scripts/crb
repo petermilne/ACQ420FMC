@@ -1,0 +1,13 @@
+#!/bin/sh
+# crb cat raw buffers
+
+if [ ! -e /etc/acq400/0/full_buffers ]; then
+	echo ERROR no buffer list
+	exit 1
+fi
+
+for bid in $(cat /etc/acq400/0/full_buffers)
+do
+	cat /dev/acq400.0.hb/$bid
+done
+

@@ -1,0 +1,14 @@
+#!/bin/sh
+# bos : Big One Shot
+PRE=${1:-0}
+POST=${2:-4000000}
+VERBOSE=${3:-0}
+
+if [ "$1" = "-" ]; then
+	echo -n 'bos>'
+	read PRE POST VERBOSE
+fi
+PRE=0
+
+exec acq400_stream --verbose $VERBOSE --null-copy --nchan=64 -w=2 --pre=$PRE --post=$POST --no_demux --sites=1,2,3,4 0
+

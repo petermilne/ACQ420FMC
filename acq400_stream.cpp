@@ -750,7 +750,7 @@ void acq400_stream_getstate(void);
 
 static void wait_and_cleanup_sighandler(int signo)
 {
-	printf("wait_and_cleanup_sighandler(%d)\n", signo);
+	if (verbose) printf("wait_and_cleanup_sighandler(%d)\n", signo);
 	kill(0, SIGTERM);
 	exit(0);
 }
@@ -760,7 +760,7 @@ static void wait_and_cleanup(pid_t child)
 {
 	sigset_t  emptyset, blockset;
 
-	printf("wait_and_cleanup 01 pid %d\n", getpid());
+	if (verbose) printf("wait_and_cleanup 01 pid %d\n", getpid());
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGHUP);
 	sigaddset(&blockset, SIGTERM);
@@ -793,26 +793,28 @@ static void wait_and_cleanup(pid_t child)
 			finished = true;
 			break;
 		}else if (FD_ISSET(0, &exceptfds)){
-			printf("exception on stdin\n");
+			if (verbose) printf("exception on stdin\n");
 			finished = true;
 		}else if (FD_ISSET(0, &readfds)){
 			if (feof(stdin)){
-				printf("EOF\n");
+				if (verbose) printf("EOF\n");
 				finished = true;
 			}else if (ferror(stdin)){
-				printf("ERROR\n");
+				if (verbose) printf("ERROR\n");
 				finished = true;
 			}else{
 				char stuff[80];
 				fgets(stuff, 80, stdin);
 
-				printf("data on stdin %s\n", stuff);
+				if (verbose) printf("data on stdin %s\n", stuff);
 				if (strncmp(stuff, "quit", 4) == 0){
 					finished = true;
+				}else{
+					printf("options> quit\n");
 				}
 			}
 		}else{
-			printf("out of pselect, not sure why\n");
+			if (verbose) printf("out of pselect, not sure why\n");
 		}
 	}
 
