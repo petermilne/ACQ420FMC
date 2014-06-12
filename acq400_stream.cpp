@@ -1195,6 +1195,37 @@ void acq400_stream_getstate(void)
 	exit(0);
 }
 
+#define BLOG	"/etc/acq400/0/full_buffers"
+
+class BufferLog {
+	int ib0;
+	bool all_full;
+	FILE* blog;
+
+public:
+	BufferLog() : ib0(-1), all_full(false) {
+		blog = fopen(BLOG, "w");
+		if (blog == 0){
+			perror(BLOG);
+			exit(1);
+		}
+	}
+	~BufferLog() {
+		fprintf(blog, "\n");
+		fclose(blog);
+	}
+	bool update(int ib){
+		if (ib0 == -1){
+			ib0 = ib;
+		}else if (ib == ib0){
+			all_full = true;
+		}
+		if (!all_full){
+			fprintf(blog, "%03d ", ib);
+		}
+	}
+};
+
 class StreamHeadPrePost: public StreamHead  {
 protected:
 	int pre;
@@ -1214,9 +1245,12 @@ protected:
 	virtual void onStreamEnd() 		 {}
 
 	void streamCore() {
+		BufferLog blog;
 		int ib;
 
 		while((ib = getBufferId()) >= 0){
+			blog.update(ib);
+
 			onStreamBufferStart(ib);
 
 			switch(actual.state){
