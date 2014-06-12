@@ -10,9 +10,13 @@ if [ "$1" = "remove" ]; then
 	sed -ie "/$SF/d" /mnt/local/rc.user
 	rm $DST
 else
-	grep -q $SF /mnt/local/rc.user
-	if [ $? ]; then
-		echo "cp $SRC $DST" >>/mnt/local/rc.user
-		cp $SRC $DST
+	if [ -e /mnt/local/rc.user ]
+		grep -q $SF /mnt/local/rc.user
+		if [ $? -eq 0 ]; then
+			echo exists already ..
+			exit 0
+		fi
 	fi
+	echo "cp $SRC $DST" >>/mnt/local/rc.user
+	cp $SRC $DST
 fi
