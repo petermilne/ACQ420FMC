@@ -746,11 +746,30 @@ void acq400_stream_getstate(void);
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/select.h>
+
+static void wait_and_cleanup_sighandler(int signo)
+{
+	printf("wait_and_cleanup_sighandler(%d)\n", signo);
+	kill(0, SIGTERM);
+	exit(0);
+}
+
+
 
 static void wait_and_cleanup(pid_t child)
 {
+	signal(SIGHUP, 	wait_and_cleanup_sighandler);
+	signal(SIGTERM, wait_and_cleanup_sighandler);
+	signal(SIGINT, 	wait_and_cleanup_sighandler);
+	signal(SIGCHILD,wait_and_cleanup_sighandler);
+
+
 	int dontcare;
         waitpid(child, &dontcare, 0);
+
+//	wait_input_close_or_signal();
+        printf("wait_and_cleanup child exit(%d)\n", dontcare);
         kill(0, SIGTERM);
         exit(0);
 }
