@@ -1,14 +1,36 @@
 #!/bin/sh
 # bos : Big One Shot
-PRE=${1:-0}
-POST=${2:-4000000}
+
+if [ "x$1" = "xdefault" ]; then
+	PRE=0
+else
+	PRE=${1:-0}
+fi
+POST=${2:-1000000}
 VERBOSE=${3:-0}
 
+
+if [ -e /etc/acq400/0/transient ]; then
+	source /etc/acq400/0/transient
+fi
 if [ "$1" = "-" ]; then
 	echo -n 'bos>'
 	read PRE POST VERBOSE
+	PRE=0
 fi
-PRE=0
 
-exec acq400_stream --verbose $VERBOSE --null-copy --nchan=64 -w=2 --pre=$PRE --post=$POST --no_demux --sites=1,2,3,4 0
+NC=$(get.site 1 NCHAN)
+if [ "x$(get.site 1 data32)" = "1" ]; then
+	WS=4
+else
+	WS=2
+fi
+SITES=$(get.site 0 aggregator | awk '{ print $2 }')
+if [ $VERBOSE -gt 0 ]; then
+	echo "acq400_stream --verbose $VERBOSE --null-copy --no_demux \
+	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
+fi
+
+exec acq400_stream --verbose=$VERBOSE --null-copy --no_demux \
+	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0
 

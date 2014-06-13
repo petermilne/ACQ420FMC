@@ -1,0 +1,45 @@
+#!/bin/sh
+
+if [ -e /dev/shm/transient_settings ]; then
+	source /dev/shm/transient_settings
+fi
+if [ "$(basename $0)" = "transient" ]; then
+
+	if [ "x$1" = "x" ]; then
+		cat /dev/shm/transient_settings
+		exit 0
+	fi
+
+	validate() {
+		let xx=$1
+		let x1=$2
+		let x2=$3
+		if [ $xx -lt $x1 ]; then
+			echo $x1
+		elif [ $xx -gt $x2 ]; then
+			echo $x2
+		else
+			echo $xx
+		fi
+	}
+	NEWS=""
+
+	for pair in $*
+	do
+		key=${pair%=*}
+		val=${pair#*=}
+		case $key in
+		PRE)  val=$(validate $val 0 0);;
+		POST) val=$(validate $val 0 4000000);;
+		VERBOSE) val=$(validate $val 0 3);;
+		*)
+		echo "ERROR: $pair not supported"
+		exit 1;;
+		esac
+		NEWS="$NEWS $key=$val"
+	done
+
+	echo $NEWS > /dev/shm/transient_settings
+fi	
+
+
