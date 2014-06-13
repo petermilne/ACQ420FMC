@@ -19,8 +19,8 @@ if [ "$1" = "-" ]; then
 	PRE=0
 fi
 
-NC=$(get.site 1 NCHAN)
-if [ "x$(get.site 1 data32)" = "1" ]; then
+NC=$(get.site 0 NCHAN)
+if [ "x$(get.site 0 data32)" = "1" ]; then
 	WS=4
 else
 	WS=2
