@@ -98,6 +98,8 @@ bool no_demux;
 
 int buffer_mode = BM_NOT_SPECIFIED;
 int stream_mode = SM_STREAM;
+
+bool soft_trigger;
 };
 
 
@@ -715,6 +717,9 @@ struct poptOption opt_table[] = {
 	{ "sites",      0, POPT_ARG_STRING, &G::aggregator_sites, 0,
 			"group of aggregated sites to lock"
 	},
+	{ "soft-trigger", 0, POPT_ARG_INT, &G::soft_trigger, 0,
+			"assert soft-trigger after start"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -1059,6 +1064,7 @@ void StreamHeadHB0::stream() {
 
 enum STATE {
 	ST_STOP,
+	ST_ARM,
 	ST_RUN_PRE,
 	ST_RUN_POST,
 	ST_POSTPROCESS
@@ -1240,6 +1246,7 @@ protected:
 
 	void setState(enum STATE _state){
 		actual.state = _state;
+		actual.print();
 	}
 
 	virtual void onStreamStart() 		 {}
@@ -1256,18 +1263,22 @@ protected:
 			onStreamBufferStart(ib);
 
 			switch(actual.state){
+			case ST_ARM:
+				setState(pre? ST_RUN_PRE: ST_RUN_POST);
+			}
+
+			switch(actual.state){
 			case ST_RUN_PRE:
 				if (event_received){
-					actual.state = ST_RUN_POST;
+					setState(ST_RUN_POST);
 				}
 				break;
 			case ST_RUN_POST:
 				actual.post += samples_buffer;
 				if (actual.post > post){
 					actual.post = post;
-					actual.state = ST_POSTPROCESS;
 					actual.elapsed += samples_buffer;
-					actual.print();
+					setState(ST_POSTPROCESS);
 					return;
 				}
 			}
@@ -1324,13 +1335,12 @@ public:
 	}
 
 	void stream() {
-		setState(pre? ST_RUN_PRE: ST_RUN_POST);
+		setState(ST_ARM);
 		onStreamStart();
 		streamCore();
 		close();
 		onStreamEnd();
 		setState(ST_STOP);
-		actual.print();
 	}
 };
 class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
@@ -1477,12 +1487,22 @@ StreamHead& StreamHead::instance() {
 	return *_instance;
 }
 
-
+void schedule_soft_trigger(void)
+{
+	pid_t child = fork();
+	if (child == 0){
+		nice(10);
+		execlp("soft_trigger", "soft_trigger", NULL);
+	}
+}
 
 int main(int argc, const char** argv)
 {
 
 	init(argc, argv);
+	if (G::soft_trigger){
+		schedule_soft_trigger();
+	}
 	StreamHead::instance().stream();
 	return 0;
 }
