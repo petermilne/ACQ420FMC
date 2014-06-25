@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo acq420.init B1001
+echo acq420.init B1002
 
 BLEN=1048576
 NBUF=512
@@ -8,6 +8,11 @@ NBUF=512
 [ -e /mnt/local/acq400_stream ] && cp /mnt/local/acq400_stream /usr/local/bin
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 
+build_hb_node() {
+	nn=$(printf "$3" $2)
+	let minor="1000+$2"
+	mknod $nn c $1 $minor			
+}
 build_hb() {
 	MAJOR=$1
 	NAME=$2
@@ -19,6 +24,9 @@ build_hb() {
 		let NB0=$NB-1
 		for hb in $(seq 0 $NB0)
 		do
+			if [ $hb -lt 10 ]; then
+				build_hb_node $MAJOR $hb "$HBDIR/%02d"					
+			fi
 			NN=$(printf "$HBDIR/%03d" $hb)
 			let minor="1000+$hb"
 			mknod $NN c $MAJOR $minor		

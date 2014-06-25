@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.544"
+#define REVID "2.545"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -131,13 +131,13 @@ const char* acq400_devnames[] = {
 	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
 };
 
-#define AO420_BUFFERLEN	0x20000
+#define AO420_BUFFERLEN	0x100000
 
 int ao420_buffer_length = AO420_BUFFERLEN;
 module_param(ao420_buffer_length, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
 
-#define AO420_NBUFFERS 	4
+#define AO420_NBUFFERS 	2
 
 
 #define ACQ420_NBUFFERS	16
