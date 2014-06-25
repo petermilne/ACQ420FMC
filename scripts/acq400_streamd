@@ -70,7 +70,7 @@ if [ "x$SSPEC" != "x" ]; then
 	SSPEC="--$SSPEC"
 fi
 
-if [ "x$ACQ400D_TRIG" != "xsoft_trigger" ]; then
+if [ "x$ACQ400D_TRIG" = "xsoft_trigger" ]; then
 	STREAM_OPTS="$STREAM_OPTS --soft-trigger=1"	
 fi
 echo acq400_stream $SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE  >>$LOG
