@@ -66,7 +66,7 @@ udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 	
 acq400_stream: acq400_stream.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
 
 is_ramp: is_ramp.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt

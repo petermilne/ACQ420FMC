@@ -50,6 +50,8 @@
 #include <errno.h>
 #define NCHAN	4
 
+#include <semaphore.h>
+#include <syslog.h>
 
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
@@ -100,6 +102,8 @@ int buffer_mode = BM_NOT_SPECIFIED;
 int stream_mode = SM_STREAM;
 
 bool soft_trigger;
+sem_t* aggsem;
+char* aggsem_name;
 };
 
 
@@ -824,6 +828,11 @@ static void wait_and_cleanup(pid_t child)
 	}
 
         printf("wait_and_cleanup exterminate\n");
+
+        if (G::aggsem){
+        	sem_close(G::aggsem);
+        	sem_unlink(G::aggsem_name);
+        }
         kill(0, SIGTERM);
         exit(0);
 }
@@ -848,6 +857,7 @@ static void hold_open(const char* sites)
 	int nsites = sscanf(sites, "%d,%d,%d,%d,%d,%d",
 		the_sites+0, the_sites+1, the_sites+2,
 		the_sites+3, the_sites+4, the_sites+5);
+
 	if (nsites){
 		setpgid(0, 0);
 		pid_t child = fork();
@@ -855,10 +865,38 @@ static void hold_open(const char* sites)
 			/* original becomes reaper */
 			wait_and_cleanup(child);
 		}else{
+			if (getenv("USE_AGGSEM") && atoi(getenv("USE_AGGSEM"))){
+				G::aggsem_name = new char[80];
+				sprintf(G::aggsem_name, "/acq400_stream.%d", getpid());
+				G::aggsem = sem_open(G::aggsem_name, O_CREAT, S_IRWXU, 0);
+				if (G::aggsem == SEM_FAILED){
+					perror(G::aggsem_name);
+					exit(1);
+				}
+				syslog(LOG_DEBUG, "G_aggsem:%p\n", G::aggsem);
+			}
+
 			for (int isite = 0; isite < nsites; ++isite){
 				child = fork();
 
 		                if (child == 0) {
+		                	int val;
+
+		                	if (G::aggsem){
+		                		sem_getvalue(G::aggsem, &val);
+		                		syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
+		                		if (sem_wait(G::aggsem) != 0){
+		                			perror("sem_wait");
+		                		}
+
+		                		syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after wait");
+		                		if (sem_post(G::aggsem) != 0){
+		                			perror("sem_post");
+		                		}
+
+		                		syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after post");
+		                		sem_close(G::aggsem);
+		                	}
 		                	hold_open(the_sites[isite]);
 		                	assert(1);
 		                }
@@ -901,8 +939,8 @@ void init(int argc, const char** argv) {
 			break;
 		}
 	}
-
-
+	openlog("acq400_stream", LOG_PID, LOG_USER);
+	syslog(LOG_DEBUG, "hello world");
 	const char* devc = poptGetArg(opt_context);
 	if (devc){
 		G::devnum = atoi(devc);
@@ -1503,6 +1541,12 @@ int main(int argc, const char** argv)
 	if (G::soft_trigger){
 		schedule_soft_trigger();
 	}
-	StreamHead::instance().stream();
+	StreamHead& theStreamHead = StreamHead::instance();
+	if (G::aggsem){
+		if (sem_post(G::aggsem) != 0){
+			perror("sem_post");
+		}
+	}
+	theStreamHead.stream();
 	return 0;
 }

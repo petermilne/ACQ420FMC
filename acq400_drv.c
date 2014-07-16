@@ -1129,7 +1129,6 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 
 void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 {
-	//acq420_reset_fifo(adev);
 	adev->onStop(adev);
 
 	dev_dbg(DEVP(adev), "acq420_continuous_stop() kthread_stop called\n");
