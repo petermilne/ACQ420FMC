@@ -59,6 +59,7 @@ const char* pattern = "";
 
 using namespace std;
 
+#define VERID "acq400_knobs B1000"
 
 bool err;
 int site;
@@ -74,8 +75,8 @@ typedef vector<Knob*>::iterator VKI;
 
 char* chomp(char *str) {
 	char* cursor = str + strlen(str)-1;
-	while (*cursor == '\n' && cursor >= str){
-		*cursor = '\0';
+	while (std::isspace(*cursor) && cursor >= str){
+		*cursor-- = '\0';
 	}
 	return str;
 }
@@ -735,7 +736,7 @@ void cli(int argc, char* argv[])
 	if (getenv("VERBOSE")){
 		verbose = atoi(getenv("VERBOSE"));
 	}
-	VPRINTF("verbose set %d\n", verbose);
+	VPRINTF("%s verbose set %d\n", VERID, verbose);
 
 	if (argc > 2){
 		dir = argv[2];
