@@ -102,6 +102,7 @@ int buffer_mode = BM_NOT_SPECIFIED;
 int stream_mode = SM_STREAM;
 
 bool soft_trigger;
+bool use_aggsem = true;
 sem_t* aggsem;
 char* aggsem_name;
 };
@@ -865,7 +866,7 @@ static void hold_open(const char* sites)
 			/* original becomes reaper */
 			wait_and_cleanup(child);
 		}else{
-			if (getenv("USE_AGGSEM") && atoi(getenv("USE_AGGSEM"))){
+			if (G::use_aggsem){
 				G::aggsem_name = new char[80];
 				sprintf(G::aggsem_name, "/acq400_stream.%d", getpid());
 				G::aggsem = sem_open(G::aggsem_name, O_CREAT, S_IRWXU, 0);
@@ -954,6 +955,9 @@ void init(int argc, const char** argv) {
 	}
 	if (G::aggregator_sites != 0){
 		hold_open(G::aggregator_sites);
+	}
+	if (getenv("USE_AGGSEM")){
+		G::use_aggsem = atoi(getenv("USE_AGGSEM"));
 	}
 
 	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
