@@ -524,17 +524,22 @@ void init_knobs()
 typedef unsigned int u32;
 #include "../AO421_ELF/ScratchPad.h"
 
-void restart_awg()
+int change_awg(int len)
 /* refresh is supposed to happen on the fly, but may be unreliable */
 {
+	int oldlen = 0;
 	if (playloop_site >= 0){
 		char site_root[80];
 		sprintf(site_root, "/dev/acq400.%d.knobs", playloop_site);
-		int len = read_int_knob(site_root, "playloop_length");
+		oldlen = read_int_knob(site_root, "playloop_length");
 		update_knob(site_root, "playloop_length", len);
 		printf("%s=%d\n", site_root, len);
-	}
 
+		if (len > 0){
+			system("soft_trigger");
+		}
+	}
+	return oldlen;
 }
 static void spSet(Scratchpad& sp, int ii, short offsets[], short gains[])
 {
@@ -578,9 +583,10 @@ int run_monitor(short *src, short *dst)
 			offsets.copyValues(offsets2);
 			gains.toValues(::gains);
 			offsets.toValues(::offsets);
+			int old_len = change_awg(0);
 			exec_mac(src, dst);
+			change_awg(old_len);
 			update_scratchpad(::offsets, ::gains);
-			restart_awg();
 			update_knob(kroot, "update", ++updates);
 			dmon.spawn();
 		}else{
