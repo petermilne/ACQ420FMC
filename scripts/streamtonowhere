@@ -1,0 +1,4 @@
+#!/bin/sh
+SITE=${1:-0}
+nc 127.0.0.1 421${SITE} | pv >/dev/null
+

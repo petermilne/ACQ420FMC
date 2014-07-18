@@ -1,0 +1,30 @@
+#!/bin/sh
+# streams to nowhere .. get streaming!
+
+SERVICE=nowhere
+PIDF=/var/run/run.$SERVICE.pid
+LOG=/var/log/run.$SERVICE.log
+LPORT=$(get-port-from-service acq4xx-$SERVICE-console)
+
+start() {
+	/usr/local/bin/procServ --restrict -c / -p $PIDF -L $LOG $LPORT \
+		/usr/local/bin/streamtonowhere
+}
+
+stop() {
+        if [ -r ${PIDF} ]; then
+                kill -s TERM $(cat ${PIDF})
+                rm ${PIDF}
+        fi
+}
+
+case $1 in
+start|"")
+        start;;
+stop)
+        stop;;
+*)
+        echo "USAGE streamtonowhered  start\|stop";;
+esac
+
+
