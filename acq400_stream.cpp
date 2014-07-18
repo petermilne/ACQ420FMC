@@ -883,7 +883,7 @@ static void hold_open(const char* sites)
 		                if (child == 0) {
 		                	int val;
 
-		                	if (G::aggsem){
+		                	if (G::use_aggsem){
 		                		sem_getvalue(G::aggsem, &val);
 		                		syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
 		                		if (sem_wait(G::aggsem) != 0){
