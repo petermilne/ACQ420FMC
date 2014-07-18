@@ -54,7 +54,7 @@ modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
 	
 clean:
-	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions mmap acq400_stream
+	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(APPS)
 	
 mmap: mmap.o
 	$(CC) -o $@ $^ -L../lib -lpopt
