@@ -5,7 +5,10 @@ echo acq420.init B1002
 BLEN=1048576
 NBUF=512
 
-[ -e /mnt/local/acq400_stream ] && cp /mnt/local/acq400_stream /usr/local/bin
+if [ -e /mnt/local/acq400_stream ]; then
+	echo override from /mnt/local/acq400_stream
+	cp /mnt/local/acq400_stream /usr/local/bin
+fi
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 
 build_hb_node() {
