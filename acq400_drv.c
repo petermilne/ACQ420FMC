@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.545"
+#define REVID "2.546"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -503,9 +503,10 @@ void acq43X_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
-	dev_info(DEVP(adev), "acq435_onStart()");
+	dev_dbg(DEVP(adev), "acq435_onStart() ctrl=%08x", ctrl);
 
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
+	ctrl &= ~ADC_CTRL_FIFO_EN|ADC_CTRL_ADC_EN;
 	acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 
 	if (adev->ramp_en){

@@ -852,6 +852,9 @@ static void hold_open(int site)
 	}
 	exit(1);
 }
+
+std::vector<pid_t> holders;
+
 static void hold_open(const char* sites)
 {
 	int the_sites[6];
@@ -900,11 +903,21 @@ static void hold_open(const char* sites)
 		                	}
 		                	hold_open(the_sites[isite]);
 		                	assert(1);
+		                }else{
+		                	holders.push_back(child);
 		                }
 			}
 		}
 	}
 	/* newly forked main program continues to do its stuff */
+}
+
+static void kill_the_holders() {
+	std::vector<pid_t>::iterator it;
+	for (it = holders.begin(); it != holders.end(); ++it){
+		kill(*it, SIGTERM);
+		syslog(LOG_DEBUG, "kill_the_holders %d\n", *it);
+	}
 }
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
@@ -1009,6 +1022,7 @@ protected:
 		}
 	}
 	void close() {
+		kill_the_holders();
 		if (fc){
 			::close(fc);
 			fc = 0;
