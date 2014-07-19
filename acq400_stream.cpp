@@ -48,6 +48,9 @@
 #include <sys/shm.h>
 #include <unistd.h>
 #include <errno.h>
+
+#define VERID	"B1000"
+
 #define NCHAN	4
 
 #include <semaphore.h>
@@ -105,6 +108,8 @@ bool soft_trigger;
 bool use_aggsem = true;
 sem_t* aggsem;
 char* aggsem_name;
+char* state_file;
+FILE* state_fp;
 };
 
 
@@ -725,6 +730,9 @@ struct poptOption opt_table[] = {
 	{ "soft-trigger", 0, POPT_ARG_INT, &G::soft_trigger, 0,
 			"assert soft-trigger after start"
 	},
+	{ "state-file",   0, POPT_ARG_STRING, &G::state_file, 'S',
+			"write changing state string to this file"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -830,10 +838,6 @@ static void wait_and_cleanup(pid_t child)
 
         printf("wait_and_cleanup exterminate\n");
 
-        if (G::aggsem){
-        	sem_close(G::aggsem);
-        	sem_unlink(G::aggsem_name);
-        }
         kill(0, SIGTERM);
         exit(0);
 }
@@ -948,13 +952,20 @@ void init(int argc, const char** argv) {
 		case 'O':
 			G::stream_mode = SM_TRANSIENT;
 			break;
+		case 'S':
+			G::state_fp = fopen(G::state_file, "w");
+			if (G::state_fp == 0){
+				perror(G::state_file);
+				exit(1);
+			}
+			break;
 		case BM_TEST:
 			G::buffer_mode = BM_TEST;
 			break;
 		}
 	}
 	openlog("acq400_stream", LOG_PID, LOG_USER);
-	syslog(LOG_DEBUG, "hello world");
+	syslog(LOG_DEBUG, "hello world %s", VERID);
 	const char* devc = poptGetArg(opt_context);
 	if (devc){
 		G::devnum = atoi(devc);
@@ -1023,6 +1034,10 @@ protected:
 	}
 	void close() {
 		kill_the_holders();
+		if (G::aggsem){
+		       	sem_close(G::aggsem);
+		       	sem_unlink(G::aggsem_name);
+		}
 		if (fc){
 			::close(fc);
 			fc = 0;
@@ -1227,6 +1242,12 @@ struct Progress {
 	void print() {
 		printf("%d %d %d %llu\n", state, pre, post, elapsed);
 		fflush(stdout);
+
+		if (G::state_fp){
+			rewind(G::state_fp);
+			fprintf(G::state_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
+			fflush(G::state_fp);
+		}
 	}
 };
 
@@ -1540,6 +1561,11 @@ StreamHead& StreamHead::instance() {
 			}
 		}
 	}
+	if (G::aggsem){
+		if (sem_post(G::aggsem) != 0){
+			perror("sem_post");
+		}
+	}
 	return *_instance;
 }
 
@@ -1559,12 +1585,6 @@ int main(int argc, const char** argv)
 	if (G::soft_trigger){
 		schedule_soft_trigger();
 	}
-	StreamHead& theStreamHead = StreamHead::instance();
-	if (G::aggsem){
-		if (sem_post(G::aggsem) != 0){
-			perror("sem_post");
-		}
-	}
-	theStreamHead.stream();
+	StreamHead::instance().stream();
 	return 0;
 }
