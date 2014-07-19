@@ -27,7 +27,7 @@
 
 
 
-#define REVID "2.546"
+#define REVID "2.547"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -382,6 +382,7 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
+	acq420_reset_fifo(adev);
 }
 
 
