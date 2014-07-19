@@ -7,16 +7,20 @@ PID=/var/run/acq400_stream.$SITE.pid
 
 source /etc/sysconfig/acq400.conf
 
-teardown() {
-if [ -e $PID ]; then
-	(
+_teardown() {
 	echo before
 	ps -o pid,pgid,comm | grep $(cat $PID)
-	kill -9 -$(cat $PID)
-	echo after
-	ps -o pid,pgid,comm | grep $(cat $PID)
+	if [ $? -eq 0 ]; then
+		kill -9 -$(cat $PID)
+		echo after
+		ps -o pid,pgid,comm | grep $(cat $PID)
+	fi
 	rm $PID
-	) 2>&1 >/tmp/acq400_streamd.log
+}
+
+teardown() {
+if [ -e $PID ]; then
+	_teardown 2>&1 >/tmp/acq400_streamd.log
 fi
 }
 
