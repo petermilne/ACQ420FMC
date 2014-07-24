@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 
+#include "dmaengine.h"
 static unsigned int test_buf_size = 16384;
 module_param(test_buf_size, uint, S_IRUGO);
 MODULE_PARM_DESC(test_buf_size, "Size of the memcpy test buffer");
@@ -391,8 +392,7 @@ static int dmatest_func(void *data)
 	 * src buffers are freed by the DMAEngine code with dma_unmap_single()
 	 * dst buffers are freed by ourselves below
 	 */
-	flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT
-	      | DMA_COMPL_SKIP_DEST_UNMAP | DMA_COMPL_SRC_UNMAP_SINGLE;
+	flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
 
 	while (!kthread_should_stop()
 	       && !(iterations && total_tests >= iterations)) {

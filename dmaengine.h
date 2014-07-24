@@ -8,6 +8,18 @@
 #include <linux/bug.h>
 #include <linux/dmaengine.h>
 
+#warning DT CUSTOM ALERT
+
+#define DMA_SUCCESS	DMA_COMPLETE
+/* D-TACQ Customisation */
+enum dma_ctrl_flags_dt {
+        // PGM WASHERE
+        DMA_SRC_NO_INCR = (1<<24),
+        DMA_DST_NO_INCR = (1<<25),
+
+        DMA_WAIT_EV0 = (1<<26),
+        DMA_WAIT_EV1 = (1<<27)
+};
 /**
  * dma_cookie_init - initialize the cookies for a DMA channel
  * @chan: dma channel to initialize

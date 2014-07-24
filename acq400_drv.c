@@ -25,9 +25,9 @@
 #include "acq400_debugfs.h"
 #include "acq400_lists.h"
 
+#include "dmaengine.h"
 
-
-#define REVID "2.547"
+#define REVID "2.548"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -649,9 +649,7 @@ dma_async_memcpy_pa_to_buf(
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
-	flags |= DMA_SRC_NO_INCR | DMA_CTRL_ACK |
-				DMA_COMPL_SRC_UNMAP_SINGLE |
-				DMA_COMPL_DEST_UNMAP_SINGLE;
+	flags |= DMA_SRC_NO_INCR | DMA_CTRL_ACK;
 
 	DMA_NS;
 	dev_dbg(dev->dev, "dev->prep_dma_memcpy %d 0x%08x 0x%08x %d %08lx",
@@ -683,9 +681,7 @@ dma_async_memcpy(
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
-	unsigned long flags = DMA_DST_NO_INCR | DMA_CTRL_ACK |
-				DMA_COMPL_SRC_UNMAP_SINGLE |
-				DMA_COMPL_DEST_UNMAP_SINGLE;
+	unsigned long flags = DMA_DST_NO_INCR | DMA_CTRL_ACK;
 
 	DMA_NS;
 	tx = dev->device_prep_dma_memcpy(chan, dest, src, len, flags);
@@ -1257,7 +1253,7 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 	if (rc){
 		return rc;
 	}
-	if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
+	if (IS_ACQ2X06SC(adev) || IS_ACQ1001SC(adev)){
 		file->f_op = &acq2006_fops_continuous;
 	}else{
 		file->f_op = &acq400_fops_continuous;
@@ -1278,6 +1274,7 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
         loff_t *f_pos)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	int rc;
 	if (wait_event_interruptible(
 			adev->refill_ready,
 			!list_empty(&adev->REFILLS) ||
@@ -1285,10 +1282,16 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 			adev->rt.please_stop)){
 		return -EINTR;
 	} else if (adev->rt.please_stop){
-		copy_to_user(buf, "D", 1);
+		rc = copy_to_user(buf, "D", 1);
+		if (rc) {
+			return -1;
+		}
 		return GET_FULL_DONE;
 	} else if (adev->rt.refill_error){
-		copy_to_user(buf, "RE", 2);
+		rc = copy_to_user(buf, "RE", 2);
+		if (rc){
+			return -1;
+		}
 		return GET_FULL_REFILL_ERR;
 	}
 	return 0;
@@ -1619,7 +1622,7 @@ ssize_t acq400_event_read(
 	rc = snprintf(lbuf, 20, "%u %u\n",
 			adev->sample_clocks_at_event, adev->samples_at_event);
 	adev->sample_clocks_at_event = 0;
-	copy_to_user(buf, lbuf, rc);
+	rc = copy_to_user(buf, lbuf, rc);
 	return rc;
 }
 
@@ -2554,7 +2557,7 @@ static int acq400_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        if (IS_ACQ2006SC(adev) || IS_ACQ1001SC(adev)){
+        if (IS_ACQx00xSC(adev)){
         	if (allocate_hbm(adev, nbuffers, bufferlen, DMA_FROM_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
         		goto fail;

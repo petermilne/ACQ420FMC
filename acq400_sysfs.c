@@ -1384,6 +1384,8 @@ static ssize_t show_module_name(
 		name = "acq1001sc"; break;
 	case MOD_ID_ACQ2006SC:
 		name = "acq2006sc"; break;
+	case MOD_ID_ACQ2106SC:
+		name = "acq2106sc"; break;
 	case MOD_ID_ACQ420FMC:
 	case MOD_ID_ACQ420FMC_2000:
 		name = "acq420fmc"; break;
@@ -2244,7 +2246,7 @@ int _get_site(const char* valid_sites, char s)
 int get_site(struct acq400_dev *adev, char s)
 /** @todo cant discriminate 1001, 1002... */
 {
-	if (IS_ACQ2006SC(adev)){
+	if (IS_ACQ2X06SC(adev)){
 		return _get_site("123456", s);
 	}else if (IS_ACQ1001SC(adev)){
 		return _get_site("12", s);
@@ -2525,7 +2527,7 @@ void acq400_createSysfs(struct device *dev)
 				dev_err(dev, "failed to create sysfs HDMI");
 			}
 		}
-		if (IS_ACQ2006SC(adev)){
+		if (IS_ACQ2X06SC(adev)){
 			specials = acq2006sc_attrs;
 		}else if (IS_ACQ1001SC(adev)){
 			specials = acq1001sc_attrs;

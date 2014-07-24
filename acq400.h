@@ -126,6 +126,7 @@
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
+#define MOD_ID_ACQ2106SC	0x82
 
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
@@ -489,9 +490,11 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  (GET_MOD_ID(adev) == MOD_ID_AO421FMC)
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
+#define IS_ACQ2106SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2106SC)
+#define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
 
-#define IS_ACQx00xSC(adev) (IS_ACQ2006SC(adev)||IS_ACQ1001SC(adev))
+#define IS_ACQx00xSC(adev) (IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev))
 
 #define IS_BOLO8(adev)	(GET_MOD_ID(adev) == MOD_ID_BOLO8)
 

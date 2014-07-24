@@ -1,14 +1,14 @@
 # Cross compiler makefile for FIFO DMA example
-KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
+KERN_SRC=~/PROJECTS/ACQ400_314/linux-xlnx
 #KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx-github/linux-xlnx
 obj-m += acq420fmc.o
 obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
 obj-m += pl330.o
-obj-m += bolo8_drv.o
+#obj-m += bolo8_drv.o
 obj-m += acq425_drv.o
-obj-m += acq4xx_fs.o
+#obj-m += acq4xx_fs.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
