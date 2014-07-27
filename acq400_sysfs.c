@@ -2091,7 +2091,7 @@ static ssize_t show_fan_percent(
 	if (pwm > ACQ1001_MOD_CON_PWM_MIN){
 		pwm -= ACQ1001_MOD_CON_PWM_MIN;
 	}
-	fan_percent = (pwm*2)/5;
+	fan_percent = (pwm*100)/ACQ1001_MOD_CON_PWM_MAX;
 	return sprintf(buf, "%u\n", fan_percent);
 }
 
@@ -2105,8 +2105,11 @@ static ssize_t store_fan_percent(
 	unsigned mod_con = acq400rd32(adev, MOD_CON);
 	unsigned fan_percent;
 
-	if (sscanf(buf, "%d", &fan_percent) == 1){
-		unsigned pwm = (fan_percent*5)/2;
+	if (sscanf(buf, "%u", &fan_percent) == 1){
+		unsigned pwm;
+
+		if (fan_percent > 100) fan_percent = 100;
+		pwm = (fan_percent*ACQ1001_MOD_CON_PWM_MAX)/100;
 		pwm += ACQ1001_MOD_CON_PWM_MIN;
 		pwm <<= ACQ1001_MOD_CON_PWM_BIT;
 		if (pwm > ACQ1001_MOD_CON_PWM_MASK){

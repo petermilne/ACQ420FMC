@@ -601,7 +601,8 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define ACQ1001_MOD_CON_FAN_EN		(1<<2)
 #define MOD_CON_SOFT_TRIG		(1<<4)
 #define ACQ1001_MOD_CON_PWM_BIT		8
-#define ACQ1001_MOD_CON_PWM_MASK	0x0000ff00
+#define ACQ1001_MOD_CON_PWM_MAX		0x40
+#define ACQ1001_MOD_CON_PWM_MASK	((ACQ1001_MOD_CON_PWM_MAX-1)<<ACQ1001_MOD_CON_PWM_BIT)
 #define ACQ1001_MOD_CON_PWM_MIN		0x04
 
 
