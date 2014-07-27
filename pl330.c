@@ -33,6 +33,18 @@
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
+#define REVID	"1200"
+
+#define PGM_EVENT0	8
+
+int channel_starts_wfp[8] = { 1, 1, };
+int channel_num = 8;
+module_param_array(channel_starts_wfp, int, &channel_num, 0644);
+
+int channel_ends_flushp[8] = { 1, 1, };
+int channel_nump = 8;
+module_param_array(channel_ends_flushp, int, &channel_nump, 0644);
+
 enum pl330_srccachectrl {
 	SCCTRL0,	/* Noncacheable and nonbufferable */
 	SCCTRL1,	/* Bufferable only */
@@ -348,6 +360,9 @@ struct pl330_reqcfg {
 	enum pl330_srccachectrl scctl;
 	enum pl330_byteswap swap;
 	struct pl330_config *pcfg;
+
+	/* @pgm wait ev */
+	unsigned wait_ev;
 };
 
 /*
@@ -435,6 +450,7 @@ struct _xfer_spec {
 	u32 ccr;
 	struct pl330_req *r;
 	struct pl330_xfer *x;
+	struct pl330_thread *thrd;
 };
 
 enum dmamov_dst {
@@ -1194,6 +1210,8 @@ static bool _trigger(struct pl330_thread *thrd)
 
 	/* Set to generate interrupts for SEV */
 	writel(readl(regs + INTEN) | (1 << thrd->ev), regs + INTEN);
+	dev_dbg(thrd->dmac->pinfo->dev, "INTEN: %08x ES: %08x\n",
+			readl(regs + INTEN), readl(regs + ES));
 
 	/* Only manager can execute GO */
 	_execute_DBGINSN(thrd, insn, true);
@@ -1366,6 +1384,19 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 		ljmp0 = off;
 	}
 
+	/* @@pgmwashere WFP in inner loop
+	 * Should be pxs->r->peri
+	 * But not sure how to set up, hence pxs->thrd->id
+	 * flushp to kickoff
+	 * */
+	if (channel_ends_flushp[pxs->thrd->id]){
+		off += _emit_FLUSHP(dry_run, &buf[off],
+				channel_ends_flushp[pxs->thrd->id]-1);
+	}
+	if (channel_starts_wfp[pxs->thrd->id]){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
+				channel_starts_wfp[pxs->thrd->id]-1);
+	}
 	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
 	ljmp1 = off;
 
@@ -1420,6 +1451,16 @@ static inline int _setup_xfer(unsigned dry_run, u8 buf[],
 	/* DMAMOV DAR, x->dst_addr */
 	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
 
+	/* @@pgm .. wait  for the other thread's EV */
+	switch(pxs->r->cfg->wait_ev){
+	case DMA_WAIT_EV0:
+		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0, 0);
+		break;
+	case DMA_WAIT_EV1:
+		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0+1, 0);
+		break;
+	}
+
 	/* Setup Loop(s) */
 	off += _setup_loops(dry_run, &buf[off], pxs);
 
@@ -1440,14 +1481,27 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 
 	PL330_DBGMC_START(req->mc_bus);
 
+	/* @@pgmwashere WFP in outer loop */
+	/*
+	if (channel_starts_wfp[thrd->id]){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
+				channel_starts_wfp[thrd->id]-1);
+	}
+	*/
+
+
 	/* DMAMOV CCR, ccr */
 	off += _emit_MOV(dry_run, &buf[off], CCR, pxs->ccr);
 
 	x = pxs->r->x;
 	do {
 		/* Error if xfer length is not aligned at burst size */
-		if (x->bytes % (BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr)))
+		if (x->bytes % (BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr))){
+			dev_err(thrd->dmac->pinfo->dev,
+				"x->bytes:%d %% SIZ*LEN: %d\n",
+				x->bytes, BRST_SIZE(pxs->ccr) * BRST_LEN(pxs->ccr));
 			return -EINVAL;
+		}
 
 		pxs->x = x;
 		off += _setup_xfer(dry_run, &buf[off], pxs);
@@ -1455,6 +1509,9 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 		x = x->next;
 	} while (x);
 
+	if (channel_starts_wfp[thrd->id]){
+		off += _emit_SEV(dry_run, &buf[off], PGM_EVENT0+thrd->id);
+	}
 	/* DMASEV peripheral/event */
 	off += _emit_SEV(dry_run, &buf[off], thrd->ev);
 	/* DMAEND */
@@ -1463,6 +1520,7 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 	return off;
 }
 
+#define AXI_BS_SZ	2 	/* 64 bit bus: 1<<2 = 4bytes wide */
 static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 {
 	u32 ccr = 0;
@@ -1481,12 +1539,32 @@ static inline u32 _prepare_ccr(const struct pl330_reqcfg *rqc)
 	if (rqc->insnaccess)
 		ccr |= CC_SRCIA | CC_DSTIA;
 
-	ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
-	ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+	/** @@pgm todo hack by PGM: no xxx_inc::
+	 * peripheral, make it 4 bytes
+	 * but the partner is MEMORY, make it a short fat transfer
+	 * */
+	if (rqc->src_inc == 0){
+		ccr |= (AXI_BS_SZ << CC_SRCBRSTSIZE_SHFT);
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		ccr |= (rqc->brst_size << CC_DSTBRSTSIZE_SHFT);
+		if (rqc->brst_size > AXI_BS_SZ){
+			int dst_len = rqc->brst_len >> (rqc->brst_size-AXI_BS_SZ);
+			ccr |= (((dst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+		}
+	}else if (rqc->dst_inc == 0){
+		ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
 
-	ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
-	ccr |= (rqc->brst_size << CC_DSTBRSTSIZE_SHFT);
-
+		if (rqc->brst_size > AXI_BS_SZ){
+			int src_len = rqc->brst_len >> (rqc->brst_size-AXI_BS_SZ);
+			ccr |= (((src_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		}
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+		ccr |= (AXI_BS_SZ << CC_DSTBRSTSIZE_SHFT);
+	}else{
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_SRCBRSTLEN_SHFT);
+		ccr |= (((rqc->brst_len - 1) & 0xf) << CC_DSTBRSTLEN_SHFT);
+		ccr |= (rqc->brst_size << CC_SRCBRSTSIZE_SHFT);
+	}
 	ccr |= (rqc->scctl << CC_SRCCCTRL_SHFT);
 	ccr |= (rqc->dcctl << CC_DSTCCTRL_SHFT);
 
@@ -1531,6 +1609,7 @@ static int pl330_submit_req(void *ch_id, struct pl330_req *r)
 	if (!r || !thrd || thrd->free)
 		return -EINVAL;
 
+	xs.thrd = thrd;
 	pl330 = thrd->dmac;
 	pi = pl330->pinfo;
 	regs = pi->base;
@@ -1722,7 +1801,11 @@ static int pl330_update(const struct pl330_info *pi)
 		goto updt_exit;
 	}
 
-	for (ev = 0; ev < pi->pcfg.num_events; ev++) {
+	/* Jassi assumes that where there's an event, there's a thread
+	 * ain't necessarily so. Let's make it that threads==irqs, ignore rest
+	 */
+	//for (ev = 0; ev < pi->pcfg.num_events; ev++) {
+	for (ev = 0; ev < pi->pcfg.num_chan; ev++) {
 		if (val & (1 << ev)) { /* Event occurred */
 			struct pl330_thread *thrd;
 			u32 inten = readl(regs + INTEN);
@@ -2044,6 +2127,13 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 			__func__, __LINE__);
 		return -ENOMEM;
 	}
+	/* PGMWASHERE */
+	memset(pl330->mcode_cpu, 0, chans * pi->mcbufsz);
+	dev_info(pi->dev,
+		"mcode_cpu:0x%p bus:0x%08x c:%d sz:%d totsize:%d",
+		pl330->mcode_cpu, pl330->mcode_bus, chans, pi->mcbufsz,
+		chans * pi->mcbufsz);
+
 
 	ret = dmac_alloc_threads(pl330);
 	if (ret) {
@@ -2649,6 +2739,7 @@ static inline int get_burst_len(struct dma_pl330_desc *desc, size_t len)
 	return burst_len;
 }
 
+/* @@todo PGM : the pgm hack version is totally different. But, not obvious if we use this anyway .. */
 static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 		struct dma_chan *chan, dma_addr_t dma_addr, size_t len,
 		size_t period_len, enum dma_transfer_direction direction,
@@ -2661,6 +2752,7 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 	dma_addr_t dst;
 	dma_addr_t src;
 
+	dev_err(pch->dmac->pif.dev, "PGM: worktodo\n");
 	if (len % period_len != 0)
 		return NULL;
 
@@ -2752,8 +2844,10 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	if (!desc)
 		return NULL;
 
-	desc->rqcfg.src_inc = 1;
-	desc->rqcfg.dst_inc = 1;
+	/* @@pgm .. secret sauce */
+	desc->rqcfg.src_inc = (flags&DMA_SRC_NO_INCR)? 0: 1;
+	desc->rqcfg.dst_inc = (flags&DMA_DST_NO_INCR)? 0: 1;
+	desc->rqcfg.wait_ev = flags&(DMA_WAIT_EV0|DMA_WAIT_EV1);
 	desc->req.rqtype = MEMTOMEM;
 
 	/* Select max possible burst size */
@@ -2899,6 +2993,8 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	int num_chan;
 
 	pdat = dev_get_platdata(&adev->dev);
+
+	dev_info(&adev->dev, "pl330 driver hacked by PGM %s\n", REVID);
 
 	ret = dma_set_mask_and_coherent(&adev->dev, DMA_BIT_MASK(32));
 	if (ret)
