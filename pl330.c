@@ -32,21 +32,12 @@
 #include <linux/err.h>
 
 #include "dmaengine.h"
+
 #define PL330_MAX_CHAN		8
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
 
-#define REVID	"1200"
-
-#define PGM_EVENT0	8
-
-int channel_starts_wfp[8] = { 1, 1, };
-int channel_num = 8;
-module_param_array(channel_starts_wfp, int, &channel_num, 0644);
-
-int channel_ends_flushp[8] = { 1, 1, };
-int channel_nump = 8;
-module_param_array(channel_ends_flushp, int, &channel_nump, 0644);
+#define REVID	"1203"
 
 enum pl330_srccachectrl {
 	SCCTRL0,	/* Noncacheable and nonbufferable */
@@ -365,7 +356,10 @@ struct pl330_reqcfg {
 	struct pl330_config *pcfg;
 
 	/* @pgm wait ev */
-	unsigned wait_ev;
+	unsigned wait_ev;	/* event to wait for 1..15 */
+	unsigned set_ev;	/* event to set 1..15 */
+	unsigned starts_wfp;	/* peripheral #1..8 */
+	unsigned ends_flushp;   /* peripheral #1..8 */
 };
 
 /*
@@ -452,8 +446,8 @@ enum pl330_chan_op {
 struct _xfer_spec {
 	u32 ccr;
 	struct pl330_req *r;
-	struct pl330_xfer *x;
 	struct pl330_thread *thrd;
+	struct pl330_xfer *x;
 };
 
 enum dmamov_dst {
@@ -1391,15 +1385,15 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	 * Should be pxs->r->peri
 	 * But not sure how to set up, hence pxs->thrd->id
 	 * flushp to kickoff
-	 * */
-	if (channel_ends_flushp[pxs->thrd->id]){
-		off += _emit_FLUSHP(dry_run, &buf[off],
-				channel_ends_flushp[pxs->thrd->id]-1);
+	 *
+	 */
+	if (pxs->r->cfg->ends_flushp){
+		off += _emit_FLUSHP(dry_run, &buf[off], pxs->r->cfg->ends_flushp-1);
 	}
-	if (channel_starts_wfp[pxs->thrd->id]){
-		off += _emit_WFP(dry_run, &buf[off], ALWAYS,
-				channel_starts_wfp[pxs->thrd->id]-1);
+	if (pxs->r->cfg->starts_wfp){
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS, pxs->r->cfg->starts_wfp-1);
 	}
+
 	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);
 	ljmp1 = off;
 
@@ -1455,13 +1449,8 @@ static inline int _setup_xfer(unsigned dry_run, u8 buf[],
 	off += _emit_MOV(dry_run, &buf[off], DAR, x->dst_addr);
 
 	/* @@pgm .. wait  for the other thread's EV */
-	switch(pxs->r->cfg->wait_ev){
-	case DMA_WAIT_EV0:
-		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0, 0);
-		break;
-	case DMA_WAIT_EV1:
-		off += _emit_WFE(dry_run, &buf[off], PGM_EVENT0+1, 0);
-		break;
+	if (pxs->r->cfg->wait_ev){
+		off += _emit_WFE(dry_run, &buf[off], pxs->r->cfg->wait_ev, 0);
 	}
 
 	/* Setup Loop(s) */
@@ -1512,9 +1501,10 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 		x = x->next;
 	} while (x);
 
-	if (channel_starts_wfp[thrd->id]){
-		off += _emit_SEV(dry_run, &buf[off], PGM_EVENT0+thrd->id);
+	if (pxs->r->cfg->set_ev){
+		off += _emit_SEV(dry_run, &buf[off], pxs->r->cfg->set_ev);
 	}
+
 	/* DMASEV peripheral/event */
 	off += _emit_SEV(dry_run, &buf[off], thrd->ev);
 	/* DMAEND */
@@ -2837,6 +2827,7 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	struct dma_pl330_chan *pch = to_pchan(chan);
 	struct pl330_info *pi;
 	int burst;
+	unsigned ev0 = (flags&DMA_CHANNEL_EV0) >> DMA_CHANNEL_EV0_SHL;
 
 	if (unlikely(!pch || !len))
 		return NULL;
@@ -2850,7 +2841,24 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	/* @@pgm .. secret sauce */
 	desc->rqcfg.src_inc = (flags&DMA_SRC_NO_INCR)? 0: 1;
 	desc->rqcfg.dst_inc = (flags&DMA_DST_NO_INCR)? 0: 1;
-	desc->rqcfg.wait_ev = flags&(DMA_WAIT_EV0|DMA_WAIT_EV1);
+	if (flags&DMA_WAIT_EV0){
+		desc->rqcfg.wait_ev = ev0;
+	}else if (flags&DMA_WAIT_EV1){
+		desc->rqcfg.wait_ev = ev0 + 1;
+	}else{
+		desc->rqcfg.wait_ev = 0;
+	}
+	if (flags&DMA_SET_EV0){
+		desc->rqcfg.set_ev = ev0;
+	}else if (flags&DMA_SET_EV1){
+		desc->rqcfg.set_ev = ev0 + 1;
+	}else{
+		desc->rqcfg.set_ev = 0;
+	}
+	desc->rqcfg.ends_flushp =
+		(flags&DMA_CHANNEL_ENDS_FLUSHP) >> DMA_CHANNEL_ENDS_FLUSHP_SHL;
+	desc->rqcfg.starts_wfp =
+		(flags&DMA_CHANNEL_STARTS_WFP) >> DMA_CHANNEL_STARTS_WFP_SHL;
 	desc->req.rqtype = MEMTOMEM;
 
 	/* Select max possible burst size */
@@ -2962,15 +2970,6 @@ static irqreturn_t pl330_irq_handler(int irq, void *data)
 	else
 		return IRQ_NONE;
 }
-
-
-extern int pl330_set_handshake(struct dma_chan *chan,
-			enum dma_channel_ctrl_flags_dt flags)
-{
-	dev_info(0, "pl330_set_handshake %x", flags);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(pl330_set_handshake);
 
 
 #define PL330_DMA_BUSWIDTHS \

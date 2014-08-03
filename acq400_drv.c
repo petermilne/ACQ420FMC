@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.563"
+#define REVID "2.565"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -146,6 +146,14 @@ MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
 #define ACQ420_NBUFFERS	16
 #define ACQ420_BUFFERLEN frontside_bufferlen
 
+/* SC uses DMA with peripheral control */
+#define PGM_E 	8		/* use this event (and +1) 	*/
+#define PGM_P	1		/* use this peripheral 		*/
+
+#define DMA_SC_FLAGS \
+	(PGM_E << DMA_CHANNEL_EV0_SHL        | \
+	 PGM_P << DMA_CHANNEL_STARTS_WFP_SHL | \
+	 PGM_P << DMA_CHANNEL_ENDS_FLUSHP_SHL)
 
 
 int ai_data_loop(void *data);
@@ -886,13 +894,6 @@ static bool filter_true(struct dma_chan *chan, void *param)
 	return true;
 }
 
-static bool filter_gt1(struct dma_chan *chan, void *param)
-/* channels 0 and 1 are special */
-{
-	return chan->chan_id > 1;
-}
-
-
 static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
 	dma_cap_mask_t mask;
@@ -900,7 +901,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 
-	adev->dma_chan[ic] = dma_request_channel(mask, filter_gt1, NULL);
+	adev->dma_chan[ic] = dma_request_channel(mask, filter_true, NULL);
 	if (adev->dma_chan[ic] == 0){
 		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 					adev, adev->pdev->dev.id);
@@ -909,14 +910,13 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
+
 int get_dma_channels(struct acq400_dev *adev)
 {
 	if (IS_AO420(adev)){
 		return _get_dma_chan(adev, 0);
 	}else{
 		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
-		pl330_set_handshake(adev->dma_chan[0], DMA_CHANNEL_STARTS_WFP|DMA_CHANNEL_ENDS_FLUSHP);
-		pl330_set_handshake(adev->dma_chan[1], DMA_CHANNEL_STARTS_WFP|DMA_CHANNEL_ENDS_FLUSHP);
 		return rc;
 	}
 }
@@ -2178,7 +2178,8 @@ int ai_data_loop(void *data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	/* wait for event from OTHER channel */
-	unsigned flags[2] = { DMA_WAIT_EV1, DMA_WAIT_EV0 };
+	unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
+	unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
 	int nloop = 0;
 	int ic;
 	long dma_timeout = START_TIMEOUT;
@@ -2187,10 +2188,10 @@ int ai_data_loop(void *data)
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
 	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
-			FIFO_PA(adev), hbm->len, flags[chan])
+			FIFO_PA(adev), hbm->len, DMA_SC_FLAGS|wflags[chan]|sflags[chan])
 #define DMA_ASYNC_MEMCPY_NWFE(adev, chan, hbm) \
 	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
-			FIFO_PA(adev), hbm->len, 0)
+			FIFO_PA(adev), hbm->len, DMA_SC_FLAGS|sflags[chan])
 
 
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");

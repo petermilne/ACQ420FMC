@@ -12,14 +12,28 @@
 
 #define DMA_SUCCESS	DMA_COMPLETE
 /* D-TACQ Customisation */
+
+#define DMA_CHANNEL_STARTS_WFP_SHL 	20
+#define DMA_CHANNEL_ENDS_FLUSHP_SHL	16
+#define DMA_CHANNEL_EV0_SHL		12
+
+
 enum dma_ctrl_flags_dt {
         // PGM WASHERE
         DMA_SRC_NO_INCR = (1<<24),
         DMA_DST_NO_INCR = (1<<25),
 
         DMA_WAIT_EV0 = (1<<26),
-        DMA_WAIT_EV1 = (1<<27)
+        DMA_WAIT_EV1 = (1<<27),
+        DMA_SET_EV0 = (1<<28),
+        DMA_SET_EV1 = (1<<29),
+
+	DMA_CHANNEL_STARTS_WFP =  (0xf<<20),	/* Peripheral: 1..8 */
+	DMA_CHANNEL_ENDS_FLUSHP = (0xf<<16),    /* Peripheral: 1..8 */
+	DMA_CHANNEL_EV0	= (0xf << 12)		/* Event : 1:15 */
 };
+
+
 /**
  * dma_cookie_init - initialize the cookies for a DMA channel
  * @chan: dma channel to initialize
@@ -97,11 +111,4 @@ static inline void dma_set_residue(struct dma_tx_state *state, u32 residue)
 	if (state)
 		state->residue = residue;
 }
-
-enum dma_channel_ctrl_flags_dt {
-	DMA_CHANNEL_STARTS_WFP = (1<<0),
-	DMA_CHANNEL_ENDS_FLUSHP = (1<<1),
-};
-extern int pl330_set_handshake(struct dma_chan *chan,
-			enum dma_channel_ctrl_flags_dt flags);
 #endif
