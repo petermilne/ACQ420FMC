@@ -5,6 +5,9 @@
  * Copyright (C) 2010 Samsung Electronics Co. Ltd.
  *	Jaswinder Singh <jassi.brar@samsung.com>
  *
+ * Copyright (C) 2014 D-TACQ Solutions Ltd
+ *      Peter Milne <peter.milne@d-tacq.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -2959,6 +2962,16 @@ static irqreturn_t pl330_irq_handler(int irq, void *data)
 	else
 		return IRQ_NONE;
 }
+
+
+extern int pl330_set_handshake(struct dma_chan *chan,
+			enum dma_channel_ctrl_flags_dt flags)
+{
+	dev_info(0, "pl330_set_handshake %x", flags);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pl330_set_handshake);
+
 
 #define PL330_DMA_BUSWIDTHS \
 	BIT(DMA_SLAVE_BUSWIDTH_UNDEFINED) | \

@@ -98,4 +98,10 @@ static inline void dma_set_residue(struct dma_tx_state *state, u32 residue)
 		state->residue = residue;
 }
 
+enum dma_channel_ctrl_flags_dt {
+	DMA_CHANNEL_STARTS_WFP = (1<<0),
+	DMA_CHANNEL_ENDS_FLUSHP = (1<<1),
+};
+extern int pl330_set_handshake(struct dma_chan *chan,
+			enum dma_channel_ctrl_flags_dt flags);
 #endif

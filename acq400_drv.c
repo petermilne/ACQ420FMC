@@ -27,8 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.548"
-
+#define REVID "2.563"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -96,6 +95,10 @@ int modify_spad_access;
 module_param(modify_spad_access, int, 0644);
 MODULE_PARM_DESC(modify_spad_access,
 "-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
+
+
+int AO420_MAX_FILL_BLOCK = 16384;
+module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
@@ -883,6 +886,11 @@ static bool filter_true(struct dma_chan *chan, void *param)
 	return true;
 }
 
+static bool filter_gt1(struct dma_chan *chan, void *param)
+/* channels 0 and 1 are special */
+{
+	return chan->chan_id > 1;
+}
 
 
 static int _get_dma_chan(struct acq400_dev *adev, int ic)
@@ -892,11 +900,12 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 
-	adev->dma_chan[ic] = dma_request_channel(mask, filter_true, NULL);
+	adev->dma_chan[ic] = dma_request_channel(mask, filter_gt1, NULL);
 	if (adev->dma_chan[ic] == 0){
-			dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
+		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 					adev, adev->pdev->dev.id);
 	}
+	dev_info(DEVP(adev), "dma channel selected: %d", adev->dma_chan[ic]->chan_id);
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
@@ -905,7 +914,10 @@ int get_dma_channels(struct acq400_dev *adev)
 	if (IS_AO420(adev)){
 		return _get_dma_chan(adev, 0);
 	}else{
-		return _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
+		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
+		pl330_set_handshake(adev->dma_chan[0], DMA_CHANNEL_STARTS_WFP|DMA_CHANNEL_ENDS_FLUSHP);
+		pl330_set_handshake(adev->dma_chan[1], DMA_CHANNEL_STARTS_WFP|DMA_CHANNEL_ENDS_FLUSHP);
+		return rc;
 	}
 }
 
@@ -2062,10 +2074,10 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 				int nbuf = lenbytes/MIN_DMA;
 				int dma_bytes = nbuf*MIN_DMA;
 
-				dev_dbg(DEVP(adev), "dma: lenbytes: %d", dma_bytes);
+				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				ao420_write_fifo_dma(adev, cursor, dma_bytes);
 			}else{
-				dev_dbg(DEVP(adev), "pio: lenbytes: %d", lenbytes);
+				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
 				ao420_write_fifo(adev, cursor, lenbytes);
 			}
 			/* UGLY: has divide. */

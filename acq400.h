@@ -714,7 +714,7 @@ static inline unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
 	return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
 					AO420_MAX_FIFO_SAMPLES_PACKED;
 }
-#define AO420_MAX_FILL_BLOCK	0x4000		/* BYTES, SWAG */
+//#define AO420_MAX_FILL_BLOCK	0x400000		/* BYTES, SWAG  */
 #define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
 #define MAX_LOTIDE(adev) \
