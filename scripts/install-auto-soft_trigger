@@ -10,7 +10,7 @@ if [ "$1" = "remove" ]; then
 	sed -ie "/$SF/d" /mnt/local/rc.user
 	rm $DST
 else
-	if [ -e /mnt/local/rc.user ]
+	if [ -e /mnt/local/rc.user ]; then
 		grep -q $SF /mnt/local/rc.user
 		if [ $? -eq 0 ]; then
 			echo exists already ..
