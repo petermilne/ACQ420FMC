@@ -66,12 +66,12 @@ udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 	
 acq400_stream: acq400_stream.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 
 is_ramp: is_ramp.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 	
-acq400_knobs: acq400_knobs.o
+acq400_knobs: acq400_knobs.o tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 wavegen: wavegen.o

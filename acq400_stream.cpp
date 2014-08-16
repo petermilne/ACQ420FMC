@@ -39,6 +39,7 @@
 #include "popt.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -1229,20 +1230,52 @@ void DemuxerImpl<T>::demux(void* start, int nbytes)
 }
 
 /* @@todo .. map to shm area for external monitoring. */
+
+#define NSinMS	1000000
+#define MSinS	1000
+
+long diffmsec(struct timespec* t0, struct timespec *t1){
+	long msec;
+
+	if (t1->tv_nsec > t0->tv_nsec){
+		msec = (t1->tv_nsec - t0->tv_nsec)/NSinMS;
+		msec += (t1->tv_sec - t0->tv_sec)*MSinS;
+	}else{
+		msec  = (NSinMS + t1->tv_nsec - t0->tv_nsec)/NSinMS;
+		msec += (t1->tv_sec - t0->tv_sec - 1)*MSinS;
+	}
+	return msec;
+}
+
+#define MIN_REPORT_INTERVAL_MS	200
+
 struct Progress {
 	enum STATE state;
 	int pre;
 	int post;
 	unsigned long long elapsed;
-	Progress() {
-		memset(this, 0, sizeof(Progress));
+	struct timespec last_time;
+	static long min_report_interval;
+
+	bool isRateLimited() {
+		struct timespec time_now;
+		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
+
+		if (diffmsec(&last_time, &time_now) >= min_report_interval){
+			last_time = time_now;
+			return false;
+		}else{
+			return true;
+		}
 	}
+
 	static Progress& instance();
 
 	void print() {
-		printf("%d %d %d %llu\n", state, pre, post, elapsed);
-		fflush(stdout);
-
+		{ // if (!isRateLimited()){
+			printf("%d %d %d %llu\n", state, pre, post, elapsed);
+			fflush(stdout);
+		}
 		if (G::state_fp){
 			rewind(G::state_fp);
 			fprintf(G::state_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
@@ -1250,6 +1283,8 @@ struct Progress {
 		}
 	}
 };
+
+long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
 
 Progress& Progress::instance() {
 	static Progress* _instance;
@@ -1267,6 +1302,11 @@ Progress& Progress::instance() {
 			}else{
 				_instance = (Progress*)shm;
 				memset(_instance, 0, sizeof(Progress));
+				if (getenv("MIN_REPORT_INTERVAL_MS")){
+					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
+					printf("min_report_interval set %d\n", min_report_interval);
+				}
+				printf("min_report_interval set %d\n", min_report_interval);
 			}
 		}
 	}

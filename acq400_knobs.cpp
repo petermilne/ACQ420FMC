@@ -54,6 +54,9 @@ What does acq400_knobs do?.
 #include <sstream>
 
 #include <glob.h>
+#include "popt.h"
+
+#include "tcp_server.h"
 
 const char* pattern = "";
 
@@ -62,9 +65,14 @@ using namespace std;
 #define VERID "acq400_knobs B1000"
 
 bool err;
+char* host = 0;		/* server allows connect from host (any) */
+char* port = 0;
+
 int site;
 
 int verbose;
+
+#define MAXOUTBUF	16384
 
 #define VPRINTF	if (verbose) printf
 
@@ -617,14 +625,16 @@ done
 class Help: public Knob {
 
 protected:
-	virtual int query(Knob* knob){
-		printf("%s\n", knob->getName());
+	virtual int query(Knob* knob, char* buf, int buflen){
+		snprintf(buf, buflen, "%s\n", knob->getName());
 		return 1;
 	}
 	virtual int _set(char* buf, int maxbuf, const char* args) {
+		char* cursor = buf;
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
 			if (Knob::match((*it)->getName(), args)){
-				query(*it);
+				query(*it, cursor, MAXOUTBUF - (cursor-buf));
+				cursor += strlen(cursor);
 			}
 		}
 		return 1;
@@ -633,8 +643,10 @@ public:
 	Help() : Knob("help") {}
 	Help(const char* _key) : Knob(_key) {}
 	virtual int get(char* buf, int maxbuf) {
+		char* cursor = buf;
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-			query(*it);
+			query(*it, cursor, MAXOUTBUF - (cursor-buf));
+			cursor += strlen(cursor);
 		}
 		return 1;
 	}
@@ -642,14 +654,14 @@ public:
 
 class Help2: public Help {
 protected:
-	virtual int query(Knob* knob){
+	virtual int query(Knob* knob, char* buf, int buflen){
 		char cmd[128];
 		char reply[128];
 		sprintf(cmd, "grep -m1 ^%s %s/acq400_help* | cut -f2 -",
 					knob->getName(), HROOT);
 		Pipe grep(cmd, "r");
 		if (fgets(reply, 128, grep.fp)){
-			printf("%-20s : %s\n\t%s",
+			snprintf(buf, buflen, "%-20s : %s\n\t%s",
 				knob->getName(), knob->getAttr(), reply);
 		}
 		return 1;
@@ -721,39 +733,68 @@ int do_scan()
 
 
 
+bool is_tcp_server;
 
+struct poptOption opt_table[] = {
+	{ "server", 's', POPT_ARG_NONE, 0, 's', "tcp server" },
+	{ "host",   'h', POPT_ARG_STRING, &host, 0, "restrict to host (any)" },
+	{ "port",   'p', POPT_ARG_STRING, &port, 0, "use this port (4220+site)"},
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
 
-
-
-void cli(int argc, char* argv[])
+void cli(int argc, const char** argv)
 {
-	char *dir;
+	const char *dir;
 	char dbuf[128];
 	char sname[32];
+	const char* arg1;
+	const char* arg2;
 
+	poptContext opt_context =
+			poptGetContext(argv[0], argc, argv, opt_table, 0);
+	int rc;
+	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
+		switch(rc){
+		case 's':
+			is_tcp_server = true;
+			break;
+		}
+	}
 	if (getenv("VERBOSE")){
 		verbose = atoi(getenv("VERBOSE"));
 	}
 	VPRINTF("%s verbose set %d\n", VERID, verbose);
 
-	if (argc > 2){
-		dir = argv[2];
-	}else if (argc > 1){
-		site = atoi(argv[1]);
+	arg1 = poptGetArg(opt_context);
+	if (!arg1){
+		return;
+	}
+	arg2 = poptGetArg(opt_context);
+
+	if (arg2){
+		dir = arg2;
+	}else{
+		site = atoi(arg1);
 		sprintf(dbuf, "/etc/acq400/%d", site);
 		dir = dbuf;
 		sprintf(sname, "%d", site);
-	}else{
-		return;
 	}
 	setenv("SITE", sname, 0);
 	chdir(dir);
+
+	if (is_tcp_server){
+		if (port == 0){
+			char *_port = new char[16];
+			sprintf(port, "%d", 4220+site);
+		}
+	}
 }
 
 int interpreter(FILE* fin, FILE* fout)
 {
 	char* ibuf = new char[128];
-	char* obuf = new char[4096];
+	char* obuf = new char[MAXOUTBUF];
 
 	for (; fgets(ibuf, 128, fin); Prompt::instance()->prompt(fout)){
 		char *args = 0;
@@ -802,7 +843,7 @@ int interpreter(FILE* fin, FILE* fout)
 					rc = knob->set(obuf, 4096, args);
 				}
 				if (rc){
-					fputs(chomp(obuf), fout);
+					fprintf(fout, "%s\n", chomp(obuf));
 					fflush(fout);
 				}
 
@@ -818,9 +859,15 @@ int interpreter(FILE* fin, FILE* fout)
 }
 
 
-int main(int argc, char* argv[])
+
+int main(int argc, const char* argv[])
 {
 	cli(argc, argv);
 	do_scan();
-	interpreter(stdin, stdout);
+	if (is_tcp_server){
+		printf("call tcp_server\n");
+		return tcp_server(host, port, interpreter);
+	}else{
+		return interpreter(stdin, stdout);
+	}
 }
