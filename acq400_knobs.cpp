@@ -555,10 +555,9 @@ void Grouper::create(string def_file)
 class Prompt: public Knob
 /* singleton */
 {
+
 	static bool enabled;
-
 	Prompt(): Knob("prompt") {
-
 	}
 	/* return >0 on success, <0 on fail */
 	virtual int _set(char* buf, int maxbuf, const char* args) {
@@ -579,10 +578,16 @@ public:
 	}
 	virtual void print(void) { cprint("Knob"); }
 
-	static void prompt();
-
-	static class Knob* create() {
-		static Knob* _instance;
+	void prompt(FILE* fout) {
+		if (enabled){
+			fprintf(fout, "acq400.%d %d >", site, err);
+		}else if (err){
+			;
+		}
+		fflush(fout);
+	}
+	static Prompt* instance() {
+		static Prompt* _instance;
 		if (!_instance){
 			return _instance = new Prompt;
 		}else{
@@ -696,7 +701,7 @@ int do_scan()
 			}
 		}
 	}
-	KNOBS.push_back(Prompt::create());
+	KNOBS.push_back(Prompt::instance());
 	KNOBS.push_back(new Help);
 	KNOBS.push_back(new Help2);
 
@@ -717,14 +722,7 @@ int do_scan()
 
 
 
-void Prompt::prompt() {
-	if (enabled){
-		printf("acq400.%d %d >", site, err);
-	}else if (err){
-		;
-	}
-	fflush(stdout);
-}
+
 
 
 void cli(int argc, char* argv[])
@@ -751,15 +749,13 @@ void cli(int argc, char* argv[])
 	setenv("SITE", sname, 0);
 	chdir(dir);
 }
-int main(int argc, char* argv[])
+
+int interpreter(FILE* fin, FILE* fout)
 {
-	cli(argc, argv);
-	do_scan();
 	char* ibuf = new char[128];
 	char* obuf = new char[4096];
 
-
-	for (; fgets(ibuf, 128, stdin); Prompt::prompt()){
+	for (; fgets(ibuf, 128, fin); Prompt::instance()->prompt(fout)){
 		char *args = 0;
 		int cursor;
 		char *key = 0;
@@ -799,14 +795,15 @@ int main(int argc, char* argv[])
 					rc = knob->get(obuf, 4096);
 					if (is_glob){
 						if (!strstr(obuf, knob->getName())){
-							printf("%s ", knob->getName());
+							fprintf(fout, "%s ", knob->getName());
 						}
 					}
 				}else{
 					rc = knob->set(obuf, 4096, args);
 				}
 				if (rc){
-					puts(chomp(obuf));
+					fputs(chomp(obuf), fout);
+					fflush(fout);
 				}
 
 				err = rc < 0;
@@ -815,7 +812,15 @@ int main(int argc, char* argv[])
 		}
 
 		if (!found){
-			printf("ERROR:\%s\" not found\n", key);
+			fprintf(fout, "ERROR:\%s\" not found\n", key);
 		}
 	}
+}
+
+
+int main(int argc, char* argv[])
+{
+	cli(argc, argv);
+	do_scan();
+	interpreter(stdin, stdout);
 }
