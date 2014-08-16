@@ -379,6 +379,7 @@ struct acq400_dev {
 
 	struct RUN_TIME {
 		int refill_error;
+		int buffers_dropped;		/* a watning, error if quit_on_buffer_exhaustion set*/
 		int please_stop;
 		unsigned nget;
 		unsigned nput;

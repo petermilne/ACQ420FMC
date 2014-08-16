@@ -80,8 +80,9 @@ static int acq400_proc_seq_show_qstats(struct seq_file *s, void *v)
         mutex_unlock(&adev->list_mutex);
 
         for(istat = 0; istat < _BS_MAX; ++istat){
-        	seq_printf(s, "%d%c", stats[istat], istat+1==_BS_MAX? '\n':',');
+        	seq_printf(s, "%d,", stats[istat]);
         }
+        seq_printf(s, "%d\n", adev->rt.buffers_dropped);
         return 0;
 }
 static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)

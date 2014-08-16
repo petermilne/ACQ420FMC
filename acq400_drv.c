@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.565"
+#define REVID "2.566"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -2275,6 +2275,7 @@ int ai_data_loop(void *data)
 			if (emergency_drain_request){
 				move_list_to_empty(adev, &adev->REFILLS);
 				dev_warn(DEVP(adev), "discarded FULL Q\n");
+				++adev->rt.buffers_dropped;
 
 				if (quit_on_buffer_exhaustion){
 					adev->rt.refill_error = 1;
