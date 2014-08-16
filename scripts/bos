@@ -31,6 +31,8 @@ if [ $VERBOSE -gt 0 ]; then
 	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
 fi
 
-exec acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER --null-copy --no_demux \
-	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0
+CMD="acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER --null-copy --no_demux \
+        --nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
+echo $CMD > /tmp/bos.cmd
+exec $CMD 
 
