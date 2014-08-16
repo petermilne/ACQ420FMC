@@ -2,6 +2,8 @@
 
 echo acq420.init B1002
 
+
+
 BLEN=1048576
 NBUF=512
 
@@ -280,8 +282,10 @@ spawn_knob_servers() {
 		site=$(basename $dir)
 		let sport=4220+$site
 		let lport=4820+$site
-		procServ -d $dir -p /var/run/knobs$site.pid --restrict -q $lport \
-			acq400_knobs -s $sport
+		cmd="/usr/local/bin/procServ -c $dir -p /var/run/knobs$site.pid --restrict -q $lport \
+			/usr/local/bin/acq400_knobs -s $sport"
+		echo $cmd
+		$cmd
 	done			
 }
 ######## Execution Starts Here 

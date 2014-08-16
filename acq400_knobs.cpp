@@ -785,7 +785,7 @@ void cli(int argc, const char** argv)
 
 	if (is_tcp_server){
 		if (port == 0){
-			char *_port = new char[16];
+			port = new char[16];
 			sprintf(port, "%d", 4220+site);
 		}
 	}
