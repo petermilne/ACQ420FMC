@@ -136,7 +136,8 @@ public:
 	}
 	virtual ~Pipe() {
 		if (close() == -1){
-			perror("pclose");
+			;
+			//perror("pclose");
 		}
 	}
 };
@@ -341,11 +342,8 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 		cursor += strlen(cursor)){
 		;
 	}
-	if (knob.close() == -1){
-		return cursor-buf > 0? 1:
-			-snprintf(buf, maxbuf, "ERROR on close");
-	}
-	return 1;
+
+	return cursor-buf;
 
 }
 

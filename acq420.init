@@ -284,7 +284,7 @@ spawn_knob_servers() {
 		site=$(basename $dir)
 		# sites at 4220 auto calc by acq400_knobs		
 		let lport=4820+$site
-		cmd="/usr/local/bin/procServ -c $dir -p /var/run/knobs$site.pid --restrict -q $lport \
+		cmd="/usr/local/bin/procServ -p /var/run/knobs$site.pid --restrict -q $lport \
 			/usr/local/bin/acq400_knobs -s $site"
 		echo $cmd
 		$cmd
