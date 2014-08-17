@@ -1,39 +1,14 @@
 #!/bin/sh
-# access.site : accessor for site knobs
-# ln -s access.site set.site
-# ln -s access.site get.site
-# set.site N knob=value
-# set.site N (read stdin)
-# actually set and get are the same :-)
-# N can be a glob pattern
 
-FN=$(basename $0)
-SITES=${1:-0}
+site=${1:-0}
 shift
 
-if [ "x$SITES" = "x" ]; then
-	echo USAGE: $FN site-spec \[key\[=value\]\]
-	exit 1
-fi
-
-connect_site() {
-	let port="4220+$1"
+port="422$site"
+	
+if [ "x$1" != "x" ]; then
+	echo "$*" | nc localhost $port
+else
 	nc localhost $port
-}
-
-
-for spath in /etc/acq400/$SITES
-do
-	if [ ! -e $spath ]; then
-		echo ERROR: invalid site-spec $site
-		break
-	fi
-	site=$(basename $spath)
-	if [ "x$*" != "x" ]; then
-		echo "$*" | connect_site $site
-	else
-		connect_site $site
-	fi
-done
+fi
 
 
