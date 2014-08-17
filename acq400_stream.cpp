@@ -1403,6 +1403,13 @@ protected:
 				if (event_received){
 					setState(ST_RUN_POST);
 				}
+				if (actual.pre < pre){
+					if (actual.pre + samples_buffer < pre){
+						actual.pre += samples_buffer;
+					}else{
+						actual.pre = pre;
+					}
+				}
 				break;
 			case ST_RUN_POST:
 				actual.post += samples_buffer;
