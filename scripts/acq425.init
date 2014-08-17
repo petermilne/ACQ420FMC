@@ -53,16 +53,18 @@ if { $::argc > 0 } {
 	exec /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITES
 	
 	foreach site $::argv {
+	    puts "build gain knobs site:$site"
 		exec mkdir -p /dev/acq425/$site
 		link_gpio $LNAMES1 $site [get_gpio1 $site 22]
 		link_gpio $LNAMES2 $site [get_gpio1 $site 23] 
 
+			
 		for {set ic 1} {$ic <= 16} {incr ic} {
-			exec rm -f /etc/acq400/$site/gain$ic
+			file delete -force /etc/acq400/$site/gain$ic			
 			exec ln -s /usr/local/bin/acq425_set_gain \
 				/etc/acq400/$site/gain$ic
-		}
-		exec rm -f /etc/acq400/$site/gains
+		}	
+		file delete -force 	/etc/acq400/$site/gains
 		exec ln -s /usr/local/bin/acq425_set_gain \
 				/etc/acq400/$site/gains
 		set fp [open "/etc/acq400/$site/groups" a+]
