@@ -1261,18 +1261,26 @@ struct Progress {
 		struct timespec time_now;
 		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
 
-		if (diffmsec(&last_time, &time_now) >= min_report_interval){
+		if (min_report_interval == 0 || diffmsec(&last_time, &time_now) >= min_report_interval){
 			last_time = time_now;
 			return false;
 		}else{
 			return true;
 		}
 	}
-
+	Progress() {
+		memset(this, 0, sizeof(Progress));
+		if (getenv("MIN_REPORT_INTERVAL_MS")){
+			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
+			printf("min_report_interval set %d\n", min_report_interval);
+		}
+		printf("min_report_interval set %d\n", min_report_interval);
+		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
+	}
 	static Progress& instance();
 
-	void print() {
-		{ // if (!isRateLimited()){
+	void print(bool ignore_ratelimit = true) {
+		if (ignore_ratelimit || !isRateLimited()){
 			printf("%d %d %d %llu\n", state, pre, post, elapsed);
 			fflush(stdout);
 		}
@@ -1283,12 +1291,18 @@ struct Progress {
 		}
 	}
 };
+#define 	PRINT_WHEN_YOU_CAN	false
 
 long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
 
 Progress& Progress::instance() {
 	static Progress* _instance;
 
+	if (!_instance){
+		_instance = new Progress;
+
+	}
+/*
 	if (_instance == 0){
 		int rc = shmget(0xdeadbeef, 128, IPC_CREAT|0666);
 		if (rc == -1){
@@ -1310,7 +1324,7 @@ Progress& Progress::instance() {
 			}
 		}
 	}
-
+*/
 	return *_instance;
 }
 
@@ -1400,7 +1414,7 @@ protected:
 				}
 			}
 			actual.elapsed += samples_buffer;
-			actual.print();
+			actual.print(PRINT_WHEN_YOU_CAN);
 		}
 	}
 	unsigned findEvent() {
