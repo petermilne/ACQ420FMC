@@ -229,6 +229,8 @@ build_site0() {
 	do
 		[ -e $k ] && ln -s $k /etc/acq400/0/
 	done
+	echo 0 > /etc/acq400/0/NCHAN
+	echo 0 > /etc/acq400/0/data32
 }
 
 build_knobs() {
@@ -280,10 +282,10 @@ spawn_knob_servers() {
 	for dir in 	/etc/acq400/[0-9]
 	do
 		site=$(basename $dir)
-		let sport=4220+$site
+		# sites at 4220 auto calc by acq400_knobs		
 		let lport=4820+$site
 		cmd="/usr/local/bin/procServ -c $dir -p /var/run/knobs$site.pid --restrict -q $lport \
-			/usr/local/bin/acq400_knobs -s $sport"
+			/usr/local/bin/acq400_knobs -s $site"
 		echo $cmd
 		$cmd
 	done			
