@@ -1,9 +1,9 @@
 /* ------------------------------------------------------------------------- */
-/* acq400_stream.cpp  		                     	 */
+/* acq400_stream.cpp  		                     	 		     */
 /* ------------------------------------------------------------------------- */
-/*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                    *
+/*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                            *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
- *   Created on: Mar 31, 2013
+ *   Created on: Mar 31, 2013                                                *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or modify     *
  *  it under the terms of Version 2 of the GNU General Public License        *
@@ -57,6 +57,8 @@
 #include <semaphore.h>
 #include <syslog.h>
 
+#include <vector>
+
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
 	char kpath[128];
@@ -80,7 +82,7 @@ int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
 #define FULL_MASK 0xffffffff
 unsigned mask = FULL_MASK;	/** mask data with this value */
 int m1 = 0;			/** start masking from here */
-int oversampling = 1;
+int oversampling = 0;
 int devnum = 0;
 const char* script_runs_on_completion = 0;
 const char* aggregator_sites = 0;
@@ -183,7 +185,13 @@ class NullBuffer: public Buffer {
 public:
 	NullBuffer(const char* _fname, int _ibuf, int _buffer_len):
 		Buffer(_fname, _ibuf, _buffer_len)
-	{}
+	{
+		static int report;
+		if (!report &&verbose){
+			printf("NullBuffer()\n");
+			++report;
+		}
+	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		return buffer_len;
 	}
@@ -466,6 +474,7 @@ class OversamplingMapBuffer: public MapBuffer {
 	const int over, asr;
 	const int nsam;
 	T *outbuf;
+	int* sums;
 public:
 	OversamplingMapBuffer(const char* _fname, int _ibuf, int _buffer_len,
 			int _oversampling, int _asr) :
@@ -474,20 +483,24 @@ public:
 		asr(_asr),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
+		static int report;
+		if (!report &&verbose){
+			printf("OversamplingMapBuffer()\n");
+			++report;
+		}
 		outbuf = new T[nsam*G::nchan/over];
+		sums = new int[G::nchan];
 	}
 	virtual ~OversamplingMapBuffer() {
 		delete [] outbuf;
+		delete [] sums;
 	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		T* src = static_cast<T*>(pdata);
-		int sums[G::nchan];
 		int nsum = 0;
 		int osam = 0;
 
-		for (int ic = 0; ic < G::nchan; ++ic){
-			sums[ic] = 0;
-		}
+		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; ++isam){
 			for (int ic = 0; ic < G::nchan; ++ic){
@@ -507,6 +520,48 @@ public:
 	}
 };
 
+template <class T>
+class OversamplingMapBufferSingleSample: public MapBuffer {
+	const int over, asr;
+	const int nsam;
+	int* sums;
+public:
+	OversamplingMapBufferSingleSample(const char* _fname, int _ibuf, int _buffer_len,
+			int _oversampling, int _asr) :
+		MapBuffer(_fname, _ibuf, _buffer_len),
+		over(_oversampling),
+		asr(_asr),
+		nsam(_buffer_len/sizeof(T)/G::nchan)
+	{
+		static int report;
+		if (!report &&verbose){
+			printf("OversamplingMapBufferSingleSample()\n");
+			++report;
+		}
+		sums = new int[G::nchan];
+	}
+	virtual ~OversamplingMapBufferSingleSample() {
+		delete [] sums;
+	}
+	virtual int writeBuffer(int out_fd, int b_opts) {
+		T* src = static_cast<T*>(pdata);
+		int stride = nsam/over;
+
+		if (verbose) printf("writeBuffer() stride:%d out_fd:%d\n", stride, out_fd);
+
+		memset(sums, 0, G::nchan*sizeof(int));
+
+		for (int isam = 0; isam < nsam; isam += stride){
+			for (int ic = 0; ic < G::nchan; ++ic){
+				sums[ic] += src[isam*G::nchan+ic] >> asr;
+			}
+		}
+
+		if (verbose) printf("writeBuffer() 99\n");
+
+		return write(out_fd, sums, G::nchan*sizeof(int));
+	}
+};
 #define SCOFF	24		/* sample count offset */
 #define EFMT	"ERROR [%02d] %10llu at offset:%d %08x -> %s:%08x\n"
 
@@ -657,6 +712,12 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 	char* fname = new char[128];
 	sprintf(fname, "%s.hb/%03d", root, _ibuf);
 
+	static int nreport;
+	if (nreport == 0 && verbose){
+		++nreport;
+		printf("Buffer::create() G::buffer_mode: %d\n", G::buffer_mode);
+	}
+
 	switch(G::buffer_mode){
 	case BM_NULL:
 		return new NullBuffer(fname, _ibuf, _buffer_len);
@@ -677,12 +738,26 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 	default:
 		if (G::oversampling == 1){
 			return new MapBuffer(fname, _ibuf, _buffer_len);
-		}else if (G::wordsize == 2){
-			return new OversamplingMapBuffer<short>(
-			fname, _ibuf, _buffer_len, G::oversampling, ASR(G::oversampling));
+		}
+		int os = abs(G::oversampling);
+		bool single = G::oversampling < 0;
+
+		if (G::wordsize == 2){
+			if (single){
+				return new OversamplingMapBufferSingleSample<short>(
+						fname, _ibuf, _buffer_len, os, 0);
+			}else{
+				return new OversamplingMapBuffer<short>(
+						fname, _ibuf, _buffer_len, os, ASR(os));
+			}
 		}else{
-			return new OversamplingMapBuffer<int> (
-			fname, _ibuf, _buffer_len, G::oversampling, ASR(G::oversampling));
+			if (single){
+				return new OversamplingMapBufferSingleSample<int>(
+						fname, _ibuf, _buffer_len, os, 8);
+			}else{
+				return new OversamplingMapBuffer<int> (
+						fname, _ibuf, _buffer_len, os, ASR(os));
+			}
 		}
 	}
 }
@@ -706,7 +781,7 @@ struct poptOption opt_table[] = {
 	{ "wordsize", 'w', POPT_ARG_INT, &G::wordsize, 0,
 			"data word size 2|4" },
 	{ "oversampling", 'O', POPT_ARG_INT, &G::oversampling, 0,
-			"set oversampling"},
+			"set oversampling (negative: single output sample per buffer)"},
 	{ "mask",      'M', POPT_ARG_INT, &G::mask, 0,
 			"set data mask"},
 	{ "m1",        'm', POPT_ARG_INT, &G::m1, 0,
@@ -1365,7 +1440,18 @@ public:
 	}
 };
 
-class StreamHeadPrePost: public StreamHead  {
+
+
+class StreamHeadClient {
+public:
+	virtual void onStreamStart() = 0;
+	virtual void onStreamBufferStart(int ib) = 0;
+	virtual void onStreamEnd() = 0;
+};
+typedef std::vector<StreamHeadClient*>::iterator  IT;
+
+class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
+
 protected:
 	int pre;
 	int post;
@@ -1374,6 +1460,7 @@ protected:
 	int nobufs;
 
 	int samples_buffer;
+	std::vector <StreamHeadClient*> peers;
 
 	void setState(enum STATE _state){
 		actual.state = _state;
@@ -1391,11 +1478,15 @@ protected:
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
 
-			onStreamBufferStart(ib);
+			if (verbose) printf("streamCore %d\n", ib);
 
 			switch(actual.state){
 			case ST_ARM:
 				setState(pre? ST_RUN_PRE: ST_RUN_POST);
+			}
+
+			for (IT it = peers.begin(); it != peers.end(); ++it){
+				(*it)->onStreamBufferStart(ib);
 			}
 
 			switch(actual.state){
@@ -1438,6 +1529,7 @@ public:
 			samples_buffer(0),
 			actual(Progress::instance())
 		{
+		if (verbose) printf("StreamHeadPrePost()\n");
 		setState(ST_STOP);
 		int total_bs = (pre+post)*sample_size() + G::bufferlen;
 		samples_buffer = G::bufferlen/sample_size();
@@ -1470,17 +1562,48 @@ public:
 			fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
 				total_bs, G::bufferlen, nobufs);
 		}
+		peers.push_back(this);
 	}
 
 	void stream() {
 		setState(ST_ARM);
-		onStreamStart();
+		for (IT it = peers.begin(); it != peers.end(); ++it){
+			(*it)->onStreamStart();
+		}
 		streamCore();
 		close();
-		onStreamEnd();
+		for (IT it = peers.begin(); it != peers.end(); ++it){
+			(*it)->onStreamEnd();
+		}
 		setState(ST_STOP);
 	}
+
+	void append(StreamHeadClient* pp){
+		peers.push_back(pp);
+	}
 };
+
+class SubrateStreamHead: public StreamHeadClient {
+public:
+	virtual void onStreamStart() 		 {}
+	virtual void onStreamBufferStart(int ib) {
+		int outfd = open("/dev/shm/subrate.new", O_WRONLY|O_CREAT, S_IRWXU);
+		assert(outfd >= 0);
+
+		if (verbose) printf("buffer[%d]->writeBuffer()\n", ib);
+		int nw = buffers[ib]->writeBuffer(outfd, 0);
+		if (nw == 0){
+			printf("WARNING: writeBuffer returned 0\n");
+		}
+		close(outfd);
+		rename("/dev/shm/subrate.new", "/dev/shm/subrate");
+
+	}
+	virtual void onStreamEnd() 		 {}
+
+	SubrateStreamHead() {}
+};
+
 class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 
 	void *ba0;
@@ -1588,6 +1711,7 @@ public:
 	PostprocessingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(_pre, _post),
 		demuxer(_demuxer) {
+		if (verbose) printf("PostprocessingStreamHeadPrePost()\n");
 		buildOutputBuffers();
 	}
 };
@@ -1597,6 +1721,8 @@ StreamHead& StreamHead::instance() {
 
 	if (_instance == 0){
 		if (G::stream_mode == SM_TRANSIENT){
+			StreamHeadPrePost* sh;
+/*
 			if (G::buffer_mode == BM_PREPOST){
 				Demuxer *demuxer;
 				if (G::wordsize == 4){
@@ -1604,10 +1730,16 @@ StreamHead& StreamHead::instance() {
 				}else{
 					demuxer = new DemuxerImpl<short>;
 				}
-				_instance = new PostprocessingStreamHeadPrePost(*demuxer, G::pre, G::post);
+				sh = new PostprocessingStreamHeadPrePost(*demuxer, G::pre, G::post);
 			}else{
-				_instance = new StreamHeadPrePost(G::pre, G::post);
+				sh  = new StreamHeadPrePost(G::pre, G::post);
 			}
+*/
+			sh  = new StreamHeadPrePost(G::pre, G::post);
+			if (G::oversampling){
+				sh->append(new SubrateStreamHead);
+			}
+			_instance = sh;
 		}else{
 			switch(G::buffer_mode){
 			case BM_DEMUX:
