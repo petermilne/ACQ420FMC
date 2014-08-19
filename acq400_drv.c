@@ -2194,6 +2194,11 @@ int ai_data_loop(void *data)
 			FIFO_PA(adev), hbm->len, DMA_SC_FLAGS|sflags[chan])
 
 
+	struct task_struct *task = current;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
+
+	sched_setscheduler(task, SCHED_FIFO, &param);
+
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
 	hbm0 = getEmpty(adev);
