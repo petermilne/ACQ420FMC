@@ -1587,7 +1587,7 @@ class SubrateStreamHead: public StreamHeadClient {
 public:
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
-		int outfd = open("/dev/shm/subrate.new", O_WRONLY|O_CREAT, S_IRWXU);
+		int outfd = open("/dev/shm/subrate", O_WRONLY|O_CREAT, S_IRWXU);
 		assert(outfd >= 0);
 
 		if (verbose) printf("buffer[%d]->writeBuffer()\n", ib);
@@ -1596,7 +1596,7 @@ public:
 			printf("WARNING: writeBuffer returned 0\n");
 		}
 		close(outfd);
-		rename("/dev/shm/subrate.new", "/dev/shm/subrate");
+		//rename("/dev/shm/subrate.new", "/dev/shm/subrate");
 
 	}
 	virtual void onStreamEnd() 		 {}
