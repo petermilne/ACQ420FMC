@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.566"
+#define REVID "2.567"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -335,7 +335,10 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->onStart = ao420_onStart;
 }
 
-
+static void dio432_init_defaults(struct acq400_dev *adev)
+{
+	/* interesting a little bit of acq420, a little bit of ao420. How to handle? - maybe create 2 devices, one in one out ?*/
+}
 static void bolo8_init_defaults(struct acq400_dev* adev)
 {
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
@@ -2194,11 +2197,6 @@ int ai_data_loop(void *data)
 			FIFO_PA(adev), hbm->len, DMA_SC_FLAGS|sflags[chan])
 
 
-	struct task_struct *task = current;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
-
-	sched_setscheduler(task, SCHED_FIFO, &param);
-
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
 	hbm0 = getEmpty(adev);
@@ -2617,6 +2615,8 @@ static int acq400_probe(struct platform_device *pdev)
 
   	if (IS_ACQ42X(adev)){
   		acq420_init_defaults(adev);
+  	}else if (IS_DIO432X(adev)){
+  		dio432_init_defaults(adev);
   	}else{
   		switch(GET_MOD_ID(adev)){
   		case MOD_ID_ACQ430FMC:

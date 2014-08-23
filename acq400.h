@@ -123,6 +123,8 @@
 #define MOD_ID_AO421FMC		0x41
 
 #define MOD_ID_BOLO8		0x60
+#define MOD_ID_DIO432FMC	0x61
+#define MOD_ID_DIO432PMOD	0x62
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -499,6 +501,11 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_BOLO8(adev)	(GET_MOD_ID(adev) == MOD_ID_BOLO8)
 
+#define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
+#define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
+#define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev))
+
+
 /** @@todo and ACQ2006r2 */
 #define HAS_HDMI_SYNC(adev)	IS_ACQ1001SC(adev)
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
@@ -739,5 +746,28 @@ void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
 
 struct acq400_dev* acq400_lookupSite(int site);
+
+/* DIO432 */
+
+#define DIO432_MOD_ID		0x00
+#define DIO432_DIO_CTRL		0x04
+#define DIO432_TIM_CTRL		0x08
+#define DIO432_DI_HITIDE	0x0C
+#define DIO432_DI_FIFO_COUNT	0x10
+#define DIO432_DI_FIFO_STATUS	0x14
+#define DIO432_DO_LOTIDE	0x18
+#define DIO432_DO_FIFO_COUNT	0x1C
+#define DIO432_DO_FIFO_STATUS	0x20
+#define DIO432_DIO_ICR		0x24
+#define DIO432_DIO_SAMPLE_COUNT 0x40
+#define DIO432_DIO_CPLD_CTRL	0x44
+
+#define DIO432_CTRL_SHIFT_DIV_SHL	(8)
+#define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
+#define DIO432_CTRL_ADC_EN	(1 << 4)
+#define DIO432_CTRL_ADC_RST	(1 << 3)
+#define DIO432_CTRL_FIFO_EN	(1 << 2)
+#define DIO432_CTRL_FIFO_RST	(1 << 1)
+#define DIO432_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
 #endif /* ACQ420FMC_H_ */

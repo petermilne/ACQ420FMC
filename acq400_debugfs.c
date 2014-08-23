@@ -198,7 +198,21 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ADC_ACC_DEC);
 }
 
-
+void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE( DIO432_MOD_ID		);
+	DBG_REG_CREATE( DIO432_DIO_CTRL		);
+	DBG_REG_CREATE( DIO432_TIM_CTRL		);
+	DBG_REG_CREATE( DIO432_DI_HITIDE	);
+	DBG_REG_CREATE( DIO432_DI_FIFO_COUNT	);
+	DBG_REG_CREATE( DIO432_DI_FIFO_STATUS	);
+	DBG_REG_CREATE( DIO432_DO_LOTIDE	);
+	DBG_REG_CREATE( DIO432_DO_FIFO_COUNT	);
+	DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);
+	DBG_REG_CREATE( DIO432_DIO_ICR		);
+	DBG_REG_CREATE( DIO432_DIO_SAMPLE_COUNT );
+	DBG_REG_CREATE( DIO432_DIO_CPLD_CTRL	);
+}
 void acq400_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
@@ -223,6 +237,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 
 	if (IS_ACQ42X(adev)){
 		acq420_createDebugfs(adev, pcursor);
+	}else if (IS_DIO432X(adev)){
+		dio432_createDebugfs(adev, pcursor);
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_BOLO8:

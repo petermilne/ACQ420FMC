@@ -2029,6 +2029,18 @@ static const struct attribute *bolo8_attrs[] = {
 	&dev_attr_dac_sample_count.attr,
 	NULL
 };
+
+
+
+
+
+
+static const struct attribute *dio432_attrs[] = {
+	NULL
+};
+
+
+
 #define SCOUNT_KNOB(name, reg) 						\
 static ssize_t show_clk_count_##name(					\
 	struct device * dev,						\
@@ -2547,6 +2559,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = ao420_attrs;
 		}else if (IS_BOLO8(adev)){
 			specials = bolo8_attrs;
+		}else if (IS_DIO432X(adev)){
+			specials = dio432_attrs;
 		}else{
 			return;
 		}
