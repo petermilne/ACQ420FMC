@@ -44,5 +44,5 @@ fi
 CMD="acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER $CPA --no_demux \
         --nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
 echo $CMD > /tmp/bos.cmd
-exec $CMD 
+exec nice -n -10 $CMD 
 
