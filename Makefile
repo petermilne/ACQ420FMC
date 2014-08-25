@@ -34,11 +34,13 @@ package: all
 	echo do NOT rm -Rf opkg/*
 	mkdir -p opkg/usr/local/bin opkg/usr/local/lib/modules \
 		opkg/usr/share opkg/usr/local/CARE \
-		opkg/usr/local/init/pl330dbg opkg/usr/local/cal
+		opkg/usr/local/init/pl330dbg opkg/usr/local/cal \
+		opkg/etc/profile.d 
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) monitorregs scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
+	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* opkg/usr/local/CARE
 	cp acq420.init inetd.conf opkg/usr/local/init
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg

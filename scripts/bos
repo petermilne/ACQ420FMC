@@ -9,6 +9,9 @@ fi
 POST=${2:-1000000}
 VERBOSE=${3:-0}
 
+if [ -e /etc/profile.d/bos.sh ]; then
+	source /etc/profile.d/bos.sh
+fi
 
 if [ -e /etc/acq400/0/transient ]; then
 	source /etc/acq400/0/transient
@@ -31,7 +34,14 @@ if [ $VERBOSE -gt 0 ]; then
 	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
 fi
 
-CMD="acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER --null-copy --no_demux \
+OSAM=${OSAM:-0}
+if [ $OSAM -ne 0 ]; then
+	CPA="-O -$OSAM"
+else
+	CPA=--null-copy
+fi
+
+CMD="acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER $CPA --no_demux \
         --nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
 echo $CMD > /tmp/bos.cmd
 exec $CMD 
