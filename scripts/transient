@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -e /etc/profile.d/bos.sh ]; then
-	source bos.sh
+	source /etc/profile.d/bos.sh
 fi
 
 PREMAX=${PREMAX:-0}
