@@ -1,5 +1,12 @@
 #!/bin/sh
 
+if [ -e /etc/profile.d/bos.sh ]; then
+	source bos.sh
+fi
+
+PREMAX=${PREMAX:-0}
+POSTMAX=${POSTMAX:-4000000}
+
 if [ -e /dev/shm/transient_settings ]; then
 	source /dev/shm/transient_settings
 fi
@@ -29,8 +36,8 @@ if [ "$(basename $0)" = "transient" ]; then
 		key=${pair%=*}
 		val=${pair#*=}
 		case $key in
-		PRE)  val=$(validate $val 0 0);;
-		POST) val=$(validate $val 0 4000000);;
+		PRE)  val=$(validate $val 0 $PREMAX);;
+		POST) val=$(validate $val 0 $POSTMAX);;
 		VERBOSE) val=$(validate $val 0 3);;
 		OSAM) val=$(validate $val 0, 256);;
 		SOFT_TRIGGER);;
