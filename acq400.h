@@ -473,6 +473,7 @@ int getHeadroom(struct acq400_dev *adev);
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
 #define GET_MOD_ID(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL)
+#define GET_MOD_ID_VERSION(adev) (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0xff)
 
 static inline int _is_acq42x(struct acq400_dev *adev) {
 	switch(GET_MOD_ID(adev)){
@@ -501,7 +502,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  (GET_MOD_ID(adev) == MOD_ID_AO421FMC)
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
+#define IS_ACQ2006B(adev)  (IS_ACQ2006SC(adev) && GET_MOD_ID_VERSION(adev) != 0)
 #define IS_ACQ2106SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2106SC)
+
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
 
@@ -513,9 +516,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev))
 
-
-/** @@todo and ACQ2006r2 */
-#define HAS_HDMI_SYNC(adev)	IS_ACQ1001SC(adev)
+#define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
