@@ -736,10 +736,10 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 	case BM_TEST:
 		return new ScratchpadTestBuffer(fname, _ibuf, _buffer_len);
 	default:
-		if (G::oversampling == 1){
+		int os = abs(G::oversampling);
+		if (os <= 1){
 			return new MapBuffer(fname, _ibuf, _buffer_len);
 		}
-		int os = abs(G::oversampling);
 		bool single = G::oversampling < 0;
 
 		if (G::wordsize == 2){
