@@ -2269,6 +2269,30 @@ int get_site(struct acq400_dev *adev, char s)
 		return -2;
 	}
 }
+
+int add_aggregator_set(struct acq400_dev *adev, int site)
+{
+	int ia = 0;
+	struct acq400_dev *slave = acq400_lookupSite(site);
+	for (ia = 0; ia < MAXSITES; ++ia){
+		if (adev->aggregator_set[ia] == slave){
+			return 0;
+		}else if (adev->aggregator_set[ia] == 0){
+			adev->aggregator_set[ia] = slave;
+			return 0;
+		}
+	}
+	dev_err(DEVP(adev), "ERROR: add_aggregator_set() failed");
+	return 1;
+}
+
+void clear_aggregator_set(struct acq400_dev *adev)
+{
+	int ia = 0;
+	for (ia = 0; ia < MAXSITES; ++ia){
+		adev->aggregator_set[ia] = 0;
+	}
+}
 static ssize_t store_agg_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2304,8 +2328,11 @@ static ssize_t store_agg_reg(
 						dev_err(dev, "bad site designator: %c", *cursor);
 						return -1;
 					}
+					add_aggregator_set(adev, site);
 				}
 			}
+		}else{
+			clear_aggregator_set(adev);
 		}
 		acq400wr32(adev, offset, regval);
 		pass = 1;

@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.567"
+#define REVID "2.568"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -2177,6 +2177,33 @@ void go_rt(void)
 /* first time : infinite timeout .. we probably won't live this many jiffies */
 #define START_TIMEOUT		0x7fffffff
 
+
+int check_fifo_statuses(struct acq400_dev *adev)
+{
+	int fail = false;
+	if (adev->is_sc){
+		int islave = 0;
+		for (islave = 0; islave < MAXSITES; ++islave){
+			struct acq400_dev* slave = adev->aggregator_set[islave];
+			if (slave){
+				u32 fifsta = acq400rd32(slave, ADC_FIFO_STA);
+				dev_dbg(DEVP(slave), "%d fifsta 0x%08x %s", slave->of_prams.site, fifsta,
+							(fifsta&FIFERR)? "ERROR": "OK");
+				if (acq420_isFifoError(slave)){
+					fail = true;
+					slave->rt.refill_error = true;
+					wake_up_interruptible(&adev->refill_ready);
+				}
+			}else{
+				break;
+			}
+		}
+	}else{
+		return acq420_isFifoError(adev);
+	}
+
+	return fail;
+}
 int ai_data_loop(void *data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
@@ -2272,6 +2299,12 @@ int ai_data_loop(void *data)
 			}
 			adev->dma_cookies[ic] = DMA_ASYNC_MEMCPY(adev, ic, hbm);
 			dma_async_issue_pending(adev->dma_chan[ic]);
+
+			if (check_fifo_statuses(adev)){
+				dev_err(DEVP(adev), "ERROR: quite on fifo status check");
+				goto quit;
+			}
+
 			if (!IS_ACQx00xSC(adev)){
 				//acq420_enable_interrupt(adev);
 			}
@@ -2575,6 +2608,7 @@ static int acq400_probe(struct platform_device *pdev)
         }
 
         if (IS_ACQx00xSC(adev)){
+        	adev->is_sc = true;
         	if (allocate_hbm(adev, nbuffers, bufferlen, DMA_FROM_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
         		goto fail;

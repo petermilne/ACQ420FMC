@@ -59,6 +59,8 @@
 
 #include <vector>
 
+#include "local.h"		/* chomp() hopefully, not a lot of other garbage */
+
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
 	char kpath[128];
@@ -921,14 +923,21 @@ static void wait_and_cleanup(pid_t child)
 static void hold_open(int site)
 {
 	char devname[80];
+	char message[80];
+
 	sprintf(devname, "/dev/acq400.%d.cs", site);
 	FILE *fp = fopen(devname, "r");
 	if (fp == 0){
 		perror(devname);
 		exit(1);
 	}
-	while(fread(devname, 1, 80, fp)){
-		;
+	while(fread(message, 1, 80, fp)){
+		chomp(message);
+		bool quit = strstr(message, "ERROR") != 0;
+		printf("%s : \"%s\" %s\n", devname, message, quit? "QUIT ON ERROR": "OK");
+		if (quit){
+			break;
+		}
 	}
 	exit(1);
 }

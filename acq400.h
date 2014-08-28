@@ -270,6 +270,10 @@
 
 #define AO_CHAN	4
 /** acq400_dev one descriptor per device */
+
+
+#define MAXSITES 	6
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -419,6 +423,10 @@ struct acq400_dev {
 		int awg_buffer_cursor;
 		short offset_dacs[8];
 	} bolo8;
+
+	/* valid sc only */
+	bool is_sc;
+	struct acq400_dev* aggregator_set[MAXSITES];
 };
 
 
