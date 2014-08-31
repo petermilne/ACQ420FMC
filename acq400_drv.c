@@ -27,14 +27,14 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.569"
+#define REVID "2.577"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
 
 
+/* MODULE PARAMETERS */
 
-/* we _shouldn't need any globals, but right now there's no obvious way round */
 
 int ndevices;
 module_param(ndevices, int, 0444);
@@ -100,6 +100,10 @@ MODULE_PARM_DESC(modify_spad_access,
 int AO420_MAX_FILL_BLOCK = 16384;
 module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 
+
+
+/* GLOBALS */
+
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
@@ -127,18 +131,23 @@ int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
 
-// @@todo pgm: crude: index by site, index from 0
-const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
-const char* acq400_devnames[] = {
-	"acq400.0", "acq400.1", "acq400.2",
-	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
-};
+int event_isr_msec = 20;
+module_param(event_isr_msec, int, 0644);
+MODULE_PARM_DESC(event_isr_msec, "event isr poll rate (remove when actual interrupt works)");
 
 #define AO420_BUFFERLEN	0x100000
 
 int ao420_buffer_length = AO420_BUFFERLEN;
 module_param(ao420_buffer_length, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
+
+
+// @@todo pgm: crude: index by site, index from 0
+const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
+const char* acq400_devnames[] = {
+	"acq400.0", "acq400.1", "acq400.2",
+	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
+};
 
 #define AO420_NBUFFERS 	2
 
@@ -1619,6 +1628,8 @@ int acq400_event_open(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	u32 int_csr = acq420_get_interrupt(adev);
 	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	/* good luck using this in a 64-bit system ... */
+	setup_timer( &adev->event_timer, event_isr, (unsigned)adev);
 	return 0;
 }
 
@@ -1626,18 +1637,34 @@ ssize_t acq400_event_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	char lbuf[20];
+	char lbuf[40];
+	int nbytes;
 	int rc;
+	struct HBM *hbm0;
+	struct HBM *hbm1;
 
+	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
 	if (wait_event_interruptible(
 			adev->event_waitq, adev->sample_clocks_at_event != 0)){
 		return -EINTR;
 	}
 
-	rc = snprintf(lbuf, 20, "%u %u\n",
-			adev->sample_clocks_at_event, adev->samples_at_event);
+	/* event is somewhere between these two blocks */
+	hbm0 = list_last_entry(&adev->REFILLS, struct HBM, list);
+	hbm1 = list_first_entry(&adev->INFLIGHT, struct HBM, list);
+
+
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d\n",
+			adev->sample_clocks_at_event,
+			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1);
+
 	adev->sample_clocks_at_event = 0;
-	rc = copy_to_user(buf, lbuf, rc);
+	rc = copy_to_user(buf, lbuf, nbytes);
+	if (rc != 0){
+		rc = -1;
+	}else{
+		rc = nbytes;
+	}
 	return rc;
 }
 
@@ -1661,7 +1688,8 @@ int acq400_event_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	u32 int_csr = acq420_get_interrupt(adev);
-	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	acq420_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
+	del_timer( &adev->event_timer );
 	return 0;
 }
 
@@ -2336,6 +2364,32 @@ quit:
 #undef DMA_ASYNC_MEMCPY_NWFE
 }
 
+static void cos_action(struct acq400_dev *adev, u32 status)
+{
+	if ((status&ADC_INT_CSR_COS) != 0){
+		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
+		adev->sample_clocks_at_event =
+					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
+		acq420_set_interrupt(adev, status);
+		wake_up_interruptible(&adev->event_waitq);
+	}
+}
+
+static void hitide_action(struct acq400_dev *adev, u32 status)
+{
+	if ((status&ADC_INT_CSR_HITIDE) != 0){
+		wake_up_interruptible(&adev->w_waitq);
+	}
+}
+
+void event_isr(unsigned long data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	volatile u32 status = acq420_get_interrupt(adev);
+	cos_action(adev, status);
+	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
+}
+
 static irqreturn_t acq400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
@@ -2350,15 +2404,9 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	adev->stats.fifo_interrupts++;
 	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	adev->fifo_isr_done = 1;
-	if ((status&ADC_INT_CSR_COS) != 0){
-		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
-		adev->sample_clocks_at_event =
-				acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
-		wake_up_interruptible(&adev->event_waitq);
-	}
-	if ((status&ADC_INT_CSR_HITIDE) != 0){
-		wake_up_interruptible(&adev->w_waitq);
-	}
+
+	cos_action(adev, status);
+	hitide_action(adev, status);
 
 	acq420_set_interrupt(adev, status);
 	return IRQ_HANDLED;

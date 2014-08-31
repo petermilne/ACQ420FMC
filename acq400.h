@@ -271,6 +271,9 @@
 #define AO_CHAN	4
 /** acq400_dev one descriptor per device */
 
+void event_isr(unsigned long data);
+
+extern int event_isr_msec;
 
 #define MAXSITES 	6
 
@@ -309,6 +312,9 @@ struct acq400_dev {
 	u32 samples_at_event;
 	u32 sample_clocks_at_event;
 	wait_queue_head_t event_waitq;
+
+	/* fake event isr @@removeme */
+	struct timer_list event_timer;
 
 	/* Current DMA buffer information */
 	/*dma_addr_t buffer_d_addr;
