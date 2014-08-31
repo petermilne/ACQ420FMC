@@ -34,6 +34,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
+#include <linux/spinlock.h>
 
 #include <linux/debugfs.h>
 #include <linux/poll.h>

@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.577"
+#define REVID "2.578"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1642,6 +1642,11 @@ ssize_t acq400_event_read(
 	int rc;
 	struct HBM *hbm0;
 	struct HBM *hbm1;
+	struct acq400_dev* adev0 = acq400_lookupSite(0);
+	spinlock_t lock;
+	unsigned long flags;
+
+	spin_lock_init(&lock);
 
 	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
 	if (wait_event_interruptible(
@@ -1649,10 +1654,21 @@ ssize_t acq400_event_read(
 		return -EINTR;
 	}
 
+	spin_lock_irqsave(&lock, flags);
 	/* event is somewhere between these two blocks */
-	hbm0 = list_last_entry(&adev->REFILLS, struct HBM, list);
-	hbm1 = list_first_entry(&adev->INFLIGHT, struct HBM, list);
-
+	if (!list_empty(&adev0->REFILLS)){
+		hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
+	}else if (!list_empty(&adev0->OPENS)){
+		hbm0 = list_last_entry(&adev0->OPENS, struct HBM, list);
+	}else{
+		hbm0 = 0;
+	}
+	if (!list_empty(&adev0->INFLIGHT)){
+		hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
+	}else{
+		hbm1 = 0;
+	}
+	spin_unlock_irqrestore(&lock, flags);
 
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d\n",
 			adev->sample_clocks_at_event,
