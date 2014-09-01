@@ -32,9 +32,11 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/sendfile.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 #include <string.h>
 #include "popt.h"
 #include <sys/types.h>
@@ -1103,7 +1105,7 @@ protected:
 		assert(fc > 0);
 	}
 
-	int getBufferId() {
+	virtual int getBufferId() {
 		char buf[80];
 		int rc = read(fc, buf, 80);
 
@@ -1226,7 +1228,7 @@ enum STATE {
 	ST_POSTPROCESS
 };
 
-int event_received;		/* @@todo : on signal */
+
 
 typedef std::vector<MapBuffer*> MBUFV;
 typedef std::vector<MapBuffer*>::iterator MBUFV_IT;
@@ -1468,6 +1470,11 @@ protected:
 	int total_bs;
 	int nobufs;
 
+	int f_ev;
+	int nfds;
+	bool event_received;
+	char event_info[80];
+
 	int samples_buffer;
 	std::vector <StreamHeadClient*> peers;
 
@@ -1480,6 +1487,56 @@ protected:
 	virtual void onStreamBufferStart(int ib) {}
 	virtual void onStreamEnd() 		 {}
 
+	virtual int getBufferId() {
+		char buf[80];
+		fd_set readfds;
+		fd_set readfds0;
+		int rc;
+
+		FD_ZERO(&readfds);
+		FD_SET(fc, &readfds);
+		FD_SET(f_ev, &readfds);
+
+		if (verbose) fprintf(stderr, "fc %d f_ev %d nfds %d\n", fc, f_ev, nfds);
+
+		for(readfds0 = readfds;
+			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
+			if (verbose) fprintf(stderr, "select returns  %d\n", rc);
+
+			if (FD_ISSET(f_ev, &readfds)){
+				if (verbose) fprintf(stderr, "FD_ISSET f_ev %d\n", f_ev);
+				/* we can only handle ONE EVENT */
+				if (!event_received){
+					rc = read(f_ev, event_info, 80);
+					if (rc <= 0){
+						syslog(LOG_DEBUG, "read error  %d\n", rc);
+					}else{
+						buf[rc] = '\0';
+						event_received = true;
+					}
+				}
+			}
+			if (FD_ISSET(fc, &readfds)){
+				if (verbose) fprintf(stderr, "FD_ISSET fc %d\n", fc);
+				rc = read(fc, buf, 80);
+
+				if (rc > 0){
+					buf[rc] = '\0';
+					int ib = atoi(buf);
+					assert(ib >= 0);
+					assert(ib <= G::nbuffers);
+					return ib;
+				}else{
+					return -1;
+				}
+			}
+		}
+
+		if (rc < 0){
+			syslog(LOG_DEBUG, "select error  %d\n", rc);
+		}
+		return -1;
+	}
 	void streamCore() {
 		BufferLog blog;
 		int ib;
@@ -1500,14 +1557,16 @@ protected:
 
 			switch(actual.state){
 			case ST_RUN_PRE:
-				if (event_received){
-					setState(ST_RUN_POST);
-				}
 				if (actual.pre < pre){
 					if (actual.pre + samples_buffer < pre){
 						actual.pre += samples_buffer;
 					}else{
 						actual.pre = pre;
+					}
+				}
+				if (actual.pre >= pre){
+					if (event_received){
+						setState(ST_RUN_POST);
 					}
 				}
 				break;
@@ -1532,16 +1591,21 @@ protected:
 		assert(0);
 		return 0;
 	}
+
+
+
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
 			samples_buffer(0),
-			actual(Progress::instance())
+			actual(Progress::instance()),
+			event_received(0)
 		{
 		if (verbose) printf("StreamHeadPrePost()\n");
 		setState(ST_STOP);
 		int total_bs = (pre+post)*sample_size() + G::bufferlen;
 		samples_buffer = G::bufferlen/sample_size();
+		nfds = fc+1;
 
 		while((pre+post)*sample_size() > TOTAL_BUFFER_LIMIT){
 			if (post) post -= samples_buffer/2;
@@ -1572,6 +1636,19 @@ public:
 				total_bs, G::bufferlen, nobufs);
 		}
 		peers.push_back(this);
+
+		startEventWatcher();
+	}
+
+	void startEventWatcher() {
+		f_ev = open("/dev/acq400.1.ev", O_RDONLY);
+		if (f_ev < 0){
+			perror("/dev/acq400.1.ev");
+			exit(1);
+		}
+		if (f_ev > fc){
+			nfds = f_ev+1;
+		}
 	}
 
 	void stream() {
@@ -1590,7 +1667,9 @@ public:
 	void append(StreamHeadClient* pp){
 		peers.push_back(pp);
 	}
+
 };
+
 
 class SubrateStreamHead: public StreamHeadClient {
 public:
@@ -1731,6 +1810,7 @@ StreamHead& StreamHead::instance() {
 	if (_instance == 0){
 		if (G::stream_mode == SM_TRANSIENT){
 			StreamHeadPrePost* sh;
+			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
 /*
 			if (G::buffer_mode == BM_PREPOST){
 				Demuxer *demuxer;

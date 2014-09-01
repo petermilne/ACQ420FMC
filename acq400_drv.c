@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.578"
+#define REVID "2.579"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1630,6 +1630,7 @@ int acq400_event_open(struct inode *inode, struct file *file)
 	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
 	/* good luck using this in a 64-bit system ... */
 	setup_timer( &adev->event_timer, event_isr, (unsigned)adev);
+	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
 	return 0;
 }
 
@@ -1646,14 +1647,12 @@ ssize_t acq400_event_read(
 	spinlock_t lock;
 	unsigned long flags;
 
-	spin_lock_init(&lock);
-
-	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
 	if (wait_event_interruptible(
 			adev->event_waitq, adev->sample_clocks_at_event != 0)){
 		return -EINTR;
 	}
 
+	spin_lock_init(&lock);
 	spin_lock_irqsave(&lock, flags);
 	/* event is somewhere between these two blocks */
 	if (!list_empty(&adev0->REFILLS)){
