@@ -190,10 +190,10 @@ public:
 		return fname;
 	}
 
-	int pred(int _ibuf) {
+	static int pred(int _ibuf) {
 		return _ibuf == 0? last_buf-1: _ibuf-1;
 	}
-	int succ(int _ibuf) {
+	static int succ(int _ibuf) {
 		return _ibuf >= last_buf-1? 0: _ibuf+1;
 	}
 
@@ -1663,9 +1663,8 @@ protected:
 
 		assert(nscan == 3);
 
-		Buffer* bufferb1 = Buffer::the_buffers[b1];
 		if (b1 == -1){
-			b1 = bufferb1->pred(b2);
+			b1 = Buffer::pred(b2);
 		}
 		int sample_offset = findEvent(b1);
 		if (sample_offset >= 0){
