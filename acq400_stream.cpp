@@ -63,6 +63,8 @@
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 
+using namespace std;
+
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
 	char kpath[128];
@@ -133,9 +135,10 @@ class Buffer {
 
 protected:
 	int fd;
-	const char* fname;
-	const int ibuf;
+	const char* fname;	
 	int buffer_len;
+	const int ibuf;
+	static int last_buf;
 
 public:
 	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
@@ -148,9 +151,9 @@ public:
 	virtual int writeBuffer(int out_fd, int b_opts) = 0;
 	virtual int copyBuffer(void* dest) { return -1; }
 
-	Buffer(const char* _fname, int _ibuf, int _buffer_len, bool writeable = false):
+	Buffer(const char* _fname, int _buffer_len, bool writeable = false):
 		fname(_fname),
-		ibuf(_ibuf),
+		ibuf(last_buf++),
 		buffer_len(_buffer_len)
 	{
 		if (writeable){
@@ -162,6 +165,8 @@ public:
 			perror(fname);
 			exit(1);
 		}
+
+		the_buffers.push_back(this);
 	}
 	virtual ~Buffer() {
 		close(fd);
@@ -178,17 +183,30 @@ public:
 		}
 	}
 */
-	static Buffer* create(const char* root, int ibuf, int _buffer_len);
+	static Buffer* create(const char* root, int _buffer_len);
+	static vector<Buffer*> the_buffers;
 
 	const char* getName() {
 		return fname;
 	}
+
+	int pred(int _ibuf) {
+		return _ibuf == 0? last_buf-1: _ibuf-1;
+	}
+	int succ(int _ibuf) {
+		return _ibuf >= last_buf-1? 0: _ibuf+1;
+	}
+
+	virtual char* getBase() { return 0; }
 };
+
+int Buffer::last_buf;
+vector<Buffer*> Buffer::the_buffers;
 
 class NullBuffer: public Buffer {
 public:
-	NullBuffer(const char* _fname, int _ibuf, int _buffer_len):
-		Buffer(_fname, _ibuf, _buffer_len)
+	NullBuffer(const char* _fname, int _buffer_len):
+		Buffer(_fname, _buffer_len)
 	{
 		static int report;
 		if (!report &&verbose){
@@ -202,7 +220,9 @@ public:
 };
 class MapBuffer: public Buffer {
 protected:
-	void *pdata;
+	char *pdata;
+	static char* ba0;
+	static char* ba1;
 
 public:
 	virtual int writeBuffer(int out_fd, int b_opts) {
@@ -213,7 +233,9 @@ public:
 		return buffer_len;
 	}
 
-	void* getBase() { return pdata; }
+	virtual char* getBase() { return pdata; }
+	static char* get_ba0() { return ba0; }
+	static char* get_ba1() { return ba1; }
 
 	int includes(void *cursor)
 	/** returns remain length if buffer includes cursor */
@@ -233,23 +255,27 @@ public:
 		return remain;
 	}
 
-	MapBuffer(const char* _fname, int _ibuf, int _buffer_len,
-			bool writeable = false, void* addr_hint = 0) :
-		Buffer(_fname, _ibuf, _buffer_len, writeable)
+	MapBuffer(const char* _fname, int _buffer_len,
+			bool writeable = false) :
+		Buffer(_fname, _buffer_len, writeable)
 	{
 		if (writeable){
 			char* buffer = new char[buffer_len];
 			memset(buffer, 0, buffer_len);
 			write(fd, buffer, buffer_len);
 		}
-		pdata = mmap(addr_hint, G::bufferlen,
-			PROT_READ|(writeable? PROT_WRITE:0), MAP_SHARED, fd, 0);
+		pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), G::bufferlen,
+			PROT_READ|(writeable? PROT_WRITE:0), MAP_SHARED, fd, 0));
+		ba1 += G::bufferlen;
 		assert(pdata != MAP_FAILED);
 	}
 	virtual ~MapBuffer() {
 		munmap(pdata, G::bufferlen);
 	}
 };
+
+char* MapBuffer::ba0 = (char*)(0x4000000);
+char* MapBuffer::ba1 = (char*)(0x4000000);
 
 #define FMT_OUT_ROOT		"/dev/shm/AI.%d.wf"
 #define FMT_OUT_ROOT_NEW	"/dev/shm/AI.%d.new"
@@ -322,8 +348,8 @@ private:
 		pclose(pp);
 	}
 	bool demux(bool start) {
-		T* src1 = static_cast<T*>(pdata);
-		T* src = static_cast<T*>(pdata);
+		T* src1 = reinterpret_cast<T*>(pdata);
+		T* src = reinterpret_cast<T*>(pdata);
 		int isam = 0;
 
 		if (verbose > 1 && start && ch_id(src[0]) != 0x20){
@@ -410,8 +436,8 @@ public:
 		}
 		return buffer_len;
 	}
-	DemuxBuffer(const char* _fname, int _ibuf, int _buffer_len, unsigned _mask) :
-		MapBuffer(_fname, _ibuf, _buffer_len),
+	DemuxBuffer(const char* _fname, int _buffer_len, unsigned _mask) :
+		MapBuffer(_fname, _buffer_len),
 		nchan(G::nchan),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
@@ -432,7 +458,7 @@ public:
 		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
 	}
 	virtual unsigned getItem(int ii) {
-		T* src = static_cast<T*>(pdata);
+		T* src = reinterpret_cast<T*>(pdata);
 		return src[ii];
 	}
 	virtual unsigned getSizeofItem() { return sizeof(T); }
@@ -451,8 +477,8 @@ public:
 		lseek(fake_fd, 0, SEEK_SET);
 		return sendfile(out_fd, fake_fd, 0, buffer_len);
 	}
-	TurboBuffer(const char* _fname, int _ibuf, int _buffer_len) :
-		Buffer(_fname, _ibuf, _buffer_len, true)
+	TurboBuffer(const char* _fname, int _buffer_len) :
+		Buffer(_fname, _buffer_len, true)
 	{
 		if (!fake_fd){
 			FILE* fp = fopen("/tmp/fakeit", "w");
@@ -480,9 +506,9 @@ class OversamplingMapBuffer: public MapBuffer {
 	T *outbuf;
 	int* sums;
 public:
-	OversamplingMapBuffer(const char* _fname, int _ibuf, int _buffer_len,
+	OversamplingMapBuffer(const char* _fname, int _buffer_len,
 			int _oversampling, int _asr) :
-		MapBuffer(_fname, _ibuf, _buffer_len),
+		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
@@ -500,7 +526,7 @@ public:
 		delete [] sums;
 	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
-		T* src = static_cast<T*>(pdata);
+		T* src = reinterpret_cast<T*>(pdata);
 		int nsum = 0;
 		int osam = 0;
 
@@ -530,9 +556,9 @@ class OversamplingMapBufferSingleSample: public MapBuffer {
 	const int nsam;
 	int* sums;
 public:
-	OversamplingMapBufferSingleSample(const char* _fname, int _ibuf, int _buffer_len,
+	OversamplingMapBufferSingleSample(const char* _fname, int _buffer_len,
 			int _oversampling, int _asr) :
-		MapBuffer(_fname, _ibuf, _buffer_len),
+		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
@@ -548,7 +574,7 @@ public:
 		delete [] sums;
 	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
-		T* src = static_cast<T*>(pdata);
+		T* src = reinterpret_cast<T*>(pdata);
 		int stride = nsam/over;
 
 		if (verbose) printf("writeBuffer() stride:%d out_fd:%d\n", stride, out_fd);
@@ -644,8 +670,8 @@ class ScratchpadTestBuffer: public MapBuffer {
 		}
 	}
 public:
-	ScratchpadTestBuffer(const char* _fname, int _ibuf, int _buffer_len):
-		MapBuffer(_fname, _ibuf, _buffer_len),
+	ScratchpadTestBuffer(const char* _fname, int _buffer_len):
+		MapBuffer(_fname, _buffer_len),
 		sample_size(sizeof(unsigned) * G::nchan),
 		samples_per_buffer(_buffer_len/sample_size)
 	{
@@ -661,7 +687,7 @@ public:
 	}
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		++buffer_count;
-		unsigned *src = static_cast<unsigned*>(pdata);
+		unsigned* src = reinterpret_cast<unsigned*>(pdata);
 
 		if (checkAlignment(src) < 0){
 			return 0;
@@ -711,10 +737,10 @@ int ASR(int os)
 	return asr;
 }
 
-Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
+Buffer* Buffer::create(const char* root, int _buffer_len)
 {
 	char* fname = new char[128];
-	sprintf(fname, "%s.hb/%03d", root, _ibuf);
+	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
 
 	static int nreport;
 	if (nreport == 0 && verbose){
@@ -724,43 +750,43 @@ Buffer* Buffer::create(const char* root, int _ibuf, int _buffer_len)
 
 	switch(G::buffer_mode){
 	case BM_NULL:
-		return new NullBuffer(fname, _ibuf, _buffer_len);
+		return new NullBuffer(fname, _buffer_len);
 	case BM_SENDFILE:
-		return new TurboBuffer(fname, _ibuf, _buffer_len);
+		return new TurboBuffer(fname, _buffer_len);
 	case BM_DEMUX:
 		switch(G::wordsize){
 		case 2:
-			return new DemuxBuffer<short>(fname, _ibuf, _buffer_len, G::mask);
+			return new DemuxBuffer<short>(fname, _buffer_len, G::mask);
 		case 4:
-			return new DemuxBuffer<int>(fname, _ibuf, _buffer_len, G::mask);
+			return new DemuxBuffer<int>(fname, _buffer_len, G::mask);
 		default:
 			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
 			exit(1);
 		}
 	case BM_TEST:
-		return new ScratchpadTestBuffer(fname, _ibuf, _buffer_len);
+		return new ScratchpadTestBuffer(fname, _buffer_len);
 	default:
 		int os = abs(G::oversampling);
 		if (os <= 1){
-			return new MapBuffer(fname, _ibuf, _buffer_len);
+			return new MapBuffer(fname, _buffer_len);
 		}
 		bool single = G::oversampling < 0;
 
 		if (G::wordsize == 2){
 			if (single){
 				return new OversamplingMapBufferSingleSample<short>(
-						fname, _ibuf, _buffer_len, os, 0);
+						fname, _buffer_len, os, 0);
 			}else{
 				return new OversamplingMapBuffer<short>(
-						fname, _ibuf, _buffer_len, os, ASR(os));
+						fname, _buffer_len, os, ASR(os));
 			}
 		}else{
 			if (single){
 				return new OversamplingMapBufferSingleSample<int>(
-						fname, _ibuf, _buffer_len, os, 8);
+						fname, _buffer_len, os, 8);
 			}else{
 				return new OversamplingMapBuffer<int> (
-						fname, _ibuf, _buffer_len, os, ASR(os));
+						fname, _buffer_len, os, ASR(os));
 			}
 		}
 	}
@@ -1090,7 +1116,7 @@ void init(int argc, const char** argv) {
 	root = getRoot(G::devnum);
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
-		buffers[ii] = Buffer::create(root, ii, G::bufferlen);
+		buffers[ii] = Buffer::create(root, G::bufferlen);
 	}
 }
 
@@ -1461,6 +1487,20 @@ public:
 };
 typedef std::vector<StreamHeadClient*>::iterator  IT;
 
+#define ES_MAGIC	0xaa55f100
+#define ES_MAGIC_MASK	0xffffff00
+
+bool is_es_word(unsigned word)
+{
+	return (word&ES_MAGIC_MASK) == ES_MAGIC;
+
+}
+bool IS_ES(unsigned *cursor)
+{
+	return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
+	       is_es_word(cursor[2]) && is_es_word(cursor[3]);
+}
+
 class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 
 protected:
@@ -1476,7 +1516,7 @@ protected:
 	char event_info[80];
 
 	int samples_buffer;
-	std::vector <StreamHeadClient*> peers;
+	vector <StreamHeadClient*> peers;
 
 	void setState(enum STATE _state){
 		actual.state = _state;
@@ -1484,7 +1524,9 @@ protected:
 	}
 
 	virtual void onStreamStart() 		 {}
-	virtual void onStreamBufferStart(int ib) {}
+	virtual void onStreamBufferStart(int ib) {
+		if (verbose) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
+	}
 	virtual void onStreamEnd() 		 {}
 
 	virtual int getBufferId() {
@@ -1511,8 +1553,11 @@ protected:
 					if (rc <= 0){
 						syslog(LOG_DEBUG, "read error  %d\n", rc);
 					}else{
-						buf[rc] = '\0';
+						event_info[rc] = '\0';
+						chomp(event_info);
+						if (verbose) fprintf(stderr, "fd_ev read \"%s\"\n", event_info);
 						event_received = true;
+						FD_CLR(f_ev, &readfds0);
 					}
 				}
 			}
@@ -1544,7 +1589,7 @@ protected:
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
 
-			if (verbose) printf("streamCore %d\n", ib);
+			if (verbose) printf("streamCore %d 01\n", ib);
 
 			switch(actual.state){
 			case ST_ARM:
@@ -1552,11 +1597,14 @@ protected:
 			}
 
 			for (IT it = peers.begin(); it != peers.end(); ++it){
+				if (verbose) fprintf(stderr, "call peer %p %p\n", *it, this);
 				(*it)->onStreamBufferStart(ib);
 			}
 
+			if (verbose) fprintf(stderr, "done with peers\n");
 			switch(actual.state){
 			case ST_RUN_PRE:
+				if (verbose>1) fprintf(stderr, "ST_RUN_PRE\n");
 				if (actual.pre < pre){
 					if (actual.pre + samples_buffer < pre){
 						actual.pre += samples_buffer;
@@ -1571,6 +1619,7 @@ protected:
 				}
 				break;
 			case ST_RUN_POST:
+				if (verbose>1) fprintf(stderr, "ST_RUN_POST\n");
 				actual.post += samples_buffer;
 				if (actual.post > post){
 					actual.post = post;
@@ -1578,28 +1627,73 @@ protected:
 					setState(ST_POSTPROCESS);
 					return;
 				}
+				break;
+			default:
+				if (verbose) fprintf(stderr, "dodgy default %d\n", actual.state);
 			}
 			actual.elapsed += samples_buffer;
 			actual.print(PRINT_WHEN_YOU_CAN);
+
+			if (verbose) fprintf(stderr, "streamCore() %d 99\n", ib);
 		}
+
+		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
 	}
-	unsigned findEvent() {
-		assert(0);
-		return 0;
+
+	int findEvent(int ib) {
+		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
+		Buffer* the_buffer = Buffer::the_buffers[ib];
+		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
+		unsigned *base = cursor;
+		unsigned lenw = the_buffer->getLen()/G::wordsize;
+		int sample_offset = 0;
+
+		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
+			if (IS_ES(cursor)){
+				return sample_offset;
+			}
+		}
+		return -1;
+	}
+	int findEvent() {
+		if (verbose) fprintf(stderr, "findEvent \"%s\"\n", event_info);
+		unsigned long usecs;
+		int b1, b2;
+		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
+
+		assert(nscan == 3);
+
+		Buffer* bufferb1 = Buffer::the_buffers[b1];
+		if (b1 == -1){
+			b1 = bufferb1->pred(b2);
+		}
+		int sample_offset = findEvent(b1);
+		if (sample_offset >= 0){
+			if (verbose) fprintf(stderr, "found in b1 %d at %d\n",
+					b1, sample_offset);
+			return sample_offset;
+		}
+		sample_offset = findEvent(b2);
+		if (sample_offset >= 0){
+			if (verbose) fprintf(stderr, "found in b2 %d at %d\n",
+					b2, sample_offset);
+			return sample_offset;
+		}
+		if (verbose) fprintf(stderr, "ERROR: not found at %d or %d\n", b1, b2);
+
+		return sample_offset;
 	}
 	unsigned workbackfrom(unsigned evp) {
 		assert(0);
 		return 0;
 	}
 
-
-
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
 			samples_buffer(0),
 			actual(Progress::instance()),
-			event_received(0)
+			event_received(false)
 		{
 		if (verbose) printf("StreamHeadPrePost()\n");
 		setState(ST_STOP);
@@ -1665,6 +1759,7 @@ public:
 	}
 
 	void append(StreamHeadClient* pp){
+		if (verbose) fprintf(stderr, "append %p\n", pp);
 		peers.push_back(pp);
 	}
 
@@ -1694,8 +1789,6 @@ public:
 
 class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 
-	void *ba0;
-	void *ba1;
 
 	char *cursor;
 	void *event_cursor;	/* mark where event was detected */
@@ -1703,52 +1796,8 @@ class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 	std::vector <MapBuffer*> outbuffers;
 	Demuxer& demuxer;
 
-	void buildOutputBuffers() {
-		system("mkdir -p " OBS_ROOT);
-		ba0 = (void*)0x4000000;
-		char * ba = static_cast<char*>(ba0);
-		for (int ii = 0; ii < nobufs; ++ii, ba += G::bufferlen){
-			char *fname = new char[strlen(OBS_ROOT)+6];
-			snprintf(fname, strlen(OBS_ROOT)+6, "%s/%03d",
-					OBS_ROOT, ii);
-			outbuffers.push_back(
-				new MapBuffer(fname, ii, G::bufferlen, true, ba));
-		}
-		ba1 = ba;
-
-		for (MBUFV_IT obit = outbuffers.begin();
-				obit != outbuffers.end(); ++obit){
-			if (verbose > 1){
-				fprintf(stderr, "buffer: %s %p %p\n",
-					(*obit)->getName(),
-					(*obit)->getBase(),
-					(char*)(*obit)->getBase()+G::bufferlen);
-			}
-		}
-	}
-
-
 	int _demux(int nbytes) {
-		if (verbose){
-			printf("%s cursor:%p nbytes:%d\n", __func__, cursor, nbytes);
-		}
-		for (MBUFV_IT it = outbuffers.begin(); it != outbuffers.end(); ++it){
-			int remain = (*it)->includes(cursor);
-			if (remain){
-				if (remain > nbytes){
-					remain = nbytes;
-				}
-				demuxer.demux(cursor, remain);
-				char fname[128];
-				sprintf(fname, "%s", (*it)->getName());
-				delete (*it);
-				outbuffers.erase(it);
-				unlink(fname);
-				nbytes -= remain;
-				cursor += remain;
-				return remain;
-			}
-		}
+
 		return 0;
 	}
 	void demux(int nsamples){
@@ -1764,31 +1813,18 @@ class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 	void postProcess() {
 		setState(ST_POSTPROCESS); actual.print();
 		if (pre){
-			unsigned epos = findEvent();
-			unsigned prestart = workbackfrom(epos);
-			cursor = static_cast<char*>(ba0)+prestart;
-			demux(pre+post);
+			int epos = findEvent();
+			int prestart = workbackfrom(epos);
+			// @@todo
 		}else{
-			cursor = static_cast<char*>(ba0);
-			demux(post);
+			// @@todo
 		}
 	}
 	virtual void onStreamStart() {
-		cursor = static_cast<char*>(ba0);
+
 	}
 	virtual void onStreamBufferStart(int ib) {
-		buffers[ib]->copyBuffer(cursor);
-		cursor += G::bufferlen;
-		if (cursor >= static_cast<char*>(ba1)){
-			cursor = static_cast<char*>(ba0);
-		}
-		switch(actual.state){
-		case ST_RUN_PRE:
-			if (event_received){
-				event_cursor = cursor;
-			}
-			break;
-		}
+
 	}
 	virtual void onStreamEnd() {
 		if (!G::no_demux){
@@ -1800,7 +1836,6 @@ public:
 		StreamHeadPrePost(_pre, _post),
 		demuxer(_demuxer) {
 		if (verbose) printf("PostprocessingStreamHeadPrePost()\n");
-		buildOutputBuffers();
 	}
 };
 
@@ -1811,7 +1846,7 @@ StreamHead& StreamHead::instance() {
 		if (G::stream_mode == SM_TRANSIENT){
 			StreamHeadPrePost* sh;
 			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
-/*
+
 			if (G::buffer_mode == BM_PREPOST){
 				Demuxer *demuxer;
 				if (G::wordsize == 4){
@@ -1823,8 +1858,6 @@ StreamHead& StreamHead::instance() {
 			}else{
 				sh  = new StreamHeadPrePost(G::pre, G::post);
 			}
-*/
-			sh  = new StreamHeadPrePost(G::pre, G::post);
 			if (G::oversampling){
 				sh->append(new SubrateStreamHead);
 			}
