@@ -24,6 +24,28 @@
  *
  *  Created on: Mar 31, 2013
  *      Author: pgm
+ *
+ * - Usage
+ * - No args: stream and copy to stdout eg the 4210 service
+ * - --null-copy : no copy
+ * - --pre/--post : pre/post transient BOS - data left in KBUFS
+ * -- --pre=0 : easy, first N KBUFS
+ * -- --pre!=0 : need to find the cursor.
+ * - --demux : controls post shot demux
+ * - --oversampling : controls sub-rate streaming (EPICS feed).
+ *
+ *
+ * Dropped: copy/demux (SOS mode).
+ *
+ * Demux: has to be done in-situ in the kbufs.
+ * Then allow an overlay VFS to extract the data.
+ * Demux --pre==0 : demux in situ starting at ibuf=0
+ * Demux --pre!-0 : demux and write back to ibuf=0
+ * Easy to read from linea mapped buffers. Copy to local, DMA back
+ * Driver provides a pair of temp buffers?. Allow ping/pong copy back.
+ *
+ * All the kbufs are mapped to a linear thing: this makes it easy for app-code.
+ * Less easy for kernel code ..
  */
 
 #include <stdio.h>
@@ -98,11 +120,10 @@ int control_handle;
 
 int pre;
 int post;
-bool no_demux;
+bool demux;
 
 #define BM_NOT_SPECIFIED	'\0'
 #define BM_NULL			'n'
-#define BM_SENDFILE 		's'
 #define BM_DEMUX 		'h'
 #define BM_TEST			't'
 #define BM_PREPOST 		'P'
@@ -131,6 +152,13 @@ int sample_size() {
 	return G::nchan * G::wordsize;
 }
 
+unsigned s2b(unsigned samples) {
+	return samples*sample_size();
+}
+unsigned b2s(unsigned bytes) {
+	return bytes/sample_size();
+}
+
 class Buffer {
 
 protected:
@@ -151,16 +179,13 @@ public:
 	virtual int writeBuffer(int out_fd, int b_opts) = 0;
 	virtual int copyBuffer(void* dest) { return -1; }
 
-	Buffer(const char* _fname, int _buffer_len, bool writeable = false):
+	Buffer(const char* _fname, int _buffer_len):
 		fname(_fname),
 		ibuf(last_buf++),
 		buffer_len(_buffer_len)
 	{
-		if (writeable){
-			fd = open(fname, O_RDWR|O_CREAT, 0777);
-		}else{
-			fd = open(fname, O_RDONLY);
-		}
+		fd = open(fname, O_RDWR, 0777);
+
 		if (fd < 0){
 			perror(fname);
 			exit(1);
@@ -198,6 +223,10 @@ public:
 	}
 
 	virtual char* getBase() { return 0; }
+
+	static int samples_per_buffer() {
+		return G::bufferlen/sample_size();
+	}
 };
 
 int Buffer::last_buf;
@@ -255,27 +284,52 @@ public:
 		return remain;
 	}
 
-	MapBuffer(const char* _fname, int _buffer_len,
-			bool writeable = false) :
-		Buffer(_fname, _buffer_len, writeable)
+	MapBuffer(const char* _fname, int _buffer_len) :
+		Buffer(_fname, _buffer_len)
 	{
-		if (writeable){
-			char* buffer = new char[buffer_len];
-			memset(buffer, 0, buffer_len);
-			write(fd, buffer, buffer_len);
-		}
+
 		pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), G::bufferlen,
-			PROT_READ|(writeable? PROT_WRITE:0), MAP_SHARED, fd, 0));
+			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0));
+
+		if (pdata != ba1){
+			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
+			exit(1);
+		}
 		ba1 += G::bufferlen;
 		assert(pdata != MAP_FAILED);
 	}
 	virtual ~MapBuffer() {
 		munmap(pdata, G::bufferlen);
 	}
+	static int getBuffer(char* pb) {
+		if (pb < ba0){
+			return -1;
+		}else if (pb > ba1){
+			return -2;
+		}else{
+			return (pb-ba0)/G::bufferlen;
+		}
+	}
+	static const char* listBuffers(char* p0, char* p1){
+		char report[512];
+		report[0] = '\0';
+		int ibuf1 = -1;
+
+		for(char* pn = p0; pn <= p1; pn += G::bufferlen){
+			int ibuf = getBuffer(pn);
+			if (ibuf != ibuf1){
+				sprintf(report+strlen(report), strlen(report)? ",%d":"%d", ibuf);
+				ibuf1 = ibuf;
+			}
+		}
+		char* ret = new char[strlen(report)+1]; // yes, this is a leak
+		strcpy(ret, report);
+		return ret;
+	}
 };
 
-char* MapBuffer::ba0 = (char*)(0x4000000);
-char* MapBuffer::ba1 = (char*)(0x4000000);
+char* MapBuffer::ba0 = (char*)(0x40000000);
+char* MapBuffer::ba1 = (char*)(0x40000000);
 
 #define FMT_OUT_ROOT		"/dev/shm/AI.%d.wf"
 #define FMT_OUT_ROOT_NEW	"/dev/shm/AI.%d.new"
@@ -467,36 +521,6 @@ public:
 template<class T> int DemuxBuffer<T>::startchan;
 template<class T> T** DemuxBuffer<T>::dddata;
 template<class T> T** DemuxBuffer<T>::ddcursors;
-
-class TurboBuffer : public Buffer {
-private:
-	static int fake_fd;
-public:
-	virtual int writeBuffer(int out_fd, int b_opts) {
-		// driver doesn't do sendfile yet .. fake it.
-		lseek(fake_fd, 0, SEEK_SET);
-		return sendfile(out_fd, fake_fd, 0, buffer_len);
-	}
-	TurboBuffer(const char* _fname, int _buffer_len) :
-		Buffer(_fname, _buffer_len, true)
-	{
-		if (!fake_fd){
-			FILE* fp = fopen("/tmp/fakeit", "w");
-			assert(fp != 0);
-
-			int imax = G::bufferlen/sizeof(unsigned);
-
-			for (int cursor = 0; cursor < imax; ++cursor){
-				fwrite(&cursor, sizeof(cursor), 1, fp);
-			}
-			fclose(fp);
-			fake_fd = open("/tmp/fakeit", O_RDONLY);
-			assert(fake_fd >= 0);
-		}
-	}
-};
-
-int TurboBuffer::fake_fd;
 
 
 template <class T>
@@ -751,8 +775,6 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	switch(G::buffer_mode){
 	case BM_NULL:
 		return new NullBuffer(fname, _buffer_len);
-	case BM_SENDFILE:
-		return new TurboBuffer(fname, _buffer_len);
 	case BM_DEMUX:
 		switch(G::wordsize){
 		case 2:
@@ -798,11 +820,11 @@ Buffer** buffers;
 
 const char* stream_fmt = "%s.c";
 
+int shuffle_test;
+
 struct poptOption opt_table[] = {
 	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0, 	"reduce buffer len" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL, 	"no output copy"    },
-	{ "sendfile",  0, POPT_ARG_NONE, 0, BM_SENDFILE,
-			"use sendfile to transmit (fake)"		    },
 	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
@@ -827,7 +849,7 @@ struct poptOption opt_table[] = {
 	{ "post",       0, POPT_ARG_INT, &G::post, 'O',
 			"transient capture, post-length"
 	},
-	{ "no_demux",   0, POPT_ARG_NONE, 0, 'D',
+	{ "demux",   'D', POPT_ARG_NONE, 0, 'D',
 			"no demux after transient"
 	},
 	{ "sites",      0, POPT_ARG_STRING, &G::aggregator_sites, 0,
@@ -838,6 +860,9 @@ struct poptOption opt_table[] = {
 	},
 	{ "state-file",   0, POPT_ARG_STRING, &G::state_file, 'S',
 			"write changing state string to this file"
+	},
+	{ "shuffle_test", 0, POPT_ARG_INT, &shuffle_test, 0,
+			"time buffer shuffle"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -1036,6 +1061,54 @@ static void kill_the_holders() {
 		syslog(LOG_DEBUG, "kill_the_holders %d\n", *it);
 	}
 }
+
+void shuffle_all_down1() {
+	char *to = buffers[0]->getBase();
+	char *from = buffers[1]->getBase();
+	int len = G::bufferlen * (G::nbuffers-1);
+	printf("shuffle_all_down1: to:%p from:%p len:%d\n", to, from, len);
+	memcpy(to,from,len);
+}
+
+template <class T>
+void demux_all_down1(bool use_new) {
+	T* to = use_new? new T[G::bufferlen/sizeof(T)] :
+			reinterpret_cast<T*>(buffers[0]->getBase());
+	T* from = reinterpret_cast<T*>(buffers[1]->getBase());
+	const unsigned nchan = G::nchan;
+	const unsigned nsam = G::bufferlen * (G::nbuffers-1) / sample_size();
+	const unsigned tomask = use_new? G::bufferlen/sizeof(T)-1: 0xffffffff;
+
+	printf("demux_all_down1 nchan:%d nsam:%d ws=%d mask:%08x\n",
+			nchan, nsam, sizeof(T), tomask);
+
+	for (unsigned sample = 0; sample < nsam; ++sample){
+		for (unsigned chan = 0; chan < nchan; ++chan){
+			to[(chan*nsam + sample)&tomask] = from[sample*nchan + chan];
+		}
+	}
+}
+void do_shuffle_test(int level)
+/* TEST MODE: time iterating all the buffers */
+{
+	switch(level){
+	case 1:
+		shuffle_all_down1();
+		break;
+	case 2:
+	case 3:
+		if (G::wordsize == 4){
+			demux_all_down1<unsigned>(level&1);
+		}else{
+			demux_all_down1<short>(level&1);
+		}
+		break;
+
+	default:
+		fprintf(stderr, "shuffle_test level %d not supported\n", level);
+	}
+	exit(0);
+}
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1051,15 +1124,12 @@ void init(int argc, const char** argv) {
 		case 'n':
 			G::buffer_mode = BM_NULL;
 			break;
-		case 's':
-			G::buffer_mode = BM_SENDFILE;
-			break;
 		case 'h':
 			stream_fmt = "%s.hb0";
 			G::buffer_mode = BM_DEMUX;
 			break;
 		case 'D':
-			G::no_demux = true;
+			G::demux = true;
 			break;
 		case 'P':
 		case 'O':
@@ -1117,6 +1187,9 @@ void init(int argc, const char** argv) {
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
 		buffers[ii] = Buffer::create(root, G::bufferlen);
+	}
+	if (shuffle_test){
+		do_shuffle_test(shuffle_test);
 	}
 }
 
@@ -1655,6 +1728,48 @@ protected:
 		}
 		return -1;
 	}
+	void show_buffer_distribution(int ibuf, int sample_offset)
+	{
+		char* ba0 = MapBuffer::get_ba0();
+		char* ba1 = MapBuffer::get_ba1();
+		char* evt = ba0 + ibuf*G::bufferlen + sample_offset*sample_size();
+		int tailroom = b2s(evt - ba0);
+		int headroom = b2s(ba1 - evt);
+		bool pre_fits = tailroom >= G::pre;
+		bool post_fits = headroom >= G::post;
+
+		if (pre_fits&&post_fits){
+			printf("linear: %p |%p| %p\n",
+					evt - s2b(G::pre), evt, evt + s2b(G::post));
+			printf("buffers:%s | %s | %s\n",
+					MapBuffer::listBuffers(evt - s2b(G::pre), evt),
+					MapBuffer::listBuffers(evt, evt),
+					MapBuffer::listBuffers(evt, evt + s2b(G::post)));
+		}else{
+			if (!pre_fits){
+				printf("precorner: %p-%p, %p |%p| %p\n",
+					ba1-s2b(G::pre-tailroom), ba1,
+					ba0,
+					evt,
+					evt + s2b(G::post));
+			}else{
+				printf("postcorner: %p |%p| %p %p-%p\n",
+					evt - s2b(G::pre),
+					evt,
+					ba1,
+					ba0, ba0 + s2b(G::post-headroom));
+			}
+		}
+	}
+	void report(const char* id, int ibuf, int sample_offset){
+		printf("StreamHeadPrePost::report: buffer:%s [%d] sample_off:%d\n",
+				id, ibuf, sample_offset);
+		printf("Buffer length bytes: %d\n", G::bufferlen);
+		printf("Buffer length samples: %d\n", Buffer::samples_per_buffer());
+		printf("Prelen: %d\n", G::pre);
+		printf("Postlen: %d\n", G::post);
+		show_buffer_distribution(ibuf, sample_offset);
+	}
 	int findEvent() {
 		if (verbose) fprintf(stderr, "findEvent \"%s\"\n", event_info);
 		unsigned long usecs;
@@ -1668,14 +1783,12 @@ protected:
 		}
 		int sample_offset = findEvent(b1);
 		if (sample_offset >= 0){
-			if (verbose) fprintf(stderr, "found in b1 %d at %d\n",
-					b1, sample_offset);
+			report("b1", b1, sample_offset);
 			return sample_offset;
 		}
 		sample_offset = findEvent(b2);
 		if (sample_offset >= 0){
-			if (verbose) fprintf(stderr, "found in b2 %d at %d\n",
-					b2, sample_offset);
+			report("b2", b2, sample_offset);
 			return sample_offset;
 		}
 		if (verbose) fprintf(stderr, "ERROR: not found at %d or %d\n", b1, b2);
@@ -1826,7 +1939,8 @@ class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 
 	}
 	virtual void onStreamEnd() {
-		if (!G::no_demux){
+		/* maybe post process anyway, but with demux as addition? */
+		if (G::demux){
 			postProcess();
 		}
 	}
