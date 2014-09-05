@@ -845,6 +845,7 @@ Buffer** buffers;
 const char* stream_fmt = "%s.c";
 
 int shuffle_test;
+int fill_ramp_incr;
 
 struct poptOption opt_table[] = {
 	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0, 	"reduce buffer len" },
@@ -888,6 +889,7 @@ struct poptOption opt_table[] = {
 	{ "shuffle_test", 0, POPT_ARG_INT, &shuffle_test, 0,
 			"time buffer shuffle"
 	},
+	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data"},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -1133,6 +1135,18 @@ void do_shuffle_test(int level)
 	}
 	exit(0);
 }
+
+void do_fill_ramp()
+{
+	unsigned* cursor = reinterpret_cast<unsigned*>(MapBuffer::get_ba0());
+	unsigned* ba99 = reinterpret_cast<unsigned*>(MapBuffer::get_ba_hi());
+	unsigned xx = 0;
+
+	while(cursor < ba99){
+		*cursor++ = xx += fill_ramp_incr;
+	}
+	exit(0);
+}
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1143,6 +1157,8 @@ void init(int argc, const char** argv) {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
+	bool fill_ramp = false;
+
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'n':
@@ -1165,6 +1181,9 @@ void init(int argc, const char** argv) {
 				perror(G::state_file);
 				exit(1);
 			}
+			break;
+		case 'R':
+			fill_ramp = true;
 			break;
 		case BM_TEST:
 			G::buffer_mode = BM_TEST;
@@ -1214,6 +1233,9 @@ void init(int argc, const char** argv) {
 	}
 	if (shuffle_test){
 		do_shuffle_test(shuffle_test);
+	}
+	if (fill_ramp){
+		do_fill_ramp();
 	}
 }
 
@@ -1369,6 +1391,7 @@ class Demuxer {
 public:
 	virtual int demux(void *start, int nbytes) = 0;
 	int operator()(void *start, int nsamples){
+		if (verbose) fprintf(stderr, "%s %p %d\n", __FUNCTION__, start, nsamples);
 		return demux(start, nsamples);
 	}
 };
@@ -1383,7 +1406,10 @@ class DemuxerImpl : public Demuxer {
 		char* cursor;
 
 		int channel_remain_bytes() {
-			return (cursor - base) - channel_buffer_bytes;
+			return channel_buffer_bytes - (cursor - base);
+		}
+		int total_remain_bytes() {
+			return channel_remain_bytes() * sample_size();
 		}
 		void init(int _ibuf) {
 			ibuf = _ibuf;
@@ -1397,7 +1423,7 @@ class DemuxerImpl : public Demuxer {
 	} dst;
 
 	const int channel_buffer_sam() {
-		dst.channel_buffer_bytes/sizeof(T);
+		return dst.channel_buffer_bytes/sizeof(T);
 	}
 
 	int _demux(void* start, int nbytes){
@@ -1406,15 +1432,21 @@ class DemuxerImpl : public Demuxer {
 		T* pdst = reinterpret_cast<T*>(dst.cursor);
 		T* psrc = reinterpret_cast<T*>(start);
 
+		if (verbose) fprintf(stderr, "%s (%p %d) %p %p %d %d\n",
+				__FUNCTION__, start, nbytes, pdst, psrc, nsam, cbs);
+
 		for (int sam = 0; sam < nsam; ++sam){
 			for (int chan = 0; chan < G::nchan; ++chan){
 				pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
 			}
 		}
+		pdst += nsam;
+		dst.cursor = reinterpret_cast<char*>(pdst);
 		return nbytes;
 	}
 public:
 	DemuxerImpl() : dst() {
+		if (verbose) fprintf(stderr, "%s %d\n", __FUNCTION__, dst.channel_buffer_bytes);
 	}
 	virtual ~DemuxerImpl() {
 
@@ -1430,16 +1462,19 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 	char* startp = reinterpret_cast<char*>(start);
 	int rc = 0;
 
+	if (verbose) fprintf(stderr, "%s (%p %d)\n", __FUNCTION__, start, nbytes);
+
 	assert(nbytes%sample_size() == 0);
 
 	while(nbytes){
-		if (nbytes < dst.channel_remain_bytes()){
-			_demux(start, nbytes);
+		int trb = dst.total_remain_bytes();
+		if (nbytes < trb){
+			rc += _demux(start, nbytes);
 			nbytes = 0;
 		}else{
-			nbytes -= dst.channel_remain_bytes();
-			rc += _demux(startp, dst.channel_remain_bytes());
+			rc += _demux(startp, trb);
 			dst.init(dst.ibuf+1);
+			nbytes -= trb;
 		}
 	}
 	return rc;
@@ -1614,6 +1649,15 @@ struct Segment {
 
 typedef vector<Segment>::iterator SegmentIterator;
 
+template <class T>
+void dump(T* src, int nwords){
+	char cmd[80];
+	sprintf(cmd, "hexdump -ve '%d/%d \"%%08x \" \"\\n\" '",
+						G::nchan, sizeof(T));
+	FILE *pp = popen(cmd, "w");
+	fwrite(src, sizeof(T), nwords, pp);
+	pclose(pp);
+}
 class BufferDistribution {
 
 private:
@@ -1647,6 +1691,13 @@ public:
 			MapBuffer::listBuffers(esp - s2b(G::pre), esp),
 			MapBuffer::listBuffers(esp, esp),
 			MapBuffer::listBuffers(esp, esp + s2b(G::post)));
+
+			if (G::wordsize == 4){
+				dump<unsigned>(reinterpret_cast<unsigned*>(esp), G::nchan);
+			}else{
+				dump<unsigned>(reinterpret_cast<unsigned*>(esp), G::nchan/2);
+			}
+
 		}else if (!pre_fits){
 			printf("precorner: %p-%p, %p |%p| %p\n",
 					ba_hi-s2b(G::pre-tailroom), ba_hi,
@@ -1734,6 +1785,7 @@ public:
 		cursor(_cursor)
 	{}
 	virtual int operator() (char* from, int nbytes){
+		if (verbose) fprintf(stderr, "blt() %p %p %d\n", cursor, from, nbytes);
 		memcpy(cursor, from, nbytes);
 		cursor += nbytes;
 		return cursor - base;
@@ -1774,13 +1826,19 @@ protected:
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
 		if (pre){
+			if (verbose) fprintf(stderr,
+					"StreamHeadPrePost::postProcess() pre\n");
 			BufferDistribution bd(ibuf, es);
+
+			if (verbose) bd.show();
 
 			for (SegmentIterator it = bd.getSegments().begin();
 				it != bd.getSegments().end(); ++it   ){
 				blt((*it).base, (*it).len);
 			}
 		}else{
+			if (verbose) fprintf(stderr,
+					"StreamHeadPrePost::postProcess() pre==0\n");
 			/* probably redundant. pre==0, no reserve */
 			if (es != MapBuffer::get_ba0()){
 				blt(es, s2b(G::post));
@@ -2106,6 +2164,8 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 
 
 	virtual void postProcess(int ibuf, char* es) {
+		if (verbose) fprintf(stderr, "**********************\n");
+		if (verbose) fprintf(stderr, "%s %d %p\n", __FUNCTION__, ibuf, es);
 		if (pre){
 			BufferDistribution bd(ibuf, es);
 
@@ -2122,7 +2182,7 @@ public:
 	DemuxingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(_pre, _post),
 		demuxer(_demuxer) {
-		if (verbose) printf("PostprocessingStreamHeadPrePost()\n");
+		if (verbose) printf("%s\n", __FUNCTION__);
 		reserve_block0();
 	}
 };
@@ -2135,7 +2195,7 @@ StreamHead& StreamHead::instance() {
 			StreamHeadPrePost* sh;
 			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
 
-			if (G::buffer_mode == BM_PREPOST){
+			if (G::buffer_mode == BM_PREPOST && G::demux){
 				Demuxer *demuxer;
 				if (G::wordsize == 4){
 					demuxer = new DemuxerImpl<int>;
