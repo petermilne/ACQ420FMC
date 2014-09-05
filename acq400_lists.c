@@ -24,6 +24,7 @@
 #include "acq400.h"
 #include "hbm.h"
 #include "acq400_lists.h"
+#include <linux/list_sort.h>
 
 int run_buffers = 0;
 module_param(run_buffers, int, 0644);
@@ -180,4 +181,110 @@ void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
 		list_move_tail(&cur->list, &adev->EMPTIES);
 	}
 	mutex_unlock(&adev->list_mutex);
+}
+
+int reserve(struct acq400_path_descriptor* pd, int ibuf)
+{
+	struct acq400_dev *adev = pd->dev;
+	struct HBM *cur;
+	struct HBM *tmp;
+	int rc = -1;
+
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry_safe(cur, tmp, &adev->EMPTIES, list){
+		if (cur->ix == ibuf){
+			cur->bstate = BS_RESERVED;
+			list_move_tail(&cur->list, &pd->RESERVED);
+			dev_dbg(DEVP(adev), "reserve %d", cur->ix);
+			rc = 0;
+			break;
+		}
+	}
+	mutex_unlock(&adev->list_mutex);
+	return rc;
+}
+int replace(struct acq400_path_descriptor* pd, int ibuf)
+{
+	struct acq400_dev *adev = pd->dev;
+
+	mutex_lock(&adev->list_mutex);
+	/* reserved off the head .. replace at the head */
+	list_move(&pd->RESERVED, &adev->EMPTIES);
+	mutex_unlock(&adev->list_mutex);
+	return 0;
+}
+
+
+void count_empties(struct acq400_dev *adev) {
+	struct HBM *cursor;
+	int ecount = 0;
+
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry(cursor, &adev->EMPTIES, list){
+		++ecount;
+	}
+	mutex_unlock(&adev->list_mutex);
+	dev_dbg(DEVP(adev), "count_empties:%d", ecount);
+}
+void replace_all(struct acq400_path_descriptor* pd)
+{
+	struct acq400_dev *adev = pd->dev;
+	struct HBM *cur;
+	struct HBM *tmp;
+
+	count_empties(adev);
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry_safe(cur, tmp, &pd->RESERVED, list){
+		cur->bstate = BS_EMPTY;
+		list_move_tail(&cur->list, &adev->EMPTIES);
+		dev_dbg(DEVP(adev), "replace_all return %d", cur->ix);
+	}
+	mutex_unlock(&adev->list_mutex);
+	count_empties(adev);
+}
+
+int is_sorted(struct list_head* hblist) {
+	struct HBM* cursor;
+
+	int ix1 = -1;
+	list_for_each_entry(cursor, hblist, list){
+		if (++ix1 != cursor->ix){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int hbm_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct HBM* ha = list_entry(a, struct HBM, list);
+	struct HBM* hb = list_entry(b, struct HBM, list);
+
+	if (ha->ix < hb->ix){
+		return -1;
+	}else if (ha->ix > hb->ix){
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+void empty_lists(struct acq400_dev *adev)
+{
+	move_list_to_empty(adev, &adev->OPENS);
+	move_list_to_empty(adev, &adev->REFILLS);
+	move_list_to_empty(adev, &adev->INFLIGHT);
+
+	count_empties(adev);
+	if (!is_sorted(&adev->EMPTIES)){
+		dev_dbg(DEVP(adev), "NB: empties list not in order, sorting it .. ");
+		list_sort(NULL, &adev->EMPTIES, hbm_cmp);
+		if (is_sorted(&adev->EMPTIES)){
+			dev_dbg(DEVP(adev), ".. sorted");
+		}else{
+			dev_err(DEVP(adev), "failed to sort EMPTIES");
+		}
+		count_empties(adev);
+	}
+
 }

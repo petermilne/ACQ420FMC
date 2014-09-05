@@ -57,7 +57,9 @@ build_nodes() {
 			mknod /dev/${NAME}.hb0 		c ${MAJOR} 3
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.gpg	c ${MAJOR} 5
-			[ $ID -ne 0 ] && mknod /dev/${NAME}.ev c ${MAJOR} 6
+			[ $ID -eq 0 ] && mknod /dev/${NAME}.rsv c ${MAJOR} 11
+			[ $ID -ne 0 ] && mknod /dev/${NAME}.ev  c ${MAJOR} 6
+			
 			build_hb ${MAJOR} ${NAME}
 			
 			case $(cat /dev/acq400.$ID.knobs/module_type) in

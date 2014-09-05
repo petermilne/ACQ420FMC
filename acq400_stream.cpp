@@ -139,6 +139,7 @@ bool use_aggsem = true;
 sem_t* aggsem;
 char* aggsem_name;
 char* state_file;
+bool show_es;
 FILE* state_fp;
 };
 
@@ -215,11 +216,11 @@ public:
 		return fname;
 	}
 
-	static int pred(int _ibuf) {
-		return _ibuf == 0? last_buf-1: _ibuf-1;
+	virtual int pred() {
+		return ibuf == 0? last_buf-1: ibuf-1;
 	}
-	static int succ(int _ibuf) {
-		return _ibuf >= last_buf-1? 0: _ibuf+1;
+	virtual int succ() {
+		return ibuf >= last_buf-1? 0: ibuf+1;
 	}
 
 	virtual char* getBase() { return 0; }
@@ -250,8 +251,11 @@ public:
 class MapBuffer: public Buffer {
 protected:
 	char *pdata;
-	static char* ba0;
-	static char* ba1;
+	static char* ba0;		/* low end of mapping */
+	static char* ba1;		/* hi end of mapping */
+	static char* ba_lo;		/* lo end of data set */
+	static char* ba_hi;		/* hi end of data set likely == ba1 */
+	static bool buffer_0_reserved;
 
 public:
 	virtual int writeBuffer(int out_fd, int b_opts) {
@@ -263,8 +267,10 @@ public:
 	}
 
 	virtual char* getBase() { return pdata; }
-	static char* get_ba0() { return ba0; }
-	static char* get_ba1() { return ba1; }
+	static char* get_ba0()	 { return ba0;   }
+	static char* get_ba_lo() { return ba_lo; }
+	static char* get_ba_hi() { return ba_hi; }
+
 
 	int includes(void *cursor)
 	/** returns remain length if buffer includes cursor */
@@ -295,7 +301,7 @@ public:
 			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
 			exit(1);
 		}
-		ba1 += G::bufferlen;
+		ba_hi = ba1 += G::bufferlen;
 		assert(pdata != MAP_FAILED);
 	}
 	virtual ~MapBuffer() {
@@ -326,10 +332,28 @@ public:
 		strcpy(ret, report);
 		return ret;
 	}
+	static void reserve() {
+		ba_lo = ba0 + G::bufferlen;
+		buffer_0_reserved = true;
+	}
+	static bool hasReserved() {
+		return buffer_0_reserved;
+	}
+	virtual int pred() {
+		int first_buf = buffer_0_reserved? 1: 0;
+		return ibuf == first_buf? last_buf-1: ibuf-1;
+	}
+	virtual int succ() {
+		int first_buf = buffer_0_reserved? 1: 0;
+		return ibuf >= last_buf-1? first_buf: ibuf+1;
+	}
 };
 
 char* MapBuffer::ba0 = (char*)(0x40000000);
 char* MapBuffer::ba1 = (char*)(0x40000000);
+char* MapBuffer::ba_lo;
+char* MapBuffer::ba_hi;
+bool MapBuffer::buffer_0_reserved;
 
 #define FMT_OUT_ROOT		"/dev/shm/AI.%d.wf"
 #define FMT_OUT_ROOT_NEW	"/dev/shm/AI.%d.new"
@@ -1343,75 +1367,82 @@ unsigned total_buffer_limit() {
 
 class Demuxer {
 public:
-	virtual void demux(void *start, int nbytes) {}
+	virtual int demux(void *start, int nbytes) = 0;
+	int operator()(void *start, int nsamples){
+		return demux(start, nsamples);
+	}
 };
 template <class T>
 class DemuxerImpl : public Demuxer {
-	FPV ch;
-	int ichan;
 
-	void build_ch() {
-		char fname[80];
-		sprintf(fname, "mkdir -p %s", TRANSOUT);
-		system(fname);
 
-		const char* fmt = G::nchan > 99? "%s/%03d": "%s/%02d";
-		ch.push_back(0);	// [0]
-		for (int ich = 1; ich <= G::nchan; ++ich){
-			sprintf(fname, fmt, TRANSOUT, ich);
-			FILE *fp = fopen(fname, "w");
-			assert(fp);
-			ch.push_back(fp);
+	struct BufferCursor {
+		const int channel_buffer_bytes;	/* number of bytes per channel per buffer */
+		int ibuf;
+		char* base;
+		char* cursor;
+
+		int channel_remain_bytes() {
+			return (cursor - base) - channel_buffer_bytes;
 		}
+		void init(int _ibuf) {
+			ibuf = _ibuf;
+			base = cursor = Buffer::the_buffers[ibuf]->getBase();
+		}
+		BufferCursor() :
+			channel_buffer_bytes(G::bufferlen/sample_size())
+		{
+			init(0);
+		}
+	} dst;
+
+	const int channel_buffer_sam() {
+		dst.channel_buffer_bytes/sizeof(T);
 	}
-	int nextChan() {
-		if (++ichan > G::nchan){
-			ichan = 1;
+
+	int _demux(void* start, int nbytes){
+		const int nsam = b2s(nbytes);
+		const int cbs = channel_buffer_sam();
+		T* pdst = reinterpret_cast<T*>(dst.cursor);
+		T* psrc = reinterpret_cast<T*>(start);
+
+		for (int sam = 0; sam < nsam; ++sam){
+			for (int chan = 0; chan < G::nchan; ++chan){
+				pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
+			}
 		}
-		return ichan;
+		return nbytes;
 	}
 public:
-	DemuxerImpl() : ichan(1) {
-
+	DemuxerImpl() : dst() {
 	}
 	virtual ~DemuxerImpl() {
-		for (FPV_IT it = ch.begin(); it != ch.end(); ++it){
-			fclose(*it);
-		}
+
 	}
 
-	virtual void demux(void *start, int nsamples);
+	virtual int demux(void *start, int nsamples);
 };
 
 template <class T>
-void DemuxerImpl<T>::demux(void* start, int nbytes)
+int DemuxerImpl<T>::demux(void* start, int nbytes)
+/* return bytes demuxed */
 {
-	if (ch.size() == 0){
-		build_ch();
-	}
-	T* startp = (T*)start;
-	T* bp = (T*)start;
+	char* startp = reinterpret_cast<char*>(start);
+	int rc = 0;
 
-	if (verbose) {
-		printf("%s start:%p nbytes:%d nchan:%d\n",
-			__func__, start, nbytes, G::nchan);
-		printf("%s start[0:] = %08x,%08x,%08x,%08x\n",
-				__func__, bp[0], bp[1], bp[2], bp[3]);
-		if (verbose > 1){
-			FILE* pf = popen("hexdump -e '8/4 \"%08x \" \"\\n\"'", "w");
-			fwrite(bp, sizeof(T), 512, pf);
-			pclose(pf);
-		}
+	assert(nbytes%sample_size() == 0);
 
-	}
-	for (; (bp-startp)*sizeof(T) < nbytes;){
-		for (; (bp-startp)*sizeof(T) < nbytes; nextChan()){
-			fwrite(bp++, sizeof(T), 1, ch[ichan]);
+	while(nbytes){
+		if (nbytes < dst.channel_remain_bytes()){
+			_demux(start, nbytes);
+			nbytes = 0;
+		}else{
+			nbytes -= dst.channel_remain_bytes();
+			rc += _demux(startp, dst.channel_remain_bytes());
+			dst.init(dst.ibuf+1);
 		}
 	}
-	if (verbose){
-		printf("%s 99\n", __func__);
-	}
+	return rc;
 }
 
 /* @@todo .. map to shm area for external monitoring. */
@@ -1574,8 +1605,151 @@ bool IS_ES(unsigned *cursor)
 	       is_es_word(cursor[2]) && is_es_word(cursor[3]);
 }
 
-class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 
+struct Segment {
+	char* base; int len;
+	Segment(char* _base, int _len):
+		base(_base), len(_len) {}
+};
+
+typedef vector<Segment>::iterator SegmentIterator;
+
+class BufferDistribution {
+
+private:
+	vector<Segment> segments;
+
+	vector<Segment>& _getSegments();
+public:
+	int ibuf;
+	char* esp;
+	char* ba_lo;
+	char* ba_hi;
+	int tailroom;
+	int headroom;
+	bool pre_fits;
+	bool post_fits;
+
+	BufferDistribution(int _ibuf, char *_esp) :
+		ibuf(_ibuf), esp(_esp),
+		ba_lo(MapBuffer::get_ba_lo()),
+		ba_hi(MapBuffer::get_ba_hi()),
+		tailroom(b2s(esp - ba_lo)),
+		headroom(b2s(ba_hi - esp)),
+		pre_fits(tailroom >= G::pre),
+		post_fits(headroom >= G::post)
+	{}
+	void show() {
+		if (pre_fits&&post_fits){
+			printf("linear: %p |%p| %p\n",
+				esp - s2b(G::pre), esp, esp + s2b(G::post));
+			printf("buffers:%s | %s | %s\n",
+			MapBuffer::listBuffers(esp - s2b(G::pre), esp),
+			MapBuffer::listBuffers(esp, esp),
+			MapBuffer::listBuffers(esp, esp + s2b(G::post)));
+		}else if (!pre_fits){
+			printf("precorner: %p-%p, %p |%p| %p\n",
+					ba_hi-s2b(G::pre-tailroom), ba_hi,
+					ba_lo,
+					esp,
+					esp + s2b(G::post));
+		}else{
+			printf("postcorner: %p |%p| %p %p-%p\n",
+					esp - s2b(G::pre),
+					esp,
+					ba_hi,
+					ba_lo, ba_lo + s2b(G::post-headroom));
+		}
+	}
+
+	enum BD_MODE { BD_LINEAR, BD_PRECORNER, BD_POSTCORNER };
+
+	enum BD_MODE mode() const {
+		if (pre_fits&&post_fits){
+			return BD_LINEAR;
+		}else if (!pre_fits){
+			return BD_PRECORNER;
+		}else if (!post_fits){
+			return BD_POSTCORNER;
+		}else{
+			assert(pre_fits||post_fits);
+		}
+	}
+
+	vector<Segment>& getSegments() {
+		if (segments.size()){
+			return segments;
+		}else{
+			return _getSegments();
+		}
+	}
+};
+
+
+
+vector<Segment>& BufferDistribution::_getSegments() {
+	int prebytes = s2b(G::pre);
+	int postbytes = s2b(G::post);
+	int nb;
+
+	switch (mode()){
+	case BD_LINEAR:
+		segments.push_back(Segment(esp-prebytes, prebytes));
+		if (G::show_es){
+			segments.push_back(Segment(esp, sample_size()));
+		}
+		segments.push_back(Segment(esp+sample_size(), postbytes));
+		break;
+	case BD_PRECORNER:
+		nb = s2b(G::pre-tailroom);
+		segments.push_back(Segment(ba_hi-nb, nb));
+		nb = s2b(tailroom);
+		segments.push_back(Segment(esp-nb, nb));
+		if (G::show_es){
+			segments.push_back(Segment(esp, sample_size()));
+		}
+		segments.push_back(Segment(esp+sample_size(), postbytes));
+		break;
+	case BD_POSTCORNER:
+		segments.push_back(Segment(esp-prebytes, prebytes));
+		if (G::show_es){
+			segments.push_back(Segment(esp, sample_size()));
+		}
+		nb = s2b(headroom-1);
+		segments.push_back(Segment(esp+sample_size(), nb));
+		segments.push_back(Segment(ba_lo, postbytes-nb));
+		break;
+	default:
+		assert(0);
+	}
+
+	return segments;
+}
+class BLT {
+	const char* base;
+	char* cursor;
+public:
+	BLT(char* _cursor) :
+		base(_cursor),
+		cursor(_cursor)
+	{}
+	virtual int operator() (char* from, int nbytes){
+		memcpy(cursor, from, nbytes);
+		cursor += nbytes;
+		return cursor - base;
+	}
+};
+
+
+
+/*
+ *  @@todo buffer_start
+ *  pre==0, nodemux : ba0
+ *  pre==0, demux   : ba1
+ *  pre!=0, nodemux : epos - pre
+ *  pre!=0, nodemux : epos - pre
+ */
+class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 protected:
 	int pre;
 	int post;
@@ -1596,11 +1770,42 @@ protected:
 		actual.print();
 	}
 
+
+	virtual void postProcess(int ibuf, char* es) {
+		BLT blt(MapBuffer::get_ba0());
+		if (pre){
+			BufferDistribution bd(ibuf, es);
+
+			for (SegmentIterator it = bd.getSegments().begin();
+				it != bd.getSegments().end(); ++it   ){
+				blt((*it).base, (*it).len);
+			}
+		}else{
+			/* probably redundant. pre==0, no reserve */
+			if (es != MapBuffer::get_ba0()){
+				blt(es, s2b(G::post));
+			}
+		}
+	}
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
 		if (verbose) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
 	}
-	virtual void onStreamEnd() 		 {}
+	virtual void onStreamEnd() {
+		setState(ST_POSTPROCESS); actual.print();
+		if (pre){
+			int ibuf;
+			char* es;
+
+			if (findEvent(&ibuf, &es)){
+				postProcess(ibuf, es);
+			}else{
+				fprintf(stderr, "ERROR EVENT NOT FOUND, DATA NOT VALID\n");
+			}
+		}else{
+			postProcess(0, MapBuffer::get_ba_lo());
+		}
+	}
 
 	virtual int getBufferId() {
 		char buf[80];
@@ -1713,9 +1918,8 @@ protected:
 		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
 	}
 
-	int findEvent(int ib) {
+	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
-		Buffer* the_buffer = Buffer::the_buffers[ib];
 		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
 		unsigned *base = cursor;
 		unsigned lenw = the_buffer->getLen()/G::wordsize;
@@ -1723,54 +1927,23 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (IS_ES(cursor)){
-				return sample_offset;
+				return reinterpret_cast<char*>(cursor);
 			}
 		}
-		return -1;
+		return 0;
 	}
-	void show_buffer_distribution(int ibuf, int sample_offset)
-	{
-		char* ba0 = MapBuffer::get_ba0();
-		char* ba1 = MapBuffer::get_ba1();
-		char* evt = ba0 + ibuf*G::bufferlen + sample_offset*sample_size();
-		int tailroom = b2s(evt - ba0);
-		int headroom = b2s(ba1 - evt);
-		bool pre_fits = tailroom >= G::pre;
-		bool post_fits = headroom >= G::post;
 
-		if (pre_fits&&post_fits){
-			printf("linear: %p |%p| %p\n",
-					evt - s2b(G::pre), evt, evt + s2b(G::post));
-			printf("buffers:%s | %s | %s\n",
-					MapBuffer::listBuffers(evt - s2b(G::pre), evt),
-					MapBuffer::listBuffers(evt, evt),
-					MapBuffer::listBuffers(evt, evt + s2b(G::post)));
-		}else{
-			if (!pre_fits){
-				printf("precorner: %p-%p, %p |%p| %p\n",
-					ba1-s2b(G::pre-tailroom), ba1,
-					ba0,
-					evt,
-					evt + s2b(G::post));
-			}else{
-				printf("postcorner: %p |%p| %p %p-%p\n",
-					evt - s2b(G::pre),
-					evt,
-					ba1,
-					ba0, ba0 + s2b(G::post-headroom));
-			}
-		}
-	}
-	void report(const char* id, int ibuf, int sample_offset){
-		printf("StreamHeadPrePost::report: buffer:%s [%d] sample_off:%d\n",
-				id, ibuf, sample_offset);
+	void report(const char* id, int ibuf, char *esp){
+		printf("StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
+				id, ibuf, esp);
 		printf("Buffer length bytes: %d\n", G::bufferlen);
 		printf("Buffer length samples: %d\n", Buffer::samples_per_buffer());
 		printf("Prelen: %d\n", G::pre);
 		printf("Postlen: %d\n", G::post);
-		show_buffer_distribution(ibuf, sample_offset);
+
+		BufferDistribution(ibuf, esp).show();
 	}
-	int findEvent() {
+	bool findEvent(int *ibuf, char** espp) {
 		if (verbose) fprintf(stderr, "findEvent \"%s\"\n", event_info);
 		unsigned long usecs;
 		int b1, b2;
@@ -1778,28 +1951,46 @@ protected:
 
 		assert(nscan == 3);
 
+		Buffer* buffer2 = Buffer::the_buffers[b2];
+		char* esp = findEvent(buffer2);
+		if (esp){
+			report("b2", b2, esp);
+			if (ibuf) *ibuf = b2;
+			if (espp) *espp = esp;
+			return true;
+		}
+
+		Buffer* buffer1;
 		if (b1 == -1){
-			b1 = Buffer::pred(b2);
+			buffer1 = Buffer::the_buffers[buffer2->pred()];
+		}else{
+			buffer1 = Buffer::the_buffers[b1];
 		}
-		int sample_offset = findEvent(b1);
-		if (sample_offset >= 0){
-			report("b1", b1, sample_offset);
-			return sample_offset;
+		esp = findEvent(buffer1);
+		if (esp){
+			report("b1", b1, esp);
+			if (ibuf) *ibuf = b1;
+			if (espp) *espp = esp;
+			return true;
 		}
-		sample_offset = findEvent(b2);
-		if (sample_offset >= 0){
-			report("b2", b2, sample_offset);
-			return sample_offset;
-		}
+
 		if (verbose) fprintf(stderr, "ERROR: not found at %d or %d\n", b1, b2);
 
-		return sample_offset;
+		return false;
 	}
 	unsigned workbackfrom(unsigned evp) {
 		assert(0);
 		return 0;
 	}
 
+	void reserve_block0 () {
+		if (!MapBuffer::hasReserved()){
+			FILE *fp = fopen("/dev/acq400.0.rsv", "r");
+			MapBuffer::reserve();
+			/* leak! : open, hold, release on quit */
+		}
+
+	}
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
@@ -1843,6 +2034,9 @@ public:
 		}
 		peers.push_back(this);
 
+		if (pre != 0){
+			reserve_block0();
+		}
 		startEventWatcher();
 	}
 
@@ -1899,7 +2093,8 @@ public:
 	SubrateStreamHead() {}
 };
 
-class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
+
+class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 
 
 	char *cursor;
@@ -1908,47 +2103,27 @@ class PostprocessingStreamHeadPrePost: public StreamHeadPrePost  {
 	std::vector <MapBuffer*> outbuffers;
 	Demuxer& demuxer;
 
-	int _demux(int nbytes) {
 
-		return 0;
-	}
-	void demux(int nsamples){
-		int nbytes = nsamples*sample_size();
 
-		while(nbytes > 0){
-			int rembytes = _demux(nbytes);
-			if (rembytes){
-				nbytes -= rembytes;
-			}
-		}
-	}
-	void postProcess() {
-		setState(ST_POSTPROCESS); actual.print();
+	virtual void postProcess(int ibuf, char* es) {
 		if (pre){
-			int epos = findEvent();
-			int prestart = workbackfrom(epos);
-			// @@todo
+			BufferDistribution bd(ibuf, es);
+
+			for (SegmentIterator it = bd.getSegments().begin();
+				it != bd.getSegments().end(); ++it   ){
+				demuxer((*it).base, (*it).len);
+			}
 		}else{
-			// @@todo
+			demuxer(es, s2b(G::post));
 		}
 	}
-	virtual void onStreamStart() {
 
-	}
-	virtual void onStreamBufferStart(int ib) {
-
-	}
-	virtual void onStreamEnd() {
-		/* maybe post process anyway, but with demux as addition? */
-		if (G::demux){
-			postProcess();
-		}
-	}
 public:
-	PostprocessingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
+	DemuxingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(_pre, _post),
 		demuxer(_demuxer) {
 		if (verbose) printf("PostprocessingStreamHeadPrePost()\n");
+		reserve_block0();
 	}
 };
 
@@ -1967,7 +2142,7 @@ StreamHead& StreamHead::instance() {
 				}else{
 					demuxer = new DemuxerImpl<short>;
 				}
-				sh = new PostprocessingStreamHeadPrePost(*demuxer, G::pre, G::post);
+				sh = new DemuxingStreamHeadPrePost(*demuxer, G::pre, G::post);
 			}else{
 				sh  = new StreamHeadPrePost(G::pre, G::post);
 			}

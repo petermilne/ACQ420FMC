@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.579"
+#define REVID "2.584"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1031,6 +1031,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
 
+	empty_lists(adev);
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 01");
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
@@ -1915,6 +1916,12 @@ int ao420_open_awg(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+
+int acq420_reserve_open(struct inode *inode, struct file *file)
+/* simply reserve block 0 on open. Can get clever later */
+{
+	return reserve(PD(file), 0);
+}
 int acq400_open(struct inode *inode, struct file *file)
 {
 
@@ -1925,6 +1932,7 @@ int acq400_open(struct inode *inode, struct file *file)
 
         PD(file)->dev = dev = container_of(inode->i_cdev, struct acq400_dev, cdev);
         PD(file)->minor = minor = MINOR(inode->i_rdev);
+        INIT_LIST_HEAD(&PD(file)->RESERVED);
 
         dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
 
@@ -1955,6 +1963,8 @@ int acq400_open(struct inode *inode, struct file *file)
         	case AO420_MINOR_HB0_AWG_ONCE:
         	case AO420_MINOR_HB0_AWG_LOOP:
         		return ao420_open_awg(inode, file);
+        	case ACQ420_MINOR_RESERVE_BLOCKS:
+        		return acq420_reserve_open(inode, file);
         	default:
         		return -ENODEV;
         	}
@@ -1986,6 +1996,7 @@ int acq400_release(struct inode *inode, struct file *file)
 
         mutex_unlock(&adev->mutex);
 
+        replace_all(PD(file));
         kfree(PD(file));
         return 0;
 }

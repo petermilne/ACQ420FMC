@@ -25,7 +25,7 @@
 struct list_head;
 
 enum BSTATE {
-	BS_EMPTY, BS_FILLING, BS_FULL, BS_FULL_APP,  _BS_MAX
+	BS_EMPTY, BS_FILLING, BS_FULL, BS_FULL_APP,  BS_RESERVED, _BS_MAX
 };
 
 struct HBM {				/* Host Buffer Mapping */

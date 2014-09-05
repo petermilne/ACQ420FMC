@@ -258,6 +258,7 @@
 #define ACQ420_MINOR_BOLO_AWG	8
 #define AO420_MINOR_HB0_AWG_ONCE	9
 #define AO420_MINOR_HB0_AWG_LOOP	10
+#define ACQ420_MINOR_RESERVE_BLOCKS	11
 #define ACQ420_MINOR_BUF	1000
 #define ACQ420_MINOR_BUF2	2000
 #define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2
@@ -441,7 +442,7 @@ struct acq400_dev {
 struct acq400_path_descriptor {
 	struct acq400_dev* dev;
 	int minor;
-	struct HBM *hbm;
+	struct list_head RESERVED;
 };
 
 #define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
