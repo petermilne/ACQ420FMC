@@ -190,8 +190,10 @@ int reserve(struct acq400_path_descriptor* pd, int ibuf)
 	struct HBM *tmp;
 	int rc = -1;
 
+	dev_dbg(DEVP(adev), "reserve 01");
 	mutex_lock(&adev->list_mutex);
 	list_for_each_entry_safe(cur, tmp, &adev->EMPTIES, list){
+		dev_dbg(DEVP(adev), "consider ix %d\n", cur->ix);
 		if (cur->ix == ibuf){
 			cur->bstate = BS_RESERVED;
 			list_move_tail(&cur->list, &pd->RESERVED);
@@ -201,6 +203,7 @@ int reserve(struct acq400_path_descriptor* pd, int ibuf)
 		}
 	}
 	mutex_unlock(&adev->list_mutex);
+	dev_dbg(DEVP(adev), "reserve 99");
 	return rc;
 }
 int replace(struct acq400_path_descriptor* pd, int ibuf)
@@ -212,47 +215,6 @@ int replace(struct acq400_path_descriptor* pd, int ibuf)
 	list_move(&pd->RESERVED, &adev->EMPTIES);
 	mutex_unlock(&adev->list_mutex);
 	return 0;
-}
-
-
-void count_empties(struct acq400_dev *adev) {
-	struct HBM *cursor;
-	int ecount = 0;
-
-	mutex_lock(&adev->list_mutex);
-	list_for_each_entry(cursor, &adev->EMPTIES, list){
-		++ecount;
-	}
-	mutex_unlock(&adev->list_mutex);
-	dev_dbg(DEVP(adev), "count_empties:%d", ecount);
-}
-void replace_all(struct acq400_path_descriptor* pd)
-{
-	struct acq400_dev *adev = pd->dev;
-	struct HBM *cur;
-	struct HBM *tmp;
-
-	count_empties(adev);
-	mutex_lock(&adev->list_mutex);
-	list_for_each_entry_safe(cur, tmp, &pd->RESERVED, list){
-		cur->bstate = BS_EMPTY;
-		list_move_tail(&cur->list, &adev->EMPTIES);
-		dev_dbg(DEVP(adev), "replace_all return %d", cur->ix);
-	}
-	mutex_unlock(&adev->list_mutex);
-	count_empties(adev);
-}
-
-int is_sorted(struct list_head* hblist) {
-	struct HBM* cursor;
-
-	int ix1 = -1;
-	list_for_each_entry(cursor, hblist, list){
-		if (++ix1 != cursor->ix){
-			return 0;
-		}
-	}
-	return 1;
 }
 
 int hbm_cmp(void *priv, struct list_head *a, struct list_head *b)
@@ -269,6 +231,67 @@ int hbm_cmp(void *priv, struct list_head *a, struct list_head *b)
 	}
 }
 
+int is_sorted(struct list_head* hblist) {
+	struct HBM* cursor;
+
+	int ix1 = -1;
+	list_for_each_entry(cursor, hblist, list){
+		if (++ix1 != cursor->ix){
+			return 0;
+		}
+	}
+	return 1;
+}
+void count_empties(struct acq400_dev *adev) {
+	struct HBM *cursor;
+	int ecount = 0;
+
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry(cursor, &adev->EMPTIES, list){
+		++ecount;
+	}
+	mutex_unlock(&adev->list_mutex);
+	dev_dbg(DEVP(adev), "count_empties:%d", ecount);
+}
+
+void sort_empties(struct acq400_dev *adev) {
+	if (is_sorted(&adev->EMPTIES)) return;
+
+	dev_dbg(DEVP(adev), "NB: empties list not in order, sorting it .. ");
+	list_sort(NULL, &adev->EMPTIES, hbm_cmp);
+	if (is_sorted(&adev->EMPTIES)){
+		dev_dbg(DEVP(adev), ".. sorted");
+	}else{
+		dev_err(DEVP(adev), "failed to sort EMPTIES");
+	}
+	count_empties(adev);
+}
+
+void replace_all(struct acq400_path_descriptor* pd)
+{
+	struct acq400_dev *adev = pd->dev;
+	struct HBM *cur;
+	struct HBM *tmp;
+
+	dev_dbg(DEVP(adev), "replace_all 01");
+
+	count_empties(adev);
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry_safe(cur, tmp, &pd->RESERVED, list){
+		cur->bstate = BS_EMPTY;
+		list_move(&cur->list, &adev->EMPTIES);
+		dev_dbg(DEVP(adev), "replace_all return %d", cur->ix);
+	}
+	mutex_unlock(&adev->list_mutex);
+	sort_empties(adev);
+
+	dev_dbg(DEVP(adev), "replace 99");
+}
+
+
+
+
+
 void empty_lists(struct acq400_dev *adev)
 {
 	move_list_to_empty(adev, &adev->OPENS);
@@ -276,15 +299,5 @@ void empty_lists(struct acq400_dev *adev)
 	move_list_to_empty(adev, &adev->INFLIGHT);
 
 	count_empties(adev);
-	if (!is_sorted(&adev->EMPTIES)){
-		dev_dbg(DEVP(adev), "NB: empties list not in order, sorting it .. ");
-		list_sort(NULL, &adev->EMPTIES, hbm_cmp);
-		if (is_sorted(&adev->EMPTIES)){
-			dev_dbg(DEVP(adev), ".. sorted");
-		}else{
-			dev_err(DEVP(adev), "failed to sort EMPTIES");
-		}
-		count_empties(adev);
-	}
-
+	sort_empties(adev);
 }

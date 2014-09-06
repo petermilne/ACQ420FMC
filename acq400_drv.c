@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.584"
+#define REVID "2.586"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1917,11 +1917,35 @@ int ao420_open_awg(struct inode *inode, struct file *file)
 	}
 }
 
+int acq420_reserve_release(struct inode *inode, struct file *file)
+/* if it was a write, commit to memory and set length */
+{
+	replace_all(PD(file));
+	return acq400_release(inode, file);
+}
+
+ssize_t acq420_reserve_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	wait_queue_head_t waitq;	/* no one gonna wake this sucker */
+
+	init_waitqueue_head(&waitq);
+
+	wait_event_interruptible(waitq, 0);  /* but it will accept a signal .. */
+	return -EINTR;
+}
 int acq420_reserve_open(struct inode *inode, struct file *file)
 /* simply reserve block 0 on open. Can get clever later */
 {
+	static struct file_operations fops = {
+		.open = acq420_reserve_open,
+		.read = acq420_reserve_read,
+		.release = acq420_reserve_release,
+	};
+	file->f_op = &fops;
 	return reserve(PD(file), 0);
 }
+
 int acq400_open(struct inode *inode, struct file *file)
 {
 
@@ -1996,7 +2020,6 @@ int acq400_release(struct inode *inode, struct file *file)
 
         mutex_unlock(&adev->mutex);
 
-        replace_all(PD(file));
         kfree(PD(file));
         return 0;
 }

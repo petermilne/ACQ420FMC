@@ -1147,6 +1147,9 @@ void do_fill_ramp()
 	}
 	exit(0);
 }
+
+static void reserve_block0();
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1189,6 +1192,10 @@ void init(int argc, const char** argv) {
 			G::buffer_mode = BM_TEST;
 			break;
 		}
+	}
+
+	if (G::pre || G::demux){
+		reserve_block0();
 	}
 	openlog("acq400_stream", LOG_PID, LOG_USER);
 	syslog(LOG_DEBUG, "hello world %s", VERID);
@@ -2041,14 +2048,9 @@ protected:
 		return 0;
 	}
 
-	void reserve_block0 () {
-		if (!MapBuffer::hasReserved()){
-			FILE *fp = fopen("/dev/acq400.0.rsv", "r");
-			MapBuffer::reserve();
-			/* leak! : open, hold, release on quit */
-		}
+#define RSV	"/dev/acq400.0.rsv"
 
-	}
+
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
@@ -2127,8 +2129,27 @@ public:
 		peers.push_back(pp);
 	}
 
+	static void reserve_block0 () {
+
+		if (verbose) fprintf(stderr, "%s : 01 %s\n", __FUNCTION__, RSV);
+		if (!MapBuffer::hasReserved()){
+			int fd = open(RSV, O_RDONLY);
+			MapBuffer::reserve();
+			/* leak! : open, hold, release on quit */
+
+			if (verbose) fprintf(stderr, "%s : %d\n", __FUNCTION__, fd);
+			if (fd < 0){
+				perror(RSV);
+			}
+			assert(fd >= 0);
+		}
+
+	}
 };
 
+static void reserve_block0() {
+	StreamHeadPrePost::reserve_block0();
+}
 
 class SubrateStreamHead: public StreamHeadClient {
 public:
