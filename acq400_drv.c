@@ -2842,6 +2842,7 @@ static int __init acq400_init(void)
 	printk("D-TACQ ACQ400 FMC Driver %s\n", REVID);
 	DMA_NS_TEST;
 	acq400_module_init_proc();
+	a400fs_init();
         status = platform_driver_register(&acq400_driver);
 
         return status;

@@ -787,4 +787,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CTRL_FIFO_RST	(1 << 1)
 #define DIO432_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
+
+extern void a400fs_init(void);
+extern void a400fs_exit(void);
+
 #endif /* ACQ420FMC_H_ */

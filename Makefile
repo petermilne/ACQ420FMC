@@ -16,7 +16,7 @@ SEQ=10
 
 CPPFLAGS += -O3
 
-acq420fmc-objs := acq400_drv.o \
+acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	acq400_debugfs.o acq400_sysfs.o acq400_lists.o \
 	acq400_proc.o hbm.o zynq-timer.o \
 	bolo8_core.o
