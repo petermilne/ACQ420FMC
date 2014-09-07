@@ -33,20 +33,60 @@
 
 #define ACQ400_FS_MAGIC	0xd1ac0400
 
+#define XX	0
+
+struct InodeMap {
+	struct acq400_dev *adev;
+	int site;
+	int channel;			/* 0: XX */
+	//struct inode* inode;
+	unsigned int ino;
+};
+
+#define IM(filp)	((struct InodeMap*)((filp)->private_data))
+
+
+struct FS_NODES {
+	struct super_block *sb;
+	struct inode *root;
+	struct dentry *root_dentry;
+	struct dentry *rawdir;
+	struct dentry *chandata[MAXDEVICES+1]; /* index from 1 */
+
+	int nmap;
+	struct InodeMap *maps;
+	int imap;
+} FSN;
+
+
+struct InodeMap* lookup_ino(unsigned ino)
+{
+	int ii;
+	struct InodeMap* pmap = FSN.maps;
+
+	for (ii = 0; ii < FSN.imap; ++ii, ++pmap){
+		if (pmap->ino == ino){
+			return pmap;
+		}
+	}
+	return 0;
+}
 
 static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 {
-	struct inode *ret = new_inode(sb);
+	struct inode *inode = new_inode(sb);
 
-	if (ret) {
-		ret->i_ino = get_next_ino();
-		ret->i_mode = mode;
-		ret->i_uid = KUIDT_INIT(0);
-		ret->i_gid = KGIDT_INIT(0);
-		ret->i_blocks = 0;
-		ret->i_atime = ret->i_mtime = ret->i_ctime = CURRENT_TIME;
+	if (inode) {
+		inode->i_ino = get_next_ino();
+		inode->i_mode = mode;
+		inode->i_uid = KUIDT_INIT(0);
+		inode->i_gid = KGIDT_INIT(0);
+		inode->i_blocks = 0;
+		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+		// PGM: desperate
+		set_nlink(inode, 1);
 	}
-	return ret;
+	return inode;
 }
 
 /*
@@ -55,7 +95,12 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
  */
 static int a400fs_open(struct inode *inode, struct file *filp)
 {
-	filp->private_data = inode->i_private;
+	filp->private_data = lookup_ino(inode->i_ino);
+	struct InodeMap* map = IM(filp);
+	if (filp->private_data == 0){
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
@@ -69,18 +114,9 @@ static int a400fs_open(struct inode *inode, struct file *filp)
 static ssize_t a400fs_read_file(struct file *filp, char *buf,
 		size_t count, loff_t *offset)
 {
-	atomic_t *counter = (atomic_t *) filp->private_data;
-	int v, len;
+	struct InodeMap* map = IM(filp);
 	char tmp[TMPSIZE];
-/*
- * Encode the value, and figure out how much of it we can pass back.
- */
-	v = atomic_read(counter);
-	if (*offset > 0)
-		v -= 1;  /* the value returned when offset was zero */
-	else
-		atomic_inc(counter);
-	len = snprintf(tmp, TMPSIZE, "%d\n", v);
+	int len = snprintf(tmp, TMPSIZE, "%ld %d.%02d\n", map->ino, map->site, map->channel);
 	if (*offset > len)
 		return 0;
 	if (count > len - *offset)
@@ -100,26 +136,7 @@ static ssize_t a400fs_read_file(struct file *filp, char *buf,
 static ssize_t a400fs_write_file(struct file *filp, const char *buf,
 		size_t count, loff_t *offset)
 {
-	atomic_t *counter = (atomic_t *) filp->private_data;
-	char tmp[TMPSIZE];
-/*
- * Only write from the beginning.
- */
-	if (*offset != 0)
-		return -EINVAL;
-/*
- * Read the value from the user.
- */
-	if (count >= TMPSIZE)
-		return -EINVAL;
-	memset(tmp, 0, TMPSIZE);
-	if (copy_from_user(tmp, buf, count))
-		return -EFAULT;
-/*
- * Store it in the counter and we are done.
- */
-	atomic_set(counter, simple_strtol(tmp, NULL, 10));
-	return count;
+	return -EPERM;
 }
 
 
@@ -136,36 +153,30 @@ static struct file_operations a400fs_file_ops = {
 /*
  * Create a file mapping a name to a counter.
  */
-static struct dentry *a400fs_create_file (struct super_block *sb,
+static struct inode *a400fs_create_file (struct super_block *sb,
 		struct dentry *dir, const char *name,
-		atomic_t *counter)
+		struct InodeMap* inodeMap)
 {
 	struct dentry *dentry;
 	struct inode *inode;
-	struct qstr qname;
-/*
- * Make a hashed version of the name to go with the dentry.
- */
-	qname.name = name;
-	qname.len = strlen (name);
-	qname.hash = full_name_hash(name, qname.len);
 /*
  * Now we can create our dentry and the inode to go with it.
  */
 
-	dentry = d_alloc(dir, &qname);
+	dentry = d_alloc_name(dir, name);
 	if (! dentry)
 		goto out;
 	inode = a400fs_make_inode(sb, S_IFREG | 0644);
 	if (! inode)
 		goto out_dput;
 	inode->i_fop = &a400fs_file_ops;
-	inode->i_private = counter;
+	inodeMap->ino = inode->i_ino;
+
 /*
  * Put it all into the dentry cache and we're done.
  */
 	d_add(dentry, inode);
-	return dentry;
+	return inode;
 /*
  * Then again, maybe it didn't work.
  */
@@ -213,18 +224,6 @@ static struct dentry *a400fs_create_dir (struct super_block *sb,
 #define a400fs_create_raw_file a400fs_create_file
 #define a400fs_create_channel_file a400fs_create_file
 
-/*
- * OK, create the files that we export.
- */
-static atomic_t counter, subcounter;
-
-struct FS_NODES {
-	struct super_block *sb;
-	struct inode *root;
-	struct dentry *root_dentry;
-	struct dentry *rawdir;
-	struct dentry *chandata[MAXDEVICES+1]; /* index from 1 */
-} FSN;
 
 
 static const char* sites[] = {
@@ -238,14 +237,42 @@ static const char* channels[] = {
 	"25", "26", "27", "28", "29", "30", "31", "32"
 };
 
+struct InodeMap*
+_build_mapping(struct FS_NODES *fsn, struct acq400_dev *adev,
+		int site, int channel)
+{
+	struct InodeMap map;
+	int ii = fsn->imap++;
+	map.adev = adev;
+	map.site = site;
+	map.channel = channel;
+	fsn->maps[ii] = map;	/* STRUCTURE COPY */
+	return &fsn->maps[ii];
+}
+struct InodeMap*
+build_mapping(struct FS_NODES *fsn, struct acq400_dev *adev,
+		int site, int channel)
+{
+	if (likely(fsn->imap < fsn->nmap)){
+		return _build_mapping(fsn, adev, site, channel);
+	}else{
+		dev_err(DEVP(adev), "ERROR mapping count mismatch");
+		return 0;
+	}
+}
+
 void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 {
 	int ic;
+	struct inode *inode;
 
 	dev_info(DEVP(adev), "a400fs_add_site() 01 site:%d sb:%p",
 			site, fsn->sb);
 
-	a400fs_create_raw_file(fsn->sb, fsn->rawdir, sites[site], &counter);
+	inode = a400fs_create_raw_file(
+		fsn->sb, fsn->rawdir, sites[site],
+		build_mapping(fsn, adev, site, XX));
+
 	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
 
 	fsn->chandata[site] =
@@ -257,11 +284,11 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 	}
 
 	for (ic = 1; ic <= adev->nchan_enabled; ++ic){
-		struct dentry *dentry =
-			a400fs_create_channel_file(
+		inode =	a400fs_create_channel_file(
 				fsn->sb, fsn->chandata[site],
-				channels[ic], &counter);
-		if (dentry == 0){
+				channels[ic],
+				build_mapping(fsn, adev, site, ic));
+		if (inode == 0){
 			dev_err(DEVP(adev), "ERROR failed to create channel file");
 		}
 	}
@@ -274,18 +301,17 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 	int dev;
 	FSN.root_dentry = root;
 	FSN.sb = sb;
-/*
- * One counter in the top-level directory.
- */
-	atomic_set(&counter, 0);
-	a400fs_create_file(sb, root, "counter", &counter);
-/*
- * And one in a subdirectory.
- */
-	atomic_set(&subcounter, 0);
+
 	FSN.rawdir = a400fs_create_dir(sb, root, "raw");
-	if (FSN.rawdir)
-		a400fs_create_file(sb, FSN.rawdir, "subcounter", &subcounter);
+
+	for (dev = 0; dev < MAXDEVICES; ++dev){
+		struct acq400_dev *adev = acq400_devices[dev];
+		if (adev){
+			FSN.nmap += adev->nchan_enabled + 1;
+		}
+	}
+
+	FSN.maps = kmalloc(sizeof(struct InodeMap)*FSN.nmap, GFP_KERNEL);
 
 	for (dev = 0; dev < MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
