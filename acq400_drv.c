@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.586"
+#define REVID "2.587"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -107,7 +107,7 @@ module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 /* driver supports multiple devices.
  * ideally we'd have no globals here at all, but it works, for now
  */
-#define MAXDEVICES 6
+
 struct acq400_dev* acq400_devices[MAXDEVICES];
 
 #define DMA_NS_MAX     40

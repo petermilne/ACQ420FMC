@@ -11,7 +11,6 @@
 #include <asm/uaccess.h>
 #include <asm/sizes.h>
 
-
 #include <linux/dmaengine.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -450,6 +449,8 @@ struct acq400_path_descriptor {
 #define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)
 
+
+#define MAXDEVICES 6
 extern struct acq400_dev* acq400_devices[];
 extern const char* acq400_names[];
 
@@ -788,7 +789,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
 
-extern void a400fs_init(void);
+extern int a400fs_init(void);
 extern void a400fs_exit(void);
+
 
 #endif /* ACQ420FMC_H_ */

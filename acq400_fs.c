@@ -29,13 +29,17 @@
 #include <asm/atomic.h>
 #include <asm/uaccess.h>	/* copy_to_user */
 
+#include "acq400.h"
+
 #define ACQ400_FS_MAGIC	0xd1ac0400
+
 
 static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 {
 	struct inode *ret = new_inode(sb);
 
 	if (ret) {
+		ret->i_ino = get_next_ino();
 		ret->i_mode = mode;
 		ret->i_uid = KUIDT_INIT(0);
 		ret->i_gid = KGIDT_INIT(0);
@@ -148,6 +152,7 @@ static struct dentry *a400fs_create_file (struct super_block *sb,
 /*
  * Now we can create our dentry and the inode to go with it.
  */
+
 	dentry = d_alloc(dir, &qname);
 	if (! dentry)
 		goto out;
@@ -205,16 +210,70 @@ static struct dentry *a400fs_create_dir (struct super_block *sb,
 	return 0;
 }
 
-
+#define a400fs_create_raw_file a400fs_create_file
+#define a400fs_create_channel_file a400fs_create_file
 
 /*
  * OK, create the files that we export.
  */
 static atomic_t counter, subcounter;
 
+struct FS_NODES {
+	struct super_block *sb;
+	struct inode *root;
+	struct dentry *root_dentry;
+	struct dentry *rawdir;
+	struct dentry *chandata[MAXDEVICES+1]; /* index from 1 */
+} FSN;
+
+
+static const char* sites[] = {
+	"0", "1", "2", "3", "4", "5", "6"
+};
+static const char* channels[] = {
+	"00error",
+	"01", "02", "03", "04", "05", "06", "07", "08",
+	"09", "10", "11", "12", "13", "14", "15", "16",
+	"17", "18", "19", "20", "21", "22", "23", "24",
+	"25", "26", "27", "28", "29", "30", "31", "32"
+};
+
+void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
+{
+	int ic;
+
+	dev_info(DEVP(adev), "a400fs_add_site() 01 site:%d sb:%p",
+			site, fsn->sb);
+
+	a400fs_create_raw_file(fsn->sb, fsn->rawdir, sites[site], &counter);
+	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
+
+	fsn->chandata[site] =
+		a400fs_create_dir(fsn->sb, fsn->root_dentry, sites[site]);
+
+	if(fsn->chandata[site] == 0){
+		dev_warn(DEVP(adev), "site:%d failed to create_dir", site);
+		return;
+	}
+
+	for (ic = 1; ic <= adev->nchan_enabled; ++ic){
+		struct dentry *dentry =
+			a400fs_create_channel_file(
+				fsn->sb, fsn->chandata[site],
+				channels[ic], &counter);
+		if (dentry == 0){
+			dev_err(DEVP(adev), "ERROR failed to create channel file");
+		}
+	}
+	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
+}
+
+
 static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 {
-	struct dentry *subdir;
+	int dev;
+	FSN.root_dentry = root;
+	FSN.sb = sb;
 /*
  * One counter in the top-level directory.
  */
@@ -224,11 +283,17 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
  * And one in a subdirectory.
  */
 	atomic_set(&subcounter, 0);
-	subdir = a400fs_create_dir(sb, root, "subdir");
-	if (subdir)
-		a400fs_create_file(sb, subdir, "subcounter", &subcounter);
-}
+	FSN.rawdir = a400fs_create_dir(sb, root, "raw");
+	if (FSN.rawdir)
+		a400fs_create_file(sb, FSN.rawdir, "subcounter", &subcounter);
 
+	for (dev = 0; dev < MAXDEVICES; ++dev){
+		struct acq400_dev *adev = acq400_devices[dev];
+		if (adev){
+			a400fs_add_site(adev->of_prams.site, adev, &FSN);
+		}
+	}
+}
 
 
 /*
@@ -250,8 +315,6 @@ static struct super_operations a400fs_s_ops = {
  */
 static int a400fs_fill_super (struct super_block *sb, void *data, int silent)
 {
-	struct inode *root;
-	struct dentry *root_dentry;
 /*
  * Basic parameters.
  */
@@ -265,26 +328,27 @@ static int a400fs_fill_super (struct super_block *sb, void *data, int silent)
  * don't have to mess with actually *doing* things inside this
  * directory.
  */
-	root = a400fs_make_inode (sb, S_IFDIR | 0755);
-	if (! root)
+	FSN.root = a400fs_make_inode (sb, S_IFDIR | 0755);
+	if (!FSN.root)
 		goto out;
-	root->i_op = &simple_dir_inode_operations;
-	root->i_fop = &simple_dir_operations;
+	FSN.root->i_op = &simple_dir_inode_operations;
+	FSN.root->i_fop = &simple_dir_operations;
 /*
  * Get a dentry to represent the directory in core.
  */
-	root_dentry = d_make_root(root);
-	if (! root_dentry)
+	FSN.root_dentry = d_make_root(FSN.root);
+	if (! FSN.root_dentry)
 		goto out_iput;
-	sb->s_root = root_dentry;
+	sb->s_root = FSN.root_dentry;
 /*
  * Make up the files which will be in this filesystem, and we're done.
  */
-	a400fs_create_files (sb, root_dentry);
+	a400fs_create_files (sb, FSN.root_dentry);
+
 	return 0;
 
   out_iput:
-	iput(root);
+	iput(FSN.root);
   out:
 	return -ENOMEM;
 }
@@ -307,7 +371,7 @@ static struct file_system_type a400fs_type = {
 };
 
 
-void a400fs_init(void)
+int a400fs_init(void)
 {
 	return register_filesystem(&a400fs_type);
 }
