@@ -56,8 +56,14 @@ struct FS_NODES {
 	int nmap;
 	struct InodeMap *maps;
 	int imap;
+
+	struct timespec mtime;
 } FSN;
 
+struct CaptureData {
+	int is_cooked;
+	int nsamples;
+} CAPDAT;
 
 struct InodeMap* lookup_ino(unsigned ino)
 {
@@ -72,9 +78,55 @@ struct InodeMap* lookup_ino(unsigned ino)
 	return 0;
 }
 
+static unsigned update_inode_stats(struct inode *inode)
+{
+	struct InodeMap* pmap = lookup_ino(inode->i_ino);
+
+	if (!pmap){
+		return inode->i_size;
+	}else{
+		loff_t i_size = 0;
+		if (CAPDAT.is_cooked){
+			if (pmap->site == XX){
+				i_size = 0;
+			}else{
+				i_size = CAPDAT.nsamples * pmap->adev->word_size;
+			}
+		}else{
+			if (pmap->site == XX){
+				/* valid site 0 only .. */
+				i_size = CAPDAT.nsamples *
+						pmap->adev->word_size *
+						pmap->adev->nchan_enabled;
+			}else{
+				i_size = 0;
+			}
+		}
+		inode->i_mtime = FSN.mtime;
+		return inode->i_size = i_size;
+	}
+}
+
+static int ai_getattr(struct vfsmount *mnt, struct dentry *d, struct kstat *k)
+{
+	struct inode *inode = d->d_inode;
+	int was;
+
+	generic_fillattr(inode, k);
+	was = k->size;
+	k->size = update_inode_stats(inode);
+	k->mtime = inode->i_mtime;
+
+	return 0;
+}
+
+
 static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 {
 	struct inode *inode = new_inode(sb);
+	static struct inode_operations inops = {
+		.getattr = ai_getattr
+	};
 
 	if (inode) {
 		inode->i_ino = get_next_ino();
@@ -85,6 +137,7 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 		// PGM: desperate
 		set_nlink(inode, 1);
+		inode->i_op = &inops;
 	}
 	return inode;
 }
@@ -96,7 +149,6 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 static int a400fs_open(struct inode *inode, struct file *filp)
 {
 	filp->private_data = lookup_ino(inode->i_ino);
-	struct InodeMap* map = IM(filp);
 	if (filp->private_data == 0){
 		return -ENODEV;
 	}
@@ -116,7 +168,8 @@ static ssize_t a400fs_read_file(struct file *filp, char *buf,
 {
 	struct InodeMap* map = IM(filp);
 	char tmp[TMPSIZE];
-	int len = snprintf(tmp, TMPSIZE, "%ld %d.%02d\n", map->ino, map->site, map->channel);
+	int len = snprintf(tmp, TMPSIZE, "%ld %d.%02d\n",
+			map->ino, map->site, map->channel);
 	if (*offset > len)
 		return 0;
 	if (count > len - *offset)
@@ -155,6 +208,7 @@ static struct file_operations a400fs_file_ops = {
  */
 static struct inode *a400fs_create_file (struct super_block *sb,
 		struct dentry *dir, const char *name,
+		struct file_operations* fops,
 		struct InodeMap* inodeMap)
 {
 	struct dentry *dentry;
@@ -169,9 +223,10 @@ static struct inode *a400fs_create_file (struct super_block *sb,
 	inode = a400fs_make_inode(sb, S_IFREG | 0644);
 	if (! inode)
 		goto out_dput;
-	inode->i_fop = &a400fs_file_ops;
-	inodeMap->ino = inode->i_ino;
-
+	inode->i_fop = fops;
+	if (inodeMap) {
+		inodeMap->ino = inode->i_ino;
+	}
 /*
  * Put it all into the dentry cache and we're done.
  */
@@ -271,7 +326,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 
 	inode = a400fs_create_raw_file(
 		fsn->sb, fsn->rawdir, sites[site],
-		build_mapping(fsn, adev, site, XX));
+		&a400fs_file_ops, build_mapping(fsn, adev, site, XX));
 
 	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
 
@@ -287,6 +342,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 		inode =	a400fs_create_channel_file(
 				fsn->sb, fsn->chandata[site],
 				channels[ic],
+				&a400fs_file_ops,
 				build_mapping(fsn, adev, site, ic));
 		if (inode == 0){
 			dev_err(DEVP(adev), "ERROR failed to create channel file");
@@ -296,6 +352,61 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 }
 
 
+static int a400fs_ctrl_open(struct inode *inode, struct file *filp)
+{
+	return 0;
+}
+
+#define LINESIZE	80
+
+static ssize_t a400fs_ctrl_read_file(struct file *filp, char *buf,
+		size_t count, loff_t *offset)
+{
+	char tmp[LINESIZE];
+	int len = snprintf(tmp, LINESIZE, "COOKED=%d NSAMPLES=%d\n",
+			CAPDAT.is_cooked, CAPDAT.nsamples);
+	if (*offset > len)
+		return 0;
+	if (count > len - *offset)
+		count = len - *offset;
+/*
+ * Copy it back, increment the offset, and we're done.
+ */
+	if (copy_to_user(buf, tmp + *offset, count))
+		return -EFAULT;
+	*offset += count;
+	return count;
+}
+
+static ssize_t a400fs_ctrl_write_file(struct file *filp, const char *buf,
+		size_t count, loff_t *offset)
+{
+	char tmp[LINESIZE];
+
+	if (count > LINESIZE-1){
+		count = LINESIZE-2;
+	}
+	if (copy_from_user(tmp, buf, count)){
+		return -EFAULT;
+	}
+	tmp[count+1] = '\0';
+
+	if (sscanf(tmp, "COOKED=%d NSAMPLES=%d",
+			&CAPDAT.is_cooked, &CAPDAT.nsamples) == 2){
+		FSN.mtime = CURRENT_TIME;
+		return count;
+	}else{
+		return -EINVAL;
+	}
+	return -EPERM;
+}
+
+static struct file_operations a400fs_control_ops = {
+	.open	= a400fs_ctrl_open,
+	.read 	= a400fs_ctrl_read_file,
+	.write  = a400fs_ctrl_write_file,
+};
+
 static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 {
 	int dev;
@@ -303,6 +414,8 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 	FSN.sb = sb;
 
 	FSN.rawdir = a400fs_create_dir(sb, root, "raw");
+	FSN.mtime = CURRENT_TIME;
+	a400fs_create_file(sb, root, ".control", &a400fs_control_ops, 0);
 
 	for (dev = 0; dev < MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
