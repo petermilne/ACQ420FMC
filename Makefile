@@ -50,6 +50,10 @@ package: all
 	rm -f ../PACKAGES/$(SEQ)-acq420*
 	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
 
+tarball:
+	echo Please make sure directory is clean first ..
+	tar cvzf acq420fmc-$(DC).tgz --exclude=release/* *
+
 
 apps: $(APPS)
 

@@ -30,6 +30,7 @@
 #include <asm/uaccess.h>	/* copy_to_user */
 
 #include "acq400.h"
+#include "hbm.h"
 
 #define ACQ400_FS_MAGIC	0xd1ac0400
 
@@ -152,7 +153,7 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 }
 
 
-int raw_offset(struct InodeMap* map)
+int raw_offset_w(struct InodeMap* map)
 {
 	struct acq400_dev* adev0 = FSN.site0->adev;
 	int offset;
@@ -165,7 +166,7 @@ int raw_offset(struct InodeMap* map)
 					map->site, ia, offset);
 			return offset;
 		}else{
-			offset += map->adev->nchan_enabled * map->adev->word_size;
+			offset += map->adev->nchan_enabled;
 		}
 	}
 
@@ -173,9 +174,9 @@ int raw_offset(struct InodeMap* map)
 	return -1;
 }
 
-int chan_offset(struct InodeMap* map)
+int chan_offset_w(struct InodeMap* map)
 {
-	int raw_off = raw_offset(map);
+	int raw_off = raw_offset_w(map);
 	if (raw_off >= 0){
 		return raw_off + map->channel - 1; /* assumes no gaps in channel set */
 	}else{
@@ -183,7 +184,7 @@ int chan_offset(struct InodeMap* map)
 	}
 }
 
-int get_buffer_offset(int word_offset)
+int get_buffer_offset_b(int word_offset)
 {
 	int buffer_len = FSN.site0->adev->bufferlen;
 	int totchan = CAPDAT.nchan;
@@ -198,12 +199,16 @@ static int a400fs_open(struct inode *inode, struct file *file)
 {
 	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
 	pd->map = lookup_ino(inode->i_ino);
-	pd->word_offset = IS_RAW(pd->map)? raw_offset(pd->map): chan_offset(pd->map);
+	pd->word_offset = IS_RAW(pd->map)? 0: chan_offset_w(pd->map);
 
 	if (pd->word_offset < 0){
 		return -ENODEV;
 	}
-	pd->buffer_offset = get_buffer_offset(pd->word_offset);
+	pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
+
+	dev_dbg(DEVP(pd->map->adev), "%d.%d wo:%d bo:%d",
+			pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
+
 	file->private_data = pd;
 	if (file->private_data == 0){
 		return -ENODEV;
@@ -213,12 +218,7 @@ static int a400fs_open(struct inode *inode, struct file *file)
 }
 
 #define TMPSIZE 80
-/*
- * Read a file.  Here we increment and read the counter, then pass it
- * back to the caller.  The increment only happens if the read is done
- * at the beginning of the file (offset = 0); otherwise we end up counting
- * by twos.
- */
+
 static ssize_t a400fs_read_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
@@ -241,9 +241,43 @@ static ssize_t a400fs_read_file(struct file *file, char *buf,
 	return count;
 }
 
+/*
+ * offset: offset in bytes
+ */
 static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
+	struct A400_FS_PDESC* pd = FS_DESC(file);
+	struct acq400_dev* adev0 = FSN.site0->adev;
+	int foffset = (int)*offset;			/* we don't have 4GB */
+	int bufferlen = adev0->bufferlen;
+	int ibuf = foffset/bufferlen;
+	int buff_offset = foffset - ibuf*bufferlen;
+	int buf_headroom = bufferlen - buff_offset;
+	int set_headroom = CAPDAT.nsamples*adev0->word_size*CAPDAT.nchan - foffset;
+
+	int headroom = min(buf_headroom, set_headroom);
+
+	dev_dbg(DEVP(adev0), "[%d] + %d head:%d count:%d",
+			ibuf, buff_offset, headroom, count);
+
+	if (set_headroom <= 0){
+		return 0;
+	}else if (!(ibuf >= 0 || ibuf < adev0->nbuffers)){
+		dev_err(DEVP(adev0), "bad ibuf %d", ibuf);
+		return -1;
+	}else{
+		char *bp = (char*)(adev0->hb[ibuf]->va);
+		if (count > headroom){
+			count = headroom;
+		}
+		if (copy_to_user(buf, bp+buff_offset, count)){
+			return -EFAULT;
+		}
+		*offset += count;
+		return count;
+	}
+
 	//struct A400_FS_PDESC* pd = FS_DESC(file);
 	/* temporary */
 	return a400fs_read_file(file, buf, count, offset);
@@ -252,9 +286,44 @@ static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
 static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
-	//struct A400_FS_PDESC* pd = FS_DESC(file);
+	struct A400_FS_PDESC* pd = FS_DESC(file);
+	struct acq400_dev* adev0 = FSN.site0->adev;
+	int foffset = (int)*offset;			/* we don't have 4GB */
+	int bufferlen = adev0->bufferlen/CAPDAT.nchan;
+	int ibuf = foffset/bufferlen;
+	int buff_offset = foffset - ibuf*bufferlen;
+	int buf_headroom = bufferlen - buff_offset;
+	int set_headroom = CAPDAT.nsamples*adev0->word_size - foffset;
+	int cursor = buff_offset+pd->buffer_offset;
+
+	int headroom = min(buf_headroom, set_headroom);
+
+
+	if (set_headroom <= 0){
+		return 0;
+	}else if (!(ibuf >= 0 || ibuf < adev0->nbuffers)){
+		dev_err(DEVP(adev0), "bad ibuf %d", ibuf);
+		return -1;
+	}else{
+		char *bp = (char*)(adev0->hb[ibuf]->va);
+
+		dev_dbg(DEVP(adev0), "[%d] %p %p + %d->%d ^%d head:%d count:%d",
+					ibuf, bp, bp+cursor,
+					pd->buffer_offset, buff_offset,
+					cursor, headroom, count);
+
+		if (count > headroom){
+			count = headroom;
+		}
+		if (copy_to_user(buf, bp+cursor, count)){
+			return -EFAULT;
+		}
+		*offset += count;
+		return count;
+	}
+
 	/* temporary */
-	return a400fs_read_file(file, buf, count, offset);
+	//return a400fs_read_file(file, buf, count, offset);
 }
 /*
  * Write a file.
