@@ -2275,6 +2275,8 @@ int add_aggregator_set(struct acq400_dev *adev, int site)
 	int ia = 0;
 	struct acq400_dev *slave = acq400_lookupSite(site);
 	for (ia = 0; ia < MAXSITES; ++ia){
+		dev_dbg(DEVP(adev), "add_aggregator set [%d]=%p site:%d %p",
+				ia, adev->aggregator_set[ia], site, slave);
 		if (adev->aggregator_set[ia] == slave){
 			return 0;
 		}else if (adev->aggregator_set[ia] == 0){
@@ -2306,6 +2308,8 @@ static ssize_t store_agg_reg(
 	char* match;
 	int pass = 0;
 
+	dev_dbg(DEVP(adev), "store_agg_reg \"%s\"", buf);
+
 	if ((match = strstr(buf, "sites=")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
 		char* cursor = match+strlen("sites=");
@@ -2323,12 +2327,12 @@ static ssize_t store_agg_reg(
 					site = get_site(adev, *cursor);
 					if (site > 0){
 						regval |= AGG_MOD_EN(site, mshift);
+						add_aggregator_set(adev, site);
 						break;
 					}else{
 						dev_err(dev, "bad site designator: %c", *cursor);
 						return -1;
 					}
-					add_aggregator_set(adev, site);
 				}
 			}
 		}else{

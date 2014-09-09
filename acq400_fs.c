@@ -43,8 +43,15 @@ struct InodeMap {
 	unsigned int ino;
 };
 
-#define IM(filp)	((struct InodeMap*)((filp)->private_data))
+#define IS_RAW(map)     ((map)->channel == XX)
 
+struct A400_FS_PDESC {
+	struct InodeMap *map;
+	int word_offset;
+	unsigned buffer_offset;
+};
+
+#define FS_DESC(file)		((struct A400_FS_PDESC*)((file)->private_data))
 
 struct FS_NODES {
 	struct super_block *sb;
@@ -54,6 +61,7 @@ struct FS_NODES {
 	struct dentry *chandata[MAXDEVICES+1]; /* index from 1 */
 
 	int nmap;
+	struct InodeMap *site0;
 	struct InodeMap *maps;
 	int imap;
 
@@ -63,6 +71,7 @@ struct FS_NODES {
 struct CaptureData {
 	int is_cooked;
 	int nsamples;
+	int nchan;	/* number of channels the demuxer thought it was working with */
 } CAPDAT;
 
 struct InodeMap* lookup_ino(unsigned ino)
@@ -93,11 +102,11 @@ static unsigned update_inode_stats(struct inode *inode)
 				i_size = CAPDAT.nsamples * pmap->adev->word_size;
 			}
 		}else{
-			if (pmap->site == XX){
+			if (pmap->site == XX && pmap->site == 0){
 				/* valid site 0 only .. */
 				i_size = CAPDAT.nsamples *
 						pmap->adev->word_size *
-						pmap->adev->nchan_enabled;
+						CAPDAT.nchan;
 			}else{
 				i_size = 0;
 			}
@@ -142,34 +151,83 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 	return inode;
 }
 
+
+int raw_offset(struct InodeMap* map)
+{
+	struct acq400_dev* adev0 = FSN.site0->adev;
+	int offset;
+	int ia;
+	for (offset = 0, ia = 0; ia < MAXSITES; ++ia){
+		dev_dbg(DEVP(adev0), "compare site %d [%d] ret %d",
+							map->site, ia, offset);
+		if (adev0->aggregator_set[ia] == map->adev){
+			dev_dbg(DEVP(adev0), "found site %d [%d] ret %d",
+					map->site, ia, offset);
+			return offset;
+		}else{
+			offset += map->adev->nchan_enabled * map->adev->word_size;
+		}
+	}
+
+	dev_err(DEVP(adev0), "ERROR: site %d not in aggregator", map->site);
+	return -1;
+}
+
+int chan_offset(struct InodeMap* map)
+{
+	int raw_off = raw_offset(map);
+	if (raw_off >= 0){
+		return raw_off + map->channel - 1; /* assumes no gaps in channel set */
+	}else{
+		return raw_off;
+	}
+}
+
+int get_buffer_offset(int word_offset)
+{
+	int buffer_len = FSN.site0->adev->bufferlen;
+	int totchan = CAPDAT.nchan;
+
+	return word_offset*buffer_len/totchan;
+}
 /*
  * Open a file.  All we have to do here is to copy over a
  * copy of the counter pointer so it's easier to get at.
  */
-static int a400fs_open(struct inode *inode, struct file *filp)
+static int a400fs_open(struct inode *inode, struct file *file)
 {
-	filp->private_data = lookup_ino(inode->i_ino);
-	if (filp->private_data == 0){
+	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
+	pd->map = lookup_ino(inode->i_ino);
+	pd->word_offset = IS_RAW(pd->map)? raw_offset(pd->map): chan_offset(pd->map);
+
+	if (pd->word_offset < 0){
+		return -ENODEV;
+	}
+	pd->buffer_offset = get_buffer_offset(pd->word_offset);
+	file->private_data = pd;
+	if (file->private_data == 0){
 		return -ENODEV;
 	}
 
 	return 0;
 }
 
-#define TMPSIZE 20
+#define TMPSIZE 80
 /*
  * Read a file.  Here we increment and read the counter, then pass it
  * back to the caller.  The increment only happens if the read is done
  * at the beginning of the file (offset = 0); otherwise we end up counting
  * by twos.
  */
-static ssize_t a400fs_read_file(struct file *filp, char *buf,
+static ssize_t a400fs_read_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
-	struct InodeMap* map = IM(filp);
+	struct A400_FS_PDESC* pd = FS_DESC(file);
+	struct InodeMap *map = pd->map;
 	char tmp[TMPSIZE];
-	int len = snprintf(tmp, TMPSIZE, "%ld %d.%02d\n",
-			map->ino, map->site, map->channel);
+	int len = snprintf(tmp, TMPSIZE, "%u %d.%02d word_off:%d buff_offset:%d\n",
+			map->ino, map->site, map->channel,
+			pd->word_offset, pd->buffer_offset);
 	if (*offset > len)
 		return 0;
 	if (count > len - *offset)
@@ -183,26 +241,53 @@ static ssize_t a400fs_read_file(struct file *filp, char *buf,
 	return count;
 }
 
+static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
+		size_t count, loff_t *offset)
+{
+	//struct A400_FS_PDESC* pd = FS_DESC(file);
+	/* temporary */
+	return a400fs_read_file(file, buf, count, offset);
+}
+
+static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
+		size_t count, loff_t *offset)
+{
+	//struct A400_FS_PDESC* pd = FS_DESC(file);
+	/* temporary */
+	return a400fs_read_file(file, buf, count, offset);
+}
 /*
  * Write a file.
  */
-static ssize_t a400fs_write_file(struct file *filp, const char *buf,
+static ssize_t a400fs_write_file(struct file *file, const char *buf,
 		size_t count, loff_t *offset)
 {
 	return -EPERM;
 }
 
+int a400fs_release(struct inode *inode, struct file *file)
+{
+	struct A400_FS_PDESC* pd = FS_DESC(file);
+	kfree(pd);
+	return 0;
+}
 
 /*
  * Now we can put together our file operations structure.
  */
-static struct file_operations a400fs_file_ops = {
+static struct file_operations a400fs_chan_file_ops = {
 	.open	= a400fs_open,
-	.read 	= a400fs_read_file,
+	.read 	= a400fs_read_chan_file,
 	.write  = a400fs_write_file,
+	.release= a400fs_release
 };
 
-
+static struct file_operations a400fs_raw_file_ops = {
+	.open	= a400fs_open,
+	.read 	= a400fs_read_raw_file,
+	.write  = a400fs_write_file,
+	.release= a400fs_release
+};
 /*
  * Create a file mapping a name to a counter.
  */
@@ -302,6 +387,9 @@ _build_mapping(struct FS_NODES *fsn, struct acq400_dev *adev,
 	map.site = site;
 	map.channel = channel;
 	fsn->maps[ii] = map;	/* STRUCTURE COPY */
+	if (map.site == 0){
+		fsn->site0 = &fsn->maps[ii];
+	}
 	return &fsn->maps[ii];
 }
 struct InodeMap*
@@ -326,7 +414,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 
 	inode = a400fs_create_raw_file(
 		fsn->sb, fsn->rawdir, sites[site],
-		&a400fs_file_ops, build_mapping(fsn, adev, site, XX));
+		&a400fs_raw_file_ops, build_mapping(fsn, adev, site, XX));
 
 	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
 
@@ -342,7 +430,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 		inode =	a400fs_create_channel_file(
 				fsn->sb, fsn->chandata[site],
 				channels[ic],
-				&a400fs_file_ops,
+				&a400fs_chan_file_ops,
 				build_mapping(fsn, adev, site, ic));
 		if (inode == 0){
 			dev_err(DEVP(adev), "ERROR failed to create channel file");
@@ -352,19 +440,19 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 }
 
 
-static int a400fs_ctrl_open(struct inode *inode, struct file *filp)
+static int a400fs_ctrl_open(struct inode *inode, struct file *file)
 {
 	return 0;
 }
 
 #define LINESIZE	80
 
-static ssize_t a400fs_ctrl_read_file(struct file *filp, char *buf,
+static ssize_t a400fs_ctrl_read_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
 	char tmp[LINESIZE];
-	int len = snprintf(tmp, LINESIZE, "COOKED=%d NSAMPLES=%d\n",
-			CAPDAT.is_cooked, CAPDAT.nsamples);
+	int len = snprintf(tmp, LINESIZE, "COOKED=%d NSAMPLES=%d NCHAN=%d\n",
+			CAPDAT.is_cooked, CAPDAT.nsamples, CAPDAT.nchan);
 	if (*offset > len)
 		return 0;
 	if (count > len - *offset)
@@ -378,10 +466,11 @@ static ssize_t a400fs_ctrl_read_file(struct file *filp, char *buf,
 	return count;
 }
 
-static ssize_t a400fs_ctrl_write_file(struct file *filp, const char *buf,
+static ssize_t a400fs_ctrl_write_file(struct file *file, const char *buf,
 		size_t count, loff_t *offset)
 {
 	char tmp[LINESIZE];
+	struct CaptureData capdat;
 
 	if (count > LINESIZE-1){
 		count = LINESIZE-2;
@@ -391,8 +480,10 @@ static ssize_t a400fs_ctrl_write_file(struct file *filp, const char *buf,
 	}
 	tmp[count+1] = '\0';
 
-	if (sscanf(tmp, "COOKED=%d NSAMPLES=%d",
-			&CAPDAT.is_cooked, &CAPDAT.nsamples) == 2){
+
+	if (sscanf(tmp, "COOKED=%d NSAMPLES=%d NCHAN=%d",
+			&capdat.is_cooked, &capdat.nsamples, &capdat.nchan) == 3){
+		CAPDAT = capdat;
 		FSN.mtime = CURRENT_TIME;
 		return count;
 	}else{
