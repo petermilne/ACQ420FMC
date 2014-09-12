@@ -87,6 +87,7 @@
 	"    -n nop (just block, holding the mapping)\n"		\
 	"    -o offset\n"						\
 	"    -l length\n"						\
+	"    -M mapping offset (pages)\n" \
 	"maps device [ram] space and either\n"				\
 	"    reads from ram to stdout\n"				\
 	"-or-writes to ram from stdin\n"				\
@@ -95,6 +96,8 @@
 	""
 
 int acq200_debug;
+
+int map_offset = 0;
 
 int doRegsTest(volatile unsigned* regs, unsigned* offsets, int nregs)
 {
@@ -222,6 +225,7 @@ int main( int argc, char* argv[] )
 	unsigned length = 0x100000;
 	int rc;
 	unsigned fill_value = 0xdeadbeef;
+	int fill_incr = 0;
 	enum MODE { M_READ, M_WRITE, M_FILL, M_TEST, M_NOP } mode = M_READ;
 
 	struct poptOption opt_table[] = {
@@ -231,11 +235,14 @@ int main( int argc, char* argv[] )
 		{ "write",  'w', POPT_ARG_NONE,         0, 'w' },
 		{ "nop",    'n', POPT_ARG_NONE,         0, 'n' },
 		{ "fill",   'b', POPT_ARG_NONE,         0, 'f' },
+		{ "fill_incr", 'I', POPT_ARG_INT, &fill_incr, 'i' },
 		{ "offset", 'o', POPT_ARG_INT,    &offset, 'o' },
 		{ "length", 'l', POPT_ARG_INT,    &length, 'l' },
 		{ "value",  'v', POPT_ARG_INT,    &fill_value, 0 },
+		{ "map_offset", 'M', POPT_ARG_INT, &map_offset, 0 },
 		{ "regstest", 'T', POPT_ARG_NONE,	0, 'T' },
 		{ "verbose", 'V', POPT_ARG_INT,   &acq200_debug, 0 },
+		POPT_AUTOHELP
 		{ }
 	};
 
@@ -280,7 +287,10 @@ int main( int argc, char* argv[] )
 		return 1;
 	}
 
-	region = mmap( NULL, length, mmap_mode, MAP_SHARED, fd, 0 );
+	map_offset <<= 12;
+//	fprintf(stderr, "about to call mmap: length:%d map_offset:%d\n", length, map_offset);
+//	fprintf(stderr, "about to call mmap: length:%x map_offset:%x\n", length, map_offset);
+	region = mmap( NULL, length, mmap_mode, MAP_SHARED, fd, map_offset);
 
 	if ( region == (caddr_t)-1 ){
 		perror( "mmap" );
@@ -302,6 +312,7 @@ int main( int argc, char* argv[] )
 
 		for ( iwrite = 0; iwrite != imax; ++iwrite ){
 			praw[iwrite] = fill_value;
+			fill_value += fill_incr;
 		}
 		break;
 	}
