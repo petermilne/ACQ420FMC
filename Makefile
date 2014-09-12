@@ -24,7 +24,8 @@ acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
 APPS := mmap acq400_stream bigmac permute acq435_decode \
-	acq400_knobs udp_client is_ramp mmaptest wavegen
+	acq400_knobs udp_client is_ramp mmaptest wavegen \
+	dsp_coprocessor
 
 all: modules apps
 	
@@ -65,6 +66,9 @@ clean:
 	
 mmap: mmap.o
 	$(CC) -o $@ $^ -L../lib -lpopt
+
+dsp_coprocessor: dsp_coprocessor.o
+	$(CC) -o $@ $^ -L../lib -lpopt -lrt -lm
 
 mmaptest: mmaptest.o
 	$(CC) -o $@ $^ -L../lib -lpopt
