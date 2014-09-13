@@ -41,7 +41,7 @@ spawn_knob_servers() {
 				echo $pollcat: waiting for $pidf2
 			fi
 			let pollcat=$pollcat+1
-			if [ $pollcat -gt 40 ];then
+			if [ $pollcat -gt 60 ];then
 				echo WARNING: failed to see $pidf2, continuing
 				break
 			fi
