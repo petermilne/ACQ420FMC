@@ -23,7 +23,16 @@
 
 /*
  * dsp-coprocessor SRCFILE DSTFILE
+ *
+ * Fill SRC buf from SRCFILE
+ * run a process
+ * Write DST buf to DSTFILE
+ *
+ * arm-xilinx-linux-gnueabi-gcc -o dsp_coprocessor dsp_coprocessor.c -lrt -lm
  */
+
+#define BUG_MAXCOUNT	1	/* BUG: count max at 7fff, not 8000 */
+#define BUG_STOPSHORT	1	/* BUG: stops ons sample short	    */
 
 #include <stdio.h>
 #include <sys/mman.h>
@@ -60,6 +69,7 @@ FILE *fin;
 FILE *fout;
 
 int verbose;
+int stopshort = 8;		/* #bytes to omit from check */
 
 void cli(int argc, char* argv[]){
 	if (argc > 2){
@@ -88,7 +98,10 @@ void cli(int argc, char* argv[]){
 	}
 
 	if (getenv("VERBOSE")){
-		verbose = atoi(getenv("VERBBOSE"));
+		verbose = atoi(getenv("VERBOSE"));
+	}
+	if (getenv("STOPSHORT")){
+		stopshort =atoi(getenv("STOPSHORT"));
 	}
 }
 
@@ -118,7 +131,7 @@ blt32(unsigned *dst, unsigned * src, unsigned wc)
 {
 	fprintf(stderr, "blt32 %p %p %d\n", dst, src, wc);
 	while(wc--){
-		if (wc < 5){
+		if (verbose && wc < 5){
 			fprintf(stderr, "blt32 %p = %p (%08x)\n", dst, src, *src);
 		}
 		*dst++ = *src++;
@@ -145,6 +158,9 @@ void fill_src()
 
 	blt32(buf, psrc, WORD_COUNT);
 	checksum(buf, BYTE_COUNT);
+#ifdef BUG_STOPSHORT
+	checksum(buf, BYTE_COUNT-stopshort);
+#endif
 	free(buf);
 }
 
@@ -166,7 +182,11 @@ void process()
 
 	clock_gettime(CLOCK_REALTIME, &t0);
 
+#ifdef BUG_MAXCOUNT
 	pregs[CTRL] = ((WORD_COUNT-1) << 16) | 1;
+#else
+	pregs[CTRL] = ((WORD_COUNT) << 16) | 1;
+#endif
 	STATPRINT;
 	while((pregs[STAT]&1) == 0){
 		sched_yield();
@@ -190,7 +210,11 @@ void copy_dst()
 	unsigned * buf = calloc(WORD_COUNT, sizeof(unsigned));
 
 	blt32(buf, pdst, WORD_COUNT);
+#ifdef BUG_STOPSHORT
+	checksum(buf, BYTE_COUNT-stopshort);
+#else
 	checksum(buf, BYTE_COUNT);
+#endif
 
 	if (fwrite(buf, sizeof(unsigned), WORD_COUNT, fout) < 0){
 		perror("fwrite fail");
