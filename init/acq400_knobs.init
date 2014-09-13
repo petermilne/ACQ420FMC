@@ -37,7 +37,7 @@ spawn_knob_servers() {
 		pidf2=/var/run/acq400_knobs.$site.pid
 		let pollcat=0
 		while [ ! -e  $pidf2 ]; do
-			if [ $pollcat%10 -eq 0 ]; then
+			if [ "${pollcat%*0}" != "$pollcat" ]; then
 				echo $pollcat: waiting for $pidf2
 			fi
 			let pollcat=$pollcat+1
