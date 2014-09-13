@@ -44,7 +44,7 @@ package: all
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* opkg/usr/local/CARE
-	cp acq420.init inetd.conf opkg/usr/local/init
+	cp init/* opkg/usr/local/init
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz

@@ -283,18 +283,7 @@ set_fans() {
 	[ -x /usr/local/bin/set.fanspeed ] && /usr/local/bin/set.fanspeed
 }
 
-spawn_knob_servers() {
-	for dir in 	/etc/acq400/[0-9]
-	do
-		site=$(basename $dir)
-		# sites at 4220 auto calc by acq400_knobs		
-		let lport=4820+$site
-		cmd="/usr/local/bin/procServ -p /var/run/knobs$site.pid --restrict -q $lport \
-			/usr/local/bin/acq400_knobs -s $site"
-		echo $cmd
-		$cmd
-	done			
-}
+
 ######## Execution Starts Here 
 
 if [ ! -e /etc/sites ]; then
@@ -355,7 +344,7 @@ build_knobs
 set_fans
 grep acq4.0 /proc/devices |  build_nodes	
 
-spawn_knob_servers
+/usr/local/init/acq400_knobs.init start
 
 nice daemon $WEB_APPEND_JOB
 
