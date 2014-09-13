@@ -673,6 +673,14 @@ int filter(const struct dirent *dir)
 {
         return fnmatch(pattern, dir->d_name, 0);
 }
+
+void announce() {
+	char fname[80];
+	sprintf(fname, "/var/run/acq400_knobs.%d.pid", ::site);
+	FILE* fp = fopen(fname, "w");
+	fprintf(fp, "%d", getpid());
+	fclose(fp);
+}
 int do_scan()
 {
 	struct dirent **namelist;
@@ -727,6 +735,7 @@ int do_scan()
 	snprintf(newpath, 1023, "%s:%s", get_current_dir_name(), getenv("PATH"));
 
 	setenv("PATH", newpath, 1);
+	announce();
 }
 
 

@@ -10,6 +10,10 @@ stop_knob_servers() {
 			kill $(cat $pidf)
 			rm $pidf
 		fi
+		pidf2=/var/run/acq400_knobs.$site.pid
+		if [ -e $pidf2 ]; then
+			rm $pidf2
+		fi
 	done
 }
 
@@ -25,7 +29,25 @@ spawn_knob_servers() {
 			/usr/local/bin/acq400_knobs -s $site"
 		echo $cmd
 		$cmd
-	done			
+	done
+	
+	for dir in /etc/acq400/[0-9]
+	do
+		site=$(basename $dir)
+		pidf2=/var/run/acq400_knobs.$site.pid
+		let pollcat=0
+		while [ ! -e  $pidf2 ]; do
+			if [ $pollcat%10 -eq 0 ]; then
+				echo $pollcat: waiting for $pidf2
+			fi
+			let pollcat=$pollcat+1
+			if [ $pollcat -gt 40 ];then
+				echo WARNING: failed to see $pidf2, continuing
+				break
+			fi
+			usleep 100000
+		done		
+	done	
 }
 
 
