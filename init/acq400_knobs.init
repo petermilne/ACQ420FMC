@@ -1,27 +1,27 @@
 #!/bin/sh
 
 
-pidfile() {
-			echo /var/run/knobs$1.pid
-}
 stop_knob_servers() {
 	for dir in /etc/acq400/[0-9]
 	do	
 		site=$(basename $dir)
-		if [ -e $(cat $(pidfile $site)) ]; then
-			kill $(cat $(pidfile $site))
-			rm $(pidfile $site)
+		pidf=/var/run/knobs$site.pid
+		if [ -e $pidf ]; then
+			kill $(cat $pidf)
+			rm $pidf
 		fi
 	done
 }
 
 spawn_knob_servers() {
-	for dir in 	/etc/acq400/[0-9]
+	for dir in /etc/acq400/[0-9]
 	do
 		site=$(basename $dir)
+		pidf=/var/run/knobs$site.pid
 		# sites at 4220 auto calc by acq400_knobs		
 		let lport=4820+$site
-		cmd="/usr/local/bin/procServ -p $(pidfile $site)  --restrict -q $lport \
+		cmd="/usr/local/bin/procServ -p $pidf  \
+			--restrict -q $lport \
 			/usr/local/bin/acq400_knobs -s $site"
 		echo $cmd
 		$cmd
