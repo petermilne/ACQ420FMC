@@ -1808,6 +1808,9 @@ public:
  *  pre!=0, nodemux : epos - pre
  *  pre!=0, nodemux : epos - pre
  */
+
+#define NOTIFY_HOOK "/dev/acq400/data/.control"
+
 class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 protected:
 	int pre;
@@ -1823,13 +1826,27 @@ protected:
 
 	int samples_buffer;
 	vector <StreamHeadClient*> peers;
+	bool cooked;
 
 	void setState(enum STATE _state){
 		actual.state = _state;
 		actual.print();
 	}
 
+	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
+	void notify_result() {
+		char resbuf[128];
+		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d\n",
+				cooked? 1:0, G::pre+G::post, G::nchan);
+		if (verbose) fprintf(stderr, resbuf);
+		FILE* fp = fopen(NOTIFY_HOOK, "w");
+		if (fp == 0) {
+			perror(NOTIFY_HOOK);
+			exit(1);
+		}
+		fclose(fp);
+	}
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
 		if (pre){
@@ -1870,6 +1887,7 @@ protected:
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
 		}
+		notify_result();
 	}
 
 	virtual int getBufferId() {
@@ -2056,7 +2074,8 @@ public:
 			pre(_pre), post(_post),
 			samples_buffer(0),
 			actual(Progress::instance()),
-			event_received(false)
+			event_received(false),
+			cooked(false)
 		{
 		if (verbose) printf("StreamHeadPrePost()\n");
 		setState(ST_STOP);
@@ -2197,6 +2216,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 		}else{
 			demuxer(es, s2b(G::post));
 		}
+		cooked = true;
 	}
 
 public:

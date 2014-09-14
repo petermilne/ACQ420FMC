@@ -2378,7 +2378,7 @@ int ai_data_loop(void *data)
 			dma_async_issue_pending(adev->dma_chan[ic]);
 
 			if (check_fifo_statuses(adev)){
-				dev_err(DEVP(adev), "ERROR: quite on fifo status check");
+				dev_err(DEVP(adev), "ERROR: quit on fifo status check");
 				goto quit;
 			}
 
