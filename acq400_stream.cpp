@@ -2179,7 +2179,7 @@ public:
 		int outfd = open("/dev/shm/subrate", O_WRONLY|O_CREAT, S_IRWXU);
 		assert(outfd >= 0);
 
-		if (verbose) printf("buffer[%d]->writeBuffer()\n", ib);
+		if (verbose>1) printf("buffer[%d]->writeBuffer()\n", ib);
 		int nw = buffers[ib]->writeBuffer(outfd, 0);
 		if (nw == 0){
 			printf("WARNING: writeBuffer returned 0\n");
