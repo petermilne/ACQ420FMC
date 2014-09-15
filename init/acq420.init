@@ -182,6 +182,7 @@ build_knobs_device() {
 	FF)    
 		return;;
 	2|3)
+
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
 	40)	
@@ -314,13 +315,14 @@ fi
 if [ -f /mnt/local/acq420fmc.ko ]; then
 	MOD=/mnt/local/acq420fmc.ko
 	echo "WARNING using override driver $MOD"
-else if [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
+elif [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
 	MOD=/usr/local/lib/modules/acq420fmc.ko
-	else
-		echo "ERROR, module acq420fmc.ko not found" 
-			exit 1
-		fi
-	fi
+else
+	echo "ERROR, module acq420fmc.ko not found" 
+		exit 1
+fi
+
+
 
 #	mount -t debugfs none /sys/kernel/debug/
 echo "for debug:"
@@ -354,4 +356,6 @@ killall -q inetd
 cat /usr/local/init/inetd.conf >>/etc/inetd.conf
 inetd /etc/inetd.conf
 
+mkdir -p /dev/acq400/data/
+mount -t acq400fs acq400fs /dev/acq400/data
 
