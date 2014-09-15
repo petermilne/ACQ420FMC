@@ -168,7 +168,6 @@ protected:
 	int buffer_len;
 	const int ibuf;
 	static int last_buf;
-
 public:
 	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
 
@@ -1845,6 +1844,7 @@ protected:
 			perror(NOTIFY_HOOK);
 			exit(1);
 		}
+		fprintf(fp, resbuf);
 		fclose(fp);
 	}
 	virtual void postProcess(int ibuf, char* es) {
@@ -1871,7 +1871,7 @@ protected:
 	}
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
-		if (verbose) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
+		if (verbose>1) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
 	}
 	virtual void onStreamEnd() {
 		setState(ST_POSTPROCESS); actual.print();
@@ -1904,7 +1904,7 @@ protected:
 
 		for(readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
-			if (verbose) fprintf(stderr, "select returns  %d\n", rc);
+			if (verbose>1) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
 				if (verbose) fprintf(stderr, "FD_ISSET f_ev %d\n", f_ev);
@@ -1950,7 +1950,7 @@ protected:
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
 
-			if (verbose) printf("streamCore %d 01\n", ib);
+			if (verbose > 1) printf("streamCore %d 01\n", ib);
 
 			switch(actual.state){
 			case ST_ARM:
@@ -1958,11 +1958,11 @@ protected:
 			}
 
 			for (IT it = peers.begin(); it != peers.end(); ++it){
-				if (verbose) fprintf(stderr, "call peer %p %p\n", *it, this);
+				if (verbose > 1) fprintf(stderr, "call peer %p %p\n", *it, this);
 				(*it)->onStreamBufferStart(ib);
 			}
 
-			if (verbose) fprintf(stderr, "done with peers\n");
+			if (verbose > 1) fprintf(stderr, "done with peers\n");
 			switch(actual.state){
 			case ST_RUN_PRE:
 				if (verbose>1) fprintf(stderr, "ST_RUN_PRE\n");
@@ -1995,7 +1995,7 @@ protected:
 			actual.elapsed += samples_buffer;
 			actual.print(PRINT_WHEN_YOU_CAN);
 
-			if (verbose) fprintf(stderr, "streamCore() %d 99\n", ib);
+			if (verbose>1) fprintf(stderr, "streamCore() %d 99\n", ib);
 		}
 
 		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
