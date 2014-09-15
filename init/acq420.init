@@ -182,7 +182,8 @@ build_knobs_device() {
 	FF)    
 		return;;
 	2|3)
-
+		echo WORKAROUND: clear FIFERR
+		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
 	40)	
