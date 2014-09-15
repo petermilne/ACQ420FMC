@@ -73,6 +73,7 @@ struct CaptureData {
 	int is_cooked;
 	int nsamples;
 	int nchan;	/* number of channels the demuxer thought it was working with */
+	char typ[8];	/* "short" or "long" */
 } CAPDAT;
 
 struct InodeMap* lookup_ino(unsigned ino)
@@ -520,8 +521,8 @@ static ssize_t a400fs_ctrl_read_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
 	char tmp[LINESIZE];
-	int len = snprintf(tmp, LINESIZE, "COOKED=%d NSAMPLES=%d NCHAN=%d\n",
-			CAPDAT.is_cooked, CAPDAT.nsamples, CAPDAT.nchan);
+	int len = snprintf(tmp, LINESIZE, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%s\n",
+			CAPDAT.is_cooked, CAPDAT.nsamples, CAPDAT.nchan, CAPDAT.typ);
 	if (*offset > len)
 		return 0;
 	if (count > len - *offset)
@@ -550,8 +551,9 @@ static ssize_t a400fs_ctrl_write_file(struct file *file, const char *buf,
 	tmp[count+1] = '\0';
 
 
-	if (sscanf(tmp, "COOKED=%d NSAMPLES=%d NCHAN=%d",
-			&capdat.is_cooked, &capdat.nsamples, &capdat.nchan) == 3){
+	if (sscanf(tmp, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%7s",
+			&capdat.is_cooked, &capdat.nsamples,
+			&capdat.nchan, capdat.typ) == 4){
 		CAPDAT = capdat;
 		FSN.mtime = CURRENT_TIME;
 		return count;

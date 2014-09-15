@@ -1826,6 +1826,7 @@ protected:
 	int samples_buffer;
 	vector <StreamHeadClient*> peers;
 	bool cooked;
+	char* typestring;
 
 	void setState(enum STATE _state){
 		actual.state = _state;
@@ -1836,8 +1837,9 @@ protected:
 
 	void notify_result() {
 		char resbuf[128];
-		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d\n",
-				cooked? 1:0, G::pre+G::post, G::nchan);
+		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%s\n",
+				cooked? 1:0, G::pre+G::post, G::nchan,
+				G::wordsize==2? "SHORT": "LONG");
 		if (verbose) fprintf(stderr, resbuf);
 		FILE* fp = fopen(NOTIFY_HOOK, "w");
 		if (fp == 0) {
