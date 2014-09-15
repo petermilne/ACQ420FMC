@@ -1422,7 +1422,7 @@ class DemuxerImpl : public Demuxer {
 			base = cursor = Buffer::the_buffers[ibuf]->getBase();
 		}
 		BufferCursor() :
-			channel_buffer_bytes(G::bufferlen/sample_size())
+			channel_buffer_bytes(G::bufferlen/G::nchan)
 		{
 			init(0);
 		}
