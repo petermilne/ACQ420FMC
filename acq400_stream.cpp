@@ -1902,14 +1902,14 @@ protected:
 		FD_SET(fc, &readfds);
 		FD_SET(f_ev, &readfds);
 
-		if (verbose) fprintf(stderr, "fc %d f_ev %d nfds %d\n", fc, f_ev, nfds);
+		if (verbose>1) fprintf(stderr, "fc %d f_ev %d nfds %d\n", fc, f_ev, nfds);
 
 		for(readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
 			if (verbose>1) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
-				if (verbose) fprintf(stderr, "FD_ISSET f_ev %d\n", f_ev);
+				if (verbose>1) fprintf(stderr, "FD_ISSET f_ev %d\n", f_ev);
 				/* we can only handle ONE EVENT */
 				if (!event_received){
 					rc = read(f_ev, event_info, 80);
@@ -1925,7 +1925,7 @@ protected:
 				}
 			}
 			if (FD_ISSET(fc, &readfds)){
-				if (verbose) fprintf(stderr, "FD_ISSET fc %d\n", fc);
+				if (verbose>2) fprintf(stderr, "FD_ISSET fc %d\n", fc);
 				rc = read(fc, buf, 80);
 
 				if (rc > 0){
