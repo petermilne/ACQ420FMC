@@ -1669,7 +1669,7 @@ typedef vector<Segment>::iterator SegmentIterator;
 template <class T>
 void dump(T* src, int nwords){
 	char cmd[80];
-	sprintf(cmd, "hexdump -ve '%d/%d \"%%08x \" \"\\n\" '",
+	sprintf(cmd, "hexdump -ve '%d/%d \"%%08x \" \"\\n\" ' >/tmp/es",
 						G::nchan, sizeof(T));
 	FILE *pp = popen(cmd, "w");
 	fwrite(src, sizeof(T), nwords, pp);
@@ -1735,6 +1735,23 @@ public:
 					ba_lo, ba_lo + s2b(G::post-headroom));
 		}
 	}
+	void report() {
+		FILE *fp = fopen("/dev/shm/estime", "w");
+		if (fp == 0){
+			perror("/dev/shm/estime");
+			return;
+		}
+		fprintf(fp, "%d\n", reinterpret_cast<unsigned*>(esp)[4]);
+		fclose(fp);
+		fp = fopen("/dev/shm/esbin", "w");
+		if (fp == 0){
+			perror("/dev/shm/esbin");
+			return;
+		}
+		fwrite(esp, 1, sample_size(), fp);
+		fclose(fp);
+	}
+
 
 	enum BD_MODE { BD_LINEAR, BD_PRECORNER, BD_POSTCORNER };
 
@@ -1894,6 +1911,7 @@ protected:
 					"StreamHeadPrePost::postProcess() pre\n");
 			BufferDistribution bd(ibuf, es);
 
+			bd.report();
 			if (verbose) bd.show();
 
 			for (SegmentIterator it = bd.getSegments().begin();
@@ -2249,6 +2267,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 		if (verbose) fprintf(stderr, "%s %d %p\n", __FUNCTION__, ibuf, es);
 		if (pre){
 			BufferDistribution bd(ibuf, es);
+			bd.report();
 
 			for (SegmentIterator it = bd.getSegments().begin();
 				it != bd.getSegments().end(); ++it   ){
