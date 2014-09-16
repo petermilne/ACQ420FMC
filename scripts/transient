@@ -39,7 +39,7 @@ if [ "$(basename $0)" = "transient" ]; then
 		PRE)  val=$(validate $val 0 $PREMAX);;
 		POST) val=$(validate $val 0 $POSTMAX);;
 		VERBOSE) val=$(validate $val 0 3);;
-		OSAM) val=$(validate $val 0, 256);;
+		OSAM) val=$(validate $val 0 256);;
 		SOFT_TRIGGER);;
 		*)
 		echo "ERROR: $pair not supported"
