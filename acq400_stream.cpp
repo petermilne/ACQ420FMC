@@ -1420,11 +1420,12 @@ class DemuxerImpl : public Demuxer {
 			return channel_buffer_bytes - (cursor - base);
 		}
 		int total_remain_bytes() {
-			return channel_remain_bytes() * sample_size();
+			return channel_remain_bytes() * G::nchan;
 		}
 		void init(int _ibuf) {
 			ibuf = _ibuf;
 			base = cursor = Buffer::the_buffers[ibuf]->getBase();
+			if (verbose) fprintf(stderr, "BufferCursor::init(%d) base:%p\n", ibuf, base);
 		}
 		BufferCursor() :
 			channel_buffer_bytes(G::bufferlen/G::nchan)
@@ -1436,6 +1437,8 @@ class DemuxerImpl : public Demuxer {
 	const int channel_buffer_sam() {
 		return dst.channel_buffer_bytes/sizeof(T);
 	}
+
+	/* watch out for end of source buffer ! */
 
 	int _demux(void* start, int nbytes){
 		const int nsam = b2s(nbytes);
@@ -1479,13 +1482,16 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 
 	while(nbytes){
 		int trb = dst.total_remain_bytes();
+
+		if (verbose) fprintf(stderr, "%s nbytes:%d trb:%d\n", __FUNCTION__, nbytes, trb);
 		if (nbytes < trb){
-			rc += _demux(start, nbytes);
-			nbytes = 0;
+			rc += _demux(startp, nbytes);
+			break;
 		}else{
 			rc += _demux(startp, trb);
 			dst.init(dst.ibuf+1);
 			nbytes -= trb;
+			startp += rc;
 		}
 	}
 	return rc;
