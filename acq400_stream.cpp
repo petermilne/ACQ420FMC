@@ -315,7 +315,7 @@ public:
 			return (pb-ba0)/G::bufferlen;
 		}
 	}
-	static const char* listBuffers(char* p0, char* p1){
+	static const char* listBuffers(char* p0, char* p1, bool show_ba = false){
 		char report[512];
 		report[0] = '\0';
 		int ibuf1 = -1;
@@ -323,7 +323,12 @@ public:
 		for(char* pn = p0; pn <= p1; pn += G::bufferlen){
 			int ibuf = getBuffer(pn);
 			if (ibuf != ibuf1){
-				sprintf(report+strlen(report), strlen(report)? ",%d":"%d", ibuf);
+				if (!show_ba){
+					sprintf(report+strlen(report), strlen(report)? ",%d":"%d", ibuf);
+				}else{
+					char* ba = reinterpret_cast<MapBuffer*>(the_buffers[ibuf])->pdata;
+					sprintf(report+strlen(report), strlen(report)? ",%p":"%p", ba);
+				}
 				ibuf1 = ibuf;
 			}
 		}
@@ -1438,7 +1443,7 @@ class DemuxerImpl : public Demuxer {
 		T* pdst = reinterpret_cast<T*>(dst.cursor);
 		T* psrc = reinterpret_cast<T*>(start);
 
-		if (verbose) fprintf(stderr, "%s (%p %d) %p %p %d %d\n",
+		if (verbose) fprintf(stderr, "%s (%p %d) %p = %p * nsam:%d %d\n",
 				__FUNCTION__, start, nbytes, pdst, psrc, nsam, cbs);
 
 		for (int sam = 0; sam < nsam; ++sam){
@@ -1697,6 +1702,12 @@ public:
 			MapBuffer::listBuffers(esp - s2b(G::pre), esp),
 			MapBuffer::listBuffers(esp, esp),
 			MapBuffer::listBuffers(esp, esp + s2b(G::post)));
+			if (verbose > 1){
+				printf("buffers:%s | %s | %s\n",
+				MapBuffer::listBuffers(esp - s2b(G::pre), esp, true),
+				MapBuffer::listBuffers(esp, esp, true),
+				MapBuffer::listBuffers(esp, esp + s2b(G::post)), true);
+			}
 
 			if (G::wordsize == 4){
 				dump<unsigned>(reinterpret_cast<unsigned*>(esp), G::nchan);
@@ -1733,6 +1744,24 @@ public:
 		}
 	}
 
+	const char* showMode() {
+		switch(mode()){
+		case BD_LINEAR: 	return "BD_LINEAR";
+		case BD_PRECORNER:	return "BD_PRECORNER";
+		case BD_POSTCORNER:	return "BD_POSTCORNER";
+		default:
+			return "ERROR bad mode";
+		}
+	}
+
+	void showSegments() {
+		int seg = 0;
+		for (SegmentIterator it = getSegments().begin();
+				it != getSegments().end(); ++it, ++seg){
+			fprintf(stderr, "BufferDistribution segments %d %p %d\n",
+					seg, (*it).base, (*it).len);
+		}
+	}
 	vector<Segment>& getSegments() {
 		if (segments.size()){
 			return segments;
@@ -1749,6 +1778,7 @@ vector<Segment>& BufferDistribution::_getSegments() {
 	int postbytes = s2b(G::post);
 	int nb;
 
+	if (verbose) fprintf(stderr, "BufferDistribution::_getSegments() mode %s\n", showMode());
 	switch (mode()){
 	case BD_LINEAR:
 		segments.push_back(Segment(esp-prebytes, prebytes));
@@ -1779,6 +1809,8 @@ vector<Segment>& BufferDistribution::_getSegments() {
 	default:
 		assert(0);
 	}
+
+	if (verbose) showSegments();
 
 	return segments;
 }
@@ -1876,6 +1908,7 @@ protected:
 		if (verbose>1) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
 	}
 	virtual void onStreamEnd() {
+		verbose = 2;		// @@ removeme
 		setState(ST_POSTPROCESS); actual.print();
 		if (pre){
 			int ibuf;
