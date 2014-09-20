@@ -945,12 +945,25 @@ static void wait_and_cleanup_sighandler(int signo)
 	exit(0);
 }
 
+void ident() {
+	char fname[80];
+	sprintf(fname, "/var/run/acq400_stream.%d.pid", G::devnum);
+	FILE* fp = fopen(fname, "w");
+	if (fp == 0) {
+		perror(fname);
+		exit(1);
+	}
+	fprintf(fp, "%d", getpid());
+	fclose(fp);
+}
 
 static void wait_and_cleanup(pid_t child)
 {
 	sigset_t  emptyset, blockset;
 
 	if (verbose) printf("wait_and_cleanup 01 pid %d\n", getpid());
+
+	ident();
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGHUP);
 	sigaddset(&blockset, SIGTERM);
