@@ -554,6 +554,7 @@ template<class T> T** DemuxBuffer<T>::ddcursors;
 template <class T>
 class OversamplingMapBuffer: public MapBuffer {
 	const int over, asr;
+	const int asr1;
 	const int nsam;
 	T *outbuf;
 	int* sums;
@@ -563,6 +564,7 @@ public:
 		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
+		asr1(sizeof(T)==4?8:0),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
 		static int report;
@@ -586,7 +588,7 @@ public:
 
 		for (int isam = 0; isam < nsam; ++isam){
 			for (int ic = 0; ic < G::nchan; ++ic){
-				sums[ic] += src[isam*G::nchan+ic];
+				sums[ic] += src[isam*G::nchan+ic] >> asr1;
 			}
 			if (++nsum >= over){
 				for (int ic = 0; ic < G::nchan; ++ic){
@@ -605,14 +607,17 @@ public:
 template <class T>
 class OversamplingMapBufferSingleSample: public MapBuffer {
 	const int over, asr;
+	const int asr1;
 	const int nsam;
 	int* sums;
+
 public:
 	OversamplingMapBufferSingleSample(const char* _fname, int _buffer_len,
 			int _oversampling, int _asr) :
 		MapBuffer(_fname, _buffer_len),
 		over(_oversampling),
 		asr(_asr),
+		asr1(sizeof(T)==4?8:0),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
 		static int report;
@@ -635,10 +640,15 @@ public:
 
 		for (int isam = 0; isam < nsam; isam += stride){
 			for (int ic = 0; ic < G::nchan; ++ic){
-				sums[ic] += src[isam*G::nchan+ic] >> asr;
+				sums[ic] += src[isam*G::nchan+ic] >> asr1;
 			}
 		}
 
+		if (asr){
+			for (int ic = 0; ic < G::nchan; ++ic){
+				sums[ic] >>= asr;
+			}
+		}
 		if (verbose) printf("writeBuffer() 99\n");
 
 		return write(out_fd, sums, G::nchan*sizeof(int));
@@ -817,10 +827,11 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 		return new ScratchpadTestBuffer(fname, _buffer_len);
 	default:
 		int os = abs(G::oversampling);
-		if (os <= 1){
+		bool single = G::oversampling < 0;
+
+		if (!single && os <= 1){
 			return new MapBuffer(fname, _buffer_len);
 		}
-		bool single = G::oversampling < 0;
 
 		if (G::wordsize == 2){
 			if (single){
@@ -833,7 +844,7 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 		}else{
 			if (single){
 				return new OversamplingMapBufferSingleSample<int>(
-						fname, _buffer_len, os, 8);
+						fname, _buffer_len, os, ASR(os));
 			}else{
 				return new OversamplingMapBuffer<int> (
 						fname, _buffer_len, os, ASR(os));
