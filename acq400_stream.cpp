@@ -938,12 +938,8 @@ void acq400_stream_getstate(void);
 #include <sys/wait.h>
 #include <sys/select.h>
 
-static void wait_and_cleanup_sighandler(int signo)
-{
-	if (verbose) printf("wait_and_cleanup_sighandler(%d)\n", signo);
-	kill(0, SIGTERM);
-	exit(0);
-}
+static void wait_and_cleanup_sighandler(int signo);
+
 
 void ident() {
 	char fname[80];
@@ -1620,6 +1616,13 @@ Progress& Progress::instance() {
 	return *_instance;
 }
 
+static void wait_and_cleanup_sighandler(int signo)
+{
+	if (verbose) printf("wait_and_cleanup_sighandler(%d)\n", signo);
+	kill(0, SIGTERM);
+	Progress::instance().print();
+	exit(0);
+}
 void acq400_stream_getstate(void)
 {
 	Progress::instance().print();
