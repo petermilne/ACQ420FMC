@@ -2049,7 +2049,7 @@ static ssize_t store_DO32(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned DO32 = 0;
 
-	if (sscanf(buf, "%u", &DO32) == 1){
+	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
 		adev->dio432_immediate.DO32 = DO32;
 		return count;
 	}else{
