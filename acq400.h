@@ -434,6 +434,13 @@ struct acq400_dev {
 	/* valid sc only */
 	bool is_sc;
 	struct acq400_dev* aggregator_set[MAXSITES];
+
+	struct DIO432_IMMEDIATE {
+		int enabled;
+		unsigned byte_is_output;	/* 1:byte[0], 2:byte[1] 4:byte[2], 8:byte[3] */
+		unsigned DI32;
+		unsigned DO32;
+	} dio432_immediate;
 };
 
 
@@ -780,7 +787,11 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_DIO_SAMPLE_COUNT 0x40
 #define DIO432_DIO_CPLD_CTRL	0x44
 
+#define DIO432_FIFO		0x1000
+
+
 #define DIO432_CTRL_SHIFT_DIV_SHL	(8)
+#define DIO432_CTRL_LL		(1 << 7)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define DIO432_CTRL_ADC_EN	(1 << 4)
 #define DIO432_CTRL_ADC_RST	(1 << 3)
@@ -788,9 +799,28 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CTRL_FIFO_RST	(1 << 1)
 #define DIO432_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
+#define DIO432_CTRL_SHIFT_DIV_FMC	(0<<DIO432_CTRL_SHIFT_DIV_SHL)
+#define DIO432_CTRL_SHIFT_DIV_PMOD	(1<<DIO432_CTRL_SHIFT_DIV_SHL)
+
+#define DIO432_FIFSTA_FULL	(1<<3)
+#define DIO432_FIFSTA_EMPTY	(1<<2)
+#define DIO432_FIFSTA_OVER	(1<<1)
+#define DIO432_FIFSTA_UNDER	(1<<0)
+
+#define DIO432_FIFSTA_CLR	0xf
+
+#define DIO432_CPLD_CTRL_COMMAND_COMPLETE	(1<<9)
+#define DIO432_CPLD_CTRL_COMMAND_WRITE		(1<<8)
+#define DIO432_CPLD_CTRL_COMMAND_DATA		0xff
+
+#define DIO432_CPLD_CTRL_OUTPUT(byte)		(1<<(byte))
+
+
+
+void dio432_set_immediate(struct acq400_dev* adev, int enable);		/* immediate, not clocked */
 
 extern int a400fs_init(void);
 extern void a400fs_exit(void);
-
+extern const char* devname(struct acq400_dev *adev);
 
 #endif /* ACQ420FMC_H_ */

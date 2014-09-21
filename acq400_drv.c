@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.593"
+#define REVID "2.594"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -347,6 +347,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
 	/* interesting a little bit of acq420, a little bit of ao420. How to handle? - maybe create 2 devices, one in one out ?*/
+
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
 {

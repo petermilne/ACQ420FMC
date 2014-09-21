@@ -2031,11 +2031,140 @@ static const struct attribute *bolo8_attrs[] = {
 };
 
 
+static ssize_t show_DO32(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "0x%08x\n", adev->dio432_immediate.DO32);
+}
 
+static ssize_t store_DO32(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned DO32 = 0;
+
+	if (sscanf(buf, "%u", &DO32) == 1){
+		adev->dio432_immediate.DO32 = DO32;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(DO32, S_IRUGO|S_IWUGO, show_DO32, store_DO32);
+
+static ssize_t show_DI32(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "0x%08x\n", adev->dio432_immediate.DI32);
+}
+
+static ssize_t store_DI32(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned DI32 = 0;
+
+	if (sscanf(buf, "%u", &DI32) == 1){
+		adev->dio432_immediate.DI32 = DI32;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(DI32, S_IRUGO|S_IWUGO, show_DI32, store_DI32);
+
+static ssize_t show_immediate(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->dio432_immediate.enabled);
+}
+
+static ssize_t store_immediate(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned immediate = 0;
+
+	if (sscanf(buf, "%u", &immediate) == 1){
+		dio432_set_immediate(adev, immediate);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(immediate, S_IRUGO|S_IWUGO, show_immediate, store_immediate);
+
+
+static ssize_t show_byte_is_output(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 byte_is_output = adev->dio432_immediate.byte_is_output;
+
+	return sprintf(buf, "%d,%d,%d,%d\n",
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(0),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(1),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(2),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(3)
+	);
+}
+
+static ssize_t store_byte_is_output(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int bytes[4];
+	unsigned byte_is_output = 0;
+
+	if (sscanf(buf, "%d,%d,%d,%d", bytes+0, bytes+1, bytes+2, bytes+3) == 4){
+		int ib = 0;
+		for (ib = 0; ib <= 3; ++ib){
+			if (bytes[ib]){
+				byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
+			}
+		}
+		adev->dio432_immediate.byte_is_output = byte_is_output;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUGO, show_byte_is_output, store_byte_is_output);
 
 
 
 static const struct attribute *dio432_attrs[] = {
+	&dev_attr_DI32.attr,
+	&dev_attr_DO32.attr,
+	&dev_attr_immediate.attr,
+	&dev_attr_byte_is_output.attr,
 	NULL
 };
 
