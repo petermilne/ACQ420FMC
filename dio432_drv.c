@@ -97,7 +97,7 @@ int dio32_immediate_loop(void *data)
 		_acq400wr32(adev, DIO432_FIFO, adev->dio432_immediate.DO32);
 		adev->dio432_immediate.DI32 = _acq400rd32(adev, DIO432_FIFO);
 		wait_event_interruptible_timeout(
-			adev->DMA_READY, kthread_should_stop(),
+			adev->w_waitq, kthread_should_stop(),
 			dio432_immediate_jiffies);
 	}
 }
