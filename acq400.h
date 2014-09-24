@@ -79,6 +79,7 @@
 #define ADC_CLKDIV		(ADC_BASE+0x40)
 #define DAC_CLKDIV		ADC_CLKDIV
 #define ADC_GAIN		(ADC_BASE+0x44)
+#define DAC_424_MODE		(ADC_BASE+0x44)
 /* obsolete R3
 #define ADC_FORMAT 		(ADC_BASE+0x48)
 */
@@ -120,7 +121,7 @@
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
-#define MOD_ID_AO421FMC		0x41
+#define MOD_ID_AO424ELF		0x41
 
 #define MOD_ID_BOLO8		0x60
 #define MOD_ID_DIO432FMC	0x61
@@ -531,6 +532,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
 #define IS_AO421(adev)  (GET_MOD_ID(adev) == MOD_ID_AO421FMC)
+#define IS_AO424(adev)  (GET_MOD_ID(adev) == MOD_ID_AO424ELF)
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
 #define IS_ACQ2006B(adev)  (IS_ACQ2006SC(adev) && GET_MOD_ID_VERSION(adev) != 0)
 #define IS_ACQ2106SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2106SC)

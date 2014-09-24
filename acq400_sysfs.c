@@ -1400,8 +1400,8 @@ static ssize_t show_module_name(
 		name = "acq425elf"; break;
 	case MOD_ID_AO420FMC:
 		name = "ao420fmc"; break;
-	case MOD_ID_AO421FMC:
-		name = "ao421fmc"; break;
+	case MOD_ID_AO424ELF:
+		name = "ao424elf"; break;
 	default:
 		name = "unknown";
 		break;
@@ -1917,6 +1917,12 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dacreset.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
+	NULL
+};
+
+
+static const struct attribute *ao424_attrs[] = {
+
 	NULL
 };
 
@@ -2722,6 +2728,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq435_attrs;
 		}else if (IS_AO420(adev)){
 			specials = ao420_attrs;
+		}else if (IS_AO424(adev)){
+			specials = ao424_attrs;
 		}else if (IS_BOLO8(adev)){
 			specials = bolo8_attrs;
 		}else if (IS_DIO432X(adev)){

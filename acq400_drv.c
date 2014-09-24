@@ -18,7 +18,6 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
@@ -27,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.603"
+#define REVID "2.604"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -344,6 +343,22 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->onStart = ao420_onStart;
 }
 
+static void ao424_init_defaults(struct acq400_dev *adev)
+{
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	dev_info(DEVP(adev), "AO424 device init");
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
+	adev->data32 = 0;
+	adev->nchan_enabled = 24;
+	adev->word_size = 2;
+	adev->cursor.hb = adev->hb[0];
+	adev->hitide = 2048;
+	adev->lotide = 0x1fff;
+	adev->sysclkhz = SYSCLK_M66;
+	adev->onStart = ao420_onStart;
+}
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "dio432_init_defaults() 01");
@@ -934,7 +949,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 
 int get_dma_channels(struct acq400_dev *adev)
 {
-	if (IS_AO420(adev)){
+	if (IS_AO420(adev) || IS_AO424(adev)){
 		return _get_dma_chan(adev, 0);
 	}else{
 		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
@@ -2134,6 +2149,7 @@ void _ao420_stop(struct acq400_dev* adev)
 
 #define MIN_DMA	256
 
+
 static int ao420_fill_fifo(struct acq400_dev* adev)
 /* returns 1 if further interrupts are required */
 {
@@ -2727,7 +2743,7 @@ static int acq400_probe(struct platform_device *pdev)
         	acq2006_createDebugfs(adev);
         	return 0;
         }
-        if (IS_AO420(adev) || IS_DIO432X(adev)){    /** @@todo AO424? */
+        if (IS_AO420(adev) || IS_DIO432X(adev) || IS_AO424(adev)){    /** @@todo AO424? */
         	if (allocate_hbm(adev, AO420_NBUFFERS,
         				ao420_buffer_length, DMA_TO_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
@@ -2735,7 +2751,7 @@ static int acq400_probe(struct platform_device *pdev)
         	}
         }
 
-        if (IS_AO420(adev)){
+        if (IS_AO420(adev)||IS_AO424(adev)){
         	rc = devm_request_threaded_irq(
         	          	DEVP(adev), adev->of_prams.irq,
         	          	ao400_isr, ao420_dma,
@@ -2765,6 +2781,9 @@ static int acq400_probe(struct platform_device *pdev)
   			break;
   		case MOD_ID_AO420FMC:
   			ao420_init_defaults(adev);
+  			break;
+  		case MOD_ID_AO424ELF:
+  			ao424_init_defaults(adev);
   			break;
   		case MOD_ID_BOLO8:
   			bolo8_init_defaults(adev);

@@ -162,8 +162,13 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(DAC_CLK_CTR);
 	DBG_REG_CREATE(DAC_SAMPLE_CTR);
 	DBG_REG_CREATE(DAC_CLKDIV);
-	DBG_REG_CREATE(AO420_RANGE);
-	DBG_REG_CREATE(AO420_DACSPI);
+	if (IS_AO420(adev)){
+		DBG_REG_CREATE(AO420_RANGE);
+		DBG_REG_CREATE(AO420_DACSPI);
+	}
+	if (IS_AO424(adev)){
+		DBG_REG_CREATE(DAC_424_MODE);
+	}
 }
 
 void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
@@ -245,6 +250,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			bolo8_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_AO420FMC:
+		case MOD_ID_AO424ELF:
 			ao420_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_ACQ435ELF:
