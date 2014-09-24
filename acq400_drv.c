@@ -349,6 +349,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "AO424 device init");
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	ao424_set_spans(adev);
 
 	adev->data32 = 0;
 	adev->nchan_enabled = 24;

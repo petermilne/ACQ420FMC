@@ -832,7 +832,7 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CPLD_CTRL_OUTPUT(byte)		(1<<(byte))
 
 
-
+void write32(volatile u32* to, volatile u32* from, int nwords);
 
 void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode);		/* immediate, not clocked */
 
@@ -840,4 +840,10 @@ extern int a400fs_init(void);
 extern void a400fs_exit(void);
 extern const char* devname(struct acq400_dev *adev);
 
+#define AO424_MAXCHAN		32
+#define AO424_DAC_CTRL_SPAN	(1<<5)
+
+#define AO424_DAC_FIFO_STA_SWC	(1<<8)
+
+void ao424_set_spans(struct acq400_dev* adev);
 #endif /* ACQ420FMC_H_ */
