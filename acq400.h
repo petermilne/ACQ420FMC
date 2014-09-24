@@ -278,6 +278,20 @@ extern int event_isr_msec;
 
 #define MAXSITES 	6
 
+enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
+
+inline static const char* dio32mode2str(enum DIO432_MODE mode)
+{
+	switch(mode){
+	case DIO432_IMMEDIATE:
+		return "IMMEDIATE";
+	case DIO432_CLOCKED:
+		return "CLOCKED";
+	default:
+		return "DISABLE";
+	}
+}
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -435,12 +449,12 @@ struct acq400_dev {
 	bool is_sc;
 	struct acq400_dev* aggregator_set[MAXSITES];
 
-	struct DIO432_IMMEDIATE {
-		int enabled;
+	struct DIO432 {
+		enum DIO432_MODE mode;
 		unsigned byte_is_output;	/* 1:byte[0], 2:byte[1] 4:byte[2], 8:byte[3] */
 		unsigned DI32;
 		unsigned DO32;
-	} dio432_immediate;
+	} dio432;
 };
 
 
@@ -817,7 +831,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 
 
-void dio432_set_immediate(struct acq400_dev* adev, int enable);		/* immediate, not clocked */
+
+void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode);		/* immediate, not clocked */
 
 extern int a400fs_init(void);
 extern void a400fs_exit(void);

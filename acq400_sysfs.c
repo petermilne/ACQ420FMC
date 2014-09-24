@@ -2037,7 +2037,7 @@ static ssize_t show_DO32(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", adev->dio432_immediate.DO32);
+	return sprintf(buf, "0x%08x\n", adev->dio432.DO32);
 }
 
 static ssize_t store_DO32(
@@ -2050,7 +2050,7 @@ static ssize_t store_DO32(
 	unsigned DO32 = 0;
 
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
-		adev->dio432_immediate.DO32 = DO32;
+		adev->dio432.DO32 = DO32;
 		wake_up_interruptible(&adev->w_waitq);
 		yield();
 		return count;
@@ -2067,7 +2067,7 @@ static ssize_t show_DI32(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", adev->dio432_immediate.DI32);
+	return sprintf(buf, "0x%08x\n", adev->dio432.DI32);
 }
 
 static ssize_t store_DI32(
@@ -2080,7 +2080,7 @@ static ssize_t store_DI32(
 	unsigned DI32 = 0;
 
 	if (sscanf(buf, "%u", &DI32) == 1){
-		adev->dio432_immediate.DI32 = DI32;
+		adev->dio432.DI32 = DI32;
 		return count;
 	}else{
 		return -1;
@@ -2089,33 +2089,36 @@ static ssize_t store_DI32(
 
 static DEVICE_ATTR(DI32, S_IRUGO|S_IWUGO, show_DI32, store_DI32);
 
-static ssize_t show_immediate(
+static ssize_t show_mode(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%d\n", adev->dio432_immediate.enabled);
+	return sprintf(buf, "%d %s\n", adev->dio432.mode,
+			dio32mode2str(adev->dio432.mode));
 }
 
-static ssize_t store_immediate(
+static ssize_t store_mode(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned immediate = 0;
+	unsigned mode = 0;
 
-	if (sscanf(buf, "%u", &immediate) == 1){
-		dio432_set_immediate(adev, immediate);
+	if (sscanf(buf, "%u", &mode) == 1){
+		dio432_set_mode(adev, mode);
 		return count;
 	}else{
 		return -1;
 	}
 }
 
-static DEVICE_ATTR(immediate, S_IRUGO|S_IWUGO, show_immediate, store_immediate);
+static DEVICE_ATTR(mode, S_IRUGO|S_IWUGO, show_mode, store_mode);
+
+
 
 
 static ssize_t show_byte_is_output(
@@ -2124,7 +2127,7 @@ static ssize_t show_byte_is_output(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 byte_is_output = adev->dio432_immediate.byte_is_output;
+	u32 byte_is_output = adev->dio432.byte_is_output;
 
 	return sprintf(buf, "%d,%d,%d,%d\n",
 			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(0),
@@ -2151,7 +2154,7 @@ static ssize_t store_byte_is_output(
 				byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
 			}
 		}
-		adev->dio432_immediate.byte_is_output = byte_is_output;
+		adev->dio432.byte_is_output = byte_is_output;
 		return count;
 	}else{
 		return -1;
@@ -2165,7 +2168,7 @@ static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUGO, show_byte_is_output, store_b
 static const struct attribute *dio432_attrs[] = {
 	&dev_attr_DI32.attr,
 	&dev_attr_DO32.attr,
-	&dev_attr_immediate.attr,
+	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
 	NULL
 };
