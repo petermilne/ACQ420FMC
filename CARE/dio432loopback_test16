@@ -1,0 +1,24 @@
+#!/bin/sh
+# loopback test to self, cabled d0-d15 => d16->d31
+S1=${1:-1}
+
+
+/mnt/local/dio32init $S1 1,1,1,1
+/mnt/local/dio32init $S2 0,0,0,0
+
+for N in 8000 4000 2000 1000 \
+	 0800 0400 0200 0100 \
+	 0080 0040 0020 0010 \
+	 0008 0004 0002 0001
+do
+	echo 0x$N > /dev/acq400.${S1}.knobs/DO32
+	usleep 100000
+	RBK=$(cat /dev/acq400.${S1}.knobs/DI32)
+	if [ "0x$N$N" != "$RBK" ]; then
+		STATUS=ERROR
+	else
+		STATUS=OK
+	fi
+	echo w:$S1:$N r:$RBK $STATUS
+done
+

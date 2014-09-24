@@ -1,0 +1,15 @@
+#!/bin/sh
+SITE=${1:-1}
+OUTPUTS=${2:-1,1,0,0}
+
+set.site $SITE byte_is_output $OUTPUTS
+set.site $SITE mode 2
+
+echo 9 > /proc/sys/kernel/printk
+echo 0 >/proc/sys/kernel/printk_ratelimit
+#echo 100 > /sys/module/acq420fmc/parameters/dio432_immediate_jiffies 
+
+#echo file dio432_drv.c +p >/dev/ddc
+
+set.site 0 fpmux=fpclk
+
