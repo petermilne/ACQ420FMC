@@ -1901,6 +1901,39 @@ static ssize_t store_dacreset(
 
 static DEVICE_ATTR(dacreset, S_IWUGO, show_dacreset, store_dacreset);
 
+static ssize_t show_dacreset_device(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL_RESET(adev));
+
+	return sprintf(buf, "%u\n", (dac_ctrl&ADC_CTRL_ADC_RST) != 0);
+}
+
+static ssize_t store_dacreset_device(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dacreset_device;
+
+	if (sscanf(buf, "%d", &dacreset_device) == 1){
+		if (dacreset_device){
+			ao424_set_spans(adev);
+		}
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dacreset_device, S_IWUGO, show_dacreset_device, store_dacreset_device);
+
+
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -1915,6 +1948,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
+	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	NULL
