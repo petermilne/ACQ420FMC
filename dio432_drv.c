@@ -70,11 +70,10 @@ void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output)
 	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
 }
 
-int dio32_immediate_loop(void *data)
+void dio32_init(struct acq400_dev *adev, int immediate)
 {
-	struct acq400_dev *adev = (struct acq400_dev *)data;
-	unsigned syscon = DIO432_CTRL_LL;
-	int nloop = 0;
+	unsigned syscon = immediate? DIO432_CTRL_LL: 0;
+
 #ifdef FAST_IS_GOOD
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
@@ -92,12 +91,27 @@ int dio32_immediate_loop(void *data)
 	_acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	_acq400wr32(adev, DIO432_DIO_ICR, 1);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_ADC_EN);
+}
+
+int dio32_immediate_loop(void *data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	unsigned syscon = DIO432_CTRL_LL;
+	int nloop = 0;
+	int wake_clients;
+
+	dio32_init(adev, 1);
 
 	for(; !kthread_should_stop(); ++nloop){
+		unsigned do32_cache = adev->dio432_immediate.DO32;
 		_acq400wr32(adev, DIO432_FIFO, adev->dio432_immediate.DO32);
 		adev->dio432_immediate.DI32 = _acq400rd32(adev, DIO432_FIFO);
-		wait_event_interruptible_timeout(
-			adev->w_waitq, kthread_should_stop(),
+		if (wake_clients){
+			wake_up_interruptible(&adev->DMA_READY);
+		}
+		wake_clients = wait_event_interruptible_timeout(
+			adev->w_waitq,
+			do32_cache != adev->dio432_immediate.DO32 || kthread_should_stop(),
 			dio432_immediate_jiffies);
 	}
 }
@@ -113,6 +127,7 @@ void dio432_init_clocked(struct acq400_dev* adev)
 	if (adev->w_task != 0){
 		kthread_stop(adev->w_task);
 	}
+	dio32_init(adev, 0);
 }
 void dio432_set_immediate(struct acq400_dev* adev, int enable)
 {

@@ -27,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.600"
+#define REVID "2.603"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -346,8 +346,16 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
-	/* interesting a little bit of acq420, a little bit of ao420. How to handle? - maybe create 2 devices, one in one out ?*/
-
+	dev_info(DEVP(adev), "dio432_init_defaults() 01");
+	adev->data32 = 1;
+	adev->nchan_enabled = 1;
+	adev->word_size = 4;
+	adev->cursor.hb = adev->hb[0];
+	adev->hitide = 2048;
+	adev->lotide = 0x1fff;
+	adev->sysclkhz = SYSCLK_M66;
+	adev->onStart = ao420_onStart;
+	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
 {
@@ -2719,7 +2727,7 @@ static int acq400_probe(struct platform_device *pdev)
         	acq2006_createDebugfs(adev);
         	return 0;
         }
-        if (IS_AO420(adev)){    /** @@todo AO424? */
+        if (IS_AO420(adev) || IS_DIO432X(adev)){    /** @@todo AO424? */
         	if (allocate_hbm(adev, AO420_NBUFFERS,
         				ao420_buffer_length, DMA_TO_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
