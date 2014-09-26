@@ -764,8 +764,9 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 	acq400wr32(adev, GPG_CTRL, gpg_ctrl);
 }
 
-#define AOSAMPLES2BYTES(adev, xx) ((xx)*AO_CHAN*(adev)->word_size)
-#define AOBYTES2SAMPLES(adev, xx) ((xx)/AO_CHAN/(adev)->word_size)
+#define AOSAMPLES2BYTES(adev, xx) ((xx)*(adev)->nchan_enabled*(adev)->word_size)
+#define AOBYTES2SAMPLES(adev, xx) ((xx)/(adev)->nchan_enabled/(adev)->word_size)
+
 
 #define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
 #define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
@@ -863,5 +864,5 @@ extern const char* devname(struct acq400_dev *adev);
 
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
-void ao424_set_spans(struct acq400_dev* adev);
+int ao424_set_spans(struct acq400_dev* adev);
 #endif /* ACQ420FMC_H_ */

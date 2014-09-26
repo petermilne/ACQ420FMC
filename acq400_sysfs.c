@@ -1923,7 +1923,9 @@ static ssize_t store_dacreset_device(
 
 	if (sscanf(buf, "%d", &dacreset_device) == 1){
 		if (dacreset_device){
-			ao424_set_spans(adev);
+			if (ao424_set_spans(adev)){
+				return -1;
+			}
 		}
 		return count;
 	}else{
@@ -1977,6 +1979,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
+	&dev_attr_dac_encoding.attr,
 	NULL
 };
 
