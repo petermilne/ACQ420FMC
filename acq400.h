@@ -531,7 +531,6 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ43X(adev)	(IS_ACQ435(adev) || IS_ACQ430(adev))
 
 #define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
-#define IS_AO421(adev)  (GET_MOD_ID(adev) == MOD_ID_AO421FMC)
 #define IS_AO424(adev)  (GET_MOD_ID(adev) == MOD_ID_AO424ELF)
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
 #define IS_ACQ2006B(adev)  (IS_ACQ2006SC(adev) && GET_MOD_ID_VERSION(adev) != 0)

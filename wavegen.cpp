@@ -57,6 +57,7 @@ namespace Globs {
 	int site = -1;
 	const char* src_dir = "/usr/local/awgdata/ch";
 	bool loop = false;
+
 };
 
 class ChanDef {
@@ -72,16 +73,32 @@ public:
 	const char* fname;
 	int ndata;
 	int cursor;
+	bool raw_data_unsigned;
 
+	void check_signage() {
+		char knob[128];
+		sprintf(knob, "/dev/acq400.%d.knobs/dac_encoding", Globs::site);
+		FILE* fp = fopen(knob, "r");
+		if (fp == 0){
+			perror(knob);
+		}else{
+			fgets(knob, 128, fp);
+			if (strstr(knob, "unsigned") != 0){
+				raw_data_unsigned = true;
+			}
+		}
+	}
 	ChanDef(int _ichan): ichan(_ichan), cursor(0)
-	{}
+	{
+		check_signage();
+	}
 public:
 	virtual bool fwrite1(FILE* fp) = 0;
 	static int word_size;
 
 	ChanDef(const char* spec)
 	{
-
+		check_signage();
 	}
 
 	static int nchan() {
@@ -137,6 +154,14 @@ int ChanDef::word_size = 2;
 
 template <class T>
 class ChanDefImpl: public ChanDef {
+	void convert_to_unsigned() {
+		int sbit_number = ChanDef::word_size == 2? 15: 31;
+		T sbit = 1<<sbit_number;
+
+		for (int ii = 0; ii < ndata; ++ii){
+			data[ii] ^= sbit;
+		}
+	}
 public:
 	T* data;
 
@@ -195,6 +220,9 @@ public:
 		}
 		fclose(fp);
 
+		if (raw_data_unsigned){
+			convert_to_unsigned();
+		}
 		cerr << "New ChanDef:" <<ndata <<endl;
 		channels[ichan] = this;
 	}

@@ -1899,7 +1899,7 @@ static ssize_t store_dacreset(
 	}
 }
 
-static DEVICE_ATTR(dacreset, S_IWUGO, show_dacreset, store_dacreset);
+static DEVICE_ATTR(dacreset, S_IWUGO|S_IRUGO, show_dacreset, store_dacreset);
 
 static ssize_t show_dacreset_device(
 	struct device * dev,
@@ -1933,6 +1933,20 @@ static ssize_t store_dacreset_device(
 
 static DEVICE_ATTR(dacreset_device, S_IWUGO, show_dacreset_device, store_dacreset_device);
 
+static ssize_t show_dac_encoding(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "%s\n",
+		IS_AO420(adev)? "signed": IS_AO424(adev)? "unsigned": "unknown");
+}
+
+
+static DEVICE_ATTR(dac_encoding, S_IRUGO, show_dac_encoding, 0);
+
 
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
@@ -1951,6 +1965,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
+	&dev_attr_dac_encoding.attr,
 	NULL
 };
 
