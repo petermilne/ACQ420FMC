@@ -281,6 +281,8 @@ extern int event_isr_msec;
 
 enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
+#define AO424_MAXCHAN		32
+
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
 {
 	switch(mode){
@@ -456,6 +458,16 @@ struct acq400_dev {
 		unsigned DI32;
 		unsigned DO32;
 	} dio432;
+
+	struct AO424 {
+		union {
+			volatile u32 lw[AO424_MAXCHAN];
+			struct {
+				u16 ao424_spans[AO424_MAXCHAN];
+				u16 ao424_initvals[AO424_MAXCHAN];
+			} ch;
+		} u;
+	} ao424_device_settings;
 };
 
 
@@ -846,7 +858,7 @@ extern int a400fs_init(void);
 extern void a400fs_exit(void);
 extern const char* devname(struct acq400_dev *adev);
 
-#define AO424_MAXCHAN		32
+
 #define AO424_DAC_CTRL_SPAN	(1<<5)
 
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)

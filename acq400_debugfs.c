@@ -151,6 +151,30 @@ void bolo8_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(B8_ODA_DATA);
 }
 
+/* ao424 ch knobs: working with a cache buffer, use regular accessor */
+char * _ao424_create_ch_knobs(
+	struct acq400_dev* adev, const char* name, u16 values[],
+	char* pcursor)
+{
+	struct dentry* dir = debugfs_create_dir(name, adev->debug_dir);
+	int ic;
+
+	for (ic = 0; ic < AO424_MAXCHAN; ++ic){
+		int nc = sprintf(pcursor, "%d", ic+1);
+		debugfs_create_x16(pcursor, S_IWUGO|S_IRUGO, dir, values+ic);
+		pcursor += nc+1;
+	}
+
+
+	return pcursor;
+}
+void ao424_create_spans(struct acq400_dev* adev, char* pcursor)
+{
+	pcursor = _ao424_create_ch_knobs(adev, "spans",
+			adev->ao424_device_settings.u.ch.ao424_spans, pcursor);
+	_ao424_create_ch_knobs(adev, "init",
+			adev->ao424_device_settings.u.ch.ao424_initvals, pcursor);
+}
 void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE(DAC_CTRL);
@@ -168,6 +192,7 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	}
 	if (IS_AO424(adev)){
 		DBG_REG_CREATE(DAC_424_MODE);
+		ao424_create_spans(adev, pcursor);
 	}
 }
 

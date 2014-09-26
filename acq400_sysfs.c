@@ -1974,6 +1974,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_dacreset.attr,
+	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	NULL
