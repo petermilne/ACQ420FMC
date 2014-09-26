@@ -121,7 +121,7 @@ int good_sites[MAXDEVICES];
 int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
 
-int ao420_dma_threshold = 999999;
+int ao420_dma_threshold = 32;
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
@@ -138,7 +138,7 @@ MODULE_PARM_DESC(event_isr_msec, "event isr poll rate (remove when actual interr
 
 int ao420_buffer_length = AO420_BUFFERLEN;
 module_param(ao420_buffer_length, int, 0644);
-MODULE_PARM_DESC(ao420_dma_threshold, "AWG buffer length");
+MODULE_PARM_DESC(ao420_buffer_length, "AWG buffer length");
 
 
 // @@todo pgm: crude: index by site, index from 0
