@@ -73,9 +73,12 @@ public:
 	const char* fname;
 	int ndata;
 	int cursor;
-	bool raw_data_unsigned;
+	static bool raw_data_unsigned;
+	static bool raw_data_signage_check_done;
 
-	void check_signage() {
+	static void check_signage() {
+		if (raw_data_signage_check_done) return;
+
 		char knob[128];
 		sprintf(knob, "/dev/acq400.%d.knobs/dac_encoding", Globs::site);
 		FILE* fp = fopen(knob, "r");
@@ -84,9 +87,12 @@ public:
 		}else{
 			fgets(knob, 128, fp);
 			if (strstr(knob, "unsigned") != 0){
+				cerr << "dac uses unsigned data" << endl;
 				raw_data_unsigned = true;
 			}
+			raw_data_signage_check_done = true;
 		}
+		fclose(fp);
 	}
 	ChanDef(int _ichan): ichan(_ichan), cursor(0)
 	{
@@ -151,12 +157,13 @@ public:
 };
 
 int ChanDef::word_size = 2;
+bool ChanDef::raw_data_unsigned;
+bool ChanDef::raw_data_signage_check_done;
 
 template <class T>
 class ChanDefImpl: public ChanDef {
 	void convert_to_unsigned() {
-		int sbit_number = ChanDef::word_size == 2? 15: 31;
-		T sbit = 1<<sbit_number;
+		T sbit = 1<<(ChanDef::word_size == 2? 15: 31);
 
 		for (int ii = 0; ii < ndata; ++ii){
 			data[ii] ^= sbit;
