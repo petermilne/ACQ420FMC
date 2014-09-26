@@ -1661,7 +1661,7 @@ static void ao420_flushImmediate(struct acq400_dev *adev)
 {
 	unsigned *src = adev->AO_immediate._u.lw;
 	void *fifo = adev->dev_virtaddr + AXI_FIFO;
-	int imax = AO_CHAN/2;
+	int imax = adev->nchan_enabled/2;
 	int ii = 0;
 
 	for (ii = 0; ii < imax; ++ii){
@@ -1734,6 +1734,34 @@ MAKE_DAC_IMMEDIATE(01, 1);
 MAKE_DAC_IMMEDIATE(02, 2);
 MAKE_DAC_IMMEDIATE(03, 3);
 MAKE_DAC_IMMEDIATE(04, 4);
+MAKE_DAC_IMMEDIATE(05, 5);
+MAKE_DAC_IMMEDIATE(06, 6);
+MAKE_DAC_IMMEDIATE(07, 7);
+MAKE_DAC_IMMEDIATE(08, 8);
+MAKE_DAC_IMMEDIATE(09, 9);
+MAKE_DAC_IMMEDIATE(10, 10);
+MAKE_DAC_IMMEDIATE(11, 11);
+MAKE_DAC_IMMEDIATE(12, 12);
+MAKE_DAC_IMMEDIATE(13, 13);
+MAKE_DAC_IMMEDIATE(14, 14);
+MAKE_DAC_IMMEDIATE(15, 15);
+MAKE_DAC_IMMEDIATE(16, 16);
+MAKE_DAC_IMMEDIATE(17, 17);
+MAKE_DAC_IMMEDIATE(18, 18);
+MAKE_DAC_IMMEDIATE(19, 19);
+MAKE_DAC_IMMEDIATE(20, 20);
+MAKE_DAC_IMMEDIATE(21, 21);
+MAKE_DAC_IMMEDIATE(22, 22);
+MAKE_DAC_IMMEDIATE(23, 23);
+MAKE_DAC_IMMEDIATE(24, 24);
+MAKE_DAC_IMMEDIATE(25, 25);
+MAKE_DAC_IMMEDIATE(26, 26);
+MAKE_DAC_IMMEDIATE(27, 27);
+MAKE_DAC_IMMEDIATE(28, 28);
+MAKE_DAC_IMMEDIATE(29, 29);
+MAKE_DAC_IMMEDIATE(30, 30);
+MAKE_DAC_IMMEDIATE(31, 31);
+MAKE_DAC_IMMEDIATE(32, 32);
 
 
 static ssize_t show_playloop_length(
@@ -1973,6 +2001,38 @@ static const struct attribute *ao420_attrs[] = {
 
 
 static const struct attribute *ao424_attrs[] = {
+	&dev_attr_AO_01.attr,
+	&dev_attr_AO_02.attr,
+	&dev_attr_AO_03.attr,
+	&dev_attr_AO_04.attr,
+	&dev_attr_AO_05.attr,
+	&dev_attr_AO_06.attr,
+	&dev_attr_AO_07.attr,
+	&dev_attr_AO_08.attr,
+	&dev_attr_AO_09.attr,
+	&dev_attr_AO_10.attr,
+	&dev_attr_AO_11.attr,
+	&dev_attr_AO_12.attr,
+	&dev_attr_AO_13.attr,
+	&dev_attr_AO_14.attr,
+	&dev_attr_AO_15.attr,
+	&dev_attr_AO_16.attr,
+	&dev_attr_AO_17.attr,
+	&dev_attr_AO_18.attr,
+	&dev_attr_AO_19.attr,
+	&dev_attr_AO_20.attr,
+	&dev_attr_AO_21.attr,
+	&dev_attr_AO_22.attr,
+	&dev_attr_AO_23.attr,
+	&dev_attr_AO_24.attr,
+	&dev_attr_AO_25.attr,
+	&dev_attr_AO_26.attr,
+	&dev_attr_AO_27.attr,
+	&dev_attr_AO_28.attr,
+	&dev_attr_AO_29.attr,
+	&dev_attr_AO_30.attr,
+	&dev_attr_AO_31.attr,
+	&dev_attr_AO_32.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_dacreset.attr,

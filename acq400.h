@@ -467,6 +467,7 @@ struct acq400_dev {
 				u16 ao424_initvals[AO424_MAXCHAN];
 			} ch;
 		} u;
+		u16 ao424_immediates[AO424_MAXCHAN];
 	} ao424_device_settings;
 };
 
