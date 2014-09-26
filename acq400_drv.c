@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.604"
+#define REVID "2.606"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -352,11 +352,11 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	ao424_set_spans(adev);
 
 	adev->data32 = 0;
-	adev->nchan_enabled = 24;
+	adev->nchan_enabled = 32;
 	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
 	adev->hitide = 2048;
-	adev->lotide = 0x1fff;
+	adev->lotide = 0x100;
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
 }
