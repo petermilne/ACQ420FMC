@@ -1693,7 +1693,9 @@ static ssize_t store_dac_immediate(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int chx;
 
-	chan = ao420_physChan(chan);
+	if (IS_AO420(adev)){
+		chan = ao420_physChan(chan);
+	}
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
 		unsigned cr = acq400rd32(adev, DAC_CTRL);
 		adev->AO_immediate._u.ch[chan] = chx;
