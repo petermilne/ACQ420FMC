@@ -312,11 +312,18 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 
 	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
 	adev->data32 = 1;
-	adev->nchan_enabled = is_acq430? 8: 32;	// 32 are you sure?.
+	if (IS_ACQ430(adev)){
+		adev->nchan_enabled = 4;
+	}else if (IS_ACQ437(adev)){
+		adev->nchan_enabled = 16;
+	}else{
+		adev->nchan_enabled = 32;	// 32 are you sure?.
+	}
 	adev->word_size = 4;
 	if (is_acq430){
 		acq400wr32(adev, ACQ435_MODE, ACQ430_BANKSEL);
 	}
+	// @@todo ACQ437_BANKSEL ?
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	adev->sysclkhz = SYSCLK_M100;

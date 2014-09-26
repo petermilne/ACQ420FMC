@@ -162,6 +162,7 @@ customize_acq420()
 
 BOLO8_SITES=""
 ACQ425_SITES=""
+ACQ437_SITES=""
 
 
 build_knobs_device() {
@@ -187,7 +188,14 @@ build_knobs_device() {
 		customize_acq420 $site;;
 	FF)    
 		return;;
-	2|3)
+	2|3|6)
+		case $mtype in
+		6)
+			if [ "x$ACQ437_SITES" != "x" ]; then
+				ACQ437_SITES="${ACQ437_SITES} "
+			fi		
+		ACQ437_SITES="${ACQ437_SITES}$site"
+		esac
 		echo WORKAROUND: clear FIFERR
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
@@ -268,6 +276,12 @@ build_knobs() {
 		#		BLEN=4194304
 		#		NBUF=128
 	fi
+	if [ "x${ACQ437_SITES}" != "x" ]; then
+		/usr/local/bin/acq437.init ${ACQ437_SITES}
+		# use /mnt/local/acq420_custom
+		#		BLEN=4194304
+		#		NBUF=128
+	fi	
 }
 
 create_set_fanspeed() {
