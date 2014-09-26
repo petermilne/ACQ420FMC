@@ -25,17 +25,18 @@
 
 #include "dmaengine.h"
 
-int dio432_immediate_jiffies = 1;
-module_param(dio432_immediate_jiffies, int, 0644);
-MODULE_PARM_DESC(ndevices, "poll interval, immediate mode");
 
-unsigned ao424_spans[AO424_MAXCHAN];
-module_param_array(ao424_spans, unsigned, NULL, 0644);
+typedef unsigned short ushort;
+
+unsigned short ao424_spans[AO424_MAXCHAN];
+module_param_array(ao424_spans, ushort, NULL, 0644);
 MODULE_PARM_DESC(ao424_spans, "range settings");
 
-unsigned ao424_initvals[AO424_MAXCHAN];
-module_param_array(ao424_initvals, unsigned, NULL, 0644);
+unsigned short ao424_initvals[AO424_MAXCHAN];
+module_param_array(ao424_initvals, ushort, NULL, 0644);
 MODULE_PARM_DESC(ao424_initvals, "initial values");
+
+#define SPAN_WORDS	(sizeof(ao424_spans)/sizeof(unsigned))
 
 
 void ao424_set_spans(struct acq400_dev* adev)
@@ -45,11 +46,11 @@ void ao424_set_spans(struct acq400_dev* adev)
 	acq400wr32(adev, DAC_INT_CSR, 0);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
-	write32(adev->dev_virtaddr+AXI_FIFO, ao424_spans, AO424_MAXCHAN);
-	write32(adev->dev_virtaddr+AXI_FIFO, ao424_initvals, AO424_MAXCHAN);
+	write32(adev->dev_virtaddr+AXI_FIFO, (volatile u32*)ao424_spans, SPAN_WORDS);
+	write32(adev->dev_virtaddr+AXI_FIFO, (volatile u32*)ao424_initvals, SPAN_WORDS);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
 
-	while((stat = acq400rd32(adev, DAC_FIFO_STA))&AO424_DAC_FIFO_STA_SWC) == 0){
+	while(((stat = acq400rd32(adev, DAC_FIFO_STA))&AO424_DAC_FIFO_STA_SWC) == 0){
 		yield();
 	}
 	acq400wr32(adev, DAC_FIFO_STA, stat);
