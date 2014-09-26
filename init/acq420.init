@@ -63,7 +63,8 @@ build_nodes() {
 			build_hb ${MAJOR} ${NAME}
 			
 			case $(cat /dev/acq400.$ID.knobs/module_type) in
-			40)			
+			40)	
+			41)		
 				mknod /dev/${NAME}.dac c  ${MAJOR} 7
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
 				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;
