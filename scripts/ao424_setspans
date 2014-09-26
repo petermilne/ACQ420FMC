@@ -1,0 +1,12 @@
+#!/bin/sh
+
+SITE=${1:-2} 
+SPAN=${2:-0}
+
+for sp in /dev/acq400.${SITE}.spans/*
+do
+	set.sys $sp $SPAN
+done
+
+set.sys /dev/acq400.${SITE}.knobs/dacreset_device 1
+
