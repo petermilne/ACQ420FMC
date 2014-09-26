@@ -1,0 +1,12 @@
+#!/bin/sh
+
+SITE=${1:-2} 
+INIT=${2:-0}
+
+for ch in /dev/acq400.${SITE}.init/*
+do
+	set.sys $ch $INIT
+done
+
+set.sys /dev/acq400.${SITE}.knobs/dacreset_device 1
+
