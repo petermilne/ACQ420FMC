@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.606"
+#define REVID "2.607"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -2162,7 +2162,7 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 		return 0;
 	}
 	while(adev->AO_playloop.length != 0 &&
-	      (headroom = ao420_getFifoHeadroom(adev)) > AO420_FILL_THRESHOLD){
+	      (headroom = ao420_getFifoHeadroom(adev)) > ao420_getFillThreshold(adev)){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
 		remaining = min(remaining, headroom);

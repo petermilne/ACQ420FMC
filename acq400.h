@@ -758,16 +758,23 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 
 #define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
 #define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
+#define AO424_MAX_FIFO_SAMPLES		512
 
 static inline unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
-	return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
+	if (IS_AO420(adev)){
+		return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
 					AO420_MAX_FIFO_SAMPLES_PACKED;
+	}else{
+		return AO424_MAX_FIFO_SAMPLES;
+	}
 }
-//#define AO420_MAX_FILL_BLOCK	0x400000		/* BYTES, SWAG  */
-#define AO420_FILL_THRESHOLD	0x400		/* fill to here */
 
+static inline unsigned ao420_getFillThreshold(struct acq400_dev *adev)
+{
+	return IS_AO420(adev)? 0x400: 0x10;
+}
 #define MAX_LOTIDE(adev) \
-	(ao420_getFifoMaxSamples(adev) - AO420_FILL_THRESHOLD*2)
+	(ao420_getFifoMaxSamples(adev) - ao420_getFillThreshold(adev)*2)
 
 static inline int ao420_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
