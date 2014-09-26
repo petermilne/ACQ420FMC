@@ -160,7 +160,7 @@ char * _ao424_create_ch_knobs(
 	int ic;
 
 	for (ic = 0; ic < AO424_MAXCHAN; ++ic){
-		int nc = sprintf(pcursor, "%d", ic+1);
+		int nc = sprintf(pcursor, "%02d", ic+1);
 		debugfs_create_x16(pcursor, S_IWUGO|S_IRUGO, dir, values+ic);
 		pcursor += nc+1;
 	}
