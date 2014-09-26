@@ -103,7 +103,7 @@ public:
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
 				Globs::site, Globs::loop? "awgc": "awg");
-		FILE *fpout = fopen(fn, "a");
+		FILE *fpout = fopen(fn, "r+");
 		if (fpout == 0){
 			perror(fn);
 			exit(1);
