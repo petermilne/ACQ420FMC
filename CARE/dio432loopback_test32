@@ -3,9 +3,10 @@
 S1=${1:-2}
 S2=${2:-1}
 
+echo loopback test 2xDIO432, SITE:$S1 => SITE:$S2
 
-/mnt/local/dio32init $S1 1,1,1,1
-/mnt/local/dio32init $S2 0,0,0,0
+/usr/local/CARE/dio32init $S1 1,1,1,1
+/usr/local/CARE/dio32init $S2 0,0,0,0
 
 for N in 0x80000000 0x40000000 0x20000000 0x10000000 \
 	0x08000000 0x04000000 0x02000000 0x01000000 \
