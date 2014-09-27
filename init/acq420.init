@@ -255,11 +255,12 @@ build_site0() {
 }
 
 build_knobs() {
-	dir=/sys/bus/platform/devices/40000000.acq2006sc
+	spd=/sys/bus/platform/devices
+	dir=$spd/40000000.acq2006sc
 	if [ -e ${dir} ]; then
 		build_site0 ${dir}
 	fi
-	for dir in /sys/bus/platform/devices/*acq4?0fmc
+	for dir in $spd/*acq4?0fmc $spd/*acq400pmod
 	do
 		if [ -e ${dir}/site ]; then
 			install_default_cal $(cat ${dir}/site)

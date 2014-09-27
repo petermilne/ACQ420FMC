@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.615"
+#define REVID "2.616"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -2525,14 +2525,15 @@ struct file_operations acq400_fops = {
 
 #ifdef CONFIG_OF
 static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
-        { .compatible = "D-TACQ,acq400fmc", },
-        { .compatible = "D-TACQ,acq420fmc", },
-        { .compatible = "D-TACQ,acq430fmc", },
-        { .compatible = "D-TACQ,acq435elf", },
-        { .compatible = "D-TACQ,ao420fmc",  },
+        { .compatible = "D-TACQ,acq400fmc"  },
+        { .compatible = "D-TACQ,acq420fmc"  },
+        { .compatible = "D-TACQ,acq430fmc"  },
+        { .compatible = "D-TACQ,acq435elf"  },
+        { .compatible = "D-TACQ,ao420fmc"   },
         { .compatible = "D-TACQ,acq2006sc"  },
         { .compatible = "D-TACQ,acq1001sc"  },
         { .compatible = "D-TACQ,acq1002sc"  },
+        { .compatible = "D-TACQ,acq400pmod" },
         { /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xfifodma_of_match);
