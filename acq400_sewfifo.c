@@ -39,6 +39,10 @@ int sew_fifo_msec = 10;
 module_param(sew_fifo_msec, int, 0644);
 MODULE_PARM_DESC(ndevices, "rate to service sew_fifo at");
 
+int sew_stats[4];
+module_param_array(sew_stats, int, NULL, 0444);
+MODULE_PARM_DESC(sew_stats, "payload per fifo_work update entries in [0] mean the wf is faster than the data");
+
 #define SEW_FIFO_LEN	4096
 
 #define buf_empty(cb)	((cb)->head == (cb)->tail)
@@ -77,6 +81,8 @@ int acq400_sew_fifo_work(void *data)
 	unsigned modulo_count = 0;
 	wait_queue_head_t local_waitq;
 
+	memset(sew_stats, 0, sizeof(sew_stats));
+
 	init_waitqueue_head(&local_waitq);
 	for (; !kthread_should_stop();
 		xx.bytes[1] = xx.bytes[2] = xx.bytes[3] = PAYLOAD_EMPTY,
@@ -91,6 +97,7 @@ int acq400_sew_fifo_work(void *data)
 				xx.bytes[ipay] = buf_get(&sf->sf_buf);
 			}
 			acq400wr32(adev, sf->regoff, xx.lw);
+			sew_stats[payload_count]++;
 		}else{
 			break;
 		}
