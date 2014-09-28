@@ -1,0 +1,146 @@
+/*
+ * acq400_sewfifo.c
+ *
+ *  Created on: 28 Sep 2014
+ *      Author: pgm
+ */
+/* ------------------------------------------------------------------------- */
+/* acq400_sewfifo.c  D-TACQ ACQ400 FMC  DRIVER		                     */
+/* ------------------------------------------------------------------------- */
+/*   Copyright (C) 2014 Peter Milne, D-TACQ Solutions Ltd                    *
+ *                      <peter dot milne at D hyphen TACQ dot com>           *
+ * Copyright 2002, 2003 Jonathan Corbet <corbet@lwn.net>
+ * This file may be redistributed under the terms of the GNU GPL.
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or modify     *
+ *  it under the terms of Version 2 of the GNU General Public License        *
+ *  as published by the Free Software Foundation;                            *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program; if not, write to the Free Software              *
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
+/* ------------------------------------------------------------------------- */
+
+
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <asm/uaccess.h>	/* copy_to_user */
+
+#include "acq400.h"
+
+
+int sew_fifo_msec = 10;
+module_param(sew_fifo_msec, int, 0644);
+MODULE_PARM_DESC(ndevices, "rate to service sew_fifo at");
+
+#define SEW_FIFO_LEN	4096
+
+#define buf_empty(cb)	((cb)->head == (cb)->tail)
+#define buf_count(cb)   CIRC_CNT((cb)->head, (cb)->tail, SEW_FIFO_LEN)
+#define buf_space(cb)	CIRC_SPACE((cb)->head, (cb)->tail, SEW_FIFO_LEN)
+#define incr(p)		(((p)+1)&(SEW_FIFO_LEN-1))
+
+#define PAYLOAD_EMPTY	' '
+
+static inline void buf_put(struct circ_buf* cb, u8 xx)
+{
+	cb->buf[cb->head] = xx;
+	cb->head = incr(cb->head);
+}
+
+static inline u8 buf_get(struct circ_buf* cb)
+{
+	unsigned char xx = cb->buf[cb->tail];
+	cb->tail = incr(cb->tail);
+	return xx;
+}
+
+int acq400_sew_fifo_work(void *data)
+/* runs at fixed interval sew_fifo_msec
+ * dequeues up to 3 bytes each interval.
+ * embeds 4 bytes every time.
+ * b[0] = count:6|payload_count:2, b[1], b[2], b[3] = payload
+ */
+{
+	struct SewFifo* sf = (struct SewFifo*)data;
+	struct acq400_dev* adev = sf->adev;
+	union {
+		u32 lw;
+		u8 bytes[4];
+	} xx = {};
+	unsigned modulo_count = 0;
+	wait_queue_head_t local_waitq;
+
+	init_waitqueue_head(&local_waitq);
+	for (; !kthread_should_stop();
+		xx.bytes[1] = xx.bytes[2] = xx.bytes[3] = PAYLOAD_EMPTY,
+		modulo_count = ++modulo_count & 0x3f){
+
+		if (wait_event_interruptible_timeout(
+			local_waitq, false, msecs_to_jiffies(sew_fifo_msec)) == 0){
+			int payload_count = min(buf_count(&sf->sf_buf), 3);
+			int ipay;
+			xx.bytes[0] = modulo_count<<2 | payload_count;
+			for (ipay = 1; ipay <= payload_count; ++ipay){
+				xx.bytes[ipay] = buf_get(&sf->sf_buf);
+			}
+			acq400wr32(adev, sf->regoff, xx.lw);
+		}else{
+			break;
+		}
+	}
+	return 0;
+}
+
+void acq400_sew_fifo_init(struct acq400_dev* adev, int ix)
+{
+	struct SewFifo* sf = &adev->sewFifo[ix];
+
+	init_waitqueue_head(&sf->sf_waitq);
+	if (sf->sf_buf.buf == 0){
+		sf->sf_buf.buf = kzalloc(SEW_FIFO_LEN, GFP_KERNEL);
+	}
+	sf->sf_buf.head = sf->sf_buf.tail = 0;
+	sf->adev = adev;
+	sf->regoff = ix? SW_EMB_WORD2: SW_EMB_WORD1;
+	sf->sf_task = kthread_run(acq400_sew_fifo_work, sf,
+						"%s.sf", devname(adev));
+}
+int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix)
+{
+	struct SewFifo* sf = &adev->sewFifo[ix];
+	kthread_stop(sf->sf_task);
+	sf->sf_task = 0;
+	return 0;
+}
+int acq400_sew_fifo_write_bytes(
+		struct acq400_dev* adev, int ix, const char __user *buf, size_t count)
+{
+	struct SewFifo* sf = &adev->sewFifo[ix];
+	unsigned char tmp;
+	int iwrite = 0;
+	int rc;
+	for(; iwrite < count; ++iwrite){
+		if (get_user(tmp, buf+iwrite)){
+			return -EFAULT;
+		}
+		/* @@remove me: loop not required? */
+		while (!buf_space(&sf->sf_buf)){
+			rc = wait_event_interruptible_timeout(
+					sf->sf_waitq,
+					buf_space(&sf->sf_buf),
+					2*msecs_to_jiffies(sew_fifo_msec));
+			if (rc < 0){
+				return -ERESTARTSYS;
+			}
+		}
+		buf_put(&sf->sf_buf, tmp);
+	}
+	return iwrite;
+}
