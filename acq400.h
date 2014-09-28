@@ -35,6 +35,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 
+#include <linux/circ_buf.h>
 #include <linux/debugfs.h>
 #include <linux/poll.h>
 //#include <mach/pl330.h>
@@ -260,6 +261,8 @@
 #define AO420_MINOR_HB0_AWG_ONCE	9
 #define AO420_MINOR_HB0_AWG_LOOP	10
 #define ACQ420_MINOR_RESERVE_BLOCKS	11
+#define ACQ420_MINOR_SEW1_FIFO	12
+#define ACQ420_MINOR_SEW2_FIFO	13
 #define ACQ420_MINOR_BUF	1000
 #define ACQ420_MINOR_BUF2	2000
 #define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2
@@ -283,6 +286,8 @@ extern int event_isr_msec;
 enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define AO424_MAXCHAN		32
+
+
 
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
 {
@@ -470,6 +475,15 @@ struct acq400_dev {
 		} u;
 		u16 ao424_immediates[AO424_MAXCHAN];
 	} ao424_device_settings;
+
+	struct SewFifo {
+		struct mutex sf_mutex;
+		struct circ_buf sf_buf;
+		struct task_struct* sf_task;
+		wait_queue_head_t sf_waitq;
+		struct acq400_dev* adev;
+		int regoff;
+	} sewFifo[2];
 };
 
 
@@ -868,4 +882,10 @@ extern const char* devname(struct acq400_dev *adev);
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
 int ao424_set_spans(struct acq400_dev* adev);
+
+void acq400_sew_fifo_init(struct acq400_dev* adev, int ix);
+int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix);
+int acq400_sew_fifo_write_bytes(
+		struct acq400_dev* adev, int ix, const char __user *buf, size_t count);
+
 #endif /* ACQ420FMC_H_ */

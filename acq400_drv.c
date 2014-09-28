@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.616"
+#define REVID "2.617"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1501,6 +1501,7 @@ int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
        return 0;
 }
 
+
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
@@ -1530,7 +1531,51 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
 
+	int rc = acq400_sew_fifo_write_bytes(adev, ix, buf, count);
+
+	if (rc > 0){
+		*f_pos += rc;
+	}
+	return rc;
+}
+int acq420_sew_fifo_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	return acq400_sew_fifo_destroy(adev, ix);
+}
+
+int acq420_sew_fifo_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_sew_fifo = {
+			.write = acq420_sew_fifo_write,
+			.release = acq420_sew_fifo_release,
+	};
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	int busy;
+
+	if (mutex_lock_interruptible(&adev->awg_mutex)) {
+		return -EINTR;
+	}
+	busy = adev->sewFifo[ix].sf_task != 0;
+	if (!busy){
+		acq400_sew_fifo_init(adev, ix);
+	}
+	mutex_unlock(&adev->awg_mutex);
+	if (busy){
+		return -EBUSY;
+	}
+
+	file->f_op = &acq420_sew_fifo;
+	return 0;
+}
 
 int streamdac_data_loop(void *data)
 {
@@ -2021,6 +2066,9 @@ int acq400_open(struct inode *inode, struct file *file)
         		return ao420_open_awg(inode, file);
         	case ACQ420_MINOR_RESERVE_BLOCKS:
         		return acq420_reserve_open(inode, file);
+        	case ACQ420_MINOR_SEW1_FIFO:
+        	case ACQ420_MINOR_SEW2_FIFO:
+        		return acq420_sew_fifo_open(inode, file);
         	default:
         		return -ENODEV;
         	}
@@ -2624,6 +2672,8 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         adev->pdev = pdev;
         mutex_init(&adev->mutex);
         mutex_init(&adev->awg_mutex);
+        mutex_init(&adev->sewFifo[0].sf_mutex);
+        mutex_init(&adev->sewFifo[1].sf_mutex);
         adev->fifo_histo = kzalloc(FIFO_HISTO_SZ*sizeof(u32), GFP_KERNEL);
 
         INIT_LIST_HEAD(&adev->EMPTIES);
