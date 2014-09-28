@@ -81,12 +81,12 @@ int acq400_sew_fifo_work(void *data)
 	unsigned modulo_count = 0;
 	wait_queue_head_t local_waitq;
 
+	init_waitqueue_head(&local_waitq);
 	memset(sew_stats, 0, sizeof(sew_stats));
 
-	init_waitqueue_head(&local_waitq);
 	for (; !kthread_should_stop();
 		xx.bytes[1] = xx.bytes[2] = xx.bytes[3] = PAYLOAD_EMPTY,
-		modulo_count = ++modulo_count & 0x3f){
+		modulo_count = (modulo_count+1)&0x3f){
 
 		if (wait_event_interruptible_timeout(
 			local_waitq, false, msecs_to_jiffies(sew_fifo_msec)) == 0){
@@ -98,6 +98,7 @@ int acq400_sew_fifo_work(void *data)
 			}
 			acq400wr32(adev, sf->regoff, xx.lw);
 			sew_stats[payload_count]++;
+			wake_up_interruptible(&sf->sf_waitq);
 		}else{
 			break;
 		}
@@ -137,15 +138,13 @@ int acq400_sew_fifo_write_bytes(
 		if (get_user(tmp, buf+iwrite)){
 			return -EFAULT;
 		}
-		/* @@remove me: loop not required? */
-		while (!buf_space(&sf->sf_buf)){
-			rc = wait_event_interruptible_timeout(
-					sf->sf_waitq,
-					buf_space(&sf->sf_buf),
-					2*msecs_to_jiffies(sew_fifo_msec));
-			if (rc < 0){
-				return -ERESTARTSYS;
-			}
+
+		rc = wait_event_interruptible_timeout(
+				sf->sf_waitq,
+				buf_space(&sf->sf_buf),
+				20*msecs_to_jiffies(sew_fifo_msec));
+		if (rc < 0){
+			return -ERESTARTSYS;
 		}
 		buf_put(&sf->sf_buf, tmp);
 	}
