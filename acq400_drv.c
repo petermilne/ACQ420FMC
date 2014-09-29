@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.620"
+#define REVID "2.622"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -2836,6 +2836,7 @@ static int acq400_probe(struct platform_device *pdev)
   		switch(GET_MOD_ID(adev)){
   		case MOD_ID_ACQ430FMC:
   		case MOD_ID_ACQ435ELF:
+  		case MOD_ID_ACQ437ELF:
   			acq43X_init_defaults(adev);
   			break;
   		case MOD_ID_AO420FMC:
