@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.623"
+#define REVID "2.629"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -333,6 +333,9 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
+static void measure_ao_fifo(struct acq400_dev *adev);
+
+
 static void ao420_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
@@ -344,8 +347,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->nchan_enabled = 4;
 	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
-	adev->hitide = 2048;
-	adev->lotide = 0x1fff;
+	measure_ao_fifo(adev);
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
 }
@@ -362,8 +364,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->nchan_enabled = 32;
 	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
-	adev->hitide = 2048;
-	adev->lotide = 0x100;
+	measure_ao_fifo(adev);
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
 }
@@ -605,6 +606,8 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 void ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
+
+	measure_ao_fifo(adev);
 
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
@@ -2144,6 +2147,10 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
 }
 
+static void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
+{
+	(adev->fifo_histo[samples >> adev->ao42x.hshift])++;
+}
 
 
 void write32(volatile u32* to, volatile u32* from, int nwords)
@@ -2205,6 +2212,29 @@ void _ao420_stop(struct acq400_dev* adev)
 
 #define MIN_DMA	256
 
+void measure_ao_fifo(struct acq400_dev *adev)
+{
+	unsigned osam = 0xffffffff;
+	unsigned sam;
+
+	ao420_reset_fifo(adev);
+	for (; (sam = ao420_getFifoSamples(adev)) != osam; osam = sam){
+		ao420_write_fifo(adev, 0, 16384);
+	}
+
+
+	adev->ao42x.max_fifo_samples = sam;
+	adev->hitide = sam - 32;
+	adev->lotide = 3*sam/4;
+
+	for (adev->ao42x.hshift = 0;
+		(sam >> adev->ao42x.hshift) > 256; ++adev->ao42x.hshift)
+		;
+	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u",
+			sam, adev->ao42x.hshift);
+
+	ao420_reset_fifo(adev);
+}
 
 static int ao420_fill_fifo(struct acq400_dev* adev)
 /* returns 1 if further interrupts are required */
@@ -2275,8 +2305,9 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 		u32 start_samples = ao420_getFifoSamples(adev);
 		if (ao420_fill_fifo(adev)){
 			ao420_enable_interrupt(adev);
+
 		}
-		add_fifo_histo(adev, start_samples);
+		add_fifo_histo_ao42x(adev, start_samples);
 	}
 
 	return IRQ_HANDLED;
@@ -2285,10 +2316,10 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 void ao420_getDMA(struct acq400_dev* adev)
 {
 	if (adev->dma_chan[0] == 0 &&
-			ao420_dma_threshold < ao420_getFifoMaxSamples(adev)){
+			ao420_dma_threshold < adev->ao42x.max_fifo_samples){
 		if (get_dma_channels(adev)){
 			dev_err(DEVP(adev), "no dma chan");
-			ao420_dma_threshold = ao420_getFifoMaxSamples(adev);
+			ao420_dma_threshold = adev->ao42x.max_fifo_samples;
 		}else{
 			if (adev->dma_chan[0] == 0){
 				dev_err(DEVP(adev), "BAD DMA CHAN!");

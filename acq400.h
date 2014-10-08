@@ -241,7 +241,7 @@
 
 /* AO420FMC */
 
-#define DAC_FIFO_SAMPLES_MASK	0x00007fff
+#define DAC_FIFO_SAMPLES_MASK	0x0000ffff
 
 /*
  *  Minor encoding
@@ -426,6 +426,10 @@ struct acq400_dev {
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 	} rt;
 
+	struct AO42x {
+		unsigned max_fifo_samples;
+		unsigned hshift;		/* scale to histo 256 elems */
+	} ao42x;
 	struct AO_Immediate {
 		union {
 			short ch[AO_CHAN];
@@ -785,37 +789,24 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 #define AOBYTES2SAMPLES(adev, xx) ((xx)/(adev)->nchan_enabled/(adev)->word_size)
 
 
-#define AO420_MAX_FIFO_SAMPLES_PACKED	0x00003fff
-#define AO420_MAX_FIFO_SAMPLES_UNPACKED	0x00001fff
-#define AO424_MAX_FIFO_SAMPLES		512
-
-static inline unsigned ao420_getFifoMaxSamples(struct acq400_dev* adev) {
-	if (IS_AO420(adev)){
-		return adev->data32? AO420_MAX_FIFO_SAMPLES_UNPACKED:
-					AO420_MAX_FIFO_SAMPLES_PACKED;
-	}else{
-		return AO424_MAX_FIFO_SAMPLES;
-	}
-}
-
 static inline unsigned ao420_getFillThreshold(struct acq400_dev *adev)
 {
-	return IS_AO420(adev)? 0x400: 0x10;
+	return adev->ao42x.max_fifo_samples/16;
 }
 #define MAX_LOTIDE(adev) \
-	(ao420_getFifoMaxSamples(adev) - ao420_getFillThreshold(adev)*2)
+	(adev->ao42x.max_fifo_samples - ao420_getFillThreshold(adev)*2)
 
 static inline int ao420_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
 }
 
 static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
-	int fifomaxsam = ao420_getFifoMaxSamples(adev);
+	unsigned samples = ao420_getFifoSamples(adev);
 
-	if (ao420_getFifoSamples(adev) > fifomaxsam){
+	if (samples > adev->ao42x.max_fifo_samples){
 		return 0;
 	}else{
-		return fifomaxsam - ao420_getFifoSamples(adev);
+		return adev->ao42x.max_fifo_samples - samples;
 	}
 }
 
