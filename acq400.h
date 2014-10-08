@@ -504,6 +504,8 @@ struct acq400_path_descriptor {
 #define DEVP(adev)		(&(adev)->pdev->dev)
 
 
+#define MIN_DMA	256
+
 #define MAXDEVICES 6
 extern struct acq400_dev* acq400_devices[];
 extern const char* acq400_names[];
@@ -801,12 +803,14 @@ static inline int ao420_getFifoSamples(struct acq400_dev* adev) {
 }
 
 static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
+	/* pgm: don't trust it to fill to the top */
 	unsigned samples = ao420_getFifoSamples(adev);
+	unsigned maxsam = adev->ao42x.max_fifo_samples - 8;
 
-	if (samples > adev->ao42x.max_fifo_samples){
+	if (samples > maxsam){
 		return 0;
 	}else{
-		return adev->ao42x.max_fifo_samples - samples;
+		return maxsam - samples;
 	}
 }
 

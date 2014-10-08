@@ -100,6 +100,11 @@ struct dentry* acq400_debug_root;
 		adev->debug_dir, adev->dev_virtaddr+(reg));     \
 	pcursor += strlen(pcursor) + 1
 
+#define DBG_REG_CREATE_RW(reg) 					\
+	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
+	debugfs_create_x32(pcursor, S_IRUGO|S_IWUGO,		\
+		adev->debug_dir, adev->dev_virtaddr+(reg));     \
+	pcursor += strlen(pcursor) + 1
 #define CH_REG_CREATE(name, reg)				\
 	sprintf(pcursor, "%s", #name);				\
 	debugfs_create_axi_s16(pcursor, S_IRUGO,		\
@@ -118,7 +123,7 @@ void bolo8_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(B8_ADC_CON);
 	DBG_REG_CREATE(B8_ADC_HITIDE);
 	DBG_REG_CREATE(B8_ADC_FIFO_CNT);
-	DBG_REG_CREATE(B8_ADC_FIFO_STA);
+	DBG_REG_CREATE_RW(B8_ADC_FIFO_STA);
 	DBG_REG_CREATE(B8_ADC_SAMPLE_CNT);
 	DBG_REG_CREATE(B8_DAC_CON);
 	DBG_REG_CREATE(B8_DAC_WAVE_TOP);
@@ -183,7 +188,7 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(TIM_CTRL);
 	DBG_REG_CREATE(DAC_LOTIDE);
 	DBG_REG_CREATE(DAC_FIFO_SAMPLES);
-	DBG_REG_CREATE(DAC_FIFO_STA);
+	DBG_REG_CREATE_RW(DAC_FIFO_STA);
 	DBG_REG_CREATE(DAC_INT_CSR);
 	DBG_REG_CREATE(DAC_CLK_CTR);
 	DBG_REG_CREATE(DAC_SAMPLE_CTR);
@@ -204,7 +209,7 @@ void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(TIM_CTRL);
 	DBG_REG_CREATE(ADC_HITIDE);
 	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
-	DBG_REG_CREATE(ADC_FIFO_STA);
+	DBG_REG_CREATE_RW(ADC_FIFO_STA);
 	DBG_REG_CREATE(ADC_INT_CSR);
 	DBG_REG_CREATE(ADC_CLK_CTR);
 	DBG_REG_CREATE(ADC_SAMPLE_CTR);
@@ -237,7 +242,7 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO432_TIM_CTRL		);
 	DBG_REG_CREATE( DIO432_DI_HITIDE	);
 	DBG_REG_CREATE( DIO432_DI_FIFO_COUNT	);
-	DBG_REG_CREATE( DIO432_DI_FIFO_STATUS	);
+	DBG_REG_CREATE_RW( DIO432_DI_FIFO_STATUS	);
 	DBG_REG_CREATE( DIO432_DO_LOTIDE	);
 	DBG_REG_CREATE( DIO432_DO_FIFO_COUNT	);
 	DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);

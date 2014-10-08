@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.629"
+#define REVID "2.632"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -121,7 +121,7 @@ int good_sites[MAXDEVICES];
 int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
 
-int ao420_dma_threshold = 32;
+int ao420_dma_threshold = MIN_DMA;
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
@@ -169,6 +169,14 @@ void acq420_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
 void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
+
+void go_rt(void)
+{
+	struct task_struct *task = current;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
+
+	sched_setscheduler(task, SCHED_FIFO, &param);
+}
 
 
 const char* devname(struct acq400_dev *adev)
@@ -2210,7 +2218,7 @@ void _ao420_stop(struct acq400_dev* adev)
 	acq400_clear_histo(adev);
 }
 
-#define MIN_DMA	256
+
 
 void measure_ao_fifo(struct acq400_dev *adev)
 {
@@ -2241,11 +2249,13 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 {
 	int headroom;
 	int rc = 1;		/* assume more ints wanted unless complete */
-	int maxiter = 100;
+	int maxiter = 1000;
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return 0;
 	}
+	go_rt();
+
 	while(adev->AO_playloop.length != 0 &&
 	      (headroom = ao420_getFifoHeadroom(adev)) > ao420_getFillThreshold(adev)){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
@@ -2267,6 +2277,7 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				ao420_write_fifo_dma(adev, cursor, dma_bytes);
+				lenbytes = dma_bytes;
 			}else{
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
 				ao420_write_fifo(adev, cursor, lenbytes);
@@ -2354,13 +2365,6 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 }
 
 
-void go_rt(void)
-{
-	struct task_struct *task = current;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
-
-	sched_setscheduler(task, SCHED_FIFO, &param);
-}
 
 #define DMA_TIMEOUT 		msecs_to_jiffies(10000)
 /* first time : infinite timeout .. we probably won't live this many jiffies */
