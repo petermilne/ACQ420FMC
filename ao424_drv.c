@@ -28,7 +28,7 @@
 
 typedef unsigned short ushort;
 
-int set_spans_timeout_ms = 4000;
+int set_spans_timeout_ms = 8000;
 module_param(set_spans_timeout_ms, int, 0644);
 MODULE_PARM_DESC(set_spans_timeout_ms, "timeout on setting spans");
 
@@ -62,7 +62,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	j1 = jiffies;
 	timeout = j1 + msecs_to_jiffies(set_spans_timeout_ms);
 
-	dev_dbg(DEVP(adev), "j1:%lu timeout would be at:%lu", j1, timeout);
+	dev_info(DEVP(adev), "j1:%lu timeout would be at:%lu", j1, timeout);
 
 	while(((stat = acq400rd32(adev, DAC_FIFO_STA))&AO424_DAC_FIFO_STA_SWC) == 0){
 		if (jiffies != j1){
@@ -79,8 +79,8 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 		++pollcat;
 	}
 
-	dev_dbg(DEVP(adev), "after poll loop: [%d] status %08x", pollcat, stat);
-	dev_dbg(DEVP(adev), "before:%u during:%u after:%u eng:%u",
+	dev_info(DEVP(adev), "after poll loop: [%d] status %08x", pollcat, stat);
+	dev_info(DEVP(adev), "before:%u during:%u after:%u eng:%u",
 				fifo_before, fifo_during, fifo_after, ao420_getFifoSamples(adev));
 	acq400wr32(adev, DAC_FIFO_STA, stat);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
