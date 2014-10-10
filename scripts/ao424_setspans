@@ -2,7 +2,6 @@
 
 SITE=${1:-2} 
 SPAN=${2:-0}
-/sys/kernel/debug/acq400/acq400.2/spans/
 
 for sp in /sys/kernel/debug/acq400/acq400.${SITE}/spans/??
 do
