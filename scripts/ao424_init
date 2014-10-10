@@ -6,26 +6,17 @@ echo +++ initializing DACs
 
 ln -s /usr/local/bin/wavegen /etc/acq400/$SITE
 
-SPANS=/dev/acq400.${SITE}.spans
+SPANS=/sys/kernel/debug/acq400/acq400.${SITE}/spans
 
-if [ ! -e ${SPANS} ]; then
-	echo +++ ERROR ${SPANS} does not exist
-	exit
-fi
- 
 for spchan in ${SPANS}/??
 do
 	ln -s $spchan /etc/acq400/${SITE}/range$(basename $spchan)
 done
 
-INITS=/dev/acq400.${SITE}.init
+INITS=/sys/kernel/debug/acq400/acq400.${SITE}/init/
 
-if [ ! - ${INITS} ]; then
-	echo +++ ERROR ${INITS} does not exist
-	exit
-fi
 
-for ichan in ${INITS}
+for ichan in ${INITS}/??
 do
 	ln -s $ichan /etc/acq400/${SITE}/init$(basename $ichan)
 done

@@ -62,14 +62,8 @@ build_nodes() {
 			
 			build_hb ${MAJOR} ${NAME}
 			
-			case $(cat /dev/acq400.$ID.knobs/module_type) in
-			41)				
-				ln -s /sys/kernel/debug/acq400/acq400.$ID/init/ /dev/${NAME}.init
-				ln -s /sys/kernel/debug/acq400/acq400.$ID/spans/ /dev/${NAME}.spans
-				mknod /dev/${NAME}.dac c  ${MAJOR} 7
-				mknod /dev/${NAME}.awg c  ${MAJOR} 9
-				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;
-			40)		
+			case $(cat /dev/acq400.$ID.knobs/module_type) in			
+			40|41)							
 				mknod /dev/${NAME}.dac c  ${MAJOR} 7
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
 				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;
@@ -203,11 +197,11 @@ build_knobs_device() {
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
-	40)	
-		ao420_init ${site}	
+	40)		
+		ao420_init ${site}
 		CLKDIV=250;;
-	41)
-		ao424_init ${site}
+	41)	
+		ao424_init ${site}	
 		CLKDIV=500;;
 	60)
 		if [ "x$BOLO8_SITES" != "x" ]; then

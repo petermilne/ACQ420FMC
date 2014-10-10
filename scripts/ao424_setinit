@@ -3,7 +3,7 @@
 SITE=${1:-2} 
 INIT=${2:-0}
 
-for ch in /dev/acq400.${SITE}.init/*
+for ch in /sys/kernel/debug/acq400/acq400.${SITE}/init/??
 do
 	set.sys $ch $INIT
 done
