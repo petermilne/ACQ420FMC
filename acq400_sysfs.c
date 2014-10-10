@@ -2042,6 +2042,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
+	&dev_attr_bank_mask.attr,
 	NULL
 };
 
