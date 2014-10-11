@@ -85,8 +85,8 @@ is_ramp: is_ramp.o
 acq400_knobs: acq400_knobs.o tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
-wavegen: wavegen.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+wavegen: wavegen.o acq-util.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lm
 	
 acq435_decode: acq435_decode.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread

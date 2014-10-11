@@ -51,13 +51,17 @@ wavespec:  filename[*N][+/-V]
 #include <ctime>
 #include <fstream>
 
+#include "acq-util.h"
+
 using namespace std;
 
 namespace Globs {
 	int site = -1;
 	const char* src_dir = "/usr/local/awgdata/ch";
 	bool loop = false;
-
+	int ch_offset = 0;
+	bool has_gain;
+	double ch_gain = 1;
 };
 
 #define MINBYTES	0x20000
@@ -201,7 +205,15 @@ public:
 	virtual bool fwrite1(FILE* fp) {
 		bool busy = false;
 
-		fwrite(data+cursor, sizeof(T), 1, fp);
+		T sam = data[cursor];
+		if (Globs::has_gain){
+			double dsam = sam; dsam *= Globs::ch_gain;
+			sam = dsam;
+		}
+		sam += Globs::ch_offset * ichan;
+
+		fwrite(&sam, sizeof(T), 1, fp);
+
 		if (cursor+1 < ndata){
 			if (++cursor < ndata){
 				busy = true;
@@ -259,6 +271,7 @@ public:
 		cerr << "New ChanDef:" <<ndata <<endl;
 		channels[ichan] = this;
 	}
+
 	ChanDefImpl(const char* spec) : ChanDef(spec) {
 		string ss(spec);
 		string delim("=");
@@ -275,6 +288,16 @@ public:
 			exit(1);
 		}
 	}
+	ChanDefImpl(const char* _chan_def, const char* _expr) : ChanDef(_chan_def){
+		strcpy(chan_def, _chan_def);
+		strcpy(expr, _expr);
+		load_chan_def();
+	}
+	ChanDefImpl(int _chan_def, const char* _expr) : ChanDef(_chan_def){
+			sprintf(chan_def, "%d", _chan_def);
+			strcpy(expr, _expr);
+			load_chan_def();
+	}
 	ChanDefImpl(int _ichan): ChanDef(_ichan)
 	{
 		data = new T[1];
@@ -282,21 +305,47 @@ public:
 		ndata = 1;
 		fname = "null";
 	}
-
 };
 
 void ChanDef::create(const char* spec) {
-	switch(ChanDef::word_size){
-	case 2:
-		new ChanDefImpl<short>(spec);
-		break;
-	case 4:
-		new ChanDefImpl<long>(spec);
-		break;
-	default:
-		fprintf(stderr, "ERROR: word_size MUST be 2 or 4");
-		exit(-1);
+	char _chan_def[128];
+	char _expr[128];
+	string ss(spec);
+	string delim("=");
+	size_t pos = 0;
+
+	int* channels = new int[nchan()+1]; /* index from 1 */
+	int ndef = 0;
+
+	//cerr << "ChanDef(" << ss << ")" <<endl;
+	if ((pos = ss.find(delim)) != string::npos){
+		strncpy(_chan_def, ss.substr(0, pos).c_str(), 127);
+		ss.erase(0, pos + delim.length());
+		strncpy(_expr, ss.c_str(), 127);
+		ndef = acqMakeChannelRange(channels, nchan(), _chan_def);
+	}else{
+		fprintf(stderr, "ERROR, unable to use arg \"%s\"\n", spec);
+		exit(1);
 	}
+	for (int ch = 1; ch <= nchan(); ++ch){
+		char expanded_expr[128];
+		sprintf(expanded_expr, _expr, ch);
+
+		if (channels[ch]){
+			switch(ChanDef::word_size){
+			case 2:
+				new ChanDefImpl<short>(ch, expanded_expr);
+				break;
+			case 4:
+				new ChanDefImpl<long>(ch, expanded_expr);
+				break;
+			default:
+				fprintf(stderr, "ERROR: word_size MUST be 2 or 4");
+				exit(-1);
+			}
+		}
+	}
+	delete [] channels;
 }
 
 vector<int> ChanDef::mapping;
@@ -352,6 +401,8 @@ struct poptOption opt_table[] = {
 	{ "src_dir", 0, POPT_ARG_STRING, &Globs::src_dir, 0, "data directory" },
 	{ "loop",  'l', POPT_ARG_INT, &Globs::loop, 0, "runs in a loop" },
 	{ "word_size", 'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
+	{ "ch_gain", 0, POPT_ARG_DOUBLE, &Globs::ch_gain, 'g', "gain up xx *ch_gain" },
+	{ "ch_offset", 0, POPT_ARG_INT, &Globs::ch_offset, 0, "ident offset + ch*ch_offset" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -365,6 +416,11 @@ void cli(int argc, const char** argv)
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'g':
+			Globs::has_gain = true;
+			printf("gain set: %f\n", Globs::ch_gain);
+			break;
+		default:
 			;
 		}
 	}
