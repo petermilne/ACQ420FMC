@@ -60,6 +60,20 @@ namespace Globs {
 
 };
 
+#define MINBYTES	0x20000
+
+void write_playloop_length(int nsamples)
+{
+	char fname[128];
+	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", Globs::site);
+	FILE *fp = fopen(fname, "w");
+	if (fp == 0){
+		perror(fname);
+		exit(1);
+	}
+	fprintf(fp, "%d\n", nsamples);
+	fclose(fp);
+}
 class ChanDef {
 
 public:
@@ -122,6 +136,27 @@ public:
 			channels[ii]->print();
 		}
 	}
+
+	static int output(FILE *fpout) {
+		int nwrite = 0;
+
+		for (int nbusy = nchan(), sample = 0; nbusy; ++sample){
+			nbusy = 0;
+
+			for (int ii = 0; ii < nchan(); ++ii){
+				ChanDef* chan = channels[ii];
+				if (sample == 0) chan->cursor = 0;
+				if (chan->fwrite1(fpout)){
+					++nbusy;
+				}
+				if (chan->cursor > nwrite){
+					nwrite = chan->cursor;
+				}
+			}
+		}
+
+		return nwrite;
+	}
 	static void output() {
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
@@ -132,25 +167,16 @@ public:
 			exit(1);
 		}
 
-		for (int nbusy = nchan(), sample = 0; nbusy; ++sample){
-			nbusy = 0;
+		int totwrite = 0;
+		int minsam = MINBYTES/nchan()/word_size;
 
-			for (int ii = 0; ii < nchan(); ++ii){
-				ChanDef* chan = channels[ii];
-
-				/*
-				if (sample < 3){
-					cerr << chan->ichan << " " << chan->expr
-					    << "[ " <<chan->cursor << "] = "
-					    	    <<chan->data[chan->cursor] << endl;
-				}
-				*/
-				if (chan->fwrite1(fpout)){
-					++nbusy;
-				}
-			}
+		while (totwrite < minsam){
+			totwrite += output(fpout);
 		}
+
 		fclose(fpout);
+
+		write_playloop_length(totwrite);
 	}
 
 	static void create(const char* spec);
@@ -358,6 +384,7 @@ int main(int argc, const char** argv)
 	}
 	cli(argc, argv);
 
+	write_playloop_length(0);
 	ChanDef::list();
 	ChanDef::output();
 }
