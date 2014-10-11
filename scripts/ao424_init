@@ -20,3 +20,8 @@ for ichan in ${INITS}/??
 do
 	ln -s $ichan /etc/acq400/${SITE}/init$(basename $ichan)
 done
+
+cat - <<EOF >>/etc/acq400/$SITE/groups
+range=range[0-9]*
+init=init[0-9]*
+EOF
