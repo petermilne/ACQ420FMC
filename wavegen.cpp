@@ -322,6 +322,9 @@ void ChanDef::create(const char* spec) {
 		strncpy(_chan_def, ss.substr(0, pos).c_str(), 127);
 		ss.erase(0, pos + delim.length());
 		strncpy(_expr, ss.c_str(), 127);
+		for (int ichan = 1; ichan <= nchan(); ++ichan){
+			channels[ichan] = 0;
+		}
 		ndef = acqMakeChannelRange(channels, nchan(), _chan_def);
 	}else{
 		fprintf(stderr, "ERROR, unable to use arg \"%s\"\n", spec);
