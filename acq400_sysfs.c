@@ -1393,8 +1393,8 @@ static ssize_t show_module_name(
 		name = "acq435elf"; break;
 	case MOD_ID_ACQ430FMC:
 		name = "acq430fmc"; break;
-	case MOD_ID_ACQ440FMC:
-		name = "acq440fmc"; break;
+	case MOD_ID_ACQ480FMC:
+		name = "acq480fmc"; break;
 	case MOD_ID_ACQ425ELF:
 	case MOD_ID_ACQ425ELF_2000:
 		name = "acq425elf"; break;

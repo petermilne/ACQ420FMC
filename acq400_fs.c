@@ -590,7 +590,7 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 
 	for (dev = 0; dev < MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
-		if (adev){
+		if (adev && IS_AI(adev)){
 			a400fs_add_site(adev->of_prams.site, adev, &FSN);
 		}
 	}
