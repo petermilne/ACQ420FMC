@@ -1,7 +1,10 @@
 #!/bin/sh
 
 
-kill $(ps | grep '[0-9] inetd /etc/inetd.ch.con' | awk '{ print $1 }')
+OLDPID=$(ps | grep '[0-9] inetd /etc/inetd.ch.con' | awk '{ print $1 }')
+if [ "$OLDPID" != "" ]; then
+	kill $OLDPID
+fi 
 
 NCHAN=$(cat /etc/acq400/0/NCHAN)
 let P0=53000
