@@ -200,8 +200,10 @@ static int a400fs_open(struct inode *inode, struct file *file)
 {
 	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
 	pd->map = lookup_ino(inode->i_ino);
+	if (pd->map == 0){
+		return -ENODEV;
+	}
 	pd->word_offset = IS_RAW(pd->map)? 0: chan_offset_w(pd->map);
-
 	if (pd->word_offset < 0){
 		return -ENODEV;
 	}
