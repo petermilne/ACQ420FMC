@@ -1,17 +1,9 @@
 #!/bin/sh
 SITE=${1:-2}
 CLKDIV=${2:-1000}
+OFFSET=${3:-250}
 set.site ${SITE} trg=1,1,1
 set.site ${SITE} clkdiv=$CLKDIV
-wavegen -s ${SITE} -l 1 \
-	1=sin.dat 2=sin.dat 3=sin.dat 4=sin.dat \
-	5=sin.dat 6=sin.dat 7=sin.dat 8=sin.dat \
-	9=sin.dat 10=sin.dat 11=sin.dat 12=sin.dat \
-	13=sin.dat 14=sin.dat 15=sin.dat 16=sin.dat \
-	17=sin.dat 18=sin.dat 19=sin.dat 20=sin.dat \
-	21=sin.dat 22=sin.dat 23=sin.dat 24=sin.dat \
-	25=sin.dat 26=sin.dat 27=sin.dat 28=sin.dat \
-	29=sin.dat 30=sin.dat 31=sin.dat 32=sin.dat
-set.site ${SITE} playloop_length=2000
+wavegen -s ${SITE} -l 1 --ch_offset=$OFFSET 1:32=sin.dat
 soft_trigger
 
