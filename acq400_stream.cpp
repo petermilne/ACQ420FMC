@@ -1218,9 +1218,13 @@ void init(int argc, const char** argv) {
 		}
 	}
 
+	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
+	getKnob(G::devnum, "bufferlen", &G::bufferlen);
+
 	if (G::pre || G::demux){
-		reserve_block0();
+		reserve_block0();		// MUST get length first ..
 	}
+
 	openlog("acq400_stream", LOG_PID, LOG_USER);
 	syslog(LOG_DEBUG, "hello world %s", VERID);
 	const char* devc = poptGetArg(opt_context);
@@ -1240,9 +1244,6 @@ void init(int argc, const char** argv) {
 	if (getenv("USE_AGGSEM")){
 		G::use_aggsem = atoi(getenv("USE_AGGSEM"));
 	}
-
-	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
-	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
 	if (G::buffer_mode == BM_DEMUX){
 		for (nb_cat = 1;
@@ -2371,7 +2372,6 @@ void schedule_soft_trigger(void)
 
 int main(int argc, const char** argv)
 {
-
 	init(argc, argv);
 	if (G::soft_trigger){
 		schedule_soft_trigger();
