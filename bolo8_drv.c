@@ -25,7 +25,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/i2c.h>
-#include <linux/i2c/pca953x.h>
+#include <linux/platform_data/pca953x.h>
 
 #define REVID "0.005"
 

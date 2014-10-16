@@ -1,0 +1,71 @@
+#!/usr/local/bin/expect
+# acq480 T50R termination
+
+
+set LNAMES1 [ list \
+	EN50R_1 EN50R_2 EN50R_3 EN50R_4 \
+	EN50R_5 EN50R_6 EN50R_7 EN50R_8 ]
+	
+
+proc link_gpio {lnames site gpio1} {
+	set gpio2 [expr $gpio1 + 23]
+	for {set ix 0} {[expr $gpio1+$ix <= $gpio2]} {incr ix} {		
+		set name [lindex $lnames $ix]		
+		if { [string length $name] > 0 } {
+			set gpx [expr $gpio1 + $ix]
+#			puts "lname $name pin $pin gpio $gpx"
+			exec set.sys /sys/class/gpio/export $gpx
+			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
+			exec ln -s /sys/class/gpio/gpio$gpx/value \
+				/dev/acq425/$site/$name
+		}
+	}
+}
+
+proc get_gpio1 {site addr} {
+	set bus [expr $site + 1]
+	set baddr "$bus-00$addr"
+	set gpath "/sys/bus/i2c/devices/$baddr/gpio/gpiochip"
+	set gpiochip [glob "$gpath*"]
+	set pin1 [string range $gpiochip \
+			[string length $gpath] [string length $gpiochip]]
+	#	puts "get_gpio1 returning $pin1"
+	return $pin1
+}
+
+set SITES ""
+
+if { $::argc > 0 } {
+	set i 1
+	foreach site $::argv {
+		if { [string length $SITES] > 0 } {
+			set SITES "$SITES,"
+		}
+		set SITES "$SITES$site"	
+	} 	
+	exec /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITES
+	
+	foreach site $::argv {
+	    puts "build gain knobs site:$site"
+		exec mkdir -p /dev/acq480/$site
+		link_gpio $LNAMES1 $site [get_gpio1 $site 20]
+			
+		for {set ic 1} {$ic <= 8} {incr ic} {
+			file delete -force /etc/acq400/$site/T50R_$ic			
+			exec ln -s /usr/local/bin/acq480_set_term \
+				/etc/acq400/$site/T50R_$ic
+		}	
+		file delete -force 	/etc/acq400/$site/T50_R
+		exec ln -s /usr/local/bin/acq480_set_term \
+				/etc/acq400/$site/T50R
+		set fp [open "/etc/acq400/$site/groups" a+]
+		puts $fp {T50R=T50R_[0-9]*}
+		close $fp
+	} 	
+} else {
+	puts "usage acq480.init site1[ site 2...]	
+}
+
+
+
+

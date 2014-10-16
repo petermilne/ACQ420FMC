@@ -197,6 +197,8 @@ build_knobs_device() {
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
+	4)
+		ACQ480_SITES=${ACQ480_SITES}$site";;
 	40)		
 		ao420_init ${site}
 		CLKDIV=250;;
@@ -283,6 +285,9 @@ build_knobs() {
 		#		BLEN=4194304
 		#		NBUF=128
 	fi	
+	if [ "x${ACQ480_SITES}" != "x" ]; then
+		/usr/local/bin/acq480.init ${ACQ480_SITES}
+	fi
 }
 
 create_set_fanspeed() {

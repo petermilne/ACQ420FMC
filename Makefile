@@ -6,9 +6,9 @@ obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
 obj-m += pl330.o
-#obj-m += bolo8_drv.o
+obj-m += bolo8_drv.o
 obj-m += acq425_drv.o
-obj-m += lwnfs.o
+obj-m += acq480_drv.o
 #obj-m += acq4xx_fs.o
 
 DC=$(shell date +%y%m%d%H%M%S)
