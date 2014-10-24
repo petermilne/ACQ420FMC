@@ -167,7 +167,7 @@ int raw_offset_w(struct InodeMap* map)
 					map->site, ia, offset);
 			return offset;
 		}else{
-			offset += map->adev->nchan_enabled;
+			offset += adev0->aggregator_set[ia]->nchan_enabled;
 		}
 	}
 
