@@ -1430,6 +1430,7 @@ public:
 template <class T>
 class DemuxerImpl : public Demuxer {
 
+	int ch63;
 
 	struct BufferCursor {
 		const int channel_buffer_bytes;	/* number of bytes per channel per buffer */
@@ -1461,6 +1462,7 @@ class DemuxerImpl : public Demuxer {
 
 	/* watch out for end of source buffer ! */
 
+
 	int _demux(void* start, int nbytes){
 		const int nsam = b2s(nbytes);
 		const int cbs = channel_buffer_sam();
@@ -1472,6 +1474,10 @@ class DemuxerImpl : public Demuxer {
 
 		for (int sam = 0; sam < nsam; ++sam){
 			for (int chan = 0; chan < G::nchan; ++chan){
+				if (chan == 63){
+					pdst[chan*cbs+sam] = ch63++;
+					continue;
+				}
 				pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
 			}
 		}
@@ -1481,6 +1487,7 @@ class DemuxerImpl : public Demuxer {
 	}
 public:
 	DemuxerImpl() : dst() {
+		ch63=0;
 		if (verbose) fprintf(stderr, "%s %d\n", __FUNCTION__, dst.channel_buffer_bytes);
 	}
 	virtual ~DemuxerImpl() {
@@ -1497,24 +1504,26 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 	char* startp = reinterpret_cast<char*>(start);
 	int rc = 0;
 
-	if (verbose) fprintf(stderr, "%s (%p %d)\n", __FUNCTION__, start, nbytes);
+	if (verbose) fprintf(stderr, "%s 01 (%p %d)\n", __FUNCTION__, start, nbytes);
 
 	assert(nbytes%sample_size() == 0);
 
 	while(nbytes){
 		int trb = dst.total_remain_bytes();
 
-		if (verbose) fprintf(stderr, "%s nbytes:%d trb:%d\n", __FUNCTION__, nbytes, trb);
+		if (verbose) fprintf(stderr, "%s 10 nbytes:%d trb:%d\n", __FUNCTION__, nbytes, trb);
 		if (nbytes < trb){
 			rc += _demux(startp, nbytes);
 			break;
 		}else{
-			rc += _demux(startp, trb);
+			rc = _demux(startp, trb);
 			dst.init(dst.ibuf+1);
 			nbytes -= trb;
 			startp += rc;
+			if (verbose) fprintf(stderr, "%s 50 rc:%d startp:%p\n", __FUNCTION__, rc, startp);
 		}
 	}
+	if (verbose) fprintf(stderr, "%s 99  rc:%d\n", __FUNCTION__, rc);
 	return rc;
 }
 
