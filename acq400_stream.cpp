@@ -74,7 +74,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define VERID	"B1000"
+#define VERID	"B1001"
 
 #define NCHAN	4
 
@@ -1430,8 +1430,6 @@ public:
 template <class T>
 class DemuxerImpl : public Demuxer {
 
-	int ch63;
-
 	struct BufferCursor {
 		const int channel_buffer_bytes;	/* number of bytes per channel per buffer */
 		int ibuf;
@@ -1461,33 +1459,11 @@ class DemuxerImpl : public Demuxer {
 	}
 
 	/* watch out for end of source buffer ! */
+	int _demux(void* start, int nbytes);
 
 
-	int _demux(void* start, int nbytes){
-		const int nsam = b2s(nbytes);
-		const int cbs = channel_buffer_sam();
-		T* pdst = reinterpret_cast<T*>(dst.cursor);
-		T* psrc = reinterpret_cast<T*>(start);
-
-		if (verbose) fprintf(stderr, "%s (%p %d) %p = %p * nsam:%d %d\n",
-				__FUNCTION__, start, nbytes, pdst, psrc, nsam, cbs);
-
-		for (int sam = 0; sam < nsam; ++sam){
-			for (int chan = 0; chan < G::nchan; ++chan){
-				if (chan == 63){
-					pdst[chan*cbs+sam] = ch63++;
-					continue;
-				}
-				pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
-			}
-		}
-		pdst += nsam;
-		dst.cursor = reinterpret_cast<char*>(pdst);
-		return nbytes;
-	}
 public:
 	DemuxerImpl() : dst() {
-		ch63=0;
 		if (verbose) fprintf(stderr, "%s %d\n", __FUNCTION__, dst.channel_buffer_bytes);
 	}
 	virtual ~DemuxerImpl() {
@@ -1496,6 +1472,28 @@ public:
 
 	virtual int demux(void *start, int nsamples);
 };
+
+
+template <class T>
+int DemuxerImpl<T>::_demux(void* start, int nbytes){
+	const int nsam = b2s(nbytes);
+	const int cbs = channel_buffer_sam();
+	T* pdst = reinterpret_cast<T*>(dst.cursor);
+	T* psrc = reinterpret_cast<T*>(start);
+
+	if (verbose) fprintf(stderr, "%s (%p %d) %p = %p * nsam:%d %d\n",
+			__FUNCTION__, start, nbytes, pdst, psrc, nsam, cbs);
+
+	for (int sam = 0; sam < nsam; ++sam){
+		for (int chan = 0; chan < G::nchan; ++chan){
+			pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
+		}
+	}
+	pdst += nsam;
+	dst.cursor = reinterpret_cast<char*>(pdst);
+	return nbytes;
+}
+
 
 template <class T>
 int DemuxerImpl<T>::demux(void* start, int nbytes)
@@ -1512,14 +1510,17 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 		int trb = dst.total_remain_bytes();
 
 		if (verbose) fprintf(stderr, "%s 10 nbytes:%d trb:%d\n", __FUNCTION__, nbytes, trb);
+
 		if (nbytes < trb){
 			rc += _demux(startp, nbytes);
-			break;
+			nbytes = 0;
 		}else{
-			rc = _demux(startp, trb);
+			int nb = _demux(startp, trb);
+			// assert(nb == trb);
 			dst.init(dst.ibuf+1);
 			nbytes -= trb;
-			startp += rc;
+			startp += nb;
+			rc += nb;
 			if (verbose) fprintf(stderr, "%s 50 rc:%d startp:%p\n", __FUNCTION__, rc, startp);
 		}
 	}
@@ -1969,7 +1970,9 @@ protected:
 		if (verbose>1) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
 	}
 	virtual void onStreamEnd() {
-		verbose = 2;		// @@ removeme
+		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
+			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
+		}
 		setState(ST_POSTPROCESS); actual.print();
 		if (pre){
 			int ibuf;
