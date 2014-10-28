@@ -59,6 +59,7 @@
 #define MOD_ID			(ADC_BASE+0x00)
 #define ADC_CTRL		(ADC_BASE+0x04)
 #define DAC_CTRL		ADC_CTRL
+#define MCR			(ADC_BASE+0x04)
 #define TIM_CTRL		(ADC_BASE+0x08)
 #define ADC_HITIDE		(ADC_BASE+0x0C)
 #define DAC_LOTIDE		ADC_HITIDE
@@ -128,6 +129,7 @@
 #define MOD_ID_BOLO8		0x60
 #define MOD_ID_DIO432FMC	0x61
 #define MOD_ID_DIO432PMOD	0x62
+#define MOD_ID_PMODADC1		0x63
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -586,6 +588,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev))
+
+#define IS_PMODADC1(adev)	(GET_MOD_ID(adev) == MOD_ID_PMODADC1)
 
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)

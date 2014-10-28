@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.635"
+#define REVID "2.636"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -294,6 +294,16 @@ u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 	}
 	return adc_ctrl;
 }
+
+static void acq400sc_init_defaults(struct acq400_dev *adev)
+{
+	u32 mcr = acq400rd32(adev, MCR);
+	if (IS_ACQ2006B(adev)||IS_ACQ1001SC(adev)){
+		mcr |= ACQ1001_MOD_CON_PSU_SYNC;
+	}
+	acq400wr32(adev, MCR, mcr|ACQ1001_MOD_CON_MOD_EN);
+}
+
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
@@ -2835,6 +2845,7 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400_createSysfs(&pdev->dev);
         	acq400_init_proc(adev);
         	acq2006_createDebugfs(adev);
+        	acq400sc_init_defaults(adev);
         	return 0;
         }
         if (IS_AO420(adev) || IS_DIO432X(adev) || IS_AO424(adev)){    /** @@todo AO424? */

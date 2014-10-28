@@ -360,14 +360,13 @@ source /etc/sites
 if [ "x$good_sites" != "x" ]; then
 	GS="good_sites=$good_sites"
 fi
-echo insmod $MOD bufferlen=$BLEN $GS
-sleep 0.2
 
 if [ -f /mnt/local/acq420_custom ]; then
 	source /mnt/local/acq420_custom
 else
 	DRVR_CUSTOM=""
-fi		
+fi	
+echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 build_knobs
 set_fans
