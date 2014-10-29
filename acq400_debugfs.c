@@ -224,6 +224,10 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ADC_CONV_TIME);
 }
 
+void pmodadc1_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	adc_createDebugfs(adev, pcursor);
+}
 void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
@@ -289,6 +293,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_ACQ437ELF:
 		case MOD_ID_ACQ430FMC:
 			acq43x_createDebugfs(adev, pcursor);
+			break;
+		case MOD_ID_PMODADC1:
+			pmodadc1_createDebugfs(adev, pcursor);
 			break;
 		default:
 			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",

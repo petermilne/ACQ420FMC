@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.636"
+#define REVID "2.639"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -318,7 +318,24 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
-	adev->sysclkhz = SYSCLK_M100;
+	adev->onStart = acq420_onStart;
+	adev->onStop = acq420_disable_fifo;
+}
+
+static void pmodadc1_init_defaults(struct acq400_dev *adev)
+{
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+
+	dev_info(DEVP(adev), "PMODADC1 device init");
+	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
+	adev->data32 = 0;
+	adev->adc_18b = 0;
+	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
+	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
+	adev->nchan_enabled = 2;
+	adev->word_size = 2;
+	adev->hitide = hitide;
+	adev->lotide = lotide;
 	adev->onStart = acq420_onStart;
 	adev->onStop = acq420_disable_fifo;
 }
@@ -2893,6 +2910,10 @@ static int acq400_probe(struct platform_device *pdev)
   			break;
   		case MOD_ID_BOLO8:
   			bolo8_init_defaults(adev);
+  			break;
+  		case MOD_ID_PMODADC1:
+  			pmodadc1_init_defaults(adev);
+  			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",
   		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);

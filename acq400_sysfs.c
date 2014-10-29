@@ -2487,12 +2487,15 @@ static ssize_t show_agg_reg(
 
 	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
 		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
+			/* @@todo site 3/4 frig */
+			int dsite = (IS_ACQ1001SC(adev) && site == 3)? 4: site;
 			if (strlen(mod_group) == 0){
 				strcat(mod_group, "sites=");
 			}else{
 				strcat(mod_group, ",");
 			}
-			sprintf(mod_group+strlen(mod_group), "%d", site);
+
+			sprintf(mod_group+strlen(mod_group), "%d", dsite);
 		}
 	}
 	if (strlen(mod_group) == 0){
@@ -2510,24 +2513,27 @@ static ssize_t show_agg_reg(
 			regval&DATA_MOVER_EN? "on": "off");
 }
 
-int _get_site(const char* valid_sites, char s)
-{
-	if (strchr(valid_sites, s) != 0){
-		return s-'0';
-	}else{
-		return -1;
-	}
-}
+extern int good_sites[];
+extern int good_sites_count;
+
+
 int get_site(struct acq400_dev *adev, char s)
-/** @todo cant discriminate 1001, 1002... */
 {
-	if (IS_ACQ2X06SC(adev)){
-		return _get_site("123456", s);
-	}else if (IS_ACQ1001SC(adev)){
-		return _get_site("12", s);
-	}else{
-		return -2;
+	int ii;
+	int site = s-'0';
+
+	for(ii = 0; ii < good_sites_count; ++ii){
+		if (site == good_sites[ii]){
+			if (IS_ACQ1001SC(adev) && site == 4){
+				/* @@todo site 3/4 frig */
+				return 3;
+			}else{
+				return site;
+			}
+		}
 	}
+
+	return -1;
 }
 
 int add_aggregator_set(struct acq400_dev *adev, int site)
