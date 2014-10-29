@@ -49,6 +49,7 @@ package: all
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
+	git tag -a r$(DC)
 	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
 
 tarball:
