@@ -330,7 +330,7 @@ static void pmodadc1_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = 0;
 	adev->adc_18b = 0;
-	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
+	adc_ctrl |= 0x300;		/* PMOD BUS SPEED = SLOW */
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
 	adev->nchan_enabled = 2;
 	adev->word_size = 2;
