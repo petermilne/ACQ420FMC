@@ -127,9 +127,11 @@ customize_acq420()
 			echo SPEED=$field			
 			case $field in
 			2000)
+				echo $field >/etc/acq400/$1/MAX_KHZ
 				CLKDIV=50
 				ADC_CONV=26;;
 			1000)
+				echo $field >/etc/acq400/$1/MAX_KHZ
 				CLKDIV=100
 				ADC_CONV=54;;
 			*)
