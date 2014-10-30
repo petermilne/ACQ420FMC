@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.639"
+#define REVID "2.640"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -330,7 +330,7 @@ static void pmodadc1_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = 0;
 	adev->adc_18b = 0;
-	adc_ctrl |= 0x300;		/* PMOD BUS SPEED = SLOW */
+	adc_ctrl |= PMODADC1_CTRL_DIV|PMODADC1_CTRL_EXT_CLK_FROM_SYNC;
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
 	adev->nchan_enabled = 2;
 	adev->word_size = 2;
