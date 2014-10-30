@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.640"
+#define REVID "2.641"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -464,6 +464,8 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 		ctrl |= ADC_CTRL_RAMP_EN;
 	}else{
 		ctrl &= ~ADC_CTRL_RAMP_EN;
+	}
+	if (IS_ACQ42X(adev)){
 		ctrl = acq420_set_fmt(adev, ctrl);
 	}
 	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
