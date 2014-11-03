@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.642"
+#define REVID "2.643"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -456,6 +456,8 @@ static void acq420_reset_fifo(struct acq400_dev *adev)
 
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_RST_ALL);
 	acq400wr32(adev, ADC_CTRL, ctrl);
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
+
 }
 
 static void acq420_enable_fifo(struct acq400_dev *adev)
@@ -614,7 +616,7 @@ void acq43X_onStart(struct acq400_dev *adev)
 	// set clkdiv (assume done)
 	// set timing bus (assume done)
 	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
 
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, ADC_CTRL, ctrl);
@@ -637,15 +639,13 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_FIFO_EN);
 	acq400wr32(adev, DAC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 }
 
 void ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-
-	measure_ao_fifo(adev);
 
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
@@ -664,7 +664,7 @@ void acq420_onStart(struct acq400_dev *adev)
 	acq420_enable_fifo(adev);
 	acq420_reset_fifo(adev);
 	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_FLAGS);
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
 }
