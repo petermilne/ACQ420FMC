@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.641"
+#define REVID "2.642"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -332,8 +332,9 @@ static void pmodadc1_init_defaults(struct acq400_dev *adev)
 	adev->adc_18b = 0;
 	adc_ctrl |= PMODADC1_CTRL_DIV|PMODADC1_CTRL_EXT_CLK_FROM_SYNC;
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
-	adev->nchan_enabled = 2;
-	adev->word_size = 2;
+	/** nchan_enabled @@todo fudge for use in D32 (acq435 systems) */
+	adev->nchan_enabled = 1;
+	adev->word_size = 4;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
 	adev->onStart = acq420_onStart;
