@@ -721,16 +721,16 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define GPG_MEM_SIZE			0x1000
 #define GPG_MEM_ACTUAL			0x0800
 
-
-#define HDMI_SYNC_IN_CLKb		15
-#define HDMI_SYNC_IN_SYNCb		14
-#define HDMI_SYNC_IN_TRGb		13
-#define HDMI_SYNC_IN_GPIOb		12
+/* HDMI_SYNC_DAT bits */
+#define HDMI_SYNC_IN_SYNCb		15
+#define HDMI_SYNC_IN_TRGb		14
+#define HDMI_SYNC_IN_GPIOb		13
+#define HDMI_SYNC_IN_CLKb		12
 #define HDMI_SYNC_OUT_CABLE_DETNb	 8
-#define HDMI_SYNC_OUT_CLKb		 3
-#define HDMI_SYNC_OUT_SYNCb		 2
-#define HDMI_SYNC_OUT_TRGb		 1
-#define HDMI_SYNC_OUT_GPIOb		 0
+#define HDMI_SYNC_OUT_SYNCb		 3
+#define HDMI_SYNC_OUT_TRGb		 2
+#define HDMI_SYNC_OUT_GPIOb		 1
+#define HDMI_SYNC_OUT_CLKb		 0
 
 #define HDMI_SYNC_IN_SHL		12
 #define HDMI_SYNC_OUT_SHL		0
