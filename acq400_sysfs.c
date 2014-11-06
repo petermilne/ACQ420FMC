@@ -2244,7 +2244,42 @@ static ssize_t store_mode(
 
 static DEVICE_ATTR(mode, S_IRUGO|S_IWUGO, show_mode, store_mode);
 
+static ssize_t show_ext_clk_from_sync(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+	return sprintf(buf, "%d\n",
+			(ctrl&DIO432_CTRL_EXT_CLK_SYNC) != 0);
 
+}
+
+static ssize_t store_ext_clk_from_sync(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned ext_clk_from_sync = 0;
+
+	if (sscanf(buf, "%u", &ext_clk_from_sync) == 1){
+		u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+		if (ext_clk_from_sync){
+			ctrl |= DIO432_CTRL_EXT_CLK_SYNC;
+		}else{
+			ctrl &= ~DIO432_CTRL_EXT_CLK_SYNC;
+		}
+		acq400wr32(adev, DIO432_DIO_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(ext_clk_from_sync, S_IRUGO|S_IWUGO, show_ext_clk_from_sync, store_ext_clk_from_sync);
 
 
 static ssize_t show_byte_is_output(
@@ -2296,6 +2331,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_DO32.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
+	&dev_attr_ext_clk_from_sync.attr,
 	NULL
 };
 

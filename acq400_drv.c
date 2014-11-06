@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.651"
+#define REVID "2.652"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -404,6 +404,10 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
 }
+
+static void dio432_onStop(struct acq400_dev *adev);
+
+
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "dio432_init_defaults() 01");
@@ -415,6 +419,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->lotide = 0x1fff;
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = ao420_onStart;
+	adev->onStop = dio432_onStop;
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
@@ -643,6 +648,7 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 }
 
+/** @@todo : also used for DIO432. Interesting. DO part .. ? */
 void ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
@@ -657,6 +663,10 @@ void ao420_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
 }
 
+void dio432_onStop(struct acq400_dev *adev)
+{
+	dio432_set_mode(adev, DIO432_IMMEDIATE);
+}
 void acq420_onStart(struct acq400_dev *adev)
 {
 	dev_dbg(DEVP(adev), "acq420_onStart()");

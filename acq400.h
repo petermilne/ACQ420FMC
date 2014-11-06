@@ -847,7 +847,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 
 #define DIO432_CTRL_SHIFT_DIV_SHL	(8)
-#define DIO432_CTRL_LL		(1 << 7)
+#define DIO432_CTRL_EXT_CLK_SYNC (1<<7)
+#define DIO432_CTRL_LL		(1 << 6)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define DIO432_CTRL_ADC_EN	(1 << 4)
 #define DIO432_CTRL_ADC_RST	(1 << 3)
