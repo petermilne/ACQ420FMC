@@ -418,7 +418,7 @@ private:
 	}
 	static unsigned ch_id(T data)
 	{
-		return data&0x000000ff;
+		return data&0x0000001f;
 	}
 
 	void dump(T* src, int nwords){
@@ -439,10 +439,10 @@ private:
 		}
 		if (start && !data_fits_buffer){
 			/* search for start point - site 1 */
-			for (; !(ch_id(src[0]) == 0x20 &&
-			         ch_id(src[1]) == 0x21 &&
-			         ch_id(src[2]) == 0x22 &&
-			         ch_id(src[3]) == 0x23    ); ++src){
+			for (; !(ch_id(src[0]) == 0x00 &&
+			         ch_id(src[1]) == 0x01 &&
+			         ch_id(src[2]) == 0x02 &&
+			         ch_id(src[3]) == 0x03    ); ++src){
 				if (src - src1 > 256){
 					if (verbose > 1){
 						dump(src1, src-src1);
