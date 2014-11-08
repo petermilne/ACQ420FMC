@@ -62,6 +62,7 @@ namespace Globs {
 	int ch_offset = 0;
 	bool has_gain;
 	double ch_gain = 1;
+	int verbose;
 };
 
 #define MINBYTES	0x20000
@@ -255,7 +256,7 @@ public:
 			exit(1);
 		}
 
-		cerr << "stat:" << path << " length:" << buf.st_size << endl;
+		if (verbose) cerr << "stat:" << path << " length:" << buf.st_size << endl;
 		ndata = buf.st_size/sizeof(T);
 		data = new T[ndata];
 		FILE *fp = fopen(path, "r");
@@ -268,7 +269,7 @@ public:
 		if (raw_data_unsigned){
 			convert_to_unsigned();
 		}
-		cerr << "New ChanDef:" <<ndata <<endl;
+		if (verbose) cerr << "New ChanDef:" <<ndata <<endl;
 		channels[ichan] = this;
 	}
 
@@ -406,6 +407,7 @@ struct poptOption opt_table[] = {
 	{ "word_size", 'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
 	{ "ch_gain", 0, POPT_ARG_DOUBLE, &Globs::ch_gain, 'g', "gain up xx *ch_gain" },
 	{ "ch_offset", 0, POPT_ARG_INT, &Globs::ch_offset, 0, "ident offset + ch*ch_offset" },
+	{ "verbose", 'v', POPT_ARG_INT, &Globs::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };

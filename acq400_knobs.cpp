@@ -800,10 +800,10 @@ void cli(int argc, const char** argv)
 
 int interpreter(FILE* fin, FILE* fout)
 {
-	char* ibuf = new char[128];
+	char* ibuf = new char[4096];
 	char* obuf = new char[MAXOUTBUF];
 
-	for (; fgets(ibuf, 128, fin); Prompt::instance()->prompt(fout)){
+	for (; fgets(ibuf, 4096, fin); Prompt::instance()->prompt(fout)){
 		char *args = 0;
 		int cursor;
 		char *key = 0;
