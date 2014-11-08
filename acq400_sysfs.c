@@ -2391,15 +2391,15 @@ static ssize_t show_fan_percent(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned pwm = acq400rd32(adev, MOD_CON)&ACQ1001_MOD_CON_PWM_MASK;
+	unsigned pwm = acq400rd32(adev, MOD_CON)&ACQ1001_MCR_PWM_MASK;
 	unsigned fan_percent;
 
 	/* scale to 1..100 */
-	pwm >>= ACQ1001_MOD_CON_PWM_BIT;
-	if (pwm > ACQ1001_MOD_CON_PWM_MIN){
-		pwm -= ACQ1001_MOD_CON_PWM_MIN;
+	pwm >>= ACQ1001_MCR_PWM_BIT;
+	if (pwm > ACQ1001_MCR_PWM_MIN){
+		pwm -= ACQ1001_MCR_PWM_MIN;
 	}
-	fan_percent = (pwm*100)/ACQ1001_MOD_CON_PWM_MAX;
+	fan_percent = (pwm*100)/ACQ1001_MCR_PWM_MAX;
 	return sprintf(buf, "%u\n", fan_percent);
 }
 
@@ -2417,15 +2417,15 @@ static ssize_t store_fan_percent(
 		unsigned pwm;
 
 		if (fan_percent > 100) fan_percent = 100;
-		pwm = (fan_percent*ACQ1001_MOD_CON_PWM_MAX)/100;
-		pwm += ACQ1001_MOD_CON_PWM_MIN;
-		pwm <<= ACQ1001_MOD_CON_PWM_BIT;
-		if (pwm > ACQ1001_MOD_CON_PWM_MASK){
-			pwm = ACQ1001_MOD_CON_PWM_MASK;
+		pwm = (fan_percent*ACQ1001_MCR_PWM_MAX)/100;
+		pwm += ACQ1001_MCR_PWM_MIN;
+		pwm <<= ACQ1001_MCR_PWM_BIT;
+		if (pwm > ACQ1001_MCR_PWM_MASK){
+			pwm = ACQ1001_MCR_PWM_MASK;
 		}else{
-			pwm &= ACQ1001_MOD_CON_PWM_MASK;
+			pwm &= ACQ1001_MCR_PWM_MASK;
 		}
-		mod_con &= ~ACQ1001_MOD_CON_PWM_MASK;
+		mod_con &= ~ACQ1001_MCR_PWM_MASK;
 		mod_con |= pwm;
 
 		dev_info(DEVP(adev), "store_fan_percent:%d write %08x\n",
@@ -2496,10 +2496,11 @@ static ssize_t store_##name(						\
 }									\
 static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
 
-MODCON_KNOB(mod_en, 	ACQ1001_MOD_CON_MOD_EN);
-MODCON_KNOB(psu_sync, 	ACQ1001_MOD_CON_PSU_SYNC);
-MODCON_KNOB(fan,	ACQ1001_MOD_CON_FAN_EN);
-MODCON_KNOB(soft_trig,  MOD_CON_SOFT_TRIG);
+MODCON_KNOB(mod_en, 	MCR_MOD_EN);
+MODCON_KNOB(psu_sync, 	MCR_PSU_SYNC);
+MODCON_KNOB(fan,	MCR_FAN_EN);
+MODCON_KNOB(soft_trig,  MCR_SOFT_TRIG);
+MODCON_KNOB(celf_power_en, ACQ1001_MCR_CELF_PSU_EN);
 
 int get_agg_threshold_bytes(struct acq400_dev *adev, u32 agg)
 {

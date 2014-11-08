@@ -688,14 +688,15 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define AGGSTA_ENGINE_STAT	0x000f0000
 
 
-#define ACQ1001_MOD_CON_MOD_EN		(1<<0)
-#define ACQ1001_MOD_CON_PSU_SYNC 	(1<<1)
-#define ACQ1001_MOD_CON_FAN_EN		(1<<2)
-#define MOD_CON_SOFT_TRIG		(1<<4)
-#define ACQ1001_MOD_CON_PWM_BIT		8
-#define ACQ1001_MOD_CON_PWM_MAX		0x40
-#define ACQ1001_MOD_CON_PWM_MASK	((ACQ1001_MOD_CON_PWM_MAX-1)<<ACQ1001_MOD_CON_PWM_BIT)
-#define ACQ1001_MOD_CON_PWM_MIN		0x04
+#define MCR_MOD_EN			(1<<0)
+#define MCR_PSU_SYNC 			(1<<1)
+#define MCR_FAN_EN			(1<<2)
+#define ACQ1001_MCR_CELF_PSU_EN		(1<<3)
+#define MCR_SOFT_TRIG			(1<<4)
+#define ACQ1001_MCR_PWM_BIT		8
+#define ACQ1001_MCR_PWM_MAX		0x40
+#define ACQ1001_MCR_PWM_MASK		((ACQ1001_MCR_PWM_MAX-1)<<ACQ1001_MCR_PWM_BIT)
+#define ACQ1001_MCR_PWM_MIN		0x04
 
 
 #define GPG_CTRL_TOPADDR		0x3ff00000

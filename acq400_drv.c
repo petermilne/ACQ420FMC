@@ -299,9 +299,9 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 {
 	u32 mcr = acq400rd32(adev, MCR);
 	if (IS_ACQ2006B(adev)||IS_ACQ1001SC(adev)){
-		mcr |= ACQ1001_MOD_CON_PSU_SYNC;
+		mcr |= MCR_PSU_SYNC;
 	}
-	acq400wr32(adev, MCR, mcr|ACQ1001_MOD_CON_MOD_EN);
+	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
 }
 
 static void acq420_init_defaults(struct acq400_dev *adev)
