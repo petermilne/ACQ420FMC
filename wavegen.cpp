@@ -256,7 +256,7 @@ public:
 			exit(1);
 		}
 
-		if (verbose) cerr << "stat:" << path << " length:" << buf.st_size << endl;
+		if (Globs::verbose) cerr << "stat:" << path << " length:" << buf.st_size << endl;
 		ndata = buf.st_size/sizeof(T);
 		data = new T[ndata];
 		FILE *fp = fopen(path, "r");
@@ -269,7 +269,7 @@ public:
 		if (raw_data_unsigned){
 			convert_to_unsigned();
 		}
-		if (verbose) cerr << "New ChanDef:" <<ndata <<endl;
+		if (Globs::verbose) cerr << "New ChanDef:" <<ndata <<endl;
 		channels[ichan] = this;
 	}
 
