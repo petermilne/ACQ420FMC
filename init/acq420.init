@@ -376,9 +376,10 @@ build_knobs
 set_fans
 grep acq4.0 /proc/devices |  build_nodes	
 
+echo ++ Enable analog power..
+set.sys /dev/gpio/15VA_EN 1
+		
 if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
-		echo ++ Enable analog power..
-		set.sys /dev/gpio/15VA_EN 1		
 		set.sys /dev/acq400.0.knobs/celf_power_en 1	
 fi
 

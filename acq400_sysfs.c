@@ -2768,6 +2768,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_soft_trig.attr,
+	&dev_attr_celf_power_en.attr,
 	&dev_attr_gpg_top.attr,
 	&dev_attr_gpg_trg.attr,
 	&dev_attr_gpg_clk.attr,
