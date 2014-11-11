@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.653"
+#define REVID "2.654"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -316,6 +316,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
 	adev->nchan_enabled = IS_ACQ425(adev)? 16: 4;
 	adev->word_size = adev->data32? 4: 2;
+	adev->sysclkhz = SYSCLK_M100;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
 	adev->onStart = acq420_onStart;
