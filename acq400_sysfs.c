@@ -1980,6 +1980,48 @@ static ssize_t show_dac_encoding(
 static DEVICE_ATTR(dac_encoding, S_IRUGO, show_dac_encoding, 0);
 
 
+static ssize_t show_odd_channels(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+	return sprintf(buf, "%d\n",  (cgen&DAC_424_CGEN_ODD_CHANS) != 0);
+}
+static ssize_t store_odd_channels(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+/* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int odd_chan_en;
+
+	if (sscanf(buf, "%d", &odd_chan_en) == 1){
+		u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+		cgen &= ~DAC_424_CGEN_DISABLE_X;
+
+		if (odd_chan_en){
+			cgen |= DAC_424_CGEN_ODD_CHANS;
+			adev->nchan_enabled = 16;
+		}else{
+			cgen &= ~DAC_424_CGEN_ODD_CHANS;
+			adev->nchan_enabled = 32;
+		}
+
+		acq400wr32(adev, DAC_424_CGEN, cgen);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(odd_channels,
+		S_IRUGO|S_IWUGO, show_odd_channels, store_odd_channels);
+
+
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -2043,6 +2085,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
 	&dev_attr_bank_mask.attr,
+	&dev_attr_odd_channels.attr,
 	NULL
 };
 
@@ -2332,6 +2375,8 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
 	&dev_attr_ext_clk_from_sync.attr,
+	&dev_attr_playloop_length.attr,
+	&dev_attr_playloop_cursor.attr,
 	NULL
 };
 

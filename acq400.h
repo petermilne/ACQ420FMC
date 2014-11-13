@@ -81,7 +81,7 @@
 #define ADC_CLKDIV		(ADC_BASE+0x40)
 #define DAC_CLKDIV		ADC_CLKDIV
 #define ADC_GAIN		(ADC_BASE+0x44)
-#define DAC_424_MODE		(ADC_BASE+0x44)
+#define DAC_424_CGEN		(ADC_BASE+0x44)
 /* obsolete R3
 #define ADC_FORMAT 		(ADC_BASE+0x48)
 */
@@ -828,6 +828,17 @@ void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
 
 struct acq400_dev* acq400_lookupSite(int site);
+
+/* AO424 */
+
+#define DAC_424_CGEN_ODD_CHANS		(1<<4)
+#define DAC_424_CGEN_DISABLE_D		(1<<3)
+#define DAC_424_CGEN_DISABLE_C		(1<<2)
+#define DAC_424_CGEN_DISABLE_B		(1<<1)
+#define DAC_424_CGEN_DISABLE_A		(1<<0)
+
+#define DAC_424_CGEN_DISABLE_X		(0xf)
+
 
 /* DIO432 */
 
