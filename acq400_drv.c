@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.657"
+#define REVID "2.662"
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -370,7 +370,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
-static void measure_ao_fifo(struct acq400_dev *adev);
+
 
 
 static void ao420_init_defaults(struct acq400_dev *adev)
@@ -1969,8 +1969,10 @@ int ao420_awg_release(struct inode *inode, struct file *file)
 /* if it was a write, commit to memory and set length */
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
+
+	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
 		adev->AO_playloop.one_shot = iminor(inode) == AO420_MINOR_HB0_AWG_ONCE;
+		dev_info(DEVP(adev), "ao420_awg_release() oneshot:%d\n", adev->AO_playloop.one_shot);
 		ao420_reset_playloop(adev, adev->AO_playloop.length);
 	}
 	return 0;
@@ -2265,13 +2267,28 @@ void measure_ao_fifo(struct acq400_dev *adev)
 {
 	unsigned osam = 0xffffffff;
 	unsigned sam;
+	int lwords;
+	int values_per_lw = adev->data32? 1: 2;
+	u32 dac_fifo_samples;
 
 	ao420_reset_fifo(adev);
 	for (; (sam = ao420_getFifoSamples(adev)) != osam; osam = sam){
 		ao420_write_fifo(adev, 0, 16384);
 	}
 
+	dac_fifo_samples = acq400rd32(adev, DAC_FIFO_SAMPLES);
+	lwords = (dac_fifo_samples>>16)&DAC_FIFO_SAMPLES_MASK;
 
+	/* MATCH lwords..samples is not exact */
+	if ((lwords - sam*adev->nchan_enabled/values_per_lw) < 32){
+		dev_info(DEVP(adev), "MATCHES: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
+				dac_fifo_samples,
+				lwords, sam, adev->nchan_enabled, values_per_lw);
+	}else{
+		dev_warn(DEVP(adev), "MISMATCH: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
+				dac_fifo_samples,
+				lwords, sam, adev->nchan_enabled, values_per_lw);
+	}
 	adev->ao42x.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
 	adev->lotide = 3*sam/4;

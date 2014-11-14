@@ -908,5 +908,5 @@ void acq400_sew_fifo_init(struct acq400_dev* adev, int ix);
 int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix);
 int acq400_sew_fifo_write_bytes(
 		struct acq400_dev* adev, int ix, const char __user *buf, size_t count);
-
+void measure_ao_fifo(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */

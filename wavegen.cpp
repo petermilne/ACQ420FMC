@@ -67,18 +67,7 @@ namespace Globs {
 
 #define MINBYTES	0x20000
 
-void write_playloop_length(int nsamples)
-{
-	char fname[128];
-	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", Globs::site);
-	FILE *fp = fopen(fname, "w");
-	if (fp == 0){
-		perror(fname);
-		exit(1);
-	}
-	fprintf(fp, "%d\n", nsamples);
-	fclose(fp);
-}
+
 class ChanDef {
 
 public:
@@ -180,8 +169,6 @@ public:
 		}
 
 		fclose(fpout);
-
-		write_playloop_length(totwrite);
 	}
 
 	static void create(const char* spec);
@@ -445,7 +432,6 @@ int main(int argc, const char** argv)
 	}
 	cli(argc, argv);
 
-	write_playloop_length(0);
 	ChanDef::list();
 	ChanDef::output();
 }

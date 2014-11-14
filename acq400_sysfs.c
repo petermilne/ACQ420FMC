@@ -1323,6 +1323,9 @@ static ssize_t store_bank_mask(
 		mode |= bank_mask;
 
 		acq400wr32(adev, ACQ435_MODE, mode);
+		if (IS_AO424(adev)){
+			measure_ao_fifo(adev);
+		}
 		return count;
 	}else{
 		return -1;
@@ -2012,6 +2015,7 @@ static ssize_t store_odd_channels(
 		}
 
 		acq400wr32(adev, DAC_424_CGEN, cgen);
+		measure_ao_fifo(adev);
 		return count;
 	}else{
 		return -1;
