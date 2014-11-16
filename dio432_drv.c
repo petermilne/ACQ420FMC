@@ -144,6 +144,8 @@ void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode)
 
 	dio432_disable(adev);
 
+	adev->dio432.mode = mode;
+
 	switch(mode){
 	case DIO432_IMMEDIATE:
 		return dio432_init_immediate(adev);
