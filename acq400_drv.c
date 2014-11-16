@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.664"
+#define REVID "2.665"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -171,6 +171,9 @@ void acq43X_onStart(struct acq400_dev *adev);
 void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
 
+static void _ao420_onStart(struct acq400_dev *adev);
+static void _dio432_DO_onStart(struct acq400_dev *adev);
+
 void go_rt(void)
 {
 	struct task_struct *task = current;
@@ -305,6 +308,14 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
 }
 
+
+int _ao420_getFifoSamples(struct acq400_dev* adev) {
+	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
+}
+
+int _dio432_DO_getFifoSamples(struct acq400_dev* adev) {
+	return acq400rd32(adev, DIO432_DO_FIFO_COUNT)&DAC_FIFO_SAMPLES_MASK;
+}
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
@@ -378,8 +389,6 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO420 device init");
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
 	adev->data32 = 0;
 	adev->nchan_enabled = 4;
@@ -387,16 +396,16 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->cursor.hb = adev->hb[0];
 	measure_ao_fifo(adev);
 	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = ao420_onStart;
+	adev->onStart = _ao420_onStart;
+	adev->xo.getFifoSamples = _ao420_getFifoSamples;
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 }
 
 static void ao424_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO424 device init");
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-	ao424_set_spans(adev);
 
 	adev->data32 = 0;
 	adev->nchan_enabled = 32;
@@ -404,7 +413,13 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->cursor.hb = adev->hb[0];
 	measure_ao_fifo(adev);
 	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = ao420_onStart;
+	adev->onStart = _ao420_onStart;
+	adev->xo.getFifoSamples = _ao420_getFifoSamples;
+
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	ao424_set_spans(adev);
+
 }
 
 static void dio432_onStop(struct acq400_dev *adev);
@@ -420,8 +435,9 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
 	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = ao420_onStart;
+	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
+	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
@@ -650,8 +666,7 @@ void ao420_reset_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 }
 
-/** @@todo : also used for DIO432. Interesting. DO part .. ? */
-void ao420_onStart(struct acq400_dev *adev)
+static void _ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 
@@ -661,6 +676,21 @@ void ao420_onStart(struct acq400_dev *adev)
 		ao420_enable_interrupt(adev);
 	}else{
 		acq400wr32(adev, DAC_LOTIDE, 0);
+	}
+	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
+}
+
+
+static void _dio432_DO_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, DAC_CTRL);
+
+	if (adev->AO_playloop.one_shot == 0 ||
+			adev->AO_playloop.length > adev->lotide){
+		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
+		ao420_enable_interrupt(adev);
+	}else{
+		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 	}
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
 }
@@ -1957,28 +1987,28 @@ int bolo_open_awg(struct inode *inode, struct file *file)
 
 
 
-int ao420_awg_open(struct inode *inode, struct file *file)
+int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
-		ao420_reset_playloop(adev, adev->AO_playloop.length = 0);
+		xo400_reset_playloop(adev, adev->AO_playloop.length = 0);
 	}
 	return 0;
 }
-int ao420_awg_release(struct inode *inode, struct file *file)
+int xo400_awg_release(struct inode *inode, struct file *file)
 /* if it was a write, commit to memory and set length */
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 
 	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
 		adev->AO_playloop.one_shot = iminor(inode) == AO420_MINOR_HB0_AWG_ONCE;
-		ao420_reset_playloop(adev, adev->AO_playloop.length);
+		xo400_reset_playloop(adev, adev->AO_playloop.length);
 	}
 	return 0;
 }
 
-ssize_t ao420_awg_read(
+ssize_t xo400_awg_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
@@ -2004,7 +2034,7 @@ ssize_t ao420_awg_read(
 	return count;
 }
 
-ssize_t ao420_awg_write(
+ssize_t xo400_awg_write(
 	struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 {
@@ -2032,13 +2062,13 @@ ssize_t ao420_awg_write(
 	return count;
 }
 
-int ao420_open_awg(struct inode *inode, struct file *file)
+int xo400_open_awg(struct inode *inode, struct file *file)
 {
 	static struct file_operations fops = {
-			.open = ao420_awg_open,
-			.write = ao420_awg_write,
-			.read = ao420_awg_read,
-			.release = ao420_awg_release,
+			.open = xo400_awg_open,
+			.write = xo400_awg_write,
+			.read = xo400_awg_read,
+			.release = xo400_awg_release,
 	};
 	file->f_op = &fops;
 	if (file->f_op->open){
@@ -2117,7 +2147,7 @@ int acq400_open(struct inode *inode, struct file *file)
         		return bolo_open_awg(inode, file);
         	case AO420_MINOR_HB0_AWG_ONCE:
         	case AO420_MINOR_HB0_AWG_LOOP:
-        		return ao420_open_awg(inode, file);
+        		return xo400_open_awg(inode, file);
         	case ACQ420_MINOR_RESERVE_BLOCKS:
         		return acq420_reserve_open(inode, file);
         	case ACQ420_MINOR_SEW1_FIFO:
@@ -2200,7 +2230,7 @@ static void add_fifo_histo(struct acq400_dev *adev, u32 status)
 
 static void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
 {
-	(adev->fifo_histo[samples >> adev->ao42x.hshift])++;
+	(adev->fifo_histo[samples >> adev->xo.hshift])++;
 }
 
 
@@ -2213,7 +2243,7 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 	}
 }
 
-static void ao420_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
+static void xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
 {
 	int rc = dma_memcpy(adev,
 		adev->dev_physaddr+AXI_FIFO,
@@ -2224,7 +2254,7 @@ static void ao420_write_fifo_dma(struct acq400_dev* adev, int frombyte, int byte
 	}
 }
 
-void ao420_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
+void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 {
 	/*
 	dev_dbg(DEVP(adev), "write32(%p = %p+%d, %d",
@@ -2267,42 +2297,42 @@ void measure_ao_fifo(struct acq400_dev *adev)
 {
 	unsigned osam = 0xffffffff;
 	unsigned sam;
-	int lwords;
 	int values_per_lw = adev->data32? 1: 2;
-	u32 dac_fifo_samples;
 
 	ao420_reset_fifo(adev);
-	for (; (sam = ao420_getFifoSamples(adev)) != osam; osam = sam){
-		ao420_write_fifo(adev, 0, 16384);
+	for (; (sam = adev->xo.getFifoSamples(adev)) != osam; osam = sam){
+		xo400_write_fifo(adev, 0, 16384);
 	}
 
-	dac_fifo_samples = acq400rd32(adev, DAC_FIFO_SAMPLES);
-	lwords = (dac_fifo_samples>>16)&DAC_FIFO_SAMPLES_MASK;
+	if (IS_AO42X(adev)){
+		u32 dac_fifo_samples = acq400rd32(adev, DAC_FIFO_SAMPLES);
+		int lwords = (dac_fifo_samples>>16)&DAC_FIFO_SAMPLES_MASK;
 
 	/* MATCH lwords..samples is not exact */
-	if ((lwords - sam*adev->nchan_enabled/values_per_lw) < 32){
-		dev_info(DEVP(adev), "MATCHES: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
+		if ((lwords - sam*adev->nchan_enabled/values_per_lw) < 32){
+			dev_info(DEVP(adev), "MATCHES: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
 				dac_fifo_samples,
 				lwords, sam, adev->nchan_enabled, values_per_lw);
-	}else{
-		dev_warn(DEVP(adev), "MISMATCH: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
+		}else{
+			dev_warn(DEVP(adev), "MISMATCH: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
 				dac_fifo_samples,
 				lwords, sam, adev->nchan_enabled, values_per_lw);
+		}
 	}
-	adev->ao42x.max_fifo_samples = sam;
+	adev->xo.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
 	adev->lotide = 3*sam/4;
 
-	for (adev->ao42x.hshift = 0;
-		(sam >> adev->ao42x.hshift) > 256; ++adev->ao42x.hshift)
+	for (adev->xo.hshift = 0;
+		(sam >> adev->xo.hshift) > 256; ++adev->xo.hshift)
 		;
 	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u",
-			sam, adev->ao42x.hshift);
+			sam, adev->xo.hshift);
 
 	ao420_reset_fifo(adev);
 }
 
-static int ao420_fill_fifo(struct acq400_dev* adev)
+static int xo400_fill_fifo(struct acq400_dev* adev)
 /* returns 1 if further interrupts are required */
 {
 	int headroom;
@@ -2315,7 +2345,7 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 	go_rt();
 
 	while(adev->AO_playloop.length != 0 &&
-	      (headroom = ao420_getFifoHeadroom(adev)) > ao420_getFillThreshold(adev)){
+	      (headroom = ao420_getFifoHeadroom(adev)) > xo400_getFillThreshold(adev)){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 
 		remaining = min(remaining, headroom);
@@ -2334,11 +2364,11 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 				int dma_bytes = nbuf*MIN_DMA;
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
-				ao420_write_fifo_dma(adev, cursor, dma_bytes);
+				xo400_write_fifo_dma(adev, cursor, dma_bytes);
 				lenbytes = dma_bytes;
 			}else{
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
-				ao420_write_fifo(adev, cursor, lenbytes);
+				xo400_write_fifo(adev, cursor, lenbytes);
 			}
 			/* UGLY: has divide. */
 			adev->AO_playloop.cursor += AOBYTES2SAMPLES(adev, lenbytes);
@@ -2365,14 +2395,14 @@ static int ao420_fill_fifo(struct acq400_dev* adev)
 			acq400rd32(adev, DAC_FIFO_SAMPLES));
 	return rc;
 }
-static irqreturn_t ao420_dma(int irq, void *dev_id)
+static irqreturn_t xo400_dma(int irq, void *dev_id)
 /* keep the AO420 FIFO full. Recycle buffer only */
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 
 	if (adev->AO_playloop.length){
-		u32 start_samples = ao420_getFifoSamples(adev);
-		if (ao420_fill_fifo(adev)){
+		u32 start_samples = adev->xo.getFifoSamples(adev);
+		if (xo400_fill_fifo(adev)){
 			ao420_enable_interrupt(adev);
 
 		}
@@ -2382,13 +2412,13 @@ static irqreturn_t ao420_dma(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void ao420_getDMA(struct acq400_dev* adev)
+void xo400_getDMA(struct acq400_dev* adev)
 {
 	if (adev->dma_chan[0] == 0 &&
-			ao420_dma_threshold < adev->ao42x.max_fifo_samples){
+			ao420_dma_threshold < adev->xo.max_fifo_samples){
 		if (get_dma_channels(adev)){
 			dev_err(DEVP(adev), "no dma chan");
-			ao420_dma_threshold = adev->ao42x.max_fifo_samples;
+			ao420_dma_threshold = adev->xo.max_fifo_samples;
 		}else{
 			if (adev->dma_chan[0] == 0){
 				dev_err(DEVP(adev), "BAD DMA CHAN!");
@@ -2402,7 +2432,7 @@ void ao420_getDMA(struct acq400_dev* adev)
 }
 
 
-void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
+void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return;
@@ -2415,10 +2445,10 @@ void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	mutex_unlock(&adev->awg_mutex);
 
 	if (playloop_length != 0){
-		ao420_getDMA(adev);
+		xo400_getDMA(adev);
 		adev->AO_playloop.length = playloop_length;
-		ao420_fill_fifo(adev);
-		ao420_onStart(adev);
+		xo400_fill_fifo(adev);
+		adev->onStart(adev);
 	}
 }
 
@@ -2907,7 +2937,7 @@ static int acq400_probe(struct platform_device *pdev)
         if (IS_AO420(adev)||IS_AO424(adev)){
         	rc = devm_request_threaded_irq(
         	          	DEVP(adev), adev->of_prams.irq,
-        	          	ao400_isr, ao420_dma,
+        	          	ao400_isr, xo400_dma,
         	          	IRQF_SHARED, acq400_devnames[adev->of_prams.site],
         	          	adev);
         }else{

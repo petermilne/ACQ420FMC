@@ -428,10 +428,11 @@ struct acq400_dev {
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 	} rt;
 
-	struct AO42x {
+	struct XO {
 		unsigned max_fifo_samples;
 		unsigned hshift;		/* scale to histo 256 elems */
-	} ao42x;
+		int (*getFifoSamples)(struct acq400_dev* adev);
+	} xo;
 	struct AO_Immediate {
 		union {
 			short ch[AO_CHAN];
@@ -596,7 +597,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
-void ao420_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
+void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 #define SYSCLK_M100	100000000
 #define SYSCLK_M66       66000000
@@ -801,21 +802,20 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 #define AOBYTES2SAMPLES(adev, xx) ((xx)/(adev)->nchan_enabled/(adev)->word_size)
 
 
-static inline unsigned ao420_getFillThreshold(struct acq400_dev *adev)
+static inline unsigned xo400_getFillThreshold(struct acq400_dev *adev)
 {
-	return adev->ao42x.max_fifo_samples/16;
+	return adev->xo.max_fifo_samples/16;
 }
 #define MAX_LOTIDE(adev) \
-	(adev->ao42x.max_fifo_samples - ao420_getFillThreshold(adev)*2)
+	(adev->xo.max_fifo_samples - xo400_getFillThreshold(adev)*2)
 
-static inline int ao420_getFifoSamples(struct acq400_dev* adev) {
-	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
-}
+
+
 
 static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
 	/* pgm: don't trust it to fill to the top */
-	unsigned samples = ao420_getFifoSamples(adev);
-	unsigned maxsam = adev->ao42x.max_fifo_samples - 8;
+	unsigned samples = adev->xo.getFifoSamples(adev);
+	unsigned maxsam = adev->xo.max_fifo_samples - 8;
 
 	if (samples > maxsam){
 		return 0;

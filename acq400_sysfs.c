@@ -1589,7 +1589,7 @@ static ssize_t show_dac_fifo_samples(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int fifo_samples = ao420_getFifoSamples(adev);
+	int fifo_samples = adev->xo.getFifoSamples(adev);
 	return sprintf(buf, "%d samples %d bytes\n",
 			fifo_samples, AOSAMPLES2BYTES(adev, fifo_samples));
 }
@@ -1794,7 +1794,7 @@ static ssize_t store_playloop_length(
 	case 2:
 		adev->AO_playloop.one_shot = one_shot != 0; /* fall thru */
 	case 1:
-		ao420_reset_playloop(adev, playloop_length);
+		xo400_reset_playloop(adev, playloop_length);
 		return count;
 	default:
 		return -1;

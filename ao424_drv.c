@@ -48,11 +48,11 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_RST_ALL);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
 
-	fifo_before = ao420_getFifoSamples(adev);
+	fifo_before = adev->xo.getFifoSamples(adev);
 	write32(adev->dev_virtaddr+AXI_FIFO,
 			adev->ao424_device_settings.u.lw, AO424_MAXCHAN);
 
-	fifo_during = ao420_getFifoSamples(adev);
+	fifo_during = adev->xo.getFifoSamples(adev);
 
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
 	stat1 = acq400rd32(adev, DAC_FIFO_STA);
@@ -66,7 +66,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 		}
 	}
 
-	fifo_after = ao420_getFifoSamples(adev);
+	fifo_after = adev->xo.getFifoSamples(adev);
 
 
 	acq400wr32(adev, DAC_FIFO_STA, acq400rd32(adev, DAC_FIFO_STA));
@@ -75,7 +75,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	dev_info(DEVP(adev), "AO424_DAC_CTRL_SPAN set SWC stat1=%08x  stat2=%08x now: %08x pollcat:%d",
 			stat1, stat2, acq400rd32(adev, DAC_FIFO_STA), pollcat);
 	dev_info(DEVP(adev), "fifo samples before:%u during:%u after:%u now:%u",
-			fifo_before, fifo_during, fifo_after, ao420_getFifoSamples(adev));
+			fifo_before, fifo_during, fifo_after, adev->xo.getFifoSamples(adev));
 	return 0;
 }
 int ao424_set_spans(struct acq400_dev* adev)
