@@ -1,0 +1,12 @@
+#!/bin/sh
+
+while [ 1 ]
+do
+	read ok
+	if [ "$ok" != "y" ]; then
+		break
+	fi
+	sed -ne '/^ *[0-9]*:/  { s/://; p }' /proc/interrupts | \
+	awk '{ print $1 " " $2+$3 " "$6 }'
+done
+
