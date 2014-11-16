@@ -26,7 +26,8 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.662"
+#define REVID "2.664"
+
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
@@ -1972,7 +1973,6 @@ int ao420_awg_release(struct inode *inode, struct file *file)
 
 	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
 		adev->AO_playloop.one_shot = iminor(inode) == AO420_MINOR_HB0_AWG_ONCE;
-		dev_info(DEVP(adev), "ao420_awg_release() oneshot:%d\n", adev->AO_playloop.one_shot);
 		ao420_reset_playloop(adev, adev->AO_playloop.length);
 	}
 	return 0;

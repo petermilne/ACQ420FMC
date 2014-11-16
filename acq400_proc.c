@@ -180,7 +180,7 @@ static int acq400_proc_seq_show_buffers(struct seq_file *s, void *v)
                 return -EINTR;
         }
 
-        seq_printf(s, "%03d,%p,%d\n", hbm->ix, hbm->va, hbm->bstate);
+        seq_printf(s, "%03d,%p,0x%08x,%d\n", hbm->ix, hbm->va, hbm->pa, hbm->bstate);
         mutex_unlock(&dev->mutex);
         return 0;
 }
