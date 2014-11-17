@@ -25,7 +25,7 @@ dmatest_pgm-objs := dmatest.o zynq-timer.o
 
 APPS := mmap acq400_stream bigmac permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
-	dsp_coprocessor
+	dsp_coprocessor ramp
 
 all: modules apps
 	
