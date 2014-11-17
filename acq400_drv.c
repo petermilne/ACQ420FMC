@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.672"
+#define REVID "2.675"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -426,7 +426,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 static void dio432_onStop(struct acq400_dev *adev);
 
 
-int set_debugs(const char* on)
+int set_debugs(char* on)
 {
 	 char *argv[] = { "/mnt/local/set_debugs", on, NULL };
 	 static char *envp[] = {
@@ -453,7 +453,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 
-	set_debugs("on");
+	//set_debugs("on");
 	dac_ctrl |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
 	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
@@ -466,7 +466,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	measure_ao_fifo(adev);
 	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
-	set_debugs("off");
+	//set_debugs("off");
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
@@ -714,6 +714,8 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 
+	dio432_set_mode(adev, DIO432_CLOCKED);
+
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
@@ -726,8 +728,11 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 
 void dio432_onStop(struct acq400_dev *adev)
 {
-	dio432_set_mode(adev, DIO432_IMMEDIATE);
+	adev->dio432.mode = DIO432_IMMEDIATE;
+	dio432_disable(adev);
+	dio432_init_clocked(adev);
 }
+
 void acq420_onStart(struct acq400_dev *adev)
 {
 	dev_dbg(DEVP(adev), "acq420_onStart()");

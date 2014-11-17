@@ -507,7 +507,7 @@ struct acq400_path_descriptor {
 #define DEVP(adev)		(&(adev)->pdev->dev)
 
 
-#define MIN_DMA	256
+#define MIN_DMA	64
 
 #define MAXDEVICES 6
 extern struct acq400_dev* acq400_devices[];
@@ -893,7 +893,10 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
-void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode);		/* immediate, not clocked */
+void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode);
+/* immediate, clocked */
+void dio432_init_clocked(struct acq400_dev* adev);
+void dio432_disable(struct acq400_dev* adev);
 
 extern int a400fs_init(void);
 extern void a400fs_exit(void);
