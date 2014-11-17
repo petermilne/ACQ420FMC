@@ -63,6 +63,7 @@ namespace Globs {
 	bool has_gain;
 	double ch_gain = 1;
 	int verbose;
+	int append;
 };
 
 #define MINBYTES	0x20000
@@ -155,7 +156,7 @@ public:
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
 				Globs::site, Globs::loop? "awgc": "awg");
-		FILE *fpout = fopen(fn, "r+");
+		FILE *fpout = fopen(fn, Globs::append? "r+": "w");
 		if (fpout == 0){
 			perror(fn);
 			exit(1);
@@ -394,6 +395,7 @@ struct poptOption opt_table[] = {
 	{ "word_size", 'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
 	{ "ch_gain", 0, POPT_ARG_DOUBLE, &Globs::ch_gain, 'g', "gain up xx *ch_gain" },
 	{ "ch_offset", 0, POPT_ARG_INT, &Globs::ch_offset, 0, "ident offset + ch*ch_offset" },
+	{ "append", 'a', POPT_ARG_INT, &Globs::append, 0, "append data" },
 	{ "verbose", 'v', POPT_ARG_INT, &Globs::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
