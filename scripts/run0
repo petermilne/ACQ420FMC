@@ -34,14 +34,19 @@ let nchan=0
 
 for site in $sites
 do
+	wpc=1
 	if [ "x$d32" = "x" ]; then
 		d32=$(cat /etc/acq400/$site/data32)
 	else
-		if [ $d32 -ne $(cat /etc/acq400/$site/data32) ];then
+		site_d32=$(cat /etc/acq400/$site/data32)
+		if [ $d32 -ne $site_d32 ];then
 			echo WARNING: mixed data size
+			if [ $site_d32 -ne 0 ]; then 
+				wpc=2
+			fi
 		fi
 	fi
-	let nchan=${nchan}+$(cat /etc/acq400/$site/active_chan)
+	let nchan="${nchan}+$(cat /etc/acq400/$site/active_chan)*$wpc"
 done
 
 # channels per word
