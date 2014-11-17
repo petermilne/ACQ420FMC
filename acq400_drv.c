@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.665"
+#define REVID "2.672"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -394,12 +394,13 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->nchan_enabled = 4;
 	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
-	measure_ao_fifo(adev);
+
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	measure_ao_fifo(adev);
 }
 
 static void ao424_init_defaults(struct acq400_dev *adev)
@@ -411,7 +412,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->nchan_enabled = 32;
 	adev->word_size = 2;
 	adev->cursor.hb = adev->hb[0];
-	measure_ao_fifo(adev);
+
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
@@ -419,14 +420,27 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
-
+	measure_ao_fifo(adev);
 }
 
 static void dio432_onStop(struct acq400_dev *adev);
 
 
+int set_debugs(const char* on)
+{
+	 char *argv[] = { "/mnt/local/set_debugs", on, NULL };
+	 static char *envp[] = {
+	        "HOME=/",
+	        "TERM=linux",
+	        "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+
+	  return call_usermodehelper( argv[0], argv, envp, UMH_WAIT_PROC );
+}
+
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+
 	dev_info(DEVP(adev), "dio432_init_defaults() 01");
 	adev->data32 = 1;
 	adev->nchan_enabled = 1;
@@ -438,6 +452,21 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
+
+	set_debugs("on");
+	dac_ctrl |= IS_DIO432PMOD(adev)?
+		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
+	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	//acq400wr32(adev, DAC_INT_CSR, 0);
+	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_RST|DIO432_CTRL_DIO_RST);
+	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_EN);
+
+	dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
+	measure_ao_fifo(adev);
+	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
+	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
+	set_debugs("off");
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
@@ -2256,14 +2285,12 @@ static void xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int byte
 
 void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 {
-	/*
 	dev_dbg(DEVP(adev), "write32(%p = %p+%d, %d",
 			adev->dev_virtaddr+AXI_FIFO,
 			adev->cursor.hb->va,
 			frombyte/sizeof(u32),
 			bytes/sizeof(u32)
 	);
-	*/
 
 	write32(adev->dev_virtaddr+AXI_FIFO,
 		adev->cursor.hb->va+frombyte/sizeof(u32),

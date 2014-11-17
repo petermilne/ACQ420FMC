@@ -862,11 +862,13 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CTRL_EXT_CLK_SYNC (1<<7)
 #define DIO432_CTRL_LL		(1 << 6)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
-#define DIO432_CTRL_ADC_EN	(1 << 4)
-#define DIO432_CTRL_ADC_RST	(1 << 3)
+#define DIO432_CTRL_DIO_EN	(1 << 4)
+#define DIO432_CTRL_DIO_RST	(1 << 3)
 #define DIO432_CTRL_FIFO_EN	(1 << 2)
 #define DIO432_CTRL_FIFO_RST	(1 << 1)
 #define DIO432_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
+
+#define DIO432_CTRL_RST	(DIO432_CTRL_DIO_RST|DIO432_CTRL_FIFO_RST)
 
 #define DIO432_CTRL_SHIFT_DIV_FMC	(0<<DIO432_CTRL_SHIFT_DIV_SHL)
 #define DIO432_CTRL_SHIFT_DIV_PMOD	(1<<DIO432_CTRL_SHIFT_DIV_SHL)
