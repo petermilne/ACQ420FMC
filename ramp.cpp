@@ -4,9 +4,9 @@
 
 
 template <class T>
-int ramp(int nbytes, int step, int ssize)
+int ramp(int nsam, int step, int ssize)
 {
-	int nwords = nbytes/sizeof(T);
+	int nwords = nsam * ssize;
 	T xx = 0;
 	int ch = 0;
 	for (; nwords; nwords--){
@@ -21,14 +21,14 @@ int ramp(int nbytes, int step, int ssize)
 int main(int argc, char* argv[])
 {
 	if (argc == 1 || strstr(argv[1], "h") != 0){
-		printf("ramp [length=1024 [step=1 [wsize=4 [ssize=1]]]\n");
+		printf("ramp [nsam=1024 [step=1 [wsize=4 [ssize=1]]]\n");
 		printf("eg ramp 64000 1 4 32\n");
 		exit(1);
 	}
 	int length = argc>1? atoi(argv[1]): 1024;
 	int step = argc>2? atoi(argv[2]): 1;
 	int wsize = argc>3?  atoi(argv[3]): 4;
-	int ssize = argc>4?  atoi(argv[4]): 0;
+	int ssize = argc>4?  atoi(argv[4]): 1;
 
 	switch(wsize){
 	case 2:
