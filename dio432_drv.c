@@ -29,6 +29,10 @@ int dio432_immediate_jiffies = 1;
 module_param(dio432_immediate_jiffies, int, 0644);
 MODULE_PARM_DESC(ndevices, "poll interval, immediate mode");
 
+int dio432_use_lotide_irq = 1;
+module_param(dio432_use_lotide_irq, int, 0644);
+MODULE_PARM_DESC(dio432_use_lotide_irq, "REMOVEME: stubs dio432 irq enable when clr");
+
 static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 	if (adev->RW32_debug){
@@ -74,12 +78,9 @@ void dio32_init(struct acq400_dev *adev, int immediate)
 {
 	unsigned syscon = immediate? DIO432_CTRL_LL: 0;
 
-#ifdef FAST_IS_GOOD
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
-#else
-	syscon |= DIO432_CTRL_SHIFT_DIV_PMOD;
-#endif
+
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_MODULE_EN);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon | DIO432_CTRL_RST);
@@ -89,7 +90,9 @@ void dio32_init(struct acq400_dev *adev, int immediate)
 
 	_acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	_acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
-	_acq400wr32(adev, DIO432_DIO_ICR, 1);
+	if (dio432_use_lotide_irq){
+		_acq400wr32(adev, DIO432_DIO_ICR, 1);
+	}
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_DIO_EN);
 }
 

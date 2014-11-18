@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.676"
+#define REVID "2.680"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -172,6 +172,7 @@ void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
 
 static void _ao420_onStart(struct acq400_dev *adev);
+static void _ao420_onStop(struct acq400_dev *adev);
 static void _dio432_DO_onStart(struct acq400_dev *adev);
 
 void go_rt(void)
@@ -397,6 +398,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
+	adev->onStop = _ao420_onStop;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
@@ -708,6 +710,16 @@ static void _ao420_onStart(struct acq400_dev *adev)
 	}
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
 }
+
+static void _ao420_onStop(struct acq400_dev *adev)
+{
+	/*
+	u32 ctrl = acq400rd32(adev, DAC_CTRL);
+	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_ADC_EN);
+	*/
+	dev_info(DEVP(adev), "_ao420_onStop() stub to avoid stopping too soon");
+}
+
 
 
 static void _dio432_DO_onStart(struct acq400_dev *adev)
@@ -2307,13 +2319,16 @@ void _ao420_stop(struct acq400_dev* adev)
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 	ao420_disable_interrupt(adev);
 
-	if (adev->data32){
-		cr |= ADC_CTRL32B_data;
-	}else{
-		cr &= ~ADC_CTRL32B_data;
-	}
+
 	cr &= ~ADC_CTRL_ADC_EN;
-	cr &= ~DAC_CTRL_LL;
+	if (IS_AO42X(adev)){
+		cr &= ~DAC_CTRL_LL;
+		if (adev->data32){
+			cr |= ADC_CTRL32B_data;
+		}else{
+			cr &= ~ADC_CTRL32B_data;
+		}
+	}
 	adev->AO_playloop.length = 0;
 	adev->AO_playloop.cursor = 0;
 	acq400wr32(adev, DAC_CTRL, cr);
