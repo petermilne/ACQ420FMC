@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.680"
+#define REVID "2.681"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -615,6 +615,15 @@ static void acq420_set_interrupt(struct acq400_dev *adev, u32 int_csr)
 	acq400wr32(adev, ADC_INT_CSR,int_csr);
 }
 
+static void dio432_enable_interrupt(struct acq400_dev *adev)
+{
+	acq400wr32(adev, DIO432_DIO_ICR, 0x1);
+}
+static void dio432_disable_interrupt(struct acq400_dev *adev)
+{
+	acq400wr32(adev, DIO432_DIO_ICR, 0x0);
+}
+
 static void acq420_clear_interrupt(struct acq400_dev *adev, u32 status)
 {
 	/** @@todo: how to INTACK?
@@ -731,7 +740,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
-		ao420_enable_interrupt(adev);
+		dio432_enable_interrupt(adev);
 	}else{
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 	}
@@ -741,6 +750,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 void dio432_onStop(struct acq400_dev *adev)
 {
 	adev->dio432.mode = DIO432_IMMEDIATE;
+	dio432_disable_interrupt(adev);
 	dio432_disable(adev);
 	dio432_init_clocked(adev);
 }
