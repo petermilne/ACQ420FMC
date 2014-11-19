@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.681"
+#define REVID "2.683"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -140,6 +140,11 @@ MODULE_PARM_DESC(event_isr_msec, "event isr poll rate (remove when actual interr
 int ao420_buffer_length = AO420_BUFFERLEN;
 module_param(ao420_buffer_length, int, 0644);
 MODULE_PARM_DESC(ao420_buffer_length, "AWG buffer length");
+
+#define AO424_BUFFERLEN	0x400000		/* HACK biggest buffer we can get */
+int ao424_buffer_length = AO424_BUFFERLEN;
+module_param(ao424_buffer_length, int, 0644);
+MODULE_PARM_DESC(ao424_buffer_length, "AWG buffer length");
 
 
 // @@todo pgm: crude: index by site, index from 0
@@ -590,49 +595,7 @@ static void acq420_enable_interrupt(struct acq400_dev *adev)
 }
 */
 
-static void ao420_enable_interrupt(struct acq400_dev *adev)
-{
-	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
-}
 
-static void acq420_disable_interrupt(struct acq400_dev *adev)
-{
-	acq400wr32(adev, ADC_INT_CSR, 0x0);
-}
-static void ao420_disable_interrupt(struct acq400_dev *adev)
-{
-	acq420_disable_interrupt(adev);
-}
-
-static u32 acq420_get_interrupt(struct acq400_dev *adev)
-{
-	return acq400rd32(adev, ADC_INT_CSR);
-}
-
-static void acq420_set_interrupt(struct acq400_dev *adev, u32 int_csr)
-{
-	acq400wr32(adev, ADC_INT_CSR,int_csr);
-}
-
-static void dio432_enable_interrupt(struct acq400_dev *adev)
-{
-	acq400wr32(adev, DIO432_DIO_ICR, 0x1);
-}
-static void dio432_disable_interrupt(struct acq400_dev *adev)
-{
-	acq400wr32(adev, DIO432_DIO_ICR, 0x0);
-}
-
-static void acq420_clear_interrupt(struct acq400_dev *adev, u32 status)
-{
-	/** @@todo: how to INTACK?
-	acq400wr32(adev, ALG_INT_CSR, acq420_get_interrupt(adev));
- *
- */
-	/* peter assumes R/C ie write a 1 to clear the bit .. */
-	acq400wr32(adev, ADC_INT_CSR, status);
-}
 
 
 static void acq400_clear_histo(struct acq400_dev *adev)
@@ -713,7 +676,7 @@ static void _ao420_onStart(struct acq400_dev *adev)
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
-		ao420_enable_interrupt(adev);
+		x400_enable_interrupt(adev);
 	}else{
 		acq400wr32(adev, DAC_LOTIDE, 0);
 	}
@@ -740,7 +703,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
-		dio432_enable_interrupt(adev);
+		x400_enable_interrupt(adev);
 	}else{
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 	}
@@ -750,7 +713,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 void dio432_onStop(struct acq400_dev *adev)
 {
 	adev->dio432.mode = DIO432_IMMEDIATE;
-	dio432_disable_interrupt(adev);
+	x400_disable_interrupt(adev);
 	dio432_disable(adev);
 	dio432_init_clocked(adev);
 }
@@ -1096,7 +1059,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 
 int get_dma_channels(struct acq400_dev *adev)
 {
-	if (IS_AO420(adev) || IS_AO424(adev)){
+	if (IS_AO42X(adev) || IS_DIO432X(adev)){
 		return _get_dma_chan(adev, 0);
 	}else{
 		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
@@ -1843,8 +1806,8 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	u32 int_csr = acq420_get_interrupt(adev);
-	acq420_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	u32 int_csr = x400_get_interrupt(adev);
+	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
 	/* good luck using this in a 64-bit system ... */
 	setup_timer( &adev->event_timer, event_isr, (unsigned)adev);
 	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
@@ -1919,8 +1882,8 @@ static unsigned int acq400_event_poll(
 int acq400_event_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	u32 int_csr = acq420_get_interrupt(adev);
-	acq420_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
+	u32 int_csr = x400_get_interrupt(adev);
+	x400_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
 	del_timer( &adev->event_timer );
 	return 0;
 }
@@ -2327,7 +2290,7 @@ void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 void _ao420_stop(struct acq400_dev* adev)
 {
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
-	ao420_disable_interrupt(adev);
+	x400_disable_interrupt(adev);
 
 
 	cr &= ~ADC_CTRL_ADC_EN;
@@ -2434,7 +2397,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
 			if (adev->AO_playloop.one_shot){
 				dev_info(DEVP(adev), "ao420 oneshot done disable interrupt");
-				ao420_disable_interrupt(adev);
+				x400_disable_interrupt(adev);
 				rc = 0;
 				break;
 			}else{
@@ -2460,7 +2423,7 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 	if (adev->AO_playloop.length){
 		u32 start_samples = adev->xo.getFifoSamples(adev);
 		if (xo400_fill_fifo(adev)){
-			ao420_enable_interrupt(adev);
+			x400_enable_interrupt(adev);
 
 		}
 		add_fifo_histo_ao42x(adev, start_samples);
@@ -2680,7 +2643,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
-		acq420_set_interrupt(adev, status);
+		x400_set_interrupt(adev, status);
 		wake_up_interruptible(&adev->event_waitq);
 	}
 }
@@ -2695,7 +2658,7 @@ static void hitide_action(struct acq400_dev *adev, u32 status)
 void event_isr(unsigned long data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
-	volatile u32 status = acq420_get_interrupt(adev);
+	volatile u32 status = x400_get_interrupt(adev);
 	cos_action(adev, status);
 	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
 }
@@ -2703,14 +2666,14 @@ void event_isr(unsigned long data)
 static irqreturn_t acq400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
-	volatile u32 status = acq420_get_interrupt(adev);
+	volatile u32 status = x400_get_interrupt(adev);
 
 	/** @@todo ... disable interrupt? BAD BAD BAD */
-	acq420_disable_interrupt(adev);
+	x400_disable_interrupt(adev);
 
 	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
 
-	acq420_clear_interrupt(adev, status);
+	x400_clr_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	adev->fifo_isr_done = 1;
@@ -2718,7 +2681,7 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	cos_action(adev, status);
 	hitide_action(adev, status);
 
-	acq420_set_interrupt(adev, status);
+	x400_set_interrupt(adev, status);
 	return IRQ_HANDLED;
 }
 
@@ -2726,9 +2689,9 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	//volatile u32 status =
-	acq420_get_interrupt(adev);
+	x400_get_interrupt(adev);
 
-	acq420_disable_interrupt(adev);
+	x400_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 
@@ -2739,6 +2702,7 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 }
+
 struct file_operations acq400_fops = {
         .owner = THIS_MODULE,
         .read = acq400_read,
@@ -2983,7 +2947,13 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400sc_init_defaults(adev);
         	return 0;
         }
-        if (IS_AO420(adev) || IS_DIO432X(adev) || IS_AO424(adev)){    /** @@todo AO424? */
+        if (IS_AO424(adev)){
+        	if (allocate_hbm(adev, AO420_NBUFFERS,
+        	        ao424_buffer_length, DMA_TO_DEVICE)){
+        	        dev_err(&pdev->dev, "failed to allocate buffers");
+        	        goto fail;
+        	}
+        }else if (IS_AO420(adev) || IS_DIO432X(adev)){
         	if (allocate_hbm(adev, AO420_NBUFFERS,
         				ao420_buffer_length, DMA_TO_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
@@ -2991,7 +2961,7 @@ static int acq400_probe(struct platform_device *pdev)
         	}
         }
 
-        if (IS_AO420(adev)||IS_AO424(adev)){
+        if (IS_AO42X(adev)||IS_DIO432X(adev)){
         	rc = devm_request_threaded_irq(
         	          	DEVP(adev), adev->of_prams.irq,
         	          	ao400_isr, xo400_dma,

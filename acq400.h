@@ -848,12 +848,16 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_DI_HITIDE	0x0C
 #define DIO432_DI_FIFO_COUNT	0x10
 #define DIO432_DI_FIFO_STATUS	0x14
-#define DIO432_DO_LOTIDE	0x18
-#define DIO432_DO_FIFO_COUNT	0x1C
-#define DIO432_DO_FIFO_STATUS	0x20
-#define DIO432_DIO_ICR		0x24
+#define DIO432_DIO_ICR		0x18	/* same as regular ICR */
+
 #define DIO432_DIO_SAMPLE_COUNT 0x40
 #define DIO432_DIO_CPLD_CTRL	0x44
+
+#define DIO432_DO_LOTIDE	0x8c
+#define DIO432_DO_FIFO_COUNT	0x90
+#define DIO432_DO_FIFO_STATUS	0x94
+
+
 
 #define DIO432_FIFO		0x1000
 
@@ -914,4 +918,31 @@ int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix);
 int acq400_sew_fifo_write_bytes(
 		struct acq400_dev* adev, int ix, const char __user *buf, size_t count);
 void measure_ao_fifo(struct acq400_dev *adev);
+
+static inline void x400_enable_interrupt(struct acq400_dev *adev)
+{
+	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
+	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
+}
+
+static inline void x400_disable_interrupt(struct acq400_dev *adev)
+{
+	acq400wr32(adev, ADC_INT_CSR, 0x0);
+}
+
+
+static inline u32 x400_get_interrupt(struct acq400_dev *adev)
+{
+	return acq400rd32(adev, ADC_INT_CSR);
+}
+
+static inline void x400_clr_interrupt(struct acq400_dev *adev, u32 int_csr)
+{
+	acq400wr32(adev, ADC_INT_CSR, int_csr);
+}
+
+static inline void x400_set_interrupt(struct acq400_dev *adev, u32 int_csr)
+{
+	acq400wr32(adev, ADC_INT_CSR, int_csr);
+}
 #endif /* ACQ420FMC_H_ */
