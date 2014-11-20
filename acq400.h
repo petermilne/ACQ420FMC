@@ -432,6 +432,8 @@ struct acq400_dev {
 		unsigned max_fifo_samples;
 		unsigned hshift;		/* scale to histo 256 elems */
 		int (*getFifoSamples)(struct acq400_dev* adev);
+		/* physchan is offset 0..N-1, lchan is faceplate 1..N */
+		int (*physchan)(int lchan);
 	} xo;
 	struct AO_Immediate {
 		union {

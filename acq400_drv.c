@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.684"
+#define REVID "2.685"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -203,6 +203,11 @@ int ao420_physChan(int lchan /* 1..4 */ )
 		}
 	}
 	BUG();
+}
+
+int ao424_physChan(int lchan /* 1..32 */ )
+{
+	return lchan-1;
 }
 
 int isGoodSite(int site)
@@ -404,6 +409,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
+	adev->xo.physchan = ao420_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
@@ -422,6 +428,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
+	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
