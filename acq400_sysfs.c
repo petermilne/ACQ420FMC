@@ -1681,8 +1681,11 @@ static ssize_t show_dac_immediate(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	short chx = adev->AO_immediate._u.ch[chan = ao420_physChan(chan)];
-
+	short chx;
+	if (IS_AO420(adev)){
+		chan = ao420_physChan(chan);
+	}
+	chx = adev->AO_immediate._u.ch[chan];
 	return sprintf(buf, "0x%04x %d\n", chx, chx);
 }
 
