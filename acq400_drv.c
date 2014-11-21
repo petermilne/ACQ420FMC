@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.685"
+#define REVID "2.686"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2083,6 +2083,11 @@ ssize_t xo400_awg_write(
 	if (rc){
 		return -1;
 	}
+
+	dma_sync_single_for_device(DEVP(adev),
+			adev->cursor.hb->pa + bcursor, count,
+			DMA_TO_DEVICE);
+
 	*f_pos += count;
 	adev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
 	return count;
