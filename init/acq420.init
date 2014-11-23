@@ -386,6 +386,16 @@ if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
 		set.sys /dev/acq400.0.knobs/celf_power_en 1	
 fi
 
+if [ -e /mnt/local/power ]; then
+	cp /mnt/local/power /etc/sysconfig/power
+else
+	cat - >/etc/sysconfig/power <<EOF
+	VAP=13
+	VAN=-13
+EOF
+fi
+
+
 /usr/local/init/acq400_knobs.init start
 
 nice daemon $WEB_APPEND_JOB

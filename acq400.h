@@ -370,6 +370,7 @@ struct acq400_dev {
 		u32 dma_transactions;
 		int shot;
 		int run;
+		int fifo_errors;
 	} stats;
 
 	int ramp_en;
@@ -806,7 +807,7 @@ static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 
 static inline unsigned xo400_getFillThreshold(struct acq400_dev *adev)
 {
-	return adev->xo.max_fifo_samples/16;
+	return adev->xo.max_fifo_samples/128;
 }
 #define MAX_LOTIDE(adev) \
 	(adev->xo.max_fifo_samples - xo400_getFillThreshold(adev)*2)

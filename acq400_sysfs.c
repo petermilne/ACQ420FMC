@@ -1087,8 +1087,9 @@ static ssize_t show_stats(
 	char * buf)
 {
 	struct STATS *stats = &acq400_devices[dev->id]->stats;
-	return sprintf(buf, "fifo_ints=%u dma_transactions=%u\n",
-			stats->fifo_interrupts, stats->dma_transactions);
+	return sprintf(buf, "fifo_ints=%u dma_transactions=%u fifo_errs=%d\n",
+			stats->fifo_interrupts, stats->dma_transactions,
+			stats->fifo_errors);
 }
 
 static ssize_t store_stats(
@@ -1667,11 +1668,13 @@ static void ao420_flushImmediate(struct acq400_dev *adev)
 	int imax = adev->nchan_enabled/2;
 	int ii = 0;
 
+	dev_dbg(DEVP(adev), "ao420_flushImmediate() 01 imax %d", imax);
 	for (ii = 0; ii < imax; ++ii){
 		dev_dbg(DEVP(adev), "fifo write: %p = 0x%08x\n",
 				fifo + ii*sizeof(unsigned), src[ii]);
 		iowrite32(src[ii], fifo + ii*sizeof(unsigned));
 	}
+	dev_dbg(DEVP(adev), "ao420_flushImmediate() 99 ii %d", ii);
 }
 
 static ssize_t show_dac_immediate(
@@ -1702,11 +1705,7 @@ static ssize_t store_dac_immediate(
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
 		unsigned cr = acq400rd32(adev, DAC_CTRL);
 		adev->AO_immediate._u.ch[pchan] = chx;
-
-		if ((cr&DAC_CTRL_LL) == 0){
-			cr |= DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL;
-		}
-		acq400wr32(adev, DAC_CTRL, cr);
+		acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
 		ao420_flushImmediate(adev);
 		return count;
 	}else{

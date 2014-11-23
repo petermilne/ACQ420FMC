@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.686"
+#define REVID "2.703"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -667,12 +667,16 @@ void acq43X_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl);
 }
 
+void ao420_clear_fifo_flags(struct acq400_dev *adev)
+{
+	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_ERR);
+}
 void ao420_reset_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_FIFO_EN);
 	acq400wr32(adev, DAC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
+	ao420_clear_fifo_flags(adev);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 }
 
@@ -2066,7 +2070,8 @@ ssize_t xo400_awg_write(
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	unsigned bcursor = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
-	int len = adev->cursor.hb->len;
+	struct HBM *hbm = adev->cursor.hb;
+	int len = hbm->len;
 	int rc;
 
 	count = AOSAMPLES2BYTES(adev, AOBYTES2SAMPLES(adev, count));
@@ -2079,14 +2084,19 @@ ssize_t xo400_awg_write(
 			count = headroom;
 		}
 	}
-	rc = copy_from_user((char*)adev->cursor.hb->va + bcursor, buf, count);
+	rc = copy_from_user((char*)hbm->va + bcursor, buf, count);
 	if (rc){
 		return -1;
 	}
 
+	dev_dbg(DEVP(adev),
+		"dma_sync_single_for_device() %08x %d len:%d demand:%d %d (DMA_TO_DEVICE=%d)",
+		adev->cursor.hb->pa + bcursor, count,
+		hbm->len, bcursor+count,
+		hbm->dir, DMA_TO_DEVICE);
+
 	dma_sync_single_for_device(DEVP(adev),
-			adev->cursor.hb->pa + bcursor, count,
-			DMA_TO_DEVICE);
+			hbm->pa + bcursor, count, hbm->dir);
 
 	*f_pos += count;
 	adev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
@@ -2353,7 +2363,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	}
 	adev->xo.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
-	adev->lotide = 3*sam/4;
+	adev->lotide = 8*sam/10;
 
 	for (adev->xo.hshift = 0;
 		(sam >> adev->xo.hshift) > 256; ++adev->xo.hshift)
@@ -2364,6 +2374,27 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	ao420_reset_fifo(adev);
 }
 
+void check_fiferr(struct acq400_dev* adev)
+{
+	u32 fifo_sta = acq400rd32(adev, ADC_FIFO_STA);
+
+	if ((fifo_sta&ADC_FIFO_STA_ACTIVE) == 0){
+		return;
+	}
+	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
+			acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
+
+		if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){
+			dev_err(DEVP(adev), "ERROR FIFO underrun at %d %08x samples:%d",
+				adev->stats.fifo_interrupts, fifo_sta,
+				adev->xo.getFifoSamples(adev));
+		}else{
+			dev_err(DEVP(adev), "ERROR FIFO at %d %08x",
+					adev->stats.fifo_interrupts, fifo_sta);
+		}
+		++adev->stats.fifo_errors;
+	}
+}
 static int xo400_fill_fifo(struct acq400_dev* adev)
 /* returns 1 if further interrupts are required */
 {
@@ -2379,6 +2410,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	while(adev->AO_playloop.length != 0 &&
 	      (headroom = ao420_getFifoHeadroom(adev)) > xo400_getFillThreshold(adev)){
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
+		int headroom_lt_remaining = headroom < remaining;
 
 		remaining = min(remaining, headroom);
 
@@ -2398,7 +2430,11 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				xo400_write_fifo_dma(adev, cursor, dma_bytes);
 				lenbytes = dma_bytes;
+			}else if (headroom_lt_remaining){
+				/* FIFO nearly full, catch it next time */
+				break;
 			}else{
+				/* we really have to write the end of the buffer .. */
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
 				xo400_write_fifo(adev, cursor, lenbytes);
 			}
@@ -2422,6 +2458,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 		}
 	}
 
+	check_fiferr(adev);
 	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
 			acq400rd32(adev, DAC_FIFO_SAMPLES));
@@ -2476,10 +2513,27 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 
 	mutex_unlock(&adev->awg_mutex);
 
+	{
+		unsigned cr = acq400rd32(adev, DAC_CTRL);
+
+		if (playloop_length == 0){
+			if ((cr&DAC_CTRL_LL) == 0){
+				cr |= DAC_CTRL_LL;
+				acq400wr32(adev, DAC_CTRL, cr);
+			}
+		}else{
+			if ((cr&DAC_CTRL_LL) != 0){
+				cr &= ~DAC_CTRL_LL;
+				acq400wr32(adev, DAC_CTRL, cr);
+			}
+		}
+	}
+
 	if (playloop_length != 0){
 		xo400_getDMA(adev);
 		adev->AO_playloop.length = playloop_length;
 		xo400_fill_fifo(adev);
+		ao420_clear_fifo_flags(adev);
 		adev->onStart(adev);
 	}
 }
@@ -2958,8 +3012,7 @@ static int acq400_probe(struct platform_device *pdev)
         	acq2006_createDebugfs(adev);
         	acq400sc_init_defaults(adev);
         	return 0;
-        }
-        if (IS_AO424(adev)){
+        }else if (IS_AO424(adev)){
         	if (allocate_hbm(adev, AO420_NBUFFERS,
         	        ao424_buffer_length, DMA_TO_DEVICE)){
         	        dev_err(&pdev->dev, "failed to allocate buffers");
