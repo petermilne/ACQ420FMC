@@ -37,6 +37,34 @@ MODULE_PARM_DESC(set_spans_timeout, "timeout on setting spans pollcount");
 #define UP_ZERO	0x0000
 #define BP_ZERO 0x8000
 
+static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
+{
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}else{
+		dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}
+
+	iowrite32(value, adev->dev_virtaddr + offset);
+}
+
+static u32 _acq400rd32(struct acq400_dev *adev, int offset)
+{
+	u32 rc = ioread32(adev->dev_virtaddr + offset);
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
+	}else{
+		dev_dbg(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
+	}
+	return rc;
+}
+
+#define acq400rd32 _acq400rd32
+#define acq400wr32 _acq400wr32
 
 void ao424_init_on_setspan(struct acq400_dev* adev)
 {
@@ -64,7 +92,10 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 
 	ao424_init_on_setspan(adev);
 
+	ctrl &= ~ADC_CTRL_ADC_EN;
 	ctrl |= ADC_CTRL_MODULE_EN;
+
+	dev_dbg(DEVP(adev), "_ao424_set_spans: ctrl %x", ctrl);
 	acq400wr32(adev, DAC_INT_CSR, 0);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_RST_ALL);
 	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
@@ -81,6 +112,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	while(((stat2 = acq400rd32(adev, DAC_FIFO_STA))&AO424_DAC_FIFO_STA_SWC) == 0){
 		msleep(1);
 		if (++pollcat > set_spans_timeout){
+			acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
 			dev_info(DEVP(adev), "SWC timeout at pollcat %d", pollcat);
 			return -1;
 		}
