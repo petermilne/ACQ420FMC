@@ -28,14 +28,23 @@
 
 typedef unsigned short ushort;
 
-int set_spans_timeout = 1000;
+int set_spans_timeout = 10;
 module_param(set_spans_timeout, int, 0644);
-MODULE_PARM_DESC(set_spans_timeout, "timeout on setting spans pollcount");
+MODULE_PARM_DESC(set_spans_timeout, "timeout on setting spans pollcount 10*.1 = 1s");
 
 #define IS_UNIPOLAR(span) ((span) == 0 || (span) == 1)
 
 #define UP_ZERO	0x0000
 #define BP_ZERO 0x8000
+
+short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value)
+{
+	if (IS_UNIPOLAR(adev->ao424_device_settings.u.ch.ao424_spans[pchan])){
+		return value;
+	}else{
+		return value^0x8000;
+	}
+}
 
 static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
@@ -106,14 +115,15 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 
 	fifo_during = adev->xo.getFifoSamples(adev);
 
-	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
+	acq400wr32(adev, DAC_CTRL, ctrl|= ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
 	stat1 = acq400rd32(adev, DAC_FIFO_STA);
 
 	while(((stat2 = acq400rd32(adev, DAC_FIFO_STA))&AO424_DAC_FIFO_STA_SWC) == 0){
-		msleep(1);
+		msleep(pollcat < 5? 1: 100);
 		if (++pollcat > set_spans_timeout){
-			acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
-			dev_info(DEVP(adev), "SWC timeout at pollcat %d", pollcat);
+			// @todo .. seems bogus acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN|AO424_DAC_CTRL_SPAN);
+			dev_info(DEVP(adev), "SWC timeout at pollcat %d ctrl w:%08x r:%08x fsta:%08x",
+					pollcat, ctrl, acq400rd32(adev, DAC_CTRL), stat2);
 			return -1;
 		}
 	}
@@ -122,7 +132,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 
 
 	acq400wr32(adev, DAC_FIFO_STA, acq400rd32(adev, DAC_FIFO_STA));
-	acq400wr32(adev, DAC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
+	acq400wr32(adev, DAC_CTRL, ctrl &= ~AO424_DAC_CTRL_SPAN);
 
 	dev_info(DEVP(adev), "AO424_DAC_CTRL_SPAN set SWC stat1=%08x  stat2=%08x now: %08x pollcat:%d",
 			stat1, stat2, acq400rd32(adev, DAC_FIFO_STA), pollcat);
@@ -150,7 +160,6 @@ int ao424_set_spans(struct acq400_dev* adev)
 		}
 		was_enabled = 1;
 		dev_dbg(DEVP(adev), "clear ADC_CTRL_ADC_EN");
-		acq400wr32(adev, DAC_CTRL, ctrl &~ADC_CTRL_ADC_EN);
 	}
 
 	rc = _ao424_set_spans(adev, ctrl);

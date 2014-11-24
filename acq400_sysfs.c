@@ -1688,6 +1688,10 @@ static ssize_t show_dac_immediate(
 	int pchan = adev->xo.physchan(chan);
 
 	chx = adev->AO_immediate._u.ch[pchan];
+	if (IS_AO424(adev)){
+		chx = ao424_fixEncoding(adev, pchan, chx);
+	}
+
 	return sprintf(buf, "0x%04x %d\n", chx, chx);
 }
 
@@ -1704,6 +1708,9 @@ static ssize_t store_dac_immediate(
 
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
 		unsigned cr = acq400rd32(adev, DAC_CTRL);
+		if (IS_AO424(adev)){
+			chx = ao424_fixEncoding(adev, pchan, chx);
+		}
 		adev->AO_immediate._u.ch[pchan] = chx;
 		acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
 		ao420_flushImmediate(adev);

@@ -948,4 +948,10 @@ static inline void x400_set_interrupt(struct acq400_dev *adev, u32 int_csr)
 {
 	acq400wr32(adev, ADC_INT_CSR, int_csr);
 }
+
+short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
+/* LTC2752 data is always unsigned. But bipolar ranges are represented ext as
+ * signed this converts, dependent on range
+ */
+
 #endif /* ACQ420FMC_H_ */
