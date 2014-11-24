@@ -438,8 +438,8 @@ struct acq400_dev {
 	} xo;
 	struct AO_Immediate {
 		union {
-			short ch[AO_CHAN];
-			unsigned lw[AO_CHAN/2];
+			short ch[AO424_MAXCHAN];
+			unsigned lw[AO424_MAXCHAN/2];
 		} _u;
 	} AO_immediate;
 
@@ -483,7 +483,6 @@ struct acq400_dev {
 				u16 ao424_initvals[AO424_MAXCHAN];
 			} ch;
 		} u;
-		u16 ao424_immediates[AO424_MAXCHAN];
 	} ao424_device_settings;
 
 	struct SewFifo {
@@ -911,7 +910,6 @@ extern const char* devname(struct acq400_dev *adev);
 
 
 #define AO424_DAC_CTRL_SPAN	(1<<5)
-
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
 int ao424_set_spans(struct acq400_dev* adev);

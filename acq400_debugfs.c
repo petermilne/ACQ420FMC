@@ -179,8 +179,6 @@ void ao424_create_spans(struct acq400_dev* adev, char* pcursor)
 			adev->ao424_device_settings.u.ch.ao424_spans, pcursor);
 	pcursor = _ao424_create_ch_knobs(adev, "init",
 			adev->ao424_device_settings.u.ch.ao424_initvals, pcursor);
-	_ao424_create_ch_knobs(adev, "dc",
-				adev->ao424_device_settings.ao424_immediates, pcursor);
 }
 void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
