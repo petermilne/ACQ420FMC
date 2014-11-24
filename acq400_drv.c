@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.711"
+#define REVID "2.713"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -108,7 +108,8 @@ module_param(AO420_MAX_FILL_BLOCK, int, 0644);
  * ideally we'd have no globals here at all, but it works, for now
  */
 
-struct acq400_dev* acq400_devices[MAXDEVICES];
+/* index from 0, including site 0 */
+struct acq400_dev* acq400_devices[MAXDEVICES+1];
 
 #define DMA_NS_MAX     40
 int dma_ns_lines[DMA_NS_MAX];
