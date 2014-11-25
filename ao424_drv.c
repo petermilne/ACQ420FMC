@@ -80,7 +80,7 @@ void ao424_init_on_setspan(struct acq400_dev* adev)
 	struct AO424 *ao424ch = &adev->ao424_device_settings;
 	int ic;
 
-	for (ic = 0; ic < AO424_MAXCHAN; ++ic){
+	for (ic = 0; ic < adev->nchan_enabled; ++ic){
 		ao424ch->u.ch.ao424_initvals[ic] =
 		IS_UNIPOLAR(ao424ch->u.ch.ao424_spans[ic])? UP_ZERO: BP_ZERO;
 		dev_dbg(DEVP(adev), "ao424_init_on_setspan() span:%d %s %04x",
@@ -100,26 +100,31 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	int pollcat = 0;
 	int rc = 0;
 
-	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+	//u32 cgen = acq400rd32(adev, DAC_424_CGEN);
 
 	ao424_init_on_setspan(adev);
 
-	ctrl &= ~ADC_CTRL_ADC_EN;
+	dev_dbg(DEVP(adev), "_ao424_set_spans 01");
+
+	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
 	ctrl &= ~DAC_CTRL_LL;			/** PGM desperate */
 	ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, ctrl);
 
-	dev_dbg(DEVP(adev), "_ao424_set_spans: ctrl %x", ctrl);
+
 	acq400wr32(adev, DAC_INT_CSR, 0);
-	acq400wr32(adev, DAC_424_CGEN, 0);
+	//acq400wr32(adev, DAC_424_CGEN, 0);
 
-	acq400wr32(adev, DAC_CTRL, ctrl| ADC_CTRL_RST_ALL);
+	acq400wr32(adev, DAC_CTRL, ctrl |  ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 
 	fifo_before = adev->xo.getFifoSamples(adev);
 	write32(adev->dev_virtaddr+AXI_FIFO,
-			adev->ao424_device_settings.u.lw, AO424_MAXCHAN);
-
+			adev->ao424_device_settings.u.lw, adev->nchan_enabled);
 	fifo_during = adev->xo.getFifoSamples(adev);
+
+	dev_dbg(DEVP(adev), "_ao424_set_spans after write %d lw fifo count:%d",
+			adev->nchan_enabled, fifo_during);
 
 	acq400wr32(adev, DAC_CTRL, ctrl |= AO424_DAC_CTRL_SPAN);
 	stat1 = acq400rd32(adev, DAC_FIFO_STA);
@@ -131,7 +136,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 			dev_err(DEVP(adev), "_ao424_set_spans() SWC timeout at pollcat %d ctrl w:%08x r:%08x fsta:%08x",
 					pollcat, ctrl, acq400rd32(adev, DAC_CTRL), stat2);
 			rc = -1;
-			goto spans99;
+			break;
 		}
 	}
 
@@ -140,8 +145,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 
 	dev_info(DEVP(adev), "AO424_DAC_CTRL_SPAN set SWC stat1=%08x  stat2=%08x now: %08x pollcat:%d",
 			stat1, stat2, acq400rd32(adev, DAC_FIFO_STA), pollcat);
-spans99:
-	acq400wr32(adev, DAC_424_CGEN, cgen);
+	//acq400wr32(adev, DAC_424_CGEN, cgen);
 	dev_info(DEVP(adev), "fifo samples before:%u during:%u after:%u",
 			fifo_before, fifo_during, adev->xo.getFifoSamples(adev));
 	return rc;
@@ -158,12 +162,8 @@ int ao424_set_spans(struct acq400_dev* adev)
 			dev_err(DEVP(adev), "ao424_set_spans ADC_CTRL_ADC_EN AND playloop_length no change");
 			return -1;
 		}else{
-			dev_dbg(DEVP(adev), "ADC is enabled, clear defaults");
-			memset(adev->ao424_device_settings.u.ch.ao424_initvals, 0,
-					sizeof(adev->ao424_device_settings.u.ch.ao424_initvals));
+			was_enabled = 1;
 		}
-		was_enabled = 1;
-		dev_dbg(DEVP(adev), "clear ADC_CTRL_ADC_EN");
 	}
 
 	rc = _ao424_set_spans(adev, ctrl);
