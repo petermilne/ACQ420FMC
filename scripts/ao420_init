@@ -19,7 +19,8 @@ set.sys ${KNOBS}/dacspi 0x200000
 ln -s /usr/local/bin/wavegen /etc/acq400/$SITE
 
 
-cat - <<EOF >>/etc/acq400/$SITE/groups
+cat - >>/etc/acq400/$SITE/groups <<EOF
 dac_range_XX=dac_range_[0-9]*
 AO_ALL=AO_[0-9]*
 EOF
+
