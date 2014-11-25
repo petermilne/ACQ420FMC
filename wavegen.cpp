@@ -195,10 +195,7 @@ public:
 		bool busy = false;
 
 		T sam = data[cursor];
-		if (Globs::has_gain){
-			double dsam = sam; dsam *= Globs::ch_gain;
-			sam = dsam;
-		}
+
 		sam += Globs::ch_offset * ichan;
 
 		fwrite(&sam, sizeof(T), 1, fp);
@@ -254,6 +251,13 @@ public:
 		}
 		fclose(fp);
 
+		if (Globs::has_gain){
+			for (int ic = 0; ic < ndata; ++ic){
+				double dsam = data[ic];
+				dsam *= Globs::ch_gain;
+				data[ic] = dsam;
+			}
+		}
 		if (raw_data_unsigned){
 			convert_to_unsigned();
 		}
