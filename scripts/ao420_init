@@ -2,6 +2,8 @@
 
 SITE=${1:-0}
 KNOBS=/dev/acq400.${SITE}.knobs
+
+echo "dac_range_ALL=dac_range_??" >/etc/acq400/${SITE}/groups	
 echo +++ initializing DACs 
 #echo "file acq400_drv.c +p"   >/sys/kernel/debug/dynamic_debug/control
 #echo "file acq400_sysfs.c +p" >/sys/kernel/debug/dynamic_debug/control
