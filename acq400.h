@@ -140,16 +140,25 @@
 #define ADC_CTRL_RGM_MODE_SHL   (10)
 #define ADC_CTRL_RGM_MODE_MASK  0x3
 #define ADC_CTRL_435_GATE_SYNC	(1 << 10)	/* special resync mode */
-#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
+
 #define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
 #define ADC_CTRL_420_18B	(1 << 6)	/* ACQ420FMC */
 #define ADC_CTRL_435_EMBED_STR	(1 << 6)	/* ACQ435 bitslice data */
 #define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
+
+#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
+
 #define ADC_CTRL_ADC_RST	(1 << 3)
 #define ADC_CTRL_FIFO_EN	(1 << 2)
 #define ADC_CTRL_FIFO_RST	(1 << 1)
 #define ADC_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
+
+#define DAC_CTRL_DAC_EN		ADC_CTRL_ADC_EN
+#define DAC_CTRL_DAC_RST	ADC_CTRL_ADC_RST
+#define DAC_CTRL_FIFO_EN	ADC_CTRL_FIFO_EN
+#define DAC_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
+#define DAC_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
 
 #define ADC_CTRL_RGM_GATE_SHL	12
 

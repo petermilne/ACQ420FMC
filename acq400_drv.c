@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.717"
+#define REVID "2.722"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -692,7 +692,7 @@ static void _ao420_onStart(struct acq400_dev *adev)
 	}else{
 		acq400wr32(adev, DAC_LOTIDE, 0);
 	}
-	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
+	acq400wr32(adev, DAC_CTRL, ctrl |= DAC_CTRL_DAC_EN);
 }
 
 static void _ao420_onStop(struct acq400_dev *adev)
@@ -719,7 +719,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 	}else{
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 	}
-	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_ADC_EN);
+	acq400wr32(adev, DAC_CTRL, ctrl |= DAC_CTRL_DAC_EN);
 }
 
 void dio432_onStop(struct acq400_dev *adev)
@@ -1927,7 +1927,7 @@ void bolo_awg_commit(struct acq400_dev* adev)
 	}
 	/* wavetop in shorts, starting from zero */
 	acq400wr32(adev, B8_DAC_WAVE_TOP, adev->bolo8.awg_buffer_cursor/sizeof(u16)-1);
-	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|ADC_CTRL_ADC_EN);
+	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|DAC_CTRL_DAC_EN);
 }
 int bolo_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
@@ -2316,7 +2316,7 @@ void _ao420_stop(struct acq400_dev* adev)
 	x400_disable_interrupt(adev);
 
 
-	cr &= ~ADC_CTRL_ADC_EN;
+	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
 		cr &= ~DAC_CTRL_LL;
 		if (adev->data32){
@@ -2341,9 +2341,17 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	unsigned osam = 0xffffffff;
 	unsigned sam;
 	int values_per_lw = adev->data32? 1: 2;
+	unsigned cr;
+
+	dev_dbg(DEVP(adev), "measure_ao_fifo() 01");
+
+	cr = acq400rd32(adev, DAC_CTRL);
+	acq400wr32(adev, DAC_CTRL, cr &= ~(DAC_CTRL_LL|DAC_CTRL_DAC_EN));
+
 
 	ao420_reset_fifo(adev);
 	for (; (sam = adev->xo.getFifoSamples(adev)) != osam; osam = sam){
+		dev_dbg(DEVP(adev), "xo400_write_fifo(16384)");
 		xo400_write_fifo(adev, 0, 16384);
 	}
 

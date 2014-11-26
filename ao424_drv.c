@@ -106,9 +106,9 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 
 	dev_dbg(DEVP(adev), "_ao424_set_spans 01");
 
-	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+	ctrl &= ~(DAC_CTRL_DAC_EN|DAC_CTRL_FIFO_EN);
 	ctrl &= ~DAC_CTRL_LL;			/** PGM desperate */
-	ctrl |= ADC_CTRL_MODULE_EN;
+	ctrl |= DAC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, ctrl);
 
 
