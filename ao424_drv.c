@@ -32,6 +32,10 @@ int set_spans_timeout = 10;
 module_param(set_spans_timeout, int, 0644);
 MODULE_PARM_DESC(set_spans_timeout, "timeout on setting spans pollcount 10*.1 = 1s");
 
+int allow_spans_in_odds_mode = 0;
+module_param(allow_spans_in_odds_mode, int, 0644);
+
+
 #define IS_UNIPOLAR(span) ((span) == 0 || (span) == 1)
 
 #define UP_ZERO	0x0000
@@ -115,7 +119,7 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	acq400wr32(adev, DAC_INT_CSR, 0);
 	//acq400wr32(adev, DAC_424_CGEN, 0);
 
-	acq400wr32(adev, DAC_CTRL, ctrl |  ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, DAC_CTRL, ctrl |  ADC_CTRL_FIFO_RST|DAC_CTRL_DAC_RST);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 
 	fifo_before = adev->xo.getFifoSamples(adev);
@@ -157,6 +161,12 @@ int ao424_set_spans(struct acq400_dev* adev)
 	int was_enabled = 0;
 	int rc = 0;
 
+	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+
+	if (!allow_spans_in_odds_mode && (cgen&DAC_424_CGEN_ODD_CHANS) != 0){
+		dev_err(DEVP(adev), "ao424_set_spans not allowed in ODD chans mode");
+		return -1;
+	}
 	if ((ctrl&ADC_CTRL_ADC_EN) != 0){
 		if (adev->AO_playloop.length > 0){
 			dev_err(DEVP(adev), "ao424_set_spans ADC_CTRL_ADC_EN AND playloop_length no change");
