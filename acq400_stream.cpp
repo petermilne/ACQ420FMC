@@ -382,8 +382,20 @@ private:
 	char CLEAN_COMMAND[128];
 	char FIN_COMMAND[128];
 
+	static u32 ID_MASK;
+
 	static int startchan;
 
+	static void init() {
+		if (ID_MASK) return;
+
+		if (getenv("NOSID")){
+			ID_MASK = 0x1f;
+			fprintf(stderr, "ID_MASK set %02x\n", ID_MASK);
+		}else{
+			ID_MASK = 0xff;
+		}
+	}
 	void make_names() {
 		sprintf(OUT_ROOT, FMT_OUT_ROOT, G::devnum);
 		sprintf(OUT_ROOT_NEW, FMT_OUT_ROOT_NEW, G::devnum);
@@ -418,7 +430,7 @@ private:
 	}
 	static unsigned ch_id(T data)
 	{
-		return data&0x0000001f;
+		return data&ID_MASK;
 	}
 
 	void dump(T* src, int nwords){
@@ -434,15 +446,17 @@ private:
 		T* src = reinterpret_cast<T*>(pdata);
 		int isam = 0;
 
-		if (verbose > 1 && start && ch_id(src[0]) != 0x20){
-			fprintf(stderr, "handling misalign at [0] %08x\n", src[0]);
+		if (verbose > 1 && start && ch_id(src[0]) != 0x00){
+			fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
+					src[0], data_fits_buffer);
 		}
+
 		if (start && !data_fits_buffer){
 			/* search for start point - site 1 */
-			for (; !(ch_id(src[0]) == 0x00 &&
-			         ch_id(src[1]) == 0x01 &&
-			         ch_id(src[2]) == 0x02 &&
-			         ch_id(src[3]) == 0x03    ); ++src){
+			for (; !(ch_id(src[0]) == ch_id(0x20) &&
+			         ch_id(src[1]) == ch_id(0x21) &&
+			         ch_id(src[2]) == ch_id(0x22) &&
+			         ch_id(src[3]) == ch_id(0x23)    ); ++src){
 				if (src - src1 > 256){
 					if (verbose > 1){
 						dump(src1, src-src1);
@@ -523,6 +537,7 @@ public:
 		nchan(G::nchan),
 		nsam(_buffer_len/sizeof(T)/G::nchan)
 	{
+		init();
 		mask = new unsigned[nchan];
 		for (int ic = 0; ic < nchan; ++ic){
 			mask[ic] = ic < G::m1? FULL_MASK: _mask;
@@ -538,6 +553,10 @@ public:
 		make_names();
 
 		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
+		if (verbose){
+			printf("nsam:%d _buffer_len:%d data_fits_buffer? %s\n",
+				nsam, _buffer_len, data_fits_buffer? "YES": "NO");
+		}
 	}
 	virtual unsigned getItem(int ii) {
 		T* src = reinterpret_cast<T*>(pdata);
@@ -546,6 +565,7 @@ public:
 	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
 
+template<class T> unsigned DemuxBuffer<T>::ID_MASK;
 template<class T> int DemuxBuffer<T>::startchan;
 template<class T> T** DemuxBuffer<T>::dddata;
 template<class T> T** DemuxBuffer<T>::ddcursors;
