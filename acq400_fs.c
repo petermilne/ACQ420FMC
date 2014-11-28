@@ -590,7 +590,7 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 
 	FSN.maps = kmalloc(sizeof(struct InodeMap)*FSN.nmap, GFP_KERNEL);
 
-	for (dev = 0; dev < MAXDEVICES; ++dev){
+	for (dev = 0; dev <= MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
 		if (adev && (IS_AI(adev) || IS_ACQx00xSC(adev))){
 			a400fs_add_site(adev->of_prams.site, adev, &FSN);
