@@ -131,6 +131,22 @@ static ssize_t show_bits##NAME(						\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 
+/* active low. Valid for single bit only */
+#define MAKE_BIT_RON(NAME, REG, SHL, MASK)				\
+static ssize_t show_bits##NAME(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char *buf)							\
+{									\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return !show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return !show_bits(dev, attr, buf, REG, SHL, MASK);	\
+	}								\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
+
 #define MAKE_BITS(NAME, REG, SHL, MASK)					\
 static ssize_t show_bits##NAME(						\
 	struct device *dev,						\
@@ -171,7 +187,7 @@ MAKE_BITS(di4_2, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_SYNCb, 	0x1);
 MAKE_BITS(di4_1, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_TRGb, 	0x1);
 MAKE_BITS(di4_0, 	HDMI_SYNC_DAT, HDMI_SYNC_IN_GPIOb, 	0x1);
 
-MAKE_BITS_RO(sync_out_cable_detN, HDMI_SYNC_DAT, HDMI_SYNC_OUT_CABLE_DETNb, 0x1);
+MAKE_BIT_RON(sync_out_cable_det, HDMI_SYNC_DAT, HDMI_SYNC_OUT_CABLE_DETNb, 0x1);
 
 MAKE_BITS(sync_out_clk,  HDMI_SYNC_DAT, HDMI_SYNC_OUT_CLKb, 	0x1);
 MAKE_BITS(sync_out_sync, HDMI_SYNC_DAT, HDMI_SYNC_OUT_SYNCb, 	0x1);
@@ -226,7 +242,7 @@ static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_di4_1.attr,
 	&dev_attr_di4_0.attr,
 
-	&dev_attr_sync_out_cable_detN.attr,
+	&dev_attr_sync_out_cable_det.attr,
 
 	&dev_attr_sync_out_clk.attr,
 	&dev_attr_sync_out_sync.attr,
