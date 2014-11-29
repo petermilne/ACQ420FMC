@@ -105,6 +105,9 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
+	if [ -e /mnt/local/sysconfig/site-${site}-peers ]; then
+			cp /mnt/local/sysconfig/site-${site}-peers /etc/acq400/${site}/peers
+	fi
 }
 
 
@@ -166,6 +169,10 @@ BOLO8_SITES=""
 ACQ425_SITES=""
 ACQ437_SITES=""
 
+start_knob_services()
+{
+	/usr/local/init/acq400_knobs.init start
+}
 
 build_knobs_device() {
 	dir=$1
@@ -270,6 +277,7 @@ build_site0() {
 		ln -s /dev/gpio/SYNC_CABLE_DET /etc/acq400/0/sync_out_cable_det
 	esac
 }
+
 
 build_knobs() {
 	spd=/sys/bus/platform/devices
@@ -403,8 +411,9 @@ else
 EOF
 fi
 
+start_knob_services
 
-/usr/local/init/acq400_knobs.init start
+
 
 nice daemon $WEB_APPEND_JOB
 
