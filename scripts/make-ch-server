@@ -19,8 +19,9 @@ eval $(cat /etc/acq400/0/aggregator | awk '{ print $2 }')
 
 let cix=1
 
-for site in $sites
+for site in $(echo $sites | tr , \  )
 do
+#	echo site $site  /dev/acq400/data/$site/
 	for ch in /dev/acq400/data/$site/??
 	do
         	let px=$P0+$cix        
