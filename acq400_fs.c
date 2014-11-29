@@ -581,7 +581,7 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 	FSN.mtime = CURRENT_TIME;
 	a400fs_create_file(sb, root, ".control", &a400fs_control_ops, 0);
 
-	for (dev = 0; dev < MAXDEVICES; ++dev){
+	for (dev = 0; dev <= MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
 		if (adev){
 			FSN.nmap += adev->nchan_enabled + 1;
