@@ -984,7 +984,7 @@ static ssize_t show_bufferlen(
 	return sprintf(buf, "%u\n", adev->bufferlen);
 }
 
-static DEVICE_ATTR(bufferlen, S_IRUGO, show_bufferlen, 0);
+static DEVICE_ATTR(bufferlen, S_IRUGO|S_IWUGO, show_bufferlen, store_bufferlen);
 
 static ssize_t show_hitide(
 	struct device * dev,

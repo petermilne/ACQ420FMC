@@ -77,7 +77,7 @@ case $nchan in
 *)
 	BLEN=1048576;;
 esac
-set.sys /dev/acq400.0.knobs/buffer_len $BLEN
+set.sys /dev/acq400.0.knobs/bufferlen $BLEN
 	
 set.sys /dev/acq400.0.knobs/aggregator 0
 set.sys /dev/acq400.0.knobs/data_engine_0 0
