@@ -957,6 +957,24 @@ static ssize_t show_nbuffers(
 
 static DEVICE_ATTR(nbuffers, S_IRUGO, show_nbuffers, 0);
 
+
+static ssize_t store_bufferlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 _bufferlen;
+	if (sscanf(buf, "%u", &_bufferlen) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+
+		if (acq400_set_bufferlen(adev, _bufferlen) == _bufferlen){
+			return count;
+		}
+	}
+
+	return -1;
+}
 static ssize_t show_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,

@@ -961,4 +961,6 @@ short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
  * signed this converts, dependent on range
  */
 
+extern int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen);
+
 #endif /* ACQ420FMC_H_ */

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.728"
+#define REVID "2.729"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -99,10 +99,6 @@ MODULE_PARM_DESC(modify_spad_access,
 
 int AO420_MAX_FILL_BLOCK = 16384;
 module_param(AO420_MAX_FILL_BLOCK, int, 0644);
-
-int aggregator_dma_len;
-module_param(aggregator_dma_len, int, 0644);
-MODULE_PARM_DESC(aggregator_dma_len, "override buffer len - user where buffer NOT integer multiple of sample size - stop short");
 
 /* GLOBALS */
 
@@ -1168,6 +1164,20 @@ int acq420_continuous_start(struct inode *inode, struct file *file)
 	return _acq420_continuous_start(ACQ400_DEV(file), 1);
 }
 
+
+int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen)
+{
+	/* client may request sub-buffer size eg to ensure data align
+	 * 96 x 4 channels, best length = 1044480
+	 */
+	if (_bufferlen){
+		adev->bufferlen = min(bufferlen, _bufferlen);
+	}else{
+		adev->bufferlen = bufferlen;
+	}
+
+	return adev->bufferlen;
+}
 int acq2006_continuous_start(struct inode *inode, struct file *file)
 /* this sequence CRITICAL for a clean start
  * (1) reset the aggregator, leaving it disabled
@@ -1193,14 +1203,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 		return rc;
 	}
 
-	/* client may request sub-buffer size eg to ensure data align
-	 * 96 x 4 channels, best length = 1044480
-	 */
-	if (aggregator_dma_len){
-		adev->bufferlen = min(bufferlen, aggregator_dma_len);
-	}else{
-		adev->bufferlen = bufferlen;
-	}
+
 	acq2006_aggregator_enable(adev);			/* (4) */
 	adev->RW32_debug = 0;
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
