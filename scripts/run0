@@ -72,7 +72,7 @@ set.sys /etc/acq400/0/sites ${sitelist}
 
 # worktodo LCM wanted ..
 case $nchan in
-48|80|160)
+48|80|96|160)
 	set.sys /sys/module/acq420fmc/parameters/aggregator_dma_len 1044480;;
 *)
 	set.sys /sys/module/acq420fmc/parameters/aggregator_dma_len 1048576;;
