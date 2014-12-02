@@ -875,7 +875,83 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 
 Buffer** buffers;
 
+enum STATE {
+	ST_STOP,
+	ST_ARM,
+	ST_RUN_PRE,
+	ST_RUN_POST,
+	ST_POSTPROCESS
+};
 
+#define NSinMS	1000000
+#define MSinS	1000
+
+long diffmsec(struct timespec* t0, struct timespec *t1){
+	long msec;
+
+	if (t1->tv_nsec > t0->tv_nsec){
+		msec = (t1->tv_nsec - t0->tv_nsec)/NSinMS;
+		msec += (t1->tv_sec - t0->tv_sec)*MSinS;
+	}else{
+		msec  = (NSinMS + t1->tv_nsec - t0->tv_nsec)/NSinMS;
+		msec += (t1->tv_sec - t0->tv_sec - 1)*MSinS;
+	}
+	return msec;
+}
+
+#define MIN_REPORT_INTERVAL_MS	200
+
+
+#define 	PRINT_WHEN_YOU_CAN	false
+
+struct Progress {
+	enum STATE state;
+	int pre;
+	int post;
+	unsigned long long elapsed;
+	struct timespec last_time;
+	static long min_report_interval;
+
+	FILE* status_fp;
+
+	bool isRateLimited() {
+		struct timespec time_now;
+		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
+
+		if (min_report_interval == 0 || diffmsec(&last_time, &time_now) >= min_report_interval){
+			last_time = time_now;
+			return false;
+		}else{
+			return true;
+		}
+	}
+	Progress() : status_fp(stderr) {
+		memset(this, 0, sizeof(Progress));
+		if (getenv("MIN_REPORT_INTERVAL_MS")){
+			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
+			fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
+		}
+		fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
+		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
+	}
+	static Progress& instance();
+
+	void print(bool ignore_ratelimit = true) {
+		if (ignore_ratelimit || !isRateLimited()){
+			fprintf(status_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
+			fflush(stdout);
+		}
+		if (G::state_fp){
+			rewind(G::state_fp);
+			fprintf(G::state_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
+			fflush(G::state_fp);
+		}
+	}
+	void setState(enum STATE _state){
+		state = _state;
+		print();
+	}
+};
 
 const char* stream_fmt = "%s.c";
 
@@ -1038,7 +1114,7 @@ static void wait_and_cleanup(pid_t child)
 	}
 
         printf("wait_and_cleanup exterminate\n");
-
+        Progress::instance().setState(ST_STOP);
         kill(0, SIGTERM);
         exit(0);
 }
@@ -1294,8 +1370,13 @@ void init(int argc, const char** argv) {
 class StreamHead {
 protected:
 	int fc;
+	Progress& actual;
+	const int samples_buffer;
 
-	StreamHead() {
+
+	StreamHead() :
+		actual(Progress::instance()),
+		samples_buffer(G::bufferlen/sample_size()) {
 		char fname[128];
 		sprintf(fname, stream_fmt, root);
 		fc = open(fname, O_RDONLY);
@@ -1330,6 +1411,10 @@ protected:
 	virtual ~StreamHead() {
 		close();
 	}
+
+	void setState(enum STATE state) {
+		actual.setState(state);
+	}
 public:
 	virtual void stream();
 	static StreamHead& instance();
@@ -1338,9 +1423,16 @@ public:
 
 void StreamHead::stream() {
 	int ib;
+	setState(ST_ARM);
 	while((ib = getBufferId()) >= 0){
 		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+		switch(actual.state){
+		case ST_ARM:
+			setState(ST_RUN_PRE);
+		}
+		actual.elapsed += samples_buffer;
 	}
+	setState(ST_STOP);
 }
 
 class NullStreamHead: public StreamHead {
@@ -1416,14 +1508,6 @@ void StreamHeadHB0::stream() {
 #define TOTAL_BUFFER_LIMIT	(G::nbuffers * G::bufferlen)
 
 
-
-enum STATE {
-	ST_STOP,
-	ST_ARM,
-	ST_RUN_PRE,
-	ST_RUN_POST,
-	ST_POSTPROCESS
-};
 
 
 
@@ -1550,67 +1634,7 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 
 /* @@todo .. map to shm area for external monitoring. */
 
-#define NSinMS	1000000
-#define MSinS	1000
 
-long diffmsec(struct timespec* t0, struct timespec *t1){
-	long msec;
-
-	if (t1->tv_nsec > t0->tv_nsec){
-		msec = (t1->tv_nsec - t0->tv_nsec)/NSinMS;
-		msec += (t1->tv_sec - t0->tv_sec)*MSinS;
-	}else{
-		msec  = (NSinMS + t1->tv_nsec - t0->tv_nsec)/NSinMS;
-		msec += (t1->tv_sec - t0->tv_sec - 1)*MSinS;
-	}
-	return msec;
-}
-
-#define MIN_REPORT_INTERVAL_MS	200
-
-struct Progress {
-	enum STATE state;
-	int pre;
-	int post;
-	unsigned long long elapsed;
-	struct timespec last_time;
-	static long min_report_interval;
-
-	bool isRateLimited() {
-		struct timespec time_now;
-		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
-
-		if (min_report_interval == 0 || diffmsec(&last_time, &time_now) >= min_report_interval){
-			last_time = time_now;
-			return false;
-		}else{
-			return true;
-		}
-	}
-	Progress() {
-		memset(this, 0, sizeof(Progress));
-		if (getenv("MIN_REPORT_INTERVAL_MS")){
-			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-			printf("min_report_interval set %d\n", min_report_interval);
-		}
-		printf("min_report_interval set %d\n", min_report_interval);
-		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
-	}
-	static Progress& instance();
-
-	void print(bool ignore_ratelimit = true) {
-		if (ignore_ratelimit || !isRateLimited()){
-			printf("%d %d %d %llu\n", state, pre, post, elapsed);
-			fflush(stdout);
-		}
-		if (G::state_fp){
-			rewind(G::state_fp);
-			fprintf(G::state_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
-			fflush(G::state_fp);
-		}
-	}
-};
-#define 	PRINT_WHEN_YOU_CAN	false
 
 long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
 
@@ -1927,7 +1951,7 @@ class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 protected:
 	int pre;
 	int post;
-	Progress& actual;
+
 	int total_bs;
 	int nobufs;
 
@@ -1936,15 +1960,11 @@ protected:
 	bool event_received;
 	char event_info[80];
 
-	int samples_buffer;
+
 	vector <StreamHeadClient*> peers;
 	bool cooked;
 	char* typestring;
 
-	void setState(enum STATE _state){
-		actual.state = _state;
-		actual.print();
-	}
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
@@ -2191,15 +2211,13 @@ protected:
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
-			samples_buffer(0),
-			actual(Progress::instance()),
 			event_received(false),
 			cooked(false)
 		{
+		actual.status_fp = stdout;
 		if (verbose) printf("StreamHeadPrePost()\n");
 		setState(ST_STOP);
 		int total_bs = (pre+post)*sample_size() + G::bufferlen;
-		samples_buffer = G::bufferlen/sample_size();
 		nfds = fc+1;
 
 		while((pre+post)*sample_size() > TOTAL_BUFFER_LIMIT){

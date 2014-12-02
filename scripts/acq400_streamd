@@ -11,11 +11,13 @@ init_stream $SITE 2>&1 >$LOG
 jobs >>$LOG
 echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 
+STREAM_OPTS="$STREAM_OPTS --state-file /dev/shm/state"
+
 if [ "x$ACQ400D_TRIG" = "xsoft_trigger" ]; then
 	STREAM_OPTS="$STREAM_OPTS --soft-trigger=1"	
 fi
 echo acq400_stream --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE  >>$LOG
-acq400_stream --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE 
+acq400_stream --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE 2>/dev/null
 
 
 
