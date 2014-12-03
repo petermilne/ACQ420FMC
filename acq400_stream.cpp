@@ -927,6 +927,7 @@ struct Progress {
 	}
 	Progress() : status_fp(stderr) {
 		memset(this, 0, sizeof(Progress));
+		status_fp = stderr;
 		if (getenv("MIN_REPORT_INTERVAL_MS")){
 			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
 			fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
@@ -939,7 +940,7 @@ struct Progress {
 	void print(bool ignore_ratelimit = true) {
 		if (ignore_ratelimit || !isRateLimited()){
 			fprintf(status_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
-			fflush(stdout);
+			fflush(status_fp);
 		}
 		if (G::state_fp){
 			rewind(G::state_fp);
