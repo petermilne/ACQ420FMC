@@ -1994,11 +1994,10 @@ static ssize_t store_dacreset_device(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned dacreset_device;
 
-	if (sscanf(buf, "%d", &dacreset_device) == 1){
-		if (dacreset_device){
-			if (ao424_set_spans(adev)){
-				return -1;
-			}
+	if (sscanf(buf, "%d", &dacreset_device) == 1 ||
+	    sscanf(buf, "0x%u", &dacreset_device) == 1  ){
+		if (ao424_set_spans(adev)){
+			return -1;
 		}
 		return count;
 	}else{
