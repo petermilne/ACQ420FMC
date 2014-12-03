@@ -21,6 +21,8 @@ do
 	ln -s $ichan /etc/acq400/${SITE}/init$(basename $ichan)
 done
 
+ln -s /etc/acq400/${SITE}/dacreset_device /etc/acq400/${SITE}/range99
+
 cat - <<EOF >>/etc/acq400/$SITE/groups
 range=range[0-9]*
 init=init[0-9]*
