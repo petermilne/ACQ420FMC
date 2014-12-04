@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.736"
+#define REVID "2.738"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2441,6 +2441,23 @@ void check_fiferr(struct acq400_dev* adev)
 
 	}
 }
+
+static int ao_auto_rearm(void *clidat)
+/* poll for AWG complete, then rearm it */
+{
+	struct acq400_dev* adev = (struct acq400_dev*)clidat;
+	wait_queue_head_t wait;
+	init_waitqueue_head(&wait);
+
+	while (adev->xo.getFifoSamples(adev)){
+		wait_event_interruptible_timeout(wait, 0, HZ/25);
+	}
+	if (adev->AO_playloop.length > 0 &&
+		adev->AO_playloop.one_shot == AO_oneshot_rearm){
+		xo400_reset_playloop(adev, adev->AO_playloop.length);
+	}
+	return 0;
+}
 static int xo400_fill_fifo(struct acq400_dev* adev)
 /* returns 1 if further interrupts are required */
 {
@@ -2493,7 +2510,11 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				dev_info(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;
-				goto done_nocheck;
+				if (adev->AO_playloop.one_shot == AO_oneshot_rearm){
+					kthread_run(ao_auto_rearm, adev,
+							"%s.awgrearm", devname(adev));
+				}
+				goto done_no_check;
 			}else{
 				adev->AO_playloop.cursor = 0;
 			}
@@ -2520,7 +2541,6 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 		u32 start_samples = adev->xo.getFifoSamples(adev);
 		if (xo400_fill_fifo(adev)){
 			x400_enable_interrupt(adev);
-
 		}
 		add_fifo_histo_ao42x(adev, start_samples);
 	}

@@ -1817,7 +1817,8 @@ static ssize_t show_playloop_length(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	return sprintf(buf, "%u %s\n",
 			adev->AO_playloop.length,
-			adev->AO_playloop.one_shot? "ONESHOT": "");
+			adev->AO_playloop.one_shot == AO_oneshot? "ONESHOT":
+			adev->AO_playloop.one_shot == AO_oneshot_rearm? "ONESHOT-REARM": "");
 }
 
 static ssize_t store_playloop_length(
@@ -1832,7 +1833,14 @@ static ssize_t store_playloop_length(
 
 	switch(sscanf(buf, "%u %u", &playloop_length, &one_shot)){
 	case 2:
-		adev->AO_playloop.one_shot = one_shot != 0; /* fall thru */
+		switch(one_shot){
+		default:
+			return -1;
+		case AO_continuous:
+		case AO_oneshot:
+		case AO_oneshot_rearm:
+			adev->AO_playloop.one_shot = one_shot; /* fall thru */
+		}
 	case 1:
 		xo400_reset_playloop(adev, playloop_length);
 		return count;
