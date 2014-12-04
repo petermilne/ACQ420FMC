@@ -59,6 +59,7 @@ namespace Globs {
 	int site = -1;
 	const char* src_dir = "/usr/local/awgdata/ch";
 	bool loop = false;
+	bool autorearm = false;
 	int ch_offset = 0;
 	bool has_gain;
 	double ch_gain = 1;
@@ -155,7 +156,9 @@ public:
 	static void output() {
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
-				Globs::site, Globs::loop? "awgc": "awg");
+				Globs::site,
+				Globs::loop? "awgc":
+				Globs::autorearm? "awgr": "awg");
 		FILE *fpout = fopen(fn, Globs::append? "r+": "w");
 		if (fpout == 0){
 			perror(fn);
@@ -396,6 +399,7 @@ struct poptOption opt_table[] = {
 	{ "site", 's', POPT_ARG_INT, &Globs::site, 0, "site" },
 	{ "src_dir", 0, POPT_ARG_STRING, &Globs::src_dir, 0, "data directory" },
 	{ "loop",  'l', POPT_ARG_INT, &Globs::loop, 0, "runs in a loop" },
+	{ "autorearm", 'A', POPT_ARG_INT, &Globs::autorearm, 0, " auto rearm after oneshot" },
 	{ "word_size", 'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
 	{ "ch_gain", 0, POPT_ARG_DOUBLE, &Globs::ch_gain, 'g', "gain up xx *ch_gain" },
 	{ "ch_offset", 0, POPT_ARG_INT, &Globs::ch_offset, 0, "ident offset + ch*ch_offset" },
