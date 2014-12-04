@@ -554,6 +554,8 @@ int getHeadroom(struct acq400_dev *adev);
 #define GET_MOD_ID(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL)
 #define GET_MOD_ID_VERSION(adev) (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0xff)
 
+#define GET_FPGA_REV(adev)	((adev)->mod_id&0x0000ffff)
+
 static inline int _is_acq42x(struct acq400_dev *adev) {
 	switch(GET_MOD_ID(adev)){
 	case MOD_ID_ACQ420FMC:
@@ -873,9 +875,9 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_FIFO		0x1000
 
 
-#define DIO432_CTRL_SHIFT_DIV_SHL	(8)
+#define DIO432_CTRL_SHIFT_DIV_SHL	(9)
 #define DIO432_CTRL_EXT_CLK_SYNC (1<<7)
-#define DIO432_CTRL_LL		(1 << 6)
+#define DIO432_CTRL_LL		(1 << 8)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define DIO432_CTRL_DIO_EN	(1 << 4)
 #define DIO432_CTRL_DIO_RST	(1 << 3)

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.731"
+#define REVID "2.736"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -95,6 +95,10 @@ int modify_spad_access;
 module_param(modify_spad_access, int, 0644);
 MODULE_PARM_DESC(modify_spad_access,
 "-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
+
+int dio432_rowback = 256/4;
+module_param(dio432_rowback, int, 0644);
+MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
 
 int AO420_MAX_FILL_BLOCK = 16384;
@@ -350,6 +354,9 @@ static void pmodadc1_init_defaults(struct acq400_dev *adev)
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
 
 	dev_info(DEVP(adev), "PMODADC1 device init");
+	if (FPGA_REV(adev) < 5){
+		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
+	}
 	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
 	adev->data32 = 0;
 	adev->adc_18b = 0;
@@ -466,20 +473,34 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 
+	if (FPGA_REV(adev) < 5){
+		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
+	}
 	//set_debugs("on");
 	dac_ctrl |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
 	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
+	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
+			__LINE__, acq400rd32(adev, DAC_CTRL));
 	//acq400wr32(adev, DAC_INT_CSR, 0);
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_RST|DIO432_CTRL_DIO_RST);
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_EN);
 
 	dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
 	measure_ao_fifo(adev);
+	dev_info(DEVP(adev), "dio432 max fifo samples %d", adev->xo.max_fifo_samples);
+	if (dio432_rowback){
+		adev->xo.max_fifo_samples -= dio432_rowback;
+		dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
+				adev->xo.max_fifo_samples);
+	}
 	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	//set_debugs("off");
+	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
+			__LINE__, acq400rd32(adev, DAC_CTRL));
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
@@ -2404,17 +2425,20 @@ void check_fiferr(struct acq400_dev* adev)
 		return;
 	}
 	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
-			acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
+		acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
 
-		if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){
-			dev_err(DEVP(adev), "ERROR FIFO underrun at %d %08x samples:%d",
+		if (++adev->stats.fifo_errors < 10){
+			if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){
+				dev_err(DEVP(adev),
+				"ERROR FIFO underrun at %d %08x samples:%d",
 				adev->stats.fifo_interrupts, fifo_sta,
 				adev->xo.getFifoSamples(adev));
-		}else{
-			dev_err(DEVP(adev), "ERROR FIFO at %d %08x",
+			}else{
+				dev_err(DEVP(adev), "ERROR FIFO at %d %08x",
 					adev->stats.fifo_interrupts, fifo_sta);
+			}
 		}
-		++adev->stats.fifo_errors;
+
 	}
 }
 static int xo400_fill_fifo(struct acq400_dev* adev)
@@ -2469,18 +2493,19 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				dev_info(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;
-				break;
+				goto done_nocheck;
 			}else{
 				adev->AO_playloop.cursor = 0;
 			}
 		}
 		if (--maxiter == 0){
-			dev_warn(DEVP(adev), "ao420_fill_fifo() working too hard breaking to release mutex");
+			dev_warn(DEVP(adev), "xo400_fill_fifo() working too hard breaking to release mutex");
 			break;
 		}
 	}
 
 	check_fiferr(adev);
+done_no_check:
 	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
 			acq400rd32(adev, DAC_FIFO_SAMPLES));
