@@ -66,7 +66,8 @@ build_nodes() {
 			40|41)							
 				mknod /dev/${NAME}.dac c  ${MAJOR} 7
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
-				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;
+				mknod /dev/${NAME}.awgc c ${MAJOR} 10
+				mknod /dev/${NAME}.awgr c ${MAJOR} 14;;
 			60)
 				mknod /dev/${NAME}.awg c ${MAJOR} 8;;
 			61|62)

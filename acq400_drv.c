@@ -2067,7 +2067,10 @@ int xo400_awg_release(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = ACQ400_DEV(file);
 
 	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
-		adev->AO_playloop.one_shot = iminor(inode) == AO420_MINOR_HB0_AWG_ONCE;
+		adev->AO_playloop.one_shot =
+			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE? AO_oneshot:
+			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE_RETRIG? AO_oneshot_rearm:
+					AO_continuous;
 		xo400_reset_playloop(adev, adev->AO_playloop.length);
 	}
 	return 0;
@@ -2223,6 +2226,7 @@ int acq400_open(struct inode *inode, struct file *file)
         		return bolo_open_awg(inode, file);
         	case AO420_MINOR_HB0_AWG_ONCE:
         	case AO420_MINOR_HB0_AWG_LOOP:
+        	case AO420_MINOR_HB0_AWG_ONCE_RETRIG:
         		return xo400_open_awg(inode, file);
         	case ACQ420_MINOR_RESERVE_BLOCKS:
         		return acq420_reserve_open(inode, file);
@@ -2450,7 +2454,7 @@ static int ao_auto_rearm(void *clidat)
 	init_waitqueue_head(&wait);
 
 	while (adev->xo.getFifoSamples(adev)){
-		wait_event_interruptible_timeout(wait, 0, HZ/25);
+		wait_event_interruptible_timeout(wait, 0, 2);
 	}
 	if (adev->AO_playloop.length > 0 &&
 		adev->AO_playloop.one_shot == AO_oneshot_rearm){
