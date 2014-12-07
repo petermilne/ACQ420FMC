@@ -74,7 +74,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define VERID	"B1001"
+#define VERID	"B1002"
 
 #define NCHAN	4
 
@@ -120,10 +120,11 @@ int control_handle;
 
 int pre;
 int post;
-bool demux;
+int demux;
 
 #define BM_NOT_SPECIFIED	'\0'
 #define BM_NULL			'n'
+#define BM_RAW			'r'	/* no demux */
 #define BM_DEMUX 		'h'
 #define BM_TEST			't'
 #define BM_PREPOST 		'P'
@@ -986,8 +987,8 @@ struct poptOption opt_table[] = {
 	{ "post",       0, POPT_ARG_INT, &G::post, 'O',
 			"transient capture, post-length"
 	},
-	{ "demux",   'D', POPT_ARG_NONE, 0, 'D',
-			"no demux after transient"
+	{ "demux",   'D', POPT_ARG_INT, &G::demux, 'D',
+			"force demux / no demux after transient"
 	},
 	{ "sites",      0, POPT_ARG_STRING, &G::aggregator_sites, 0,
 			"group of aggregated sites to lock"
@@ -1293,7 +1294,9 @@ void init(int argc, const char** argv) {
 			G::buffer_mode = BM_DEMUX;
 			break;
 		case 'D':
-			G::demux = true;
+			if (G::demux == 0){
+				G::buffer_mode = BM_RAW;
+			}
 			break;
 		case 'P':
 		case 'O':
