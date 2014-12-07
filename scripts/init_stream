@@ -21,8 +21,11 @@ init_stream() {
 	if [ -e /etc/sysconfig/acq400_streamd.$SITE.conf ]; then
 		source /etc/sysconfig/acq400_streamd.$SITE.conf 
 	fi
-	if [ -x /mnt/local/acq400_streamd.$SITE.init ]; then
-		/mnt/local/acq400_streamd.$SITE.init
+
+	site_init=/mnt/local/sysconfig/acq400_streamd.$SITE.init
+
+	if [ -e $site_init  ]; then
+		source $site_init
 	elif [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
 		(/etc/sysconfig/acq400_streamd.$SITE.init) 
 	fi
