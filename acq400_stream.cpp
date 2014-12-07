@@ -963,7 +963,7 @@ int fill_ramp_incr;
 struct poptOption opt_table[] = {
 	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0, 	"reduce buffer len" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL, 	"no output copy"    },
-	{ "verbose",   0, POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
+	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -1977,7 +1977,7 @@ protected:
 		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%s\n",
 				cooked? 1:0, G::pre+G::post, G::nchan,
 				G::wordsize==2? "SHORT": "LONG");
-		if (verbose) fprintf(stderr, resbuf);
+		if (verbose) fprintf(stderr, "notify_result() \"%s\"\n", resbuf);
 		FILE* fp = fopen(NOTIFY_HOOK, "w");
 		if (fp == 0) {
 			perror(NOTIFY_HOOK);
@@ -2004,7 +2004,7 @@ protected:
 			if (verbose) fprintf(stderr,
 					"StreamHeadPrePost::postProcess() pre==0\n");
 			/* probably redundant. pre==0, no reserve */
-			if (es != MapBuffer::get_ba0()){
+			if (es != 0 && es != MapBuffer::get_ba0()){
 				blt(es, s2b(G::post));
 			}
 		}
@@ -2018,6 +2018,7 @@ protected:
 			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
 		}
 		setState(ST_POSTPROCESS); actual.print();
+
 		if (pre){
 			int ibuf;
 			char* es;
@@ -2277,11 +2278,11 @@ public:
 			(*it)->onStreamStart();
 		}
 		streamCore();
-		close();
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamEnd();
 		}
 		setState(ST_STOP);
+		close();
 	}
 
 	void append(StreamHeadClient* pp){
