@@ -25,10 +25,10 @@ set_test() {
 }
 cd /dev/acq400.0.knobs
 
-if [ ! -e sync_out_cable_detN ]; then
+if [ ! -e sync_out_cable_det ]; then
 	echo ERROR: no sync out feature
 	exit 1
-elif [ "$(cat sync_out_cable_detN)" != "0" ]; then
+elif [ "$(cat sync_out_cable_det)" != "1" ]; then
 	echo ERROR: sync out cable NOT detected
 	exit 1
 fi
