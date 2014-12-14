@@ -207,7 +207,7 @@ build_knobs_device() {
 			ACQ425_SITES="${ACQ425_SITES} "
 		fi		
 		ACQ425_SITES="${ACQ425_SITES}$site"
-		create_gx $site
+		create_gx $dk
 		customize_acq420 $site;;
 	1|A1)	
 		customize_acq420 $site;;
@@ -216,7 +216,7 @@ build_knobs_device() {
 	2|3|6)
 		case $mtype in
 		6)
-			create_gx $site
+			create_gx $dk
 			if [ "x$ACQ437_SITES" != "x" ]; then
 				ACQ437_SITES="${ACQ437_SITES} "
 			fi		
