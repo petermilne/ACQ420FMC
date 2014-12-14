@@ -62,7 +62,7 @@ const char* pattern = "";
 
 using namespace std;
 
-#define VERID "acq400_knobs B1000"
+#define VERID "acq400_knobs B1001"
 
 bool err;
 char* host = 0;		/* server allows connect from host (any) */
@@ -380,7 +380,10 @@ class PeerFinder {
 			if (*it != site){
 				char name[80];
 				sprintf(name, "../%d/%s", *it, knob.c_str());
-				peer_names->push_back(*new string(name));
+				struct stat sb;
+				if (stat(name, &sb) != -1){
+					peer_names->push_back(*new string(name));
+				}
 			}
 		}
 	}
