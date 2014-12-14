@@ -175,6 +175,20 @@ start_knob_services()
 	/usr/local/init/acq400_knobs.init start
 }
 
+create_gx() { (
+	cd $1
+cat - >gx <<EOF
+#!/bin/sh
+gx=\$(./gain1)
+for g in 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+do
+	gx="\$gx\$(./gain\$g)"
+done
+echo \$gx
+EOF
+	chmod a+rx gx
+) }
+
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
@@ -193,6 +207,7 @@ build_knobs_device() {
 			ACQ425_SITES="${ACQ425_SITES} "
 		fi		
 		ACQ425_SITES="${ACQ425_SITES}$site"
+		create_gx $site
 		customize_acq420 $site;;
 	1|A1)	
 		customize_acq420 $site;;
@@ -201,10 +216,11 @@ build_knobs_device() {
 	2|3|6)
 		case $mtype in
 		6)
+			create_gx $site
 			if [ "x$ACQ437_SITES" != "x" ]; then
 				ACQ437_SITES="${ACQ437_SITES} "
 			fi		
-		ACQ437_SITES="${ACQ437_SITES}$site"
+			ACQ437_SITES="${ACQ437_SITES}$site";;
 		esac
 		echo WORKAROUND: clear FIFERR
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
