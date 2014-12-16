@@ -222,7 +222,9 @@ public:
 	virtual int succ() {
 		return ibuf >= last_buf-1? 0: ibuf+1;
 	}
-
+	int ib() {
+		return ibuf;
+	}
 	virtual char* getBase() { return 0; }
 
 	static int samples_per_buffer() {
@@ -2209,7 +2211,19 @@ protected:
 			return true;
 		}
 
-		if (verbose) fprintf(stderr, "ERROR: not found at %d or %d\n", b1, b2);
+		for (int backtrack = 1;
+			(buffer1 = Buffer::the_buffers[buffer1->pred()]) != buffer2;
+			++backtrack){
+			esp = findEvent(buffer1);
+			if (esp){
+				char bn[8]; sprintf(bn, "bt%d", backtrack);
+				report(bn, buffer1->ib(), esp);
+				if (ibuf) *ibuf = b1;
+				if (espp) *espp = esp;
+				return true;
+			}
+		}
+		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
 
 		return false;
 	}
