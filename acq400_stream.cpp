@@ -938,14 +938,14 @@ struct Progress {
 	}
 	static Progress& instance();
 
-	void print(bool ignore_ratelimit = true) {
+	void print(bool ignore_ratelimit = true, int extra = 0) {
 		if (ignore_ratelimit || !isRateLimited()){
-			fprintf(status_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
+			fprintf(status_fp, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
 			fflush(status_fp);
 		}
 		if (G::state_fp){
 			rewind(G::state_fp);
-			fprintf(G::state_fp, "%d %d %d %llu\n", state, pre, post, elapsed);
+			fprintf(G::state_fp, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
 			fflush(G::state_fp);
 		}
 	}
@@ -1582,6 +1582,8 @@ public:
 };
 
 
+void Demuxer_report(int buffer);
+
 template <class T>
 int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	const int nsam = b2s(nbytes);
@@ -1594,8 +1596,14 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 
 	for (int sam = 0; sam < nsam; ++sam){
 		for (int chan = 0; chan < G::nchan; ++chan){
-			pdst[chan*cbs+sam] = psrc[sam*G::nchan+chan];
+			pdst[chan*cbs+sam] = psrc[chan];
 		}
+		T* psrc2 = psrc + G::nchan;
+		int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
+		if (b1 != MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2))){
+			Progress::instance().print(true, b1);
+		}
+		psrc = psrc2;
 	}
 	pdst += nsam;
 	dst.cursor = reinterpret_cast<char*>(pdst);
