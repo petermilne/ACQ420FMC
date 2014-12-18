@@ -2856,6 +2856,28 @@ SHOW_AGGSTA(aggsta_fifo_count, AGGSTA_FIFO_COUNT);
 SHOW_AGGSTA(aggsta_fifo_stat,  AGGSTA_FIFO_STAT);
 SHOW_AGGSTA(aggsta_engine_stat, AGGSTA_ENGINE_STAT);
 
+static ssize_t store_estop(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned estop;
+
+	if (sscanf(buf, "%d", &estop) == 1){
+		if (estop){
+			dev_info(DEVP(adev), "STOP");
+			acq2006_estop(adev);
+		}
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(estop, S_IWUGO, 0, store_estop);
+
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
 	&dev_attr_aggsta_fifo_count.attr,
@@ -2880,6 +2902,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_spad5.attr,
 	&dev_attr_spad6.attr,
 	&dev_attr_spad7.attr,
+	&dev_attr_estop.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {

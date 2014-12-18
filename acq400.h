@@ -968,4 +968,6 @@ extern int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen);
 
 enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
+void acq2006_estop(struct acq400_dev *adev);
+
 #endif /* ACQ420FMC_H_ */

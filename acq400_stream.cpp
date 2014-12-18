@@ -101,6 +101,20 @@ static int getKnob(int idev, const char* knob, unsigned* value)
 	}
 }
 
+static int setKnob(int idev, const char* knob, const char* value)
+{
+	char kpath[128];
+	sprintf(kpath, "/dev/acq400.%d.knobs/%s", idev, knob);
+	FILE *fp = fopen(kpath, "w");
+	if (fp){
+		int rc = fprintf(fp, "%s\n", value);
+		fclose(fp);
+		return rc;
+	} else {
+		return -1;
+	}
+}
+
 /* all globals in one namespace : G */
 namespace G {
 int nchan = NCHAN;
@@ -142,6 +156,7 @@ char* aggsem_name;
 char* state_file;
 bool show_es;
 FILE* state_fp;
+char* pre_demux_script;
 };
 
 
@@ -297,7 +312,7 @@ public:
 	{
 
 		pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), G::bufferlen,
-			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0));
+			PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, fd, 0));
 
 		if (pdata != ba1){
 			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
@@ -353,6 +368,10 @@ public:
 	virtual int succ() {
 		int first_buf = buffer_0_reserved? 1: 0;
 		return ibuf >= last_buf-1? first_buf: ibuf+1;
+	}
+
+	static char* ba(int ibuf){
+		return reinterpret_cast<MapBuffer*>(Buffer::the_buffers[ibuf])->pdata;
 	}
 };
 
@@ -1005,6 +1024,9 @@ struct poptOption opt_table[] = {
 			"time buffer shuffle"
 	},
 	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data"},
+	{ "pre-demux-script", 0, POPT_ARG_STRING, &G::pre_demux_script, 0,
+			"breakout before demux"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -1604,6 +1626,7 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 		int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
 		if (b1 != MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2))){
 			Progress::instance().print(true, b1);
+			msync(MapBuffer::ba(b1), G::bufferlen, MS_SYNC);
 		}
 		psrc = psrc2;
 	}
@@ -1891,6 +1914,33 @@ public:
 };
 
 
+/*
+ * Buffer Memory:
+ *
+ * BD_LINEAR:
+ * Before:
+ *            R R R R S S S
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ * 0-L-----------------------------------------------H1
+ * After:
+ *  R R R R S S S
+ *
+ * BD_PRECORNER:
+ * Before:
+ *    R R S S S                                     R
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ * 0-L-----------------------------------------------H1
+ * After:
+ *  R R R R S S S
+ *  That works, but this will fail:
+  * Before:
+ *    R R S S S                                   R R
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ * 0-L-----------------------------------------------H1
+ * After:
+ *  R R R R S S S
+ *  Ouch!. OK, doesn't matter if it's slow, because it's an oddball.
+ */
 
 vector<Segment>& BufferDistribution::_getSegments() {
 	int prebytes = s2b(G::pre);
@@ -1961,6 +2011,42 @@ public:
 
 #define NOTIFY_HOOK "/dev/acq400/data/.control"
 
+
+class Event0 {
+	char event[80];
+	bool disabled;
+
+	void setEvent0(const char* triplet){
+		char cmd[80];
+		sprintf(cmd, "set.site 1 event0=%s\n", triplet);
+		if (verbose) fprintf(stderr, cmd);
+		FILE *pp = popen(cmd, "r");
+		fgets(cmd, 80, pp);
+		pclose(pp);
+	}
+public:
+	Event0() : disabled(false) {
+		char cmd[80];
+		sprintf(cmd, "get.site 1 event0");
+		FILE *pp = popen(cmd, "r");
+		if (fscanf(pp, "event0=%s", event) != 1){
+			fprintf(stderr, "fscanf failed\n");
+		}
+		pclose(pp);
+	}
+	void disable() {
+		if (!disabled){
+			setEvent0("0,0,0");
+			disabled = true;
+		}
+	}
+	void enable() {
+		if (disabled){
+			setEvent0(event);
+			disabled = false;
+		}
+	}
+};
 class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
 protected:
 	int pre;
@@ -2100,6 +2186,9 @@ protected:
 	void streamCore() {
 		BufferLog blog;
 		int ib;
+		Event0 event0;
+
+		event0.disable();
 
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
@@ -2128,6 +2217,7 @@ protected:
 					}
 				}
 				if (actual.pre >= pre){
+					event0.enable();
 					if (event_received){
 						setState(ST_RUN_POST);
 					}
@@ -2181,7 +2271,7 @@ protected:
 		BufferDistribution(ibuf, esp).show();
 	}
 	bool findEvent(int *ibuf, char** espp) {
-		if (verbose) fprintf(stderr, "findEvent \"%s\"\n", event_info);
+		/*if (verbose) */ fprintf(stderr, "findEvent \"%s\"\n", event_info);
 		unsigned long usecs;
 		int b1, b2;
 		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
@@ -2234,7 +2324,9 @@ protected:
 
 #define RSV	"/dev/acq400.0.rsv"
 
-
+	void estop() {
+		setKnob(0, "estop", "1");
+	}
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
@@ -2300,6 +2392,7 @@ public:
 			(*it)->onStreamStart();
 		}
 		streamCore();
+		estop();
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamEnd();
 		}
@@ -2365,9 +2458,10 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 	std::vector <MapBuffer*> outbuffers;
 	Demuxer& demuxer;
 
-
-
 	virtual void postProcess(int ibuf, char* es) {
+		if (G::pre_demux_script){
+			system(G::pre_demux_script);
+		}
 		if (verbose) fprintf(stderr, "**********************\n");
 		if (verbose) fprintf(stderr, "%s %d %p\n", __FUNCTION__, ibuf, es);
 		if (pre){

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.738"
+#define REVID "2.743"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1359,6 +1359,12 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 	return acq400_release(inode, file);
 }
 
+void acq2006_estop(struct acq400_dev *adev)
+{
+	acq2006_aggregator_disable(adev);
+	_acq420_continuous_dma_stop(adev);
+}
+
 static unsigned int acq420_continuous_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
@@ -2380,6 +2386,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	unsigned sam;
 	int values_per_lw = adev->data32? 1: 2;
 	unsigned cr;
+	int nblocks;
 
 	dev_dbg(DEVP(adev), "measure_ao_fifo() 01");
 
@@ -2388,10 +2395,14 @@ void measure_ao_fifo(struct acq400_dev *adev)
 
 
 	ao420_reset_fifo(adev);
-	for (; (sam = adev->xo.getFifoSamples(adev)) != osam; osam = sam){
+	for (nblocks = 0; (sam = adev->xo.getFifoSamples(adev)) != osam;
+			osam = sam, ++nblocks){
 		dev_dbg(DEVP(adev), "xo400_write_fifo(16384)");
-		xo400_write_fifo(adev, 0, 16384);
+		xo400_write_fifo(adev, 0, 1024);
 	}
+
+	dev_info(DEVP(adev), "measure_ao_fifo() write %d k, measure:%d samples\n",
+			nblocks, sam);
 
 	if (IS_AO42X(adev)){
 		u32 dac_fifo_samples = acq400rd32(adev, DAC_FIFO_SAMPLES);
@@ -2430,6 +2441,7 @@ void check_fiferr(struct acq400_dev* adev)
 	}
 	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
 		acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
+		unsigned stat2 = acq400rd32(adev, ADC_FIFO_STA);
 
 		if (++adev->stats.fifo_errors < 10){
 			if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){
@@ -2438,8 +2450,10 @@ void check_fiferr(struct acq400_dev* adev)
 				adev->stats.fifo_interrupts, fifo_sta,
 				adev->xo.getFifoSamples(adev));
 			}else{
-				dev_err(DEVP(adev), "ERROR FIFO at %d %08x",
-					adev->stats.fifo_interrupts, fifo_sta);
+				dev_err(DEVP(adev), "ERROR FIFO at %d %08x samples:%d stat2:%08x",
+					adev->stats.fifo_interrupts, fifo_sta,
+					adev->xo.getFifoSamples(adev),
+					stat2);
 			}
 		}
 
@@ -2578,7 +2592,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		return;
 	}
 
-	dev_dbg(DEVP(adev), "ao420_reset_playloop(%d)",
+	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d)",
 					adev->AO_playloop.length);
 	_ao420_stop(adev);
 
