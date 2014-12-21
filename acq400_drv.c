@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.753"
+#define REVID "2.754"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2580,7 +2580,7 @@ void xo400_getDMA(struct acq400_dev* adev)
 			if (adev->dma_chan[0] == 0){
 				dev_err(DEVP(adev), "BAD DMA CHAN!");
 			}else{
-				dev_info(DEVP(adev),
+				dev_dbg(DEVP(adev),
 					"ao420_reset_playloop() channel %d",
 					adev->dma_chan[0]->chan_id);
 			}
