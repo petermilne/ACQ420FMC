@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.748"
+#define REVID "2.752"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -183,11 +183,12 @@ static void _ao420_onStart(struct acq400_dev *adev);
 static void _ao420_onStop(struct acq400_dev *adev);
 static void _dio432_DO_onStart(struct acq400_dev *adev);
 
-void go_rt(void)
+void go_rt(int prio)
 {
 	struct task_struct *task = current;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
+	struct sched_param param = { };
 
+	param.sched_priority = prio;
 	sched_setscheduler(task, SCHED_FIFO, &param);
 }
 
@@ -706,6 +707,7 @@ static void _ao420_onStart(struct acq400_dev *adev)
 
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
+		dev_dbg(DEVP(adev), "_ao420_onStart() set lotide:%d", adev->lotide);
 		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
 	}else{
@@ -2416,16 +2418,19 @@ void measure_ao_fifo(struct acq400_dev *adev)
 				lwords, sam, adev->nchan_enabled, values_per_lw);
 		}
 	}
-	sam -= dio432_rowback;
 	adev->xo.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
-	adev->lotide = 8*sam/10;
+	if (adev->nchan_enabled > 8){
+		adev->lotide = 9*sam/10;
+	}else{
+		adev->lotide = 8*sam/10;
+	}
 
 	for (adev->xo.hshift = 0;
 		(sam >> adev->xo.hshift) > 256; ++adev->xo.hshift)
 		;
-	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u",
-			sam, adev->xo.hshift);
+	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u lotide:%d",
+			sam, adev->xo.hshift, adev->lotide);
 
 	ao420_reset_fifo(adev);
 }
@@ -2484,7 +2489,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return 0;
 	}
-	go_rt();
+	go_rt(adev->nchan_enabled>8? MAX_RT_PRIO: MAX_RT_PRIO-2);
 
 	while(adev->AO_playloop.length != 0 &&
 	      (headroom = ao420_getFifoHeadroom(adev)) > xo400_getFillThreshold(adev)){
@@ -2697,7 +2702,7 @@ int ai_data_loop(void *data)
 	dma_async_issue_pending(adev->dma_chan[0]);
 
 	yield();
-	go_rt();
+	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
 
 	if (adev->fifo_isr_done){
