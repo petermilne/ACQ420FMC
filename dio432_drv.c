@@ -78,7 +78,7 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 {
 	unsigned syscon = immediate? DIO432_CTRL_LL: 0;
 
-	dev_info(DEVP(adev), "dio32_init immediate:%d", immediate);
+	dev_dbg(DEVP(adev), "dio32_init immediate:%d", immediate);
 
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;

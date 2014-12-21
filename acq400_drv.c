@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.752"
+#define REVID "2.753"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1082,7 +1082,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 					adev, adev->pdev->dev.id);
 	}
-	dev_info(DEVP(adev), "dma channel selected: %d", adev->dma_chan[ic]->chan_id);
+	dev_dbg(DEVP(adev), "dma channel selected: %d", adev->dma_chan[ic]->chan_id);
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
@@ -1148,7 +1148,7 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 
 	while(!adev->task_active){
 		yield();
-		if ((++pollcat&0xffff) == 0){
+		if ((++pollcat&0x1ffff) == 0){
 			dev_warn(DEVP(adev), "Polling for task active");
 		}
 	}
@@ -2528,7 +2528,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
 			if (adev->AO_playloop.one_shot){
-				dev_info(DEVP(adev), "ao420 oneshot done disable interrupt");
+				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;
 				if (adev->AO_playloop.one_shot == AO_oneshot_rearm){
