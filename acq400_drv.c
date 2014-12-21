@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.743"
+#define REVID "2.748"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -727,8 +727,6 @@ static void _ao420_onStop(struct acq400_dev *adev)
 
 static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
-	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-
 	dio432_set_mode(adev, DIO432_CLOCKED);
 
 	if (adev->AO_playloop.one_shot == 0 ||
@@ -738,12 +736,11 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 	}else{
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 	}
-	acq400wr32(adev, DAC_CTRL, ctrl |= DAC_CTRL_DAC_EN);
+	acq400wr32(adev, DAC_CTRL, acq400rd32(adev, DAC_CTRL)|DAC_CTRL_DAC_EN);
 }
 
 void dio432_onStop(struct acq400_dev *adev)
 {
-	adev->dio432.mode = DIO432_IMMEDIATE;
 	x400_disable_interrupt(adev);
 	dio432_disable(adev);
 	dio432_init_clocked(adev);
@@ -2419,6 +2416,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 				lwords, sam, adev->nchan_enabled, values_per_lw);
 		}
 	}
+	sam -= dio432_rowback;
 	adev->xo.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
 	adev->lotide = 8*sam/10;
@@ -2547,7 +2545,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 done_no_check:
 	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
-			acq400rd32(adev, DAC_FIFO_SAMPLES));
+			adev->xo.getFifoSamples(adev));
 	return rc;
 }
 static irqreturn_t xo400_dma(int irq, void *dev_id)
@@ -2617,6 +2615,10 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	if (playloop_length != 0){
 		xo400_getDMA(adev);
 		adev->AO_playloop.length = playloop_length;
+		if (adev->xo.getFifoSamples(adev) != 0){
+			dev_err(DEVP(adev), "ERROR: FIFO not EMPTY at start fill %d",
+					adev->xo.getFifoSamples(adev));
+		}
 		xo400_fill_fifo(adev);
 		ao420_clear_fifo_flags(adev);
 		adev->onStart(adev);

@@ -74,9 +74,11 @@ void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output)
 	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
 }
 
-void dio32_init(struct acq400_dev *adev, int immediate)
+void dio432_init(struct acq400_dev *adev, int immediate)
 {
 	unsigned syscon = immediate? DIO432_CTRL_LL: 0;
+
+	dev_info(DEVP(adev), "dio32_init immediate:%d", immediate);
 
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
@@ -102,7 +104,7 @@ int dio32_immediate_loop(void *data)
 	int nloop = 0;
 	int wake_clients;
 
-	dio32_init(adev, 1);
+	dio432_init(adev, 1);
 
 	for(; !kthread_should_stop(); ++nloop){
 		unsigned do32_cache = adev->dio432.DO32;
@@ -131,7 +133,7 @@ void dio432_init_clocked(struct acq400_dev* adev)
 	if (adev->w_task != 0){
 		kthread_stop(adev->w_task);
 	}
-	dio32_init(adev, 0);
+	dio432_init(adev, 0);
 }
 void dio432_disable(struct acq400_dev* adev)
 {
