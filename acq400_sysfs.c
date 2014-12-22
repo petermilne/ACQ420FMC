@@ -297,8 +297,7 @@ static ssize_t store_clkdiv(
 {
 	u32 clkdiv;
 	if (sscanf(buf, "%u", &clkdiv) == 1 &&
-	    clkdiv >= 1 &&
-	    clkdiv <= ADC_CLK_DIV_MASK){
+	    clkdiv >= 1 && clkdiv <= ADC_CLK_DIV_MASK){
 		acq400wr32(acq400_devices[dev->id], ADC_CLKDIV, clkdiv);
 		return count;
 	}else{

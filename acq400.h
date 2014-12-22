@@ -570,8 +570,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 }
 
-/** WORKTODO */
-#define SPAN_IS_BIPOLAR(adev)	(1)
+/** WARNING: assumes CH01 bipolar, ALL bipolar */
+#define SPAN_IS_BIPOLAR(adev)	((adev)->ao424_device_settings.u.ch.ao424_spans[0] >= 2)
 
 #define IS_ACQ420(adev) \
 	(GET_MOD_ID(adev) == MOD_ID_ACQ420FMC || GET_MOD_ID(adev) == MOD_ID_ACQ420FMC_2000)
