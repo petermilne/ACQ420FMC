@@ -247,10 +247,10 @@ static ssize_t a400fs_read_file(struct file *file, char *buf,
 /*
  * offset: offset in bytes
  */
-static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
+
+static ssize_t _a400fs_read_raw_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
-	//@todo struct A400_FS_PDESC* pd = FS_DESC(file);
 	struct acq400_dev* adev0 = FSN.site0->adev;
 	int foffset = (int)*offset;			/* we don't have 4GB */
 	int bufferlen = adev0->bufferlen;
@@ -280,10 +280,19 @@ static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
 		*offset += count;
 		return count;
 	}
+}
 
-	//struct A400_FS_PDESC* pd = FS_DESC(file);
-	/* temporary */
-	return a400fs_read_file(file, buf, count, offset);
+static ssize_t a400fs_read_raw_file(struct file *file, char *buf,
+		size_t count, loff_t *offset)
+{
+	struct acq400_dev* adev0 = FSN.site0->adev;
+
+	if (adev0->bufferlen){
+		return _a400fs_read_raw_file(file, buf, count, offset);
+	}else{
+		dev_err(DEVP(adev0), "bufferlen not set");
+		return -1;
+	}
 }
 
 static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
