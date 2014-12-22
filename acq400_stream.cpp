@@ -74,7 +74,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define VERID	"B1002"
+#include <sched.h>
+
+#define VERID	"B1003"
 
 #define NCHAN	4
 
@@ -2537,6 +2539,7 @@ void schedule_soft_trigger(void)
 	pid_t child = fork();
 	if (child == 0){
 		nice(10);
+		sched_yield();
 		execlp("soft_trigger", "soft_trigger", NULL);
 	}
 }
@@ -2544,9 +2547,10 @@ void schedule_soft_trigger(void)
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
+	StreamHead& streamHead = StreamHead::instance();
 	if (G::soft_trigger){
 		schedule_soft_trigger();
 	}
-	StreamHead::instance().stream();
+	streamHead.stream();
 	return 0;
 }
