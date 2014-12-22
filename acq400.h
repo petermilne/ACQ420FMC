@@ -570,6 +570,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 }
 
+/** WORKTODO */
+#define SPAN_IS_BIPOLAR(adev)	(1)
+
 #define IS_ACQ420(adev) \
 	(GET_MOD_ID(adev) == MOD_ID_ACQ420FMC || GET_MOD_ID(adev) == MOD_ID_ACQ420FMC_2000)
 #define IS_ACQ425(adev)	\

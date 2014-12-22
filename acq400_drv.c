@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.755"
+#define REVID "2.756"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2107,6 +2107,14 @@ ssize_t xo400_awg_read(
 	return count;
 }
 
+void flip_x16_sign_bit(unsigned short* bp, int nwords)
+{
+	const unsigned short sbit = 1<<15;
+
+	while(nwords--){
+		*bp++ ^= sbit;
+	}
+}
 ssize_t xo400_awg_write(
 	struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
@@ -2116,6 +2124,7 @@ ssize_t xo400_awg_write(
 	struct HBM *hbm = adev->cursor.hb;
 	int len = hbm->len;
 	int rc;
+	char *cursor;
 
 	count = AOSAMPLES2BYTES(adev, AOBYTES2SAMPLES(adev, count));
 
@@ -2127,9 +2136,14 @@ ssize_t xo400_awg_write(
 			count = headroom;
 		}
 	}
-	rc = copy_from_user((char*)hbm->va + bcursor, buf, count);
+	cursor = (char*)hbm->va + bcursor;
+	rc = copy_from_user(cursor, buf, count);
+
 	if (rc){
 		return -1;
+	}
+	if (IS_AO424(adev) && SPAN_IS_BIPOLAR(adev)){
+		flip_x16_sign_bit((unsigned short*)cursor, count/sizeof(unsigned short));
 	}
 
 	dev_dbg(DEVP(adev),
