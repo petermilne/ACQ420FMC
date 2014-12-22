@@ -936,6 +936,8 @@ struct Progress {
 	struct timespec last_time;
 	static long min_report_interval;
 
+	char previous[80];
+
 	FILE* status_fp;
 
 	bool isRateLimited() {
@@ -962,13 +964,17 @@ struct Progress {
 	static Progress& instance();
 
 	void print(bool ignore_ratelimit = true, int extra = 0) {
-		if (ignore_ratelimit || !isRateLimited()){
-			fprintf(status_fp, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+		char current[80];
+		snprintf(current, 80, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+
+		if ((ignore_ratelimit || !isRateLimited()) && strcmp(current, previous)){
+			fputs(current, status_fp);
 			fflush(status_fp);
+			strcpy(previous, current);
 		}
 		if (G::state_fp){
 			rewind(G::state_fp);
-			fprintf(G::state_fp, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+			fputs(current, G::state_fp);
 			fflush(G::state_fp);
 		}
 	}
@@ -2538,7 +2544,7 @@ void schedule_soft_trigger(void)
 {
 	pid_t child = fork();
 	if (child == 0){
-		nice(10);
+		nice(2);
 		sched_yield();
 		execlp("soft_trigger", "soft_trigger", NULL);
 	}
