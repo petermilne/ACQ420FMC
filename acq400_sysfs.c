@@ -84,6 +84,20 @@ static ssize_t show_bits(
 	return sprintf(buf, "%x\n", field);
 }
 
+static ssize_t show_bitsN(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	unsigned SHL,
+	unsigned MASK)
+{
+	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+	u32 field = (regval>>SHL)&MASK;
+
+	return sprintf(buf, "%x\n", !field);
+}
+
 static ssize_t store_bits(
 		struct device * dev,
 		struct device_attribute *attr,
@@ -140,9 +154,9 @@ static ssize_t show_bits##NAME(						\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return !show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+		return show_bitsN(dev, attr, buf, REG, shl, (MASK)>>shl);\
 	}else{								\
-		return !show_bits(dev, attr, buf, REG, SHL, MASK);	\
+		return show_bitsN(dev, attr, buf, REG, SHL, MASK);	\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
