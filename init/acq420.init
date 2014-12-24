@@ -289,7 +289,7 @@ build_site0() {
 	model=${devicetree_image%*.dtb}; model=${model#*/}
 	echo "+++ build_site0 model $model"
 	case $model in
-	acq2006b)
+	acq2106|acq2006b)
 		rm /etc/acq400/0/sync_out_cable_det
 		ln -s /dev/gpio/SYNC_CABLE_DET /etc/acq400/0/sync_out_cable_det
 		ls -l /etc/acq400/0/sync_out_cable_det
