@@ -10,15 +10,16 @@ init_sfp_channel_phys() {
 	chipid=$1
 	let pin=$2
 	let ix=$3
-	for dir in I O IAL O O I
+	(cd /sys/class/gpio; for dir in I O IAL O O I
 	do
+#		echo export_gpio $pin
 		export_gpio $pin
 		ln -s /sys/class/gpio/gpio$pin $MGTD/$chipid/$(printf P%02o $ix)
 		[ "$dir" = "O" ] && setO gpio$pin
 		[ "$dir" = "IAL" ] &&  setAL gpio$pin		
-		let px=$px+1
-		let ii=$ii+1
-	done
+		let pin=$pin+1
+		let ix=$ix+1
+	done)
 }
 
 init_sfp_channel_log() {
@@ -32,14 +33,16 @@ init_sfp_channel_log() {
 	
 	for fx in TX_FAULT TX_DISABLE PRESENT RATE_0 RATE_1 LOS
 	do
-		ln -s $MGTD/$chipid/$(printf P%02o $ix) $SFPD/$fx							
+		ln -s $MGTD/$chipid/$(printf P%02o $ix) $SFPD/$fx
+		let ix=$ix+1
 	done
 }
 
 init_sfp_chip() {
-	let chipid=$1; shift;
+# MGT1 $CHIP1 1 2 3 4
+	chipid=$1; shift;
 	let pin00=${1#gpiochip*}; shift
-	
+
 	mkdir -p $MGTD/$chipid
 	
 	let pin6=$pin00
@@ -56,15 +59,16 @@ init_sfp_chip() {
 
 # i2c gpio
 
-CHIP1=$(basename $(echo /sys/bus/i2c/devices/7-0022/gpio/gpiochip*))
-CHIP2=$(basename $(echo /sys/bus/i2c/devices/7-0023/gpio/gpiochip*))
+CHIP1=$(basename $(echo /sys/bus/i2c/devices/8-0022/gpio/gpiochip*))
+CHIP2=$(basename $(echo /sys/bus/i2c/devices/8-0023/gpio/gpiochip*))
 
 mkdir -p $MGTD
 
 if [ "x$CHIP1" != "x" ]; then
-	init_sfp_gpio MGT1 $CHIP1 1 2 3 4
+	init_sfp_chip CHIP1 $CHIP1 1 2 3 4
 fi
 
-if [ "x$CHIP2" != "x" ]; then
-	init_sfp_gpio MGT2 $CHIP2 5 6 7 8
+if [ "x$CHIP2" != "x" -a "x$CHIP2" != "xgpiochip*" ]; then
+	init_sfp_chip CHIP2 $CHIP2 5 6 7 8
 fi
+
