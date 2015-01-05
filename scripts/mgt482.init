@@ -33,7 +33,7 @@ init_sfp_channel_log() {
 	
 	for fx in TX_FAULT TX_DISABLE PRESENT RATE_0 RATE_1 LOS
 	do
-		ln -s $MGTD/$chipid/$(printf P%02o $ix) $SFPD/$fx
+		ln -s $MGTD/$chipid/$(printf P%02o $ix)/value $SFPD/$fx
 		let ix=$ix+1
 	done
 }
