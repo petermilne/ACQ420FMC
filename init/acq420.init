@@ -303,6 +303,7 @@ build_mgt400() {
 	name=$(cat $1/name)
 	site=$(cat $1/site)
 	web_append $name $site
+	ln -s $1  /dev/acq400.$site.knobs
 }
 
 build_knobs() {
