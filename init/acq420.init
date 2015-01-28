@@ -405,14 +405,7 @@ else
 		exit 1
 fi
 
-case $MODEL in
-acq2106sfp)
-	MOD=/usr/local/lib/modules/mgt400.ko
-	if [ -e /mnt/local/mgt400.ko ]; then
-		MOD=/mnt/local/mgt400.ko
-	fi
-	/sbin/insmod $MOD;;
-esac
+
 
 #	mount -t debugfs none /sys/kernel/debug/
 echo "for debug:"
@@ -431,9 +424,22 @@ else
 fi	
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
+
+case $MODEL in
+acq2106sfp)
+	MOD=/usr/local/lib/modules/mgt400.ko
+	if [ -e /mnt/local/mgt400.ko ]; then
+		MOD=/mnt/local/mgt400.ko
+	fi
+	/sbin/insmod $MOD;;
+esac
+
+
 build_knobs
 set_fans
 grep acq4.0 /proc/devices |  build_nodes	
+
+
 
 echo ++ Enable analog power..
 set.sys /dev/gpio/15VA_EN 1
@@ -450,6 +456,7 @@ else
 	VAN=-13
 EOF
 fi
+
 
 start_knob_services
 
