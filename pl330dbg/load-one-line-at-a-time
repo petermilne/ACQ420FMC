@@ -1,0 +1,10 @@
+#!/usr/local/bin/expect
+
+set fin [open "pl330_regdef" "r"]
+
+while {[gets $fin line] != -1} {
+#	puts "L:$line"
+	set out [open "/sys/kernel/debug/pl330/.create" "w"]
+	puts $out $line
+	close $out	
+}

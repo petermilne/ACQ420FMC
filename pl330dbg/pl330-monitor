@@ -1,0 +1,44 @@
+#!/bin/sh
+
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat>   
+EOF
+}
+
+cCrR 4 8 >/dev/shm/c4r8
+
+grep -q pl330 /var/www/d-tacq/acq_main_page.html
+if [ $? -ne 0 ]; then
+sed -ie '/TABAPPEND/ {
+i       <li><a title="pl330a" href="acq_info_page.html">pl330 0-3</a></li>
+i       <li><a title="pl330b" href="acq_info_page.html">pl330 4-7</a></li>
+i	<li><a title="pl330c" href="acq_info_page.html">pl330 com</a></li>
+}' /var/www/d-tacq/acq_main_page.html
+fi
+cd /sys/kernel/debug/pl330/
+
+ls4() {
+	(ls *$1; ls *$2; ls *$3; ls *$4) | grep -v DBGINST | grep -v '^CR[0-5]'
+}
+
+lsR() {
+	(find . ! -name '*[0-7]' | cut -c3- | grep [FID];ls CR?; ls DBGINST?) |
+	sort
+}
+
+ls4 0 1 2 3 >/var/run/pl330a
+ls4 4 5 6 7 >/var/run/pl330b
+lsR > /var/run/pl330c
+
+while [ 1 ]
+do
+	fs2xml </var/run/pl330a -s /dev/shm/c4r8 >/dev/shm/pl330a.xml
+	fs2xml </var/run/pl330b -s /dev/shm/c4r8 >/dev/shm/pl330b.xml
+	fs2xml </var/run/pl330c >/dev/shm/pl330c.xml
+	sleep 0.5
+done
+
