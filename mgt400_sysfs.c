@@ -27,6 +27,73 @@
 #include "acq400.h"
 #include "mgt400.h"
 
+static ssize_t show_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", mgt400rd32(mdev, ZDMA_CR)&ZDMA_CR_ENABLE);
+}
+static DEVICE_ATTR(enable, S_IRUGO, show_enable, 0);
+
+static ssize_t store_aurora_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf, size_t count)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	int enable;
+
+	if (sscanf(buf, "%d", &enable) == 1){
+		u32 cr = mgt400rd32(mdev, AURORA_CR);
+		if (enable){
+			cr |= AURORA_CR_ENA;
+		}else{
+			cr &= ~AURORA_CR_ENA;
+		}
+		mgt400wr32(mdev, AURORA_CR, cr);
+		return strlen(buf);
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_aurora_enable(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", (mgt400rd32(mdev, AURORA_CR)&AURORA_CR_ENA)!=0);
+}
+static DEVICE_ATTR(aurora_enable, S_IRUGO|S_IWUGO, show_aurora_enable, store_aurora_enable);
+
+
+static ssize_t show_aurora_lane_up(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", AURORA_SR_UP(mgt400rd32(mdev, AURORA_SR)));
+}
+static DEVICE_ATTR(aurora_lane_up, S_IRUGO, show_aurora_lane_up, 0);
+
+static ssize_t show_aurora_errors(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	unsigned errs = AURORA_SR_ERR(mgt400rd32(mdev, AURORA_SR));
+	if (errs){
+		u32 cr = mgt400rd32(mdev, AURORA_CR);
+		mgt400wr32(mdev, AURORA_CR, cr | AURORA_CR_CLR);
+		mgt400wr32(mdev, AURORA_CR, cr);
+	}
+	return sprintf(buf, "%u\n", errs);
+}
+static DEVICE_ATTR(aurora_errors, S_IRUGO, show_aurora_errors, 0);
 
 static ssize_t show_heartbeat(
 	struct device * dev,
@@ -34,7 +101,8 @@ static ssize_t show_heartbeat(
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%u\n", mgt400rd32(mdev, HEART));
+	/* EPICS DS can't handle a full u32 */
+	return sprintf(buf, "%u\n", mgt400rd32(mdev, HEART) >> 1);
 }
 static DEVICE_ATTR(heartbeat, S_IRUGO, show_heartbeat, 0);
 
@@ -59,7 +127,13 @@ static ssize_t show_site(
 }
 static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
 
+
+
 static const struct attribute *sysfs_base_attrs[] = {
+	&dev_attr_enable.attr,
+	&dev_attr_aurora_enable.attr,
+	&dev_attr_aurora_lane_up.attr,
+	&dev_attr_aurora_errors.attr,
 	&dev_attr_heartbeat.attr,
 	&dev_attr_name.attr,
 	&dev_attr_site.attr,

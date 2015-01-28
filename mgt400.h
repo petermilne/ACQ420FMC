@@ -47,6 +47,24 @@ void mgt400_removeDebugfs(struct mgt400_dev* adev);
 #define COMMS_RXB_FSR   (0x001C)
 #define COMMS_RXB_FCR	(0x0020)
 
+#define ZDMA_CR_ENABLE		(1<<0)
+
+#define AURORA_CR_ENA		(1<<31)
+#define AURORA_CR_CLR		(1<<7)
+#define AURORA_CR_PWR_DWN	(1<<4)
+#define AURORA_CR_LOOPBACK	(0x7)
+
+#define AURORA_SR_HARD_ERR	(1<<6)
+#define AURORA_SR_SOFT_ERR	(1<<5)
+#define AURORA_SR_FRAME_ERR	(1<<4)
+#define AURORA_SR_CHANNEL_UP	(1<<1)
+#define AURORA_SR_LANE_UP	(1<<0)
+
+#define AURORA_SR_ERR(xx) \
+	((xx)&((AURORA_SR_HARD_ERR|AURORA_SR_SOFT_ERR|AURORA_SR_FRAME_ERR)>>4))
+#define AURORA_SR_UP(xx) \
+	((xx)&(AURORA_SR_CHANNEL_UP|AURORA_SR_LANE_UP))
+
 /** PCIE REGS : ZYNQ:RO HOST: RW */
 #define PCIE_CTRL 	(0x1004)
 #define PCIE_INTR	(0x1008)

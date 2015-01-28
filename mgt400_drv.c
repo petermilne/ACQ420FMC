@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.101"
+#define REVID "0.102"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -186,8 +186,10 @@ static int mgt400_probe(struct platform_device *pdev)
         	goto fail;
         }
 
+
         mgt400_createSysfs(&mdev->pdev->dev);
         mgt400_createDebugfs(mdev);
+        mgt400wr32(mdev, ZDMA_CR, ZDMA_CR_ENABLE);
         return rc;
 
 fail:
