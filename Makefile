@@ -65,7 +65,8 @@ modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
 	
 clean:
-	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(APPS)
+	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(APPS) \
+		Module.symvers modules.order
 	
 mmap: mmap.o
 	$(CC) -o $@ $^ -L../lib -lpopt
