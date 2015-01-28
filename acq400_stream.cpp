@@ -76,7 +76,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1003"
+#define VERID	"B1004"
 
 #define NCHAN	4
 
@@ -1202,12 +1202,19 @@ static void hold_open(const char* sites)
 				syslog(LOG_DEBUG, "G_aggsem:%p\n", G::aggsem);
 			}
 
-			for (int isite = 0; isite < nsites; ++isite){
+			/* iterate backwards to enable MASTER first.
+			 * This is needed for ACQ435 RGM
+			 * NB: has to wait for child to act. sched_yield() is a crude way to do this, may need a signal or sem
+			 *
+			 */
+			for (int isite = nsites; --isite >= 0; ){
+			//for (int isite = 0; isite < nsites; ++isite){
 				child = fork();
 
 		                if (child == 0) {
 		                	int val;
 
+		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
 		                	if (G::use_aggsem){
 		                		sem_getvalue(G::aggsem, &val);
 		                		syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
@@ -1226,6 +1233,9 @@ static void hold_open(const char* sites)
 		                	hold_open(the_sites[isite]);
 		                	assert(1);
 		                }else{
+		                	sched_yield();
+		                	sleep(1);		/* OVERKILL: this will work ;-) .. but it's SLOW */
+		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "done_waiting", isite);
 		                	holders.push_back(child);
 		                }
 			}

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.757"
+#define REVID "2.758"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2891,7 +2891,7 @@ struct file_operations acq400_fops = {
 
 
 #ifdef CONFIG_OF
-static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
+static struct of_device_id acq400_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq400fmc"  },
         { .compatible = "D-TACQ,acq420fmc"  },
         { .compatible = "D-TACQ,acq430fmc"  },
@@ -2903,9 +2903,9 @@ static struct of_device_id xfifodma_of_match[] /* __devinitdata */ = {
         { .compatible = "D-TACQ,acq400pmod" },
         { /* end of table */}
 };
-MODULE_DEVICE_TABLE(of, xfifodma_of_match);
+MODULE_DEVICE_TABLE(of, acq400_of_match);
 #else
-#define xfifodma_of_match NULL
+#define acq400_of_match NULL
 #endif /* CONFIG_OF */
 
 
@@ -2965,7 +2965,7 @@ static int acq400_device_tree_init(struct acq400_dev* adev)
         	 */
                 if (of_property_read_u32_array(
                 		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
-                	dev_warn(DEVP(adev), "failed to find IRQ values");
+                	dev_warn(DEVP(adev), "failed to find %d IRQ values", OF_IRQ_COUNT);
                 }else{
                 	adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
                 }
@@ -3050,7 +3050,7 @@ static int acq400_probe(struct platform_device *pdev)
         struct acq400_dev* adev = acq400_allocate_dev(pdev);
 
         if (!adev){
-        	dev_err(DEVP(adev), "unable to allocate device structure\n");
+        	dev_err(&pdev->dev, "unable to allocate device structure\n");
         	return -ENOMEM;
         }
         pdev->dev.id = ndevices;
@@ -3239,7 +3239,7 @@ static struct platform_driver acq400_driver = {
         .driver = {
                 .name = MODULE_NAME,
                 .owner = THIS_MODULE,
-                .of_match_table = xfifodma_of_match,
+                .of_match_table = acq400_of_match,
         },
         .probe = acq400_probe,
         .remove = acq400_remove,

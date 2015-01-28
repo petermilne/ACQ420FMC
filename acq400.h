@@ -51,8 +51,7 @@
 #define AXI_FIFO_LEN          0x1000
 
 #define OF_IRQ_HITIDE		1	/* index of HITIDE in dtb */
-#define OF_IRQ_STATUS		4	/* index of STATUS in dtb */
-#define OF_IRQ_COUNT		6	/* number of items */
+#define OF_IRQ_COUNT		3	/* number of items */
 #define OF_IRQ_MAGIC		32	/* add to the OF number to get actual */
 
 #define ADC_BASE		0x0000
