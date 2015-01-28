@@ -1,0 +1,16 @@
+#!/bin/sh
+SITE=${1:-0}
+shift
+CHX=${*:-01}
+
+KNOBS=/dev/acq400.${SITE}.knobs
+
+for VV in $(seq -- -32768 3000 32767)
+do
+	for CH in $CHX
+	do
+		#echo set.sys ${KNOBS}/AO_$CH $VV
+		set.sys ${KNOBS}/AO_$CH $VV
+	done
+	sleep 0.1
+done
