@@ -41,7 +41,7 @@ package: all
 		opkg/usr/local/init/pl330dbg opkg/usr/local/cal \
 		opkg/etc/profile.d 
 	cp cal/* opkg/usr/local/cal
-	cp -a $(APPS) monitorregs scripts/* opkg/usr/local/bin
+	cp -a $(APPS) scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
