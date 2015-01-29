@@ -1,5 +1,8 @@
 #!/bin/sh
 
+
+[ "x$2" = "xnone" ] && exit 0
+
 DEV=${1:-acq420.0}
 DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
 

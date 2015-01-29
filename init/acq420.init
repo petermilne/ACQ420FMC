@@ -339,12 +339,15 @@ build_knobs() {
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	fi
 	
+	has_sfp=0
 	for dir in ${spd}/*mgt400 
 	do
 		if [ -e ${dir}/site ]; then
-			build_mgt400 ${dir}		
+			build_mgt400 ${dir}
+			has_sfp=1		
 		fi
 	done
+	[ $has_sfp -ne 0 ] && web_append sfp none
 }
 
 create_set_fanspeed() {
