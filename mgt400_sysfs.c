@@ -27,6 +27,29 @@
 #include "acq400.h"
 #include "mgt400.h"
 
+
+#define DMA_STATUS(DIR, REG, SHL) 					\
+static ssize_t show_dma_stat_##DIR(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];		\
+	u32 sta = mgt400rd32(mdev, REG) >> SHL;				\
+	u32 count = (sta&DMA_DATA_FIFO_COUNT) >> DMA_DATA_FIFO_COUNT_SHL; \
+	u32 flags = sta&DMA_DATA_FIFO_FLAGS;				\
+	return sprintf(buf, "%d %d \n", count, flags);			\
+}									\
+									\
+static DEVICE_ATTR(dma_stat_##DIR, S_IRUGO, show_dma_stat_##DIR, 0)	\
+
+DMA_STATUS(desc_pull, DESC_FIFO_SR, DMA_DATA_PULL_SHL);
+DMA_STATUS(desc_push, DESC_FIFO_SR, DMA_DATA_PUSH_SHL);
+DMA_STATUS(data_pull, DMA_FIFO_SR,  DMA_DATA_PULL_SHL);
+DMA_STATUS(data_push, DMA_FIFO_SR,  DMA_DATA_PUSH_SHL);
+
+
+
 static ssize_t show_enable(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -137,6 +160,10 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_heartbeat.attr,
 	&dev_attr_name.attr,
 	&dev_attr_site.attr,
+	&dev_attr_dma_stat_desc_pull.attr,
+	&dev_attr_dma_stat_desc_push.attr,
+	&dev_attr_dma_stat_data_pull.attr,
+	&dev_attr_dma_stat_data_push.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)

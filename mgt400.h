@@ -86,4 +86,12 @@ void mgt400_removeDebugfs(struct mgt400_dev* adev);
 #define DMA_PULL_DESC_SR	(0x2014)
 #define DMA_PUSH_DESC_FIFO	(0x2040)
 #define DMA_PULL_DESC_FIFO	(0x2080)
+
+#define DMA_DATA_PULL_SHL		16
+#define DMA_DATA_PUSH_SHL		0
+
+#define DMA_DATA_FIFO_COUNT		0xfff0
+#define DMA_DATA_FIFO_COUNT_SHL		4
+#define DMA_DATA_FIFO_FLAGS		0x000f
+
 #endif /* MGT400_H_ */

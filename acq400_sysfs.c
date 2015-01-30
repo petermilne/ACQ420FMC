@@ -2837,6 +2837,40 @@ REG_KNOB(data_engine_2, DATA_ENGINE(2), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_3, DATA_ENGINE(3), DATA_ENGINE_MSHIFT);
 
 
+static ssize_t show_decimate(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	int decimate = ((agg >>= AGG_DECIM_SHL)&AGG_DECIM_MASK) + 1;
+
+	return sprintf(buf, "%d\n", decimate);
+}
+
+static ssize_t store_decimate(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned decimate;
+
+	if (sscanf(buf, "%u", &decimate) == 1 && decimate){
+		u32 agg = acq400rd32(adev, AGGREGATOR);
+		agg &= ~(AGG_DECIM_MASK << AGG_DECIM_SHL);
+		agg |= ((decimate-1)& AGG_DECIM_MASK) << AGG_DECIM_SHL;
+		acq400wr32(adev, AGGREGATOR, agg);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(decimate, S_IRUGO|S_IWUGO, show_decimate, store_decimate);
+
 
 static ssize_t show_aggsta(
 	struct device * dev,
@@ -2893,6 +2927,7 @@ static DEVICE_ATTR(estop, S_IWUGO, 0, store_estop);
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
+	&dev_attr_decimate.attr,
 	&dev_attr_aggsta_fifo_count.attr,
 	&dev_attr_aggsta_fifo_stat.attr,
 	&dev_attr_aggsta_engine_stat.attr,

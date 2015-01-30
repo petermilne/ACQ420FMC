@@ -658,6 +658,9 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define AGG_SNAP_DI_4		2
 #define AGG_SNAP_DI_32		3
 
+#define AGG_DECIM_MASK		0xf
+#define AGG_DECIM_SHL		24
+
 #define AGG_SPAD_EN		(1<<17)
 #define AGG_SPAD_FRAME		(1<<16)
 #define AGG_SPAD_LEN_SHL	4

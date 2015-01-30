@@ -82,7 +82,7 @@ if { $::argc > 0 } {
 		close $fp
 	} 	
 } else {
-	puts "usage acq425.init site1[ site 2...]	
+	puts "usage acq437.init site1[ site 2...]	
 }
 
 

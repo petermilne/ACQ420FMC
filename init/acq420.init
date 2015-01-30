@@ -272,7 +272,7 @@ build_site0() {
 	ek=/etc/acq400/0/
 	ln -s $1 ${dk}
 	web_append acq400.0 0
-	ln -s ${dk}/aggregator ${ek}
+	ln -s ${dk}/aggregator ${dk}/decimate ${ek}
 	ln -s /usr/local/bin/run0 ${ek}
 	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
 	ln -s /usr/local/bin/transient ${ek}
@@ -304,6 +304,8 @@ build_mgt400() {
 	site=$(cat $1/site)
 	web_append $name $site
 	ln -s $1  /dev/acq400.$site.knobs
+	mkdir /etc/acq400/$site
+	ln -s /dev/acq400.$site.knobs/* /etc/acq400/$site
 }
 
 build_knobs() {

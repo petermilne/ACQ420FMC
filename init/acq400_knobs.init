@@ -2,7 +2,7 @@
 
 
 stop_knob_servers() {
-	for dir in /etc/acq400/[0-9]
+	for dir in /etc/acq400/[0-9]*
 	do	
 		site=$(basename $dir)
 		pidf=/var/run/knobs$site.pid
@@ -18,7 +18,7 @@ stop_knob_servers() {
 }
 
 spawn_knob_servers() {
-	for dir in /etc/acq400/[0-9]
+	for dir in /etc/acq400/[0-9]*
 	do
 		site=$(basename $dir)
 		pidf=/var/run/knobs$site.pid
@@ -31,7 +31,7 @@ spawn_knob_servers() {
 		$cmd
 	done
 	
-	for dir in /etc/acq400/[0-9]
+	for dir in /etc/acq400/[0-9]*
 	do
 		site=$(basename $dir)
 		pidf2=/var/run/acq400_knobs.$site.pid
