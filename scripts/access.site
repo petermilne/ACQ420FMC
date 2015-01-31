@@ -3,7 +3,7 @@
 site=${1:-0}
 shift
 
-port="422$site"
+let port="4220+$site"
 	
 if [ "x$1" != "x" ]; then
 	echo "$*" | nc localhost $port
