@@ -221,7 +221,7 @@ static int a400fs_open(struct inode *inode, struct file *file)
 }
 
 #define TMPSIZE 80
-
+#if 0
 static ssize_t a400fs_read_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
@@ -243,7 +243,7 @@ static ssize_t a400fs_read_file(struct file *file, char *buf,
 	*offset += count;
 	return count;
 }
-
+#endif
 /*
  * offset: offset in bytes
  */

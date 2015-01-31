@@ -48,7 +48,17 @@ DMA_STATUS(desc_push, DESC_FIFO_SR, DMA_DATA_PUSH_SHL);
 DMA_STATUS(data_pull, DMA_FIFO_SR,  DMA_DATA_PULL_SHL);
 DMA_STATUS(data_push, DMA_FIFO_SR,  DMA_DATA_PUSH_SHL);
 
+static ssize_t show_buffer_counts(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%lu,%lu\n",
+			mdev->push.buffer_count, mdev->pull.buffer_count);
+}
 
+static DEVICE_ATTR(buffer_counts, S_IRUGO, show_buffer_counts, 0);
 
 static ssize_t show_enable(
 	struct device * dev,
@@ -150,7 +160,37 @@ static ssize_t show_site(
 }
 static DEVICE_ATTR(site, S_IRUGO, show_site, 0);
 
+static ssize_t show_dev(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", mdev->cdev.dev);
+}
+static DEVICE_ATTR(dev, S_IRUGO, show_dev, 0);
 
+static ssize_t store_clear_histo(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf, size_t count)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	int minor;
+	int rc;
+
+	if (sscanf(buf, "%d", &minor) == 1){
+		rc = mgt400_clear_histo(mdev, minor);
+		if (rc){
+			return rc;
+		}else{
+			return strlen(buf);
+		}
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(clear_histo, S_IRUGO, store_clear_histo, 0);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,
@@ -160,10 +200,13 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_heartbeat.attr,
 	&dev_attr_name.attr,
 	&dev_attr_site.attr,
+	&dev_attr_dev.attr,
 	&dev_attr_dma_stat_desc_pull.attr,
 	&dev_attr_dma_stat_desc_push.attr,
 	&dev_attr_dma_stat_data_pull.attr,
 	&dev_attr_dma_stat_data_push.attr,
+	&dev_attr_buffer_counts.attr,
+	&dev_attr_clear_histo.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
@@ -174,5 +217,4 @@ void mgt400_createSysfs(struct device *dev)
 	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
 		dev_err(dev, "failed to create sysfs");
 	}
-
 }

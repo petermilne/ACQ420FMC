@@ -512,7 +512,7 @@ struct acq400_path_descriptor {
 	struct list_head RESERVED;
 };
 
-#define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
+#define PD(filp)	((struct acq400_path_descriptor*)filp->private_data)
 #define PDSZ			(sizeof (struct acq400_path_descriptor))
 #define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)

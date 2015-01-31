@@ -8,6 +8,11 @@
 #ifndef MGT400_H_
 #define MGT400_H_
 
+#define DESC_HISTOLEN	128
+#define DATA_HISTOLEN	128
+#define DESC_HMASK  	(DESC_HISTOLEN-1)
+#define DATA_HMASK	(DATA_HISTOLEN-1)
+
 struct mgt400_dev {
 	dev_t devno;
 	struct of_prams {
@@ -16,7 +21,7 @@ struct mgt400_dev {
 		int sn;
 	} of_prams;
 	char devname[16];
-	struct cdev cdef;
+
 	struct platform_device *pdev;
 	struct resource *mem;
 	void *dev_virtaddr;
@@ -24,7 +29,25 @@ struct mgt400_dev {
 	char* debug_names;
 	struct dentry* debug_dir;
 	int RW32_debug;
+
+	struct DMA_CHANNEL {
+		unsigned long buffer_count;
+		unsigned long desc_histo[DESC_HISTOLEN];
+		unsigned long data_histo[DATA_HISTOLEN];
+	} push, pull;
+
+	struct hrtimer buffer_counter_timer;
 };
+
+struct mgt400_path_descriptor {
+	struct mgt400_dev* dev;
+	int minor;
+};
+
+#undef PD
+#undef PDSZ
+#define PD(filp)	((struct mgt400_path_descriptor*)filp->private_data)
+#define PDSZ		(sizeof (struct mgt400_path_descriptor))
 
 extern struct mgt400_dev* mgt400_devices[];
 
@@ -34,6 +57,8 @@ void mgt400_createDebugfs(struct mgt400_dev* adev);
 void mgt400_createSysfs(struct device *dev);
 void mgt400_createDebugfs(struct mgt400_dev* adev);
 void mgt400_removeDebugfs(struct mgt400_dev* adev);
+
+int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 
 /* ZYNQ : RW    HOST: RO (at start only) */
 #undef MOD_ID
@@ -93,5 +118,19 @@ void mgt400_removeDebugfs(struct mgt400_dev* adev);
 #define DMA_DATA_FIFO_COUNT		0xfff0
 #define DMA_DATA_FIFO_COUNT_SHL		4
 #define DMA_DATA_FIFO_FLAGS		0x000f
+
+#define GET_DMA_DATA_FIFO_COUNT(sta) \
+	(((sta)&DMA_DATA_FIFO_COUNT)>>DMA_DATA_FIFO_COUNT_SHL)
+
+#define DESCR_ADDR	0xffffffc00
+#define DESCR_INTEN	0x000000100
+#define DESCR_LEN	0x0000000f0
+#define DESCR_ID	0x00000000f
+
+#define MINOR_PUSH_DATA_HISTO	0
+#define MINOR_PUSH_DESC_HISTO 	1
+#define MINOR_PULL_DATA_HISTO	2
+#define MINOR_PULL_DESC_HISTO	3
+#define MINOR_COUNT		4
 
 #endif /* MGT400_H_ */

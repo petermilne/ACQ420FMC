@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.103"
+#define REVID "0.105"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -94,6 +94,77 @@ static struct mgt400_dev* mgt400_allocate_dev(struct platform_device *pdev)
         return mdev;
 }
 
+
+
+/* assume we can count packets by scanning the descriptor id at 100Hz.
+ * 16 ID's, handles packet rate to 1600 pps - easy doable.
+ */
+
+static void _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
+{
+	unsigned long pc0 = *packet_count;
+	unsigned long pc = pc0;
+
+	for (; (pc&DESCR_ID) != (current_descr&DESCR_ID); ++pc){
+		;
+	}
+	if (pc != pc0){
+		*packet_count = pc;
+	}
+}
+
+static void _update_histogram(unsigned long *histo, unsigned count, unsigned mask)
+{
+	if (count > mask) count = mask;
+	histo[count]++;
+}
+
+static void _update_histograms(struct mgt400_dev* mdev)
+{
+	u32 data_sr = mgt400rd32(mdev, DMA_FIFO_SR);
+	u32 desc_sr = mgt400rd32(mdev, DESC_FIFO_SR);
+
+	_update_histogram(mdev->pull.data_histo,
+		GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PULL_SHL), DATA_HMASK);
+	_update_histogram(mdev->push.data_histo,
+		GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PUSH_SHL), DATA_HMASK);
+
+	_update_histogram(mdev->pull.desc_histo,
+		GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PULL_SHL), DESC_HMASK);
+	_update_histogram(mdev->push.desc_histo,
+		GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PUSH_SHL), DESC_HMASK);
+
+}
+static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
+{
+	_channel_buffer_counter(
+		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push.buffer_count);
+	_channel_buffer_counter(
+		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull.buffer_count);
+	_update_histograms(mdev);
+}
+static ktime_t kt_period;
+
+enum hrtimer_restart mgt400_buffer_counter(struct hrtimer* hrt)
+{
+	struct mgt400_dev *mdev =
+		container_of(hrt, struct mgt400_dev, buffer_counter_timer);
+
+	_mgt400_buffer_counter(mdev);
+	hrtimer_forward_now(hrt, kt_period);
+	return HRTIMER_RESTART;
+}
+void mgt400_start_buffer_counter(struct mgt400_dev* mdev)
+{
+	hrtimer_init(&mdev->buffer_counter_timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+	mdev->buffer_counter_timer.function = mgt400_buffer_counter;
+	hrtimer_start(&mdev->buffer_counter_timer, kt_period, HRTIMER_MODE_REL);
+}
+
+void mgt400_stop_buffer_counter(struct mgt400_dev* mdev)
+{
+	hrtimer_cancel(&mdev->buffer_counter_timer);
+}
 static int mgt400_device_tree_init(struct mgt400_dev* mdev)
 {
 	struct device_node *of_node = mdev->pdev->dev.of_node;
@@ -129,8 +200,93 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
         }
 }
 
+int mgt400_open(struct inode *inode, struct file *file)
+{
+	file->private_data = kzalloc(PDSZ, GFP_KERNEL);
+	PD(file)->dev = container_of(inode->i_cdev, struct mgt400_dev, cdev);
+	PD(file)->minor = MINOR(inode->i_rdev);
+	return 0;
+}
+
+int get_histo_from_minor(struct mgt400_dev *mdev, int minor,
+		unsigned long **the_histo, int* maxentries)
+{
+	switch(minor){
+	case  MINOR_PUSH_DATA_HISTO:
+		*the_histo = mdev->push.data_histo;
+		*maxentries = DATA_HISTOLEN;
+		return 0;
+	case  MINOR_PUSH_DESC_HISTO:
+		*the_histo = mdev->push.desc_histo;
+		*maxentries = DESC_HISTOLEN;
+		return 0;
+	case  MINOR_PULL_DATA_HISTO:
+		*the_histo = mdev->pull.data_histo;
+		*maxentries = DATA_HISTOLEN;
+		return 0;
+	case  MINOR_PULL_DESC_HISTO:
+		*the_histo = mdev->pull.desc_histo;
+		*maxentries = DESC_HISTOLEN;
+		return 0;
+	default:
+		return -ENODEV;
+	}
+}
+
+int mgt400_clear_histo(struct mgt400_dev *mdev, int minor)
+{
+	unsigned long *the_histo;
+	int maxentries;
+	int rc = get_histo_from_minor(mdev, minor, &the_histo, &maxentries);
+	if (rc){
+		return rc;
+	}else{
+		memset(the_histo, 0, maxentries*sizeof(unsigned));
+		return 0;
+	}
+}
+ssize_t mgt400_read_histo(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	unsigned long *the_histo;
+	int maxentries;
+	unsigned cursor = *f_pos;	/* f_pos counts in entries */
+	int rc;
+
+	rc = get_histo_from_minor(PD(file)->dev,
+			PD(file)->minor, &the_histo, &maxentries);
+	if (rc != 0){
+		return rc;
+	}
+
+	if (cursor >= maxentries){
+		return 0;
+	}else{
+		int headroom = (maxentries - cursor) * sizeof(unsigned);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	count -= count%sizeof(unsigned);
+	rc = copy_to_user(buf, the_histo+cursor, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count/sizeof(unsigned);
+	return count;
+}
+
+int mgt400_release(struct inode *inode, struct file *file)
+{
+	kfree(PD(file));
+	return 0;
+}
 struct file_operations mgt400_fops = {
         .owner = THIS_MODULE,
+        .open = mgt400_open,
+        .read = mgt400_read_histo,
+        .release = mgt400_release,
 };
 
 static int mgt400_probe(struct platform_device *pdev)
@@ -181,11 +337,12 @@ static int mgt400_probe(struct platform_device *pdev)
 
         cdev_init(&mdev->cdev, &mgt400_fops);
         mdev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&mdev->cdev, mdev->devno, ACQ420_MINOR_MAX);
+        rc = cdev_add(&mdev->cdev, mdev->devno, MINOR_COUNT);
         if (rc < 0){
         	goto fail;
         }
 
+        mgt400_start_buffer_counter(mdev);
 
         mgt400_createSysfs(&mdev->pdev->dev);
         mgt400_createDebugfs(mdev);
@@ -197,13 +354,19 @@ remove:
 	kfree(mdev);
 	return rc;
 }
+
+static int _mget400_remove(struct mgt400_dev* mdev){
+	mgt400_stop_buffer_counter(mdev);
+	return 0;
+}
+
 static int mgt400_remove(struct platform_device *pdev)
 /* undo all the probe things in reverse */
 {
 	if (pdev->id == -1){
 		return -1;
 	}else{
-		return -1;
+		return _mget400_remove(mgt400_devices[pdev->id]);
 	}
 }
 
@@ -251,6 +414,7 @@ static int __init mgt400_init(void)
         int status;
 
 	printk("D-TACQ MGT400 Comms Module Driver %s\n", REVID);
+	kt_period = ktime_set(0, 10000000);
 	mgt400_module_init_proc();
         status = platform_driver_register(&mgt400_driver);
 
