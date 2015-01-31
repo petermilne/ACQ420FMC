@@ -166,31 +166,33 @@ static ssize_t show_dev(
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%u\n", mdev->cdev.dev);
+	return sprintf(buf, "%u\n", MAJOR(mdev->cdev.dev));
 }
 static DEVICE_ATTR(dev, S_IRUGO, show_dev, 0);
 
+/* echo 0 1 2 3 > clear_histo : clears everything */
 static ssize_t store_clear_histo(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf, size_t count)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	int minor;
-	int rc;
+	int minor[4];
+	int nf = sscanf(buf, "%d %d %d %d", minor+0, minor+1, minor+2, minor+3);
 
-	if (sscanf(buf, "%d", &minor) == 1){
-		rc = mgt400_clear_histo(mdev, minor);
-		if (rc){
-			return rc;
-		}else{
-			return strlen(buf);
+	if (nf) {
+		while(nf-- > 0){
+			int rc = mgt400_clear_histo(mdev, minor[nf]);
+			if (rc){
+				return rc;
+			}
 		}
+		return strlen(buf);
 	}else{
 		return -1;
 	}
 }
-static DEVICE_ATTR(clear_histo, S_IRUGO, store_clear_histo, 0);
+static DEVICE_ATTR(clear_histo, S_IWUGO, 0, store_clear_histo);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,

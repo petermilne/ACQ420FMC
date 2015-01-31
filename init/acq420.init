@@ -300,12 +300,10 @@ build_site0() {
 }
 
 build_mgt400_node() {
-	M_DEV=$1
-	MAJOR=${M_DEV% *}
-	NAME=${M_DEV#* }		
-	ID=${M_DEV#*.}
+	NAME=$1
+	MAJOR=$2			
 
-	echo +++ build nodes site $ID			
+	echo +++ build nodes $NAME			
 	mknod /dev/${NAME}.push_data_hg c ${MAJOR} 0
 	mknod /dev/${NAME}.push_desc_hg c ${MAJOR} 1
 	mknod /dev/${NAME}.pull_data_hg c ${MAJOR} 2
@@ -319,7 +317,7 @@ build_mgt400() {
 	mkdir /etc/acq400/$site
 	ln -s /dev/acq400.$site.knobs/* /etc/acq400/$site
 	
-	build_mgt400_node $(cat /dev/acq400.$site.knobs/dev)
+	build_mgt400_node $(cat /dev/acq400.$site.knobs/name /dev/acq400.$site.knobs/dev)
 }
 
 build_knobs() {

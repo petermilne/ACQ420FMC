@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.105"
+#define REVID "0.106"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -100,7 +100,7 @@ static struct mgt400_dev* mgt400_allocate_dev(struct platform_device *pdev)
  * 16 ID's, handles packet rate to 1600 pps - easy doable.
  */
 
-static void _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
+static int _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
 {
 	unsigned long pc0 = *packet_count;
 	unsigned long pc = pc0;
@@ -111,6 +111,7 @@ static void _channel_buffer_counter(u32 current_descr, unsigned long* packet_cou
 	if (pc != pc0){
 		*packet_count = pc;
 	}
+	return pc != pc0;
 }
 
 static void _update_histogram(unsigned long *histo, unsigned count, unsigned mask)
@@ -119,29 +120,36 @@ static void _update_histogram(unsigned long *histo, unsigned count, unsigned mas
 	histo[count]++;
 }
 
-static void _update_histograms(struct mgt400_dev* mdev)
+static void _update_histograms(struct mgt400_dev* mdev, int push, int pull)
 {
 	u32 data_sr = mgt400rd32(mdev, DMA_FIFO_SR);
 	u32 desc_sr = mgt400rd32(mdev, DESC_FIFO_SR);
 
-	_update_histogram(mdev->pull.data_histo,
-		GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PULL_SHL), DATA_HMASK);
-	_update_histogram(mdev->push.data_histo,
-		GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PUSH_SHL), DATA_HMASK);
+	if (push){
+		_update_histogram(mdev->push.data_histo,
+			GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PUSH_SHL), DATA_HMASK);
+		_update_histogram(mdev->push.desc_histo,
+			GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PUSH_SHL), DESC_HMASK);
+	}
 
-	_update_histogram(mdev->pull.desc_histo,
-		GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PULL_SHL), DESC_HMASK);
-	_update_histogram(mdev->push.desc_histo,
-		GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PUSH_SHL), DESC_HMASK);
+	if (pull){
+		_update_histogram(mdev->pull.data_histo,
+			GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PULL_SHL), DATA_HMASK);
+		_update_histogram(mdev->pull.desc_histo,
+			GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PULL_SHL), DESC_HMASK);
+
+	}
 
 }
 static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
 {
-	_channel_buffer_counter(
+	int push = _channel_buffer_counter(
 		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push.buffer_count);
-	_channel_buffer_counter(
+	int pull = _channel_buffer_counter(
 		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull.buffer_count);
-	_update_histograms(mdev);
+	if (push || pull){
+		_update_histograms(mdev, push, pull);
+	}
 }
 static ktime_t kt_period;
 
