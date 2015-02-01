@@ -318,8 +318,10 @@ build_mgt400() {
 
 	ln -s /dev/acq400.$site.knobs/* /etc/acq400/$site
 	ch=$(cat /etc/acq400/$site/name )
+	ch=${ch#*.}
 	
-	ln -s /etc/acq400/$site /etc/acq400/${ch#*.}
+	ln -s /dev/acq400.$site.knobs dev/acq400.ch.knobs
+	ln -s /etc/acq400/$site /etc/acq400/$ch
 	
 	build_mgt400_node $(cat /dev/acq400.$site.knobs/name /dev/acq400.$site.knobs/dev)
 }
