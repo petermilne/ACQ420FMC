@@ -315,7 +315,11 @@ build_mgt400() {
 	web_append $name $site
 	ln -s $1  /dev/acq400.$site.knobs
 	mkdir /etc/acq400/$site
+
 	ln -s /dev/acq400.$site.knobs/* /etc/acq400/$site
+	ch=$(cat /etc/acq400/$site/name )
+	
+	ln -s /etc/acq400/$site /etc/acq400/${ch#*.}
 	
 	build_mgt400_node $(cat /dev/acq400.$site.knobs/name /dev/acq400.$site.knobs/dev)
 }
