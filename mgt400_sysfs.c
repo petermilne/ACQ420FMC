@@ -48,17 +48,27 @@ DMA_STATUS(desc_push, DESC_FIFO_SR, DMA_DATA_PUSH_SHL);
 DMA_STATUS(data_pull, DMA_FIFO_SR,  DMA_DATA_PULL_SHL);
 DMA_STATUS(data_push, DMA_FIFO_SR,  DMA_DATA_PUSH_SHL);
 
-static ssize_t show_buffer_counts(
+static ssize_t show_pull_buffer_count(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%lu,%lu\n",
-			mdev->push.buffer_count, mdev->pull.buffer_count);
+	return sprintf(buf, "%lu\n", mdev->pull.buffer_count);
 }
 
-static DEVICE_ATTR(buffer_counts, S_IRUGO, show_buffer_counts, 0);
+static DEVICE_ATTR(pull_buffer_count, S_IRUGO, show_pull_buffer_count, 0);
+
+static ssize_t show_push_buffer_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%lu,%lu\n", mdev->push.buffer_count);
+}
+
+static DEVICE_ATTR(push_buffer_count, S_IRUGO, show_push_buffer_count, 0);
 
 static ssize_t show_enable(
 	struct device * dev,
@@ -67,6 +77,7 @@ static ssize_t show_enable(
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
 	return sprintf(buf, "%u\n", mgt400rd32(mdev, ZDMA_CR)&ZDMA_CR_ENABLE);
+
 }
 static DEVICE_ATTR(enable, S_IRUGO, show_enable, 0);
 
@@ -207,7 +218,8 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_dma_stat_desc_push.attr,
 	&dev_attr_dma_stat_data_pull.attr,
 	&dev_attr_dma_stat_data_push.attr,
-	&dev_attr_buffer_counts.attr,
+	&dev_attr_push_buffer_count.attr,
+	&dev_attr_pull_buffer_count.attr,
 	&dev_attr_clear_histo.attr,
 	NULL
 };
