@@ -248,11 +248,11 @@ int get_histo_from_minor(struct mgt400_dev *mdev, int minor,
 		*maxentries = DESC_HISTOLEN;
 		return 0;
 	case MINOR_PUSH_DESC_LIST:
-		*the_histo = mdev->pull.desc_histo;
+		*the_histo = mdev->push.first_descriptors;
 		*maxentries = DESC_HISTOLEN;
 		return 0;
 	case MINOR_PULL_DESC_LIST:
-		*the_histo = mdev->pull.desc_histo;
+		*the_histo = mdev->pull.first_descriptors;
 		*maxentries = DESC_HISTOLEN;
 		return 0;
 	default:
