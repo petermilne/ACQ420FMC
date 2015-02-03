@@ -65,7 +65,7 @@ static ssize_t show_push_buffer_count(
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%lu,%lu\n", mdev->push.buffer_count);
+	return sprintf(buf, "%lu\n", mdev->push.buffer_count);
 }
 
 static DEVICE_ATTR(push_buffer_count, S_IRUGO, show_push_buffer_count, 0);
@@ -181,29 +181,22 @@ static ssize_t show_dev(
 }
 static DEVICE_ATTR(dev, S_IRUGO, show_dev, 0);
 
-/* echo 0 1 2 3 > clear_histo : clears everything */
-static ssize_t store_clear_histo(
+static ssize_t store_clear_stats(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf, size_t count)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	int minor[4];
-	int nf = sscanf(buf, "%d %d %d %d", minor+0, minor+1, minor+2, minor+3);
+	int clear;
 
-	if (nf) {
-		while(nf-- > 0){
-			int rc = mgt400_clear_histo(mdev, minor[nf]);
-			if (rc){
-				return rc;
-			}
-		}
+	if (sscanf(buf, "%d", &clear) && clear == 1){
+		mgt400_clear_counters(mdev);
 		return strlen(buf);
 	}else{
 		return -1;
 	}
 }
-static DEVICE_ATTR(clear_histo, S_IWUGO, 0, store_clear_histo);
+static DEVICE_ATTR(clear_stats, S_IWUGO, 0, store_clear_stats);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,
@@ -220,7 +213,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_dma_stat_data_push.attr,
 	&dev_attr_push_buffer_count.attr,
 	&dev_attr_pull_buffer_count.attr,
-	&dev_attr_clear_histo.attr,
+	&dev_attr_clear_stats.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)

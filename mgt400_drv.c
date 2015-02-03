@@ -100,7 +100,7 @@ static struct mgt400_dev* mgt400_allocate_dev(struct platform_device *pdev)
  * 16 ID's, handles packet rate to 1600 pps - easy doable.
  */
 
-static int _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
+static unsigned _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
 {
 	unsigned long pc0 = *packet_count;
 	unsigned long pc = pc0;
@@ -111,7 +111,7 @@ static int _channel_buffer_counter(u32 current_descr, unsigned long* packet_coun
 	if (pc != pc0){
 		*packet_count = pc;
 	}
-	return pc != pc0;
+	return pc != pc0? current_descr: 0;
 }
 
 static void _update_histogram(unsigned long *histo, unsigned count, unsigned mask)
@@ -120,32 +120,37 @@ static void _update_histogram(unsigned long *histo, unsigned count, unsigned mas
 	histo[count]++;
 }
 
-static void _update_histograms(struct mgt400_dev* mdev, int push, int pull)
+static void _update_histogram_desc(
+	struct DMA_CHANNEL* chan, u32 data_sr, u32 desc_sr, u32 desc)
+{
+	_update_histogram(chan->data_histo, GET_DMA_DATA_FIFO_COUNT(data_sr), DATA_HMASK);
+	_update_histogram(chan->desc_histo, GET_DMA_DATA_FIFO_COUNT(desc_sr), DATA_HMASK);
+
+	if (chan->fd_ix < DESC_HISTOLEN){
+		chan->first_descriptors[chan->fd_ix++] = desc;
+	}
+}
+static void _update_histograms(
+	struct mgt400_dev* mdev, unsigned push_desc, unsigned pull_desc)
 {
 	u32 data_sr = mgt400rd32(mdev, DMA_FIFO_SR);
 	u32 desc_sr = mgt400rd32(mdev, DESC_FIFO_SR);
 
-	if (push){
-		_update_histogram(mdev->push.data_histo,
-			GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PUSH_SHL), DATA_HMASK);
-		_update_histogram(mdev->push.desc_histo,
-			GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PUSH_SHL), DESC_HMASK);
+	if (push_desc){
+		_update_histogram_desc(&mdev->push, data_sr>>DMA_DATA_PUSH_SHL,
+			desc_sr>>DMA_DATA_PUSH_SHL, push_desc);
 	}
 
-	if (pull){
-		_update_histogram(mdev->pull.data_histo,
-			GET_DMA_DATA_FIFO_COUNT(data_sr>>DMA_DATA_PULL_SHL), DATA_HMASK);
-		_update_histogram(mdev->pull.desc_histo,
-			GET_DMA_DATA_FIFO_COUNT(desc_sr>>DMA_DATA_PULL_SHL), DESC_HMASK);
-
+	if (pull_desc){
+		_update_histogram_desc(&mdev->pull, data_sr>>DMA_DATA_PULL_SHL,
+			desc_sr>>DMA_DATA_PULL_SHL, pull_desc);
 	}
-
 }
 static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
 {
-	int push = _channel_buffer_counter(
+	unsigned push = _channel_buffer_counter(
 		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push.buffer_count);
-	int pull = _channel_buffer_counter(
+	unsigned pull = _channel_buffer_counter(
 		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull.buffer_count);
 	if (push || pull){
 		_update_histograms(mdev, push, pull);
@@ -167,6 +172,12 @@ void mgt400_start_buffer_counter(struct mgt400_dev* mdev)
 	hrtimer_init(&mdev->buffer_counter_timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
 	mdev->buffer_counter_timer.function = mgt400_buffer_counter;
 	hrtimer_start(&mdev->buffer_counter_timer, kt_period, HRTIMER_MODE_REL);
+}
+
+void mgt400_clear_counters(struct mgt400_dev* mdev)
+{
+	memset(&mdev->push, 0, sizeof(mdev->push));
+	memset(&mdev->pull, 0, sizeof(mdev->pull));
 }
 
 void mgt400_stop_buffer_counter(struct mgt400_dev* mdev)
@@ -233,6 +244,14 @@ int get_histo_from_minor(struct mgt400_dev *mdev, int minor,
 		*maxentries = DATA_HISTOLEN;
 		return 0;
 	case  MINOR_PULL_DESC_HISTO:
+		*the_histo = mdev->pull.desc_histo;
+		*maxentries = DESC_HISTOLEN;
+		return 0;
+	case MINOR_PUSH_DESC_LIST:
+		*the_histo = mdev->pull.desc_histo;
+		*maxentries = DESC_HISTOLEN;
+		return 0;
+	case MINOR_PULL_DESC_LIST:
 		*the_histo = mdev->pull.desc_histo;
 		*maxentries = DESC_HISTOLEN;
 		return 0;

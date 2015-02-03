@@ -34,6 +34,8 @@ struct mgt400_dev {
 		unsigned long buffer_count;
 		unsigned long desc_histo[DESC_HISTOLEN];
 		unsigned long data_histo[DATA_HISTOLEN];
+		unsigned long first_descriptors[DESC_HISTOLEN];
+		int fd_ix;
 	} push, pull;
 
 	struct hrtimer buffer_counter_timer;
@@ -57,6 +59,7 @@ void mgt400_createDebugfs(struct mgt400_dev* adev);
 void mgt400_createSysfs(struct device *dev);
 void mgt400_createDebugfs(struct mgt400_dev* adev);
 void mgt400_removeDebugfs(struct mgt400_dev* adev);
+void mgt400_clear_counters(struct mgt400_dev* mdev);
 
 int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 
@@ -131,6 +134,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MINOR_PUSH_DESC_HISTO 	1
 #define MINOR_PULL_DATA_HISTO	2
 #define MINOR_PULL_DESC_HISTO	3
-#define MINOR_COUNT		4
+#define MINOR_PUSH_DESC_LIST	4
+#define MINOR_PULL_DESC_LIST	5
+#define MINOR_COUNT		6
 
 #endif /* MGT400_H_ */
