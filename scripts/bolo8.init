@@ -63,6 +63,7 @@ init_one_b8() {
 		if [ $? -eq 0 ]; then
 			echo 1 > /sys/class/gpio/gpio$gpio/active_low
 		fi
+		echo 0 > /sys/class/gpio/gpio$gpio/value
 		let gpio=$gpio+1
 	done
 }
