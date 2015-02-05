@@ -197,6 +197,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_BOLO8:
+		case MOD_ID_BOLO8B:
 			bolo8_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_AO420FMC:

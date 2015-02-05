@@ -3171,6 +3171,7 @@ static int acq400_probe(struct platform_device *pdev)
   			ao424_init_defaults(adev);
   			break;
   		case MOD_ID_BOLO8:
+  		case MOD_ID_BOLO8B:
   			bolo8_init_defaults(adev);
   			break;
   		case MOD_ID_PMODADC1:
