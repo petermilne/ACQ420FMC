@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.108"
+#define REVID "0.109"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -176,8 +176,12 @@ void mgt400_start_buffer_counter(struct mgt400_dev* mdev)
 
 void mgt400_clear_counters(struct mgt400_dev* mdev)
 {
-	memset(&mdev->push, 0, sizeof(mdev->push));
-	memset(&mdev->pull, 0, sizeof(mdev->pull));
+	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
+			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
+	memset(&mdev->push, 0, sizeof(struct DMA_CHANNEL));
+	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
+			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
+	memset(&mdev->pull, 0, sizeof(struct DMA_CHANNEL));
 }
 
 void mgt400_stop_buffer_counter(struct mgt400_dev* mdev)
@@ -441,7 +445,8 @@ static int __init mgt400_init(void)
         int status;
 
 	printk("D-TACQ MGT400 Comms Module Driver %s\n", REVID);
-	kt_period = ktime_set(0, 10000000);
+	//kt_period = ktime_set(0, 10000000);
+	kt_period = ktime_set(0, 1000000);
 	mgt400_module_init_proc();
         status = platform_driver_register(&mgt400_driver);
 

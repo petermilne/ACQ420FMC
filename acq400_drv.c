@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.758"
+#define REVID "2.759"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2457,8 +2457,9 @@ void check_fiferr(struct acq400_dev* adev)
 		return;
 	}
 	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
+		unsigned stat2  = acq400rd32(adev, ADC_FIFO_STA);
+
 		acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
-		unsigned stat2 = acq400rd32(adev, ADC_FIFO_STA);
 
 		if (++adev->stats.fifo_errors < 10){
 			if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){

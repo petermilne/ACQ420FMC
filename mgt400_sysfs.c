@@ -181,6 +181,14 @@ static ssize_t show_dev(
 }
 static DEVICE_ATTR(dev, S_IRUGO, show_dev, 0);
 
+static ssize_t show_clear_stats(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return sprintf(buf, "%u\n", 0);
+}
+
 static ssize_t store_clear_stats(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -196,7 +204,7 @@ static ssize_t store_clear_stats(
 		return -1;
 	}
 }
-static DEVICE_ATTR(clear_stats, S_IWUGO, 0, store_clear_stats);
+static DEVICE_ATTR(clear_stats, S_IRUGO|S_IWUGO, show_clear_stats, store_clear_stats);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,
