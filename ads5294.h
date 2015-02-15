@@ -61,6 +61,7 @@ struct Ads5294Regs {
 
 		RA_WIRE_MODE		= 0x46,
 
+		RA_CUSTOM_COEFFS1	= 0x5a,
 		/* MAP : assume 1:1 on ACQ480 */
 
 		RA_EXT_REF		= 0xf0
@@ -82,7 +83,7 @@ struct Ads5294Regs {
 #define RA_PDN_COMPLETE_BIT	9
 #define RA_PDN_PIN_CFG_BIT	10
 
-#define RA_LFNC_CH_MASK		0x00ff
+#define RA_LFNS_CH_MASK		0x00ff
 #define RA_LFNS_CH_BIT(n)	((n)-1)			/* n = 1..8 */
 
 #define RA_EN_FRAME_BIT		14
@@ -134,6 +135,24 @@ struct Ads5294Regs {
 #define RA_FILTER_ODD_TAP_BIT	2
 #define RA_FILTER_ENABLE	0
 
+enum FilterRate {
+	FR_D2 = 0x0,
+	FR_D4 = 0x1,
+	FR_D8 = 0x4,
+
+	FR_D1 = 0x7			/* @todo : probably wrong */
+};
+
+enum FilterCoeffSelect {
+	FCS_LP_ODD = 0x0,
+	FCS_HP_ODD = 0x1,
+	FCS_LP_EVEN = 0x2,
+	FCS_BP1_EVEN = 0x3,
+	FCS_BP2_EVEN = 0x4,
+	FCS_HP_ODD2 = 0x5,
+	FCS_CUSTOM = 0x0,
+	FCS_DISABLE = 0x0
+};
 #define RA_DATA_RATE_MASK	0x3
 #define RA_DATA_RATE_DIV_1	0x0
 #define RA_DATA_RATE_DIV_2	0x1
@@ -165,6 +184,83 @@ struct Ads5294Regs {
 #define RA_WIRE_MODE_FALL_SDR	0xa000
 
 #define RA_EXT_REF_EN_BIT	15
+
+#define NTAPS			12
+#define RA_CUSTOM_COEFF(ch, tap)	(0x5a+(ch-1)*12+(tap))  /* ch=1..8 tap=0..12 */
+
+#define RA_CUSTOM_COEFF_MASK   0x0fff
+#define RA_CUSTOM_COEFF_EN_BIT 15
+
+#define VALID_TAP(tap) ((tap)>=0 && (tap)<=11)
+
+#define CHIX(chan) 	((chan-1))
+#define CHAN8_MASK	0x00ff
+
+class Ads5294 {
+	struct Ads5294Regs *regs;
+
+public:
+	enum Chan {
+		CH1 = 1, CH2 = 2, CH3 = 3, CH4 = 4,
+		CH5 = 5, CH6 = 6, CH7 = 7, CH8 = 8
+	};
+	enum Gain {
+		dB0, dB1, dB2, dB3, dB4, dB5, dB6,
+		dB7, dB8, dB9, dB10, dB11, dB12
+	};
+
+	enum Filter {			/* sets DR globally */
+		F_DISABLE,
+		F_LP_ODD_D2,
+		F_HP_ODD_D2,
+		F_LP_EVEN_D4,
+		F_BP1_EVEN_D4,
+		F_BP2_EVEN_D4,
+		F_HP_ODD_D4,
+		F_CUSTOM_D2,
+		F_CUSTOM_D4,
+		F_CUSTOM_D8,
+		F_CUSTOM_D1
+	};
+	enum DataRate {
+		DR_D1, DR_D2, DR_D4, DR_D8
+	};
+
+	int setGain(Chan chan, Gain gain);
+	Gain getGain(Chan chan);
+
+	int setCustomCoefficients(Chan chan, short* coeffs = 0);
+	short* getCustomCoefficients(Chan chan);
+
+
+
+	int setDecimationFilter(Chan chan, Filter filter, bool odd_tap = false);
+	Filter getDecimationFilter(Chan chan);
+	int setHiPassFilter(Chan chan, bool enable, unsigned hpfun = 0);
+	unsigned getHiPassFilter(Chan chan);
+
+	int setDataRate(DataRate dr);
+	DataRate getDataRate();
+
+	int setAverageSelect(Chan bin, bool enable, unsigned avsel);
+	unsigned getAverageSelect(Chan bin);
+
+	int setInvert(bool invert = true, unsigned inv_mask = CHAN8_MASK);
+	unsigned getInvert();
+
+	int setLFNS(unsigned enable_mask = CHAN8_MASK);
+	unsigned getLFNS();
+
+	static bool isValidChan(Chan chan){
+		chan >= CH1 && chan <= CH8;
+	}
+	static bool isValidGain(Gain gain){
+		return gain >= dB0 && gain <= dB12;
+	}
+	static bool isValidFilter(Filter filter){
+		return filter >= F_DISABLE && filter <= F_CUSTOM_D1;
+	}
+};
 
 
 
