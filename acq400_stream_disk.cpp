@@ -57,7 +57,7 @@ static void processBuffer(const char* outroot, int ibuf, short* buf, int nbuf){
 		sprintf(fname, "%s/%03d/", outroot, cycle);
 		mkdir(fname, 0777);
 	}
-	sprintf(fname, "%s/%03d/%02d%s", outroot, cycle, ibm, extension);
+	sprintf(fname, "%s/%03d/%06d%s", outroot, cycle, ibuf, extension);
 
 	FILE* fp = fopen(fname, "w");
 
