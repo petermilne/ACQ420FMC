@@ -6,7 +6,17 @@
  *
  *     usage: scq400_stream_disk NBUFFERS dest1 [dest2]
  *     Read full rate data on stdin
- *     farm to one or more file trees  destX/%03d/%03d[extension]
+ *     farm to one or more file trees  destX/%03d/%02d[extension]
+ *     we try to avoid too many files in one directory (max 100)
+ *     eg
+ *     /diskA/000/01.dat ..
+ *     /diskA/000/99.dat
+ *     /diskA/001/01.dat ..
+ *     /diskA/001/99.dat ..
+ *     /diskA/099/99.dat        : 100 x 100 x 1MB = 10GB
+ *     .. run to the limit, now we have 1000 subdirs, maybe another level is
+ *     .. needed, but most of the time we won't go this _large_ ?
+ *     /diskA/999/99.dat       : 1000 x 100 x 1MB = 100GB
  *     Write data in 1MB files
  *     STOP after NBUFFERS x 1MB files
  *
@@ -41,12 +51,13 @@ static void processBuffer(const char* outroot, int ibuf, short* buf, int nbuf){
 
 	char fname[80];
 	int cycle = ibuf/filesdir;
+	int ibm = ibuf%filesdir;
 
-	if (ibuf%filesdir == 0){
+	if (ibm == 0){
 		sprintf(fname, "%s/%03d/", outroot, cycle);
 		mkdir(fname, 0777);
 	}
-	sprintf(fname, "%s/%03d/%02d%s", outroot, cycle, ibuf, extension);
+	sprintf(fname, "%s/%03d/%02d%s", outroot, cycle, ibm, extension);
 
 	FILE* fp = fopen(fname, "w");
 
@@ -68,8 +79,12 @@ void process(int nbuffers, int ndest, const char* dests[])
 		for (int id = 0; id < ndest; ++id){
 			processBuffer(dests[id], ibuf, buf, nshorts);
 		}
-		++ibuf;
+		if (++ibuf > nbuffers){
+			return;
+		}
 	}
+	perror("fread fail");
+	return;
 }
 
 int main(int argc, const char* argv[])
@@ -88,6 +103,6 @@ int main(int argc, const char* argv[])
 		nbuffers = atoi(argv[1]);
 	}
 
-	process(nbuffers, argc - 2, &argv[2]);
+	process(nbuffers, argc-2, &argv[2]);
 }
 
