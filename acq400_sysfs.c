@@ -1708,6 +1708,80 @@ MAKE_DAC_RANGE(03,  ao420_physChan(3));
 MAKE_DAC_RANGE(04,  ao420_physChan(4));
 MAKE_DAC_RANGE(REF, 4);
 
+
+/*
+ * GO : Gain + Offset
+ * Create a set of knobs G1..GN, D1..DN
+ */
+
+static ssize_t show_ao_GO(
+	const int CH, const int SHL,
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 go = acq400rd32(acq400_devices[dev->id], DAC_GAIN_OFF(CH));
+
+	return sprintf(buf, "%u\n", go>>SHL & 0x0000ffff);
+}
+
+static ssize_t store_ao_GO(
+		const int CH, const int SHL,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count)
+{
+	int gx;
+
+	if (sscanf(buf, "%d", &gx) == 1 || sscanf(buf, "0x%x", &gx) == 1){
+		u32 go = acq400rd32(acq400_devices[dev->id], DAC_GAIN_OFF(CH));
+
+		if (gx > 32767)  gx =  32767;
+		if (gx < -32767) gx = -32767;
+
+		go &= ~(0x0000ffff << SHL);
+		go |= (gx&0x0000ffff) << SHL;
+
+		acq400wr32(acq400_devices[dev->id], DAC_GAIN_OFF(CH), go);
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+#define _MAKE_AO_GO(NAME, SHL, CHAN)					\
+static ssize_t show_ao_GO##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_ao_GO(CHAN, SHL, dev, attr, buf);			\
+}									\
+									\
+static ssize_t store_ao_GO##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_ao_GO(CHAN, SHL, dev, attr, buf, count);		\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, 			        \
+		show_ao_GO##NAME, store_ao_GO##NAME)
+
+#define MAKE_AO_GO(CHAN) \
+	_MAKE_AO_GO(G##CHAN, DAC_MATH_GAIN_SHL, CHAN); \
+	_MAKE_AO_GO(D##CHAN, DAC_MATH_OFFS_SHL, CHAN)
+
+MAKE_AO_GO(1);
+MAKE_AO_GO(2);
+MAKE_AO_GO(3);
+MAKE_AO_GO(4);
+MAKE_AO_GO(32);
+
+
 static void ao420_flushImmediate(struct acq400_dev *adev)
 {
 	unsigned *src = adev->AO_immediate._u.lw;
@@ -2104,6 +2178,11 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
+	&dev_attr_G1.attr, &dev_attr_D1.attr,
+	&dev_attr_G2.attr, &dev_attr_D2.attr,
+	&dev_attr_G3.attr, &dev_attr_D3.attr,
+	&dev_attr_G4.attr, &dev_attr_D4.attr,
+	&dev_attr_G32.attr, &dev_attr_D32.attr,
 	NULL
 };
 
@@ -2150,6 +2229,13 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_dac_encoding.attr,
 	&dev_attr_bank_mask.attr,
 	&dev_attr_odd_channels.attr,
+	/*
+	&dev_attr_G1.attr, &dev_attr_D1.attr,
+	&dev_attr_G2.attr, &dev_attr_D2.attr,
+	&dev_attr_G3.attr, &dev_attr_D3.attr,
+	&dev_attr_G4.attr, &dev_attr_D4.attr,
+	... 32
+	*/
 	NULL
 };
 

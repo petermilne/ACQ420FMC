@@ -92,6 +92,13 @@
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 
+/* AO420 CH MAC GAIN and offset control */
+
+#define DAC_MATH_BASE		(ADC_BASE+0x80)
+#define DAC_GAIN_OFF(n)		(DAC_MATH_BASE+(n-1)*sizeof(u32))
+
+#define DAC_MATH_GAIN_SHL	16
+#define DAC_MATH_OFFS_SHL	0
 
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define SPADMAX			8
