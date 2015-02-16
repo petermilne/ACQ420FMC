@@ -32,10 +32,15 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
+#include <linux/fs.h>
 #include <linux/i2c.h>
+
 //#include <linux/i2c/pca953x.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/pca953x.h>
+
+#include <linux/dma-mapping.h>
+#include "hbm.h"
 
 #define REVID 		"1"
 #define MODULE_NAME	"acq480"
@@ -51,11 +56,17 @@ module_param(n_acq480, int, 0444);
 #define I2C_CHAN(site) 	((site)+1)
 #define NGPIO_CHIP	8
 
+#define SPI_BUFFER_LEN	4096	/* 1 page */
+
+
 struct acq480_dev {
 	dev_t devno;
 	struct cdev cdev;
 	struct platform_device *pdev;
 	struct i2c_adapter *i2c_adapter;
+	char devname[16];
+
+	struct HBM* spi_buffer;
 };
 
 static struct acq480_dev* acq480_devs[7];	/* 6 sites index from 1 */
@@ -94,14 +105,76 @@ struct acq480_dev* acq480_allocate_dev(struct platform_device *pdev)
 	if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
 		printk("acq480_init_site(%d) PGA1 NOT found\n", site);
 	}
+	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
 
 	return adev;
 }
 
+int acq480_open(struct inode *inode, struct file *file)
+{
+        file->private_data = container_of(inode->i_cdev, struct acq480_dev, cdev);
+        return 0;
+}
+
+int acq480_spi_buffer_mmap(struct file* file, struct vm_area_struct* vma)
+/**
+ * mmap the host buffer.
+ */
+{
+	struct acq480_dev* adev = (struct acq480_dev*)file->private_data;
+
+	struct HBM *hb = adev->spi_buffer;
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = hb->len;
+	unsigned pfn = hb->pa >> PAGE_SHIFT;
+
+	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+struct file_operations acq480_fops = {
+        .owner = THIS_MODULE,
+        .open = acq480_open,
+        .mmap = acq480_spi_buffer_mmap
+};
+
+
 static int acq480_probe(struct platform_device *pdev)
 {
 	struct acq480_dev* adev = acq480_allocate_dev(pdev);
+	int rc;
+
+	dev_info(&pdev->dev, "acq480_probe: %d %s", pdev->id, adev->devname);
+	rc = alloc_chrdev_region(&adev->devno, 0, 0, adev->devname);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "unable to register chrdev\n");
+	        goto fail;
+	}
+
+        cdev_init(&adev->cdev, &acq480_fops);
+        adev->cdev.owner = THIS_MODULE;
+        rc = cdev_add(&adev->cdev, adev->devno, 0);
+        if (rc < 0){
+        	goto fail;
+        }
+
+        adev->spi_buffer = hbm_allocate1(
+        	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_TO_DEVICE);
+
 	return 0;
+
+fail:
+	kfree(adev);
+	return -1;
 }
 
 static int acq480_remove(struct platform_device *pdev)
@@ -149,7 +222,7 @@ static int __init acq480_init(void)
         int status = 0;
 
 
-	printk("D-TACQ ACQ425 i2c Driver %s\n", REVID);
+	printk("D-TACQ ACQ480 Driver %s\n", REVID);
 
 	platform_driver_register(&acq480_driver);
 

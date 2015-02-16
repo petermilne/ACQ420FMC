@@ -37,7 +37,7 @@ struct HBM {				/* Host Buffer Mapping */
 	enum BSTATE bstate;
 	struct list_head list;
 };
-
+struct HBM* hbm_allocate1(struct device *dev, int len, int ix, enum dma_data_direction dir);
 int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir);
 int hbm_free(struct device *dev, struct list_head *buffers);
 

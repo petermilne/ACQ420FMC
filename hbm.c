@@ -60,6 +60,19 @@ static int getOrder(int len)
 	return order;
 }
 
+struct HBM* hbm_allocate1(struct device *dev, int len, int ix, enum dma_data_direction dir)
+{
+	int order = getOrder(len);
+	struct HBM* hbm = kzalloc(sizeof(struct HBM), GFP_KERNEL);
+	hbm->va = (void*) __get_free_pages(GFP_KERNEL, order);
+	hbm->pa = dma_map_single(dev, hbm->va, len, dir);
+	hbm->len = len;
+	hbm->dir = dir;
+	hbm->ix = ix;
+	hbm->bstate = BS_EMPTY;
+	return hbm;
+}
+
 int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir)
 {
 	int order = getOrder(len);
