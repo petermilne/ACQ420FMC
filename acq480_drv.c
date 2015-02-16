@@ -34,6 +34,8 @@
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/i2c.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 //#include <linux/i2c/pca953x.h>
 #include <linux/platform_device.h>
@@ -58,6 +60,8 @@ module_param(n_acq480, int, 0444);
 
 #define SPI_BUFFER_LEN	4096	/* 1 page */
 
+#define REGS_LEN	0x100
+
 
 struct acq480_dev {
 	dev_t devno;
@@ -69,6 +73,7 @@ struct acq480_dev {
 	struct HBM* spi_buffer;
 };
 
+static struct proc_dir_entry *acq480_proc_root;
 static struct acq480_dev* acq480_devs[7];	/* 6 sites index from 1 */
 
 static struct i2c_client* new_device(
@@ -147,6 +152,72 @@ struct file_operations acq480_fops = {
         .mmap = acq480_spi_buffer_mmap
 };
 
+/* read 0x100 bytes, 0x10 bytes at a time */
+static void *acq480_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
+{
+        if (*pos == 0) {
+        	struct acq480_dev *adev = s->private;
+        	return adev->spi_buffer->va;
+        }
+
+        return NULL;
+}
+#define BUFREAD	0x10	/* words to read 	*/
+#define BUFMAX  0x100	/* total words to read 	*/
+static int acq480_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
+{
+	struct acq480_dev *adev = s->private;
+	void* base = (void*)adev->spi_buffer->va;
+	unsigned offregs = (v - base)/sizeof(short);
+	unsigned short* regs = (unsigned short*)v;
+	int ir;
+
+	seq_printf(s, "%02x:", offregs);
+	for (ir = 0; ir < BUFREAD-1; ++ir){
+		seq_printf(s, "%04x ", regs[ir]);
+	}
+	seq_printf(s, "%04x\n", regs[ir]);
+	return 0;
+}
+
+static void* acq480_proc_seq_next_buffers(
+		struct seq_file *s, void* v, loff_t *pos)
+{
+	*pos += BUFREAD;
+	if (*pos  < BUFMAX){
+		return v + BUFREAD * sizeof(short);
+	}else{
+		return NULL;
+	}
+}
+static void acq480_proc_seq_stop(struct seq_file *s, void* v)
+{
+
+}
+
+static int acq480_proc_open_spibuf(struct inode *inode, struct file *file)
+{
+	static struct seq_operations proc_seq_ops_spi_buf = {
+	        .start = acq480_proc_seq_start_buffers,
+	        .next = acq480_proc_seq_next_buffers,
+	        .stop = acq480_proc_seq_stop,
+	        .show = acq480_proc_seq_show_spibuf_row
+	};
+	int rc = seq_open(file, &proc_seq_ops_spi_buf);
+	if (rc == 0){
+		struct seq_file *m = file->private_data;
+		m->private = PDE_DATA(inode);
+	}
+	return rc;
+}
+
+struct file_operations acq480_proc_fops = {
+	        .owner = THIS_MODULE,
+	        .open = acq480_proc_open_spibuf,
+	        .read = seq_read,
+	        .llseek = seq_lseek,
+	        .release = seq_release
+};
 
 static int acq480_probe(struct platform_device *pdev)
 {
@@ -162,14 +233,21 @@ static int acq480_probe(struct platform_device *pdev)
 
         cdev_init(&adev->cdev, &acq480_fops);
         adev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&adev->cdev, adev->devno, 0);
+        rc = cdev_add(&adev->cdev, adev->devno, 1);
         if (rc < 0){
         	goto fail;
         }
 
         adev->spi_buffer = hbm_allocate1(
         	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_TO_DEVICE);
+        memset(adev->spi_buffer->va, 0, SPI_BUFFER_LEN);
 
+        if (acq480_proc_root == 0){
+        	acq480_proc_root = proc_mkdir("driver/acq480", 0);
+        }
+        proc_create_data("spibuf", 0,
+        		proc_mkdir(adev->devname, acq480_proc_root),
+        		&acq480_proc_fops, adev);
 	return 0;
 
 fail:
@@ -225,6 +303,7 @@ static int __init acq480_init(void)
 	printk("D-TACQ ACQ480 Driver %s\n", REVID);
 
 	platform_driver_register(&acq480_driver);
+	acq480_proc_root = proc_mkdir("driver/acq480", 0);
 
 	for (n_acq480 = 0; n_acq480 < acq480_sites_count; ++n_acq480){
 		acq480_init_site(acq480_sites[n_acq480]);
