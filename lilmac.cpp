@@ -169,7 +169,7 @@ void mapRegs(int playloop_site)
 {
 	FILE* fp = fopen("/dev/mem", "r+");
 	unsigned offset = 0x40000000 + playloop_site*0x10000;
-	void* region = mmap(NULL, 0x10000, PROT_READ, MAP_SHARED, fileno(fp), offset);
+	void* region = mmap(NULL, 0x10000, PROT_READ|PROT_WRITE, MAP_SHARED, fileno(fp), offset);
 
 	go_regs = reinterpret_cast<volatile unsigned*>(
 			static_cast<char*>(region)+0x80);
@@ -184,7 +184,9 @@ int exec_mac(short * src_notused, short* dst_notused)
 		short offset = offsets[cc];
 
 		if (gain < -32767) gain = -32767;
-		unsigned go = gain << 16 | offset;
+
+		unsigned go = static_cast<unsigned>(gain << 16) |
+			      (static_cast<unsigned>(offset)&0x0000ffff);
 
 		go_regs[cc] = go;
 	}
@@ -242,7 +244,7 @@ class KnobGroup {
 				mapping[ii] = map[ii] - 1;
 			}
 		}
-		printf("mapping: %d %d %d %d\n",
+		fprintf(stderr, "mapping: %d %d %d %d\n",
 			mapping[0], mapping[1], mapping[2], mapping[3]);
 	}
 
@@ -277,7 +279,16 @@ public:
 	}
 	void toValues(short* values){
 		for (int ii = 0; ii < 4; ++ii){
-			values[mapping[ii]] = knobs[ii]->value;
+			int ival = knobs[ii]->value;
+			short xx;
+			if (ival > 32767){
+				xx = 32767;
+			}else if (ival < -32767){
+				xx = -32767;
+			}else{
+				xx = ival;
+			}
+			values[mapping[ii]] = xx;
 		}
 
 	}
@@ -407,7 +418,6 @@ int change_awg(int len)
 		sprintf(site_root, "/dev/acq400.%d.knobs", playloop_site);
 		oldlen = read_int_knob(site_root, "playloop_length");
 		update_knob(site_root, "playloop_length", len);
-		printf("%s=%d\n", site_root, len);
 
 		if (len > 0){
 			system("soft_trigger");
@@ -452,7 +462,6 @@ int run_monitor(short *src, short *dst)
 		KnobGroup offsets2(OFFSETS);
 
 		if (gains2.isDifferent(gains) || offsets2.isDifferent(offsets)){
-			printf("Different\n");
 			gains.copyValues(gains2);
 			offsets.copyValues(offsets2);
 			gains.toValues(::gains);
@@ -464,7 +473,6 @@ int run_monitor(short *src, short *dst)
 			update_knob(kroot, "update", ++updates);
 			dmon.spawn();
 		}else{
-			printf("Same\n");
 			dmon.wait();
 		}
 	}
