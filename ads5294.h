@@ -254,7 +254,7 @@ public:
 	unsigned getLFNS();
 
 	static bool isValidChan(Chan chan){
-		chan >= CH1 && chan <= CH8;
+		return chan >= CH1 && chan <= CH8;
 	}
 	static bool isValidGain(Gain gain){
 		return gain >= dB0 && gain <= dB12;
@@ -265,6 +265,6 @@ public:
 };
 
 
-
+void die(const char *fmt);
 
 #endif /* ADS5294_H_ */
