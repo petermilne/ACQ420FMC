@@ -232,8 +232,6 @@ public:
 	int setCustomCoefficients(Chan chan, short* coeffs = 0);
 	short* getCustomCoefficients(Chan chan);
 
-
-
 	int setDecimationFilter(Chan chan, Filter filter, bool odd_tap = false);
 	Filter getDecimationFilter(Chan chan);
 	int setHiPassFilter(Chan chan, bool enable, unsigned hpfun = 0);

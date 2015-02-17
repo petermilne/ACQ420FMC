@@ -237,7 +237,7 @@ build_knobs_device() {
 	41)	
 		ao424_init ${site}	
 		CLKDIV=500;;
-	60)
+	60|64)
 		if [ "x$BOLO8_SITES" != "x" ]; then
 			BOLO8_SITES="${BOLO8_SITES},"
 		fi		
@@ -342,9 +342,7 @@ build_knobs() {
 		fi
 	done
 	
-	if [ "x${BOLO8_SITES}" != "x" ]; then
-		/usr/local/bin/bolo8.init ${BOLO8_SITES}
-	fi
+
 	if [ "x${ACQ425_SITES}" != "x" ]; then
 		/usr/local/bin/acq425.init ${ACQ425_SITES}
 		# use /mnt/local/acq420_custom
@@ -484,6 +482,10 @@ else
 EOF
 fi
 
+if [ "x${BOLO8_SITES}" != "x" ]; then
+	echo +++ Enable Bolo AFTER Analog power up..
+	/usr/local/bin/bolo8.init ${BOLO8_SITES}
+fi
 
 start_knob_services
 
