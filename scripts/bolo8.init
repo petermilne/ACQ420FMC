@@ -97,9 +97,6 @@ init_b8_hardware()
 
 cd /sys/class/gpio
 
-
-echo WARNING: increase kernel gpio maximum if more than 2 bolos
-
 for site in $(echo $B8SITES | tr , \  )
 do
 	#get_gpiochip $site 0020
