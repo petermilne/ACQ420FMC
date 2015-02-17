@@ -234,6 +234,10 @@ class KnobGroup {
 		for (int ii = 0; ii < 4; ++ii){
 			mapping[ii] = ii;
 		}
+#if 0
+		/* hw MAC has 1:1 reg correspondance.
+		 * meanwhile SPAD unmapped.. so maybe it's all 1:1 now ..
+		 */
 		FILE *fp = fopen(MAPPING, "r");
 		int ii = 0;
 		if (fp) {
@@ -246,6 +250,7 @@ class KnobGroup {
 		}
 		fprintf(stderr, "mapping: %d %d %d %d\n",
 			mapping[0], mapping[1], mapping[2], mapping[3]);
+#endif
 	}
 
 
