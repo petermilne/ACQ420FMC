@@ -20,8 +20,10 @@ typedef unsigned short Reg;
 
 #define NREGS	0x100
 
+#define ADS5294_SPI_MIRROR_SZ  (NREGS*sizeof(Reg))
+
 struct Ads5294Regs {
-	Reg regs[NREGS];
+	Reg* regs;			/* [NREGS]; */
 
 	enum RegAddrs {					/* address, and index to regs */
 		RA_RST			= 0x00,
@@ -197,9 +199,11 @@ enum FilterCoeffSelect {
 #define CHAN8_MASK	0x00ff
 
 class Ads5294 {
-	struct Ads5294Regs *regs;
 
 public:
+	struct Ads5294Regs *regs;
+
+
 	enum Chan {
 		CH1 = 1, CH2 = 2, CH3 = 3, CH4 = 4,
 		CH5 = 5, CH6 = 6, CH7 = 7, CH8 = 8
