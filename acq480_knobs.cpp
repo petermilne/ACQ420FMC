@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <vector>
+#include <libgen.h>
 using namespace std;
 
 #include "ads5294.h"
@@ -76,9 +77,13 @@ public:
 	DumpCommand() : Command("acq480_dump") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		FILE *fp = popen("hexdump -ve \'16/2 \"%04x \" \"\n\"\'", "w");
-		fwrite(module.regs(), sizeof(short), NREGS, fp);
-		pclose(fp);
+		Reg *r0 = module.regs();
+		for (int ii = 0; ii < NREGS; ++ii){
+			if (ii%16 == 0){
+				printf("%02x:", ii);
+			}
+			printf("%04x%c", r0[ii], (ii+1)%16==0? '\n': ' ');
+		}
 	}
 };
 
@@ -109,8 +114,49 @@ public:
 	}
 
 };
+
+class SetDecimationFilterCommand: public Command {
+public:
+	SetDecimationFilterCommand() : Command("acq480_setDecimationFilter") {}
+
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 3) die("acq480_setDecimationFilter CHAN FILTER [odd]");
+		int rc = module.chip.setDecimationFilter(
+				static_cast<Ads5294::Chan>(atoi(argv[1])),
+				static_cast<Ads5294::Filter>(atoi(argv[2])),
+				argc<4? false: atoi(argv[3]));
+		if (rc != 0) die("setGain failed");
+		return 0;
+	}
+};
+
+class SetFilterCoefficientsCommand: public Command {
+	static void setCoeffs(short coeffs[], int argc, char** argv) {
+		if (argc > NTAPS) argc = NTAPS;
+		for (int ii = 0; ii < argc; ++ii){
+			coeffs[ii] = strtol(argv[ii], 0, 0);
+		}
+	}
+public:
+	SetFilterCoefficientsCommand() :
+		Command("acq480_setFilterCoefficients") {}
+
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_setFilterCoefficients CHAN [coeff [coeff]");
+		short coeffs[NTAPS];
+		if (argc > 2){
+			setCoeffs(coeffs, argc-2, argv+2);
+		}
+		int rc = module.chip.setCustomCoefficients(
+			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			argc > 2? coeffs: 0);
+		return rc;
+	}
+};
 void Acq480FMC::init_commands()
 {
+	commands.push_back(new SetFilterCoefficientsCommand);
+	commands.push_back(new SetDecimationFilterCommand);
 	commands.push_back(new SetGainCommand);
 	commands.push_back(new GetGainCommand);
 	commands.push_back(new DumpCommand);
@@ -120,14 +166,18 @@ void Acq480FMC::init_commands()
 int  Acq480FMC::operator() (int argc, char* argv[])
 {
 	char** arg0 = argv;
-	if (strcmp(argv[0], "acq480_knobs") == 0){
+	char* verb = basename(argv[0]);
+
+	if (strcmp(verb, "acq480_knobs") == 0){
 		arg0 = &argv[1];
+		verb = arg0[0];
 		argc--;
 	}
 
 	for (VCI it = commands.begin(); it != commands.end(); ++it){
-		if (strcmp(arg0[0], (*it)->cmd) == 0){
-			(*(*it))(*this, argc, arg0);
+		Command &command = *(*it);
+		if (strcmp(verb, command.cmd) == 0){
+			command(*this, argc, arg0);
 		}
 	}
 	return 0;

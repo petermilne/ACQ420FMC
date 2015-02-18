@@ -1,0 +1,26 @@
+#!/bin/sh
+# loads ACQ480 spi driver - for test anyway
+
+# load_acq480_spi site1,site2,site3
+SITES=${1:-1}
+
+if  [ -e /mnt/local/acq480.ko ]; then
+	MOD=/mnt/local/acq480.ko
+else
+	MOD=/usr/local/lib/modules/acq480.ko
+fi
+
+#/sbin/insmod $MOD acq480_sites=$SITES
+
+do_mknod() {
+	mknod /dev/$2 c $1 0	
+}
+
+for pair in "$(grep acq480 /proc/devices)"
+do
+	do_mknod $pair
+
+	monitor_acq480_spi $2
+done
+
+

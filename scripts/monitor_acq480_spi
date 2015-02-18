@@ -1,0 +1,52 @@
+#!/bin/sh
+
+
+[ "x$2" = "xnone" ] && exit 0
+
+DEV=${1:-acq480.1}
+DIR=/proc/driver/acq480/${DEV}
+
+#httpd doesn't like names with periods..
+XMLNAME=${DEV%.*}${DEV#*.}
+
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat> 
+EOF
+}
+
+C2R20=/dev/shm/c2rR20
+
+[ -e $C2R20] || cCrR 2 20 > $C2R20
+
+dump_regs() {
+	(
+	cd $DIR
+	for file in $(ls -i | sort | awk '{ print $2 }')
+	do
+		[ -d $file ] || printf "%34s %s\n" $file $(cat $file)
+	done
+	)
+}
+
+monitor() {
+	while [ 1 ]
+	do
+		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
+		sleep 1		
+	done
+}
+
+if [ "$(basename $0)" = "monitor_acq480_spi" ]; then
+	if [ -d $DIR ]; then
+		monitor
+	else
+		echo ERROR: monitor dir not found: $DIR
+	fi
+fi
+
+
+
