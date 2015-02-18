@@ -143,7 +143,7 @@ public:
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die("acq480_setFilterCoefficients CHAN [coeff [coeff]");
-		short coeffs[NTAPS] = {}
+		short coeffs[NTAPS] = {};
 		if (argc > 2){
 			setCoeffs(coeffs, argc-2, argv+2);
 		}
