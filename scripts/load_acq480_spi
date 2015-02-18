@@ -20,7 +20,7 @@ for pair in "$(grep acq480 /proc/devices)"
 do
 	do_mknod $pair
 
-	monitor_acq480_spi $2
+	daemon /usr/local/bin/monitor_acq480_spi $2 
 done
 
 
