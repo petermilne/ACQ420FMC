@@ -237,28 +237,47 @@ unsigned Ads5294::Ads5294::getAverageSelect(Chan bin)
 	}
 }
 
-int Ads5294::setInvert(bool invert, unsigned inv_mask)
+int Ads5294::setInvert(Chan chan, bool invert)
 {
+	if (!isValidChan(chan)) die("chan not valid");
+
 	Reg& freg = regs->regs[Ads5294Regs::RA_INVERT_CH];
 
-	freg &= ~RA_INVERT_CH_MASK;
-	freg |= (inv_mask&RA_INVERT_CH_MASK);
+	if (invert){
+		freg |= CHAN2BIT(chan);
+	}else{
+		freg &= ~CHAN2BIT(chan);
+	}
 	return 0;
 }
-unsigned Ads5294::getInvert()
+unsigned Ads5294::getInvert(Chan chan)
 {
-	return regs->regs[Ads5294Regs::RA_INVERT_CH]&RA_INVERT_CH_MASK;
+	if (!isValidChan(chan)) die("chan not valid");
+
+	unsigned inverts = regs->regs[Ads5294Regs::RA_INVERT_CH];
+
+	return inverts&CHAN2BIT(chan) != 0;
 }
 
-int Ads5294::setLFNS(unsigned enable_mask)
+int Ads5294::setLFNS(Chan chan, bool enable)
 {
+	if (!isValidChan(chan)) die("chan not valid");
+
 	Reg& freg = regs->regs[Ads5294Regs::RA_LFNS];
-	freg &= ~RA_LFNS_CH_MASK;
-	freg |= enable_mask&RA_LFNS_CH_MASK;
+
+	if (enable){
+		freg |= CHAN2BIT(chan);
+	}else{
+		freg &= ~CHAN2BIT(chan);
+	}
 	return 0;
 }
-unsigned Ads5294::getLFNS()
+bool Ads5294::getLFNS(Chan chan)
 {
-	return regs->regs[Ads5294Regs::RA_LFNS]&RA_LFNS_CH_MASK;
+	if (!isValidChan(chan)) die("chan not valid");
+
+	unsigned lfns = regs->regs[Ads5294Regs::RA_LFNS];
+
+	return lfns&CHAN2BIT(chan) != 0;
 }
 

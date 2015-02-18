@@ -198,6 +198,7 @@ enum FilterCoeffSelect {
 #define CHIX(chan) 	((chan-1))
 #define CHAN8_MASK	0x00ff
 
+#define CHAN2BIT(chan)	(1<<CHIX(chan))
 class Ads5294 {
 
 public:
@@ -247,11 +248,11 @@ public:
 	int setAverageSelect(Chan bin, bool enable, unsigned avsel);
 	unsigned getAverageSelect(Chan bin);
 
-	int setInvert(bool invert = true, unsigned inv_mask = CHAN8_MASK);
-	unsigned getInvert();
+	int setInvert(Chan chan, bool invert = true);
+	unsigned getInvert(Chan chan);
 
-	int setLFNS(unsigned enable_mask = CHAN8_MASK);
-	unsigned getLFNS();
+	int setLFNS(Chan chan, bool enable = true);
+	bool getLFNS(Chan chan);
 
 	static bool isValidChan(Chan chan){
 		return chan >= CH1 && chan <= CH8;

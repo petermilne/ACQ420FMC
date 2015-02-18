@@ -153,8 +153,80 @@ public:
 		return rc;
 	}
 };
+
+class SetHiPassFilterCommand: public Command {
+public:
+	SetHiPassFilterCommand() :
+		Command("acq480_setHiPassFilter") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_setHiPassFilter CHAN [enable hpfun]");
+
+		int rc = module.chip.setHiPassFilter(
+				static_cast<Ads5294::Chan>(atoi(argv[1])),
+				argc > 2? atoi(argv[2]): false,
+				argc > 3? strtoul(argv[3], 0, 0): 0
+				);
+		return rc;
+	}
+};
+
+class SetDataRateCommand: public Command {
+public:
+	SetDataRateCommand() :
+		Command("acq480_setDataRate") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_setDataRate RATE");
+		int rc = module.chip.setDataRate(
+				static_cast<Ads5294::DataRate>(atoi(argv[1])));
+	}
+};
+
+class SetAverageSelectCommand: public Command {
+public:
+	SetAverageSelectCommand() :
+		Command("acq480_setAverageSelect") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_setAverageSelect CHAN [ENABLE RATE]");
+		int rc = module.chip.setAverageSelect(
+			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			argc>2? atoi(argv[2]): false,
+			argc>3? strtoul(argv[3], 0, 0): 0
+		);
+	}
+};
+
+class SetInvertCommand: public Command {
+public:
+	SetInvertCommand() :
+		Command("acq480_SetInvert") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_SetInvert CHAN [disable]");
+		int rc = module.chip.setInvert(
+			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			argc>2? atoi(argv[2]): true
+		);
+	}
+};
+class SetLFNSCommand: public Command {
+public:
+	SetLFNSCommand() :
+		Command("acq480_SetLFNS") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die("acq480_SetLFNS CHAN [disable]");
+		int rc = module.chip.setLFNS(
+			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			argc>2? atoi(argv[2]): true
+		);
+	}
+};
+
 void Acq480FMC::init_commands()
 {
+	commands.push_back(new SetInvertCommand);
+	commands.push_back(new SetLFNSCommand);
+	commands.push_back(new SetAverageSelectCommand);
+	commands.push_back(new SetDataRateCommand);
+	commands.push_back(new SetHiPassFilterCommand);
 	commands.push_back(new SetFilterCoefficientsCommand);
 	commands.push_back(new SetDecimationFilterCommand);
 	commands.push_back(new SetGainCommand);
