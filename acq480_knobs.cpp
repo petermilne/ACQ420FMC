@@ -173,6 +173,10 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 		verb = arg0[0];
 		argc--;
 	}
+	if (argc == 0){
+		printf("usage: acq480_knobs command [acq480_help]\n");
+		return 0;
+	}
 
 	for (VCI it = commands.begin(); it != commands.end(); ++it){
 		Command &command = *(*it);
