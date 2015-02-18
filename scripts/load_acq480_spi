@@ -10,7 +10,7 @@ else
 	MOD=/usr/local/lib/modules/acq480.ko
 fi
 
-#/sbin/insmod $MOD acq480_sites=$SITES
+/sbin/insmod $MOD acq480_sites=$SITES
 
 do_mknod() {
 	mknod /dev/$2 c $1 0	

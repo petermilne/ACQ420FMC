@@ -23,13 +23,7 @@ C2R20=/dev/shm/c2rR20
 [ -e $C2R20] || cCrR 2 20 > $C2R20
 
 dump_regs() {
-	(
-	cd $DIR
-	for file in $(ls -i | sort | awk '{ print $2 }')
-	do
-		[ -d $file ] || printf "%34s %s\n" $file $(cat $file)
-	done
-	)
+	cat $DIR/spibuf
 }
 
 monitor() {
