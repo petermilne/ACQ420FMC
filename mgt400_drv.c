@@ -320,6 +320,11 @@ struct file_operations mgt400_fops = {
         .release = mgt400_release,
 };
 
+static void enableZDMA(struct mgt400_dev* mdev)
+{
+        unsigned zdma_cr = mgt400rd32(mdev, ZDMA_CR);
+        mgt400wr32(mdev, ZDMA_CR, zdma_cr|ZDMA_CR_ENABLE);
+}
 static int mgt400_probe(struct platform_device *pdev)
 {
         int rc = 0;
@@ -377,7 +382,9 @@ static int mgt400_probe(struct platform_device *pdev)
 
         mgt400_createSysfs(&mdev->pdev->dev);
         mgt400_createDebugfs(mdev);
-        mgt400wr32(mdev, ZDMA_CR, ZDMA_CR_ENABLE);
+
+        enableZDMA(mdev);
+
         return rc;
 
 fail:
