@@ -206,6 +206,141 @@ static ssize_t store_clear_stats(
 }
 static DEVICE_ATTR(clear_stats, S_IRUGO|S_IWUGO, show_clear_stats, store_clear_stats);
 
+
+#define AGG_SEL	"aggregator="
+
+static ssize_t show_agg_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const unsigned offset,
+	const unsigned mshift)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 regval = mgt400rd32(mdev, offset);
+	char mod_group[80];
+	int site;
+
+	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
+		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
+			if (strlen(mod_group) == 0){
+				strcat(mod_group, "sites=");
+			}else{
+				strcat(mod_group, ",");
+			}
+
+			sprintf(mod_group+strlen(mod_group), "%d", site);
+		}
+	}
+	if (strlen(mod_group) == 0){
+		sprintf(mod_group, "sites=none");
+	}
+
+	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
+			regval&DATA_MOVER_EN? "on": "off");
+}
+
+extern int good_sites[];
+extern int good_sites_count;
+
+
+int get_site(char s)
+{
+	struct acq400_dev *sc = acq400_devices[0];
+	int ii;
+	int site = s-'0';
+
+	for(ii = 0; ii < MAXSITES; ++ii){
+		if (sc->aggregator_set[ii] &&
+		    sc->aggregator_set[ii]->of_prams.site == site){
+			return site;
+		}
+	}
+
+	return -1;
+}
+
+
+static ssize_t store_agg_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const unsigned offset,
+	const unsigned mshift)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	char* match;
+	int pass = 0;
+	unsigned regval = mgt400rd32(mdev, offset);
+
+	dev_dbg(DEVP(mdev), "store_agg_reg \"%s\"", buf);
+
+	if ((match = strstr(buf, "sites=")) != 0){
+		char* cursor = match+strlen("sites=");
+		int site;
+
+		regval &= ~(AGG_SITES_MASK << mshift);
+
+		if (strncmp(cursor, "none", 4) != 0){
+			for (; *cursor && *cursor != ' '; ++cursor){
+				switch(*cursor){
+				case ',':
+				case ' ':	continue;
+				case '\n':  	break;
+				default:
+					site = get_site(*cursor);
+					if (site > 0){
+						regval |= AGG_MOD_EN(site, mshift);
+						break;
+					}else{
+						dev_err(dev, "bad site designator: %c", *cursor);
+						return -1;
+					}
+				}
+			}
+		}
+		pass = 1;
+	}
+	if ((match = strstr(buf, "on")) != 0){
+		regval |= DATA_MOVER_EN;
+		pass = 1;
+	}else if ((match = strstr(buf, "off")) != 0){
+		regval &= ~DATA_MOVER_EN;
+		pass = 1;
+	}
+
+	if (!pass && sscanf(buf, "%x", &regval) != 1){
+		return -1;
+	}
+
+	mgt400wr32(mdev, offset, regval);
+	return count;
+}
+
+
+#define REG_KNOB(name, offset, mshift)					\
+static ssize_t show_reg_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_agg_reg(dev, attr, buf, offset, mshift);		\
+}									\
+static ssize_t store_reg_##name(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_agg_reg(dev, attr, buf, count,  offset, mshift);	\
+}									\
+static DEVICE_ATTR(name, 						\
+	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
+
+REG_KNOB(aggregator, ZDMA_CR,	AGGREGATOR_MSHIFT);
+
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_aurora_enable.attr,
@@ -222,6 +357,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_push_buffer_count.attr,
 	&dev_attr_pull_buffer_count.attr,
 	&dev_attr_clear_stats.attr,
+	&dev_attr_aggregator.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
