@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.760"
+#define REVID "2.761"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3270,6 +3270,7 @@ static int __init acq400_init(void)
 module_init(acq400_init);
 module_exit(acq400_exit);
 
+EXPORT_SYMBOL_GPL(acq400_devices);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ400_FMC Driver");
 MODULE_AUTHOR("D-TACQ Solutions.");
