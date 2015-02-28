@@ -18,11 +18,21 @@ stop() {
         fi
 }
 
+status() {
+	if [ -r ${PIDF} ]; then
+		echo running $(cat ${PIDF})
+	else
+		echo stopped
+	fi
+}
+
 case $1 in
 start|"")
         start;;
 stop)
         stop;;
+status)
+	status;;
 *)
         echo "USAGE streamtonowhered  start\|stop";;
 esac
