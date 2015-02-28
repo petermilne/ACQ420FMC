@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.761"
+#define REVID "2.762"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -380,7 +380,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
 	adev->data32 = 1;
 	if (IS_ACQ430(adev)){
-		adev->nchan_enabled = 4;
+		adev->nchan_enabled = 8;
 	}else if (IS_ACQ437(adev)){
 		adev->nchan_enabled = 16;
 	}else{
