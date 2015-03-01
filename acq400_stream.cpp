@@ -966,12 +966,19 @@ struct Progress {
 	}
 	static Progress& instance();
 
-	void printState() {
+	void printState(char current[]) {
 		if (G::state_fp){
 			rewind(G::state_fp);
 			fputs(current, G::state_fp);
 			fflush(G::state_fp);
 		}
+	}
+	void printState(int extra = 0) {
+		char current[80];
+		snprintf(current, 80, "%d %d %d %llu %d\n",
+				state, pre, post, elapsed, extra);
+
+		printState(current);
 	}
 	void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[80];
@@ -982,7 +989,7 @@ struct Progress {
 			fflush(status_fp);
 			strcpy(previous, current);
 		}
-		printState();
+		printState(current);
 	}
 	void setState(enum STATE _state){
 		state = _state;
