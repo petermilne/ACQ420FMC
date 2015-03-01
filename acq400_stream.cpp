@@ -956,13 +956,23 @@ struct Progress {
 		status_fp = stderr;
 		if (getenv("MIN_REPORT_INTERVAL_MS")){
 			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-			fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
+			if (verbose){
+				fprintf(status_fp, "min_report_interval set %d\n",
+						min_report_interval);
+			}
 		}
 		fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
 	}
 	static Progress& instance();
 
+	void printState() {
+		if (G::state_fp){
+			rewind(G::state_fp);
+			fputs(current, G::state_fp);
+			fflush(G::state_fp);
+		}
+	}
 	void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[80];
 		snprintf(current, 80, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
@@ -972,11 +982,7 @@ struct Progress {
 			fflush(status_fp);
 			strcpy(previous, current);
 		}
-		if (G::state_fp){
-			rewind(G::state_fp);
-			fputs(current, G::state_fp);
-			fflush(G::state_fp);
-		}
+		printState();
 	}
 	void setState(enum STATE _state){
 		state = _state;
@@ -1730,7 +1736,7 @@ static void wait_and_cleanup_sighandler(int signo)
 {
 	if (verbose) printf("wait_and_cleanup_sighandler(%d)\n", signo);
 	kill(0, SIGTERM);
-	Progress::instance().print();
+	Progress::instance().printState();
 	exit(0);
 }
 void acq400_stream_getstate(void)
