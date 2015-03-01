@@ -961,7 +961,6 @@ struct Progress {
 						min_report_interval);
 			}
 		}
-		fprintf(status_fp, "min_report_interval set %d\n", min_report_interval);
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
 	}
 	static Progress& instance();
