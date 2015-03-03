@@ -2180,14 +2180,14 @@ static ssize_t store_twos_comp_encoding(
 
 	if (sscanf(buf, "%d", &twocmp) == 1){
 		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-
-		if (adev->ao424_device_settings.encoded_twocmp = (twocmp != 0)){
+		adev->ao424_device_settings.encoded_twocmp = twocmp != 0;
+		if (adev->ao424_device_settings.encoded_twocmp){
 			dac_ctrl |= DAC_CTRL_TWOCMP;
 		}else{
 			dac_ctrl &= ~DAC_CTRL_TWOCMP;
 		}
 
-		acq400wr32(adev, DAC_CTRL, d);
+		acq400wr32(adev, DAC_CTRL, dac_ctrl);
 		return count;
 	}else{
 		return -1;
