@@ -2964,6 +2964,164 @@ REG_KNOB(data_engine_2, DATA_ENGINE(2), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_3, DATA_ENGINE(3), DATA_ENGINE_MSHIFT);
 
 
+
+static ssize_t show_dist_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const unsigned offset,
+	const unsigned mshift)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 regval = acq400rd32(adev, offset);
+	char mod_group[80];
+	int site;
+
+	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
+		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
+			/* @@todo site 3/4 frig */
+			int dsite = (IS_ACQ1001SC(adev) && site == 3)? 4: site;
+			if (strlen(mod_group) == 0){
+				strcat(mod_group, "sites=");
+			}else{
+				strcat(mod_group, ",");
+			}
+
+			sprintf(mod_group+strlen(mod_group), "%d", dsite);
+		}
+	}
+	if (strlen(mod_group) == 0){
+		sprintf(mod_group, "sites=none");
+	}
+	sprintf(mod_group+strlen(mod_group), " comms=%d",
+				(regval&DIST_COMMS_MODE) != 0);
+
+	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
+			regval&DATA_MOVER_EN? "on": "off");
+}
+
+static ssize_t store_dist_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const unsigned offset,
+	const unsigned mshift)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned regval;
+	char* match;
+	int pass = 0;
+
+	dev_dbg(DEVP(adev), "store_dist_reg \"%s\"", buf);
+
+	if ((match = strstr(buf, "sites=")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		char* cursor = match+strlen("sites=");
+		int site;
+
+		regval &= ~(AGG_SITES_MASK << mshift);
+
+		if (strncmp(cursor, "none", 4) != 0){
+			for (; *cursor && *cursor != ' '; ++cursor){
+				switch(*cursor){
+				case ',':
+				case ' ':	continue;
+				case '\n':  	break;
+				default:
+					site = get_site(adev, *cursor);
+					if (site > 0){
+						regval |= AGG_MOD_EN(site, mshift);
+						break;
+					}else{
+						dev_err(dev, "bad site designator: %c", *cursor);
+						return -1;
+					}
+				}
+			}
+		}
+		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}
+	if (mshift == AGGREGATOR_MSHIFT){
+		char *th_sel = strstr(buf, TH_SEL);
+		if (th_sel){
+			int thbytes = 0;
+			if (sscanf(th_sel, TH_SEL"%d", &thbytes) == 1){
+				unsigned regval = acq400rd32(adev, offset);
+				unsigned th = thbytes/AGG_SIZE_UNIT(adev);
+				if (th > AGG_SIZE_MASK) th = AGG_SIZE_MASK;
+				regval &= ~(AGG_SIZE_MASK<<AGG_SIZE_SHL);
+				regval |= th<<AGG_SIZE_SHL;
+				acq400wr32(adev, offset, regval);
+				pass = 1;
+			}else{
+				dev_err(dev, "arg not integer (%s)", th_sel);
+				return -1;
+			}
+		}
+	}
+	if ((match = strstr(buf, "comms")) != 0){
+		int en;
+		if (sscanf(match, "comms=%d", &en) == 1){
+			unsigned regval = acq400rd32(adev, offset);
+			if (en){
+				regval |= DIST_COMMS_MODE;
+			}else{
+				regval &= ~DIST_COMMS_MODE;
+			}
+			acq400wr32(adev, offset, regval);
+			pass = 1;
+		}else{
+			dev_err(dev, "comms=%%d");
+			return -1;
+		}
+	}
+	if ((match = strstr(buf, "on")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		regval |= DATA_MOVER_EN;
+		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}else if ((match = strstr(buf, "off")) != 0){
+		unsigned regval = acq400rd32(adev, offset);
+		regval &= ~DATA_MOVER_EN;
+		acq400wr32(adev, offset, regval);
+		pass = 1;
+	}
+
+	if (pass){
+		return count;
+	}else{
+		/* aggregator= passes this paragraph, so put it LAST! */
+		if (sscanf(buf, "%x", &regval) == 1){
+			acq400wr32(adev, offset, regval);
+			return count;
+		}
+		return -1;
+	}
+}
+
+#define DIST_KNOB(name, offset, mshift)					\
+static ssize_t show_reg_##name(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_dist_reg(dev, attr, buf, offset, mshift);		\
+}									\
+static ssize_t store_reg_##name(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_dist_reg(dev, attr, buf, count,  offset, mshift);	\
+}									\
+static DEVICE_ATTR(name, 						\
+	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
+
+DIST_KNOB(distributor, DISTRIBUTOR, DIST_MSHIFT);
+
 static ssize_t show_decimate(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3054,6 +3212,7 @@ static DEVICE_ATTR(estop, S_IWUGO, 0, store_estop);
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
+	&dev_attr_distributor.attr,
 	&dev_attr_decimate.attr,
 	&dev_attr_aggsta_fifo_count.attr,
 	&dev_attr_aggsta_fifo_stat.attr,

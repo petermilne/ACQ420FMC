@@ -656,6 +656,8 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define HDMI_SYNC_OUT_SRC	(0x0028)   	/* HSO_xx	*/
 #define EVT_BUS_SRC		(0x002c)	/* EBS_xx	*/
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
+#define DISTRIBUTOR		(0x0040)
+#define DISTRIBUTOR_STA		(0x0044)
 /* scratchpad */
 
 
@@ -706,11 +708,23 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
 		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
 
+#define DIST_COMMS_MODE		(1<<29)
+#define DIST_MSHIFT		18
+#define DIST_MOD_EN(s)		AGG_MOD_EN(s, DIST_MSHIFT)
+
+#define DIST_SPAD_EN		AGG_SPAD_EN
+#define DIST_SIZE_MASK		0xff
+#define DIST_SIZE_SHL		8
+#define DIST_SPAD_LEN_SHL	AGG_SPAD_LEN_SHL
+#define DIST_SPAD_LEN_MASK	AGG_SPAD_LEN_MASK
+#define DIST_INT_STA		(1<<3)		/* WC */
+#define DIST_INT_EN		(1<<2)
+#define DIST_FIFO_RESET		(1<<1)
+#define DIST_ENABLEN		(1<<0)
 
 
-
-
-
+#define SET_DIST_SIZE(n)	((((n)/128)&DIST_SIZE_MASK)<<DIST_SIZE_SHL)
+#define GET_DIST_SIZE(dist)	((((dist)>>DIST_SIZE_SHL)&DIST_SIZE_MASK)*128)
 
 
 
