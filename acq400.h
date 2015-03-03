@@ -155,6 +155,7 @@
 #define ADC_CTRL_ADC_EN		(1 << 4)
 
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
+#define DAC_CTRL_TWOCMP		(1 << 9)	/* AO424ELF  */
 
 #define ADC_CTRL_ADC_RST	(1 << 3)
 #define ADC_CTRL_FIFO_EN	(1 << 2)
@@ -500,6 +501,7 @@ struct acq400_dev {
 				u16 ao424_initvals[AO424_MAXCHAN];
 			} ch;
 		} u;
+		int encoded_twocmp;
 	} ao424_device_settings;
 
 	struct SewFifo {

@@ -1029,6 +1029,7 @@ static ssize_t store_lotide(
 	u32 lotide;
 	if (sscanf(buf, "%u", &lotide) == 1 && lotide <= MAX_LOTIDE(adev)){
 		adev->lotide = lotide;
+		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
 		return count;
 	}else{
 		return -1;
@@ -2159,6 +2160,45 @@ static ssize_t store_odd_channels(
 static DEVICE_ATTR(odd_channels,
 		S_IRUGO|S_IWUGO, show_odd_channels, store_odd_channels);
 
+static ssize_t show_twos_comp_encoding(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n",  adev->ao424_device_settings.encoded_twocmp);
+}
+static ssize_t store_twos_comp_encoding(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+/* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int twocmp;
+
+	if (sscanf(buf, "%d", &twocmp) == 1){
+		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+
+		if (adev->ao424_device_settings.encoded_twocmp = (twocmp != 0)){
+			dac_ctrl |= DAC_CTRL_TWOCMP;
+		}else{
+			dac_ctrl &= ~DAC_CTRL_TWOCMP;
+		}
+
+		acq400wr32(adev, DAC_CTRL, d);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(twos_comp_encoding,
+		S_IRUGO|S_IWUGO, show_twos_comp_encoding, store_twos_comp_encoding);
+
+
+
 
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
@@ -2227,6 +2267,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
+	&dev_attr_twos_comp_encoding.attr,
 	&dev_attr_bank_mask.attr,
 	&dev_attr_odd_channels.attr,
 	/*

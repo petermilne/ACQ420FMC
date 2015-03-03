@@ -438,7 +438,8 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	dac_ctrl |= ADC_CTRL_MODULE_EN | DAC_CTRL_TWOCMP;
+	adev->ao424_device_settings.encoded_twocmp = 1;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
 	measure_ao_fifo(adev);

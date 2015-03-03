@@ -45,6 +45,8 @@ short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value)
 {
 	if (IS_UNIPOLAR(adev->ao424_device_settings.u.ch.ao424_spans[pchan])){
 		return value;
+	}else if (adev->ao424_device_settings.encoded_twocmp){
+		return value;
 	}else{
 		return value^0x8000;
 	}
