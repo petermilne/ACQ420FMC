@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.762"
+#define REVID "2.763"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -438,8 +438,8 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN | DAC_CTRL_TWOCMP;
-	adev->ao424_device_settings.encoded_twocmp = 1;
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	adev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
 	measure_ao_fifo(adev);

@@ -165,6 +165,12 @@ int ao424_set_spans(struct acq400_dev* adev)
 
 	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
 
+	if (adev->ao424_device_settings.encoded_twocmp == 1){
+		adev->ao424_device_settings.encoded_twocmp = 0;
+		ctrl &= ~DAC_CTRL_TWOCMP;
+		acq400wr32(adev, DAC_CTRL, ctrl);
+	}
+
 	if (!allow_spans_in_odds_mode && (cgen&DAC_424_CGEN_ODD_CHANS) != 0){
 		dev_err(DEVP(adev), "ao424_set_spans not allowed in ODD chans mode");
 		return -1;
@@ -179,11 +185,28 @@ int ao424_set_spans(struct acq400_dev* adev)
 	}
 
 	rc = _ao424_set_spans(adev, ctrl);
+
 	if (rc == 0){
+		struct AO424 *ao424ch = &adev->ao424_device_settings;
+		int is_unipolar = 0;
+		int ic;
+		for (ic = 0; ic < adev->nchan_enabled; ++ic){
+			if (IS_UNIPOLAR(ao424ch->u.ch.ao424_spans[ic])){
+				++is_unipolar;
+			}
+		}
+		if (is_unipolar && is_unipolar != adev->nchan_enabled){
+			dev_warn(DEVP(adev),
+				"MIXED unipolar bipolar system: all encoding has to be offset binary");
+		}
+		if (!is_unipolar){
+			adev->ao424_device_settings.encoded_twocmp = 1;
+			ctrl |= DAC_CTRL_TWOCMP;
+		}
 		if (was_enabled){
 			dev_dbg(DEVP(adev), "enable ADC_CTRL_ADC_EN");
-			acq400wr32(adev, DAC_CTRL, ctrl);
 		}
+		acq400wr32(adev, DAC_CTRL, ctrl);
 	}
 	return rc;
 }
