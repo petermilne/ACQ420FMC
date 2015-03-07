@@ -1028,8 +1028,9 @@ static ssize_t store_lotide(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 lotide;
 	if (sscanf(buf, "%u", &lotide) == 1 && lotide <= MAX_LOTIDE(adev)){
+		unsigned reg = IS_DIO432X(adev)? DIO432_DO_LOTIDE: DAC_LOTIDE;
 		adev->lotide = lotide;
-		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
+		acq400wr32(adev, reg, adev->lotide);
 		return count;
 	}else{
 		return -1;
