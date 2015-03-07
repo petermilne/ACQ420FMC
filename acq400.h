@@ -722,6 +722,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DIST_FIFO_RESET		(1<<1)
 #define DIST_ENABLEN		(1<<0)
 
+#define DIST_TRASH_LEN_MASK	0xf
 
 #define SET_DIST_SIZE(n)	((((n)/128)&DIST_SIZE_MASK)<<DIST_SIZE_SHL)
 #define GET_DIST_SIZE(dist)	((((dist)>>DIST_SIZE_SHL)&DIST_SIZE_MASK)*128)

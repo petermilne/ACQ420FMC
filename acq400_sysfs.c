@@ -3077,6 +3077,22 @@ static ssize_t store_dist_reg(
 			return -1;
 		}
 	}
+	if ((match = strstr(buf, "pad")) != 0){
+		int padlen;
+		if (sscanf(match, "pad=%d", &padlen) == 1){
+			unsigned regval = acq400rd32(adev, offset);
+			regval &= ~DIST_TRASH_LEN_MASK << AGG_SPAD_LEN_SHL;
+			if (padlen){
+				regval |= AGG_SPAD_EN;
+				regval |= ((padlen-1)&DIST_TRASH_LEN_MASK) <<
+						AGG_SPAD_LEN_SHL;
+			}else{
+				regval &= ~AGG_SPAD_EN;
+			}
+			acq400wr32(adev, offset, regval);
+			pass = 1;
+		}
+	}
 	if ((match = strstr(buf, "on")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
 		regval |= DATA_MOVER_EN;
