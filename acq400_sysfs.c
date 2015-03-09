@@ -2997,6 +2997,10 @@ static ssize_t show_dist_reg(
 	sprintf(mod_group+strlen(mod_group), " comms=%d",
 				(regval&DIST_COMMS_MODE) != 0);
 
+	if ((regval&AGG_SPAD_EN) != 0){
+		int pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
+		sprintf(mod_group+strlen(mod_group), " pad=%d", pad);
+	}
 	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
 			regval&DATA_MOVER_EN? "on": "off");
 }
@@ -3096,9 +3100,11 @@ static ssize_t store_dist_reg(
 	}
 	if ((match = strstr(buf, "on")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
-		regval &= ~DIST_ENABLEN;
+		regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
+		adev->RW32_debug = 1;
 		acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
 		acq400wr32(adev, offset, regval|DIST_ENABLEN);
+		adev->RW32_debug = 0;
 		pass = 1;
 	}else if ((match = strstr(buf, "off")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
