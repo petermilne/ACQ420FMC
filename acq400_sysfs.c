@@ -3096,12 +3096,13 @@ static ssize_t store_dist_reg(
 	}
 	if ((match = strstr(buf, "on")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
-		regval |= DATA_MOVER_EN;
-		acq400wr32(adev, offset, regval);
+		regval &= ~DIST_ENABLEN;
+		acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
+		acq400wr32(adev, offset, regval|DIST_ENABLEN);
 		pass = 1;
 	}else if ((match = strstr(buf, "off")) != 0){
 		unsigned regval = acq400rd32(adev, offset);
-		regval &= ~DATA_MOVER_EN;
+		regval &= ~DIST_ENABLEN;
 		acq400wr32(adev, offset, regval);
 		pass = 1;
 	}
