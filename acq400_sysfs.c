@@ -2810,31 +2810,60 @@ int get_site(struct acq400_dev *adev, char s)
 	return -1;
 }
 
-int add_aggregator_set(struct acq400_dev *adev, int site)
+int add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site)
 {
 	int ia = 0;
 	struct acq400_dev *slave = acq400_lookupSite(site);
 	for (ia = 0; ia < MAXSITES; ++ia){
-		dev_dbg(DEVP(adev), "add_aggregator set [%d]=%p site:%d %p",
-				ia, adev->aggregator_set[ia], site, slave);
-		if (adev->aggregator_set[ia] == slave){
+		dev_dbg(DEVP(adev), "add_set [%d]=%p site:%d %p",
+				ia, set[ia], site, slave);
+		if (set[ia] == slave){
 			return 0;
-		}else if (adev->aggregator_set[ia] == 0){
-			adev->aggregator_set[ia] = slave;
+		}else if (set[ia] == 0){
+			set[ia] = slave;
 			return 0;
 		}
 	}
-	dev_err(DEVP(adev), "ERROR: add_aggregator_set() failed");
+	dev_err(DEVP(adev), "ERROR: add_set() failed");
 	return 1;
 }
 
-void clear_aggregator_set(struct acq400_dev *adev)
+void clear_set(struct acq400_dev* set[])
 {
 	int ia = 0;
 	for (ia = 0; ia < MAXSITES; ++ia){
-		adev->aggregator_set[ia] = 0;
+		set[ia] = 0;
 	}
 }
+
+void reset_fifo_set(struct acq400_dev* set[])
+{
+	int site;
+	for (site = 0; site < MAXSITES; ++site){
+		if (set[site]){
+			reset_fifo(set[site]);
+		}
+	}
+}
+
+int add_aggregator_set(struct acq400_dev *adev, int site)
+{
+	return add_set(adev->aggregator_set, adev, site);
+}
+void clear_aggregator_set(struct acq400_dev *adev)
+{
+	clear_set(adev->aggregator_set);
+}
+int add_distributor_set(struct acq400_dev *adev, int site)
+{
+	return add_set(adev->distributor_set, adev, site);
+}
+void clear_distributor_set(struct acq400_dev *adev)
+{
+	clear_set(adev->distributor_set);
+}
+
+
 static ssize_t store_agg_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2857,6 +2886,7 @@ static ssize_t store_agg_reg(
 
 		regval &= ~(AGG_SITES_MASK << mshift);
 
+		clear_aggregator_set(adev);
 		if (strncmp(cursor, "none", 4) != 0){
 			for (; *cursor && *cursor != ' '; ++cursor){
 				switch(*cursor){
@@ -2875,8 +2905,6 @@ static ssize_t store_agg_reg(
 					}
 				}
 			}
-		}else{
-			clear_aggregator_set(adev);
 		}
 		acq400wr32(adev, offset, regval);
 		pass = 1;
@@ -3005,6 +3033,18 @@ static ssize_t show_dist_reg(
 			regval&DATA_MOVER_EN? "on": "off");
 }
 
+void onDistributorEnable(struct acq400_dev *adev, const unsigned offset)
+{
+	unsigned regval = acq400rd32(adev, offset);
+
+	adev->RW32_debug = 1;
+	reset_fifo_set(adev->distributor_set);
+
+	regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
+	acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
+	acq400wr32(adev, offset, regval|DIST_ENABLEN);
+	adev->RW32_debug = 0;
+}
 static ssize_t store_dist_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3027,6 +3067,7 @@ static ssize_t store_dist_reg(
 
 		regval &= ~(AGG_SITES_MASK << mshift);
 
+		clear_distributor_set(adev);
 		if (strncmp(cursor, "none", 4) != 0){
 			for (; *cursor && *cursor != ' '; ++cursor){
 				switch(*cursor){
@@ -3037,6 +3078,7 @@ static ssize_t store_dist_reg(
 					site = get_site(adev, *cursor);
 					if (site > 0){
 						regval |= AGG_MOD_EN(site, mshift);
+						add_distributor_set(adev, site);
 						break;
 					}else{
 						dev_err(dev, "bad site designator: %c", *cursor);
@@ -3099,12 +3141,7 @@ static ssize_t store_dist_reg(
 		}
 	}
 	if ((match = strstr(buf, "on")) != 0){
-		unsigned regval = acq400rd32(adev, offset);
-		regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
-		adev->RW32_debug = 1;
-		acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
-		acq400wr32(adev, offset, regval|DIST_ENABLEN);
-		adev->RW32_debug = 0;
+		onDistributorEnable(adev, offset);
 		pass = 1;
 	}else if ((match = strstr(buf, "off")) != 0){
 		unsigned regval = acq400rd32(adev, offset);

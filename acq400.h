@@ -485,6 +485,7 @@ struct acq400_dev {
 	/* valid sc only */
 	bool is_sc;
 	struct acq400_dev* aggregator_set[MAXSITES];
+	struct acq400_dev* distributor_set[MAXSITES];
 
 	struct DIO432 {
 		enum DIO432_MODE mode;
@@ -988,6 +989,14 @@ static inline void x400_clr_interrupt(struct acq400_dev *adev, u32 int_csr)
 static inline void x400_set_interrupt(struct acq400_dev *adev, u32 int_csr)
 {
 	acq400wr32(adev, ADC_INT_CSR, int_csr);
+}
+
+static inline void reset_fifo(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, ADC_CTRL, ctrl);
 }
 
 short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
