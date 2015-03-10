@@ -995,8 +995,9 @@ static inline void reset_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
+	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
 }
 
 short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
