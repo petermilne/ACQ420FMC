@@ -2836,10 +2836,11 @@ void clear_set(struct acq400_dev* set[])
 	}
 }
 
-void reset_fifo_set(struct acq400_dev* set[])
+void reset_fifo_set(struct acq400_dev* adev, struct acq400_dev* set[])
 {
 	int site;
 	for (site = 0; site < MAXSITES; ++site){
+		dev_dbg(DEVP(adev), "reset_fifo_set [%d] %p", site, set[site]);
 		if (set[site]){
 			reset_fifo(set[site]);
 		}
@@ -3037,13 +3038,11 @@ void onDistributorEnable(struct acq400_dev *adev, const unsigned offset)
 {
 	unsigned regval = acq400rd32(adev, offset);
 
-	adev->RW32_debug = 1;
-	reset_fifo_set(adev->distributor_set);
+	reset_fifo_set(adev, adev->distributor_set);
 
 	regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
 	acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
 	acq400wr32(adev, offset, regval|DIST_ENABLEN);
-	adev->RW32_debug = 0;
 }
 static ssize_t store_dist_reg(
 	struct device * dev,
