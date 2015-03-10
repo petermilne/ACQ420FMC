@@ -374,6 +374,33 @@ static DEVICE_ATTR(name, 						\
 REG_KNOB(aggregator, ZDMA_CR,	AGGREGATOR_MSHIFT);
 
 
+static ssize_t show_ident(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "0x%08x\n", mgt400rd32(mdev, ZIDENT));
+}
+
+static ssize_t store_ident(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf, size_t count)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	unsigned ident;
+
+	if (sscanf(buf, "0x%x", &ident) || sscanf(buf, "%d", &ident)){
+		mgt400wr32(mdev, ZIDENT, ident);
+		return strlen(buf);
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(ident, S_IRUGO|S_IWUGO, show_ident, store_ident);
+
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_aurora_enable.attr,
@@ -392,6 +419,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_clear_stats.attr,
 	&dev_attr_aggregator.attr,
 	&dev_attr_spad.attr,
+	&dev_attr_ident.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)

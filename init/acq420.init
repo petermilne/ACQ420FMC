@@ -16,6 +16,7 @@ ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 source /tmp/u-boot_env
 MODEL=${devicetree_image%*.dtb}; MODEL=${MODEL#*/}
 
+SN=${dtsn}
 
 build_hb_node() {
 	nn=$(printf "$3" $2)
@@ -322,8 +323,11 @@ build_mgt400() {
 	ch=$(cat /etc/acq400/${site}/name )
 	ch=${ch#*.}
 	
-	ln -s /dev/acq400.${site}.knobs dev/acq400.${ch}.knobs
+	ln -s /dev/acq400.${site}.knobs /dev/acq400.${ch}.knobs
 	ln -s /etc/acq400/${site} /etc/acq400/${ch}
+	
+	echo set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${SN##CE416}
+	set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${SN##CE416}  
 	
 	build_mgt400_node $(cat /dev/acq400.${site}.knobs/name /dev/acq400.${site}.knobs/dev)
 }

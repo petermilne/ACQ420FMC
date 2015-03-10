@@ -70,10 +70,11 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define HEART		(0x0008)
 #define AURORA_CR	(0x000C)
 #define AURORA_SR	(0x0010)
-#define COMMS_TXB_FSR	(0x0014)
-#define COMMS_TXB_FCR	(0x0018)
-#define COMMS_RXB_FSR   (0x001C)
-#define COMMS_RXB_FCR	(0x0020)
+#define ZIDENT		(0x0014)
+#define COMMS_TXB_FSR	(0x0020)
+#define COMMS_TXB_FCR	(0x0024)
+#define COMMS_RXB_FSR   (0x0040)
+#define COMMS_RXB_FCR	(0x0044)
 
 #define ZDMA_CR_ENABLE		(1<<0)
 
