@@ -2839,7 +2839,7 @@ void clear_set(struct acq400_dev* set[])
 	}
 }
 
-static inline void reset_fifo(struct acq400_dev *adev)
+static inline void reset_fifo(struct acq400_dev *adev, int enable)
 {
 	u32 ctrl;
 	adev->RW32_debug = reset_fifo_verbose;
@@ -2849,17 +2849,22 @@ static inline void reset_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
 	ctrl = acq400rd32(adev, ADC_CTRL);
 	acq400wr32(adev, ADC_CTRL, ctrl &= ~ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+	if (enable){
+		ctrl |= ADC_CTRL_ADC_EN;
+	}
+	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_FIFO_EN);
 	adev->RW32_debug = 0;
 }
 
-void reset_fifo_set(struct acq400_dev* adev, struct acq400_dev* set[])
+#define ENABLE	1
+
+void reset_fifo_set(struct acq400_dev* adev, struct acq400_dev* set[], int enable)
 {
 	int site;
 	for (site = 0; site < MAXSITES; ++site){
 		dev_dbg(DEVP(adev), "reset_fifo_set [%d] %p", site, set[site]);
 		if (set[site]){
-			reset_fifo(set[site]);
+			reset_fifo(set[site], enable);
 		}
 	}
 }
@@ -3055,12 +3060,23 @@ void onDistributorEnable(struct acq400_dev *adev, const unsigned offset)
 {
 	unsigned regval = acq400rd32(adev, offset);
 
-	reset_fifo_set(adev, adev->distributor_set);
+	reset_fifo_set(adev, adev->distributor_set, ENABLE);
 
 	regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
 	acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
 	acq400wr32(adev, offset, regval|DIST_ENABLEN);
 }
+
+void onDistributorDisable(struct acq400_dev *adev, const unsigned offset)
+{
+	unsigned regval = acq400rd32(adev, offset);
+
+	reset_fifo_set(adev, adev->distributor_set, !ENABLE);
+
+	regval &= ~DIST_ENABLEN;
+	acq400wr32(adev, offset, regval);
+}
+
 static ssize_t store_dist_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3160,9 +3176,7 @@ static ssize_t store_dist_reg(
 		onDistributorEnable(adev, offset);
 		pass = 1;
 	}else if ((match = strstr(buf, "off")) != 0){
-		unsigned regval = acq400rd32(adev, offset);
-		regval &= ~DIST_ENABLEN;
-		acq400wr32(adev, offset, regval);
+		onDistributorDisable(adev, offset);
 		pass = 1;
 	}
 
