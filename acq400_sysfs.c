@@ -60,6 +60,9 @@ module_param(modify_reg_access, int, 0644);
 MODULE_PARM_DESC(modify_spad_access,
 "1: force read before, 2: force read after");
 
+int reset_fifo_verbose;
+module_param(reset_fifo_verbose, int, 0644);
+
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
 		if (device_create_file(dev, attr)){ 					\
@@ -2834,6 +2837,20 @@ void clear_set(struct acq400_dev* set[])
 	for (ia = 0; ia < MAXSITES; ++ia){
 		set[ia] = 0;
 	}
+}
+
+static inline void reset_fifo(struct acq400_dev *adev)
+{
+	u32 ctrl;
+	adev->RW32_debug = reset_fifo_verbose;
+	ctrl = acq400rd32(adev, ADC_CTRL);
+
+	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
+	ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl &= ~ADC_CTRL_FIFO_RST);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+	adev->RW32_debug = 0;
 }
 
 void reset_fifo_set(struct acq400_dev* adev, struct acq400_dev* set[])

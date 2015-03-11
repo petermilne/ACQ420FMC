@@ -991,14 +991,7 @@ static inline void x400_set_interrupt(struct acq400_dev *adev, u32 int_csr)
 	acq400wr32(adev, ADC_INT_CSR, int_csr);
 }
 
-static inline void reset_fifo(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
-	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
-}
 
 short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
 /* LTC2752 data is always unsigned. But bipolar ranges are represented ext as
