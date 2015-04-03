@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
-[ "x$1" = 3210" ] && /sbin/reboot
+[ "x$1" = "x3210" ] && /sbin/reboot
 
