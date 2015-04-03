@@ -12,6 +12,9 @@ if [ -e /mnt/local/acq400_stream ]; then
 	cp /mnt/local/acq400_stream /usr/local/bin
 fi
 
+[ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
+	cp /mnt/local/sysconfig/acq400_streamd.conf /etc/sysconfig
+
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
 	source /mnt/local/sysconfig/acq400.sh
 fi
