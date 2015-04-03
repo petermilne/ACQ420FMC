@@ -11,6 +11,10 @@ if [ -e /mnt/local/acq400_stream ]; then
 	echo override from /mnt/local/acq400_stream
 	cp /mnt/local/acq400_stream /usr/local/bin
 fi
+
+if [ -e /mnt/local/sysconfig/acq400.sh ]; then
+	source /mnt/local/sysconfig/acq400.sh
+fi
 ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
 
 source /tmp/u-boot_env
@@ -279,6 +283,7 @@ build_site0() {
 	ln -s /usr/local/bin/transient ${ek}
 	ln -s /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
+	[ "x$REBOOT_KNOB" = "y" ] && ln -s /usr/local/bin/reboot ${ek}
 	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/spad* \
 		${dk}/di4_? ${dk}/do4_? ${dk}/data32 \
