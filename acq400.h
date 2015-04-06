@@ -11,6 +11,7 @@
 #include <asm/uaccess.h>
 #include <asm/sizes.h>
 
+
 #include <linux/dmaengine.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -42,6 +43,7 @@
 #include <linux/amba/pl330.h>
 #include <linux/of.h>
 
+#include <asm/barrier.h>
 #include <asm/dma.h>
 #include <asm/mach/dma.h>
 #include <asm/io.h>
@@ -283,6 +285,7 @@
 #define ACQ420_MINOR_SEW1_FIFO	12
 #define ACQ420_MINOR_SEW2_FIFO	13
 #define AO420_MINOR_HB0_AWG_ONCE_RETRIG	14
+#define ACQ400_MINOR_BQ_NOWAIT	15
 #define ACQ420_MINOR_BUF	1000
 #define ACQ420_MINOR_BUF2	2000
 #define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2
@@ -412,6 +415,7 @@ struct acq400_dev {
 	struct list_head INFLIGHT;	/* buffers in Q 	     */
 	struct list_head REFILLS;	/* full buffers waiting app  */
 	struct list_head OPENS;		/* buffers in use by app (1) */
+
 	struct HBM** hb;
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
@@ -513,14 +517,27 @@ struct acq400_dev {
 		struct acq400_dev* adev;
 		int regoff;
 	} sewFifo[2];
+
+	/* bq Buffer Queue support */
+	struct mutex bq_clients_mutex;
+	struct list_head bq_clients;
 };
 
 
+#define BQ_MAXLEN 512
 /** acq400_path_descriptor - one per open path */
 struct acq400_path_descriptor {
 	struct acq400_dev* dev;
 	int minor;
 	struct list_head RESERVED;
+	struct list_head bq_list;
+	wait_queue_head_t waitq;
+	struct BQ {
+		unsigned *buf;
+		int head;
+		int tail;
+		int bq_len;
+	} bq;
 };
 
 #define PD(filp)	((struct acq400_path_descriptor*)filp->private_data)

@@ -104,6 +104,8 @@ MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 int AO420_MAX_FILL_BLOCK = 16384;
 module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 
+int BQ_LEN_SHL = 3;
+module_param(BQ_LEN_SHL, int, 0644);
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -1231,6 +1233,27 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	return 0;
 }
 
+
+void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
+{
+	struct acq400_path_descriptor *cur;
+	int ix = hbm->ix;
+	mutex_lock(&adev->bq_clients_mutex);
+
+	list_for_each_entry(cur, &adev->bq_clients, bq_list){
+		struct BQ* bq = &cur->bq;
+		if (!(CIRC_SPACE(bq->head, bq->tail, bq->bq_len) >= 1)){
+			bq->head = bq->tail = 0;
+			dev_warn(DEVP(adev), "BQ overrun");
+		}
+		bq->buf[bq->head] = ix;
+		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
+		dev_dbg(DEVP(adev), "wake_up_interruptible(%p)", &cur->waitq);
+		wake_up_interruptible(&cur->waitq);
+	}
+	mutex_unlock(&adev->bq_clients_mutex);
+}
+
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 /* NB: waits for a full buffer to ARRIVE, but only returns the 2 char ID */
@@ -1290,6 +1313,8 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	nread = sprintf(lbuf, "%02d\n", hbm->ix);
 	rc = copy_to_user(buf, lbuf, nread);
 	adev->rt.hbm_m1 = hbm;
+
+	acq400_bq_notify(adev, hbm);
 	if (rc){
 		return -rc;
 	}
@@ -2207,13 +2232,109 @@ int acq420_reserve_open(struct inode *inode, struct file *file)
 	return reserve(PD(file), 0);
 }
 
+int acq400_init_descriptor(void** pd)
+{
+	struct acq400_path_descriptor* pdesc = kzalloc(PDSZ, GFP_KERNEL);
+	INIT_LIST_HEAD(&pdesc->bq_list);
+	init_waitqueue_head(&pdesc->waitq);
+
+	*pd = pdesc;
+	return 0;
+}
+
+ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct BQ* bq = &pdesc->bq;
+	char lbuf[32];
+	int bc;
+	int rc;
+
+	dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
+	if (wait_event_interruptible(
+		pdesc->waitq,
+		CIRC_CNT(bq->head, bq->tail, bq->bq_len))){
+		return -EINTR;
+	}
+
+	bc = snprintf(lbuf, 32, "%03d\n", bq->buf[bq->tail]);
+	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+
+	if (bc > count){
+		return -ENOSPC;
+	}
+	rc = copy_to_user(buf, lbuf, bc);
+	if (rc){
+		return -rc;
+	}else{
+		return bc;
+	}
+}
+
+static unsigned int acq400_bq_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct BQ* bq = &pdesc->bq;
+
+	if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+		return POLLIN|POLLRDNORM;
+	}else{
+		poll_wait(file, &pdesc->waitq, poll_table);
+		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+			return POLLIN|POLLRDNORM;
+		}else{
+			return 0;
+		}
+	}
+}
+
+int acq400_bq_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+        list_del(&adev->bq_clients);
+        mutex_unlock(&adev->bq_clients_mutex);
+        kfree(pdesc->bq.buf);
+        return acq400_release(inode, file);
+}
+
+int acq400_bq_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_bq = {
+			.read = acq400_bq_read,
+			.release = acq400_bq_release,
+			.poll = acq400_bq_poll
+	};
+
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+        list_add_tail(&pdesc->bq_list, &adev->bq_clients);
+        mutex_unlock(&adev->bq_clients_mutex);
+        file->f_op = &acq400_fops_bq;
+
+        pdesc->bq.bq_len = 1 << BQ_LEN_SHL;
+        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
+	return 0;
+}
 int acq400_open(struct inode *inode, struct file *file)
 {
 
         struct acq400_dev *dev;
         int minor;
 
-        file->private_data = kzalloc(PDSZ, GFP_KERNEL);
+        acq400_init_descriptor(&file->private_data);
+
 
         PD(file)->dev = dev = container_of(inode->i_cdev, struct acq400_dev, cdev);
         PD(file)->minor = minor = MINOR(inode->i_rdev);
@@ -2251,6 +2372,8 @@ int acq400_open(struct inode *inode, struct file *file)
         		return xo400_open_awg(inode, file);
         	case ACQ420_MINOR_RESERVE_BLOCKS:
         		return acq420_reserve_open(inode, file);
+        	case ACQ400_MINOR_BQ_NOWAIT:
+        		return acq400_bq_open(inode, file);
         	case ACQ420_MINOR_SEW1_FIFO:
         	case ACQ420_MINOR_SEW2_FIFO:
         		return acq420_sew_fifo_open(inode, file);

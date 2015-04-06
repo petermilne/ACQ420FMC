@@ -109,8 +109,6 @@ int getFull(struct acq400_dev* adev, struct HBM** first)
 	hbm->bstate = BS_FULL_APP;
 	mutex_unlock(&adev->list_mutex);
 
-
-
 	if (first) *first = hbm;
 	return GET_FULL_OK;
 }

@@ -70,6 +70,7 @@ build_nodes() {
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.gpg	c ${MAJOR} 5
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.rsv c ${MAJOR} 11
+			[ $ID -eq 0 ] && mknod /dev/${NAME}.bq  c ${MAJOR} 15
 			[ $ID -ne 0 ] && mknod /dev/${NAME}.ev  c ${MAJOR} 6
 			
 			build_hb ${MAJOR} ${NAME}
