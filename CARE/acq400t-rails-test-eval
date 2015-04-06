@@ -1,0 +1,76 @@
+#!/usr/local/bin/expect
+
+#       target = xx * mx/dx + cx
+set A_RES { 
+	{3.3 2.0 1000 0} 
+	{12 11.0 1000 0} 
+	{3.3 2.0 1000 0} {3.3 2.0 1000 0}
+	{1.8 2.0 1000 0} {1.8 1.0 1000 0} {1.8 2.0 1000 0} 
+	{0.0 0.0 1000 0}
+}
+
+set B_RES { 
+	{2.5 2.0 1000 0} 
+	{12 11.0 1000 0} 
+	{3.3 2.0 1000 0} 
+	{1.8 1.0 1000 0}
+	{-13.5 6.6 1000 -18.48} {-13.5 6.6 1000 -18.48} 
+	{2.5 2.0 1000 0}
+	{0.0 0.0 1000 0}
+}
+set C_RES { 
+	{5.0 4.0 1000 0} {5.0 4.0 1000 0} 
+	{3.3 2.0 1000 0} 
+	{12.5 11.0 1000 0} {12.5 11.0 1000 0}
+	{5.0 4.0 1000 0} {5.0 4.0 1000 0} 
+	{0.0 0.0 1000 0}
+}
+set D_RES { 
+	{2.5 2.0 1000 0} 
+	{1.0 1.0 1000 0} 
+	{2.5 2.0 1000 0} 
+	{1.5 1.0 1000 0} {1.5 1.0 1000 0}
+	{1.0 1.0 1000 0} 
+	{0.0 0.0 1000 0} {0.0 0.0 1000 0}
+}
+proc test_point {label reading formula} {
+	lassign $formula target mx dx cx
+#	puts "test_point $reading $formula"
+	set actual [expr $reading*$mx/$dx +$cx]
+	set delta [expr abs( $target - $actual )]
+	if {$target != 0} {
+		set derr [expr $delta / $target]
+		if {[expr $derr < 0.1]} {
+			set pass "PASS"
+		} else {
+			set pass "FAIL"
+		}
+#		puts "$label target=$target actual=$actual pass:$pass"
+		puts [format "$label target=%6.2f actual=%6.2f pass:$pass" \
+			$target $actual]
+	}
+}
+proc test_muxes {MX MA MB MC MD} {
+	global A_RES B_RES C_RES D_RES
+#	puts "Hello $MX $MA $MB $MC $MD"
+#	puts "MA formula [lindex $A_RES $MX]"
+	test_point "$MX:MA" $MA [lindex $A_RES $MX]
+	test_point "$MX:MB" $MB [lindex $B_RES $MX]
+	test_point "$MX:MC" $MC [lindex $C_RES $MX]
+	test_point "$MX:MD" $MD [lindex $D_RES $MX]
+}
+
+# processing starts here ..
+while {[gets stdin line] >= 0 } {
+	if {[string length $line] < 1} {
+		break
+	}
+	set fields [regexp -all -inline {\S+} $line]
+	set MX [lindex $fields 1]
+	set MA [lindex $fields 5]
+	set MB [lindex $fields 6]
+	set MC [lindex $fields 7]
+	set MD [lindex $fields 8]
+
+	test_muxes $MX $MA $MB $MC $MD
+}
