@@ -31,7 +31,7 @@ test_site() {
 		do
 			set_mux $MUX
 			sleep 2
-			echo $SITE $MUX $(cat M2 M1 M0) $(cat MuxA MuxB MuxC MuxD)
+			echo $site $MUX $(cat M2 M1 M0) $(cat MuxA MuxB MuxC MuxD)
 		done
 
 	else
