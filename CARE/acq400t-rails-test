@@ -1,0 +1,45 @@
+#!/bin/sh
+
+if [ "x$1" = "x" ]; then
+	echo USAGE: acq400t-rails-test SITE1 \[..SITE2 ...\]
+	exit 1
+
+fi
+
+set_mux_bits() {
+	set.sys M2 $1
+	set.sys M1 $2
+	set.sys M0 $3
+}
+set_mux() {
+	case $1 in
+	0) set_mux_bits 0 0 0;;
+	1) set_mux_bits 0 0 1;;
+	2) set_mux_bits 0 1 0;;
+	3) set_mux_bits 0 1 1;;
+	4) set_mux_bits 1 0 0;;
+	5) set_mux_bits 1 0 1;;
+	6) set_mux_bits 1 1 0;;
+	7) set_mux_bits 1 1 1;;
+	esac
+}
+test_site() {
+	site=$1 
+	if [ -d /dev/acq400t/$site ]; then
+		cd /dev/acq400t/$site
+		for MUX in $(seq 0 7)
+		do
+			set_mux $MUX
+			echo $(cat M2 M1 M0); sleep 1
+			echo $SITE $MUX $(cat MuxA   MuxB   MuxC   MuxD)
+		done
+
+	else
+		echo ERROR site $site /dev/acq400t/$site not found 
+	fi
+}
+
+for site in $*
+do
+	test_site $site
+done

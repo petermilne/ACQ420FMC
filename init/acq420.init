@@ -224,7 +224,7 @@ build_knobs_device() {
 		customize_acq420 $site;;
 	1|A1)	
 		customize_acq420 $site;;
-	FE)
+	FE|FD)
 		if [ "x$ACQ400T_SITES" != "x" ]; then
 			ACQ400T_SITES="${ACQ400T_SITES} "
 		fi

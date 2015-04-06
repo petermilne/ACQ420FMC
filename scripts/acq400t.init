@@ -54,7 +54,7 @@ if { $::argc > 0 } {
 	    puts "build knobs site:$site"
 		exec mkdir -p /dev/acq400t/$site
 		link_hwmon $site
-		link_gpio $LNAMES1 $site [get_gpio1 $site 220]		
+		link_gpio $LNAMES1 $site [get_gpio1 $site 20]		
 
 		exec ln -s /dev/acq400t/$site/* /etc/acq400/$site	
 	} 	
