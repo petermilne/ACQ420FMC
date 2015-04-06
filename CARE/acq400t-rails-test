@@ -30,8 +30,8 @@ test_site() {
 		for MUX in $(seq 0 7)
 		do
 			set_mux $MUX
-			echo $(cat M2 M1 M0); sleep 1
-			echo $SITE $MUX $(cat MuxA   MuxB   MuxC   MuxD)
+			sleep 2
+			echo $SITE $MUX $(cat M2 M1 M0) $(cat MuxA MuxB MuxC MuxD)
 		done
 
 	else

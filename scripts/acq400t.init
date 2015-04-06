@@ -2,7 +2,7 @@
 # acq400t i2c controls
 
 
-set LNAMES1 [ list M0 M1 M2 LED_R LED_G CLK0 CLK01 ]
+set LNAMES1 [ list M2 M1 M0 LED_R LED_G CLK0 CLK01 ]
 
 proc link_gpio {lnames site gpio1} {
 	set gpio2 [expr $gpio1 + 7]
@@ -13,6 +13,10 @@ proc link_gpio {lnames site gpio1} {
 #			puts "lname $name pin $pin gpio $gpx"
 			exec set.sys /sys/class/gpio/export $gpx
 			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
+			
+			if { [string compare -length 3 $name LED] == 0 } {
+				exec set.sys /sys/class/gpio/gpio$gpx/active_low 1
+			}
 			exec ln -s /sys/class/gpio/gpio$gpx/value \
 				/dev/acq400t/$site/$name
 		}
