@@ -2299,7 +2299,7 @@ int acq400_bq_release(struct inode *inode, struct file *file)
         if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
-        list_del(&adev->bq_clients);
+        list_del(&pdesc->bq_list);
         mutex_unlock(&adev->bq_clients_mutex);
         kfree(pdesc->bq.buf);
         return acq400_release(inode, file);
