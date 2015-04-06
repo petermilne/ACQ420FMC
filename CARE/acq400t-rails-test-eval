@@ -52,10 +52,7 @@ proc test_point {label reading formula} {
 }
 
 # processing starts here ..
-while {[gets stdin line] >= 0 } {
-	if {[string length $line] < 1} {
-		break
-	}
+while {[gets stdin line] >= 0 && [string length $line] > 1} {
 	set fields [regexp -all -inline {\S+} $line]
 	set MX [lindex $fields 1]
 	test_point "$MX:MA" [lindex $fields 5] [lindex $A_RES $MX]
