@@ -1,0 +1,106 @@
+/* ------------------------------------------------------------------------- *
+ * acq400test_drv.c
+ * ------------------------------------------------------------------------- *
+ *   Copyright (C) 2014 Peter Milne, D-TACQ Solutions Ltd                
+ *                      <peter dot milne at D hyphen TACQ dot com>          
+ *                         www.d-tacq.com
+ *   Created on: 7 Apr 2014  
+ *    Author: pgm                                                         
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or modify     *
+ *  it under the terms of Version 2 of the GNU General Public License        *
+ *  as published by the Free Software Foundation;                            *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program; if not, write to the Free Software              *
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
+/* ------------------------------------------------------------------------- */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/i2c.h>
+#include <linux/platform_data/pca953x.h>
+
+#define REVID "0.005"
+
+
+int acq400testsites[6] = { 0,  };
+int acq400testsites_count = 0;
+module_param_array(acq400testsites, int, &acq400testsites_count, 0644);
+
+struct i2c_adapter *i2c_adap[6];
+
+static const unsigned short gpio_addr[] = { 0x20, I2C_CLIENT_END };
+
+static int ntest;
+
+#define GPIO_TYPE	"pca9534"
+#define GPIO_ADDR	0x20
+#define N_GPIO_GPIO 8
+
+static struct i2c_client* new_device(
+		struct i2c_adapter *adap,
+		const char* name, unsigned short addr, int gpio_base)
+{
+	struct pca953x_platform_data pca_data = {};
+	struct i2c_board_info info = {};
+
+	strlcpy(info.type, name, I2C_NAME_SIZE);
+	info.addr = addr;
+	pca_data.gpio_base = gpio_base;
+	pca_data.irq_base = -1;
+	info.platform_data = &pca_data;
+	return i2c_new_device(adap, &info);
+}
+static void __init acq400test_init_site(int site)
+{
+	int ch = site+1;
+
+	i2c_adap[site] = i2c_get_adapter(ch);
+
+
+	if (new_device(i2c_adap[site], GPIO_TYPE, GPIO_ADDR, -1) == 0){
+		printk("acq400test_init_site(%d) GPIO NOT found\n", site);
+	}
+}
+
+static void __init acq400test_remove_site(int site)
+{
+	int ch = site+1;
+	printk("acq400test_init_site %d channel %d\n", site, ch);
+	i2c_put_adapter(i2c_adap[site]);
+}
+
+static void __exit acq400test_exit(void)
+{
+	for (; ntest--;){
+		acq400test_remove_site(acq400testsites[ntest]);
+	}
+}
+
+
+static int __init acq400test_init(void)
+{
+        int status = 0;
+
+	printk("D-TACQ ACQ400TEST Driver %s\n", REVID);
+
+	for (ntest = 0; ntest < acq400testsites_count; ++ntest){
+		acq400test_init_site(acq400testsites[ntest]);
+	}
+        return status;
+}
+
+module_init(acq400test_init);
+module_exit(acq400test_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("D-TACQ ACQ400TEST_FMC Driver");
+MODULE_AUTHOR("D-TACQ Solutions.");
+MODULE_VERSION(REVID);
