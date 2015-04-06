@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.770"
+#define REVID "2.771"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1237,10 +1237,12 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 {
 	struct acq400_path_descriptor *cur;
+	struct acq400_path_descriptor *tmp;
 	int ix = hbm->ix;
 	mutex_lock(&adev->bq_clients_mutex);
 
-	list_for_each_entry(cur, &adev->bq_clients, bq_list){
+	/* _safe should not be needed since we're mutexed, but .. */
+	list_for_each_entry_safe(cur, tmp, &adev->bq_clients, bq_list){
 		struct BQ* bq = &cur->bq;
 		if (!(CIRC_SPACE(bq->head, bq->tail, bq->bq_len) >= 1)){
 			bq->head = bq->tail = 0;
@@ -2296,12 +2298,22 @@ int acq400_bq_release(struct inode *inode, struct file *file)
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 
+	struct acq400_path_descriptor *cur;
+	int nelems = 0;
+
         if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
-        list_del(&pdesc->bq_list);
+        list_del_init(&pdesc->bq_list);
+        /* diagnostic */
+        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+               	++nelems;
+        }
         mutex_unlock(&adev->bq_clients_mutex);
+
+        if (nelems) dev_info(DEVP(adev), "nelems:%d", nelems);
         kfree(pdesc->bq.buf);
+
         return acq400_release(inode, file);
 }
 
@@ -2316,15 +2328,17 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 
+        file->f_op = &acq400_fops_bq;
+
+        INIT_LIST_HEAD(&pdesc->bq_list);
+        pdesc->bq.bq_len = 1 << BQ_LEN_SHL;
+        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
+
         if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
         list_add_tail(&pdesc->bq_list, &adev->bq_clients);
         mutex_unlock(&adev->bq_clients_mutex);
-        file->f_op = &acq400_fops_bq;
-
-        pdesc->bq.bq_len = 1 << BQ_LEN_SHL;
-        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
 	return 0;
 }
 int acq400_open(struct inode *inode, struct file *file)
