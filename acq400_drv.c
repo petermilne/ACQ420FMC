@@ -2329,7 +2329,6 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 }
 int acq400_open(struct inode *inode, struct file *file)
 {
-
         struct acq400_dev *dev;
         int minor;
 
