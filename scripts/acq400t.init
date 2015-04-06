@@ -1,0 +1,67 @@
+#!/usr/local/bin/expect
+# acq400t i2c controls
+
+
+set LNAMES1 [ list M0 M1 M2 LED_R LED_G CLK0 CLK01 ]
+
+proc link_gpio {lnames site gpio1} {
+	set gpio2 [expr $gpio1 + 7]
+	for {set ix 0} {[expr $gpio1+$ix <= $gpio2]} {incr ix} {		
+		set name [lindex $lnames $ix]		
+		if { [string length $name] > 0 } {
+			set gpx [expr $gpio1 + $ix]
+#			puts "lname $name pin $pin gpio $gpx"
+			exec set.sys /sys/class/gpio/export $gpx
+			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
+			exec ln -s /sys/class/gpio/gpio$gpx/value \
+				/dev/acq400t/$site/$name
+		}
+	}
+}
+
+proc get_gpio1 {site addr} {
+	set bus [expr $site + 1]
+	set baddr "$bus-00$addr"
+	set gpath "/sys/bus/i2c/devices/$baddr/gpio/gpiochip"
+	set gpiochip [glob "$gpath*"]
+	set pin1 [string range $gpiochip \
+			[string length $gpath] [string length $gpiochip]]
+	#	puts "get_gpio1 returning $pin1"
+	return $pin1
+}
+
+proc link_hwmon {site} {	
+	set hwmon /sys/class/hwmon/hwmon
+ 	exec ln -s $hwmon$site/device/in1_input	/dev/acq400t/$site/MuxA
+ 	exec ln -s $hwmon$site/device/in2_input	/dev/acq400t/$site/MuxB
+ 	exec ln -s $hwmon$site/device/in3_input	/dev/acq400t/$site/MuxC
+ 	exec ln -s $hwmon$site/device/in4_input	/dev/acq400t/$site/MuxD
+}
+
+set SITES ""
+
+if { $::argc > 0 } {
+	set i 1
+	foreach site $::argv {
+		if { [string length $SITES] > 0 } {
+			set SITES "$SITES,"
+		}
+		set SITES "$SITES$site"	
+	} 	
+	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko acq400t_sites=$SITES
+	
+	foreach site $::argv {
+	    puts "build knobs site:$site"
+		exec mkdir -p /dev/acq400t/$site
+		link_hwmon $site
+		link_gpio $LNAMES1 $site [get_gpio1 $site 220]		
+
+		exec ln -s /dev/acq400t/$site/* /etc/acq400/$site	
+	} 	
+} else {
+	puts "usage acq425.init site1[ site 2...]	
+}
+
+
+
+

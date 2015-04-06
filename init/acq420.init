@@ -182,6 +182,7 @@ customize_acq420()
 BOLO8_SITES=""
 ACQ425_SITES=""
 ACQ437_SITES=""
+ACQ400T_SITES=""
 
 start_knob_services()
 {
@@ -223,6 +224,11 @@ build_knobs_device() {
 		customize_acq420 $site;;
 	1|A1)	
 		customize_acq420 $site;;
+	FE)
+		if [ "x$ACQ400T_SITES" != "x" ]; then
+			ACQ400T_SITES="${ACQ400T_SITES} "
+		fi
+		ACQ400T_SITES="${ACQ400T_SITES}$site";;		
 	FF)    
 		return;;
 	2|3|6)
@@ -371,7 +377,9 @@ build_knobs() {
 	if [ "x${ACQ480_SITES}" != "x" ]; then
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	fi
-	
+	if [ "x${ACQ400T_SITES}" != "x" ]; then
+		/usr/local/bin/acq400t.init ${ACQ400T_SITES}
+	fi
 	has_sfp=0
 	for dir in ${spd}/*mgt400 
 	do

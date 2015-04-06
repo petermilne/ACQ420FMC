@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------- *
- * acq400test_drv.c
+ * acq400t_drv.c
  * ------------------------------------------------------------------------- *
  *   Copyright (C) 2014 Peter Milne, D-TACQ Solutions Ltd                
  *                      <peter dot milne at D hyphen TACQ dot com>          
@@ -30,9 +30,9 @@
 #define REVID "0.005"
 
 
-int acq400testsites[6] = { 0,  };
-int acq400testsites_count = 0;
-module_param_array(acq400testsites, int, &acq400testsites_count, 0644);
+int acq400t_sites[6] = { 0,  };
+int acq400t_sites_count = 0;
+module_param_array(acq400t_sites, int, &acq400t_sites_count, 0644);
 
 struct i2c_adapter *i2c_adap[6];
 
@@ -58,7 +58,7 @@ static struct i2c_client* new_device(
 	info.platform_data = &pca_data;
 	return i2c_new_device(adap, &info);
 }
-static void __init acq400test_init_site(int site)
+static void __init acq400t_init_site(int site)
 {
 	int ch = site+1;
 
@@ -66,39 +66,39 @@ static void __init acq400test_init_site(int site)
 
 
 	if (new_device(i2c_adap[site], GPIO_TYPE, GPIO_ADDR, -1) == 0){
-		printk("acq400test_init_site(%d) GPIO NOT found\n", site);
+		printk("acq400t_init_site(%d) GPIO NOT found\n", site);
 	}
 }
 
-static void __init acq400test_remove_site(int site)
+static void __init acq400t_remove_site(int site)
 {
 	int ch = site+1;
-	printk("acq400test_init_site %d channel %d\n", site, ch);
+	printk("acq400t_init_site %d channel %d\n", site, ch);
 	i2c_put_adapter(i2c_adap[site]);
 }
 
-static void __exit acq400test_exit(void)
+static void __exit acq400t_exit(void)
 {
 	for (; ntest--;){
-		acq400test_remove_site(acq400testsites[ntest]);
+		acq400t_remove_site(acq400t_sites[ntest]);
 	}
 }
 
 
-static int __init acq400test_init(void)
+static int __init acq400t_init(void)
 {
         int status = 0;
 
 	printk("D-TACQ ACQ400TEST Driver %s\n", REVID);
 
-	for (ntest = 0; ntest < acq400testsites_count; ++ntest){
-		acq400test_init_site(acq400testsites[ntest]);
+	for (ntest = 0; ntest < acq400t_sites_count; ++ntest){
+		acq400t_init_site(acq400t_sites[ntest]);
 	}
         return status;
 }
 
-module_init(acq400test_init);
-module_exit(acq400test_exit);
+module_init(acq400t_init);
+module_exit(acq400t_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ400TEST_FMC Driver");

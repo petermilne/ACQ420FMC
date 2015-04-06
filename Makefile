@@ -8,7 +8,7 @@ obj-m += pl330.o
 obj-m += bolo8_drv.o
 obj-m += acq425_drv.o
 obj-m += acq480.o
-obj-m += acq400test.o
+obj-m += acq400t.o
 #obj-m += acq4xx_fs.o
 obj-m += mgt400.o
 
@@ -26,7 +26,7 @@ mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o
 
 acq480-objs := acq480_drv.o hbm.o
 
-acq400test-objs := acq400test_drv.o
+acq400t-objs := acq400t_drv.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
