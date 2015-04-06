@@ -30,7 +30,7 @@
 struct HBM * getEmpty(struct acq400_dev* adev);
 void putFull(struct acq400_dev* adev);
 struct HBM * getEmptyFromRefills(struct acq400_dev* adev);
-int getFull(struct acq400_dev* adev);
+int getFull(struct acq400_dev* adev, struct HBM **first);
 void putEmpty(struct acq400_dev* adev);
 
 /* AO ops */

@@ -1253,7 +1253,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
-	switch((rc = getFull(adev))){
+	switch((rc = getFull(adev, &hbm))){
 	case GET_FULL_OK:
 		break;
 	case GET_FULL_DONE:
@@ -1271,7 +1271,8 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		dev_warn(DEVP(adev), "no buffer available");
 		return -1;
 	}
-	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
+
+	dev_dbg(DEVP(adev), "getFull() : %d", hbm->ix);
 
 	/* update every hb0 or at least once per second */
 	now = get_seconds();
@@ -1281,7 +1282,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		adev->rt.hb0_ix[0] = adev->rt.hbm_m1->ix;
 		adev->rt.hb0_ix[1] = hbm->ix;
 		adev->rt.hb0_last = now;
-
+		dev_dbg(DEVP(adev), "hb0 %d", adev->rt.hb0_count);
 		wake_up_interruptible(&adev->hb0_marker);
 	}
 	dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
@@ -3002,6 +3003,8 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         INIT_LIST_HEAD(&adev->REFILLS);
         INIT_LIST_HEAD(&adev->OPENS);
         mutex_init(&adev->list_mutex);
+        INIT_LIST_HEAD(&adev->bq_clients);
+        mutex_init(&adev->bq_clients_mutex);
         init_waitqueue_head(&adev->w_waitq);
         init_waitqueue_head(&adev->event_waitq);
         adev->onStart = acqXXX_onStartNOP;

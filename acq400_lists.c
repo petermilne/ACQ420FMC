@@ -88,7 +88,7 @@ struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
 		return 0;
 	}
 }
-int getFull(struct acq400_dev* adev)
+int getFull(struct acq400_dev* adev, struct HBM** first)
 {
 	struct HBM *hbm;
 	if (wait_event_interruptible(
@@ -108,6 +108,10 @@ int getFull(struct acq400_dev* adev)
 	list_move_tail(&hbm->list, &adev->OPENS);
 	hbm->bstate = BS_FULL_APP;
 	mutex_unlock(&adev->list_mutex);
+
+
+
+	if (first) *first = hbm;
 	return GET_FULL_OK;
 }
 
