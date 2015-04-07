@@ -280,7 +280,6 @@ public:
 };
 class MapBuffer: public Buffer {
 protected:
-	char *pdata;
 	static char* ba0;		/* low end of mapping */
 	static char* ba1;		/* hi end of mapping */
 	static char* ba_lo;		/* lo end of data set */
@@ -638,6 +637,7 @@ public:
 		int nsum = 0;
 		int osam = 0;
 
+		fprintf(stderr, "OversamplingMapBuffer::writeBuffer(<%d>) out_fd:%d\n", sizeof(T), out_fd);
 		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; ++isam){
@@ -688,7 +688,7 @@ public:
 		T* src = reinterpret_cast<T*>(pdata);
 		int stride = nsam/over;
 
-		if (verbose) printf("writeBuffer() stride:%d out_fd:%d\n", stride, out_fd);
+//		fprintf(stderr, "OversamplingMapBufferSingleSample::writeBuffer(<%d>) stride:%d out_fd:%d\n", sizeof(T), stride, out_fd);
 
 		memset(sums, 0, G::nchan*sizeof(int));
 
@@ -914,7 +914,6 @@ void createOversamplingBuffers()
 	vector<Buffer*> cpyBuffers = Buffer::the_buffers;
 
 	Buffer::the_buffers.clear();
-
 	for (int ii = 0; ii < cpyBuffers.size(); ++ii){
 		Buffer::the_buffers[ii] = createOversamplingBuffer(cpyBuffers[ii]);
 	}
@@ -2516,7 +2515,7 @@ class SubrateStreamHead: public StreamHead {
 public:
 	SubrateStreamHead():
 		StreamHead(open("/dev/acq400.0.bq", O_RDONLY),
-			   open("/dev/shm/subrate", O_WRONLY)) {
+			   open("/dev/shm/subrate", O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRGRP|S_IROTH)) {
 		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
 		fprintf(fp, "%d\n", getpid());
 		fclose(fp);
@@ -2526,11 +2525,11 @@ public:
 	virtual ~SubrateStreamHead() {
 	}
 	virtual void stream() {
-		int ib;
-
-		while((ib = getBufferId()) >= 0){
+		for (int ib; (ib = getBufferId()) >= 0; ){
+			fprintf(stderr, "SubrateStreamHead::stream:[%d] pid:%d\n", ib, getpid());
+			off_t rc_seek = lseek(fout, 0, SEEK_SET);
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
-			lseek(fout, 0, SEEK_SET);
+			fprintf(stderr, "SubrateStreamHead::stream:%d 99\n", ib);
 		}
 	}
 };
