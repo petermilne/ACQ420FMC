@@ -1450,18 +1450,12 @@ void init(int argc, const char** argv) {
 class StreamHead {
 protected:
 	int fc;
-	Progress& actual;
-	const int samples_buffer;
-
-
-	StreamHead() :
-		actual(Progress::instance()),
-		samples_buffer(G::bufferlen/sample_size()) {
-		char fname[128];
-		sprintf(fname, stream_fmt, root);
-		fc = open(fname, O_RDONLY);
-		assert(fc > 0);
+	int fout;
+	StreamHead(int _fc, int _fout = 1) : fc(_fc), fout(_fout) {
+		assert(fc >= 0);
+		assert(fout >= 0);
 	}
+	virtual ~StreamHead() {}
 
 	virtual int getBufferId() {
 		char buf[80];
@@ -1469,7 +1463,7 @@ protected:
 
 		if (rc > 0){
 			buf[rc] = '\0';
-			int ib = atoi(buf);
+			int ib = strtoul(buf, 0, 10);
 			assert(ib >= 0);
 			assert(ib <= G::nbuffers);
 			return ib;
@@ -1477,6 +1471,24 @@ protected:
 			return rc;
 		}
 	}
+public:
+	virtual void stream() {
+		int ib;
+
+		while((ib = getBufferId()) >= 0){
+			buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
+		}
+	}
+
+	static StreamHead& instance();
+};
+
+
+class StreamHeadImpl: public StreamHead {
+protected:
+	Progress& actual;
+	const int samples_buffer;
+
 	void close() {
 		kill_the_holders();
 		if (G::aggsem){
@@ -1488,37 +1500,57 @@ protected:
 			fc = 0;
 		}
 	}
-	virtual ~StreamHead() {
+	virtual ~StreamHeadImpl() {
 		close();
 	}
 
 	void setState(enum STATE state) {
 		actual.setState(state);
 	}
+	static void schedule_soft_trigger(void)
+	{
+		fprintf(stderr, "schedule_soft_trigger()");
+		pid_t child = fork();
+		if (child == 0){
+			nice(2);
+			sched_yield();
+			execlp("soft_trigger", "soft_trigger", NULL);
+		}
+	}
+	static int open_feed()
+	{
+		char fname[128];
+		sprintf(fname, stream_fmt, root);
+		int _fc = open(fname, O_RDONLY);
+		assert(_fc > 0);
+		return _fc;
+	}
 public:
-	virtual void stream();
-	static StreamHead& instance();
+	StreamHeadImpl() : StreamHead(open_feed()),
+		actual(Progress::instance()),
+		samples_buffer(G::bufferlen/sample_size()) {}
+	virtual void stream() {
+		int ib;
+
+		ident("acq400_stream_headImpl");
+		setState(ST_ARM);
+		if (G::soft_trigger){
+			schedule_soft_trigger();
+		}
+		while((ib = getBufferId()) >= 0){
+			buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+			switch(actual.state){
+			case ST_ARM:
+				setState(ST_RUN_PRE);
+			}
+			actual.elapsed += samples_buffer;
+		}
+		setState(ST_STOP);
+	}
 };
 
 
-void StreamHead::stream() {
-	int ib;
-	setState(ST_ARM);
-
-	ident("acq400_stream-consumer");
-
-	while((ib = getBufferId()) >= 0){
-		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
-		switch(actual.state){
-		case ST_ARM:
-			setState(ST_RUN_PRE);
-		}
-		actual.elapsed += samples_buffer;
-	}
-	setState(ST_STOP);
-}
-
-class NullStreamHead: public StreamHead {
+class NullStreamHead: public StreamHeadImpl {
 
 public:
 	virtual void stream() {
@@ -1529,7 +1561,7 @@ public:
 	}
 };
 
-class StreamHeadHB0: public StreamHead  {
+class StreamHeadHB0: public StreamHeadImpl  {
 protected:
 	virtual void stream();
 };
@@ -1814,6 +1846,7 @@ public:
 	virtual void onStreamStart() = 0;
 	virtual void onStreamBufferStart(int ib) = 0;
 	virtual void onStreamEnd() = 0;
+	virtual ~StreamHeadClient() {}
 };
 typedef std::vector<StreamHeadClient*>::iterator  IT;
 
@@ -2102,7 +2135,7 @@ public:
 		}
 	}
 };
-class StreamHeadPrePost: public StreamHead, StreamHeadClient  {
+class StreamHeadPrePost: public StreamHeadImpl, StreamHeadClient  {
 protected:
 	int pre;
 	int post;
@@ -2482,25 +2515,17 @@ static void reserve_block0() {
 	StreamHeadPrePost::reserve_block0();
 }
 
-class SubrateStreamHead: public StreamHeadClient {
+class SubrateStreamHead: public StreamHead {
 public:
-	virtual void onStreamStart() 		 {}
-	virtual void onStreamBufferStart(int ib) {
-		int outfd = open("/dev/shm/subrate", O_WRONLY|O_CREAT, S_IRWXU);
-		assert(outfd >= 0);
-
-		if (verbose>1) printf("buffer[%d]->writeBuffer()\n", ib);
-		int nw = buffers[ib]->writeBuffer(outfd, 0);
-		if (nw == 0){
-			printf("WARNING: writeBuffer returned 0\n");
-		}
-		close(outfd);
-		//rename("/dev/shm/subrate.new", "/dev/shm/subrate");
-
+	SubrateStreamHead():
+		StreamHead(open("/dev/acq400.0.bq", O_RDONLY),
+			   open("/dev/shm/subrate", O_WRONLY)) {
+		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
+		fprintf(fp, "%d\n", getpid());
+		fclose(fp);
 	}
-	virtual void onStreamEnd() 		 {}
-
-	SubrateStreamHead() {}
+	virtual ~SubrateStreamHead() {
+	}
 };
 
 
@@ -2546,6 +2571,12 @@ StreamHead& StreamHead::instance() {
 	static StreamHead* _instance;
 
 	if (_instance == 0){
+		if (G::oversampling){
+			if (fork() == 0){
+				_instance = new SubrateStreamHead;
+				return *_instance;
+			}
+		}
 		if (G::stream_mode == SM_TRANSIENT){
 			StreamHeadPrePost* sh;
 			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
@@ -2571,7 +2602,7 @@ StreamHead& StreamHead::instance() {
 				_instance = new NullStreamHead();
 				break;
 			default:
-				_instance = new StreamHead();
+				_instance = new StreamHeadImpl();
 				break;
 			}
 		}
@@ -2597,10 +2628,6 @@ void schedule_soft_trigger(void)
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-	StreamHead& streamHead = StreamHead::instance();
-	if (G::soft_trigger){
-		schedule_soft_trigger();
-	}
-	streamHead.stream();
+	StreamHead::instance().stream();
 	return 0;
 }
