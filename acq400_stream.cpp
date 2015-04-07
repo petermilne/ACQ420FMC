@@ -186,6 +186,8 @@ protected:
 	int buffer_len;
 	const int ibuf;
 	static int last_buf;
+protected:
+	char *pdata;
 public:
 	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
 
@@ -210,6 +212,15 @@ public:
 		}
 
 		the_buffers.push_back(this);
+	}
+	Buffer(Buffer* cpy) :
+		fd(cpy->fd),
+		fname(cpy->fname),
+		buffer_len(cpy->buffer_len),
+		ibuf(cpy->ibuf),
+		pdata(cpy->pdata)
+	{
+
 	}
 	virtual ~Buffer() {
 		close(fd);
@@ -596,20 +607,19 @@ template<class T> T** DemuxBuffer<T>::ddcursors;
 
 
 template <class T>
-class OversamplingMapBuffer: public MapBuffer {
+class OversamplingMapBuffer: public Buffer {
 	const int over, asr;
 	const int asr1;
 	const int nsam;
 	T *outbuf;
 	int* sums;
 public:
-	OversamplingMapBuffer(const char* _fname, int _buffer_len,
-			int _oversampling, int _asr) :
-		MapBuffer(_fname, _buffer_len),
+	OversamplingMapBuffer(Buffer* cpy, int _oversampling, int _asr) :
+		Buffer(cpy),
 		over(_oversampling),
 		asr(_asr),
 		asr1(sizeof(T)==4?8:0),
-		nsam(_buffer_len/sizeof(T)/G::nchan)
+		nsam(buffer_len/sizeof(T)/G::nchan)
 	{
 		static int report;
 		if (!report &&verbose){
@@ -649,20 +659,20 @@ public:
 };
 
 template <class T>
-class OversamplingMapBufferSingleSample: public MapBuffer {
+class OversamplingMapBufferSingleSample: public Buffer {
 	const int over, asr;
 	const int asr1;
 	const int nsam;
 	int* sums;
 
 public:
-	OversamplingMapBufferSingleSample(const char* _fname, int _buffer_len,
+	OversamplingMapBufferSingleSample(Buffer* cpy,
 			int _oversampling, int _asr) :
-		MapBuffer(_fname, _buffer_len),
+		Buffer(cpy),
 		over(_oversampling),
 		asr(_asr),
 		asr1(sizeof(T)==4?8:0),
-		nsam(_buffer_len/sizeof(T)/G::nchan)
+		nsam(buffer_len/sizeof(T)/G::nchan)
 	{
 		static int report;
 		if (!report &&verbose){
@@ -874,32 +884,41 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	}
 }
 
-/*
-		if (!single && os <= 1){
-			return new MapBuffer(fname, _buffer_len);
-		}
 
-		if (G::wordsize == 2){
-			if (single){
-				return new OversamplingMapBufferSingleSample<short>(
-						fname, _buffer_len, os, 0);
-			}else{
-				return new OversamplingMapBuffer<short>(
-						fname, _buffer_len, os, ASR(os));
-			}
+Buffer* createOversamplingBuffer(Buffer* cpy)
+{
+	int os = abs(G::oversampling);
+	bool single = G::oversampling < 0;
+
+	if (G::wordsize == 2){
+		if (single){
+			return new OversamplingMapBufferSingleSample<short>(
+					cpy, os, 0);
 		}else{
-			if (single){
-				return new OversamplingMapBufferSingleSample<int>(
-						fname, _buffer_len, os, ASR(os));
-			}else{
-				return new OversamplingMapBuffer<int> (
-						fname, _buffer_len, os, ASR(os));
-			}
+			return new OversamplingMapBuffer<short>(
+					cpy, os, ASR(os));
+		}
+	}else{
+		if (single){
+			return new OversamplingMapBufferSingleSample<int>(
+					cpy, os, ASR(os));
+		}else{
+			return new OversamplingMapBuffer<int> (
+					cpy, os, ASR(os));
 		}
 	}
 }
-*/
 
+void createOversampling()
+{
+	vector<Buffer*> cpyBuffers = Buffer::the_buffers;
+
+	Buffer::the_buffers.clear();
+
+	for (int ii = 0; ii < Buffer::the_buffers.size(); ++ii){
+		Buffer::the_buffers[ii] = createOversamplingBuffer(Buffer::the_buffers[ii]);
+	}
+}
 Buffer** buffers;
 
 enum STATE {
@@ -2538,9 +2557,6 @@ StreamHead& StreamHead::instance() {
 				sh = new DemuxingStreamHeadPrePost(*demuxer, G::pre, G::post);
 			}else{
 				sh  = new StreamHeadPrePost(G::pre, G::post);
-			}
-			if (G::oversampling){
-				sh->append(new SubrateStreamHead);
 			}
 			_instance = sh;
 		}else{
