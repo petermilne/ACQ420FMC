@@ -1,5 +1,11 @@
 #!/usr/local/bin/expect
 
+set HN [exec hostname]
+set VAP [exec caget -t "$HN:SYS:VAP"]
+set VAN [exec caget -t "$HN:SYS:VAN"]
+
+puts "VAP $VAP VAN $VAN"
+
 #       target = xx * mx/dx + cx
 set A_RES { 
 	{3.3 2.0 1000 0} 
@@ -16,8 +22,8 @@ set B_RES {
 	{12 11.0 1000 0} 
 	{3.3 2.0 1000 0} 
 	{1.8 1.0 1000 0}
-	{-13.5 6.6 1000 -18.48} 
- 	{-13.5 6.6 1000 -18.48} 
+	{VAN 6.6 1000 -18.48} 
+ 	{VAN 6.6 1000 -18.48} 
 	{2.5 2.0 1000 0}
 	{0.0 0.0 1000 0}
 }
@@ -25,8 +31,8 @@ set C_RES {
 	{5.0 4.0 1000 0}   
 	{5.0 4.0 1000 0} 
 	{3.3 2.0 1000 0} 
-	{12.5 11.0 1000 0} 
-	{12.5 11.0 1000 0}
+	{VAP 11.0 1000 0} 
+	{VAP 11.0 1000 0}
 	{5.0 4.0 1000 0}   
 	{5.0 4.0 1000 0} 
 	{0.0 0.0 1000 0}
@@ -43,11 +49,16 @@ set D_RES {
 }
 
 proc test_point {label reading formula} {
+	global VAN 
+	global VAP
 	lassign $formula target mx dx cx
+	if { $target == "VAP" } { set target $VAP }
+	if { $target == "VAN" } { set target $VAN }
+
 	set actual [expr $reading*$mx/$dx +$cx]
-	set delta [expr abs( $target - $actual )]
+	set delta [expr $target - $actual]
 	if {$target != 0} {
-		set derr [expr $delta / $target]
+		set derr [expr abs($delta / $target)]
 		if {[expr $derr < 0.1]} {
 			set pass "PASS"
 		} else {
