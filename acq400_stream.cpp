@@ -870,9 +870,11 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	case BM_TEST:
 		return new ScratchpadTestBuffer(fname, _buffer_len);
 	default:
-		int os = abs(G::oversampling);
-		bool single = G::oversampling < 0;
+		return new MapBuffer(fname, _buffer_len);
+	}
+}
 
+/*
 		if (!single && os <= 1){
 			return new MapBuffer(fname, _buffer_len);
 		}
@@ -896,6 +898,7 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 		}
 	}
 }
+*/
 
 Buffer** buffers;
 
