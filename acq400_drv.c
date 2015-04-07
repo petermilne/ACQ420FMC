@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.771"
+#define REVID "2.772"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1240,6 +1240,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	struct acq400_path_descriptor *tmp;
 	int ix = hbm->ix;
 	mutex_lock(&adev->bq_clients_mutex);
+	int nelems = 0;
 
 	/* _safe should not be needed since we're mutexed, but .. */
 	list_for_each_entry_safe(cur, tmp, &adev->bq_clients, bq_list){
@@ -1252,8 +1253,10 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
 		dev_dbg(DEVP(adev), "wake_up_interruptible(%p)", &cur->waitq);
 		wake_up_interruptible(&cur->waitq);
+		++nelems;
 	}
 	mutex_unlock(&adev->bq_clients_mutex);
+	dev_dbg(DEVP(adev), "acq400_bq_notify() nelems:%d", nelems);
 }
 
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
@@ -2311,7 +2314,11 @@ int acq400_bq_release(struct inode *inode, struct file *file)
         }
         mutex_unlock(&adev->bq_clients_mutex);
 
-        if (nelems) dev_info(DEVP(adev), "nelems:%d", nelems);
+        if (nelems){
+        	dev_info(DEVP(adev), "nelems:%d", nelems);
+        }else{
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }
         kfree(pdesc->bq.buf);
 
         return acq400_release(inode, file);
@@ -2328,6 +2335,9 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 
+	struct acq400_path_descriptor *cur;
+	int nelems = 0;
+
         file->f_op = &acq400_fops_bq;
 
         INIT_LIST_HEAD(&pdesc->bq_list);
@@ -2338,7 +2348,15 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 	       return -ERESTARTSYS;
 	}
         list_add_tail(&pdesc->bq_list, &adev->bq_clients);
+        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+        	++nelems;
+        }
         mutex_unlock(&adev->bq_clients_mutex);
+        if (nelems > 1){
+        	dev_info(DEVP(adev), "nelems:%d", nelems);
+        }else{
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }
 	return 0;
 }
 int acq400_open(struct inode *inode, struct file *file)
