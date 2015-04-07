@@ -909,17 +909,16 @@ Buffer* createOversamplingBuffer(Buffer* cpy)
 	}
 }
 
-void createOversampling()
+void createOversamplingBuffers()
 {
 	vector<Buffer*> cpyBuffers = Buffer::the_buffers;
 
 	Buffer::the_buffers.clear();
 
-	for (int ii = 0; ii < Buffer::the_buffers.size(); ++ii){
-		Buffer::the_buffers[ii] = createOversamplingBuffer(Buffer::the_buffers[ii]);
+	for (int ii = 0; ii < cpyBuffers.size(); ++ii){
+		Buffer::the_buffers[ii] = createOversamplingBuffer(cpyBuffers[ii]);
 	}
 }
-Buffer** buffers;
 
 enum STATE {
 	ST_STOP,
@@ -1287,8 +1286,8 @@ static void kill_the_holders() {
 }
 
 void shuffle_all_down1() {
-	char *to = buffers[0]->getBase();
-	char *from = buffers[1]->getBase();
+	char *to = Buffer::the_buffers[0]->getBase();
+	char *from = Buffer::the_buffers[1]->getBase();
 	int len = G::bufferlen * (G::nbuffers-1);
 	printf("shuffle_all_down1: to:%p from:%p len:%d\n", to, from, len);
 	memcpy(to,from,len);
@@ -1297,8 +1296,8 @@ void shuffle_all_down1() {
 template <class T>
 void demux_all_down1(bool use_new) {
 	T* to = use_new? new T[G::bufferlen/sizeof(T)] :
-			reinterpret_cast<T*>(buffers[0]->getBase());
-	T* from = reinterpret_cast<T*>(buffers[1]->getBase());
+			reinterpret_cast<T*>(Buffer::the_buffers[0]->getBase());
+	T* from = reinterpret_cast<T*>(Buffer::the_buffers[1]->getBase());
 	const unsigned nchan = G::nchan;
 	const unsigned nsam = G::bufferlen * (G::nbuffers-1) / sample_size();
 	const unsigned tomask = use_new? G::bufferlen/sizeof(T)-1: 0xffffffff;
@@ -1432,12 +1431,10 @@ void init(int argc, const char** argv) {
 			fprintf(stderr, "BM_DEMUX nb_cat set %d\n", nb_cat);
 		}
 	}
-	buffers = new Buffer* [G::nbuffers];
-
 	root = getRoot(G::devnum);
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
-		buffers[ii] = Buffer::create(root, G::bufferlen);
+		Buffer::create(root, G::bufferlen);
 	}
 	if (shuffle_test){
 		do_shuffle_test(shuffle_test);
@@ -1476,7 +1473,7 @@ public:
 		int ib;
 
 		while((ib = getBufferId()) >= 0){
-			buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
+			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
 		}
 	}
 
@@ -1538,7 +1535,7 @@ public:
 			schedule_soft_trigger();
 		}
 		while((ib = getBufferId()) >= 0){
-			buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+			Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 			switch(actual.state){
 			case ST_ARM:
 				setState(ST_RUN_PRE);
@@ -1585,8 +1582,8 @@ void StreamHeadHB0::stream() {
 				++nb, nscan, buf);
 
 		if (nb_cat > 1 && nscan == 2){
-			Buffer* b0 = buffers[ib[0]];
-			Buffer* b1 = buffers[ib[1]];
+			Buffer* b0 = Buffer::the_buffers[ib[0]];
+			Buffer* b1 = Buffer::the_buffers[ib[1]];
 			if (verbose){
 				fprintf(stderr, "b0:%p b1:%p\n", b0, b1);
 				int last = b0->getLen()/b0->getSizeofItem() - 1;
@@ -1609,10 +1606,10 @@ void StreamHeadHB0::stream() {
 			b0->writeBuffer(1, Buffer::BO_START);
 			b1->writeBuffer(1, Buffer::BO_FINISH);
 		}else if (nscan == 2){
-			Buffer* b1 = buffers[ib[1]];
+			Buffer* b1 = Buffer::the_buffers[ib[1]];
 			b1->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
 		}else if (nscan == 1){
-			Buffer* b0 = buffers[ib[0]];
+			Buffer* b0 = Buffer::the_buffers[ib[0]];
 			b0->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
 		}
 		if (verbose) fprintf(stderr, "UPDATE:%4d finished\n", nb);
@@ -2523,8 +2520,18 @@ public:
 		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
 		fprintf(fp, "%d\n", getpid());
 		fclose(fp);
+
+		createOversamplingBuffers();
 	}
 	virtual ~SubrateStreamHead() {
+	}
+	virtual void stream() {
+		int ib;
+
+		while((ib = getBufferId()) >= 0){
+			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
+			lseek(fout, 0, SEEK_SET);
+		}
 	}
 };
 
