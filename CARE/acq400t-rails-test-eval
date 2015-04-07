@@ -4,6 +4,11 @@ set HN [exec hostname]
 set VAP [exec caget -t "$HN:SYS:VAP"]
 set VAN [exec caget -t "$HN:SYS:VAN"]
 
+if { [string compare -length 7 $HN "acq2106"] == 0 } {
+	set VREF	0.9
+} else {
+	set VREF	0
+}
 puts "VAP $VAP VAN $VAN"
 
 #       target = xx * mx/dx + cx
@@ -16,7 +21,7 @@ set A_RES {
 	{1.8 2.0 1000 0 	VFMCIO_G39} 
 	{1.8 1.0 1000 0 	1V8_G37} 
 	{1.8 2.0 1000 0 	VFMCIO_H40} 
-	{0.9 1.0 1000 0 	VREF_A_M2C_H1}
+	{VREF 1.0 1000 0 	VREF_A_M2C_H1}
 }
 
 set B_RES { 
@@ -53,12 +58,12 @@ set D_RES {
 }
 
 proc test_point {label reading formula} {
-	global VAN 
-	global VAP
+	global VAN VAP VREF 	
 	lassign $formula target mx dx cx pin
 	if { $target == "VAP" } { set target $VAP }
 	if { $target == "VAN" } { set target $VAN }
-
+	if { $target == "VREF" } { set target $VREF }
+	
 	set actual [expr $reading*$mx/$dx +$cx]
 	set delta [expr $target - $actual]
 	if {$target != 0} {
