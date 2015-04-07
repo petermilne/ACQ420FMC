@@ -1105,9 +1105,9 @@ void acq400_stream_getstate(void);
 static void wait_and_cleanup_sighandler(int signo);
 
 
-void ident() {
+void ident(const char* tid = "acq400_stream") {
 	char fname[80];
-	sprintf(fname, "/var/run/acq400_stream.%d.pid", G::devnum);
+	sprintf(fname, "/var/run/%s.%d.pid", tid, G::devnum);
 	FILE* fp = fopen(fname, "w");
 	if (fp == 0) {
 		perror(fname);
@@ -1504,6 +1504,9 @@ public:
 void StreamHead::stream() {
 	int ib;
 	setState(ST_ARM);
+
+	ident("acq400_stream-consumer");
+
 	while((ib = getBufferId()) >= 0){
 		buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 		switch(actual.state){
