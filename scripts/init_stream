@@ -22,13 +22,14 @@ init_stream() {
 		source /etc/sysconfig/acq400_streamd.$SITE.conf 
 	fi
 
-	site_init=/mnt/local/sysconfig/acq400_streamd.$SITE.init
-
-	if [ -e $site_init  ]; then
+	site_init=/etc/sysconfig/acq400_streamd.$SITE.init
+	
+	if [ -x site_init ]; then
+		(/etc/sysconfig/acq400_streamd.$SITE.init)
+	elif [ -e $site_init  ]; then
 		source $site_init
-	elif [ -x /etc/sysconfig/acq400_streamd.$SITE.init ]; then
-		(/etc/sysconfig/acq400_streamd.$SITE.init) 
 	fi
+	
 	SITE_KNOBS=/etc/acq400/$SITE
 	if [ -e $SITE_KNOBS ]; then
 		if [ -e $SITE_KNOBS/SAMPLE_SIZE ]; then
