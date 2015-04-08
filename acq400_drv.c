@@ -104,8 +104,9 @@ MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 int AO420_MAX_FILL_BLOCK = 16384;
 module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 
-int BQ_LEN_SHL = 3;
+int BQ_LEN_SHL = 2;
 module_param(BQ_LEN_SHL, int, 0644);
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
