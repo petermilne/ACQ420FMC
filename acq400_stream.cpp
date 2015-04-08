@@ -159,6 +159,7 @@ char* state_file;
 bool show_es;
 FILE* state_fp;
 char* pre_demux_script;
+int show_first_sample;
 };
 
 
@@ -176,6 +177,16 @@ unsigned s2b(unsigned samples) {
 }
 unsigned b2s(unsigned bytes) {
 	return bytes/sample_size();
+}
+
+static int createOutfile(const char* fname) {
+	int fd = open(fname,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRGRP|S_IROTH);
+	if (fd < 0){
+		perror(fname);
+		exit(1);
+	}
+	return fd;
 }
 
 class Buffer {
@@ -673,7 +684,7 @@ public:
 		asr(_asr),
 		asr1(sizeof(T)==4?8:0),
 		nsam(buffer_len/sizeof(T)/G::nchan)
-	{
+		{
 		static int report;
 		if (!report &&verbose){
 			printf("OversamplingMapBufferSingleSample()\n");
@@ -688,8 +699,17 @@ public:
 		T* src = reinterpret_cast<T*>(pdata);
 		int stride = nsam/over;
 
-//		fprintf(stderr, "OversamplingMapBufferSingleSample::writeBuffer(<%d>) stride:%d out_fd:%d\n", sizeof(T), stride, out_fd);
 
+		if (G::show_first_sample){
+			memset(sums, 0, G::nchan*sizeof(int));
+
+			for (int ic = 0; ic < G::nchan; ++ic){
+				sums[ic] += src[ic];
+			}
+			int fd = createOutfile("/dev/shm/first_sample");
+			write(fd, sums, G::nchan*sizeof(int));
+			close(fd);
+		}
 		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; isam += stride){
@@ -708,6 +728,8 @@ public:
 		return write(out_fd, sums, G::nchan*sizeof(int));
 	}
 };
+
+
 #define SCOFF	24		/* sample count offset */
 #define EFMT	"ERROR [%02d] %10llu at offset:%d %08x -> %s:%08x\n"
 
@@ -2511,15 +2533,18 @@ static void reserve_block0() {
 	StreamHeadPrePost::reserve_block0();
 }
 
+
 class SubrateStreamHead: public StreamHead {
+	static int createOutfile() {
+		::createOutfile("/dev/shm/subrate");
+	}
 public:
 	SubrateStreamHead():
-		StreamHead(open("/dev/acq400.0.bq", O_RDONLY),
-			   open("/dev/shm/subrate", O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRGRP|S_IROTH)) {
+		StreamHead(open("/dev/acq400.0.bq", O_RDONLY), 1) {
 		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
 		fprintf(fp, "%d\n", getpid());
 		fclose(fp);
-
+		close(fout);		/* we open it every time .. */
 		createOversamplingBuffers();
 	}
 	virtual ~SubrateStreamHead() {
@@ -2527,8 +2552,9 @@ public:
 	virtual void stream() {
 		for (int ib; (ib = getBufferId()) >= 0; ){
 			fprintf(stderr, "SubrateStreamHead::stream:[%d] pid:%d\n", ib, getpid());
-			off_t rc_seek = lseek(fout, 0, SEEK_SET);
+			fout = createOutfile();
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
+			close(fout);
 			fprintf(stderr, "SubrateStreamHead::stream:%d 99\n", ib);
 		}
 	}
