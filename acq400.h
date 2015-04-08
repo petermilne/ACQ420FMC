@@ -521,6 +521,8 @@ struct acq400_dev {
 	/* bq Buffer Queue support */
 	struct mutex bq_clients_mutex;
 	struct list_head bq_clients;
+
+	int bq_overruns;
 };
 
 
