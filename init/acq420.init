@@ -244,7 +244,7 @@ build_knobs_device() {
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
-	4)
+	8)
 		ACQ480_SITES="${ACQ480_SITES}$site";;
 	40)		
 		ao420_init ${site}
