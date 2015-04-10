@@ -593,6 +593,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 	case MOD_ID_ACQ420FMC_2000:
 	case MOD_ID_ACQ425ELF:
 	case MOD_ID_ACQ425ELF_2000:
+	case MOD_ID_ACQ424ELF:
 		return true;
 	default:
 		return false;
@@ -605,6 +606,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_ACQ420(adev) \
 	(GET_MOD_ID(adev) == MOD_ID_ACQ420FMC || GET_MOD_ID(adev) == MOD_ID_ACQ420FMC_2000)
+#define IS_ACQ424(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ424ELF)
 #define IS_ACQ425(adev)	\
 	(GET_MOD_ID(adev) == MOD_ID_ACQ425ELF || GET_MOD_ID(adev) == MOD_ID_ACQ425ELF_2000)
 
