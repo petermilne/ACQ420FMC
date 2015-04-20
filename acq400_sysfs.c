@@ -1445,6 +1445,8 @@ static ssize_t show_module_name(
 	case MOD_ID_ACQ420FMC:
 	case MOD_ID_ACQ420FMC_2000:
 		name = "acq420fmc"; break;
+	case MOD_ID_ACQ424ELF:
+		name = "acq424elf"; break;
 	case MOD_ID_ACQ435ELF:
 		name = "acq435elf"; break;
 	case MOD_ID_ACQ430FMC:
@@ -1598,6 +1600,10 @@ static const struct attribute *sysfs_device_attrs[] = {
 	NULL,
 };
 
+static const struct attribute *acq424_attrs[] = {
+	&dev_attr_adc_conv_time.attr,
+	NULL
+};
 static const struct attribute *acq420_attrs[] = {
 	&dev_attr_adc_18b.attr,
 	&dev_attr_gains.attr,
@@ -3460,7 +3466,9 @@ void acq400_createSysfs(struct device *dev)
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");
 		}
-		if (IS_ACQ42X(adev)){
+		if (IS_ACQ424(adev)){
+			specials = acq424_attrs;
+		}else if (IS_ACQ42X(adev)){
 			specials = acq420_attrs;
 		}else if (IS_ACQ43X(adev)){
 			specials = acq435_attrs;

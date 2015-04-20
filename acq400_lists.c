@@ -264,7 +264,7 @@ void sort_empties(struct acq400_dev *adev) {
 	if (is_sorted(&adev->EMPTIES)){
 		dev_dbg(DEVP(adev), ".. sorted");
 	}else{
-		dev_err(DEVP(adev), "failed to sort EMPTIES");
+		dev_dbg(DEVP(adev), "failed to sort EMPTIES");
 	}
 	count_empties(adev);
 }
@@ -287,6 +287,12 @@ void replace_all(struct acq400_path_descriptor* pd)
 	mutex_unlock(&adev->list_mutex);
 	sort_empties(adev);
 
+	if (!is_sorted(&adev->EMPTIES)){
+		sort_empties(adev);
+	}
+	if (!is_sorted(&adev->EMPTIES)){
+		dev_err(DEVP(adev), "failed to sort EMPTIES");
+	}
 	dev_dbg(DEVP(adev), "replace 99");
 }
 
