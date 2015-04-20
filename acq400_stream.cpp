@@ -1015,11 +1015,13 @@ struct Progress {
 		}
 	}
 	void printState(int extra = 0) {
+		/*
 		char current[80];
 		snprintf(current, 80, "%d %d %d %llu %d\n",
 				state, pre, post, elapsed, extra);
 
 		printState(current);
+		*/
 	}
 	void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[80];
@@ -1549,6 +1551,7 @@ public:
 		samples_buffer(G::bufferlen/sample_size()) {}
 	virtual void stream() {
 		int ib;
+
 
 		ident("acq400_stream_headImpl");
 		setState(ST_ARM);
@@ -2497,6 +2500,9 @@ public:
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamStart();
 		}
+		if (G::soft_trigger){
+			schedule_soft_trigger();
+		}
 		streamCore();
 		estop();
 		for (IT it = peers.begin(); it != peers.end(); ++it){
@@ -2536,7 +2542,7 @@ static void reserve_block0() {
 
 class SubrateStreamHead: public StreamHead {
 	static int createOutfile() {
-		::createOutfile("/dev/shm/subrate");
+		return ::createOutfile("/dev/shm/subrate");
 	}
 public:
 	SubrateStreamHead():
@@ -2645,16 +2651,6 @@ StreamHead& StreamHead::instance() {
 		}
 	}
 	return *_instance;
-}
-
-void schedule_soft_trigger(void)
-{
-	pid_t child = fork();
-	if (child == 0){
-		nice(2);
-		sched_yield();
-		execlp("soft_trigger", "soft_trigger", NULL);
-	}
 }
 
 int main(int argc, const char** argv)
