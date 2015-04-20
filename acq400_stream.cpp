@@ -1005,7 +1005,7 @@ struct Progress {
 		}
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
 	}
-	static Progress& instance();
+	static Progress& instance(bool report = false);
 
 	void printState(char current[]) {
 		if (G::state_fp){
@@ -1013,15 +1013,6 @@ struct Progress {
 			fputs(current, G::state_fp);
 			fflush(G::state_fp);
 		}
-	}
-	void printState(int extra = 0) {
-		/*
-		char current[80];
-		snprintf(current, 80, "%d %d %d %llu %d\n",
-				state, pre, post, elapsed, extra);
-
-		printState(current);
-		*/
 	}
 	void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[80];
@@ -1153,14 +1144,17 @@ static void wait_and_cleanup(pid_t child)
 	sigaddset(&blockset, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &blockset, NULL);
 
+	Progress::instance();
 	struct sigaction sa;
 	sa.sa_handler = wait_and_cleanup_sighandler;
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
+
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGCHLD, &sa, NULL);
+	sa.sa_handler = SIG_IGN;
+	sigaction(SIGTERM, &sa, NULL);
 
 	sigemptyset(&emptyset);
 	fd_set exceptfds;
@@ -1783,14 +1777,15 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 
 long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
 
-Progress& Progress::instance() {
+Progress& Progress::instance(bool report) {
 	static Progress* _instance;
 
+	/*
 	if (!_instance){
 		_instance = new Progress;
 
 	}
-/*
+	*/
 	if (_instance == 0){
 		int rc = shmget(0xdeadbeef, 128, IPC_CREAT|0666);
 		if (rc == -1){
@@ -1808,19 +1803,30 @@ Progress& Progress::instance() {
 					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
 					printf("min_report_interval set %d\n", min_report_interval);
 				}
-				printf("min_report_interval set %d\n", min_report_interval);
+				if (verbose) printf("min_report_interval set %d\n", min_report_interval);
 			}
 		}
+
 	}
-*/
+
+	if (verbose&&report) printf("Progress::instance() %p pid:%d\n", _instance, getpid());
 	return *_instance;
 }
 
+
+static bool cleanup_done;
+
 static void wait_and_cleanup_sighandler(int signo)
 {
-	if (verbose) printf("wait_and_cleanup_sighandler(%d)\n", signo);
-	kill(0, SIGTERM);
-	Progress::instance().printState();
+	if (verbose) printf("wait_and_cleanup_sighandler(%d) pid:%d %s\n",
+			signo, getpid, cleanup_done? "FRESH": "DONE");
+	if (!cleanup_done){
+		kill(0, SIGTERM);
+	}else{
+		cleanup_done = true;
+	}
+	Progress::instance(true).setState(ST_STOP);
+	if (verbose) printf("wait_and_cleanup_sighandler progress done\n");
 	exit(0);
 }
 void acq400_stream_getstate(void)
