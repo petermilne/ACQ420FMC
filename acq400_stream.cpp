@@ -1153,7 +1153,6 @@ static void wait_and_cleanup(pid_t child)
 
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGCHLD, &sa, NULL);
-	sa.sa_handler = SIG_IGN;
 	sigaction(SIGTERM, &sa, NULL);
 
 	sigemptyset(&emptyset);
@@ -1822,11 +1821,10 @@ static void wait_and_cleanup_sighandler(int signo)
 			signo, getpid, cleanup_done? "FRESH": "DONE");
 	if (!cleanup_done){
 		kill(0, SIGTERM);
-	}else{
 		cleanup_done = true;
+		Progress::instance(true).setState(ST_STOP);
+		if (verbose) printf("wait_and_cleanup_sighandler progress done\n");
 	}
-	Progress::instance(true).setState(ST_STOP);
-	if (verbose) printf("wait_and_cleanup_sighandler progress done\n");
 	exit(0);
 }
 void acq400_stream_getstate(void)
@@ -2563,11 +2561,18 @@ public:
 	}
 	virtual void stream() {
 		for (int ib; (ib = getBufferId()) >= 0; ){
-			fprintf(stderr, "SubrateStreamHead::stream:[%d] pid:%d\n", ib, getpid());
+			if (verbose){
+				fprintf(stderr,
+				  "SubrateStreamHead::stream:[%d] pid:%d\n",
+				ib, getpid());
+			}
 			fout = createOutfile();
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
 			close(fout);
-			fprintf(stderr, "SubrateStreamHead::stream:%d 99\n", ib);
+			if (verbose){
+				fprintf(stderr, "SubrateStreamHead::stream:%d 99\n",
+						ib);
+			}
 		}
 	}
 };
