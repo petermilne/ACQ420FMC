@@ -1597,6 +1597,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
 	&dev_attr_rgm.attr,
+	&dev_attr_nacc.attr,
 	NULL,
 };
 
@@ -1623,7 +1624,6 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_evt_sc_latch.attr,
 	&dev_attr_gate_sync.attr,
 	&dev_attr_rtm_translen.attr,
-	&dev_attr_nacc.attr,
 	NULL
 };
 
