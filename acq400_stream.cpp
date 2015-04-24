@@ -1502,6 +1502,8 @@ public:
 	virtual void stream() {
 		int ib;
 
+		if (verbose) fprintf(stderr, "StreamHead::stream()\n");
+
 		while((ib = getBufferId()) >= 0){
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
 		}
@@ -1532,7 +1534,9 @@ protected:
 	}
 
 	void setState(enum STATE state) {
+		if (verbose) fprintf(stderr, "StreamHeadImpl::setState(%d)\n", state);
 		actual.setState(state);
+		if (verbose) fprintf(stderr, "StreamHeadImpl::setState(%d) DONE\n", state);
 	}
 	static void schedule_soft_trigger(void)
 	{
@@ -1555,10 +1559,12 @@ protected:
 public:
 	StreamHeadImpl() : StreamHead(open_feed()),
 		actual(Progress::instance()),
-		samples_buffer(G::bufferlen/sample_size()) {}
+		samples_buffer(G::bufferlen/sample_size()) {
+		if (verbose) fprintf(stderr, "StreamHeadImpl()\n");
+	}
 	virtual void stream() {
 		int ib;
-
+		if (verbose) fprintf(stderr, "StreamHeadImpl::stream() :\n");
 
 		ident("acq400_stream_headImpl");
 		setState(ST_ARM);
@@ -1566,6 +1572,7 @@ public:
 			schedule_soft_trigger();
 		}
 		while((ib = getBufferId()) >= 0){
+			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
 			Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 			switch(actual.state){
 			case ST_ARM:
@@ -1800,7 +1807,9 @@ Progress& Progress::instance(bool report) {
 	}
 	*/
 	if (_instance == 0){
-		int rc = shmget(0xdeadbeef, 128, IPC_CREAT|0666);
+		if (verbose) fprintf(stderr, "Progress:instance() : size %d\n", sizeof(Progress));
+
+		int rc = shmget(0xdeadbeef, sizeof(Progress), IPC_CREAT|0666);
 		if (rc == -1){
 			perror("shmget()");
 			exit(1);
@@ -1810,8 +1819,10 @@ Progress& Progress::instance(bool report) {
 				perror("shmat()");
 				exit(1);
 			}else{
+				Progress *p = new Progress;
 				_instance = (Progress*)shm;
-				memset(_instance, 0, sizeof(Progress));
+				memcpy(_instance, p, sizeof(Progress));
+
 				if (getenv("MIN_REPORT_INTERVAL_MS")){
 					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
 					printf("min_report_interval set %d\n", min_report_interval);
@@ -1822,7 +1833,7 @@ Progress& Progress::instance(bool report) {
 
 	}
 
-	if (verbose&&report) printf("Progress::instance() %p pid:%d\n", _instance, getpid());
+	if (verbose) printf("Progress::instance() %p pid:%d\n", _instance, getpid());
 	return *_instance;
 }
 
@@ -2394,6 +2405,17 @@ protected:
 					fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
 					fclose(fp);
 				}
+
+				char* buffer = new char[0x100000];
+				the_buffer->copyBuffer(buffer);
+				fp = fopen("/tmp/es_buffer", "w");
+				if (fp){
+					fwrite(buffer, 1, 0x100000, fp);
+					fclose(fp);
+					delete [] buffer;
+				}else{
+					perror("/tmp/es_buffer");
+				}
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
@@ -2690,6 +2712,7 @@ StreamHead& StreamHead::instance() {
 			perror("sem_post");
 		}
 	}
+	if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
 	return *_instance;
 }
 
