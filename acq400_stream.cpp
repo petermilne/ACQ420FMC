@@ -713,6 +713,20 @@ public:
 		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; isam += stride){
+			/* runs of samples are bad - could be ES, could be strange 0x0000 .. either way, REJECT */
+			T checkit = src[isam*G::nchan+0] >> asr1;
+			bool checkit_ok = false;
+			for (int ic = 1; ic < 4; ++ic){
+				T checkit2 = src[isam*G::nchan+ic] >> asr1;
+				if (checkit2 != checkit){
+					checkit_ok = true;
+					break;
+				}
+			}
+			if (!checkit_ok){
+				fprintf(stderr, "checkit_ok reject\n");
+				return 0;
+			}
 			for (int ic = 0; ic < G::nchan; ++ic){
 				sums[ic] += src[isam*G::nchan+ic] >> asr1;
 			}
@@ -2177,6 +2191,7 @@ protected:
 	vector <StreamHeadClient*> peers;
 	bool cooked;
 	char* typestring;
+	Event0 event0;
 
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
@@ -2299,9 +2314,7 @@ protected:
 	void streamCore() {
 		BufferLog blog;
 		int ib;
-		Event0 event0;
 
-		event0.disable();
 
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
@@ -2367,6 +2380,20 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (IS_ES(cursor)){
+				FILE *fp = fopen("/dev/shm/es", "w");
+				if (!fp){
+					perror("/dev/shm/es");
+				}else{
+					fwrite(cursor, G::wordsize, G::nchan, fp);
+					fclose(fp);
+				}
+				fp = fopen("/dev/shm/es5", "w");
+				if (!fp){
+					perror("/dev/shm/es5");
+				}else{
+					fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
+					fclose(fp);
+				}
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
@@ -2504,7 +2531,9 @@ public:
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamStart();
 		}
+
 		if (G::soft_trigger){
+			event0.disable();
 			schedule_soft_trigger();
 		}
 		streamCore();
