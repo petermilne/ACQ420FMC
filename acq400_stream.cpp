@@ -92,7 +92,11 @@ using namespace std;
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
 	char kpath[128];
-	sprintf(kpath, "/dev/acq400.%d.knobs/%s", idev, knob);
+	if (knob[0] == '/'){
+		strncpy(kpath, knob, 128);
+	}else{
+		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
+	}
 	FILE *fp = fopen(kpath, "r");
 	if (fp){
 		int rc = fscanf(fp, "%u", value);
@@ -106,7 +110,11 @@ static int getKnob(int idev, const char* knob, unsigned* value)
 static int setKnob(int idev, const char* knob, const char* value)
 {
 	char kpath[128];
-	sprintf(kpath, "/dev/acq400.%d.knobs/%s", idev, knob);
+	if (knob[0] == '/'){
+		strncpy(kpath, knob, 128);
+	}else{
+		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
+	}
 	FILE *fp = fopen(kpath, "w");
 	if (fp){
 		int rc = fprintf(fp, "%s\n", value);
@@ -116,27 +124,6 @@ static int setKnob(int idev, const char* knob, const char* value)
 		return -1;
 	}
 }
-
-/* all globals in one namespace : G */
-namespace G {
-int nchan = NCHAN;
-unsigned int nbuffers = 16;
-unsigned int bufferlen = 0x40000;
-int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
-#define FULL_MASK 0xffffffff
-unsigned mask = FULL_MASK;	/** mask data with this value */
-int m1 = 0;			/** start masking from here */
-int oversampling = 0;
-int devnum = 0;
-const char* script_runs_on_completion = 0;
-const char* aggregator_sites = 0;
-int nsam = 4096;
-
-int control_handle;
-
-int pre;
-int post;
-int demux;
 
 #define BM_NOT_SPECIFIED	'\0'
 #define BM_NULL			'n'
@@ -148,18 +135,39 @@ int demux;
 #define SM_STREAM    		'S'
 #define SM_TRANSIENT 		'T'
 
-int buffer_mode = BM_NOT_SPECIFIED;
-int stream_mode = SM_STREAM;
+/* all globals in one namespace : G */
+namespace G {
+	unsigned int nchan = NCHAN;
+	unsigned int nbuffers = 16;
+	unsigned int bufferlen = 0x40000;
+	int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
+	#define FULL_MASK 0xffffffff
+	unsigned mask = FULL_MASK;	/** mask data with this value */
+	int m1 = 0;			/** start masking from here */
+	int oversampling = 0;
+	int devnum = 0;
+	const char* script_runs_on_completion = 0;
+	const char* aggregator_sites = 0;
+	int nsam = 4096;
 
-bool soft_trigger;
-bool use_aggsem = true;
-sem_t* aggsem;
-char* aggsem_name;
-char* state_file;
-bool show_es;
-FILE* state_fp;
-char* pre_demux_script;
-int show_first_sample;
+	int control_handle;
+
+	int pre;
+	int post;
+	int demux;
+
+	int buffer_mode = BM_NOT_SPECIFIED;
+	int stream_mode = SM_STREAM;
+
+	bool soft_trigger;
+	bool use_aggsem = true;
+	sem_t* aggsem;
+	char* aggsem_name;
+	char* state_file;
+	bool show_es;
+	FILE* state_fp;
+	char* pre_demux_script;
+	int show_first_sample;
 };
 
 
@@ -1377,6 +1385,14 @@ void do_fill_ramp()
 
 static void reserve_block0();
 
+void init_globs(void)
+{
+	getKnob(0, "/etc/acq400/0/NCHAN", &G::nchan);
+	unsigned int data32 = false;
+	getKnob(0, "/etc/acq400/0/data32", &data32);
+	G::wordsize = data32? sizeof(int): sizeof(short);
+}
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1384,6 +1400,7 @@ void init(int argc, const char** argv) {
 	}
 	delete [] progname;
 
+	init_globs();
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
