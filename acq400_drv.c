@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.775"
+#define REVID "2.776"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -51,6 +51,9 @@ MODULE_PARM_DESC(data_32b, "set TRUE on load if 32 bit data required [0]");
 int adc_conv_time = ADC_CONV_TIME_1000;
 module_param(adc_conv_time, int, 0444);
 MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
+
+int acq424_adc_conv_time = 0x2e;
+module_param(acq424_adc_conv_time, int, 0444);
 
 int nbuffers = 64;
 module_param(nbuffers, int, 0444);
@@ -339,7 +342,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
 
 	dev_info(DEVP(adev), "ACQ420 device init");
-	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
+	acq400wr32(adev, ADC_CONV_TIME, IS_ACQ424(adev)? acq424_adc_conv_time: adc_conv_time);
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
 	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
@@ -351,6 +354,10 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->lotide = lotide;
 	adev->onStart = acq420_onStart;
 	adev->onStop = acq420_disable_fifo;
+
+	if (IS_ACQ424(adev)){
+		acq400wr32(acq400_devices[dev->id], ADC_CLKDIV, 0x42);
+	}
 }
 
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
