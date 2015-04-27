@@ -3,7 +3,8 @@
 
 SERVICE=nowhere
 PIDF=/var/run/run.$SERVICE.pid
-LOG=/var/log/run.$SERVICE.log
+#LOG=/var/log/run.$SERVICE.log
+LOG=/dev/null
 LPORT=$(get-port-from-service acq4xx-$SERVICE-console)
 
 start() {
