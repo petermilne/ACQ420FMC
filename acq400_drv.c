@@ -356,7 +356,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 
 	if (IS_ACQ424(adev)){
-		acq400wr32(acq400_devices[dev->id], ADC_CLKDIV, 0x42);
+		acq400wr32(adev, ADC_CLKDIV, 66);
 	}
 }
 
