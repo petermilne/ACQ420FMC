@@ -2404,7 +2404,7 @@ protected:
 		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
 	}
 
-	void esDiagnostic(unsigned *cursor)
+	void esDiagnostic(Buffer* the_buffer, unsigned *cursor)
 	{
 		if (G::es_diagnostic == 0) return;
 
@@ -2445,7 +2445,7 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (IS_ES(cursor)){
-				esDiagnostic(cursor);
+				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
