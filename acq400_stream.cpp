@@ -168,6 +168,7 @@ namespace G {
 	FILE* state_fp;
 	char* pre_demux_script;
 	int show_first_sample;
+	bool es_diagnostic;
 };
 
 
@@ -1391,6 +1392,10 @@ void init_globs(void)
 	unsigned int data32 = false;
 	getKnob(0, "/etc/acq400/0/data32", &data32);
 	G::wordsize = data32? sizeof(int): sizeof(short);
+
+	if(getenv("ES_DIAGNOSTIC")){
+		G::es_diagnostic = atoi(getenv("ES_DIAGNOSTIC"));
+	}
 }
 
 void init(int argc, const char** argv) {
@@ -2399,6 +2404,38 @@ protected:
 		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
 	}
 
+	void esDiagnostic(unsigned *cursor)
+	{
+		if (G::es_diagnostic == 0) return;
+
+		FILE *fp = fopen("/dev/shm/es", "w");
+		if (!fp){
+			perror("/dev/shm/es");
+		}else{
+			fwrite(cursor, G::wordsize, G::nchan, fp);
+			fclose(fp);
+		}
+		fp = fopen("/dev/shm/es5", "w");
+		if (!fp){
+			perror("/dev/shm/es5");
+		}else{
+			fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
+			fclose(fp);
+		}
+
+		if (G::es_diagnostic > 1){
+			char* buffer = new char[0x100000];
+			the_buffer->copyBuffer(buffer);
+			fp = fopen("/tmp/es_buffer", "w");
+			if (fp){
+				fwrite(buffer, 1, 0x100000, fp);
+				fclose(fp);
+				delete [] buffer;
+			}else{
+				perror("/tmp/es_buffer");
+			}
+		}
+	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
@@ -2408,31 +2445,7 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (IS_ES(cursor)){
-				FILE *fp = fopen("/dev/shm/es", "w");
-				if (!fp){
-					perror("/dev/shm/es");
-				}else{
-					fwrite(cursor, G::wordsize, G::nchan, fp);
-					fclose(fp);
-				}
-				fp = fopen("/dev/shm/es5", "w");
-				if (!fp){
-					perror("/dev/shm/es5");
-				}else{
-					fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
-					fclose(fp);
-				}
-
-				char* buffer = new char[0x100000];
-				the_buffer->copyBuffer(buffer);
-				fp = fopen("/tmp/es_buffer", "w");
-				if (fp){
-					fwrite(buffer, 1, 0x100000, fp);
-					fclose(fp);
-					delete [] buffer;
-				}else{
-					perror("/tmp/es_buffer");
-				}
+				esDiagnostic(cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
