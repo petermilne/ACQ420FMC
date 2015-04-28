@@ -217,6 +217,11 @@ public:
 	virtual unsigned getSizeofItem() { return 1; }
 
 	virtual int writeBuffer(int out_fd, int b_opts) = 0;
+	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
+	{
+		return -1;
+	}
+
 	virtual int copyBuffer(void* dest) { return -1; }
 
 	Buffer(const char* _fname, int _buffer_len):
@@ -1529,9 +1534,8 @@ void init(int argc, const char** argv) {
 }
 
 class StreamHead {
-	static bool has_pre_post_live_demux(void) {
-		return true;
-	}
+	static bool has_pre_post_live_demux(void);
+
 protected:
 	int fc;
 	int fout;
@@ -1555,6 +1559,20 @@ protected:
 			return rc;
 		}
 	}
+#define ES_MAGIC	0xaa55f100
+#define ES_MAGIC_MASK	0xffffff00
+
+	bool is_es_word(unsigned word)
+	{
+		return (word&ES_MAGIC_MASK) == ES_MAGIC;
+
+	}
+	bool IS_ES(unsigned *cursor)
+	{
+		return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
+				is_es_word(cursor[2]) && is_es_word(cursor[3]);
+	}
+
 public:
 	virtual void stream() {
 		int ib;
@@ -1628,6 +1646,114 @@ protected:
 		if (f_ev > fc){
 			nfds = f_ev+1;
 		}
+	}
+	void report(const char* id, int ibuf, char *esp);
+
+	void esDiagnostic(Buffer* the_buffer, unsigned *cursor)
+	{
+		if (G::es_diagnostic == 0) return;
+
+		FILE *fp = fopen("/dev/shm/es", "w");
+		if (!fp){
+			perror("/dev/shm/es");
+		}else{
+			fwrite(cursor, G::wordsize, G::nchan, fp);
+			fclose(fp);
+		}
+		fp = fopen("/dev/shm/es5", "w");
+		if (!fp){
+			perror("/dev/shm/es5");
+		}else{
+			fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
+			fclose(fp);
+		}
+
+		if (G::es_diagnostic > 1){
+			char* buffer = new char[0x100000];
+			the_buffer->copyBuffer(buffer);
+			fp = fopen("/tmp/es_buffer", "w");
+			if (fp){
+				fwrite(buffer, 1, 0x100000, fp);
+				fclose(fp);
+				delete [] buffer;
+			}else{
+				perror("/tmp/es_buffer");
+			}
+		}
+	}
+	bool findEvent(int *ibuf, char** espp) {
+		/*if (verbose) */ fprintf(stderr, "findEvent \"%s\"\n", event_info);
+		unsigned long usecs;
+		int b1, b2;
+		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
+
+		assert(nscan == 3);
+		if (b1 == -1 && b2 == -1){
+			return false;
+		}
+
+		if (verbose) fprintf(stderr, "findEvent b1=%d b2=%d\n", b1, b2);
+
+		Buffer* buffer2 = Buffer::the_buffers[b2];
+
+		if (verbose) fprintf(stderr, "call findEvent buffer2 %p\n", buffer2);
+		char* esp = findEvent(buffer2);
+		if (esp){
+			report("b2", b2, esp);
+			if (ibuf) *ibuf = b2;
+			if (espp) *espp = esp;
+			return true;
+		}else{
+			if (verbose) fprintf(stderr, "b2 not found\n");
+		}
+
+		Buffer* buffer1;
+		if (b1 == -1){
+			buffer1 = Buffer::the_buffers[b1 = buffer2->pred()];
+			if (verbose) fprintf(stderr, "b1==-1 now set %d\n", b1);
+		}else{
+			buffer1 = Buffer::the_buffers[b1];
+		}
+		if (verbose) fprintf(stderr, "call findEvent buffer1 %p\n", buffer1);
+		esp = findEvent(buffer1);
+		if (esp){
+			report("b1", b1, esp);
+			if (ibuf) *ibuf = b1;
+			if (espp) *espp = esp;
+			return true;
+		}
+
+		if (verbose) fprintf(stderr, "backtrack\n");
+		for (int backtrack = 1;
+			(buffer1 = Buffer::the_buffers[buffer1->pred()]) != buffer2;
+			++backtrack){
+			esp = findEvent(buffer1);
+			if (esp){
+				char bn[8]; sprintf(bn, "bt%d", backtrack);
+				report(bn, buffer1->ib(), esp);
+				if (ibuf) *ibuf = b1;
+				if (espp) *espp = esp;
+				return true;
+			}
+		}
+		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
+
+		return false;
+	}
+	char* findEvent(Buffer* the_buffer) {
+		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
+		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
+		unsigned *base = cursor;
+		unsigned lenw = the_buffer->getLen()/G::wordsize;
+		int sample_offset = 0;
+
+		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
+			if (IS_ES(cursor)){
+				esDiagnostic(the_buffer, cursor);
+				return reinterpret_cast<char*>(cursor);
+			}
+		}
+		return 0;
 	}
 public:
 	StreamHeadImpl() : StreamHead(open_feed()),
@@ -1731,57 +1857,112 @@ void StreamHeadHB0::stream() {
 #define OBS_ROOT "/dev/shm/transient"
 #define TOTAL_BUFFER_LIMIT	(G::nbuffers * G::bufferlen)
 
+#define LIVE_PRE	"/etc/acq400.0/live_pre"
+#define LIVE_POST	"/etc/acq400.0/live_post"
+
 class StreamHeadLivePP : public StreamHeadHB0 {
 	int pre;
 	int post;
-	void getPP(void) {
-		FILE *fp = fopen("/dev/shm/livepp", "r");
-		if (!fp) return;
-		int pp[2];
-		if (fread(pp, sizeof(int), 2, fp) == 2){
-			pre = pp[0];
-			post = pp[1];
+	const int sample_size;
+
+	int prelen() { return pre*sample_size; }
+	int postlen() { return post*sample_size; }
+
+	static bool getPram(const char* pf, int* pram)
+	{
+		FILE *fp = fopen(pf, "r");
+		if (!fp) {
+			return false;
 		}
+		bool ok = fread(pram, sizeof(int), 1, fp) == 1;
 		fclose(fp);
+		return ok;
 	}
+	static bool getPP(int *_pre, int* _post)
+	{
+		int pp[2];
+		if (getPram(LIVE_PRE, pp) && getPram(LIVE_POST, pp+1)){
+			if (_pre) *_pre = pp[0];
+			if (_post) *_post = pp[1];
+			return true;
+		}else{
+			return false;
+		}
+	}
+	bool getPP(void) {
+		return getPP(&pre, &post);
+	}
+
 public:
-	StreamHeadLivePP(): pre(0), post(4096) {
+	StreamHeadLivePP(): pre(0), post(4096),
+			sample_size(G::nchan*G::wordsize) {
 		fprintf(stderr, "StreamHeadLivePP()\n");
 		startEventWatcher();
+	}
+
+	static bool hasPP() {
+		return getPP(0, 0);
 	}
 	virtual void stream();
 };
 
+bool StreamHead::has_pre_post_live_demux(void) {
+	return StreamHeadLivePP::hasPP();
+}
+
 void StreamHeadLivePP::stream() {
-	char buf[80];
 	int rc;
 	int icat = 0;
 	int nb = 0;
+	char* b0 = MapBuffer::get_ba_lo();
+	char* b1 = MapBuffer::get_ba_hi();
+	int bo1 = Buffer::BO_NONE;
+	int bo2 = Buffer::BO_NONE; ;
+
+	if (pre){
+		bo1 = Buffer::BO_START;
+	}else{
+		bo2 = Buffer::BO_START;
+	}
+	if (!post){
+		bo1 |= Buffer::BO_FINISH;
+	}else{
+		bo2 |= Buffer::BO_FINISH;
+	}
 
 	fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 
 	// 1637099 -1 201    sample_count, hb0 hb1
-	for( getPP(); (rc = read(f_ev, buf, 80)) > 0; getPP()){
-		buf[rc] = '\0';
+	for( getPP(); (rc = read(f_ev, event_info, 80)) > 0; getPP()){
+		event_info[rc] = '\0';
+		chomp(event_info);
+		if (verbose) fprintf(stderr, "fd_ev read \"%s\"\n", event_info);
+		event_received = true;
 
-		int ib[2];
-		unsigned nclocks;
-		int nscan = sscanf(buf, "%u %d %d", &nclocks, ib, ib+1);
+		int ibuf;
+		char* es;
 
-		if (nscan < 3){
-			fprintf(stderr, "StreamHeadLivePP::stream(): scan fail \"%s\"\n", buf);
+		if (!findEvent(&ibuf, &es)){
+			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 39\n");
+			continue;	// silently drop it. there will be more
 		}
+		fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n",
+					ibuf, es);
+		char *es1 = es + sample_size;
 
-		Buffer* b0;
-		if (ib[0] > 0){
-			b0 = Buffer::the_buffers[ib[0]];
-		}else if (ib[1] > 0){
-			b0 = Buffer::the_buffers[ib[1]];
-		}else{
-			continue;
+		Buffer* buf = Buffer::the_buffers[ibuf];
+
+		if (!(es - prelen() > b0 && es1 + postlen() < b1 )){
+			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 49\n");
+			continue;	// silently drop it. there will be more
 		}
-
-		b0->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
+		if (pre){
+			buf->writeBuffer(1, bo1, es - prelen() - b0, prelen());
+		}
+		if (post){
+			buf->writeBuffer(1, bo2, es1 - b0, postlen());
+		}
+		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 69\n");
 	}
 }
 
@@ -2024,19 +2205,6 @@ public:
 };
 typedef std::vector<StreamHeadClient*>::iterator  IT;
 
-#define ES_MAGIC	0xaa55f100
-#define ES_MAGIC_MASK	0xffffff00
-
-bool is_es_word(unsigned word)
-{
-	return (word&ES_MAGIC_MASK) == ES_MAGIC;
-
-}
-bool IS_ES(unsigned *cursor)
-{
-	return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
-	       is_es_word(cursor[2]) && is_es_word(cursor[3]);
-}
 
 
 struct Segment {
@@ -2175,6 +2343,16 @@ public:
 	}
 };
 
+void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
+	printf("StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
+			id, ibuf, esp);
+	printf("Buffer length bytes: %d\n", G::bufferlen);
+	printf("Buffer length samples: %d\n", Buffer::samples_per_buffer());
+	printf("Prelen: %d\n", G::pre);
+	printf("Postlen: %d\n", G::post);
+
+	BufferDistribution(ibuf, esp).show();
+}
 
 /*
  * Buffer Memory:
@@ -2502,111 +2680,11 @@ protected:
 		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
 	}
 
-	void esDiagnostic(Buffer* the_buffer, unsigned *cursor)
-	{
-		if (G::es_diagnostic == 0) return;
 
-		FILE *fp = fopen("/dev/shm/es", "w");
-		if (!fp){
-			perror("/dev/shm/es");
-		}else{
-			fwrite(cursor, G::wordsize, G::nchan, fp);
-			fclose(fp);
-		}
-		fp = fopen("/dev/shm/es5", "w");
-		if (!fp){
-			perror("/dev/shm/es5");
-		}else{
-			fwrite(cursor-2*G::nchan, G::wordsize, 5*G::nchan, fp);
-			fclose(fp);
-		}
 
-		if (G::es_diagnostic > 1){
-			char* buffer = new char[0x100000];
-			the_buffer->copyBuffer(buffer);
-			fp = fopen("/tmp/es_buffer", "w");
-			if (fp){
-				fwrite(buffer, 1, 0x100000, fp);
-				fclose(fp);
-				delete [] buffer;
-			}else{
-				perror("/tmp/es_buffer");
-			}
-		}
-	}
-	char* findEvent(Buffer* the_buffer) {
-		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
-		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
-		unsigned *base = cursor;
-		unsigned lenw = the_buffer->getLen()/G::wordsize;
-		int sample_offset = 0;
 
-		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
-			if (IS_ES(cursor)){
-				esDiagnostic(the_buffer, cursor);
-				return reinterpret_cast<char*>(cursor);
-			}
-		}
-		return 0;
-	}
 
-	void report(const char* id, int ibuf, char *esp){
-		printf("StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
-				id, ibuf, esp);
-		printf("Buffer length bytes: %d\n", G::bufferlen);
-		printf("Buffer length samples: %d\n", Buffer::samples_per_buffer());
-		printf("Prelen: %d\n", G::pre);
-		printf("Postlen: %d\n", G::post);
 
-		BufferDistribution(ibuf, esp).show();
-	}
-	bool findEvent(int *ibuf, char** espp) {
-		/*if (verbose) */ fprintf(stderr, "findEvent \"%s\"\n", event_info);
-		unsigned long usecs;
-		int b1, b2;
-		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
-
-		assert(nscan == 3);
-
-		Buffer* buffer2 = Buffer::the_buffers[b2];
-		char* esp = findEvent(buffer2);
-		if (esp){
-			report("b2", b2, esp);
-			if (ibuf) *ibuf = b2;
-			if (espp) *espp = esp;
-			return true;
-		}
-
-		Buffer* buffer1;
-		if (b1 == -1){
-			buffer1 = Buffer::the_buffers[buffer2->pred()];
-		}else{
-			buffer1 = Buffer::the_buffers[b1];
-		}
-		esp = findEvent(buffer1);
-		if (esp){
-			report("b1", b1, esp);
-			if (ibuf) *ibuf = b1;
-			if (espp) *espp = esp;
-			return true;
-		}
-
-		for (int backtrack = 1;
-			(buffer1 = Buffer::the_buffers[buffer1->pred()]) != buffer2;
-			++backtrack){
-			esp = findEvent(buffer1);
-			if (esp){
-				char bn[8]; sprintf(bn, "bt%d", backtrack);
-				report(bn, buffer1->ib(), esp);
-				if (ibuf) *ibuf = b1;
-				if (espp) *espp = esp;
-				return true;
-			}
-		}
-		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
-
-		return false;
-	}
 	unsigned workbackfrom(unsigned evp) {
 		assert(0);
 		return 0;
