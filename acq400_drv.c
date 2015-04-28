@@ -110,6 +110,8 @@ module_param(AO420_MAX_FILL_BLOCK, int, 0644);
 int BQ_LEN_SHL = 2;
 module_param(BQ_LEN_SHL, int, 0644);
 
+int hb0_no_ratelimit = 0;
+module_param(hb0_no_ratelimit, int, 0644);
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -1311,7 +1313,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	dev_dbg(DEVP(adev), "getFull() : %d", hbm->ix);
 
 	/* update every hb0 or at least once per second */
-	now = get_seconds();
+	now = get_seconds() + hb0_no_ratelimit;
 	/* ratelimited to 1Hz - client gets current and previous hbm */
 	if (adev->rt.hbm_m1 != 0 && now != adev->rt.hb0_last){
 		adev->rt.hb0_count++;

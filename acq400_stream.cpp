@@ -307,6 +307,19 @@ protected:
 	static bool buffer_0_reserved;
 
 public:
+	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
+	/**< all offsets in bytes */
+	{
+		if (start_off > buffer_len) {
+			return 0;
+		}else{
+			if (buffer_len - start_off < len){
+				len = buffer_len - start_off;
+			}
+		}
+		return write(out_fd, pdata+start_off, len);
+	}
+
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		return write(out_fd, pdata, buffer_len);
 	}
@@ -495,9 +508,11 @@ private:
 		fwrite(src, sizeof(T), nwords, pp);
 		pclose(pp);
 	}
-	bool demux(bool start) {
-		T* src1 = reinterpret_cast<T*>(pdata);
-		T* src = reinterpret_cast<T*>(pdata);
+	bool demux(bool start, int start_off = 0, int len = 0) {
+		if (len == 0) len = buffer_len;
+		T* src1 = reinterpret_cast<T*>(pdata+start_off);
+		T* src = reinterpret_cast<T*>(pdata+start_off);
+		int Tlen = len/sizeof(T);
 		int isam = 0;
 
 		if (verbose > 1 && start && ch_id(src[0]) != 0x00){
@@ -539,7 +554,7 @@ private:
 			for (; ichan < nchan; ++ichan){
 				T last = (*src++)&mask[ichan];
 				*ddcursors[ichan]++ = last;
-				if ((src-src1)*sizeof(T) >= buffer_len){
+				if (src-src1 >= Tlen){
 					if (verbose){
 						fprintf(stderr,
 						"END buf ch:%d last:%08x\n",
@@ -559,7 +574,7 @@ private:
 		/* does not happen */
 		return true;
 	}
-	bool writeChan(int ic, T* src, int nsam){
+	bool writeChan(int ic){
 		FILE* fp = fopen(fnames[ic], "w");
 		if (fp ==0){
 			perror(fnames[ic]);
@@ -577,7 +592,24 @@ public:
 		demux((b_opts&BO_START));
 		if ((b_opts&BO_FINISH) != 0){
 			for (int ic = 0; ic < nchan; ++ic){
-				if (writeChan(ic, dddata[ic], nsam)){
+				if (writeChan(ic)){
+					// links take out from under
+					return -1;
+				}
+			}
+			finish();
+		}
+		return buffer_len;
+	}
+	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
+	{
+		if ((b_opts&BO_START) != 0){
+			start();
+		}
+		demux((b_opts&BO_START, start_off, len));
+		if ((b_opts&BO_FINISH) != 0){
+			for (int ic = 0; ic < nchan; ++ic){
+				if (writeChan(ic)){
 					// links take out from under
 					return -1;
 				}
@@ -1416,7 +1448,7 @@ void init(int argc, const char** argv) {
 		case 'n':
 			G::buffer_mode = BM_NULL;
 			break;
-		case 'h':
+		case BM_DEMUX:
 			stream_fmt = "%s.hb0";
 			G::buffer_mode = BM_DEMUX;
 			break;
@@ -1497,6 +1529,9 @@ void init(int argc, const char** argv) {
 }
 
 class StreamHead {
+	static bool has_pre_post_live_demux(void) {
+		return true;
+	}
 protected:
 	int fc;
 	int fout;
@@ -1578,10 +1613,27 @@ protected:
 		assert(_fc > 0);
 		return _fc;
 	}
+
+	int f_ev;
+	int nfds;
+	bool event_received;
+	char event_info[80];
+
+	void startEventWatcher() {
+		f_ev = open("/dev/acq400.1.ev", O_RDONLY);
+		if (f_ev < 0){
+			perror("/dev/acq400.1.ev");
+			exit(1);
+		}
+		if (f_ev > fc){
+			nfds = f_ev+1;
+		}
+	}
 public:
 	StreamHeadImpl() : StreamHead(open_feed()),
 		actual(Progress::instance()),
-		samples_buffer(G::bufferlen/sample_size()) {
+		samples_buffer(G::bufferlen/sample_size()),
+		f_ev(0), nfds(0), event_received(0) {
 		if (verbose) fprintf(stderr, "StreamHeadImpl()\n");
 	}
 	virtual void stream() {
@@ -1679,9 +1731,59 @@ void StreamHeadHB0::stream() {
 #define OBS_ROOT "/dev/shm/transient"
 #define TOTAL_BUFFER_LIMIT	(G::nbuffers * G::bufferlen)
 
+class StreamHeadLivePP : public StreamHeadHB0 {
+	int pre;
+	int post;
+	void getPP(void) {
+		FILE *fp = fopen("/dev/shm/livepp", "r");
+		if (!fp) return;
+		int pp[2];
+		if (fread(pp, sizeof(int), 2, fp) == 2){
+			pre = pp[0];
+			post = pp[1];
+		}
+		fclose(fp);
+	}
+public:
+	StreamHeadLivePP(): pre(0), post(4096) {
+		fprintf(stderr, "StreamHeadLivePP()\n");
+		startEventWatcher();
+	}
+	virtual void stream();
+};
 
+void StreamHeadLivePP::stream() {
+	char buf[80];
+	int rc;
+	int icat = 0;
+	int nb = 0;
 
+	fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 
+	// 1637099 -1 201    sample_count, hb0 hb1
+	for( getPP(); (rc = read(f_ev, buf, 80)) > 0; getPP()){
+		buf[rc] = '\0';
+
+		int ib[2];
+		unsigned nclocks;
+		int nscan = sscanf(buf, "%u %d %d", &nclocks, ib, ib+1);
+
+		if (nscan < 3){
+			fprintf(stderr, "StreamHeadLivePP::stream(): scan fail \"%s\"\n", buf);
+		}
+
+		Buffer* b0;
+		if (ib[0] > 0){
+			b0 = Buffer::the_buffers[ib[0]];
+		}else if (ib[1] > 0){
+			b0 = Buffer::the_buffers[ib[1]];
+		}else{
+			continue;
+		}
+
+		b0->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
+	}
+}
 
 typedef std::vector<MapBuffer*> MBUFV;
 typedef std::vector<MapBuffer*>::iterator MBUFV_IT;
@@ -2215,10 +2317,6 @@ protected:
 	int total_bs;
 	int nobufs;
 
-	int f_ev;
-	int nfds;
-	bool event_received;
-	char event_info[80];
 
 
 	vector <StreamHeadClient*> peers;
@@ -2522,7 +2620,6 @@ protected:
 public:
 	StreamHeadPrePost(int _pre, int _post) :
 			pre(_pre), post(_post),
-			event_received(false),
 			cooked(false)
 		{
 		actual.status_fp = stdout;
@@ -2567,16 +2664,7 @@ public:
 		startEventWatcher();
 	}
 
-	void startEventWatcher() {
-		f_ev = open("/dev/acq400.1.ev", O_RDONLY);
-		if (f_ev < 0){
-			perror("/dev/acq400.1.ev");
-			exit(1);
-		}
-		if (f_ev > fc){
-			nfds = f_ev+1;
-		}
-	}
+
 
 	void stream() {
 		setState(ST_ARM);
@@ -2726,7 +2814,11 @@ StreamHead& StreamHead::instance() {
 		}else{
 			switch(G::buffer_mode){
 			case BM_DEMUX:
-				_instance = new StreamHeadHB0();
+				if (has_pre_post_live_demux()){
+					_instance = new StreamHeadLivePP;
+				}else{
+					_instance = new StreamHeadHB0;
+				}
 				break;
 			case BM_NULL:
 				_instance = new NullStreamHead();
