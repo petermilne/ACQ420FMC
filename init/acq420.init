@@ -281,7 +281,7 @@ install_default_cal() {
 			cp /usr/local/cal/${TYP}-defcal.xml ${caldef}
 		fi
 	fi	
-}
+
 build_site0() {
 	dk=/dev/acq400.0.knobs
 	ek=/etc/acq400/0/
@@ -293,6 +293,9 @@ build_site0() {
 	ln -s /usr/local/bin/transient ${ek}
 	ln -s /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
+	echo 0 > ${ek}/live_post
+	echo 0 > ${ek}/live_pre
+	
 	[ "x$REBOOT_KNOB" = "xy" ] && ln -s /usr/local/bin/reboot ${ek}
 	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/spad* \

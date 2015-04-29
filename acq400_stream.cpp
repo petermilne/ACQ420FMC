@@ -1857,8 +1857,8 @@ void StreamHeadHB0::stream() {
 #define OBS_ROOT "/dev/shm/transient"
 #define TOTAL_BUFFER_LIMIT	(G::nbuffers * G::bufferlen)
 
-#define LIVE_PRE	"/etc/acq400.0/live_pre"
-#define LIVE_POST	"/etc/acq400.0/live_post"
+#define LIVE_PRE	"/etc/acq400/0/live_pre"
+#define LIVE_POST	"/etc/acq400/0/live_post"
 
 class StreamHeadLivePP : public StreamHeadHB0 {
 	int pre;
@@ -1874,9 +1874,13 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		if (!fp) {
 			return false;
 		}
-		bool ok = fread(pram, sizeof(int), 1, fp) == 1;
+		char aline[32];
+		bool rc = false;
+		if (fgets(aline, 32, fp)){
+			rc = sscanf(aline, "%d", pram) == 1;
+		}
 		fclose(fp);
-		return ok;
+		return rc;
 	}
 	static bool getPP(int *_pre, int* _post)
 	{
@@ -1901,7 +1905,8 @@ public:
 	}
 
 	static bool hasPP() {
-		return getPP(0, 0);
+		int pp[2];
+		return getPP(pp, pp+1) && pp[0]+pp[1] > 0;
 	}
 	virtual void stream();
 };
