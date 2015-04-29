@@ -1955,7 +1955,8 @@ void StreamHeadLivePP::stream() {
 					ibuf, es);
 		char *es1 = es + sample_size;
 
-		Buffer* buf = Buffer::the_buffers[ibuf];
+		// all info referenced to buffer 0!
+		Buffer* buf = Buffer::the_buffers[0];
 
 		if (!(es - prelen() > b0 && es1 + postlen() < b1 )){
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 49\n");
