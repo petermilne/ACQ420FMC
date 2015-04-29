@@ -368,6 +368,9 @@ public:
 			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
 			exit(1);
 		}
+		if (verbose) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
+				the_buffers.size()-1, fname, pdata);
+
 		ba_hi = ba1 += G::bufferlen;
 		assert(pdata != MAP_FAILED);
 	}
@@ -425,10 +428,11 @@ public:
 	}
 };
 
-char* MapBuffer::ba0 = (char*)(0x40000000);
-char* MapBuffer::ba1 = (char*)(0x40000000);
-char* MapBuffer::ba_lo;
-char* MapBuffer::ba_hi;
+#define MAPBUFFER_BA0     (char*)(0x40000000)
+char* MapBuffer::ba0   = MAPBUFFER_BA0;		/* const */
+char* MapBuffer::ba1   = MAPBUFFER_BA0;		/* initial value increments to top */
+char* MapBuffer::ba_lo = MAPBUFFER_BA0;		/* initial value, may move by reserve count */
+char* MapBuffer::ba_hi;				/* tracks ba1 @@todo may be redundant */
 bool MapBuffer::buffer_0_reserved;
 
 #define FMT_OUT_ROOT		"/dev/shm/AI.%d.wf"
@@ -513,12 +517,14 @@ private:
 		fwrite(src, sizeof(T), nwords, pp);
 		pclose(pp);
 	}
-	bool demux(bool start, int start_off = 0, int len = 0) {
-		if (len == 0) len = buffer_len;
+	bool demux(bool start, int start_off, int len) {
 		T* src1 = reinterpret_cast<T*>(pdata+start_off);
 		T* src = reinterpret_cast<T*>(pdata+start_off);
 		int Tlen = len/sizeof(T);
 		int isam = 0;
+
+		if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
+				start_off, src);
 
 		if (verbose > 1 && start && ch_id(src[0]) != 0x00){
 			fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
@@ -562,15 +568,15 @@ private:
 				if (src-src1 >= Tlen){
 					if (verbose){
 						fprintf(stderr,
-						"END buf ch:%d last:%08x\n",
-						ichan, last);
+						"demux() END buf ch:%d src:%p len:%d\n",
+						ichan, src,  ddcursors[ichan]-dddata[ichan]);
 					}
 					if (++ichan >= nchan) ichan = 0;
 					startchan = ichan;
 
-					if (verbose){
+					if (verbose && startchan != 0){
 						fprintf(stderr,
-						"END buf startchan:%d\n", startchan);
+						"demux() END buf startchan:%d\n", startchan);
 					}
 					return false;
 				}
@@ -585,8 +591,13 @@ private:
 			perror(fnames[ic]);
 			return true;
 		}
-		fwrite(dddata[ic], sizeof(T), ddcursors[ic]-dddata[ic], fp);
+		int nelems = ddcursors[ic]-dddata[ic];
+		int nwrite = fwrite(dddata[ic], sizeof(T), nelems, fp);
 		fclose(fp);
+		if (nwrite != nelems || verbose&&ic==0){
+			fprintf(stderr, "DemuxBuffer::writeChan(%s) %d %d %s\n",
+					fnames[ic], nwrite, nelems, nwrite!=nelems? "ERROR":"");
+		}
 		return false;
 	}
 public:
@@ -594,7 +605,7 @@ public:
 		if ((b_opts&BO_START) != 0){
 			start();
 		}
-		demux((b_opts&BO_START));
+		demux((b_opts&BO_START),0, buffer_len);
 		if ((b_opts&BO_FINISH) != 0){
 			for (int ic = 0; ic < nchan; ++ic){
 				if (writeChan(ic)){
@@ -611,10 +622,15 @@ public:
 		if ((b_opts&BO_START) != 0){
 			start();
 		}
-		demux((b_opts&BO_START, start_off, len));
+		if (verbose) fprintf(stderr, "DemuxBuffer::writeBuffer %s%s %p + 0x%08x + %d %p..%p\n",
+				(b_opts&BO_START)? "S":"", (b_opts&BO_FINISH)? "F":"",
+				pdata, start_off, len, pdata+start_off, pdata+start_off+len);
+
+		demux((b_opts&BO_START), start_off, len);
 		if ((b_opts&BO_FINISH) != 0){
 			for (int ic = 0; ic < nchan; ++ic){
 				if (writeChan(ic)){
+					if (verbose) fprintf(stderr, "writeChan() fail\n");
 					// links take out from under
 					return -1;
 				}
@@ -644,8 +660,8 @@ public:
 		make_names();
 
 		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
-		if (verbose){
-			printf("nsam:%d _buffer_len:%d data_fits_buffer? %s\n",
+		if (verbose>1){
+			fprintf(stderr, "nsam:%d _buffer_len:%d data_fits_buffer? %s\n",
 				nsam, _buffer_len, data_fits_buffer? "YES": "NO");
 		}
 	}
@@ -1749,6 +1765,7 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (IS_ES(cursor)){
+				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
@@ -1902,6 +1919,9 @@ public:
 			sample_size(G::nchan*G::wordsize) {
 		fprintf(stderr, "StreamHeadLivePP()\n");
 		startEventWatcher();
+
+		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
+				Buffer::the_buffers[0]->getBase());
 	}
 
 	static bool hasPP() {
@@ -1924,21 +1944,22 @@ void StreamHeadLivePP::stream() {
 	int bo1 = Buffer::BO_NONE;
 	int bo2 = Buffer::BO_NONE; ;
 
-	if (pre){
-		bo1 = Buffer::BO_START;
-	}else{
-		bo2 = Buffer::BO_START;
-	}
-	if (!post){
-		bo1 |= Buffer::BO_FINISH;
-	}else{
-		bo2 |= Buffer::BO_FINISH;
-	}
 
 	fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 
 	// 1637099 -1 201    sample_count, hb0 hb1
 	for( getPP(); (rc = read(f_ev, event_info, 80)) > 0; getPP()){
+		if (pre){
+			bo1 = Buffer::BO_START;
+		}else{
+			bo2 = Buffer::BO_START;
+		}
+		if (!post){
+			bo1 |= Buffer::BO_FINISH;
+		}else{
+			bo2 |= Buffer::BO_FINISH;
+		}
+
 		event_info[rc] = '\0';
 		chomp(event_info);
 		if (verbose) fprintf(stderr, "fd_ev read \"%s\"\n", event_info);
@@ -1957,6 +1978,7 @@ void StreamHeadLivePP::stream() {
 
 		// all info referenced to buffer 0!
 		Buffer* buf = Buffer::the_buffers[0];
+		b0 = buf->getBase();
 
 		if (!(es - prelen() > b0 && es1 + postlen() < b1 )){
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 49\n");
