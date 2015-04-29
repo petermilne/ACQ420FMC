@@ -281,6 +281,7 @@ install_default_cal() {
 			cp /usr/local/cal/${TYP}-defcal.xml ${caldef}
 		fi
 	fi	
+}
 
 build_site0() {
 	dk=/dev/acq400.0.knobs
