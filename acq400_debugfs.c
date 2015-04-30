@@ -118,6 +118,7 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	}
 	if (IS_AO424(adev)){
 		DBG_REG_CREATE(DAC_424_CGEN);
+		DBG_REG_CREATE(AO424_DELAY);
 		ao424_create_spans(adev, pcursor);
 	}
 }
