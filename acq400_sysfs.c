@@ -2040,6 +2040,36 @@ static ssize_t store_dacspi(
 
 static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
 
+static ssize_t show_delay66(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 delay66 = acq400rd32(adev, AO424_DELAY);
+
+	return sprintf(buf, "0x%02x\n", delay66&0x00ff);
+}
+
+static ssize_t store_delay66(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned delay66;
+	if (sscanf(buf, "0x%x", &delay66) == 1 || sscanf(buf, "%d", &delay66) == 1){
+		if (delay66 > 0xff) delay66 = 0xff;
+		acq400wr32(adev, AO424_DELAY, delay66);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(delay66, S_IWUGO|S_IRUGO, show_delay66, store_delay66);
+
 #define DAC_CTRL_RESET(adev)	(IS_BOLO8(adev)? B8_DAC_CON: DAC_CTRL)
 
 static ssize_t show_dacreset(
@@ -2280,6 +2310,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_twos_comp_encoding.attr,
 	&dev_attr_bank_mask.attr,
 	&dev_attr_odd_channels.attr,
+	&dev_attr_delay66.attr,
 	/*
 	&dev_attr_G1.attr, &dev_attr_D1.attr,
 	&dev_attr_G2.attr, &dev_attr_D2.attr,

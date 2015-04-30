@@ -91,6 +91,7 @@
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
+#define AO424_DELAY		(AO420_DACSPI)
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 
@@ -522,6 +523,7 @@ struct acq400_dev {
 	/* bq Buffer Queue support */
 	struct mutex bq_clients_mutex;
 	struct list_head bq_clients;
+	int event_client_count;
 
 	int bq_overruns;
 };
