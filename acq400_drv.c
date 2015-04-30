@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.776"
+#define REVID "2.777"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1919,9 +1919,14 @@ ssize_t acq400_event_read(
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	spinlock_t lock;
 	unsigned long flags;
+	u32 old_sample = adev->sample_clocks_at_event;
 
+	/* force caller to wait fresh event. This is an auto-rate-limit
+	 * it's also re-entrant (supports multiple clients each at own rate)
+	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
+	 */
 	if (wait_event_interruptible(
-			adev->event_waitq, adev->sample_clocks_at_event != 0)){
+		adev->event_waitq, adev->sample_clocks_at_event != old_sample)){
 		return -EINTR;
 	}
 
@@ -1946,7 +1951,6 @@ ssize_t acq400_event_read(
 			adev->sample_clocks_at_event,
 			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1);
 
-	adev->sample_clocks_at_event = 0;
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
 		rc = -1;

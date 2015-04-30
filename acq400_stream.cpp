@@ -169,6 +169,7 @@ namespace G {
 	char* pre_demux_script;
 	int show_first_sample;
 	bool es_diagnostic;
+	int report_es;
 };
 
 
@@ -517,6 +518,7 @@ private:
 		fwrite(src, sizeof(T), nwords, pp);
 		pclose(pp);
 	}
+	/* NB: this is an out-of-place demux, source is unchanged */
 	bool demux(bool start, int start_off, int len) {
 		T* src1 = reinterpret_cast<T*>(pdata+start_off);
 		T* src = reinterpret_cast<T*>(pdata+start_off);
@@ -1113,9 +1115,14 @@ int shuffle_test;
 int fill_ramp_incr;
 
 struct poptOption opt_table[] = {
-	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0, 	"reduce buffer len" },
-	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL, 	"no output copy"    },
-	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,  "set verbosity"	    },
+	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0,
+			"reduce buffer len" },
+	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL,
+			"no output copy"    },
+	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,
+			"set verbosity"	    },
+	{ "report-es", 'r', POPT_ARG_INT, &G::report_es, 0,
+			"report es position every find" },
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -2372,6 +2379,7 @@ public:
 };
 
 void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
+	if (!G::report_es) return;
 	printf("StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
 			id, ibuf, esp);
 	printf("Buffer length bytes: %d\n", G::bufferlen);
