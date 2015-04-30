@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.777"
+#define REVID "2.779"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -157,6 +157,9 @@ int ao424_buffer_length = AO424_BUFFERLEN;
 module_param(ao424_buffer_length, int, 0644);
 MODULE_PARM_DESC(ao424_buffer_length, "AWG buffer length");
 
+int event_to = HZ/2;
+module_param(event_to, int, 0644);
+MODULE_PARM_DESC(event_to, "backstop event time out should be one TBLOCK");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -1899,11 +1902,22 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	u32 int_csr = x400_get_interrupt(adev);
-	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN);
+	u32 int_csr;
+
+	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+		return -ERESTARTSYS;
+	}else{
+		++adev->event_client_count;
+		mutex_unlock(&adev->bq_clients_mutex);
+	}
+	int_csr = x400_get_interrupt(adev);
+	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN|ADC_INT_CSR_COS);
+
 	/* good luck using this in a 64-bit system ... */
+	/*
 	setup_timer( &adev->event_timer, event_isr, (unsigned)adev);
 	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
+	*/
 	return 0;
 }
 
@@ -1914,12 +1928,15 @@ ssize_t acq400_event_read(
 	char lbuf[40];
 	int nbytes;
 	int rc;
-	struct HBM *hbm0;
-	struct HBM *hbm1;
+	struct HBM *hbm0 = 0;
+	struct HBM *hbm1 = 0;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	spinlock_t lock;
 	unsigned long flags;
 	u32 old_sample = adev->sample_clocks_at_event;
+	int timeout = 0;
+
+	spin_lock_init(&lock);
 
 	/* force caller to wait fresh event. This is an auto-rate-limit
 	 * it's also re-entrant (supports multiple clients each at own rate)
@@ -1930,26 +1947,40 @@ ssize_t acq400_event_read(
 		return -EINTR;
 	}
 
-	spin_lock_init(&lock);
 	spin_lock_irqsave(&lock, flags);
 	/* event is somewhere between these two blocks */
 	if (!list_empty(&adev0->REFILLS)){
 		hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
 	}else if (!list_empty(&adev0->OPENS)){
 		hbm0 = list_last_entry(&adev0->OPENS, struct HBM, list);
-	}else{
-		hbm0 = 0;
 	}
 	if (!list_empty(&adev0->INFLIGHT)){
 		hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
-	}else{
-		hbm1 = 0;
 	}
 	spin_unlock_irqrestore(&lock, flags);
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d\n",
+	if (hbm0){
+		dma_sync_single_for_cpu(DEVP(adev), hbm0->pa, hbm0->len, hbm0->dir);
+	}
+	if (hbm1){
+		int rc = wait_event_interruptible_timeout(
+			adev0->refill_ready,
+			//(list_empty(&adev0->REFILLS) || list_last_entry(&adev0->REFILLS, struct HBM, list) != hbm0) ||
+			list_last_entry(&adev0->REFILLS, struct HBM, list) == hbm1 ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop,
+			event_to);
+		if (rc < 0){
+			return -EINTR;
+		}else if (rc == 0){
+			timeout = 1;
+		}
+		dma_sync_single_for_cpu(DEVP(adev), hbm1->pa, hbm1->len, hbm1->dir);
+	}
+
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s\n",
 			adev->sample_clocks_at_event,
-			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1);
+			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "");
 
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
@@ -1979,9 +2010,19 @@ static unsigned int acq400_event_poll(
 int acq400_event_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	u32 int_csr = x400_get_interrupt(adev);
-	x400_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
+
+	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+		return -ERESTARTSYS;
+	}else{
+		if (--adev->event_client_count == 0){
+			u32 int_csr = x400_get_interrupt(adev);
+			x400_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
+		}
+		mutex_unlock(&adev->bq_clients_mutex);
+	}
+	/*
 	del_timer( &adev->event_timer );
+	*/
 	return 0;
 }
 
@@ -3006,7 +3047,9 @@ void event_isr(unsigned long data)
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	volatile u32 status = x400_get_interrupt(adev);
 	cos_action(adev, status);
+	/*
 	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
+	*/
 }
 
 static irqreturn_t acq400_isr(int irq, void *dev_id)
