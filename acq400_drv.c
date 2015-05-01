@@ -1966,9 +1966,10 @@ ssize_t acq400_event_read(
 		int rc = wait_event_interruptible_timeout(
 			adev0->refill_ready,
 			//(list_empty(&adev0->REFILLS) || list_last_entry(&adev0->REFILLS, struct HBM, list) != hbm0) ||
-			list_last_entry(&adev0->REFILLS, struct HBM, list) == hbm1 ||
-			adev->rt.refill_error ||
-			adev->rt.please_stop,
+			//list_last_entry(&adev0->REFILLS, struct HBM, list) == hbm1 ||
+			hbm1->bstate == BS_FULL ||
+				adev0->rt.refill_error ||
+				adev0->rt.please_stop,
 			event_to);
 		if (rc < 0){
 			return -EINTR;
@@ -2020,9 +2021,6 @@ int acq400_event_release(struct inode *inode, struct file *file)
 		}
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
-	/*
-	del_timer( &adev->event_timer );
-	*/
 	return 0;
 }
 
@@ -3030,7 +3028,6 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
-		x400_set_interrupt(adev, status);
 		wake_up_interruptible(&adev->event_waitq);
 	}
 }
@@ -3047,9 +3044,6 @@ void event_isr(unsigned long data)
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	volatile u32 status = x400_get_interrupt(adev);
 	cos_action(adev, status);
-	/*
-	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
-	*/
 }
 
 static irqreturn_t acq400_isr(int irq, void *dev_id)
@@ -3057,12 +3051,8 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	volatile u32 status = x400_get_interrupt(adev);
 
-	/** @@todo ... disable interrupt? BAD BAD BAD */
-	x400_disable_interrupt(adev);
-
 	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
 
-	x400_clr_interrupt(adev, status);
 	adev->stats.fifo_interrupts++;
 	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	adev->fifo_isr_done = 1;
@@ -3080,8 +3070,10 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 	//volatile u32 status =
 	x400_get_interrupt(adev);
 
+	// @@todo check this.
 	x400_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
+
 	adev->stats.fifo_interrupts++;
 
 	if (adev->AO_playloop.length){
