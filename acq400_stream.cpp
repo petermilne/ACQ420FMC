@@ -281,6 +281,10 @@ public:
 	}
 	virtual char* getBase() { return 0; }
 
+	char *getEnd() {
+		return getBase() + getLen();
+	}
+
 	static int samples_per_buffer() {
 		return G::bufferlen/sample_size();
 	}
@@ -1978,6 +1982,10 @@ void StreamHeadLivePP::stream() {
 		if (!findEvent(&ibuf, &es)){
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 39\n");
 			continue;	// silently drop it. there will be more
+		}else if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
+			// only data in this buffer is guaranteed to be there .. drop it
+			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
+			continue;
 		}
 		fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n",
 					ibuf, es);
