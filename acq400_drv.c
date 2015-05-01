@@ -1931,12 +1931,8 @@ ssize_t acq400_event_read(
 	struct HBM *hbm0 = 0;
 	struct HBM *hbm1 = 0;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
-	spinlock_t lock;
-	unsigned long flags;
 	u32 old_sample = adev->sample_clocks_at_event;
 	int timeout = 0;
-
-	spin_lock_init(&lock);
 
 	/* force caller to wait fresh event. This is an auto-rate-limit
 	 * it's also re-entrant (supports multiple clients each at own rate)
