@@ -189,6 +189,20 @@ unsigned b2s(unsigned bytes) {
 	return bytes/sample_size();
 }
 
+#define ES_MAGIC	0xaa55f100
+#define ES_MAGIC_MASK	0xffffff00
+
+bool is_es_word(unsigned word)
+{
+	return (word&ES_MAGIC_MASK) == ES_MAGIC;
+
+}
+bool IS_ES(unsigned *cursor)
+{
+	return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
+			is_es_word(cursor[2]) && is_es_word(cursor[3]);
+}
+
 static int createOutfile(const char* fname) {
 	int fd = open(fname,
 			O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU|S_IRGRP|S_IROTH);
@@ -567,7 +581,13 @@ private:
 		/* run to the end of buffer. nsam could be rounded down,
 		 * so do not use it.
 		 */
+		if (verbose) fprintf(stderr, "can skip ES");
+
 		for (isam = startoff/nchan; true; ++isam, ichan = 0){
+			while (IS_ES(reinterpret_cast<unsigned*>(src))){
+				if (verbose) fprintf(stderr, "skip ES\n");
+				src += nchan;
+			}
 			for (; ichan < nchan; ++ichan){
 				T last = (*src++)&mask[ichan];
 				*ddcursors[ichan]++ = last;
@@ -1586,19 +1606,7 @@ protected:
 			return rc;
 		}
 	}
-#define ES_MAGIC	0xaa55f100
-#define ES_MAGIC_MASK	0xffffff00
 
-	bool is_es_word(unsigned word)
-	{
-		return (word&ES_MAGIC_MASK) == ES_MAGIC;
-
-	}
-	bool IS_ES(unsigned *cursor)
-	{
-		return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
-				is_es_word(cursor[2]) && is_es_word(cursor[3]);
-	}
 
 public:
 	virtual void stream() {
@@ -1766,6 +1774,21 @@ protected:
 		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
 
 		return false;
+	}
+	int countES(char* start, int len) {
+		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
+		unsigned *cursor = reinterpret_cast<unsigned*>(start);
+		unsigned *base = cursor;
+		unsigned lenw = len/G::wordsize;
+		int escount = 0;
+
+		for (; cursor - base < lenw; cursor += stride){
+			if (IS_ES(cursor)){
+				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
+				++escount;
+			}
+		}
+		return escount;
 	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
@@ -2000,10 +2023,22 @@ void StreamHeadLivePP::stream() {
 			continue;	// silently drop it. there will be more
 		}
 		if (pre){
-			buf->writeBuffer(1, bo1, es - prelen() - b0, prelen());
+			int escount = countES(es-prelen(), prelen());
+			int eslen = escount*sample_size;
+			if (es - prelen() > b0 + eslen){
+				if (verbose) fprintf(stderr,
+					"StreamHeadLivePP::stream() 55 escount:%d\n", escount);
+			}
+			buf->writeBuffer(1, bo1, es - prelen() - b0 - eslen, prelen()+eslen);
 		}
 		if (post){
-			buf->writeBuffer(1, bo2, es1 - b0, postlen());
+			int escount = countES(es1, postlen());
+			int eslen = escount*sample_size;
+			if (es1 - b0 > postlen() - eslen){
+				if (verbose) fprintf(stderr,
+					"StreamHeadLivePP::stream() 57 escount:%d\n", escount);
+			}
+			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
 		}
 		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 69\n");
 	}
