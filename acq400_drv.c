@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.779"
+#define REVID "2.780"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1947,7 +1947,7 @@ ssize_t acq400_event_read(
 		return -EINTR;
 	}
 
-	spin_lock_irqsave(&lock, flags);
+	mutex_lock(&adev0->list_mutex);
 	/* event is somewhere between these two blocks */
 	if (!list_empty(&adev0->REFILLS)){
 		hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
@@ -1957,7 +1957,7 @@ ssize_t acq400_event_read(
 	if (!list_empty(&adev0->INFLIGHT)){
 		hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
 	}
-	spin_unlock_irqrestore(&lock, flags);
+	mutex_unlock(&adev0->list_mutex);
 
 	if (hbm0){
 		dma_sync_single_for_cpu(DEVP(adev), hbm0->pa, hbm0->len, hbm0->dir);
@@ -1965,9 +1965,7 @@ ssize_t acq400_event_read(
 	if (hbm1){
 		int rc = wait_event_interruptible_timeout(
 			adev0->refill_ready,
-			//(list_empty(&adev0->REFILLS) || list_last_entry(&adev0->REFILLS, struct HBM, list) != hbm0) ||
-			//list_last_entry(&adev0->REFILLS, struct HBM, list) == hbm1 ||
-			hbm1->bstate == BS_FULL ||
+			hbm1->bstate != BS_FILLING ||
 				adev0->rt.refill_error ||
 				adev0->rt.please_stop,
 			event_to);
