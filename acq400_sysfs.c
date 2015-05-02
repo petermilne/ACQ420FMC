@@ -1536,6 +1536,19 @@ static ssize_t store_nacc(
 
 static DEVICE_ATTR(nacc, S_IRUGO|S_IWUGO, show_nacc, store_nacc);
 
+static ssize_t show_is_triggered(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int triggered = acq400rd32(adev, ADC_FIFO_STA)&ADC_FIFO_STA_ACTIVE;
+
+	return sprintf(buf, "%u\n", triggered != 0);
+}
+
+static DEVICE_ATTR(is_triggered, S_IRUGO, show_is_triggered, 0);
+
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -1568,6 +1581,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_active_chan.attr,
 	&dev_attr_rgm.attr,
 	&dev_attr_nacc.attr,
+	&dev_attr_is_triggered.attr,
 	NULL,
 };
 
