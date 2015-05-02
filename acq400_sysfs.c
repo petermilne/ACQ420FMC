@@ -1493,27 +1493,6 @@ static ssize_t show_sysclkhz(
 
 static DEVICE_ATTR(sysclkhz, S_IRUGO, show_sysclkhz, 0);
 
-#define acq435_get_nacc_shift_exact 1
-#define acq435_get_nacc_shift_ge    0
-static u32 acq435_get_nacc_shift(unsigned divider, int exact)
-{
-#define EMATCH(x, y) (exact? (x) == (y): (x) >= (y))
-	if (EMATCH(divider, 32)){
-		return ADC_ACC_DEC_SHIFT_5;
-	}else if (EMATCH(divider, 16)){
-		return ADC_ACC_DEC_SHIFT_4;
-	}else if (EMATCH(divider, 8)){
-		return ADC_ACC_DEC_SHIFT_3;
-	}else if (EMATCH(divider, 4)){
-		return ADC_ACC_DEC_SHIFT_2;
-	}else if (EMATCH(divider, 2)){
-		return ADC_ACC_DEC_SHIFT_1;
-	}else if (EMATCH(divider, 1)){
-		return ADC_ACC_DEC_SHIFT_0;
-	}else{
-		return 0xffffffff;
-	}
-}
 
 static ssize_t show_nacc(
 	struct device * dev,
@@ -1524,16 +1503,9 @@ static ssize_t show_nacc(
 	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
 	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
 					getSHL(ADC_ACC_DEC_SHIFT_MASK);
-	unsigned divider;
-
-	for (divider = 32; divider; divider >>= 1){
-		if (acq435_get_nacc_shift(divider,acq435_get_nacc_shift_exact) == shift){
-			break;
-		}
-	}
 
 	return sprintf(buf, "%u,%u\n",
-			(acc_dec&ADC_ACC_DEC_LEN)+1, divider);
+			(acc_dec&ADC_ACC_DEC_LEN)+1, shift);
 }
 
 static ssize_t store_nacc(
@@ -1544,20 +1516,18 @@ static ssize_t store_nacc(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 nacc;
-	u32 divider = 0;
+	u32 shift = 0;
 
-	if (sscanf(buf, "%u,%u", &nacc, &divider) >= 1){
-		u32 acc_dec = nacc;
-		unsigned shift;
+	if (sscanf(buf, "%u,%u", &nacc, &shift) >= 1){
+		u32 acdc;
 
-		if (divider == 0) divider = nacc;	/* most of the time, this is what you want! */
-		if (acc_dec > 0) 	acc_dec -= 1;
-		if (acc_dec == 0) 	divider = 1;
-		acc_dec &= ADC_ACC_DEC_LEN;
+		nacc = max(nacc, 1);
+		nacc = min(nacc, ADC_MAX_NACC);
+		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
 
-		shift = acq435_get_nacc_shift(divider, acq435_get_nacc_shift_ge);
-		acc_dec |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
-		acq400wr32(adev, ADC_ACC_DEC, acc_dec);
+		acdc = nacc-1;
+		acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
+		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;
 	}else{
 		return -1;
