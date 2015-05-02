@@ -1515,8 +1515,8 @@ static ssize_t store_nacc(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 nacc;
-	u32 shift = 0;
+	int nacc;
+	int shift = 0;
 
 	if (sscanf(buf, "%u,%u", &nacc, &shift) >= 1){
 		u32 acdc;
