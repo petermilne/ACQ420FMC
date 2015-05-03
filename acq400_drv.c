@@ -1334,11 +1334,8 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	adev->rt.hbm_m1 = hbm;
 
 	acq400_bq_notify(adev, hbm);
-	if (rc){
-		return -rc;
-	}
 
-	return nread;
+	return rc? -rc: nread;
 }
 
 
@@ -1418,25 +1415,28 @@ static unsigned int acq420_continuous_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	int rc = 0;
+	int wait = 0;
 
 	if (!list_empty(&adev->REFILLS)){
-		return POLLIN|POLLRDNORM;
+		rc = POLLIN|POLLRDNORM;
 	}else if (adev->rt.refill_error){
-		return POLLERR;
+		rc = POLLERR;
 	}else if (adev->rt.please_stop){
-		return POLLHUP;
+		rc = POLLHUP;
 	}else{
+		wait = 1;
 		poll_wait(file, &adev->refill_ready, poll_table);
 		if (!list_empty(&adev->REFILLS)){
-			return POLLIN|POLLRDNORM;
+			rc = POLLIN|POLLRDNORM;
 		}else if (adev->rt.refill_error){
-			return POLLERR;
+			rc = POLLERR;
 		}else if (adev->rt.please_stop){
-			return POLLHUP;
-		}else{
-			return 0;
+			rc = POLLHUP;
 		}
 	}
+	dev_dbg(DEVP(adev), "acq420_continuous_poll() %d return %d", wait, rc);
+	return rc;
 }
 ssize_t acq400_hb0_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
