@@ -523,6 +523,7 @@ struct acq400_dev {
 	int event_client_count;
 
 	int bq_overruns;
+	pid_t continuous_reader;
 };
 
 

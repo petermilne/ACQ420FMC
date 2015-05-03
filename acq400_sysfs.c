@@ -1549,6 +1549,16 @@ static ssize_t show_is_triggered(
 
 static DEVICE_ATTR(is_triggered, S_IRUGO, show_is_triggered, 0);
 
+static ssize_t show_continuous_reader(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->continuous_reader);
+}
+
+static DEVICE_ATTR(continuous_reader, S_IRUGO, show_continuous_reader, 0);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -1558,6 +1568,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
+	&dev_attr_continuous_reader.attr,
 	NULL
 };
 

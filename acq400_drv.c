@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.781"
+#define REVID "2.783"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1287,6 +1287,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	adev->stats.reads++;
 	adev->count = count;
 	adev->this_count = 0;
+	adev->continuous_reader = task_pid_nr(current);
 
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
@@ -1391,7 +1392,10 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 }
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	adev->continuous_reader = 0;
 	_acq420_continuous_stop(ACQ400_DEV(file), 1);
+
 	return acq400_release(inode, file);
 }
 
@@ -1400,6 +1404,7 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
+	adev->continuous_reader = 0;
 	return acq400_release(inode, file);
 }
 
@@ -1530,6 +1535,8 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
+	adev->continuous_reader = task_pid_nr(current);
+
 	if (wait_event_interruptible(
 			adev->refill_ready,
 			!list_empty(&adev->REFILLS) ||
@@ -1554,7 +1561,10 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 
 int acq420_sideported_stop(struct inode *inode, struct file *file)
 {
-	_acq420_continuous_stop(ACQ400_DEV(file), 0);
+	struct acq400_dev *adev = ACQ400_DEV(file);
+
+	adev->continuous_reader = 0;
+	_acq420_continuous_stop(adev, 0);
 	return acq400_release(inode, file);
 }
 
