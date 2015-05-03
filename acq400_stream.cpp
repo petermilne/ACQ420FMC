@@ -1369,7 +1369,6 @@ static void hold_open(const char* sites)
 
 		                if (child == 0) {
 		                	int val;
-
 		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
 		                	if (G::use_aggsem){
 		                		sem_getvalue(G::aggsem, &val);
@@ -1389,9 +1388,6 @@ static void hold_open(const char* sites)
 		                	hold_open(G::the_sites[isite]);
 		                	assert(1);
 		                }else{
-		                	sched_yield();
-		                	sleep(1);		/* OVERKILL: this will work ;-) .. but it's SLOW */
-		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "done_waiting", isite);
 		                	holders.push_back(child);
 		                }
 			}
@@ -2942,6 +2938,26 @@ public:
 	}
 };
 
+void waitHolders() {
+	for (int isite = 0; isite < G::nsites; ++isite){
+		unsigned holder_ready = 0;
+		for(int pollcat = 0;; ++pollcat, usleep(10000)){
+			if (getKnob(G::the_sites[isite], "continuous_reader",
+					&holder_ready) != 1){
+				fprintf(stderr, "ERROR: getKnob continuous_reader\n");
+				exit(1);
+			}
+			if (holder_ready){
+				break;
+			}
+
+			if (pollcat > 100){
+				fprintf(stderr, "ERROR:waitHolders: timeout\n");
+				exit(1);
+			}
+		}
+	}
+}
 StreamHead& StreamHead::instance() {
 	static StreamHead* _instance;
 
@@ -2991,6 +3007,7 @@ StreamHead& StreamHead::instance() {
 			perror("sem_post");
 		}
 	}
+	waitHolders();
 	if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
 	return *_instance;
 }
