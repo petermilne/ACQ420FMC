@@ -114,7 +114,7 @@ int getFull(struct acq400_dev* adev, struct HBM** first)
 
 	if (first) *first = hbm;
 
-	dev_dbg(DEVP(adev), "getFull() %d", hbm->ix);
+	dev_dbg(DEVP(adev), "getFull() %d %s", hbm->ix, wait? "WAITED": "");
 	return GET_FULL_OK;
 }
 
@@ -238,16 +238,20 @@ int hbm_cmp(void *priv, struct list_head *a, struct list_head *b)
 	}
 }
 
-int is_sorted(struct list_head* hblist) {
+int is_sorted(struct acq400_dev *adev, struct list_head* hblist) {
 	struct HBM* cursor;
+	int entries = 0;
+	int badsort = 0;
 
 	int ix1 = -1;
 	list_for_each_entry(cursor, hblist, list){
+		++entries;
 		if (++ix1 != cursor->ix){
-			return 0;
+			++badsort;
 		}
 	}
-	return 1;
+	if (badsort) dev_dbg(DEVP(adev), "is_sorted() total:%d bad:%d", entries, badsort);
+	return badsort == 0;
 }
 void count_empties(struct acq400_dev *adev) {
 	struct HBM *cursor;
@@ -262,11 +266,11 @@ void count_empties(struct acq400_dev *adev) {
 }
 
 void sort_empties(struct acq400_dev *adev) {
-	if (is_sorted(&adev->EMPTIES)) return;
+	if (is_sorted(adev, &adev->EMPTIES)) return;
 
 	dev_dbg(DEVP(adev), "NB: empties list not in order, sorting it .. ");
 	list_sort(NULL, &adev->EMPTIES, hbm_cmp);
-	if (is_sorted(&adev->EMPTIES)){
+	if (is_sorted(adev, &adev->EMPTIES)){
 		dev_dbg(DEVP(adev), ".. sorted");
 	}else{
 		dev_dbg(DEVP(adev), "failed to sort EMPTIES");
@@ -292,10 +296,10 @@ void replace_all(struct acq400_path_descriptor* pd)
 	mutex_unlock(&adev->list_mutex);
 	sort_empties(adev);
 
-	if (!is_sorted(&adev->EMPTIES)){
+	if (!is_sorted(adev, &adev->EMPTIES)){
 		sort_empties(adev);
 	}
-	if (!is_sorted(&adev->EMPTIES)){
+	if (!is_sorted(adev, &adev->EMPTIES)){
 		dev_err(DEVP(adev), "failed to sort EMPTIES");
 	}
 	dev_dbg(DEVP(adev), "replace 99");

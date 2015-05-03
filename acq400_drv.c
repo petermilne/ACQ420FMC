@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.783"
+#define REVID "2.784"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1295,6 +1295,9 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	if (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
+
+	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull()");
+
 	switch((rc = getFull(adev, &hbm))){
 	case GET_FULL_OK:
 		break;
@@ -1314,7 +1317,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		return -1;
 	}
 
-	dev_dbg(DEVP(adev), "getFull() : %d", hbm->ix);
+	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull() : %d", hbm->ix);
 
 	/* update every hb0 or at least once per second */
 	now = get_seconds() + hb0_no_ratelimit;
