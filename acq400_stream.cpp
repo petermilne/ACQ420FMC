@@ -388,7 +388,7 @@ public:
 			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
 			exit(1);
 		}
-		if (verbose) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
+		if (verbose > 2) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
 				the_buffers.size()-1, fname, pdata);
 
 		ba_hi = ba1 += G::bufferlen;
@@ -2725,6 +2725,7 @@ protected:
 	void streamCore() {
 		BufferLog blog;
 		int ib;
+		int post_run_over_one = 0;
 
 
 		while((ib = getBufferId()) >= 0){
@@ -2766,7 +2767,12 @@ protected:
 				if (actual.post > post){
 					actual.post = post;
 					actual.elapsed += samples_buffer;
-					setState(ST_POSTPROCESS);
+					/* always overrun by one buffer to ensure good data
+					 * when ES is adjusted
+					 */
+					if (post_run_over_one++){
+						setState(ST_POSTPROCESS);
+					}
 					return;
 				}
 				break;
