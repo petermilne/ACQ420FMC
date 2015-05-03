@@ -170,6 +170,8 @@ namespace G {
 	int show_first_sample;
 	bool es_diagnostic;
 	int report_es;
+	int nsites;
+	int the_sites[6];
 };
 
 
@@ -1335,12 +1337,11 @@ std::vector<pid_t> holders;
 
 static void hold_open(const char* sites)
 {
-	int the_sites[6];
-	int nsites = sscanf(sites, "%d,%d,%d,%d,%d,%d",
-		the_sites+0, the_sites+1, the_sites+2,
-		the_sites+3, the_sites+4, the_sites+5);
+	int *ss = G::the_sites;
+	G::nsites = sscanf(sites, "%d,%d,%d,%d,%d,%d",
+				ss+0, ss+1, ss+2, ss+3, ss+4, ss+5);
 
-	if (nsites){
+	if (G::nsites){
 		setpgid(0, 0);
 		pid_t child = fork();
 		if (child != 0){
@@ -1363,8 +1364,7 @@ static void hold_open(const char* sites)
 			 * NB: has to wait for child to act. sched_yield() is a crude way to do this, may need a signal or sem
 			 *
 			 */
-			for (int isite = nsites; --isite >= 0; ){
-			//for (int isite = 0; isite < nsites; ++isite){
+			for (int isite = G::nsites; --isite >= 0; ){
 				child = fork();
 
 		                if (child == 0) {
@@ -1386,7 +1386,7 @@ static void hold_open(const char* sites)
 		                		syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after post");
 		                		sem_close(G::aggsem);
 		                	}
-		                	hold_open(the_sites[isite]);
+		                	hold_open(G::the_sites[isite]);
 		                	assert(1);
 		                }else{
 		                	sched_yield();
