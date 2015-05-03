@@ -160,7 +160,6 @@ namespace G {
 	int stream_mode = SM_STREAM;
 
 	bool soft_trigger;
-	bool use_aggsem = true;
 	sem_t* aggsem;
 	char* aggsem_name;
 	char* state_file;
@@ -1335,6 +1334,35 @@ static void hold_open(int site)
 
 std::vector<pid_t> holders;
 
+static void make_aggsem() {
+	G::aggsem_name = new char[80];
+	sprintf(G::aggsem_name, "/acq400_stream.%d", getpid());
+	G::aggsem = sem_open(G::aggsem_name, O_CREAT, S_IRWXU, 0);
+	if (G::aggsem == SEM_FAILED){
+		perror(G::aggsem_name);
+		exit(1);
+	}
+	syslog(LOG_DEBUG, "G_aggsem:%p\n", G::aggsem);
+}
+
+static void holder_wait_and_pass_aggsem() {
+	int val;
+
+	sem_getvalue(G::aggsem, &val);
+	if (verbose) syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
+	if (sem_wait(G::aggsem) != 0){
+		perror("sem_wait");
+	}
+
+	if (verbose) syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after wait");
+	if (sem_post(G::aggsem) != 0){
+		perror("sem_post");
+	}
+
+	if (verbose) syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after post");
+	sem_close(G::aggsem);
+}
+
 static void hold_open(const char* sites)
 {
 	int *ss = G::the_sites;
@@ -1348,16 +1376,7 @@ static void hold_open(const char* sites)
 			/* original becomes reaper */
 			wait_and_cleanup(child);
 		}else{
-			if (G::use_aggsem){
-				G::aggsem_name = new char[80];
-				sprintf(G::aggsem_name, "/acq400_stream.%d", getpid());
-				G::aggsem = sem_open(G::aggsem_name, O_CREAT, S_IRWXU, 0);
-				if (G::aggsem == SEM_FAILED){
-					perror(G::aggsem_name);
-					exit(1);
-				}
-				syslog(LOG_DEBUG, "G_aggsem:%p\n", G::aggsem);
-			}
+			make_aggsem();
 
 			/* iterate backwards to enable MASTER first.
 			 * This is needed for ACQ435 RGM
@@ -1368,23 +1387,8 @@ static void hold_open(const char* sites)
 				child = fork();
 
 		                if (child == 0) {
-		                	int val;
 		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
-		                	if (G::use_aggsem){
-		                		sem_getvalue(G::aggsem, &val);
-		                		syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
-		                		if (sem_wait(G::aggsem) != 0){
-		                			perror("sem_wait");
-		                		}
-
-		                		syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after wait");
-		                		if (sem_post(G::aggsem) != 0){
-		                			perror("sem_post");
-		                		}
-
-		                		syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after post");
-		                		sem_close(G::aggsem);
-		                	}
+		                	holder_wait_and_pass_aggsem();
 		                	hold_open(G::the_sites[isite]);
 		                	assert(1);
 		                }else{
@@ -1547,9 +1551,6 @@ void init(int argc, const char** argv) {
 	}
 	if (G::aggregator_sites != 0){
 		hold_open(G::aggregator_sites);
-	}
-	if (getenv("USE_AGGSEM")){
-		G::use_aggsem = atoi(getenv("USE_AGGSEM"));
 	}
 
 	if (G::buffer_mode == BM_DEMUX){
