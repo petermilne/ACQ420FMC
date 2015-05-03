@@ -65,6 +65,7 @@ void putFull(struct acq400_dev* adev)
 			adev->rt.please_stop = 1;
 		}
 		wake_up_interruptible(&adev->refill_ready);
+		dev_dbg(DEVP(adev), "putFull() wake refill_ready");
 	}else{
 		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
 	}
