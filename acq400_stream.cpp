@@ -1645,18 +1645,44 @@ protected:
 		actual.setState(state);
 		if (verbose) fprintf(stderr, "StreamHeadImpl::setState(%d) DONE\n", state);
 	}
-	static void schedule_soft_trigger(void)
-	{
+
+	void do_soft_trigger() {
+		setKnob(0, "soft_trig", "0");
+		setKnob(0, "soft_trig", "1");
+		setKnob(0, "soft_trig", "0");
+	}
+	bool is_triggered() {
+		unsigned trig = 0;
+		getKnob(G::the_sites[0], "is_triggered", &trig);
+		return trig;
+	}
+	void soft_trigger_control() {
+		int repeat = 0;
+		do_soft_trigger();
+		while (!is_triggered()){
+			if (repeat > 100){
+				fprintf(stderr, "ERROR: failed to trigger\n");
+			}
+			usleep(10000);
+			++repeat;
+			do_soft_trigger();
+		}
+		if (verbose || repeat){
+			fprintf(stderr, "soft_trigger_control() repeat %d\n", repeat);
+		}
+	}
+
+	void schedule_soft_trigger(void) {
 		fprintf(stderr, "schedule_soft_trigger()");
 		pid_t child = fork();
 		if (child == 0){
 			nice(2);
 			sched_yield();
-			execlp("soft_trigger", "soft_trigger", NULL);
+			soft_trigger_control();
+			exit(0);
 		}
 	}
-	static int open_feed()
-	{
+	static int open_feed() {
 		char fname[128];
 		sprintf(fname, stream_fmt, root);
 		int _fc = open(fname, O_RDONLY);
