@@ -76,7 +76,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1004"
+#define VERID	"B1005"
 
 #define NCHAN	4
 
@@ -1004,7 +1004,7 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	static int nreport;
 	if (nreport == 0 && verbose){
 		++nreport;
-		printf("Buffer::create() G::buffer_mode: %d\n", G::buffer_mode);
+		if (verbose) printf("Buffer::create() G::buffer_mode: %c\n", G::buffer_mode);
 	}
 
 	switch(G::buffer_mode){
@@ -1360,24 +1360,24 @@ static void make_aggsem() {
 		perror(G::aggsem_name);
 		exit(1);
 	}
-	syslog(LOG_DEBUG, "G_aggsem:%p\n", G::aggsem);
+	if (verbose) fprintf(stderr, "G_aggsem:%p\n", G::aggsem);
 }
 
 static void holder_wait_and_pass_aggsem() {
 	int val;
 
 	sem_getvalue(G::aggsem, &val);
-	if (verbose) syslog(LOG_DEBUG, "%d  %s sem:%d\n", getpid(), "before wait", val);
+	if (verbose) fprintf(stderr, "%d  %s sem:%d\n", getpid(), "before wait", val);
 	if (sem_wait(G::aggsem) != 0){
 		perror("sem_wait");
 	}
 
-	if (verbose) syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after wait");
+	if (verbose) fprintf(stderr, "%d  %s\n", getpid(), "after wait");
 	if (sem_post(G::aggsem) != 0){
 		perror("sem_post");
 	}
 
-	if (verbose) syslog(LOG_DEBUG, "%d  %s\n", getpid(), "after post");
+	if (verbose) fprintf(stderr, "%d  %s\n", getpid(), "after post");
 	sem_close(G::aggsem);
 }
 
@@ -1422,7 +1422,7 @@ static void kill_the_holders() {
 	std::vector<pid_t>::iterator it;
 	for (it = holders.begin(); it != holders.end(); ++it){
 		kill(*it, SIGTERM);
-		syslog(LOG_DEBUG, "kill_the_holders %d\n", *it);
+		if (verbose) fprintf(stderr, "kill_the_holders %d\n", *it);
 	}
 }
 
