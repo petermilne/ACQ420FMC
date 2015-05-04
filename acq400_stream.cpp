@@ -107,6 +107,24 @@ static int getKnob(int idev, const char* knob, unsigned* value)
 	}
 }
 
+static int getKnob(int idev, const char* knob, char* value)
+{
+	char kpath[128];
+	if (knob[0] == '/'){
+		strncpy(kpath, knob, 128);
+	}else{
+		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
+	}
+	FILE *fp = fopen(kpath, "r");
+	if (fp){
+		int rc = fscanf(fp, "%s", value);
+		fclose(fp);
+		return rc;
+	} else {
+		return -1;
+	}
+}
+
 static int setKnob(int idev, const char* knob, const char* value)
 {
 	char kpath[128];
@@ -1541,6 +1559,13 @@ void init(int argc, const char** argv) {
 	const char* devc = poptGetArg(opt_context);
 	if (devc){
 		G::devnum = atoi(devc);
+	}
+
+	if (G::devnum == 0 && G::aggregator_sites == 0){
+		static char _sites[32];
+		getKnob(0, "/etc/acq400/0/sites", _sites);
+		G::aggregator_sites = _sites;
+		if (verbose) fprintf(stderr, "default sites:%s\n", G::aggregator_sites);
 	}
 	/* else .. defaults to 0 */
 
