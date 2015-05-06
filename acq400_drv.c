@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.784"
+#define REVID "2.786"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1166,6 +1166,11 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		yield();
 		if ((++pollcat&0x1ffff) == 0){
 			dev_warn(DEVP(adev), "Polling for task active");
+			if (pollcat > 0x60000){
+				dev_err(DEVP(adev), "ERROR: task_active not happening");
+				rc = -1;
+				break;
+			}
 		}
 	}
 	adev->busy = 1;
@@ -1220,6 +1225,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
  * (2) reset the data engine, leaving it enabled (0xf1000000 : waiting flush)
  * (3) enable the DMA, sends the flush, data engine => 0xf3000000
  * (4) enable the aggregator
+ * (5) now enable the trigger.
  */
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
@@ -1241,6 +1247,11 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 
 
 	acq2006_aggregator_enable(adev);			/* (4) */
+
+	dev_dbg(DEVP(adev), "acq2006_continuous_start() acq400_enable_trg %d",
+			adev->aggregator_set[0]->of_prams.site);
+
+	acq400_enable_trg(adev->aggregator_set[0], 1);		/* (5) */
 	adev->RW32_debug = 0;
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;
@@ -1530,7 +1541,10 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 
 int acq420_sideported_start(struct inode *inode, struct file *file)
 {
-	return _acq420_continuous_start(ACQ400_DEV(file), 0);
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	dev_dbg(DEVP(adev), "acq420_sideported_start()");
+	acq400_enable_trg(adev, 0);
+	return _acq420_continuous_start(adev, 0);
 }
 
 ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count,

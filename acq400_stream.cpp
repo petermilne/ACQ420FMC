@@ -1651,7 +1651,9 @@ public:
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
 		}
 	}
-
+	virtual void startStream() {
+		stream();
+	}
 	static StreamHead& instance();
 };
 
@@ -1866,11 +1868,15 @@ protected:
 		return 0;
 	}
 public:
-	StreamHeadImpl() : StreamHead(open_feed()),
+	StreamHeadImpl() : StreamHead(1234),
 		actual(Progress::instance()),
 		samples_buffer(G::bufferlen/sample_size()),
 		f_ev(0), nfds(0), event_received(0) {
 		if (verbose) fprintf(stderr, "StreamHeadImpl()\n");
+	}
+	virtual void startStream() {
+		fc = open_feed();
+		stream();
 	}
 	virtual void stream() {
 		int ib;
@@ -3084,6 +3090,6 @@ StreamHead& StreamHead::instance() {
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-	StreamHead::instance().stream();
+	StreamHead::instance().startStream();
 	return 0;
 }

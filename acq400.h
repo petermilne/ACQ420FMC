@@ -192,7 +192,7 @@
 
 #define TIM_CTRL_MODE_EV1_EN	(1 << (4+TIM_CTRL_MODE_SHL))
 #define TIM_CTRL_MODE_EV0_EN	(1 << (3+TIM_CTRL_MODE_SHL))
-#define TIM_CTRL_MODE_HW_TRG	(1 << (2+TIM_CTRL_MODE_SHL))
+#define TIM_CTRL_MODE_HW_TRG_EN	(1 << (2+TIM_CTRL_MODE_SHL))
 #define TIM_CTRL_MODE_SYNC	(1 << (1+TIM_CTRL_MODE_SHL))
 #define TIM_CTRL_MODE_HW_CLK	(1 << (0+TIM_CTRL_MODE_SHL))
 
@@ -1025,5 +1025,15 @@ extern int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen);
 enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
 void acq2006_estop(struct acq400_dev *adev);
+
+static inline void acq400_enable_trg(struct acq400_dev *adev, int enable){
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	if (enable){
+		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_HW_TRG_EN;
+	}
+	acq400wr32(adev, TIM_CTRL, timcon);
+}
 
 #endif /* ACQ420FMC_H_ */
