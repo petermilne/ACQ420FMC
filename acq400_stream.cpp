@@ -189,6 +189,7 @@ namespace G {
 	int report_es;
 	int nsites;
 	int the_sites[6];
+	char* progress;
 };
 
 
@@ -333,7 +334,7 @@ public:
 	{
 		static int report;
 		if (!report &&verbose){
-			printf("NullBuffer()\n");
+			fprintf(stderr, "NullBuffer()\n");
 			++report;
 		}
 	}
@@ -390,7 +391,7 @@ public:
 		}
 
 		if (verbose){
-			printf("%s %s ret %d\n", __func__, fname, remain);
+			fprintf(stderr, "%s %s ret %d\n", __func__, fname, remain);
 		}
 		return remain;
 	}
@@ -740,7 +741,7 @@ public:
 	{
 		static int report;
 		if (!report &&verbose){
-			printf("OversamplingMapBuffer()\n");
+			fprintf(stderr, "OversamplingMapBuffer()\n");
 			++report;
 		}
 		outbuf = new T[nsam*G::nchan/over];
@@ -794,7 +795,7 @@ public:
 		{
 		static int report;
 		if (!report &&verbose){
-			printf("OversamplingMapBufferSingleSample()\n");
+			fprintf(stderr, "OversamplingMapBufferSingleSample()\n");
 			++report;
 		}
 		sums = new int[G::nchan];
@@ -844,7 +845,7 @@ public:
 				sums[ic] >>= asr;
 			}
 		}
-		if (verbose) printf("writeBuffer() 99\n");
+		if (verbose) fprintf(stderr, "writeBuffer() 99\n");
 
 		return write(out_fd, sums, G::nchan*sizeof(int));
 	}
@@ -1004,7 +1005,7 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	static int nreport;
 	if (nreport == 0 && verbose){
 		++nreport;
-		if (verbose) printf("Buffer::create() G::buffer_mode: %c\n", G::buffer_mode);
+		if (verbose) fprintf(stderr, "Buffer::create() G::buffer_mode: %c\n", G::buffer_mode);
 	}
 
 	switch(G::buffer_mode){
@@ -1114,7 +1115,7 @@ struct Progress {
 			return true;
 		}
 	}
-	Progress() : status_fp(stderr) {
+	Progress(FILE *_fp) : status_fp(_fp) {
 		memset(this, 0, sizeof(Progress));
 		status_fp = stderr;
 		if (getenv("MIN_REPORT_INTERVAL_MS")){
@@ -1126,7 +1127,7 @@ struct Progress {
 		}
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
 	}
-	static Progress& instance(bool report = false);
+	static Progress& instance(FILE* fp = 0);
 
 	void printState(char current[]) {
 		if (G::state_fp){
@@ -1208,6 +1209,9 @@ struct poptOption opt_table[] = {
 	{ "pre-demux-script", 0, POPT_ARG_STRING, &G::pre_demux_script, 0,
 			"breakout before demux"
 	},
+	{ "progress", 'p', POPT_ARG_STRING, &G::progress, 0,
+			"log to this file"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -1260,7 +1264,7 @@ static void wait_and_cleanup(pid_t child)
 {
 	sigset_t  emptyset, blockset;
 
-	if (verbose) printf("wait_and_cleanup 01 pid %d\n", getpid());
+	if (verbose) fprintf(stderr, "wait_and_cleanup 01 pid %d\n", getpid());
 
 	ident();
 	sigemptyset(&blockset);
@@ -1297,32 +1301,32 @@ static void wait_and_cleanup(pid_t child)
 			finished = true;
 			break;
 		}else if (FD_ISSET(0, &exceptfds)){
-			if (verbose) printf("exception on stdin\n");
+			if (verbose) fprintf(stderr, "exception on stdin\n");
 			finished = true;
 		}else if (FD_ISSET(0, &readfds)){
 			if (feof(stdin)){
-				if (verbose) printf("EOF\n");
+				if (verbose) fprintf(stderr,"EOF\n");
 				finished = true;
 			}else if (ferror(stdin)){
-				if (verbose) printf("ERROR\n");
+				if (verbose) fprintf(stderr, "ERROR\n");
 				finished = true;
 			}else{
 				char stuff[80];
 				fgets(stuff, 80, stdin);
 
-				if (verbose) printf("data on stdin %s\n", stuff);
+				if (verbose) fprintf(stderr, "data on stdin %s\n", stuff);
 				if (strncmp(stuff, "quit", 4) == 0){
 					finished = true;
 				}else{
-					printf("options> quit\n");
+					fprintf(stderr, "options> quit\n");
 				}
 			}
 		}else{
-			if (verbose) printf("out of pselect, not sure why\n");
+			if (verbose) fprintf(stderr, "out of pselect, not sure why\n");
 		}
 	}
 
-        printf("wait_and_cleanup exterminate\n");
+	fprintf(stderr, "wait_and_cleanup exterminate\n");
         Progress::instance().setState(ST_STOP);
         kill(0, SIGTERM);
         exit(0);
@@ -1342,7 +1346,7 @@ static void hold_open(int site)
 	while(fread(message, 1, 80, fp)){
 		chomp(message);
 		bool quit = strstr(message, "ERROR") != 0;
-		printf("%s : \"%s\" %s\n", devname, message, quit? "QUIT ON ERROR": "OK");
+		fprintf(stderr, "%s : \"%s\" %s\n", devname, message, quit? "QUIT ON ERROR": "OK");
 		if (quit){
 			break;
 		}
@@ -1396,12 +1400,7 @@ static void hold_open(const char* sites)
 		}else{
 			make_aggsem();
 
-			/* iterate backwards to enable MASTER first.
-			 * This is needed for ACQ435 RGM
-			 * NB: has to wait for child to act. sched_yield() is a crude way to do this, may need a signal or sem
-			 *
-			 */
-			for (int isite = G::nsites; --isite >= 0; ){
+			for (int isite = 0; isite < G::nsites; ++isite ){
 				child = fork();
 
 		                if (child == 0) {
@@ -1410,6 +1409,7 @@ static void hold_open(const char* sites)
 		                	hold_open(G::the_sites[isite]);
 		                	assert(1);
 		                }else{
+		                	sched_yield();
 		                	holders.push_back(child);
 		                }
 			}
@@ -1430,7 +1430,7 @@ void shuffle_all_down1() {
 	char *to = Buffer::the_buffers[0]->getBase();
 	char *from = Buffer::the_buffers[1]->getBase();
 	int len = G::bufferlen * (G::nbuffers-1);
-	printf("shuffle_all_down1: to:%p from:%p len:%d\n", to, from, len);
+	fprintf(stderr, "shuffle_all_down1: to:%p from:%p len:%d\n", to, from, len);
 	memcpy(to,from,len);
 }
 
@@ -1443,7 +1443,7 @@ void demux_all_down1(bool use_new) {
 	const unsigned nsam = G::bufferlen * (G::nbuffers-1) / sample_size();
 	const unsigned tomask = use_new? G::bufferlen/sizeof(T)-1: 0xffffffff;
 
-	printf("demux_all_down1 nchan:%d nsam:%d ws=%d mask:%08x\n",
+	fprintf(stderr, "demux_all_down1 nchan:%d nsam:%d ws=%d mask:%08x\n",
 			nchan, nsam, sizeof(T), tomask);
 
 	for (unsigned sample = 0; sample < nsam; ++sample){
@@ -1544,6 +1544,17 @@ void init(int argc, const char** argv) {
 		case BM_TEST:
 			G::buffer_mode = BM_TEST;
 			break;
+		case 'p':
+			if (strcmp(G::progress, "-") == 0){
+				Progress::instance(stdout);
+			}else{
+				FILE *fp = fopen(G::progress, "w");
+				if (!fp){
+					perror(G::progress); exit(1);
+				}else{
+					Progress::instance(fp);
+				}
+			}
 		}
 	}
 
@@ -1890,7 +1901,7 @@ public:
 	virtual void stream() {
 		int ib;
 		while((ib = getBufferId()) >= 0){
-			printf("%d\n", ib);
+			fprintf(stderr, "%d\n", ib);
 		}
 	}
 };
@@ -2228,7 +2239,7 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 
 long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
 
-Progress& Progress::instance(bool report) {
+Progress& Progress::instance(FILE *fp) {
 	static Progress* _instance;
 
 	/*
@@ -2250,21 +2261,21 @@ Progress& Progress::instance(bool report) {
 				perror("shmat()");
 				exit(1);
 			}else{
-				Progress *p = new Progress;
+				Progress *p = new Progress(fp? fp: stdout);
 				_instance = (Progress*)shm;
 				memcpy(_instance, p, sizeof(Progress));
 
 				if (getenv("MIN_REPORT_INTERVAL_MS")){
 					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-					printf("min_report_interval set %d\n", min_report_interval);
+					fprintf(stderr,"min_report_interval set %d\n", min_report_interval);
 				}
-				if (verbose) printf("min_report_interval set %d\n", min_report_interval);
+				if (verbose) fprintf(stderr,"min_report_interval set %d\n", min_report_interval);
 			}
 		}
 
 	}
 
-	if (verbose) printf("Progress::instance() %p pid:%d\n", _instance, getpid());
+	if (verbose) fprintf(stderr,"Progress::instance() %p pid:%d\n", _instance, getpid());
 	return *_instance;
 }
 
@@ -2273,13 +2284,13 @@ static bool cleanup_done;
 
 static void wait_and_cleanup_sighandler(int signo)
 {
-	if (verbose) printf("wait_and_cleanup_sighandler(%d) pid:%d %s\n",
+	if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler(%d) pid:%d %s\n",
 			signo, getpid, cleanup_done? "FRESH": "DONE");
 	if (!cleanup_done){
 		kill(0, SIGTERM);
 		cleanup_done = true;
-		Progress::instance(true).setState(ST_STOP);
-		if (verbose) printf("wait_and_cleanup_sighandler progress done\n");
+		Progress::instance().setState(ST_STOP);
+		if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler progress done\n");
 	}
 	exit(0);
 }
@@ -2377,14 +2388,14 @@ public:
 	{}
 	void show() {
 		if (pre_fits&&post_fits){
-			printf("linear: %p |%p| %p\n",
+			fprintf(stderr, "linear: %p |%p| %p\n",
 				esp - s2b(G::pre), esp, esp + s2b(G::post));
-			printf("buffers:%s | %s | %s\n",
+			fprintf(stderr, "buffers:%s | %s | %s\n",
 			MapBuffer::listBuffers(esp - s2b(G::pre), esp),
 			MapBuffer::listBuffers(esp, esp),
 			MapBuffer::listBuffers(esp, esp + s2b(G::post)));
 			if (verbose > 1){
-				printf("buffers:%s | %s | %s\n",
+				fprintf(stderr, "buffers:%s | %s | %s\n",
 				MapBuffer::listBuffers(esp - s2b(G::pre), esp, true),
 				MapBuffer::listBuffers(esp, esp, true),
 				MapBuffer::listBuffers(esp, esp + s2b(G::post)), true);
@@ -2397,13 +2408,13 @@ public:
 			}
 
 		}else if (!pre_fits){
-			printf("precorner: %p-%p, %p |%p| %p\n",
+			fprintf(stderr, "precorner: %p-%p, %p |%p| %p\n",
 					ba_hi-s2b(G::pre-tailroom), ba_hi,
 					ba_lo,
 					esp,
 					esp + s2b(G::post));
 		}else{
-			printf("postcorner: %p |%p| %p %p-%p\n",
+			fprintf(stderr, "postcorner: %p |%p| %p %p-%p\n",
 					esp - s2b(G::pre),
 					esp,
 					ba_hi,
@@ -2471,12 +2482,12 @@ public:
 
 void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 	if (!G::report_es) return;
-	printf("StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
+	fprintf(stderr, "StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
 			id, ibuf, esp);
-	printf("Buffer length bytes: %d\n", G::bufferlen);
-	printf("Buffer length samples: %d\n", Buffer::samples_per_buffer());
-	printf("Prelen: %d\n", G::pre);
-	printf("Postlen: %d\n", G::post);
+	fprintf(stderr, "Buffer length bytes: %d\n", G::bufferlen);
+	fprintf(stderr, "Buffer length samples: %d\n", Buffer::samples_per_buffer());
+	fprintf(stderr, "Prelen: %d\n", G::pre);
+	fprintf(stderr, "Postlen: %d\n", G::post);
 
 	BufferDistribution(ibuf, esp).show();
 }
@@ -2756,7 +2767,7 @@ protected:
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
 
-			if (verbose > 1) printf("streamCore %d 01\n", ib);
+			if (verbose > 1) fprintf(stderr, "streamCore %d 01\n", ib);
 
 			switch(actual.state){
 			case ST_ARM:
@@ -2834,7 +2845,7 @@ public:
 			cooked(false)
 		{
 		actual.status_fp = stdout;
-		if (verbose) printf("StreamHeadPrePost()\n");
+		if (verbose) fprintf(stderr, "StreamHeadPrePost()\n");
 		setState(ST_STOP);
 		int total_bs = (pre+post)*sample_size() + G::bufferlen;
 		nfds = fc+1;
@@ -2991,7 +3002,7 @@ public:
 	DemuxingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(_pre, _post),
 		demuxer(_demuxer) {
-		if (verbose) printf("%s\n", __FUNCTION__);
+		if (verbose) fprintf(stderr, "%s\n", __FUNCTION__);
 		reserve_block0();
 	}
 };
