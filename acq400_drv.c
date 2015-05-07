@@ -1039,6 +1039,7 @@ int acq400_open_hb(struct inode *inode, struct file *file)
 		.open = acq420_dma_open,
 		.mmap = acq400_dma_mmap_host,
 		.read = acq400_hb_read,
+		.release = acq400_release,
 		// sendfile method is no more.. it's probably not quite this easy ..
 		// sure enough, it's not !
 		// most likely the HB's have to be on a block device ..
@@ -1488,15 +1489,12 @@ ssize_t acq400_hb0_read(
 	return count;
 }
 
-int acq400_null_release(struct inode *inode, struct file *file)
-{
-	return 0;
-}
+
 int acq400_open_histo(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_histo = {
 			.read = acq400_histo_read,
-			.release = acq400_null_release
+			.release = acq400_release
 	};
 	file->f_op = &acq400_fops_histo;
 	if (file->f_op->open){
@@ -1631,11 +1629,11 @@ int acq420_open_sideported(struct inode *inode, struct file *file)
 
 int acq420_open_hb0(struct inode *inode, struct file *file)
 {
-	static struct file_operations acq400_fops_histo = {
+	static struct file_operations acq400_fops_hb0 = {
 			.read = acq400_hb0_read,
-			.release = acq400_null_release
+			.release = acq400_release
 	};
-	file->f_op = &acq400_fops_histo;
+	file->f_op = &acq400_fops_hb0;
 	if (file->f_op->open){
 		return file->f_op->open(inode, file);
 	}else{
