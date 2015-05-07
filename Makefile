@@ -43,9 +43,9 @@ date:
 package: all
 	echo do NOT rm -Rf opkg/*
 	mkdir -p opkg/usr/local/bin opkg/usr/local/lib/modules \
-		opkg/usr/share opkg/usr/local/CARE \
+		opkg/usr/share opkg/usr/local/CARE opkg/usr/local/map \
 		opkg/usr/local/init/pl330dbg opkg/usr/local/cal \
-		opkg/etc/profile.d 
+		opkg/etc/profile.d opkg/etc/sysconfig opkg/etc/acq400
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
@@ -53,7 +53,9 @@ package: all
 	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* opkg/usr/local/CARE
 	cp init/* opkg/usr/local/init
+	cp map/* opkg/usr/local/map
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
+	cp sysconfig/* opkg/etc/sysconfig
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*

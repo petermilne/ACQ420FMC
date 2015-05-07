@@ -1,0 +1,6 @@
+#!/bin/sh
+
+while [ 1 ] ; do
+	(exec $*)
+	sleep 1
+done
