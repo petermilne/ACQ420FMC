@@ -199,25 +199,31 @@ int get_buffer_offset_b(int word_offset)
 static int a400fs_open(struct inode *inode, struct file *file)
 {
 	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
-	pd->map = lookup_ino(inode->i_ino);
-	if (pd->map == 0){
-		return -ENODEV;
-	}
-	pd->word_offset = IS_RAW(pd->map)? 0: chan_offset_w(pd->map);
-	if (pd->word_offset < 0){
-		return -ENODEV;
-	}
-	pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
+	int rc = 0;
+#define RETERR(errcode) do { 						 	\
+	rc = errcode;								\
+	dev_err(0, "ERROR: a400fs_open() at line %d rc %d", __LINE__, rc);	\
+	}while(0)
 
-	dev_dbg(DEVP(pd->map->adev), "%d.%d wo:%d bo:%d",
+	if (pd == 0){
+		RETERR(-ENODEV);
+	}else if ((pd->map = lookup_ino(inode->i_ino)) == 0){
+		RETERR(-ENODEV);
+	}else if ((pd->word_offset = IS_RAW(pd->map)? 0: chan_offset_w(pd->map)) < 0){
+		RETERR(-ENODEV);
+	}else{
+		pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
+
+		dev_dbg(DEVP(pd->map->adev), "%d.%d wo:%d bo:%d",
 			pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
 
-	file->private_data = pd;
-	if (file->private_data == 0){
-		return -ENODEV;
+		file->private_data = pd;
+		return 0;
 	}
 
-	return 0;
+ 	 dev_err(0, "a400fs_open FAIL\n");
+ 	 if (pd) kfree(pd);
+ 	 return rc;
 }
 
 #define TMPSIZE 80
