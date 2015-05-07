@@ -225,7 +225,7 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
 
 int mgt400_open(struct inode *inode, struct file *file)
 {
-	file->private_data = kzalloc(PDSZ, GFP_KERNEL);
+	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->dev = container_of(inode->i_cdev, struct mgt400_dev, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
 	return 0;
@@ -393,8 +393,9 @@ remove:
 	return rc;
 }
 
-static int _mget400_remove(struct mgt400_dev* mdev){
+static int _mgt400_remove(struct mgt400_dev* mdev){
 	mgt400_stop_buffer_counter(mdev);
+	kfree(mdev);
 	return 0;
 }
 
@@ -404,7 +405,7 @@ static int mgt400_remove(struct platform_device *pdev)
 	if (pdev->id == -1){
 		return -1;
 	}else{
-		return _mget400_remove(mgt400_devices[pdev->id]);
+		return _mgt400_remove(mgt400_devices[pdev->id]);
 	}
 }
 

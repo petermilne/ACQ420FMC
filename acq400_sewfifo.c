@@ -125,6 +125,10 @@ int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix)
 	struct SewFifo* sf = &adev->sewFifo[ix];
 	kthread_stop(sf->sf_task);
 	sf->sf_task = 0;
+	if (sf->sf_buf.buf != 0){
+		kfree(sf->sf_buf.buf);
+		sf->sf_buf.buf = 0;
+	}
 	return 0;
 }
 int acq400_sew_fifo_write_bytes(

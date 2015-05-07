@@ -201,9 +201,9 @@ static int a400fs_open(struct inode *inode, struct file *file)
 	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
 	int rc = 0;
 #define RETERR(errcode) do { 						 	\
-	rc = errcode;								\
-	dev_err(0, "ERROR: a400fs_open() at line %d rc %d", __LINE__, rc);	\
-	}while(0)
+		rc = errcode;								\
+		dev_err(0, "ERROR: a400fs_open() at line %d rc %d", __LINE__, rc);	\
+}while(0)
 
 	if (pd == 0){
 		RETERR(-ENODEV);
@@ -214,16 +214,16 @@ static int a400fs_open(struct inode *inode, struct file *file)
 	}else{
 		pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
 
-		dev_dbg(DEVP(pd->map->adev), "%d.%d wo:%d bo:%d",
-			pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
+		dev_dbg(DEVP(pd->map->adev), "a400fs_open() %d.%d wo:%d bo:%d",
+				pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
 
 		file->private_data = pd;
 		return 0;
 	}
 
- 	 dev_err(0, "a400fs_open FAIL\n");
- 	 if (pd) kfree(pd);
- 	 return rc;
+	dev_err(0, "a400fs_open FAIL\n");
+	if (pd) kfree(pd);
+	return rc;
 }
 
 #define TMPSIZE 80
@@ -355,6 +355,10 @@ static ssize_t a400fs_write_file(struct file *file, const char *buf,
 int a400fs_release(struct inode *inode, struct file *file)
 {
 	struct A400_FS_PDESC* pd = FS_DESC(file);
+
+	dev_dbg(DEVP(pd->map->adev), "a400fs_release() : %d.%d wo:%d bo:%d",
+		pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
+
 	kfree(pd);
 	return 0;
 }

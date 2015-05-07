@@ -258,7 +258,10 @@ fail:
 static int acq480_remove(struct platform_device *pdev)
 {
 	int site = pdev->id;
+
 	i2c_put_adapter(acq480_devs[site]->i2c_adapter);
+	kfree(acq480_devs[site]);
+	acq480_devs[site] = 0;
 	return -1;
 }
 

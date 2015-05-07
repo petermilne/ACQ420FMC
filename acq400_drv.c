@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.786"
+#define REVID "2.787"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2378,6 +2378,7 @@ int acq400_bq_release(struct inode *inode, struct file *file)
 	struct acq400_path_descriptor *cur;
 	int nelems = 0;
 
+
         if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
@@ -2393,8 +2394,8 @@ int acq400_bq_release(struct inode *inode, struct file *file)
         }else{
         	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }
-        kfree(pdesc->bq.buf);
 
+        kfree(pdesc->bq.buf);
         return acq400_release(inode, file);
 }
 
@@ -2435,58 +2436,78 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 }
 int acq400_open(struct inode *inode, struct file *file)
 {
-        struct acq400_dev *dev;
+        struct acq400_dev *adev;
         int minor;
+        int rc;
 
         acq400_init_descriptor(&file->private_data);
 
 
-        PD(file)->dev = dev = container_of(inode->i_cdev, struct acq400_dev, cdev);
+        PD(file)->dev = adev = container_of(inode->i_cdev, struct acq400_dev, cdev);
         PD(file)->minor = minor = MINOR(inode->i_rdev);
         INIT_LIST_HEAD(&PD(file)->RESERVED);
 
-        dev_dbg(&dev->pdev->dev, "hello: minor:%d\n", minor);
+        dev_dbg(DEVP(adev), "hello: minor:%d\n", minor);
 
         if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
-        	return acq400_open_hb(inode, file);
+        	rc = acq400_open_hb(inode, file);
         } else if (minor >= ACQ420_MINOR_CHAN && minor <= ACQ420_MINOR_CHAN2){
-        	return -ENODEV;  	// @@todo maybe later0
+        	rc = -ENODEV;  	// @@todo maybe later0
         } else {
         	switch(minor){
         	case ACQ420_MINOR_SIDEPORTED:
-        		return acq420_open_sideported(inode, file);
+        		rc = acq420_open_sideported(inode, file);
+        		break;
         	case ACQ420_MINOR_CONTINUOUS:
-        		return acq420_open_continuous(inode, file);
+        		rc = acq420_open_continuous(inode, file);
+        		break;
         	case ACQ420_MINOR_HISTO:
-        		return acq400_open_histo(inode, file);
+        		rc = acq400_open_histo(inode, file);
+        		break;
         	case ACQ420_MINOR_HB0:
-        		return acq420_open_hb0(inode, file);
+        		rc = acq420_open_hb0(inode, file);
+        		break;
         	case ACQ420_MINOR_GPGMEM:
-        		return acq420_open_gpgmem(inode, file);
+        		rc = acq420_open_gpgmem(inode, file);
+        		break;
         	case ACQ420_MINOR_EVENT:
-        		return acq400_open_event(inode, file);
+        		rc = acq400_open_event(inode, file);
+        		break;
         	case ACQ420_MINOR_0:
-        		return acq400_open_main(inode, file);
+        		rc = acq400_open_main(inode, file);
+        		break;
         	case ACQ420_MINOR_STREAMDAC:
-        		return acq400_open_streamdac(inode, file);
+        		rc = acq400_open_streamdac(inode, file);
+        		break;
         	case ACQ420_MINOR_BOLO_AWG:
-        		return bolo_open_awg(inode, file);
+        		rc = bolo_open_awg(inode, file);
+        		break;
         	case AO420_MINOR_HB0_AWG_ONCE:
         	case AO420_MINOR_HB0_AWG_LOOP:
         	case AO420_MINOR_HB0_AWG_ONCE_RETRIG:
-        		return xo400_open_awg(inode, file);
+        		rc = xo400_open_awg(inode, file);
+        		break;
         	case ACQ420_MINOR_RESERVE_BLOCKS:
-        		return acq420_reserve_open(inode, file);
+        		rc = acq420_reserve_open(inode, file);
+        		break;
         	case ACQ400_MINOR_BQ_NOWAIT:
-        		return acq400_bq_open(inode, file);
+        		rc = acq400_bq_open(inode, file);
+        		break;
         	case ACQ420_MINOR_SEW1_FIFO:
         	case ACQ420_MINOR_SEW2_FIFO:
-        		return acq420_sew_fifo_open(inode, file);
+        		rc = acq420_sew_fifo_open(inode, file);
+        		break;
         	default:
-        		return -ENODEV;
+        		rc = -ENODEV;
         	}
-
         }
+
+        if (rc != 0){
+        	dev_err(DEVP(adev), "acq400_open FAIL minor:%d rc:%d", minor, rc);
+        	if (PD(file)) kfree(PD(file));
+        	SETPD(file, 0);
+        }
+        return rc;
 }
 
 int acq400_release(struct inode *inode, struct file *file)
@@ -2513,7 +2534,7 @@ int acq400_release(struct inode *inode, struct file *file)
 
         mutex_unlock(&adev->mutex);
 
-        kfree(PD(file));
+        if (PD(file)) kfree(PD(file));
         return 0;
 }
 
@@ -3460,6 +3481,7 @@ static int acq400_remove(struct platform_device *pdev)
 			kfree(adev->gpg_buffer);
 		}
 
+		kfree(adev->fifo_histo);
 		kfree(adev);
 
 		return 0;

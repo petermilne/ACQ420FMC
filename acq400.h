@@ -543,7 +543,8 @@ struct acq400_path_descriptor {
 	} bq;
 };
 
-#define PD(filp)	((struct acq400_path_descriptor*)filp->private_data)
+#define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
+#define SETPD(filp, value)	(filp->private_data = (value))
 #define PDSZ			(sizeof (struct acq400_path_descriptor))
 #define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)
