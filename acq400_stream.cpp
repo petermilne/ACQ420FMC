@@ -279,9 +279,7 @@ public:
 		buffer_len(cpy->buffer_len),
 		ibuf(cpy->ibuf),
 		pdata(cpy->pdata)
-	{
-		if (verbose) fprintf(stderr, "Buffer(cpy):%d pdata:%p\n", ibuf, pdata);
-	}
+	{}
 	virtual ~Buffer() {
 		close(fd);
 	}
@@ -1129,6 +1127,7 @@ struct Progress {
 	unsigned long long elapsed;
 	struct timespec last_time;
 	static long min_report_interval;
+	const char* name;
 
 	char previous[80];
 
@@ -1145,8 +1144,10 @@ struct Progress {
 			return true;
 		}
 	}
-	Progress(FILE *_fp) : status_fp(_fp) {
+	Progress(FILE *_fp, const char* _name = "Progress") :
+			status_fp(_fp) {
 		memset(this, 0, sizeof(Progress));
+		name = _name;
 		status_fp = stderr;
 		if (getenv("MIN_REPORT_INTERVAL_MS")){
 			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
@@ -1156,6 +1157,8 @@ struct Progress {
 			}
 		}
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
+
+		if (verbose) fprintf(stderr, "Progress %s\n", name);
 	}
 	static Progress& instance(FILE* fp = 0);
 
@@ -1177,7 +1180,7 @@ Progress Progress::null_progress(stderr);
 
 struct ProgressImpl: public Progress {
 
-	ProgressImpl(FILE *_fp) : Progress(_fp) {
+	ProgressImpl(FILE *_fp) : Progress(_fp, "ProgressImpl") {
 	}
 	virtual void printState(char current[]) {
 		if (G::state_fp){
@@ -1694,7 +1697,7 @@ public:
 	virtual void startStream() {
 		stream();
 	}
-	static StreamHead& instance();
+	static StreamHead* instance();
 
 };
 
@@ -1917,7 +1920,7 @@ public:
 		actual(progress),
 		samples_buffer(G::bufferlen/sample_size()),
 		f_ev(0), nfds(0), event_received(0) {
-		if (verbose) fprintf(stderr, "StreamHeadImpl()\n");
+		if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
 	}
 	virtual void startStream() {
 		fc = open_feed();
@@ -3120,24 +3123,22 @@ StreamHead* StreamHead::createLiveDataInstance()
 	}
 }
 
-StreamHead& StreamHead::instance() {
+StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
 	if (_instance == 0){
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;
-			return *_instance;
+			return _instance;
 		}
 
 		if (fork() == 0){
 			_instance = createLiveDataInstance();
-			return *_instance;
+			return _instance;
 		}
 
+		ident("acq400_stream_main");
 		if (G::stream_mode == SM_TRANSIENT){
-			StreamHeadPrePost* sh;
-			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
-
 			if (G::buffer_mode == BM_PREPOST && G::demux){
 				Demuxer *demuxer;
 				if (G::wordsize == 4){
@@ -3169,12 +3170,12 @@ StreamHead& StreamHead::instance() {
 	}
 	waitHolders();
 	if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
-	return *_instance;
+	return _instance;
 }
 
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-	StreamHead::instance().startStream();
+	StreamHead::instance()->startStream();
 	return 0;
 }
