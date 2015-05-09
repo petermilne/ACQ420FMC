@@ -381,7 +381,6 @@ public:
 	int includes(void *cursor)
 	/** returns remain length if buffer includes cursor */
 	{
-
 		char* cc = static_cast<char *>(cursor);
 		char* bp = static_cast<char *>(pdata);
 		char *be = bp + buffer_len;
@@ -1161,14 +1160,34 @@ struct Progress {
 	}
 	static Progress& instance(FILE* fp = 0);
 
-	void printState(char current[]) {
+	virtual void printState(char current[]) {
+
+	}
+	virtual void print(bool ignore_ratelimit = true, int extra = 0) {
+
+	}
+	virtual void setState(enum STATE _state){
+
+	}
+
+	static Progress null_progress;
+};
+
+Progress Progress::null_progress(stderr);
+
+
+struct ProgressImpl: public Progress {
+
+	ProgressImpl(FILE *_fp) : Progress(_fp) {
+	}
+	virtual void printState(char current[]) {
 		if (G::state_fp){
 			rewind(G::state_fp);
 			fputs(current, G::state_fp);
 			fflush(G::state_fp);
 		}
 	}
-	void print(bool ignore_ratelimit = true, int extra = 0) {
+	virtual void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[80];
 		snprintf(current, 80, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
 
@@ -1179,7 +1198,7 @@ struct Progress {
 		}
 		printState(current);
 	}
-	void setState(enum STATE _state){
+	virtual void setState(enum STATE _state){
 		state = _state;
 		print();
 	}
@@ -1891,8 +1910,8 @@ protected:
 		return 0;
 	}
 public:
-	StreamHeadImpl() : StreamHead(1234),
-		actual(Progress::instance()),
+	StreamHeadImpl(Progress& progress) : StreamHead(1234),
+		actual(progress),
 		samples_buffer(G::bufferlen/sample_size()),
 		f_ev(0), nfds(0), event_received(0) {
 		if (verbose) fprintf(stderr, "StreamHeadImpl()\n");
@@ -1933,6 +1952,9 @@ public:
 			fprintf(stderr, "%d\n", ib);
 		}
 	}
+	NullStreamHead(Progress& progress) :
+		StreamHeadImpl(progress)
+	{}
 };
 
 class StreamHeadHB0: public StreamHeadImpl  {
@@ -1940,7 +1962,7 @@ protected:
 	virtual void stream();
 
 public:
-       StreamHeadHB0(): StreamHeadImpl() {
+       StreamHeadHB0(): StreamHeadImpl(Progress::null_progress) {
                if (G::script_runs_on_completion == 0){
                        G::script_runs_on_completion = "/tmp/ondemux_complete";
                }
@@ -2043,6 +2065,16 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		return getPP(&pre, &post);
 	}
 
+	static bool event0_enabled(int site){
+		char event_line[80];
+		if (getKnob(site, "event0", event_line) == 0){
+			unsigned ena = 0;
+			if (sscanf(event_line, "event0=%u", &ena) == 1){
+				return ena != 0;
+			}
+		}
+		return 0;
+	}
 public:
 	StreamHeadLivePP(): pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
@@ -2055,7 +2087,8 @@ public:
 
 	static bool hasPP() {
 		int pp[2];
-		return getPP(pp, pp+1) && pp[0]+pp[1] > 0;
+
+		return event0_enabled(1) && getPP(pp, pp+1) && pp[0]+pp[1] > 0;
 	}
 	virtual void stream();
 };
@@ -2297,7 +2330,7 @@ Progress& Progress::instance(FILE *fp) {
 				perror("shmat()");
 				exit(1);
 			}else{
-				Progress *p = new Progress(fp? fp: stdout);
+				Progress *p = new ProgressImpl(fp? fp: stdout);
 				_instance = (Progress*)shm;
 				memcpy(_instance, p, sizeof(Progress));
 
@@ -2876,9 +2909,10 @@ protected:
 		setKnob(0, "estop", "1");
 	}
 public:
-	StreamHeadPrePost(int _pre, int _post) :
-			pre(_pre), post(_post),
-			cooked(false)
+	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
+		StreamHeadImpl(progress),
+		pre(_pre), post(_post),
+		cooked(false)
 		{
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "StreamHeadPrePost()\n");
@@ -3033,8 +3067,8 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 	}
 
 public:
-	DemuxingStreamHeadPrePost(Demuxer& _demuxer, int _pre, int _post) :
-		StreamHeadPrePost(_pre, _post),
+	DemuxingStreamHeadPrePost(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
+		StreamHeadPrePost(progress, _pre, _post),
 		demuxer(_demuxer) {
 		if (verbose) fprintf(stderr, "%s\n", __FUNCTION__);
 		reserve_block0();
@@ -3064,6 +3098,8 @@ void waitHolders() {
 
 StreamHead* StreamHead::createLiveDataInstance()
 {
+	ident("acq400_stream_hb0");
+
 	for (nb_cat = 1;
 	     nb_cat*G::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
 		;
@@ -3085,10 +3121,12 @@ StreamHead& StreamHead::instance() {
 			_instance = new SubrateStreamHead;
 			return *_instance;
 		}
+
 		if (fork() == 0){
 			_instance = createLiveDataInstance();
 			return *_instance;
 		}
+
 		if (G::stream_mode == SM_TRANSIENT){
 			StreamHeadPrePost* sh;
 			syslog(LOG_DEBUG, "G::buffer_mode:%d\n", G::buffer_mode);
@@ -3100,18 +3138,19 @@ StreamHead& StreamHead::instance() {
 				}else{
 					demuxer = new DemuxerImpl<short>;
 				}
-				sh = new DemuxingStreamHeadPrePost(*demuxer, G::pre, G::post);
+				_instance = new DemuxingStreamHeadPrePost(
+					Progress::instance(), *demuxer, G::pre, G::post);
 			}else{
-				sh  = new StreamHeadPrePost(G::pre, G::post);
+				_instance = new StreamHeadPrePost(
+					Progress::instance(), G::pre, G::post);
 			}
-			_instance = sh;
 		}else{
 			switch(G::buffer_mode){
 			case BM_NULL:
-				_instance = new NullStreamHead();
+				_instance = new NullStreamHead(Progress::instance());
 				break;
 			default:
-				_instance = new StreamHeadImpl();
+				_instance = new StreamHeadImpl(Progress::instance());
 				break;
 			}
 		}
