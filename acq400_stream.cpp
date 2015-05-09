@@ -1551,8 +1551,8 @@ void init(int argc, const char** argv) {
 			G::buffer_mode = BM_NULL;
 			break;
 		case BM_DEMUX:
-			stream_fmt = "%s.hb0";
-			G::buffer_mode = BM_DEMUX;
+			fprintf(stderr, "--hb0 has been superceded. quitting\n");
+			exit(1);
 			break;
 		case 'D':
 			if (G::demux == 0){
@@ -1621,17 +1621,6 @@ void init(int argc, const char** argv) {
 		hold_open(G::aggregator_sites);
 	}
 
-	if (G::buffer_mode == BM_DEMUX){
-		for (nb_cat = 1;
-		     nb_cat*G::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
-			;
-		}
-		if (verbose){
-			fprintf(stderr, "BM_DEMUX bufsam:%d\n",
-					G::bufferlen/(G::nchan*G::wordsize));
-			fprintf(stderr, "BM_DEMUX nb_cat set %d\n", nb_cat);
-		}
-	}
 	root = getRoot(G::devnum);
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
@@ -1646,8 +1635,9 @@ void init(int argc, const char** argv) {
 }
 
 class StreamHead {
-	static bool has_pre_post_live_demux(void);
 
+	static bool has_pre_post_live_demux(void);
+	static StreamHead* createLiveDataInstance();
 protected:
 	int fc;
 	int fout;
@@ -1687,6 +1677,7 @@ public:
 		stream();
 	}
 	static StreamHead& instance();
+
 };
 
 
@@ -3070,15 +3061,33 @@ void waitHolders() {
 		}
 	}
 }
+
+StreamHead* StreamHead::createLiveDataInstance()
+{
+	for (nb_cat = 1;
+	     nb_cat*G::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
+		;
+	}
+	BufferCloner::cloneBuffers<DemuxBufferCloner>();
+	stream_fmt = "%s.hb0";
+	if (has_pre_post_live_demux()){
+		return new StreamHeadLivePP;
+	}else{
+		return new StreamHeadHB0;
+	}
+}
+
 StreamHead& StreamHead::instance() {
 	static StreamHead* _instance;
 
 	if (_instance == 0){
-		if (G::oversampling){
-			if (fork() == 0){
-				_instance = new SubrateStreamHead;
-				return *_instance;
-			}
+		if (G::oversampling && fork() == 0){
+			_instance = new SubrateStreamHead;
+			return *_instance;
+		}
+		if (fork() == 0){
+			_instance = createLiveDataInstance();
+			return *_instance;
 		}
 		if (G::stream_mode == SM_TRANSIENT){
 			StreamHeadPrePost* sh;
@@ -3098,13 +3107,6 @@ StreamHead& StreamHead::instance() {
 			_instance = sh;
 		}else{
 			switch(G::buffer_mode){
-			case BM_DEMUX:
-				if (has_pre_post_live_demux()){
-					_instance = new StreamHeadLivePP;
-				}else{
-					_instance = new StreamHeadHB0;
-				}
-				break;
 			case BM_NULL:
 				_instance = new NullStreamHead();
 				break;
