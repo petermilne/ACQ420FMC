@@ -481,7 +481,7 @@ bool MapBuffer::buffer_0_reserved;
 
 
 template <class T>
-class DemuxBuffer: public MapBuffer {
+class DemuxBuffer: public Buffer {
 private:
 	unsigned* mask;
 	int nchan;
@@ -685,11 +685,12 @@ public:
 		}
 		return buffer_len;
 	}
-	DemuxBuffer(const char* _fname, int _buffer_len, unsigned _mask) :
-		MapBuffer(_fname, _buffer_len),
-		nchan(G::nchan),
-		nsam(_buffer_len/sizeof(T)/G::nchan)
+
+	DemuxBuffer(Buffer* cpy, unsigned _mask) :
+		Buffer(cpy),
+		nchan(G::nchan)
 	{
+		nsam = buffer_len/sizeof(T)/G::nchan;
 		init();
 		mask = new unsigned[nchan];
 		for (int ic = 0; ic < nchan; ++ic){
@@ -705,12 +706,13 @@ public:
 
 		make_names();
 
-		data_fits_buffer = nsam*sizeof(T)*nchan == _buffer_len;
+		data_fits_buffer = nsam*sizeof(T)*nchan == buffer_len;
 		if (verbose>1){
 			fprintf(stderr, "nsam:%d _buffer_len:%d data_fits_buffer? %s\n",
-				nsam, _buffer_len, data_fits_buffer? "YES": "NO");
+					nsam, buffer_len, data_fits_buffer? "YES": "NO");
 		}
 	}
+
 	virtual unsigned getItem(int ii) {
 		T* src = reinterpret_cast<T*>(pdata);
 		return src[ii];
@@ -1011,16 +1013,6 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 	switch(G::buffer_mode){
 	case BM_NULL:
 		return new NullBuffer(fname, _buffer_len);
-	case BM_DEMUX:
-		switch(G::wordsize){
-		case 2:
-			return new DemuxBuffer<short>(fname, _buffer_len, G::mask);
-		case 4:
-			return new DemuxBuffer<int>(fname, _buffer_len, G::mask);
-		default:
-			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
-			exit(1);
-		}
 	case BM_TEST:
 		return new ScratchpadTestBuffer(fname, _buffer_len);
 	default:
@@ -1029,39 +1021,79 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 }
 
 
-Buffer* createOversamplingBuffer(Buffer* cpy)
-{
-	int os = abs(G::oversampling);
-	bool single = G::oversampling < 0;
+class BufferCloner {
+public:
+	virtual Buffer* operator() (Buffer* cpy) = 0;
 
-	if (G::wordsize == 2){
-		if (single){
-			return new OversamplingMapBufferSingleSample<short>(
-					cpy, os, 0);
-		}else{
-			return new OversamplingMapBuffer<short>(
-					cpy, os, ASR(os));
-		}
-	}else{
-		if (single){
-			return new OversamplingMapBufferSingleSample<int>(
-					cpy, os, ASR(os));
-		}else{
-			return new OversamplingMapBuffer<int> (
-					cpy, os, ASR(os));
+	static void cloneBuffers(BufferCloner& cloner)
+	{
+		vector<Buffer*> cpyBuffers = Buffer::the_buffers;
+
+		Buffer::the_buffers.clear();
+		for (int ii = 0; ii < cpyBuffers.size(); ++ii){
+			Buffer::the_buffers[ii] = cloner(cpyBuffers[ii]);
 		}
 	}
-}
-
-void createOversamplingBuffers()
-{
-	vector<Buffer*> cpyBuffers = Buffer::the_buffers;
-
-	Buffer::the_buffers.clear();
-	for (int ii = 0; ii < cpyBuffers.size(); ++ii){
-		Buffer::the_buffers[ii] = createOversamplingBuffer(cpyBuffers[ii]);
+	template <class T>
+	static void cloneBuffers()
+	{
+		T cloner;
+		BufferCloner::cloneBuffers(cloner);
 	}
-}
+
+};
+
+class OversamplingBufferCloner: public BufferCloner {
+	static Buffer* createOversamplingBuffer(Buffer* cpy)
+	{
+		int os = abs(G::oversampling);
+		bool single = G::oversampling < 0;
+
+		if (G::wordsize == 2){
+			if (single){
+				return new OversamplingMapBufferSingleSample<short>(
+						cpy, os, 0);
+			}else{
+				return new OversamplingMapBuffer<short>(
+						cpy, os, ASR(os));
+			}
+		}else{
+			if (single){
+				return new OversamplingMapBufferSingleSample<int>(
+						cpy, os, ASR(os));
+			}else{
+				return new OversamplingMapBuffer<int> (
+						cpy, os, ASR(os));
+			}
+		}
+	}
+public:
+	OversamplingBufferCloner() {}
+	virtual Buffer* operator() (Buffer* cpy) {
+		return createOversamplingBuffer(cpy);
+	}
+};
+
+class DemuxBufferCloner: public BufferCloner {
+	static Buffer* createDemuxBuffer(Buffer *cpy)
+	{
+		switch(G::wordsize){
+		case 2:
+			return new DemuxBuffer<short>(cpy, G::mask);
+		case 4:
+			return new DemuxBuffer<int>(cpy, G::mask);
+		default:
+			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
+			exit(1);
+		}
+	}
+
+public:
+	virtual Buffer* operator() (Buffer* cpy) {
+		return createDemuxBuffer(cpy);
+	}
+};
+
 
 enum STATE {
 	ST_STOP,
@@ -2959,7 +2991,7 @@ public:
 		fprintf(fp, "%d\n", getpid());
 		fclose(fp);
 		close(fout);		/* we open it every time .. */
-		createOversamplingBuffers();
+		BufferCloner::cloneBuffers<OversamplingBufferCloner>();
 	}
 	virtual ~SubrateStreamHead() {
 	}
@@ -2983,8 +3015,6 @@ public:
 
 
 class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
-
-
 	char *cursor;
 	void *event_cursor;	/* mark where event was detected */
 
