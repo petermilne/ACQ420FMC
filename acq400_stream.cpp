@@ -1915,6 +1915,13 @@ public:
 class StreamHeadHB0: public StreamHeadImpl  {
 protected:
 	virtual void stream();
+
+public:
+       StreamHeadHB0(): StreamHeadImpl() {
+               if (G::script_runs_on_completion == 0){
+                       G::script_runs_on_completion = "/tmp/ondemux_complete";
+               }
+       }
 };
 
 void StreamHeadHB0::stream() {
