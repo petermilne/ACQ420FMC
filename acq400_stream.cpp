@@ -280,7 +280,7 @@ public:
 		ibuf(cpy->ibuf),
 		pdata(cpy->pdata)
 	{
-
+		if (verbose) fprintf(stderr, "Buffer(cpy):%d pdata:%p\n", ibuf, pdata);
 	}
 	virtual ~Buffer() {
 		close(fd);
@@ -313,7 +313,7 @@ public:
 	int ib() {
 		return ibuf;
 	}
-	virtual char* getBase() { return 0; }
+	virtual char* getBase() { return pdata; }
 
 	char *getEnd() {
 		return getBase() + getLen();
@@ -372,7 +372,6 @@ public:
 		return buffer_len;
 	}
 
-	virtual char* getBase() { return pdata; }
 	static char* get_ba0()	 { return ba0;   }
 	static char* get_ba_lo() { return ba_lo; }
 	static char* get_ba_hi() { return ba_hi; }
@@ -1021,9 +1020,6 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 
 
 class BufferCloner {
-public:
-	virtual Buffer* operator() (Buffer* cpy) = 0;
-
 	static void cloneBuffers(BufferCloner& cloner)
 	{
 		vector<Buffer*> cpyBuffers = Buffer::the_buffers;
@@ -1033,13 +1029,16 @@ public:
 			Buffer::the_buffers[ii] = cloner(cpyBuffers[ii]);
 		}
 	}
+public:
+	virtual Buffer* operator() (Buffer* cpy) = 0;
+
 	template <class T>
 	static void cloneBuffers()
 	{
 		T cloner;
+
 		BufferCloner::cloneBuffers(cloner);
 	}
-
 };
 
 class OversamplingBufferCloner: public BufferCloner {
@@ -1753,7 +1752,7 @@ protected:
 	}
 
 	void schedule_soft_trigger(void) {
-		fprintf(stderr, "schedule_soft_trigger()");
+		if (verbose) fprintf(stderr, "schedule_soft_trigger()");
 		pid_t child = fork();
 		if (child == 0){
 			nice(2);
@@ -1834,7 +1833,7 @@ protected:
 
 		Buffer* buffer2 = Buffer::the_buffers[b2];
 
-		if (verbose) fprintf(stderr, "call findEvent buffer2 %p\n", buffer2);
+		if (verbose) fprintf(stderr, "call findEvent buffer2 %d\n", buffer2->ib());
 		char* esp = findEvent(buffer2);
 		if (esp){
 			report("b2", b2, esp);
@@ -1852,7 +1851,7 @@ protected:
 		}else{
 			buffer1 = Buffer::the_buffers[b1];
 		}
-		if (verbose) fprintf(stderr, "call findEvent buffer1 %p\n", buffer1);
+		if (verbose) fprintf(stderr, "call findEvent buffer1 %d\n", buffer1->ib());
 		esp = findEvent(buffer1);
 		if (esp){
 			report("b1", b1, esp);
@@ -1900,13 +1899,17 @@ protected:
 		unsigned lenw = the_buffer->getLen()/G::wordsize;
 		int sample_offset = 0;
 
+		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d\n", base, lenw);
+
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
+			if (verbose > 1) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (IS_ES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
+		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
 		return 0;
 	}
 public:
@@ -2067,7 +2070,7 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 
 	static bool event0_enabled(int site){
 		char event_line[80];
-		if (getKnob(site, "event0", event_line) == 0){
+		if (getKnob(site, "event0", event_line) == 1){
 			unsigned ena = 0;
 			if (sscanf(event_line, "event0=%u", &ena) == 1){
 				return ena != 0;
@@ -2083,6 +2086,8 @@ public:
 
 		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
 				Buffer::the_buffers[0]->getBase());
+		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[1] : %p\n",
+				Buffer::the_buffers[1]->getBase());
 	}
 
 	static bool hasPP() {
@@ -3106,6 +3111,8 @@ StreamHead* StreamHead::createLiveDataInstance()
 	}
 	BufferCloner::cloneBuffers<DemuxBufferCloner>();
 	stream_fmt = "%s.hb0";
+
+
 	if (has_pre_post_live_demux()){
 		return new StreamHeadLivePP;
 	}else{
