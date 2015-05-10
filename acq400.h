@@ -448,6 +448,7 @@ struct acq400_dev {
 		unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
 		unsigned long hb0_last;
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
+		int event_count;
 	} rt;
 
 	struct XO {
@@ -1036,5 +1037,16 @@ static inline void acq400_enable_trg(struct acq400_dev *adev, int enable){
 	}
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
+
+static inline void acq400_enable_event0(struct acq400_dev *adev, int enable){
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	if (enable){
+		timcon |= TIM_CTRL_MODE_EV0_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_EV0_EN;
+	}
+	acq400wr32(adev, TIM_CTRL, timcon);
+}
+extern int acq400_event_count_limit;
 
 #endif /* ACQ420FMC_H_ */

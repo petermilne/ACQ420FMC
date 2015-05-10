@@ -753,6 +753,18 @@ static ssize_t store_simulate(
 
 static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
 
+
+static ssize_t show_event0_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->rt.event_count);
+}
+
+static DEVICE_ATTR(event0_count, S_IRUGO, show_event0_count, 0);
+
 static ssize_t show_spad(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1593,6 +1605,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_rgm.attr,
 	&dev_attr_nacc.attr,
 	&dev_attr_is_triggered.attr,
+	&dev_attr_event0_count.attr,
 	NULL,
 };
 

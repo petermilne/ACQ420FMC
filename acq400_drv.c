@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.788"
+#define REVID "2.791"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -160,6 +160,10 @@ MODULE_PARM_DESC(ao424_buffer_length, "AWG buffer length");
 int event_to = HZ/2;
 module_param(event_to, int, 0644);
 MODULE_PARM_DESC(event_to, "backstop event time out should be one TBLOCK");
+
+int acq400_event_count_limit;
+module_param(acq400_event_count_limit, int, 0644);
+MODULE_PARM_DESC(acq400_event_count_limit, "limit number of events per shot 0: no limit");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -1139,7 +1143,8 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	if (get_dma_channels(adev)){
 		dev_err(DEVP(adev), "no dma chan");
 		rc = -EBUSY;
-		goto start_dma99;
+		mutex_unlock(&adev->mutex);
+		return rc;
 	}
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 			adev, adev->pdev->dev.id, adev->dma_chan);
@@ -1149,6 +1154,8 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	acq400_clear_histo(adev);
 	adev->dma_callback_done = 0;
 	adev->fifo_isr_done = 0;
+
+	mutex_unlock(&adev->mutex);
 
 	if (adev->w_task == 0){
 		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
@@ -1162,7 +1169,6 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 				"acq420_continuous_start() task already running ?\n");
 	}
 
-
 	while(!adev->task_active){
 		yield();
 		if ((++pollcat&0x1ffff) == 0){
@@ -1175,9 +1181,6 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		}
 	}
 	adev->busy = 1;
-
-start_dma99:
-	mutex_unlock(&adev->mutex);
 	return rc;
 }
 
@@ -1408,6 +1411,10 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	adev->continuous_reader = 0;
 	_acq420_continuous_stop(ACQ400_DEV(file), 1);
 
+	if (acq400_event_count_limit &&
+		adev->rt.event_count > acq400_event_count_limit){
+		acq400_enable_event0(adev, 1);
+	}
 	return acq400_release(inode, file);
 }
 
@@ -1963,9 +1970,12 @@ ssize_t acq400_event_read(
 	 * it's also re-entrant (supports multiple clients each at own rate)
 	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
 	 */
-	if (wait_event_interruptible(
-		adev->event_waitq, adev->sample_clocks_at_event != old_sample)){
-		return -EINTR;
+	if (adev->sample_clocks_at_event != 0){
+		if (wait_event_interruptible(
+				adev->event_waitq,
+				adev->sample_clocks_at_event != old_sample)){
+			return -EINTR;
+		}
 	}
 
 	mutex_lock(&adev0->list_mutex);
@@ -3065,6 +3075,10 @@ quit:
 static void cos_action(struct acq400_dev *adev, u32 status)
 {
 	if ((status&ADC_INT_CSR_COS) != 0){
+		if (acq400_event_count_limit &&
+				++adev->rt.event_count > acq400_event_count_limit){
+			acq400_enable_event0(adev, 0);
+		}
 		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
