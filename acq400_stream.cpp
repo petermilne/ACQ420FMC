@@ -76,7 +76,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1005"
+#define VERID	"B1006"
 
 #define NCHAN	4
 
@@ -88,6 +88,28 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 
 using namespace std;
+int timespec_subtract (timespec *result, timespec *x, timespec *y) {
+	const unsigned nsps = 1000000000;
+	/* Perform the carry for the later subtraction by updating y. */
+	if (x->tv_nsec < y->tv_nsec) {
+		int nsec = (y->tv_nsec - x->tv_nsec) / 1000000 + 1;
+		y->tv_nsec -= nsps * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_nsec - y->tv_nsec > nsps) {
+		int nsec = (x->tv_nsec - y->tv_nsec) / nsps;
+		y->tv_nsec += nsps * nsec;
+		y->tv_sec -= nsec;
+	}
+
+	/* Compute the time remaining to wait. tv_nsec is certainly positive. */
+	if (result){
+		result->tv_sec = x->tv_sec - y->tv_sec;
+		result->tv_nsec = x->tv_nsec - y->tv_nsec;
+	}
+	/* Return 1 if result is negative. */
+	return x->tv_sec < y->tv_sec;
+}
 
 static int getKnob(int idev, const char* knob, unsigned* value)
 {
@@ -1905,7 +1927,7 @@ protected:
 		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d\n", base, lenw);
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
-			if (verbose > 1) fprintf(stderr, "findEvent cursor:%p\n", cursor);
+			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (IS_ES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				esDiagnostic(the_buffer, cursor);
@@ -1972,6 +1994,9 @@ public:
                if (G::script_runs_on_completion == 0){
                        G::script_runs_on_completion = "/tmp/ondemux_complete";
                }
+       }
+       virtual ~StreamHeadHB0() {
+	       setKnob(0, "live_stream", 0);
        }
 };
 
@@ -2255,21 +2280,30 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	const int cbs = channel_buffer_sam();
 	T* pdst = reinterpret_cast<T*>(dst.cursor);
 	T* psrc = reinterpret_cast<T*>(start);
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
 
-	if (verbose) fprintf(stderr, "%s (%p %d) %p = %p * nsam:%d %d\n",
-			__FUNCTION__, start, nbytes, pdst, psrc, nsam, cbs);
+	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
+			__FUNCTION__, start, nbytes, b1, pdst, psrc, nsam, cbs);
+
+	msync(MapBuffer::ba(b1), G::bufferlen, MS_SYNC);
 
 	for (int sam = 0; sam < nsam; ++sam){
 		for (int chan = 0; chan < G::nchan; ++chan){
-			pdst[chan*cbs+sam] = psrc[chan];
+			if (chan == 7){
+				pdst[chan*cbs+sam] = b1;
+			}else{
+				pdst[chan*cbs+sam] = psrc[chan];
+			}
 		}
 		T* psrc2 = psrc + G::nchan;
-		int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
-		if (b1 != MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2))){
-			Progress::instance().print(true, b1);
-			msync(MapBuffer::ba(b1), G::bufferlen, MS_SYNC);
+
+		int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2));
+		if (b1 != b2){
+			Progress::instance().print(true, b2);
+			msync(MapBuffer::ba(b2), G::bufferlen, MS_SYNC);
 		}
 		psrc = psrc2;
+		b1 = b2;
 	}
 	pdst += nsam;
 	dst.cursor = reinterpret_cast<char*>(pdst);
@@ -2839,7 +2873,7 @@ protected:
 		BufferLog blog;
 		int ib;
 		int post_run_over_one = 0;
-
+		struct timespec finish_time;
 
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
@@ -2868,9 +2902,12 @@ protected:
 					}
 				}
 				if (actual.pre >= pre){
-					event0.enable();
 					if (event_received){
+						clock_gettime(CLOCK_REALTIME, &finish_time);
+						finish_time.tv_sec += 1;
 						setState(ST_RUN_POST);
+					}else{
+						event0.enable();
 					}
 				}
 				break;
@@ -2884,9 +2921,16 @@ protected:
 					 * when ES is adjusted
 					 */
 					if (post_run_over_one++){
-						setState(ST_POSTPROCESS);
+						struct timespec now;
+						clock_gettime(CLOCK_REALTIME, &now);
+						if (timespec_subtract(0, &finish_time, &now)){
+							setState(ST_POSTPROCESS);
+							if (verbose) fprintf(stderr,
+								"streamCore() quits, extra %d\n",
+								post_run_over_one);
+							return;
+						}
 					}
-					return;
 				}
 				break;
 			default:
@@ -3115,8 +3159,9 @@ StreamHead* StreamHead::createLiveDataInstance()
 	BufferCloner::cloneBuffers<DemuxBufferCloner>();
 	stream_fmt = "%s.hb0";
 
-
-	if (has_pre_post_live_demux()){
+	bool live_pp = has_pre_post_live_demux();
+	setKnob(0, "live_stream", live_pp? "2": "1");
+	if (live_pp){
 		return new StreamHeadLivePP;
 	}else{
 		return new StreamHeadHB0;
