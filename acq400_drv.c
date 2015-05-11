@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.791"
+#define REVID "2.794"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -706,6 +706,8 @@ void acq43X_onStart(struct acq400_dev *adev)
 	/* next: valid Master, Standalone only. @@todo slave? */
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 	acq400wr32(adev, ADC_CTRL, ctrl);
+
+	dev_dbg(DEVP(adev), "acq435_onStart() 99");
 }
 
 void ao420_clear_fifo_flags(struct acq400_dev *adev)
@@ -1140,12 +1142,18 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		return -EINTR;
 	}
 
-	if (get_dma_channels(adev)){
-		dev_err(DEVP(adev), "no dma chan");
+	if (adev->busy || get_dma_channels(adev)){
+		if (adev->busy){
+			dev_err(DEVP(adev), "BUSY");
+		}else{
+			dev_err(DEVP(adev), "no dma chan");
+		}
 		rc = -EBUSY;
 		mutex_unlock(&adev->mutex);
 		return rc;
 	}
+	mutex_unlock(&adev->mutex);
+
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 			adev, adev->pdev->dev.id, adev->dma_chan);
 
@@ -1154,8 +1162,6 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	acq400_clear_histo(adev);
 	adev->dma_callback_done = 0;
 	adev->fifo_isr_done = 0;
-
-	mutex_unlock(&adev->mutex);
 
 	if (adev->w_task == 0){
 		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
@@ -1192,6 +1198,7 @@ void _onStart(struct acq400_dev *adev)
 }
 int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
 {
+	dev_dbg(DEVP(adev), "_acq420_continuous_start() 01 dma_start:%d", dma_start);
 	_onStart(adev);
 	if (dma_start){
 		int rc =_acq420_continuous_start_dma(adev);
@@ -1201,6 +1208,7 @@ int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
 	}
 
 	adev->onStart(adev);
+	dev_dbg(DEVP(adev), "_acq420_continuous_start() 99");
 	return 0;
 }
 
@@ -1963,17 +1971,17 @@ ssize_t acq400_event_read(
 	struct HBM *hbm0 = 0;
 	struct HBM *hbm1 = 0;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
-	u32 old_sample = adev->sample_clocks_at_event;
+	u32 old_sample = adev->rt.sample_clocks_at_event;
 	int timeout = 0;
 
 	/* force caller to wait fresh event. This is an auto-rate-limit
 	 * it's also re-entrant (supports multiple clients each at own rate)
 	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
 	 */
-	if (adev->sample_clocks_at_event != 0){
+	if (adev->rt.sample_clocks_at_event != 0){
 		if (wait_event_interruptible(
 				adev->event_waitq,
-				adev->sample_clocks_at_event != old_sample)){
+				adev->rt.sample_clocks_at_event != old_sample)){
 			return -EINTR;
 		}
 	}
@@ -2009,7 +2017,7 @@ ssize_t acq400_event_read(
 	}
 
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s\n",
-			adev->sample_clocks_at_event,
+			adev->rt.sample_clocks_at_event,
 			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "");
 
 	rc = copy_to_user(buf, lbuf, nbytes);
@@ -2026,11 +2034,11 @@ static unsigned int acq400_event_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
-	if (adev->sample_clocks_at_event){
+	if (adev->rt.sample_clocks_at_event){
 		return POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
-		if (adev->sample_clocks_at_event){
+		if (adev->rt.sample_clocks_at_event){
 			return POLLIN;
 		}else{
 			return 0;
@@ -3079,16 +3087,20 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 				++adev->rt.event_count > acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
 		}
-		adev->samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
-		adev->sample_clocks_at_event =
+		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
+		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
 		wake_up_interruptible(&adev->event_waitq);
+		dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 	}
 }
 
 static void hitide_action(struct acq400_dev *adev, u32 status)
 {
 	if ((status&ADC_INT_CSR_HITIDE) != 0){
+		add_fifo_histo(adev, acq420_get_fifo_samples(adev));
+		adev->stats.fifo_interrupts++;
+		adev->fifo_isr_done = 1;
 		wake_up_interruptible(&adev->w_waitq);
 	}
 }
@@ -3104,17 +3116,11 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	volatile u32 status = x400_get_interrupt(adev);
-
-	add_fifo_histo(adev, acq420_get_fifo_samples(adev));
-
-	adev->stats.fifo_interrupts++;
-	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
-	adev->fifo_isr_done = 1;
-
 	cos_action(adev, status);
 	hitide_action(adev, status);
 
 	x400_set_interrupt(adev, status);
+	dev_dbg(DEVP(adev), "acq400_isr %08x\n", status);
 	return IRQ_HANDLED;
 }
 

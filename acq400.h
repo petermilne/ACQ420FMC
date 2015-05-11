@@ -355,8 +355,7 @@ struct acq400_dev {
 	wait_queue_head_t w_waitq;
 	int task_active;
 
-	u32 samples_at_event;
-	u32 sample_clocks_at_event;
+
 	wait_queue_head_t event_waitq;
 
 	/* fake event isr @@removeme */
@@ -449,6 +448,9 @@ struct acq400_dev {
 		unsigned long hb0_last;
 		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
 		int event_count;
+
+		u32 samples_at_event;
+		u32 sample_clocks_at_event;
 	} rt;
 
 	struct XO {
