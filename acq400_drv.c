@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.796"
+#define REVID "2.798"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -207,6 +207,16 @@ void go_rt(int prio)
 	sched_setscheduler(task, SCHED_FIFO, &param);
 }
 
+void acq400_enable_event0(struct acq400_dev *adev, int enable){
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	if (enable){
+		timcon |= TIM_CTRL_MODE_EV0_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_EV0_EN;
+	}
+	dev_dbg(DEVP(adev), "acq400_enable_event0(%d) 0x%08x", enable, timcon);
+	acq400wr32(adev, TIM_CTRL, timcon);
+}
 
 const char* devname(struct acq400_dev *adev)
 {
@@ -1422,7 +1432,10 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 	}else{
 		adev->stats.run = 0;
 	}
-
+	if (acq400_event_count_limit &&
+		adev->rt.event_count > acq400_event_count_limit){
+		acq400_enable_event0(adev, 1);
+	}
 	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",
 			acq400rd32(adev, ADC_CTRL));
 }
@@ -1432,10 +1445,6 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 	adev->continuous_reader = 0;
 	_acq420_continuous_stop(ACQ400_DEV(file), 1);
 
-	if (acq400_event_count_limit &&
-		adev->rt.event_count > acq400_event_count_limit){
-		acq400_enable_event0(adev, 1);
-	}
 	return acq400_release(inode, file);
 }
 

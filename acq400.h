@@ -1040,15 +1040,8 @@ static inline void acq400_enable_trg(struct acq400_dev *adev, int enable){
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
 
-static inline void acq400_enable_event0(struct acq400_dev *adev, int enable){
-	u32 timcon = acq400rd32(adev, TIM_CTRL);
-	if (enable){
-		timcon |= TIM_CTRL_MODE_EV0_EN;
-	}else{
-		timcon &= ~TIM_CTRL_MODE_EV0_EN;
-	}
-	acq400wr32(adev, TIM_CTRL, timcon);
-}
+extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
+
 extern int acq400_event_count_limit;
 
 #endif /* ACQ420FMC_H_ */
