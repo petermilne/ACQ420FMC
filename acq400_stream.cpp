@@ -213,6 +213,7 @@ namespace G {
 	int the_sites[6];
 	char* progress;
 	int corner_turn_delay;	/* test pre/post caps on corner turn, buffers */
+	int exit_on_trigger_fail;
 };
 
 
@@ -1291,6 +1292,10 @@ struct poptOption opt_table[] = {
 	{ "corner-turn-delay", 'c', POPT_ARG_INT, &G::corner_turn_delay, 0,
 			"increase this to test effect of event at corner .. 510 ish"
 	},
+	{
+	  "exit-on-trigger-fail", 0, POPT_ARG_INT, &G::exit_on_trigger_fail, 0,
+	  	  	  "force quit on trigger fail"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -1770,6 +1775,10 @@ protected:
 		while (!is_triggered()){
 			if (repeat > 100){
 				fprintf(stderr, "ERROR: failed to trigger\n");
+				if (G::exit_on_trigger_fail){
+					system("kill -9 $(cat acq400_stream_main.0.pid)");
+					exit(1);
+				}
 			}
 			usleep(10000);
 			++repeat;
