@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.794"
+#define REVID "2.796"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1152,16 +1152,13 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		mutex_unlock(&adev->mutex);
 		return rc;
 	}
+	adev->dma_callback_done = 0;
+	adev->fifo_isr_done = 0;
 	mutex_unlock(&adev->mutex);
 
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 			adev, adev->pdev->dev.id, adev->dma_chan);
 
-	adev->cursor.offset = 0;
-	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
-	acq400_clear_histo(adev);
-	adev->dma_callback_done = 0;
-	adev->fifo_isr_done = 0;
 
 	if (adev->w_task == 0){
 		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
@@ -1190,16 +1187,28 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	return rc;
 }
 
-void _onStart(struct acq400_dev *adev)
+int _onStart(struct acq400_dev *adev)
 {
+	if (mutex_lock_interruptible(&adev->mutex)) {
+		return -EINTR;
+	}
 	adev->oneshot = 0;
 	adev->stats.shot++;
 	adev->stats.run = 1;
+	adev->cursor.offset = 0;
+	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
+	acq400_clear_histo(adev);
+	mutex_unlock(&adev->mutex);
+	return 0;
 }
 int _acq420_continuous_start(struct acq400_dev *adev, int dma_start)
 {
+	int rc;
 	dev_dbg(DEVP(adev), "_acq420_continuous_start() 01 dma_start:%d", dma_start);
-	_onStart(adev);
+	rc = _onStart(adev);
+	if (rc){
+		return rc;
+	}
 	if (dma_start){
 		int rc =_acq420_continuous_start_dma(adev);
 		if (rc != 0){
@@ -1245,6 +1254,10 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 
 	empty_lists(adev);
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 01");
+	rc = _onStart(adev);
+	if (rc){
+		return rc;
+	}
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 	acq2006_aggregator_reset(adev);				/* (1) */
@@ -1978,11 +1991,15 @@ ssize_t acq400_event_read(
 	 * it's also re-entrant (supports multiple clients each at own rate)
 	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
 	 */
-	if (adev->rt.sample_clocks_at_event != 0){
-		if (wait_event_interruptible(
+	if (adev->rt.event_count != 0){
+		rc = wait_event_interruptible_timeout(
 				adev->event_waitq,
-				adev->rt.sample_clocks_at_event != old_sample)){
+				adev->rt.sample_clocks_at_event != old_sample,
+				event_to);
+		if (rc < 0){
 			return -EINTR;
+		}else if (rc){
+			return -EAGAIN;
 		}
 	}
 
