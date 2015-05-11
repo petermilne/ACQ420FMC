@@ -1776,7 +1776,7 @@ protected:
 			if (repeat > 100){
 				fprintf(stderr, "ERROR: failed to trigger\n");
 				if (G::exit_on_trigger_fail){
-					system("kill -9 $(cat acq400_stream_main.0.pid)");
+					system("kill -9 $(cat /var/run/acq400_stream_main.0.pid)");
 					exit(1);
 				}
 			}
