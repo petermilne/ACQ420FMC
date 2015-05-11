@@ -212,6 +212,7 @@ namespace G {
 	int nsites;
 	int the_sites[6];
 	char* progress;
+	int corner_turn_delay;	/* test pre/post caps on corner turn, buffers */
 };
 
 
@@ -1286,6 +1287,9 @@ struct poptOption opt_table[] = {
 	},
 	{ "progress", 'p', POPT_ARG_STRING, &G::progress, 0,
 			"log to this file"
+	},
+	{ "corner-turn-delay", 'c', POPT_ARG_INT, &G::corner_turn_delay, 0,
+			"increase this to test effect of event at corner .. 510 ish"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -2874,6 +2878,7 @@ protected:
 		int ib;
 		int post_run_over_one = 0;
 		struct timespec finish_time;
+		int buffers_over_pre = 0;
 
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
@@ -2907,7 +2912,9 @@ protected:
 						finish_time.tv_sec += 1;
 						setState(ST_RUN_POST);
 					}else{
-						event0.enable();
+						if (++buffers_over_pre > G::corner_turn_delay){
+							event0.enable();
+						}
 					}
 				}
 				break;
