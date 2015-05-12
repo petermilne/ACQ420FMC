@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.798"
+#define REVID "2.799"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -161,7 +161,7 @@ int event_to = HZ/2;
 module_param(event_to, int, 0644);
 MODULE_PARM_DESC(event_to, "backstop event time out should be one TBLOCK");
 
-int acq400_event_count_limit;
+int acq400_event_count_limit = 1;
 module_param(acq400_event_count_limit, int, 0644);
 MODULE_PARM_DESC(acq400_event_count_limit, "limit number of events per shot 0: no limit");
 
@@ -1433,7 +1433,7 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 		adev->stats.run = 0;
 	}
 	if (acq400_event_count_limit &&
-		adev->rt.event_count > acq400_event_count_limit){
+		adev->rt.event_count >= acq400_event_count_limit){
 		acq400_enable_event0(adev, 1);
 	}
 	dev_dbg(DEVP(adev), "acq420_continuous_stop(): quitting ctrl:%08x",
@@ -3110,7 +3110,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 {
 	if ((status&ADC_INT_CSR_COS) != 0){
 		if (acq400_event_count_limit &&
-				++adev->rt.event_count > acq400_event_count_limit){
+				++adev->rt.event_count >= acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
 		}
 		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
