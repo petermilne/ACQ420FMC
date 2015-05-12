@@ -1299,6 +1299,8 @@ static ssize_t store_hi_res_mode(
 			mode |= ACQ435_MODE_HIRES_512;
 		}
 		hi_res_mode &= ADC_CLK_CTR_SRC_MASK;
+		dev_dbg(DEVP(adev), "store_hi_res_mode %d 0x%08x",
+				hi_res_mode!=0, mode);
 		acq400wr32(adev, ACQ435_MODE, mode);
 		return count;
 	}else{
