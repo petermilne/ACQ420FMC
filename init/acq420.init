@@ -294,8 +294,11 @@ build_site0() {
 	ln -s /usr/local/bin/transient ${ek}
 	ln -s /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
-	echo 0 > ${ek}/live_post
-	echo 0 > ${ek}/live_pre
+	for k in live_post live_pre live_mode
+	do
+		echo 0 > ${ek}/$k
+	done
+	
 	
 	[ "x$REBOOT_KNOB" = "xy" ] && ln -s /usr/local/bin/reboot ${ek}
 	
