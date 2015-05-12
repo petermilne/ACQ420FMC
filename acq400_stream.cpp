@@ -2302,11 +2302,13 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 
 	for (int sam = 0; sam < nsam; ++sam){
 		for (int chan = 0; chan < G::nchan; ++chan){
+#ifdef BUFFER_IDENT
 			if (chan == 7){
 				pdst[chan*cbs+sam] = b1;
-			}else{
-				pdst[chan*cbs+sam] = psrc[chan];
+				continue;
 			}
+#endif
+			pdst[chan*cbs+sam] = psrc[chan];
 		}
 		T* psrc2 = psrc + G::nchan;
 
