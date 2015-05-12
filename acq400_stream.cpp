@@ -165,6 +165,12 @@ static int setKnob(int idev, const char* knob, const char* value)
 	}
 }
 
+static int setKnob(int idev, const char* knob, int value)
+{
+	char vx[32]; snprintf(vx, 32, "%d", value);
+	return setKnob(idev, knob, vx);
+}
+
 #define BM_NOT_SPECIFIED	'\0'
 #define BM_NULL			'n'
 #define BM_RAW			'r'	/* no demux */
@@ -2009,7 +2015,7 @@ public:
                }
        }
        virtual ~StreamHeadHB0() {
-	       setKnob(0, "live_stream", 0);
+	       setKnob(0, "/etc/acq400/0/live_mode", "0");
        }
 };
 
@@ -3178,7 +3184,7 @@ StreamHead* StreamHead::createLiveDataInstance()
 	stream_fmt = "%s.hb0";
 
 	bool live_pp = has_pre_post_live_demux();
-	setKnob(0, "live_stream", live_pp? "2": "1");
+	setKnob(0, "/etc/acq400/0/live_mode", live_pp? "2": "1");
 	if (live_pp){
 		return new StreamHeadLivePP;
 	}else{
@@ -3186,10 +3192,18 @@ StreamHead* StreamHead::createLiveDataInstance()
 	}
 }
 
+void setEventCountLimit(int limit)
+{
+	setKnob(0,
+	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
+}
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
 	if (_instance == 0){
+
+		setEventCountLimit(G::stream_mode == SM_TRANSIENT);
+
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;
 			return _instance;
