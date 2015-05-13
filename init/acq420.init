@@ -270,15 +270,25 @@ build_knobs_device() {
 	web_append acq400.${site} ${site}	
 }
 
-install_default_cal() {
+install_cal() {
 	site=$1
 	caldef=/dev/sites/${site}/caldef.xml
 	if [ ! -e ${caldef} ]; then
 		source 	/dev/sites/${site}/details
-		PN="${FRU_PART_NUM%% *}"
-		TYP="${PN%%-*}"
-		if [ -e /usr/local/cal/${TYP}-defcal.xml ]; then
-			cp /usr/local/cal/${TYP}-defcal.xml ${caldef}
+		calcal=/mnt/local/cal/$FRU_SERIAL.xml	
+		if [ -e ${calcal} ]; then
+			echo "Calibration found site:$site ${calcal}"
+			cp ${calcal} ${caldef}
+		else			
+			PN="${FRU_PART_NUM%% *}"
+			TYP="${PN%%-*}"
+			defcal=/usr/local/cal/${TYP}-defcal.xml
+			if [ -e ${defcal} ]; then
+				cp ${defcal} ${caldef}
+				echo "Calibration default installed site:$site ${defcal}"
+			else
+				echo "WARNING: no calibration or default found for site:$site type:${TYP}"
+			fi
 		fi
 	fi	
 }
@@ -363,7 +373,7 @@ build_knobs() {
 	for dir in $spd/*acq4?0fmc $spd/*acq400pmod
 	do
 		if [ -e ${dir}/site ]; then
-			install_default_cal $(cat ${dir}/site)
+			install_cal $(cat ${dir}/site)
 			build_knobs_device ${dir}
 		fi
 	done
