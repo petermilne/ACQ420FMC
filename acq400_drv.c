@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.800"
+#define REVID "2.802"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1765,12 +1765,15 @@ int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	unsigned* src = (unsigned *)adev->gpg_buffer;
 	int iw;
 
 	for (iw = 0; iw < adev->gpg_cursor; ++iw){
-		iowrite32(adev->gpg_base+iw, adev->gpg_buffer+iw);
+		iowrite32(src[iw], adev->gpg_base+iw);
 	}
 	set_gpg_top(adev, adev->gpg_cursor);
+	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
+
 	return 0;
 }
 
