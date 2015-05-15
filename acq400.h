@@ -772,7 +772,13 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define ACQ1001_MCR_PWM_MIN		0x04
 
 
-#define GPG_CTRL_TOPADDR		0x3ff00000
+#define GPG_CTRL_TOPADDR_SHL		20
+#define GPG_CTRL_TRG_SHL		16
+#define GPG_CTRL_SYNC_SHL		12
+#define GPG_CTRL_CLK_SHL		8
+#define GPG_CTRL_MODE_SHL		1
+
+#define GPG_CTRL_TOPADDR		0x1ff00000
 #define GPG_CTRL_TRG_SEL		0x000e0000
 #define GPG_CTRL_TRG_RISING		0x00010000
 #define GPG_CTRL_SYNC_SEL		0x0000e000
@@ -785,11 +791,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define GPG_CTRL_MODE			0x00000006
 #define GPG_CTRL_ENABLE			0x00000001
 
-#define GPG_CTRL_TOPADDR_SHL		24
-#define GPG_CTRL_TRG_SHL		16
-#define GPG_CTRL_SYNC_SHL		12
-#define GPG_CTRL_CLK_SHL		8
-#define GPG_CTRL_MODE_SHL		1
+
 
 #define GPG_MEM_BASE			0xf000
 #define GPG_MEM_SIZE			0x1000
