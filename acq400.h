@@ -432,13 +432,13 @@ struct acq400_dev {
 
 	unsigned char *gpg_buffer;
 	unsigned *gpg_base;
-	unsigned gpg_cursor;		/* bytes .. */
+	unsigned gpg_cursor;		/* words .. */
 
 	unsigned *fifo_histo;
 
 	struct RUN_TIME {
 		int refill_error;
-		int buffers_dropped;		/* a watning, error if quit_on_buffer_exhaustion set*/
+		int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
 		int please_stop;
 		unsigned nget;
 		unsigned nput;
@@ -865,6 +865,7 @@ int ao420_physChan(int lchan /* 1..4 */ );
 static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 {
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
+	gpg_top -= 1;					// GPG_2ND_LAST_ADDR
 	gpg_top <<= GPG_CTRL_TOPADDR_SHL;
 	gpg_top &= GPG_CTRL_TOPADDR;
 	gpg_ctrl &= ~GPG_CTRL_TOPADDR;
