@@ -304,6 +304,7 @@ build_site0() {
 	ln -s /usr/local/bin/transient ${ek}
 	ln -s /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
+	ln -s /usr/local/bin/set.sync_role /etc/acq400/0/
 	for k in live_post live_pre live_mode
 	do
 		echo 0 > ${ek}/$k
