@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.802"
+#define REVID "2.804"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1681,7 +1681,13 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 int acq400_gpgmem_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	ioread32_rep(adev->gpg_base, adev->gpg_buffer, adev->gpg_cursor);
+	if (file->f_flags & O_WRONLY) {
+		int iw;
+		for (iw = 0; iw < adev->gpg_cursor; ++iw){
+			iowrite32(0, adev->gpg_base+iw);
+		}
+		adev->gpg_cursor = 0;
+	}
 	return 0;
 }
 ssize_t acq400_gpgmem_read(
@@ -1735,33 +1741,6 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 
 }
 
-int acq400_gpgmem_mmap(struct file* file, struct vm_area_struct* vma)
-{
-        struct acq400_dev* adev = ACQ400_DEV(file);
-       unsigned long vsize = vma->vm_end - vma->vm_start;
-       unsigned long psize = GPG_MEM_SIZE;
-       unsigned pfn = (adev->dev_physaddr + GPG_MEM_BASE) >> PAGE_SHIFT;
-
-       if (!IS_BUFFER(PD(file)->minor)){
-               dev_warn(DEVP(adev), "ERROR: device node not a buffer");
-               return -1;
-       }
-       dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
-               'D', vsize, psize, vsize>psize? "EINVAL": "OK");
-
-       if (vsize > psize){
-               return -EINVAL;                   /* request too big */
-       }
-       if (remap_pfn_range(
-               vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-               return -EAGAIN;
-       }else{
-               return 0;
-       }
-       return 0;
-}
-
-
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
@@ -1783,21 +1762,12 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 			.open = acq400_gpgmem_open,
 			.read = acq400_gpgmem_read,
 			.write = acq400_gpgmem_write,
-			.release = acq400_gpgmem_release,
-			.mmap = acq400_gpgmem_mmap
+			.release = acq400_gpgmem_release
 	};
 	file->f_op = &acq400_fops_gpgmem;
-	if (file->f_op->open){
-		if (file->f_flags & O_WRONLY) {
-			struct acq400_dev* adev = ACQ400_DEV(file);
-			adev->gpg_cursor = 0;
-		}
-
-		return file->f_op->open(inode, file);
-	}else{
-		return 0;
-	}
+	return file->f_op->open(inode, file);
 }
+
 ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 {
