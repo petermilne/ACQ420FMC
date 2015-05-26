@@ -683,6 +683,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define HDMI_SYNC_OUT_SRC	(0x0028)   	/* HSO_xx	*/
 #define EVT_BUS_SRC		(0x002c)	/* EBS_xx	*/
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
+#define FPCTL			(0x0034)
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
 /* scratchpad */
@@ -861,6 +862,14 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 /* HDMI_SYNC_CON */
 #define SYNC_CON
 int ao420_physChan(int lchan /* 1..4 */ );
+
+
+#define FPCTL_GPIO_SHL	8
+#define FPCTL_SYNC_SHL 	4
+#define FPCTL_TRG_SHL	0
+
+#define FPCTL_MASK	0xf
+#define FPCTL_IS_INPUT	0x0
 
 static inline void set_gpg_top(struct acq400_dev* adev, u32 gpg_top)
 {

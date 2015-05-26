@@ -244,8 +244,12 @@ MAKE_BITS(sig_src_route_trg_d0,  SIG_SRC_ROUTE, SSR_TRG_0_SHL,  SSR_MASK);
 MAKE_BITS(sig_src_route_clk_d1,  SIG_SRC_ROUTE, SSR_CLK_1_SHL,  SSR_MASK);
 MAKE_BITS(sig_src_route_clk_d0,  SIG_SRC_ROUTE, SSR_CLK_0_SHL,  SSR_MASK);
 
+MAKE_BITS(fpctl_gpio, 		 FPCTL,         FPCTL_GPIO_SHL, FPCTL_MASK);
+MAKE_BITS(fpctl_sync,		 FPCTL,         FPCTL_SYNC_SHL, FPCTL_MASK);
+MAKE_BITS(fpctl_trg,             FPCTL,         FPCTL_TRG_SHL,  FPCTL_MASK);
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
+
 
 
 static const struct attribute *hdmi_sync_attrs[] = {
@@ -296,6 +300,9 @@ static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sig_src_route_clk_d1.attr,
 	&dev_attr_sig_src_route_clk_d0.attr,
 
+	&dev_attr_fpctl_gpio.attr,
+	&dev_attr_fpctl_sync.attr,
+	&dev_attr_fpctl_trg.attr,
 };
 static ssize_t show_clkdiv(
 	struct device * dev,
