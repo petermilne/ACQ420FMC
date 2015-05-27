@@ -684,6 +684,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define EVT_BUS_SRC		(0x002c)	/* EBS_xx	*/
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
 #define FPCTL			(0x0034)
+#define GPG_DEBUG		(0x0038)
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
 /* scratchpad */
