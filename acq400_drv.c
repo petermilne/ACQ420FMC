@@ -1747,13 +1747,13 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 	unsigned* src = (unsigned *)adev->gpg_buffer;
 	int iw;
 
+
+	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
 	for (iw = 0; iw < adev->gpg_cursor; ++iw){
 		iowrite32(src[iw], adev->gpg_base+iw);
 	}
-	set_gpg_top(adev, adev->gpg_cursor);
-	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
-
-	return 0;
+		/* cursor is count, not top address */
+	return set_gpg_top(adev, adev->gpg_cursor);
 }
 
 int acq420_open_gpgmem(struct inode *inode, struct file *file)
