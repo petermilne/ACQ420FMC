@@ -1741,18 +1741,34 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 
 }
 
+int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
+{
+	if (gpg_count >= 2){
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
+		u32 gpg_top = gpg_count - 1		// was count, not address
+					 -1;		// GPG_2ND_LAST_ADDR
+		gpg_top <<= GPG_CTRL_TOPADDR_SHL;
+		gpg_top &= GPG_CTRL_TOPADDR;
+		gpg_ctrl &= ~GPG_CTRL_TOPADDR;
+		gpg_ctrl |= gpg_top;
+		acq400wr32(adev, GPG_CTRL, gpg_ctrl);
+		return 0;
+	}else{
+		dev_err(DEVP(adev), "set_gpg_top() ERROR: must have 2 or more entries");
+		return -1;
+	}
+}
+
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	unsigned* src = (unsigned *)adev->gpg_buffer;
 	int iw;
 
-
-	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
 	for (iw = 0; iw < adev->gpg_cursor; ++iw){
 		iowrite32(src[iw], adev->gpg_base+iw);
 	}
-		/* cursor is count, not top address */
+	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
 	return set_gpg_top(adev, adev->gpg_cursor);
 }
 

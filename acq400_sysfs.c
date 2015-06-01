@@ -632,7 +632,7 @@ MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
 		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS);
 
 
-static ssize_t show_gpg_top(
+static ssize_t show_gpg_top_count(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
@@ -640,10 +640,10 @@ static ssize_t show_gpg_top(
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
 	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
-	return sprintf(buf, "%u\n", gpg_top);
+	return sprintf(buf, "%u\n", gpg_top+2);
 }
 
-static ssize_t store_gpg_top(
+static ssize_t store_gpg_top_count(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
@@ -660,7 +660,7 @@ static ssize_t store_gpg_top(
 	}
 }
 
-static DEVICE_ATTR(gpg_top, S_IRUGO|S_IWUGO, show_gpg_top, store_gpg_top);
+static DEVICE_ATTR(gpg_top_count, S_IRUGO|S_IWUGO, show_gpg_top_count, store_gpg_top_count);
 
 static ssize_t show_gpg_debug(
 	struct device * dev,
@@ -3408,7 +3408,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_psu_sync.attr,
 	&dev_attr_soft_trig.attr,
 	&dev_attr_celf_power_en.attr,
-	&dev_attr_gpg_top.attr,
+	&dev_attr_gpg_top_count.attr,
 	&dev_attr_gpg_debug.attr,
 	&dev_attr_gpg_trg.attr,
 	&dev_attr_gpg_clk.attr,

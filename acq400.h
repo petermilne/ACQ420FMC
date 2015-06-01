@@ -872,24 +872,7 @@ int ao420_physChan(int lchan /* 1..4 */ );
 #define FPCTL_MASK	0xf
 #define FPCTL_IS_INPUT	0x0
 
-static inline int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
-{
-	if (gpg_count >= 2){
-		u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
-		u32 gpg_top = gpg_count - 1		// was count, not address
-					 -1;		// GPG_2ND_LAST_ADDR
-		gpg_top <<= GPG_CTRL_TOPADDR_SHL;
-		gpg_top &= GPG_CTRL_TOPADDR;
-		gpg_ctrl &= ~GPG_CTRL_TOPADDR;
-		gpg_ctrl |= gpg_top;
-		acq400wr32(adev, GPG_CTRL, gpg_ctrl);
-		return 0;
-	}else{
-		dev_err(DEVP(adev), "set_gpg_top() ERROR: must have 2 or more entries");
-		return -1;
-	}
-}
-
+int set_gpg_top(struct acq400_dev* adev, u32 gpg_count);
 #define AOSAMPLES2BYTES(adev, xx) ((xx)*(adev)->nchan_enabled*(adev)->word_size)
 #define AOBYTES2SAMPLES(adev, xx) ((xx)/(adev)->nchan_enabled/(adev)->word_size)
 
