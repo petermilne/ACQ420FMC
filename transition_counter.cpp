@@ -51,14 +51,20 @@ enum Edge { FALLING = -1, NEUTRAL, RISING };
 #define C_RISING  '/'
 #define C_FLAT	  '-'
 
-void compute(short buf[], int nsam)
+static int debug = 0;
+
+
+template <class T> 
+class TransitionCounter {
+public:
+static void compute(T buf[], int nsam)
 {
 	long long sum = 0;
 	long long sumsq = 0;
 	int ii;
 
 	for (ii = 0; ii < nsam; ++ii){
-		short xx = buf[ii];
+		T xx = buf[ii];
 		if (xx < stats.min) stats.min = xx;
 		if (xx > stats.max) stats.max = xx;
 		sum += xx;
@@ -74,13 +80,12 @@ void compute(short buf[], int nsam)
 	printf("%10d %10d\n", stats.min, stats.max);
 }
 
-void _report(int ii, short xm1, short xx, enum Edge edge)
+static void _report(int ii, T xm1, T xx, enum Edge edge)
 {
 
 	printf("%10d %6d %+8d %6d\n", ii, xm1, edge*9999999, xx);
 }
-int debug = 0;
-void report_transitions(short buf[], int nsam)
+static void report_transitions(T buf[], int nsam)
 {
 	int threshold = (stats.max - stats.min)/THRESHOLD;
 	Edge state = NEUTRAL;
@@ -108,12 +113,25 @@ void report_transitions(short buf[], int nsam)
 		}
 	}
 }
-int main(int argc, char* argv[])
-{
-	short* buf = new short[MAXSAM];
+TransitionCounter() {
+	T* buf = new T[MAXSAM];
 
-	int nsam = fread(buf, sizeof(short), MAXSAM, stdin);
+	int nsam = fread(buf, sizeof(T), MAXSAM, stdin);
 	compute(buf, nsam);
 	report_transitions(buf, nsam);
+}
+};
+
+int main(int argc, char* argv[])
+{
+	int sz = 2;
+	if (getenv("TRANSITION_COUNTER_SZ")){
+		sz = atoi(getenv("TRANSITION_COUNTER_SZ"));
+	}
+	if (sz == 4){
+		new TransitionCounter<long>();
+	}else{
+		new TransitionCounter<short>();
+	}
 }
 
