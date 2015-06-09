@@ -52,7 +52,7 @@ int adc_conv_time = ADC_CONV_TIME_1000;
 module_param(adc_conv_time, int, 0444);
 MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
 
-int acq424_adc_conv_time = 0x2e;
+int acq424_adc_conv_time = 0x2d;
 module_param(acq424_adc_conv_time, int, 0444);
 
 int nbuffers = 64;
