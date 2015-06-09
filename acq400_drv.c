@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.807"
+#define REVID "2.808"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2771,13 +2771,17 @@ static int ao_auto_rearm(void *clidat)
 	wait_queue_head_t wait;
 	init_waitqueue_head(&wait);
 
+	dev_dbg(DEVP(adev), "ao_auto_rearm() 01");
+
 	while (adev->xo.getFifoSamples(adev)){
 		wait_event_interruptible_timeout(wait, 0, 2);
 	}
 	if (adev->AO_playloop.length > 0 &&
 		adev->AO_playloop.one_shot == AO_oneshot_rearm){
+		dev_dbg(DEVP(adev), "ao_auto_rearm() reset %d", adev->AO_playloop.length);
 		xo400_reset_playloop(adev, adev->AO_playloop.length);
 	}
+	dev_dbg(DEVP(adev), "ao_auto_rearm() 99");
 	return 0;
 }
 static int xo400_fill_fifo(struct acq400_dev* adev)
