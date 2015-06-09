@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.806"
+#define REVID "2.807"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -133,7 +133,7 @@ int good_sites[MAXDEVICES];
 int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
 
-int ao420_dma_threshold = MIN_DMA;
+int ao420_dma_threshold = MIN_DMA_BYTES;
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
@@ -2808,9 +2808,9 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 
 			lenbytes = min(lenbytes, AO420_MAX_FILL_BLOCK);
 
-			if (adev->dma_chan[0] != 0 && remaining > max(MIN_DMA, ao420_dma_threshold)){
-				int nbuf = lenbytes/MIN_DMA;
-				int dma_bytes = nbuf*MIN_DMA;
+			if (adev->dma_chan[0] != 0 && lenbytes > max(MIN_DMA_BYTES, ao420_dma_threshold)){
+				int nbuf = lenbytes/MIN_DMA_BYTES;
+				int dma_bytes = nbuf*MIN_DMA_BYTES;
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				xo400_write_fifo_dma(adev, cursor, dma_bytes);

@@ -553,7 +553,7 @@ struct acq400_path_descriptor {
 #define DEVP(adev)		(&(adev)->pdev->dev)
 
 
-#define MIN_DMA	256
+#define MIN_DMA_BYTES	256
 
 #define MAXDEVICES 6
 extern struct acq400_dev* acq400_devices[];
