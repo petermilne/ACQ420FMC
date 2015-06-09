@@ -56,8 +56,9 @@ static int debug = 0;
 
 template <class T> 
 class TransitionCounter {
+	T* buf;
 public:
-static void compute(T buf[], int nsam)
+void compute(int nsam)
 {
 	long long sum = 0;
 	long long sumsq = 0;
@@ -85,7 +86,7 @@ static void _report(int ii, T xm1, T xx, enum Edge edge)
 
 	printf("%10d %6d %+8d %6d\n", ii, xm1, edge*9999999, xx);
 }
-static void report_transitions(T buf[], int nsam)
+void report_transitions(int nsam)
 {
 	int threshold = (stats.max - stats.min)/THRESHOLD;
 	Edge state = NEUTRAL;
@@ -113,13 +114,45 @@ static void report_transitions(T buf[], int nsam)
 		}
 	}
 }
-TransitionCounter() {
-	T* buf = new T[MAXSAM];
+TransitionCounter() : buf(new T[MAXSAM]) {
+	const char* chdef = getenv("TRANSITION_COUNTER_CH");
+	int nsam;
 
-	int nsam = fread(buf, sizeof(T), MAXSAM, stdin);
-	compute(buf, nsam);
-	report_transitions(buf, nsam);
+	if (chdef){
+		int ch, nchan;
+		if (sscanf(chdef, "%d,%d", &ch, &nchan) == 2){
+			if (ch < 1){
+				fprintf(stderr, "ERROR:ch >=1\n");
+				exit(1);
+			}else if (ch > nchan){
+				fprintf(stderr, "ERROR:ch < nchan\n");
+				exit(1);
+			}else{
+				fprintf(stderr, "assume MUX data NCHAN=%d CH=%d\n", nchan, ch);
+			}
+			T* mbuf = new T[MAXSAM*nchan];
+			int nw = fread(buf, sizeof(T), MAXSAM*nchan, stdin);
+			nsam = nw/nchan;
+			int ix = ch-1;
+
+			for (int isam = 0; isam < nsam; ++isam){
+				buf[isam] = mbuf[isam*nchan + ix];
+			}	
+			delete [] mbuf;
+		}else{
+			fprintf(stderr, "ERROR:TRANSITION_COUNTER_CH=ch,nchan\n");
+			exit(1);
+		}
+	}else{
+		nsam = fread(buf, sizeof(T), MAXSAM, stdin);
+	}
+	compute(nsam);
+	report_transitions(nsam);
 }
+virtual ~TransitionCounter() {
+	delete [] buf;
+}
+
 };
 
 int main(int argc, char* argv[])
