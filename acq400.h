@@ -146,6 +146,11 @@
 #define MOD_ID_ACQ1001SC	0x81
 #define MOD_ID_ACQ2106SC	0x82
 
+#define MOD_ID_MTCA_ADAP	0xfc
+#define MOD_ID_ACQ400T_FMC	0xfd
+#define MOD_ID_ACQ400T_ELF	0xfe
+
+
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_SHL   (10)
@@ -646,6 +651,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_PMODADC1(adev)	(GET_MOD_ID(adev) == MOD_ID_PMODADC1)
 
+#define IS_ACQ400T(adev) \
+	(GET_MOD_ID(adev) == MOD_ID_ACQ400T_FMC || GET_MOD_ID(adev) == MOD_ID_ACQ400T_ELF)
+
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
@@ -1046,5 +1054,17 @@ static inline void acq400_enable_trg(struct acq400_dev *adev, int enable){
 extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
 
 extern int acq400_event_count_limit;
+
+#define ACQ400T_DOA	0x10
+#define ACQ400T_DOB	0x14
+#define ACQ400T_DIA	0x20
+#define ACQ400T_DIB	0x24
+
+#define ACQ400T_SCR_PWR_GOOD_BIT	5
+#define ACQ400T_SCR_JTAG_RESET_BIT	4
+#define ACQ400T_SCR_TEST_DATA_DONE_BIT	2
+#define ACQ400T_SCR_SEND_START_BIT	1
+
+
 
 #endif /* ACQ420FMC_H_ */

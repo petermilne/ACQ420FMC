@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.808"
+#define REVID "2.809"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG

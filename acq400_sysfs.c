@@ -2642,6 +2642,73 @@ static const struct attribute *dio432_attrs[] = {
 	NULL
 };
 
+static ssize_t show_ACQ400T_out(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "0x%08x 0x%08x\n",
+		acq400rd32(adev, ACQ400T_DOA), acq400rd32(adev, ACQ400T_DOB));
+}
+
+static ssize_t store_ACQ400T_out(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned doa, dob;
+
+	if (sscanf(buf, "%x %x", &doa, &dob) == 2){
+		unsigned mcr = acq400rd32(adev, MCR);
+		int pollcat = 0;
+
+		mcr = DAC_CTRL_MODULE_EN;
+		acq400wr32(adev, MCR, mcr);
+		acq400wr32(adev, ACQ400T_DOA, doa);
+		acq400wr32(adev, ACQ400T_DOB, dob);
+		acq400wr32(adev, MCR, mcr| (1<<ACQ400T_SCR_SEND_START_BIT));
+
+		while ((mcr = acq400rd32(adev, MCR)) &&
+			(!(mcr & (1<<ACQ400T_SCR_TEST_DATA_DONE_BIT)))){
+			yield();
+
+			if ((++pollcat&0xfff) == 0){
+				dev_dbg(DEVP(adev), "store_ACQ400T_out %d 0x%08x", pollcat, mcr);
+			}
+		}
+		dev_dbg(DEVP(adev), "store_ACQ400T_out %d 0x%08x DONE", pollcat, mcr);
+		acq400wr32(adev, MCR, mcr = DAC_CTRL_MODULE_EN);
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(ACQ400T_out, S_IRUGO|S_IWUGO, show_ACQ400T_out, store_ACQ400T_out);
+
+static ssize_t show_ACQ400T_in(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "0x%08x 0x%08x\n",
+		acq400rd32(adev, ACQ400T_DIA), acq400rd32(adev, ACQ400T_DIB));
+}
+
+
+static DEVICE_ATTR(ACQ400T_in, S_IRUGO, show_ACQ400T_in, 0);
+
+
+static const struct attribute *acq400t_attrs[] = {
+	&dev_attr_ACQ400T_out.attr,
+	&dev_attr_ACQ400T_in.attr,
+	NULL
+};
 
 
 #define SCOUNT_KNOB(name, reg) 						\
@@ -3498,6 +3565,8 @@ static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_scount_SYN_S2.attr,
 	NULL
 };
+
+
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
@@ -3542,6 +3611,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = bolo8_attrs;
 		}else if (IS_DIO432X(adev)){
 			specials = dio432_attrs;
+		}else if (IS_ACQ400T(adev)){
+			specials = acq400t_attrs;
 		}else{
 			return;
 		}
