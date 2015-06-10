@@ -1,0 +1,52 @@
+#!/usr/local/bin/expect
+
+proc _test {site ax bx} {
+	set kb [open "/dev/acq400.$site.knobs/ACQ400T_out" w]
+	set wpat "[format "%x %x" $ax $bx]"
+	puts $kb $wpat
+	close $kb
+	set kb [open "/dev/acq400.$site.knobs/ACQ400T_in" r]
+	set rpat ""
+	gets $kb rpat
+	if {[string compare $wpat $rpat]} {
+		set rc "FAIL"
+	} else {
+		set rc "PASS"
+	}
+	puts "site:$site $wpat $rpat $rc"
+}
+proc acq400t_test {site amax amin bmax bmin} {
+	puts "acq400t_test $site $amax $amin $bmax $bmin"
+
+	if {$amax > $amin} {
+		for {set ax $amin} {$ax <= $amax} {incr ax} {
+			_test $site [expr 1 << $ax] 0
+		}
+	}
+	if {$bmax > $bmin} {
+		for {set bx $amin} {$bx <= $bmax} {incr bx} {
+			_test $site 0 [expr 1 << $bx]
+		}
+	}
+}
+
+set ctype [exec cat /dev/acq400.0.knobs/module_type]
+
+if { $::argc > 0 } {          
+        foreach site $::argv {
+		if {$ctype == 81 && $site == 1} {
+			puts "FMC test"
+			acq400t_test $site 31 1 31 0
+		} elseif {$ctype == 82 } {
+			puts "DULPC test"
+			acq400t_test $site 31 1 0 0
+		} else {
+			puts "ULPC test"
+			acq400t_test $site 23 1 0 0
+		}
+        }                                               
+} else {                                         
+        puts "usage acq400t_test site1\[ site 2...\]"
+}
+                        
+     
