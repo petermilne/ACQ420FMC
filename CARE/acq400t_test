@@ -2,7 +2,7 @@
 
 proc _test {site ax bx} {
 	set kb [open "/dev/acq400.$site.knobs/ACQ400T_out" w]
-	set wpat "[format "%x %x" $ax $bx]"
+	set wpat "[format "0x%08x 0x%08x" $ax $bx]"
 	puts $kb $wpat
 	close $kb
 	set kb [open "/dev/acq400.$site.knobs/ACQ400T_in" r]
