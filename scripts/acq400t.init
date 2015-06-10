@@ -23,8 +23,18 @@ proc link_gpio {lnames site gpio1} {
 	}
 }
 
+proc get_bus_offset {} {
+	set mtca_test /etc/acq400/5/module_type
+	if {[file exists $mtca_test]} {
+		set MT [exec cat $mtca_test]
+		if {[string compare $MT FC] == 0} {
+			return 3
+		}
+	}
+	return 1
+}
 proc get_gpio1 {site addr} {
-	set bus [expr $site + 1]
+	set bus [expr $site + [get_bus_offset]]
 	set baddr "$bus-00$addr"
 	set gpath "/sys/bus/i2c/devices/$baddr/gpio/gpiochip"
 	set gpiochip [glob "$gpath*"]

@@ -396,6 +396,7 @@ build_knobs() {
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
+		echo ACQ400T : "calling /usr/local/bin/acq400t.init ${ACQ400T_SITES}"
 		/usr/local/bin/acq400t.init ${ACQ400T_SITES}
 	fi
 	has_sfp=0
