@@ -250,7 +250,7 @@ MAKE_BITS(fpctl_trg,             FPCTL,         FPCTL_TRG_SHL,  FPCTL_MASK);
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 
-
+MAKE_BITS(zclk_sel, MOD_CON, MCR_ZCLK_SELECT_SHL, MCR_ZCLK_MASK);
 
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
@@ -303,6 +303,8 @@ static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_fpctl_gpio.attr,
 	&dev_attr_fpctl_sync.attr,
 	&dev_attr_fpctl_trg.attr,
+
+	&dev_attr_zclk_sel.attr,
 };
 static ssize_t show_clkdiv(
 	struct device * dev,

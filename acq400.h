@@ -780,7 +780,8 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define ACQ1001_MCR_PWM_MAX		0x40
 #define ACQ1001_MCR_PWM_MASK		((ACQ1001_MCR_PWM_MAX-1)<<ACQ1001_MCR_PWM_BIT)
 #define ACQ1001_MCR_PWM_MIN		0x04
-
+#define MCR_ZCLK_SELECT_SHL		16
+#define MCR_ZCLK_MASK			0x0f
 
 #define GPG_CTRL_TOPADDR_SHL		20
 #define GPG_CTRL_TRG_SHL		16
