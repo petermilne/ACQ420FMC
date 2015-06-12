@@ -298,7 +298,7 @@ build_site0() {
 	ek=/etc/acq400/0/
 	ln -s $1 ${dk}
 	web_append acq400.0 0
-	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${ek}
+	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel ${ek}
 	ln -s /usr/local/bin/run0 ${ek}
 	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
 	ln -s /usr/local/bin/transient ${ek}
