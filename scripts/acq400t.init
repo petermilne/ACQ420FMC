@@ -52,6 +52,15 @@ proc link_hwmon {site} {
  	exec ln -s $hwmon$site/device/in4_input	/dev/acq400t/$site/MuxD
 }
 
+proc isMTCA_ADAPTER {} {
+	if {[file exists /dev/acq400.5.knobs/module_type] != 0 &&
+	    [exec cat 	/dev/acq400.5.knobs/module_type] == {FC} } {
+	    	return 1
+	} else {
+	    	return 0
+	}
+}
+
 set SITES ""
 
 if { $::argc > 0 } {
@@ -62,7 +71,12 @@ if { $::argc > 0 } {
 		}
 		set SITES "$SITES$site"	
 	} 	
-	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko acq400t_sites=$SITES
+	
+	set parms acq400t_sites=$SITES
+	if {isMTCA_ADAPTER != 0 } {
+		set parms "$parms site2channel=3"
+	}
+	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
 	
 	foreach site $::argv {
 	    puts "build knobs site:$site"

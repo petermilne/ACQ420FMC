@@ -218,6 +218,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_PMODADC1:
 			pmodadc1_createDebugfs(adev, pcursor);
 			break;
+		case MOD_ID_ACQ400T_FMC:
+		case MOD_ID_ACQ400T_ELF:
+			break;
 		default:
 			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
 				GET_MOD_ID(adev));

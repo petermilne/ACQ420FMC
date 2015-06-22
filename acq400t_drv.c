@@ -27,12 +27,16 @@
 #include <linux/i2c.h>
 #include <linux/platform_data/pca953x.h>
 
-#define REVID "0.006"
+#define REVID "0.007"
 
 
 int acq400t_sites[6] = { 0,  };
 int acq400t_sites_count = 0;
 module_param_array(acq400t_sites, int, &acq400t_sites_count, 0644);
+
+int site2channel = 1;
+module_param(site2channel, int, 0444);
+MODULE_PARM_DESC(site2channel, "offset from site to i2c bus# for MTCA test set 3");
 
 struct i2c_adapter *i2c_adap[6];
 
@@ -43,9 +47,6 @@ static int ntest;
 #define GPIO_TYPE	"pca9534"
 #define GPIO_ADDR	0x20
 #define N_GPIO_GPIO 8
-
-/* translate from site to channel number */
-#define CHOFFMAGIC	3
 
 static struct i2c_client* new_device(
 		struct i2c_adapter *adap,
@@ -63,10 +64,9 @@ static struct i2c_client* new_device(
 }
 static void __init acq400t_init_site(int site)
 {
-	int ch = site+CHOFFMAGIC;
+	int ch = site+site2channel;
 
 	i2c_adap[site] = i2c_get_adapter(ch);
-
 
 	if (new_device(i2c_adap[site], GPIO_TYPE, GPIO_ADDR, -1) == 0){
 		printk("acq400t_init_site(%d) GPIO NOT found\n", site);
@@ -75,7 +75,7 @@ static void __init acq400t_init_site(int site)
 
 static void __init acq400t_remove_site(int site)
 {
-	int ch = site+CHOFFMAGIC;
+	int ch = site+site2channel;
 	printk("acq400t_init_site %d channel %d\n", site, ch);
 	i2c_put_adapter(i2c_adap[site]);
 }
