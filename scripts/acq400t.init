@@ -73,7 +73,7 @@ if { $::argc > 0 } {
 	} 	
 	
 	set parms acq400t_sites=$SITES
-	if {isMTCA_ADAPTER != 0 } {
+	if {[isMTCA_ADAPTER] != 0 } {
 		set parms "$parms site2channel=3"
 	}
 	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
