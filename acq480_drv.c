@@ -37,6 +37,8 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
+#include <linux/spi/spi.h>
+
 //#include <linux/i2c/pca953x.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/pca953x.h>
@@ -265,13 +267,35 @@ static int acq480_remove(struct platform_device *pdev)
 	return -1;
 }
 
+static int ads5294spi_probe(struct spi_device *spi)
+{
+	dev_info(&spi->dev, "ads5294spi_probe() bus:%d cs:%d", spi->master->bus_num, spi->chip_select);
+
+	return 0;
+}
+static int ads5294spi_remove(struct spi_device *spi)
+{
+	return 0;
+}
+
 static void __init acq480_init_site(int site)
 {
+	static struct spi_board_info ads5294spi_spi_slave_info = {
+			.modalias	= "ads5294spi",
+			.platform_data	= 0,
+			.irq		= -1,
+			.max_speed_hz	= 20000000,
+			.bus_num	= 1,
+			.chip_select	= 0,
+	};
 	struct platform_device* pdev =
 			kzalloc(sizeof(struct platform_device), GFP_KERNEL);
 	pdev->name = MODULE_NAME;
 	pdev->id = site;
 	platform_device_register(pdev);
+
+	ads5294spi_spi_slave_info.chip_select = site - 1;
+	spi_register_board_info(&ads5294spi_spi_slave_info, 1);
 }
 
 static void __init acq480_remove_site(int site)
@@ -288,12 +312,35 @@ static struct platform_driver acq480_driver = {
         .remove = acq480_remove,
 };
 
+static struct spi_driver ads5294spi_driver = {
+	.driver = {
+		.name	= "ads5294spi",
+		.owner	= THIS_MODULE,
+	},
+	//.id_table = m25p_ids,
+	.probe	= ads5294spi_probe,
+	.remove	= ads5294spi_remove,
+};
+
+
+static struct spi_board_info ads5294spi_spi_slave_info[] = {
+	{
+		.modalias	= "ads5294spi",
+		.platform_data	= 0,
+		.irq		= -1,
+		.max_speed_hz	= 20000000,
+		.bus_num	= 1,
+		.chip_select	= 0,
+	},
+};
+
 static void __exit acq480_exit(void)
 {
 	for (; n_acq480--;){
 		acq480_remove_site(acq480_sites[n_acq480]);
 	}
 	platform_driver_unregister(&acq480_driver);
+	spi_unregister_driver(&ads5294spi_driver);
 }
 
 
@@ -308,6 +355,8 @@ static int __init acq480_init(void)
 	platform_driver_register(&acq480_driver);
 	acq480_proc_root = proc_mkdir("driver/acq480", 0);
 
+	spi_register_driver(&ads5294spi_driver);
+
 	for (n_acq480 = 0; n_acq480 < acq480_sites_count; ++n_acq480){
 		acq480_init_site(acq480_sites[n_acq480]);
 	}
@@ -316,6 +365,8 @@ static int __init acq480_init(void)
 
 module_init(acq480_init);
 module_exit(acq480_exit);
+
+
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ480ELF i2c Driver");
