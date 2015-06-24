@@ -231,6 +231,7 @@ public:
 		DR_D1, DR_D2, DR_D4, DR_D8
 	};
 
+	void reset();
 	int setGain(Chan chan, Gain gain);
 	Gain getGain(Chan chan);
 

@@ -46,6 +46,8 @@
 #include <linux/dma-mapping.h>
 #include "hbm.h"
 
+#include "acq480_ioctl.h"
+
 #define REVID 		"1"
 #define MODULE_NAME	"acq480"
 
@@ -64,6 +66,14 @@ module_param(n_acq480, int, 0444);
 
 #define REGS_LEN	0x100
 
+int site2cs(int site)
+{
+	return site - 1;
+}
+int cs2site(int cs)
+{
+	return cs + 1;
+}
 
 struct acq480_dev {
 	dev_t devno;
@@ -72,11 +82,90 @@ struct acq480_dev {
 	struct i2c_adapter *i2c_adapter;
 	char devname[16];
 
-	struct HBM* spi_buffer;
+	/* client stores to cli_buffer. dev_buffer caches device values
+	 * update flushes client changes to to device
+	 */
+	struct HBM* cli_buffer;
+	struct HBM* dev_buffer;
+
+	struct spi_device *spi;
 };
+
+#define DEVP(adev) (&adev->pdev->dev)
 
 static struct proc_dir_entry *acq480_proc_root;
 static struct acq480_dev* acq480_devs[7];	/* 6 sites index from 1 */
+
+/* we're ASSUMING that ads5294 doesn't mind access to non-existant regs ..
+ * otherwise we have to have a sparse reg table
+ */
+#define ADS5294_MAXREG	0xff				/* address in shorts */
+#define ADS5294_REGSLEN	((ADS5294_MAXREG+1)*sizeof(short))
+
+unsigned short *getShortBuffer(struct HBM* buf)
+{
+	return (short*)buf->va;
+}
+
+int get_site(struct acq480_dev *adev)
+{
+	return adev->pdev->id;
+}
+
+static void ads5294_setReadout(struct acq480_dev* adev, int readout)
+{
+	char cmd[3] = { 0x1, 0, 0x1 };
+	if (!readout) cmd[2] = 0;
+
+	dev_dbg(DEVP(adev), "ads5294_setReadout () spi_write %02x %02x %02x",
+						cmd[0], cmd[1], cmd[2]);
+	spi_write(adev->spi, &cmd, 3);
+}
+static void ads5294_cache_invalidate(struct acq480_dev* adev)
+/* read back cache from device */
+{
+	short *cache = getShortBuffer(adev->dev_buffer);
+	int reg;
+	ads5294_setReadout(adev, 1);
+	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
+		cache[reg] = spi_w8r16(adev->spi, reg);
+		dev_dbg(DEVP(adev),
+			"ads5294_cache_invalidate() spi_w8r16 %02x %02x %02x",
+			reg, cache[reg]>>8, cache[reg]&0x0ff);
+	}
+	ads5294_setReadout(adev, 0);
+
+	memcpy(adev->cli_buffer->va, adev->dev_buffer->va, ADS5294_REGSLEN);
+}
+static void ads5294_cache_flush(struct acq480_dev* adev)
+/* flush changes in cache to device */
+{
+	short *cache = getShortBuffer(adev->dev_buffer);
+	short *clibuf = getShortBuffer(adev->cli_buffer);
+
+	int reg;
+	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
+		if (cache[reg] != clibuf[reg]){
+			char cmd[3];
+			cache[reg] = clibuf[reg];
+			cmd[0] = reg;
+			cmd[1] = cache[reg] >> 8;
+			cmd[2] = cache[reg] &0x0ff;
+			dev_dbg(DEVP(adev),
+				"ads5294_cache_flush() spi_write %02x %02x %02x",
+				cmd[0], cmd[1], cmd[2]);
+			spi_write(adev->spi, &cmd, 3);
+		}
+	}
+}
+
+static void ads5294_reset(struct acq480_dev* adev)
+{
+	char cmd[3] = { 0x0, 0, 0x0 };
+
+	spi_write(adev->spi, &cmd, 3);
+}
+
 
 static struct i2c_client* new_device(
 		struct i2c_adapter *adap,
@@ -123,14 +212,14 @@ int acq480_open(struct inode *inode, struct file *file)
         return 0;
 }
 
-int acq480_spi_buffer_mmap(struct file* file, struct vm_area_struct* vma)
+int acq480_cli_buffer_mmap(struct file* file, struct vm_area_struct* vma)
 /**
  * mmap the host buffer.
  */
 {
 	struct acq480_dev* adev = (struct acq480_dev*)file->private_data;
 
-	struct HBM *hb = adev->spi_buffer;
+	struct HBM *hb = adev->cli_buffer;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	unsigned long psize = hb->len;
 	unsigned pfn = hb->pa >> PAGE_SHIFT;
@@ -148,10 +237,30 @@ int acq480_spi_buffer_mmap(struct file* file, struct vm_area_struct* vma)
 		return 0;
 	}
 }
+
+static long
+acq480_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct acq480_dev* adev = (struct acq480_dev*)file->private_data;
+	switch(cmd){
+	case ACQ480_CACHE_INVALIDATE:
+		ads5294_cache_invalidate(adev);
+		return 0;
+	case ACQ480_CACHE_FLUSH:
+		ads5294_cache_flush(adev);
+		return 0;
+	case ACQ480_RESET:
+		ads5294_reset(adev);
+		return 0;
+	default:
+		return -ENODEV;
+	}
+}
 struct file_operations acq480_fops = {
         .owner = THIS_MODULE,
         .open = acq480_open,
-        .mmap = acq480_spi_buffer_mmap
+        .mmap = acq480_cli_buffer_mmap,
+        .unlocked_ioctl = acq480_unlocked_ioctl
 };
 
 /* read 0x100 bytes, 0x10 bytes at a time */
@@ -159,7 +268,7 @@ static void *acq480_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
         	struct acq480_dev *adev = s->private;
-        	return adev->spi_buffer->va;
+        	return adev->cli_buffer->va;
         }
 
         return NULL;
@@ -169,7 +278,7 @@ static void *acq480_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 static int acq480_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
 {
 	struct acq480_dev *adev = s->private;
-	void* base = (void*)adev->spi_buffer->va;
+	void* base = (void*)adev->cli_buffer->va;
 	unsigned offregs = (v - base)/sizeof(short);
 	unsigned short* regs = (unsigned short*)v;
 	int ir;
@@ -221,6 +330,7 @@ struct file_operations acq480_proc_fops = {
 	        .release = seq_release
 };
 
+
 static int acq480_probe(struct platform_device *pdev)
 {
 	struct acq480_dev* adev = acq480_allocate_dev(pdev);
@@ -240,9 +350,13 @@ static int acq480_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        adev->spi_buffer = hbm_allocate1(
-        	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_TO_DEVICE);
-        memset(adev->spi_buffer->va, 0, SPI_BUFFER_LEN);
+        adev->cli_buffer = hbm_allocate1(
+        	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_NONE);
+        memset(adev->cli_buffer->va, 0, SPI_BUFFER_LEN);
+
+        adev->dev_buffer = hbm_allocate1(
+                	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_NONE);
+
 
         if (acq480_proc_root == 0){
         	acq480_proc_root = proc_mkdir("driver/acq480", 0);
@@ -269,8 +383,12 @@ static int acq480_remove(struct platform_device *pdev)
 
 static int ads5294spi_probe(struct spi_device *spi)
 {
-	dev_info(&spi->dev, "ads5294spi_probe() bus:%d cs:%d", spi->master->bus_num, spi->chip_select);
+	struct acq480_dev* adev = acq480_devs[cs2site(spi->chip_select)];
+	adev->spi = spi;
+	dev_info(&spi->dev, "ads5294spi_probe() bus:%d cs:%d",
+			spi->master->bus_num, spi->chip_select);
 
+	ads5294_cache_invalidate(adev);
 	return 0;
 }
 static int ads5294spi_remove(struct spi_device *spi)
@@ -320,18 +438,6 @@ static struct spi_driver ads5294spi_driver = {
 	//.id_table = m25p_ids,
 	.probe	= ads5294spi_probe,
 	.remove	= ads5294spi_remove,
-};
-
-
-static struct spi_board_info ads5294spi_spi_slave_info[] = {
-	{
-		.modalias	= "ads5294spi",
-		.platform_data	= 0,
-		.irq		= -1,
-		.max_speed_hz	= 20000000,
-		.bus_num	= 1,
-		.chip_select	= 0,
-	},
 };
 
 static void __exit acq480_exit(void)

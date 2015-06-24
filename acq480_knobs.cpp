@@ -9,12 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <vector>
 #include <libgen.h>
+#include <unistd.h>
+
 using namespace std;
 
 #include "ads5294.h"
+#include "acq480_ioctl.h"
 
 struct Command;
 
@@ -23,6 +27,7 @@ class Acq480FMC {
 	int site;
 
 	vector<Command*> commands;
+	FILE* fp;
 
 	void init_commands();
 public:
@@ -31,7 +36,7 @@ public:
 	Acq480FMC(int _site) : site(_site) {
 		char fname[80];
 		snprintf(fname, 80, "/dev/acq480.%d", site);
-		FILE* fp = fopen(fname, "r+");
+		fp = fopen(fname, "r+");
 		if (!fp){
 			perror(fname);
 			exit(1);
@@ -45,10 +50,23 @@ public:
 		init_commands();
 	}
 
+	~Acq480FMC() {
+		flush();
+		munmap(chip.regs->regs, ADS5294_SPI_MIRROR_SZ);
+		fclose(fp);
+	}
 	int operator() (int argc, char* argv[]);
 
 	Reg* regs() {
 		return chip.regs->regs;
+	}
+	int flush() {
+		return ioctl(fileno(fp), ACQ480_CACHE_FLUSH);
+	}
+	int reset() {
+		ioctl(fileno(fp), ACQ480_RESET);
+		sleep(1);
+		return ioctl(fileno(fp), ACQ480_CACHE_INVALIDATE);
 	}
 	friend class HelpCommand;
 };
@@ -72,6 +90,14 @@ public:
 	}
 };
 
+class ResetCommand: public Command {
+public:
+	ResetCommand() : Command("acq480_reset") {}
+
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		return module.reset();
+	}
+};
 class DumpCommand: public Command {
 public:
 	DumpCommand() : Command("acq480_dump") {}
@@ -232,6 +258,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetGainCommand);
 	commands.push_back(new GetGainCommand);
 	commands.push_back(new DumpCommand);
+	commands.push_back(new ResetCommand);
 	commands.push_back(new HelpCommand);
 }
 
@@ -254,6 +281,7 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 		Command &command = *(*it);
 		if (strcmp(verb, command.cmd) == 0){
 			command(*this, argc, arg0);
+			flush();
 		}
 	}
 	return 0;
