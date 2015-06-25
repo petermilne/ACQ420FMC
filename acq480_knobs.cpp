@@ -253,9 +253,9 @@ public:
 class SetInvertCommand: public Command {
 public:
 	SetInvertCommand() :
-		Command("SetInvert") {}
+		Command("setInvert") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("SetInvert CHAN [disable]");
+		if (argc < 2) die("setInvert CHAN [disable]");
 		int rc = module.chip.setInvert(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
@@ -266,9 +266,9 @@ public:
 class SetLFNSCommand: public Command {
 public:
 	SetLFNSCommand() :
-		Command("SetLFNS") {}
+		Command("setLFNS") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("SetLFNS CHAN [disable]");
+		if (argc < 2) die("setLFNS CHAN [disable]");
 		int rc = module.chip.setLFNS(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
@@ -280,9 +280,9 @@ public:
 class SetLvdsTestPatRamp: public Command {
 public:
 	SetLvdsTestPatRamp() :
-		Command("SetLvdsTestPatRamp") {}
+		Command("setLvdsTestPatRamp") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 1) die("SetLvdsTestPatRamp enable");
+		if (argc < 1) die("setLvdsTestPatRamp enable");
 		int rc = module.chip.SetLvdsTestPatRamp(atoi(argv[1]));
 		return 1;
 	}
@@ -291,9 +291,9 @@ public:
 class SetLvdsTestPatDeskew: public Command {
 public:
 	SetLvdsTestPatDeskew() :
-		Command("SetLvdsTestPatDeskew") {}
+		Command("setLvdsTestPatDeskew") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 1) die("SetLvdsTestPatRamp enable");
+		if (argc < 1) die("setLvdsTestPatRamp enable");
 		int rc = module.chip.SetLvdsTestPatDeskew(atoi(argv[1]));
 		return 1;
 	}
@@ -330,13 +330,15 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 		verb = arg0[0];
 		argc--;
 	}
-	/* handle busy box style verbs */
-	if (strncmp(verb, "acq480_", 7) == 0){
-		verb += 7;
-	}
+
 	if (argc == 0){
 		printf("usage: acq480_knobs command [acq480_help]\n");
 		return 0;
+	}
+
+	/* handle busy box style verbs */
+	if (strncmp(verb, "acq480_", 7) == 0){
+		verb += 7;
 	}
 
 	for (VCI it = commands.begin(); it != commands.end(); ++it){

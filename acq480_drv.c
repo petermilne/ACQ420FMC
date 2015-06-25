@@ -161,8 +161,10 @@ static void ads5294_cache_flush(struct acq480_dev* adev)
 
 static void ads5294_reset(struct acq480_dev* adev)
 {
-	char cmd[3] = { 0x0, 0, 0x0 };
+	char cmd[3] = { 0x0, 0, 0x1 };
 
+	dev_dbg(DEVP(adev), "ads5294_reset () spi_write %02x %02x %02x",
+						cmd[0], cmd[1], cmd[2]);
 	spi_write(adev->spi, &cmd, 3);
 }
 
