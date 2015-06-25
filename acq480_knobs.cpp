@@ -52,14 +52,21 @@ public:
 
 	~Acq480FMC() {
 		flush();
+		/*
 		munmap(chip.regs->regs, ADS5294_SPI_MIRROR_SZ);
+		printf("about to close\n");
 		fclose(fp);
+		printf("closed\n");
+		*/
 	}
 	int operator() (int argc, char* argv[]);
-	/* return > 0 if flush recommended */
+
 
 	Reg* regs() {
 		return chip.regs->regs;
+	}
+	int invalidate() {
+		return ioctl(fileno(fp), ACQ480_CACHE_INVALIDATE);
 	}
 	int flush() {
 		return ioctl(fileno(fp), ACQ480_CACHE_FLUSH);
@@ -75,6 +82,7 @@ public:
 struct Command {
 	const char* cmd;
 	virtual int operator() (class Acq480FMC module, int argc, char* argv[]) = 0;
+	/* return > 0 if flush recommended */
 
 	Command(const char* _cmd) : cmd(_cmd) {}
 };
@@ -82,7 +90,7 @@ typedef vector<Command*>::iterator VCI;
 
 class HelpCommand: public Command {
 public:
-	HelpCommand() : Command("acq480_help") {}
+	HelpCommand() : Command("help") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
@@ -93,15 +101,32 @@ public:
 
 class ResetCommand: public Command {
 public:
-	ResetCommand() : Command("acq480_reset") {}
+	ResetCommand() : Command("reset") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		return module.reset();
 	}
 };
+
+class ReadAllCommand: public Command {
+public:
+	ReadAllCommand() : Command("readall") {}
+
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		return module.invalidate();
+	}
+};
+class FlushCommand: public Command {
+public:
+	FlushCommand() : Command("flush") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		return 1;
+	}
+};
+
 class DumpCommand: public Command {
 public:
-	DumpCommand() : Command("acq480_dump") {}
+	DumpCommand() : Command("dump") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		Reg *r0 = module.regs();
@@ -117,10 +142,10 @@ public:
 
 class SetGainCommand: public Command {
 public:
-	SetGainCommand() : Command("acq480_setGain") {}
+	SetGainCommand() : Command("setGain") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 3) die("acq480_setGain CHAN GAIN");
+		if (argc < 3) die("setGain CHAN GAIN");
 
 		int rc = module.chip.setGain(
 				static_cast<Ads5294::Chan>(atoi(argv[1])),
@@ -132,10 +157,10 @@ public:
 
 class GetGainCommand: public Command {
 public:
-	GetGainCommand() : Command("acq480_getGain") {}
+	GetGainCommand() : Command("getGain") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_getGain CHAN");
+		if (argc < 2) die("getGain CHAN");
 		printf("%d\n", module.chip.getGain(
 				static_cast<Ads5294::Chan>(atoi(argv[1]))));
 		return 0;
@@ -145,10 +170,10 @@ public:
 
 class SetDecimationFilterCommand: public Command {
 public:
-	SetDecimationFilterCommand() : Command("acq480_setDecimationFilter") {}
+	SetDecimationFilterCommand() : Command("setDecimationFilter") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 3) die("acq480_setDecimationFilter CHAN FILTER [odd]");
+		if (argc < 3) die("setDecimationFilter CHAN FILTER [odd]");
 		int rc = module.chip.setDecimationFilter(
 				static_cast<Ads5294::Chan>(atoi(argv[1])),
 				static_cast<Ads5294::Filter>(atoi(argv[2])),
@@ -167,10 +192,10 @@ class SetFilterCoefficientsCommand: public Command {
 	}
 public:
 	SetFilterCoefficientsCommand() :
-		Command("acq480_setFilterCoefficients") {}
+		Command("setFilterCoefficients") {}
 
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_setFilterCoefficients CHAN [coeff [coeff]");
+		if (argc < 2) die("setFilterCoefficients CHAN [coeff [coeff]");
 		short coeffs[NTAPS] = {};
 		if (argc > 2){
 			setCoeffs(coeffs, argc-2, argv+2);
@@ -185,9 +210,9 @@ public:
 class SetHiPassFilterCommand: public Command {
 public:
 	SetHiPassFilterCommand() :
-		Command("acq480_setHiPassFilter") {}
+		Command("setHiPassFilter") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_setHiPassFilter CHAN [enable hpfun]");
+		if (argc < 2) die("setHiPassFilter CHAN [enable hpfun]");
 
 		int rc = module.chip.setHiPassFilter(
 				static_cast<Ads5294::Chan>(atoi(argv[1])),
@@ -201,9 +226,9 @@ public:
 class SetDataRateCommand: public Command {
 public:
 	SetDataRateCommand() :
-		Command("acq480_setDataRate") {}
+		Command("setDataRate") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_setDataRate RATE");
+		if (argc < 2) die("setDataRate RATE");
 		int rc = module.chip.setDataRate(
 				static_cast<Ads5294::DataRate>(atoi(argv[1])));
 		return 1;
@@ -213,9 +238,9 @@ public:
 class SetAverageSelectCommand: public Command {
 public:
 	SetAverageSelectCommand() :
-		Command("acq480_setAverageSelect") {}
+		Command("setAverageSelect") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_setAverageSelect CHAN [ENABLE RATE]");
+		if (argc < 2) die("setAverageSelect CHAN [ENABLE RATE]");
 		int rc = module.chip.setAverageSelect(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): false,
@@ -228,9 +253,9 @@ public:
 class SetInvertCommand: public Command {
 public:
 	SetInvertCommand() :
-		Command("acq480_SetInvert") {}
+		Command("SetInvert") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_SetInvert CHAN [disable]");
+		if (argc < 2) die("SetInvert CHAN [disable]");
 		int rc = module.chip.setInvert(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
@@ -241,9 +266,9 @@ public:
 class SetLFNSCommand: public Command {
 public:
 	SetLFNSCommand() :
-		Command("acq480_SetLFNS") {}
+		Command("SetLFNS") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 2) die("acq480_SetLFNS CHAN [disable]");
+		if (argc < 2) die("SetLFNS CHAN [disable]");
 		int rc = module.chip.setLFNS(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
@@ -251,6 +276,29 @@ public:
 		return 1;
 	}
 };
+
+class SetLvdsTestPatRamp: public Command {
+public:
+	SetLvdsTestPatRamp() :
+		Command("SetLvdsTestPatRamp") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 1) die("SetLvdsTestPatRamp enable");
+		int rc = module.chip.SetLvdsTestPatRamp(atoi(argv[1]));
+		return 1;
+	}
+};
+
+class SetLvdsTestPatDeskew: public Command {
+public:
+	SetLvdsTestPatDeskew() :
+		Command("SetLvdsTestPatDeskew") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 1) die("SetLvdsTestPatRamp enable");
+		int rc = module.chip.SetLvdsTestPatDeskew(atoi(argv[1]));
+		return 1;
+	}
+};
+
 
 void Acq480FMC::init_commands()
 {
@@ -263,7 +311,11 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetDecimationFilterCommand);
 	commands.push_back(new SetGainCommand);
 	commands.push_back(new GetGainCommand);
+	commands.push_back(new SetLvdsTestPatRamp);
+	commands.push_back(new SetLvdsTestPatDeskew);
 	commands.push_back(new DumpCommand);
+	commands.push_back(new FlushCommand);
+	commands.push_back(new ReadAllCommand);
 	commands.push_back(new ResetCommand);
 	commands.push_back(new HelpCommand);
 }
@@ -277,6 +329,10 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 		arg0 = &argv[1];
 		verb = arg0[0];
 		argc--;
+	}
+	/* handle busy box style verbs */
+	if (strncmp(verb, "acq480_", 7) == 0){
+		verb += 7;
 	}
 	if (argc == 0){
 		printf("usage: acq480_knobs command [acq480_help]\n");

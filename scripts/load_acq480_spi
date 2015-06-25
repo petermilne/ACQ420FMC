@@ -23,7 +23,7 @@ do
 	
 	do_mknod $major $name
 
-	daemon /usr/local/bin/monitor_acq480_spi $major 
+	daemon /usr/local/bin/monitor_acq480_spi $name 
 done
 
 

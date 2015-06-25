@@ -281,3 +281,25 @@ bool Ads5294::getLFNS(Chan chan)
 	return lfns&CHAN2BIT(chan) != 0;
 }
 
+int Ads5294::SetLvdsTestPatRamp(bool enable)
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_TEST25];
+
+	reg &= ~0x70;
+	if (enable){
+		reg |= 0x40;
+		SetLvdsTestPatDeskew(false);
+	}
+	return 1;
+}
+int Ads5294::SetLvdsTestPatDeskew(bool enable)
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_TEST25];
+
+	reg &= ~0x03;
+	if (enable){
+		reg |= 0x01;
+		SetLvdsTestPatRamp(false);
+	}
+	return 1;
+}

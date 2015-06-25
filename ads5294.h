@@ -264,6 +264,8 @@ public:
 	static bool isValidFilter(Filter filter){
 		return filter >= F_DISABLE && filter <= F_CUSTOM_D1;
 	}
+	int SetLvdsTestPatRamp(bool enable);
+	int SetLvdsTestPatDeskew(bool enable);
 };
 
 
