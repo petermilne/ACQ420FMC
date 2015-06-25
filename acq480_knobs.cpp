@@ -56,6 +56,7 @@ public:
 		fclose(fp);
 	}
 	int operator() (int argc, char* argv[]);
+	/* return > 0 if flush recommended */
 
 	Reg* regs() {
 		return chip.regs->regs;
@@ -110,6 +111,7 @@ public:
 			}
 			printf("%04x%c", r0[ii], (ii+1)%16==0? '\n': ' ');
 		}
+		return 0;
 	}
 };
 
@@ -124,7 +126,7 @@ public:
 				static_cast<Ads5294::Chan>(atoi(argv[1])),
 				static_cast<Ads5294::Gain>(atoi(argv[2])));
 		if (rc != 0) die("setGain failed");
-		return 0;
+		return 1;
 	}
 };
 
@@ -152,7 +154,7 @@ public:
 				static_cast<Ads5294::Filter>(atoi(argv[2])),
 				argc<4? false: atoi(argv[3]));
 		if (rc != 0) die("setGain failed");
-		return 0;
+		return 1;
 	}
 };
 
@@ -176,7 +178,7 @@ public:
 		int rc = module.chip.setCustomCoefficients(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc > 2? coeffs: 0);
-		return rc;
+		return 1;
 	}
 };
 
@@ -192,7 +194,7 @@ public:
 				argc > 2? atoi(argv[2]): false,
 				argc > 3? strtoul(argv[3], 0, 0): 0
 				);
-		return rc;
+		return 1;
 	}
 };
 
@@ -204,6 +206,7 @@ public:
 		if (argc < 2) die("acq480_setDataRate RATE");
 		int rc = module.chip.setDataRate(
 				static_cast<Ads5294::DataRate>(atoi(argv[1])));
+		return 1;
 	}
 };
 
@@ -218,6 +221,7 @@ public:
 			argc>2? atoi(argv[2]): false,
 			argc>3? strtoul(argv[3], 0, 0): 0
 		);
+		return 1;
 	}
 };
 
@@ -231,6 +235,7 @@ public:
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
 		);
+		return 1;
 	}
 };
 class SetLFNSCommand: public Command {
@@ -243,6 +248,7 @@ public:
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
 		);
+		return 1;
 	}
 };
 
@@ -280,8 +286,9 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 	for (VCI it = commands.begin(); it != commands.end(); ++it){
 		Command &command = *(*it);
 		if (strcmp(verb, command.cmd) == 0){
-			command(*this, argc, arg0);
-			flush();
+			if (command(*this, argc, arg0) > 0){
+				flush();
+			}
 		}
 	}
 	return 0;

@@ -85,8 +85,8 @@ struct acq480_dev {
 	/* client stores to cli_buffer. dev_buffer caches device values
 	 * update flushes client changes to to device
 	 */
-	struct HBM* cli_buffer;
-	struct HBM* dev_buffer;
+	struct HBM* cli_buf;
+	struct HBM* dev_buf;
 
 	struct spi_device *spi;
 };
@@ -124,7 +124,7 @@ static void ads5294_setReadout(struct acq480_dev* adev, int readout)
 static void ads5294_cache_invalidate(struct acq480_dev* adev)
 /* read back cache from device */
 {
-	short *cache = getShortBuffer(adev->dev_buffer);
+	short *cache = getShortBuffer(adev->dev_buf);
 	int reg;
 	ads5294_setReadout(adev, 1);
 	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
@@ -135,13 +135,13 @@ static void ads5294_cache_invalidate(struct acq480_dev* adev)
 	}
 	ads5294_setReadout(adev, 0);
 
-	memcpy(adev->cli_buffer->va, adev->dev_buffer->va, ADS5294_REGSLEN);
+	memcpy(adev->cli_buf->va, adev->dev_buf->va, ADS5294_REGSLEN);
 }
 static void ads5294_cache_flush(struct acq480_dev* adev)
 /* flush changes in cache to device */
 {
-	short *cache = getShortBuffer(adev->dev_buffer);
-	short *clibuf = getShortBuffer(adev->cli_buffer);
+	short *cache = getShortBuffer(adev->dev_buf);
+	short *clibuf = getShortBuffer(adev->cli_buf);
 
 	int reg;
 	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
@@ -219,7 +219,7 @@ int acq480_cli_buffer_mmap(struct file* file, struct vm_area_struct* vma)
 {
 	struct acq480_dev* adev = (struct acq480_dev*)file->private_data;
 
-	struct HBM *hb = adev->cli_buffer;
+	struct HBM *hb = adev->cli_buf;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	unsigned long psize = hb->len;
 	unsigned pfn = hb->pa >> PAGE_SHIFT;
@@ -268,7 +268,7 @@ static void *acq480_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
         	struct acq480_dev *adev = s->private;
-        	return adev->cli_buffer->va;
+        	return adev->cli_buf->va;
         }
 
         return NULL;
@@ -278,9 +278,10 @@ static void *acq480_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 static int acq480_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
 {
 	struct acq480_dev *adev = s->private;
-	void* base = (void*)adev->cli_buffer->va;
-	unsigned offregs = (v - base)/sizeof(short);
 	unsigned short* regs = (unsigned short*)v;
+	unsigned short* base = getShortBuffer(adev->cli_buf);
+	unsigned offregs = regs - base;
+
 	int ir;
 
 	seq_printf(s, "%02x:", offregs);
@@ -334,9 +335,10 @@ struct file_operations acq480_proc_fops = {
 static int acq480_probe(struct platform_device *pdev)
 {
 	struct acq480_dev* adev = acq480_allocate_dev(pdev);
+	struct device* dev = &pdev->dev;
 	int rc;
 
-	dev_info(&pdev->dev, "acq480_probe: %d %s", pdev->id, adev->devname);
+	dev_info(dev, "acq480_probe: %d %s", pdev->id, adev->devname);
 	rc = alloc_chrdev_region(&adev->devno, 0, 0, adev->devname);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "unable to register chrdev\n");
@@ -350,13 +352,11 @@ static int acq480_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        adev->cli_buffer = hbm_allocate1(
-        	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_NONE);
-        memset(adev->cli_buffer->va, 0, SPI_BUFFER_LEN);
+        /* there's no actual DMA, we're after the pa, but DMA_NONE BUGs */
+        adev->cli_buf = hbm_allocate1(dev,  SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
+        memset(adev->cli_buf->va, 0, SPI_BUFFER_LEN);
 
-        adev->dev_buffer = hbm_allocate1(
-                	&pdev->dev,  SPI_BUFFER_LEN, 0, DMA_NONE);
-
+        adev->dev_buf = hbm_allocate1(dev,  SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
 
         if (acq480_proc_root == 0){
         	acq480_proc_root = proc_mkdir("driver/acq480", 0);
