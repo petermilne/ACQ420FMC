@@ -61,7 +61,8 @@ if { $::argc > 0 } {
 		set fp [open "/etc/acq400/$site/groups" a+]
 		puts $fp {T50R=T50R_[0-9]*}
 		close $fp
-	} 	
+	} 
+	exec load_acq480_spi	
 } else {
 	puts "usage acq480.init site1[ site 2...]	
 }
