@@ -128,7 +128,8 @@ static void ads5294_cache_invalidate(struct acq480_dev* adev)
 	int reg;
 	ads5294_setReadout(adev, 1);
 	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
-		cache[reg] = spi_w8r16(adev->spi, reg);
+		unsigned short tmp = spi_w8r16(adev->spi, reg);
+		cache[reg] = tmp>>8 | ((tmp&0x00ff)<<8);
 		dev_dbg(DEVP(adev),
 			"ads5294_cache_invalidate() spi_w8r16 %02x %02x %02x",
 			reg, cache[reg]>>8, cache[reg]&0x0ff);
