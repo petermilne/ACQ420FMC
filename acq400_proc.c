@@ -149,10 +149,13 @@ static int acq400_proc_open_stats(struct inode *inode, struct file *file)
 
 static void *acq400_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
+	struct acq400_dev *adev = s->private;
+
         if (*pos == 0) {
-        	struct acq400_dev *adev = s->private;
         	seq_printf(s, "Buffers\n");
-        	return adev->hb[0];
+        }
+        if (*pos < adev->nbuffers){
+        	return adev->hb[*pos];
         }
 
         return NULL;
