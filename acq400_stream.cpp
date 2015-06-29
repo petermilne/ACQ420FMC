@@ -2499,9 +2499,14 @@ public:
 
 template <class T>
 class SumStreamHeadClientImpl: public SumStreamHeadClient {
+	T* sum_buf;
+	int nbuf;
 public:
 	SumStreamHeadClientImpl<T>(const char* def) : SumStreamHeadClient(def)
-	{}
+	{
+		int nbuf = G::bufferlen/sample_size();
+		sum_buf = new T[nbuf];
+	}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
 		T* data = reinterpret_cast<T*>(buffer->getBase());
@@ -2511,12 +2516,14 @@ public:
 		int sum;
 		int shr = sizeof(T) == 4? 8: 0;
 
-		for ( ; data < end; data += totchan){
+		for (int isam = 0; data < end; data += totchan, ++isam){
 			for (int ic = sum = 0; ic < nchan; ++ic){
 				sum += data[ic] >> shr;
 			}
-			write(outfd, &sum, sizeof(int));
+			sum_buf[isam] = sum;
+
 		}
+		write(outfd, sum_buf, nbuf);
 	}
 };
 
