@@ -2483,9 +2483,11 @@ class SumStreamHeadClient: public StreamHeadClient {
 
 protected:
 	int nchan;
+	int outfd;
 public:
 	SumStreamHeadClient(const char* def) {
 		nchan = 4;
+		outfd = open("/dev/shm/sumstreamclient", O_WRONLY);
 	}
 	virtual void onStreamStart() {}
 	virtual void onStreamBufferStart(int ib) {}
@@ -2502,6 +2504,19 @@ public:
 	{}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
+		T* data = reinterpret_cast<T*>(buffer->getBase());
+		T* end = reinterpret_cast<T*>(buffer->getEnd());
+		int totchan = G::nchan;
+		int nwrite = nchan*sizeof(T);
+		int sum;
+		int shr = sizeof(T) == 4? 8: 0;
+
+		for ( ; data < end; data += totchan){
+			for (int ic = sum = 0; ic < nchan; ++ic){
+				sum += data[ic] >> shr;
+			}
+			write(outfd, &sum, sizeof(int));
+		}
 	}
 };
 
@@ -2514,6 +2529,7 @@ SumStreamHeadClient* SumStreamHeadClient::instance(const char* def) {
 }
 
 class SubsetStreamHeadClient: public StreamHeadClient {
+protected:
 	int nchan;
 public:
 	SubsetStreamHeadClient(const char* def) {
@@ -2537,6 +2553,14 @@ public:
 	{}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
+		T* data = reinterpret_cast<T*>(buffer->getBase());
+		T* end = reinterpret_cast<T*>(buffer->getEnd());
+		int totchan = G::nchan;
+		int nwrite = nchan*sizeof(T);
+
+		for ( ; data < end; data += totchan){
+			write(1, data, nwrite);
+		}
 	}
 };
 
