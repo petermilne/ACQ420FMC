@@ -77,6 +77,7 @@ public:
 		return ioctl(fileno(fp), ACQ480_CACHE_INVALIDATE);
 	}
 	friend class HelpCommand;
+	friend class MakeLinksCommand;
 };
 
 struct Command {
@@ -110,6 +111,20 @@ public:
 	}
 };
 
+
+
+
+
+class MakeLinksCommand: public Command {
+public:
+	MakeLinksCommand() : Command("makeLinks") {}
+
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
+			printf("ln -s %s acq480_%s\n", "/usr/local/bin/acq480_knobs", (*it)->cmd);
+		}
+	}
+};
 class ResetCommand: public Command {
 public:
 	ResetCommand() : Command("reset") {}
@@ -330,6 +345,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new ReadAllCommand);
 	commands.push_back(new ResetCommand);
 	commands.push_back(new HelpCommand);
+	commands.push_back(new MakeLinksCommand);
 }
 
 int  Acq480FMC::operator() (int argc, char* argv[])
@@ -365,7 +381,12 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 }
 int main(int argc, char* argv[])
 {
-	Acq480FMC module(1);
+	int site = 1;
+	if (getenv("SITE")){
+		site = atoi(getenv("SITE"));
+	}
+
+	Acq480FMC module(site);
 
 	return module(argc, argv);
 }
