@@ -220,6 +220,9 @@ namespace G {
 	char* progress;
 	int corner_turn_delay;	/* test pre/post caps on corner turn, buffers */
 	int exit_on_trigger_fail;
+
+	char* subset;
+	char* sum;
 };
 
 
@@ -1302,6 +1305,8 @@ struct poptOption opt_table[] = {
 	  "exit-on-trigger-fail", 0, POPT_ARG_INT, &G::exit_on_trigger_fail, 0,
 	  	  	  "force quit on trigger fail"
 	},
+	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
+	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -2474,8 +2479,75 @@ public:
 };
 typedef std::vector<StreamHeadClient*>::iterator  IT;
 
+class SumStreamHeadClient: public StreamHeadClient {
 
+protected:
+	int nchan;
+public:
+	SumStreamHeadClient(const char* def) {
+		nchan = 4;
+	}
+	virtual void onStreamStart() {}
+	virtual void onStreamBufferStart(int ib) {}
+	virtual void onStreamEnd() {}
+	virtual ~SumStreamHeadClient() {}
 
+	static 	SumStreamHeadClient* instance(const char* def);
+};
+
+template <class T>
+class SumStreamHeadClientImpl: public SumStreamHeadClient {
+public:
+	SumStreamHeadClientImpl<T>(const char* def) : SumStreamHeadClient(def)
+	{}
+	virtual void onStreamBufferStart(int ib) {
+		Buffer* buffer = Buffer::the_buffers[ib];
+	}
+};
+
+SumStreamHeadClient* SumStreamHeadClient::instance(const char* def) {
+	if (G::wordsize == 4){
+		return new SumStreamHeadClientImpl<int>(def);
+	}else{
+		return new SumStreamHeadClientImpl<short>(def);
+	}
+}
+
+class SubsetStreamHeadClient: public StreamHeadClient {
+	int nchan;
+public:
+	SubsetStreamHeadClient(const char* def) {
+		nchan = 8;
+	}
+	virtual void onStreamStart() {}
+	virtual void onStreamBufferStart(int ib) {
+		Buffer* buffer = Buffer::the_buffers[ib];
+
+	}
+	virtual void onStreamEnd() {}
+	virtual ~SubsetStreamHeadClient() {}
+
+	static SubsetStreamHeadClient* instance(const char* def);
+};
+
+template <class T>
+class SubsetStreamHeadClientImpl: public SubsetStreamHeadClient {
+public:
+	SubsetStreamHeadClientImpl<T>(const char* def) : SubsetStreamHeadClient(def)
+	{}
+	virtual void onStreamBufferStart(int ib) {
+		Buffer* buffer = Buffer::the_buffers[ib];
+	}
+};
+
+SubsetStreamHeadClient* SubsetStreamHeadClient::instance(const char* def)
+{
+	if (G::wordsize == 4){
+		return new SubsetStreamHeadClientImpl<int>(def);
+	}else{
+		return new SubsetStreamHeadClientImpl<short>(def);
+	}
+}
 struct Segment {
 	char* base; int len;
 	Segment(char* _base, int _len):
@@ -2757,7 +2829,54 @@ public:
 		}
 	}
 };
-class StreamHeadPrePost: public StreamHeadImpl, StreamHeadClient  {
+
+class StreamHeadWithClients: public StreamHeadImpl {
+protected:
+	vector <StreamHeadClient*> peers;
+
+public:
+	StreamHeadWithClients(Progress& progress) :
+			StreamHeadImpl(progress)
+	{}
+	void addClient(StreamHeadClient* pp){
+		if (verbose) fprintf(stderr, "append %p\n", pp);
+		peers.push_back(pp);
+	}
+	virtual void stream() {
+		int ib;
+		if (verbose) fprintf(stderr, "StreamHeadImpl::stream() :\n");
+
+		ident("acq400_stream_headImpl");
+		setState(ST_ARM);
+
+		for (IT it = peers.begin(); it != peers.end(); ++it){
+			(*it)->onStreamStart();
+		}
+
+		if (G::soft_trigger){
+			schedule_soft_trigger();
+		}
+		while((ib = getBufferId()) >= 0){
+			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
+
+			for (IT it = peers.begin(); it != peers.end(); ++it){
+				if (verbose > 1) fprintf(stderr, "call peer %p %p\n", *it, this);
+				(*it)->onStreamBufferStart(ib);
+			}
+			switch(actual.state){
+			case ST_ARM:
+				setState(ST_RUN_PRE);
+			}
+			actual.elapsed += samples_buffer;
+		}
+		setState(ST_STOP);
+
+		for (IT it = peers.begin(); it != peers.end(); ++it){
+			(*it)->onStreamEnd();
+		}
+	}
+};
+class StreamHeadPrePost: public StreamHeadWithClients, StreamHeadClient  {
 protected:
 	int pre;
 	int post;
@@ -2765,9 +2884,6 @@ protected:
 	int total_bs;
 	int nobufs;
 
-
-
-	vector <StreamHeadClient*> peers;
 	bool cooked;
 	char* typestring;
 	Event0 event0;
@@ -2986,7 +3102,7 @@ protected:
 	}
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
-		StreamHeadImpl(progress),
+		StreamHeadWithClients(progress),
 		pre(_pre), post(_post),
 		cooked(false)
 		{
@@ -3053,10 +3169,7 @@ public:
 		close();
 	}
 
-	void append(StreamHeadClient* pp){
-		if (verbose) fprintf(stderr, "append %p\n", pp);
-		peers.push_back(pp);
-	}
+
 
 	static void reserve_block0 () {
 
@@ -3235,7 +3348,18 @@ StreamHead* StreamHead::instance() {
 				_instance = new NullStreamHead(Progress::instance());
 				break;
 			default:
-				_instance = new StreamHeadImpl(Progress::instance());
+				if (G::sum || G::subset){
+					StreamHeadWithClients * sh = new StreamHeadWithClients(Progress::instance());
+					if (G::sum){
+						sh->addClient(SumStreamHeadClient::instance(G::sum));
+					}
+					if (G::subset){
+						sh->addClient(SubsetStreamHeadClient::instance(G::subset));
+					}
+					_instance = sh;
+				}else{
+					_instance = new StreamHeadImpl(Progress::instance());
+				}
 				break;
 			}
 		}
