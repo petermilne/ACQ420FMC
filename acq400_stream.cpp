@@ -2471,6 +2471,27 @@ public:
 
 
 class StreamHeadClient {
+protected:
+	int start;
+	int len;
+
+	void getStartLen(const char* def) {
+		int args[2];
+		switch (sscanf(def, "%d,%d", args, args+1)){
+		case 2:
+			start = args[0];
+			len = args[1];
+			break;
+		case 1:
+			start = 0;
+			len = args[0];
+			break;
+		default:
+			start = 0;
+			len = G::nchan;
+		}
+	}
+
 public:
 	virtual void onStreamStart() = 0;
 	virtual void onStreamBufferStart(int ib) = 0;
@@ -2482,11 +2503,10 @@ typedef std::vector<StreamHeadClient*>::iterator  IT;
 class SumStreamHeadClient: public StreamHeadClient {
 
 protected:
-	int nchan;
 	int outfd;
 public:
 	SumStreamHeadClient(const char* def) {
-		nchan = 4;
+		getStartLen(def);
 		outfd = open("/dev/shm/sumstreamclient", O_WRONLY);
 	}
 	virtual void onStreamStart() {}
@@ -2499,31 +2519,32 @@ public:
 
 template <class T>
 class SumStreamHeadClientImpl: public SumStreamHeadClient {
-	T* sum_buf;
+	int* sum_buf;
 	int nbuf;
 public:
 	SumStreamHeadClientImpl<T>(const char* def) : SumStreamHeadClient(def)
 	{
-		int nbuf = G::bufferlen/sample_size();
-		sum_buf = new T[nbuf];
+		nbuf = G::bufferlen/sample_size();
+		sum_buf = new int[nbuf];
 	}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
 		T* data = reinterpret_cast<T*>(buffer->getBase());
 		T* end = reinterpret_cast<T*>(buffer->getEnd());
 		int totchan = G::nchan;
-		int nwrite = nchan*sizeof(T);
 		int sum;
 		int shr = sizeof(T) == 4? 8: 0;
 
+
 		for (int isam = 0; data < end; data += totchan, ++isam){
-			for (int ic = sum = 0; ic < nchan; ++ic){
+			int ic;
+			for (ic = start, sum = 0; ic < start+len; ++ic){
 				sum += data[ic] >> shr;
 			}
 			sum_buf[isam] = sum;
 
 		}
-		write(outfd, sum_buf, nbuf);
+		write(outfd, sum_buf, nbuf*sizeof(int));
 	}
 };
 
@@ -2537,16 +2558,13 @@ SumStreamHeadClient* SumStreamHeadClient::instance(const char* def) {
 
 class SubsetStreamHeadClient: public StreamHeadClient {
 protected:
-	int nchan;
+
 public:
 	SubsetStreamHeadClient(const char* def) {
-		nchan = 8;
+		getStartLen(def);
 	}
 	virtual void onStreamStart() {}
-	virtual void onStreamBufferStart(int ib) {
-		Buffer* buffer = Buffer::the_buffers[ib];
-
-	}
+	virtual void onStreamBufferStart(int ib) = 0;
 	virtual void onStreamEnd() {}
 	virtual ~SubsetStreamHeadClient() {}
 
@@ -2555,19 +2573,25 @@ public:
 
 template <class T>
 class SubsetStreamHeadClientImpl: public SubsetStreamHeadClient {
+	T* buf;
+	int nbuf;
 public:
 	SubsetStreamHeadClientImpl<T>(const char* def) : SubsetStreamHeadClient(def)
-	{}
+	{
+		nbuf = G::bufferlen/sample_size()*len;
+		buf = new T [nbuf];
+	}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
 		T* data = reinterpret_cast<T*>(buffer->getBase());
 		T* end = reinterpret_cast<T*>(buffer->getEnd());
 		int totchan = G::nchan;
-		int nwrite = nchan*sizeof(T);
+		int nwrite = len*sizeof(T);
 
-		for ( ; data < end; data += totchan){
-			write(1, data, nwrite);
+		for (int isam = 0; data < end; data += totchan, ++isam){
+			memcpy(buf+isam*len, data+start, len*sizeof(T));
 		}
+		write(1, buf, nbuf*sizeof(T));
 	}
 };
 

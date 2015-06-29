@@ -538,6 +538,7 @@ nice daemon $WEB_APPEND_JOB
 
 (grep -h numeric /usr/share/doc/acq*help* >/usr/share/doc/numerics)
 
+mkfifo /dev/shm/sumstreamclient
 killall -q inetd
 cat /usr/local/init/inetd.conf >>/etc/inetd.conf
 inetd /etc/inetd.conf
