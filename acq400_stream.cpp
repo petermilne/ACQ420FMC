@@ -2479,7 +2479,7 @@ protected:
 		int args[2];
 		switch (sscanf(def, "%d,%d", args, args+1)){
 		case 2:
-			start = args[0];
+			start = args[0]>=1? args[0]-1: 0;
 			len = args[1];
 			break;
 		case 1:
