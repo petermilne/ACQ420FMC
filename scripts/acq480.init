@@ -56,9 +56,6 @@ if { $::argc > 0 } {
 			exec ln -s /dev/acq480/1/$tname \
 				/etc/acq400/$site/$tname
 		}	
-		file delete -force 	/etc/acq400/$site/T50_R
-		exec ln -s /usr/local/bin/acq480_set_term \
-				/etc/acq400/$site/T50R
 		set fp [open "/etc/acq400/$site/groups" a+]
 		puts $fp {T50R=T50R_[0-9]*}
 		close $fp
