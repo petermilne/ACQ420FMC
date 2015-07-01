@@ -3,8 +3,8 @@
 
 
 set LNAMES1 [ list \
-	EN50R_1 EN50R_2 EN50R_3 EN50R_4 \
-	EN50R_5 EN50R_6 EN50R_7 EN50R_8 ]
+	T50R_1 T50R_2 T50R_3 T50R_4 \
+	T50R_5 T50R_6 T50R_7 T50R_8 ]
 	
 
 proc link_gpio {lnames site gpio1} {
@@ -51,9 +51,10 @@ if { $::argc > 0 } {
 		link_gpio $LNAMES1 $site [get_gpio1 $site 20]
 			
 		for {set ic 1} {$ic <= 8} {incr ic} {
-			file delete -force /etc/acq400/$site/T50R_$ic			
-			exec ln -s /dev/acq480/1/T50R_$ic \
-				/etc/acq400/$site/T50R_$ic
+			file delete -force /etc/acq400/$site/T50R_$ic
+			set tname [lindex $LNAMES1 [expr $ic - 1]]			
+			exec ln -s /dev/acq480/1/$tname \
+				/etc/acq400/$site/$tname
 		}	
 		file delete -force 	/etc/acq400/$site/T50_R
 		exec ln -s /usr/local/bin/acq480_set_term \
