@@ -17,7 +17,7 @@ proc link_gpio {lnames site gpio1} {
 			exec set.sys /sys/class/gpio/export $gpx
 			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
 			exec ln -s /sys/class/gpio/gpio$gpx/value \
-				/dev/acq425/$site/$name
+				/dev/acq480/$site/$name
 		}
 	}
 }
@@ -52,7 +52,7 @@ if { $::argc > 0 } {
 			
 		for {set ic 1} {$ic <= 8} {incr ic} {
 			file delete -force /etc/acq400/$site/T50R_$ic			
-			exec ln -s /usr/local/bin/acq480_set_term \
+			exec ln -s /dev/acq480/1/T50R_$ic \
 				/etc/acq400/$site/T50R_$ic
 		}	
 		file delete -force 	/etc/acq400/$site/T50_R
@@ -62,7 +62,7 @@ if { $::argc > 0 } {
 		puts $fp {T50R=T50R_[0-9]*}
 		close $fp
 	} 
-	exec acq480_spi_mknod	
+	exec acq480_spi_mknod $SITES
 } else {
 	puts "usage acq480.init site1[ site 2...]	
 }

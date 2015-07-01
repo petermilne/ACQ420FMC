@@ -4,6 +4,8 @@ do_mknod() {
 	mknod /dev/$2 c $1 0	
 }
 
+
+
 for pair in $(grep acq480 /proc/devices | tr \  ,)
 do
 	name=${pair#*,}
@@ -14,4 +16,12 @@ do
 	daemon /usr/local/bin/monitor_acq480_spi $name 
 done
 
+SITES=$1
+IFS=,
 
+acq480_knobs makeLinks >/tmp/makeLinks
+
+for site in $SITES
+do
+	(cd /etc/acq400/$site;source /tmp/makeLinks)
+done

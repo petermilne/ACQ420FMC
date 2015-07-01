@@ -30,7 +30,7 @@ if [ -e /var/www/d-tacq/acq_main_page.html ]; then
 	grep -q $DEV /var/www/d-tacq/acq_main_page.html
 	if [ $? -ne 0 ]; then
 		sed -ie '/TABAPPEND/ {
-i       <li><a title="'$DEV'" href="acq_info_page.html">'$DEV'</a></li>
+a       <li><a title="'$DEV'" href="acq_info_page.html">'$DEV'</a></li>
 }' /var/www/d-tacq/acq_main_page.html
 	fi
 	ADDED_WEB=1
