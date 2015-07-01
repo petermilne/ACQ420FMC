@@ -43,7 +43,7 @@ if { $::argc > 0 } {
 		}
 		set SITES "$SITES$site"	
 	} 	
-	exec /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITES
+	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
 	
 	foreach site $::argv {
 	    puts "build gain knobs site:$site"
@@ -62,7 +62,7 @@ if { $::argc > 0 } {
 		puts $fp {T50R=T50R_[0-9]*}
 		close $fp
 	} 
-	exec load_acq480_spi	
+	exec acq480_spi_mknod	
 } else {
 	puts "usage acq480.init site1[ site 2...]	
 }

@@ -215,6 +215,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_ACQ430FMC:
 			acq43x_createDebugfs(adev, pcursor);
 			break;
+		case MOD_ID_ACQ480FMC:
+			adc_createDebugfs(adev, pcursor);
+			break;
 		case MOD_ID_PMODADC1:
 			pmodadc1_createDebugfs(adev, pcursor);
 			break;

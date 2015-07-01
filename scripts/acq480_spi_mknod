@@ -1,0 +1,17 @@
+#!/bin/sh
+
+do_mknod() {
+	mknod /dev/$2 c $1 0	
+}
+
+for pair in $(grep acq480 /proc/devices | tr \  ,)
+do
+	name=${pair#*,}
+	major=${pair%,*}
+	
+	do_mknod $major $name
+
+	daemon /usr/local/bin/monitor_acq480_spi $name 
+done
+
+
