@@ -3373,7 +3373,8 @@ static ssize_t store_decimate(
 	if (sscanf(buf, "%u", &decimate) == 1 && decimate){
 		u32 agg = acq400rd32(adev, AGGREGATOR);
 		agg &= ~(AGG_DECIM_MASK << AGG_DECIM_SHL);
-		agg |= ((decimate-1)& AGG_DECIM_MASK) << AGG_DECIM_SHL;
+		if (--decimate > AGG_DECIM_MASK) decimate = AGG_DECIM_MASK;
+		agg |= (decimate&AGG_DECIM_MASK) << AGG_DECIM_SHL;
 		acq400wr32(adev, AGGREGATOR, agg);
 		return count;
 	}else{
