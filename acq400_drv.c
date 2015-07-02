@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.811"
+#define REVID "2.812"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -377,6 +377,25 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	if (IS_ACQ424(adev)){
 		acq400wr32(adev, ADC_CLKDIV, 66);
 	}
+}
+
+static void acq480_init_defaults(struct acq400_dev *adev)
+{
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+
+	dev_info(DEVP(adev), "ACQ480 device init: skeleton");
+
+	adev->data32 = 0;
+	adev->adc_18b = 0;
+
+	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+	adev->nchan_enabled = 8;
+	adev->word_size = 2;
+	adev->sysclkhz = SYSCLK_M100;
+	adev->hitide = hitide;
+	adev->lotide = lotide;
+	adev->onStart = acq420_onStart;
+	adev->onStop = acq420_disable_fifo;
 }
 
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
@@ -3456,6 +3475,7 @@ static int acq400_probe(struct platform_device *pdev)
   			acq43X_init_defaults(adev);
   			break;
   		case MOD_ID_AO420FMC:
+
   			ao420_init_defaults(adev);
   			break;
   		case MOD_ID_AO424ELF:
@@ -3467,6 +3487,9 @@ static int acq400_probe(struct platform_device *pdev)
   			break;
   		case MOD_ID_PMODADC1:
   			pmodadc1_init_defaults(adev);
+  			break;
+  		case MOD_ID_ACQ480FMC:
+  			acq480_init_defaults(adev);
   			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",
