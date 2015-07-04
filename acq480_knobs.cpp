@@ -351,7 +351,7 @@ public:
 class SetDataPattern: public Command {
 public:
 	SetDataPattern() :
-		Command("setDataPattern", "ENABLE") {}
+		Command("setDataPattern", "[HEXCODE | KEY | HELP]") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 1) die(help());
 		if (argc == 2){
@@ -373,7 +373,7 @@ public:
 class SetReg: public Command {
 public:
 	SetReg() :
-		Command("reg", "[VALUE]") {}
+		Command("reg", "REG [VALUE]") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 		unsigned reg = strtoul(argv[1], 0, 0);
