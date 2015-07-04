@@ -266,6 +266,15 @@ public:
 	}
 	int SetLvdsTestPatRamp(bool enable);
 	int SetLvdsTestPatDeskew(bool enable);
+
+	int setPatDeskew(bool enable);
+	int setPatSync(bool enable);
+	int setDataPattern(unsigned short reg);
+	int setDataPattern(int argc, char* argv[]);
+	int getDataPattern();
+
+	int setReg(unsigned reg, unsigned pattern);
+	int getReg(unsigned reg, unsigned& pattern);
 };
 
 

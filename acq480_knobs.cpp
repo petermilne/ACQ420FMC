@@ -309,7 +309,7 @@ public:
 	SetLvdsTestPatRamp() :
 		Command("setLvdsTestPatRamp", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 1) die(help());
+		if (argc < 2) die(help());
 		int rc = module.chip.SetLvdsTestPatRamp(atoi(argv[1]));
 		return 1;
 	}
@@ -320,12 +320,76 @@ public:
 	SetLvdsTestPatDeskew() :
 		Command("setLvdsTestPatDeskew", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		if (argc < 1) die(help());
+		if (argc < 2) die(help());
 		int rc = module.chip.SetLvdsTestPatDeskew(atoi(argv[1]));
 		return 1;
 	}
 };
 
+class SetPatDeskew: public Command {
+public:
+	SetPatDeskew() :
+		Command("setPatDeskew", "ENABLE") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die(help());
+		int rc = module.chip.setPatDeskew(atoi(argv[1]));
+		return 1;
+	}
+};
+
+class SetPatSync: public Command {
+public:
+	SetPatSync() :
+		Command("setPatSync", "ENABLE") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die(help());
+		int rc = module.chip.setPatSync(atoi(argv[1]));
+		return 1;
+	}
+};
+
+class SetDataPattern: public Command {
+public:
+	SetDataPattern() :
+		Command("setDataPattern", "ENABLE") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 1) die(help());
+		if (argc == 2){
+			unsigned regval;
+
+			if (sscanf(argv[1], "0x%x", &regval) == 1 ||
+			    sscanf(argv[1], "0X%x", &regval) == 1 ||
+			    sscanf(argv[1], "%u", &regval) == 1		){
+				    return module.chip.setDataPattern(regval);
+			}
+		}
+		if (argc == 1){
+			return module.chip.getDataPattern();
+		}else{
+			return module.chip.setDataPattern(--argc, &argv[1]);
+		}
+	}
+};
+class SetReg: public Command {
+public:
+	SetReg() :
+		Command("reg", "[VALUE]") {}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		if (argc < 2) die(help());
+		unsigned reg = strtoul(argv[1], 0, 0);
+		unsigned regval;
+		int rc;
+
+		if (argc == 2){
+			rc = module.chip.getReg(reg, regval);
+			printf("%02x=%04x\n", reg, regval);
+		}else{
+			regval = strtoul(argv[2], 0, 0);
+			rc = module.chip.setReg(reg, regval);
+		}
+		return rc;
+	}
+};
 
 void Acq480FMC::init_commands()
 {
@@ -340,6 +404,10 @@ void Acq480FMC::init_commands()
 	commands.push_back(new GetGainCommand);
 	commands.push_back(new SetLvdsTestPatRamp);
 	commands.push_back(new SetLvdsTestPatDeskew);
+	commands.push_back(new SetPatDeskew);
+	commands.push_back(new SetPatSync);
+	commands.push_back(new SetDataPattern);
+	commands.push_back(new SetReg);
 	commands.push_back(new DumpCommand);
 	commands.push_back(new FlushCommand);
 	commands.push_back(new ReadAllCommand);

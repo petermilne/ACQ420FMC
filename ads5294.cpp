@@ -303,3 +303,145 @@ int Ads5294::SetLvdsTestPatDeskew(bool enable)
 	}
 	return 1;
 }
+
+int Ads5294::setPatDeskew(bool enable)
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_PAT];
+
+	reg &= ~0x03;
+	if (enable){
+		reg |= 0x01;
+	}
+	return 1;
+}
+int Ads5294::setPatSync(bool enable)
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_PAT];
+
+	reg &= ~0x03;
+	if (enable){
+		reg |= 0x02;
+	}
+	return 1;
+}
+int Ads5294::setDataPattern(unsigned short regval)
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_WIRE_MODE];
+
+	reg = regval;
+	return 1;
+}
+
+struct KeyLut {
+	const char* key;
+	unsigned short pat;
+	unsigned short pat_field;
+};
+
+KeyLut keyLut[] = {
+		{ "EN_2WIRE", 	1<<0 },
+		{ "BTC_MODE", 	1<<2 },
+		{ "MSB_FIRST", 	1<<3 },
+		{ "EN_SDR",     1<<4 },
+		{ "EN_14BIT",   0x40, 0xf0 },
+		{ "EN_16BIT",   0x80, 0xf0 },
+		{ "FALL_SDR",   1<<13 },
+};
+#define NKEYS (sizeof(keyLut)/sizeof(KeyLut))
+
+int _help() {
+	printf("_help() NKEYS %d\n", NKEYS);
+	for (int ikey = 0; ikey < NKEYS; ++ikey){
+		const char* k = keyLut[ikey].key;
+		unsigned short bv = keyLut[ikey].pat;
+
+		printf("%s ", k);
+	}
+	printf("\n");
+	return 0;
+}
+int Ads5294::setDataPattern(int argc, char* argv[])
+{
+	int ii;
+	for (ii = 0; ii < argc; ++ii){
+		const char* tok = argv[ii];
+		if (strcmp(tok, "help") == 0){
+			return _help();
+		}else{
+			Reg& reg = regs->regs[Ads5294Regs::RA_WIRE_MODE];
+			bool negate = false;
+
+			if (tok[0] == '-'){
+				negate = true;
+				tok += 1;
+			}
+			for (int ikey = 0; ikey < NKEYS; ++ikey){
+				const char* k = keyLut[ikey].key;
+				unsigned short bv = keyLut[ikey].pat;
+				unsigned clr = ~keyLut[ikey].pat_field;
+
+				if (strcmp(k, tok) == 0){
+					reg &= clr;
+					if (negate){
+						reg &= ~bv;
+					}else{
+						reg |= bv;
+					}
+					goto next_arg;
+				}
+
+			}
+			printf("Ads5294::setDataPattern() ERROR: \"%s\" not supported\n", tok);
+			return 0;
+		}
+next_arg:
+		;
+	}
+	printf("\n");
+	return 0;
+}
+
+int Ads5294::getDataPattern()
+{
+	Reg& reg = regs->regs[Ads5294Regs::RA_WIRE_MODE];
+
+	for (int ikey = 0; ikey < NKEYS; ++ikey){
+		unsigned rv = reg;
+		if (keyLut[ikey].pat_field){
+			rv &= keyLut[ikey].pat_field;
+			if (rv == keyLut[ikey].pat){
+				printf("%s ", keyLut[ikey].key);
+			}
+		}else{
+			const char* k = keyLut[ikey].key;
+			unsigned short bv = keyLut[ikey].pat;
+			printf("%c%s ", (rv&bv) == bv? ' ':'-', k);
+		}
+	}
+	printf("\n");
+}
+int Ads5294::setReg(unsigned reg, unsigned pattern)
+{
+	printf("setReg() %02x %04x\n", reg);
+	if (reg > 0 && reg < 255){
+		Reg& _reg = regs->regs[reg];
+		_reg = pattern;
+		return 1;
+	}else{
+		printf("ERROR reg not in range 0 .. 255\n");
+		return 0;
+	}
+}
+
+int Ads5294::getReg(unsigned reg, unsigned& pattern)
+{
+	printf("getReg() %02x\n", reg);
+	if (reg > 0 && reg < 255){
+		Reg& _reg = regs->regs[reg];
+		pattern = _reg;
+		return 0;
+	}else{
+		printf("ERROR reg not in range 0 .. 255\n");
+		return 0;
+	}
+}
