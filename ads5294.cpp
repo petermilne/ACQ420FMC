@@ -445,3 +445,107 @@ int Ads5294::getReg(unsigned reg, unsigned& pattern)
 		return 0;
 	}
 }
+
+
+
+Ads5294::MapLut Ads5294::maplut[] = {
+ { "MAP_CH1234_TO_OUT1A", Ads5294Regs::RA_MAP_50, 0, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT1B", Ads5294Regs::RA_MAP_50, 4, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT2A", Ads5294Regs::RA_MAP_50, 8, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT2B", Ads5294Regs::RA_MAP_51, 0, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT3A", Ads5294Regs::RA_MAP_51, 4, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT3B", Ads5294Regs::RA_MAP_51, 8, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT4A", Ads5294Regs::RA_MAP_52, 0, { 1, 2, 3, 4} },
+ { "MAP_CH1234_TO_OUT4B", Ads5294Regs::RA_MAP_52, 4, { 1, 2, 3, 4} },
+ { "MAP_CH5678_TO_OUT5B", Ads5294Regs::RA_MAP_53, 0, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT5A", Ads5294Regs::RA_MAP_53, 4, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT6B", Ads5294Regs::RA_MAP_53, 8, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT6A", Ads5294Regs::RA_MAP_54, 0, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT7B", Ads5294Regs::RA_MAP_54, 4, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT7A", Ads5294Regs::RA_MAP_54, 8, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT8B", Ads5294Regs::RA_MAP_55, 0, { 5, 6, 7, 8} },
+ { "MAP_CH5678_TO_OUT8A", Ads5294Regs::RA_MAP_55, 4, { 5, 6, 7, 8} }
+};
+
+#define NMAPLUT	(sizeof(maplut)/sizeof(MapLut))
+
+const Ads5294::MapLut& Ads5294::lookupMap(const char* key){
+	for (int ik = 0; ik < NMAPLUT; ++ik){
+		if (strcmp(key, maplut[ik].key) == 0){
+			return maplut[ik];
+		}
+	}
+
+	fprintf(stderr, "ERROR: key \"%s\" NOT VALID\n", key);
+	exit(1);
+	return maplut[0];
+}
+
+void Ads5294::printMapHelp(const char* pfx)
+{
+	for (int ik = 0; ik < NMAPLUT; ++ik){
+		MapLut& map = maplut[ik];
+		printf("%s %s %d %d %d %d\n",
+			pfx, map.key,
+			map.wxyz[0], map.wxyz[1],
+			map.wxyz[2], map.wxyz[3]);
+	}
+}
+void Ads5294::printMap(const Ads5294::MapLut& map)
+{
+	Reg& _reg = regs->regs[map.reg];
+	unsigned chx = (_reg >> map.shl) & 0x0f;
+	printf("%s ", map.key);
+	for (int ix = 0; ix < 4; ++ix){
+		printf("%d ", (chx&(1<<ix))? map.wxyz[ix]: 0);
+	}
+	printf("\n");
+}
+
+void Ads5294::printMap(int imap)
+{
+	printMap(maplut[imap]);
+}
+
+bool Ads5294::isValidChx(const Ads5294::MapLut& map, int chx)
+{
+	if (chx == 0) return true;
+
+	for (int ix = 0; ix < 4; ++ix){
+		if (chx == map.wxyz[ix]){
+			return true;
+		}
+	}
+
+	printf("WARNING: \"%s\" and %d not a valid combo\n", map.key, chx);
+	return false;
+}
+
+int Ads5294::setMap(const char* mapping, int chW, int chX, int chY, int chZ)
+{
+	const MapLut& map = lookupMap(mapping);
+	unsigned ccc = 0;
+
+	if (chW > 0 && isValidChx(map, chW)) ccc |= 1 << ((chW-1)%4);
+	if (chX > 0 && isValidChx(map, chX)) ccc |= 1 << ((chX-1)%4);
+	if (chY > 0 && isValidChx(map, chY)) ccc |= 1 << ((chY-1)%4);
+	if (chZ > 0 && isValidChx(map, chZ)) ccc |= 1 << ((chZ-1)%4);
+
+	Reg& _reg = regs->regs[map.reg];
+
+	_reg &= ~ (0xf << map.shl);
+	_reg |= ccc << map.shl;
+	_reg |= 1 << MAP_EN_BIT;
+	return 1;
+}
+int Ads5294::getMap(const char* mapping)
+{
+	if (mapping == MAP_ALL){
+		for (int imap = 0; imap < NMAPLUT; ++imap){
+			printMap(imap);
+		}
+	}else{
+		printMap(lookupMap(mapping));
+	}
+	return 0;
+}

@@ -63,6 +63,13 @@ struct Ads5294Regs {
 
 		RA_WIRE_MODE		= 0x46,
 
+		RA_MAP_50		= 0x50,
+		RA_MAP_51		= 0x51,
+		RA_MAP_52		= 0x52,
+		RA_MAP_53		= 0x53,
+		RA_MAP_54		= 0x54,
+		RA_MAP_55		= 0x55,
+
 		RA_CUSTOM_COEFFS1	= 0x5a,
 		/* MAP : assume 1:1 on ACQ480 */
 
@@ -199,8 +206,22 @@ enum FilterCoeffSelect {
 #define CHAN8_MASK	0x00ff
 
 #define CHAN2BIT(chan)	(1<<CHIX(chan))
-class Ads5294 {
 
+#define MAP_EN_BIT	15
+
+class Ads5294 {
+	struct MapLut {
+		const char* key;
+		Ads5294Regs::RegAddrs reg;
+		int shl;
+		int wxyz[4];
+	};
+	static MapLut maplut[];
+
+	static bool isValidChx(const Ads5294::MapLut& map, int chx);
+	static const MapLut& lookupMap(const char* key);
+	void printMap(int imap);
+	void printMap(const Ads5294::MapLut& map);
 public:
 	struct Ads5294Regs *regs;
 
@@ -275,6 +296,11 @@ public:
 
 	int setReg(unsigned reg, unsigned pattern);
 	int getReg(unsigned reg, unsigned& pattern);
+
+#define MAP_ALL	""
+	int setMap(const char* mapping, int chW, int chX, int chY, int chZ);
+	int getMap(const char* mapping = MAP_ALL);
+	static void printMapHelp(const char* pfx);
 };
 
 

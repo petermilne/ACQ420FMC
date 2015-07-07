@@ -391,6 +391,41 @@ public:
 	}
 };
 
+class MappingCommand: public Command {
+	int mapHelp() {
+		printf("enter channel number to set, 0 or omit to clear\n");
+		Ads5294::printMapHelp("acq480_knobs map");
+		return 0;
+	}
+public:
+	MappingCommand():
+		Command("map", "{help|MAP_CHwxyz_TO_OUTab} [,chW[,chX[,chY[,chZ]]]]")
+	{}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		int chw = 0, chx = 0, chy = 0, chz = 0;
+
+		switch(argc){
+		case 6:
+			chz = atoi(argv[5]);	// fall thru
+		case 5:
+			chy = atoi(argv[4]);	// fall thru
+		case 4:
+			chx = atoi(argv[3]);	// fall thru
+		case 3:
+			chw = atoi(argv[2]);
+			return module.chip.setMap(argv[1], chw, chx, chy, chz);
+		case 1:
+			return module.chip.getMap(MAP_ALL);
+		default:
+		case 2:
+			if (strcmp(argv[1], "help") == 0){
+				return mapHelp();
+			}else{
+				return module.chip.getMap(argv[1]);
+			}
+		}
+	}
+};
 void Acq480FMC::init_commands()
 {
 	commands.push_back(new SetInvertCommand);
@@ -407,6 +442,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetPatDeskew);
 	commands.push_back(new SetPatSync);
 	commands.push_back(new SetDataPattern);
+	commands.push_back(new MappingCommand);
 	commands.push_back(new SetReg);
 	commands.push_back(new DumpCommand);
 	commands.push_back(new FlushCommand);
@@ -443,6 +479,7 @@ int  Acq480FMC::operator() (int argc, char* argv[])
 			if (command(*this, argc, arg0) > 0){
 				flush();
 			}
+			break;
 		}
 	}
 	return 0;
