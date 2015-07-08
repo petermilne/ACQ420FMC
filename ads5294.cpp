@@ -490,6 +490,9 @@ void Ads5294::printMapHelp(const char* pfx)
 			map.wxyz[0], map.wxyz[1],
 			map.wxyz[2], map.wxyz[3]);
 	}
+	printf("%s ALL 0 0 0 0\n", pfx);
+	printf("%s ALL1234 1 2 3 4\n", pfx);
+	printf("%s ALL5678 5 6 7 8\n", pfx);
 }
 void Ads5294::printMap(const Ads5294::MapLut& map)
 {
@@ -523,20 +526,37 @@ bool Ads5294::isValidChx(const Ads5294::MapLut& map, int chx)
 
 int Ads5294::setMap(const char* mapping, int chW, int chX, int chY, int chZ)
 {
-	const MapLut& map = lookupMap(mapping);
-	unsigned ccc = 0;
 
-	if (chW > 0 && isValidChx(map, chW)) ccc |= 1 << ((chW-1)%4);
-	if (chX > 0 && isValidChx(map, chX)) ccc |= 1 << ((chX-1)%4);
-	if (chY > 0 && isValidChx(map, chY)) ccc |= 1 << ((chY-1)%4);
-	if (chZ > 0 && isValidChx(map, chZ)) ccc |= 1 << ((chZ-1)%4);
+	if (mapping == MAP_ALL || strncmp(mapping, "ALL", 3) == 0 ){
+		int im0 = 0;
+		int im1 = NMAPLUT;
+		if (strcmp(mapping, "ALL1234") == 0){
+			im1 = NMAPLUT/2;
+		}else if (strcmp(mapping, "ALL5678") == 0){
+			im0 = NMAPLUT/2;
+		}
+		// else all regs .. value for 0,0,0,0 only
 
-	Reg& _reg = regs->regs[map.reg];
+		for (int imap = im0; imap < im1; ++imap){
+			setMap(maplut[imap].key, chW, chX, chY, chZ);
+		}
+		return 1;
+	}else{
+		const MapLut& map = lookupMap(mapping);
+		unsigned ccc = 0;
 
-	_reg &= ~ (0xf << map.shl);
-	_reg |= ccc << map.shl;
-	_reg |= 1 << MAP_EN_BIT;
-	return 1;
+		if (chW > 0 && isValidChx(map, chW)) ccc |= 1 << ((chW-1)%4);
+		if (chX > 0 && isValidChx(map, chX)) ccc |= 1 << ((chX-1)%4);
+		if (chY > 0 && isValidChx(map, chY)) ccc |= 1 << ((chY-1)%4);
+		if (chZ > 0 && isValidChx(map, chZ)) ccc |= 1 << ((chZ-1)%4);
+
+		Reg& _reg = regs->regs[map.reg];
+
+		_reg &= ~ (0xf << map.shl);
+		_reg |= ccc << map.shl;
+		_reg |= 1 << MAP_EN_BIT;
+		return 1;
+	}
 }
 int Ads5294::getMap(const char* mapping)
 {
