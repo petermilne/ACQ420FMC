@@ -399,21 +399,17 @@ class MappingCommand: public Command {
 	}
 public:
 	MappingCommand():
-		Command("map", "{help|MAP_CHwxyz_TO_OUTab} [,chW[,chX[,chY[,chZ]]]]")
+		Command("map", "{help|MAP_CHwxyz_TO_OUTab} [,chx[,2]]")
 	{}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
-		int chw = 0, chx = 0, chy = 0, chz = 0;
+		int chx = 0, two_bit = 0;
 
 		switch(argc){
-		case 6:
-			chz = atoi(argv[5]);	// fall thru
-		case 5:
-			chy = atoi(argv[4]);	// fall thru
 		case 4:
-			chx = atoi(argv[3]);	// fall thru
+			two_bit = atoi(argv[3]);	// fall thru
 		case 3:
-			chw = atoi(argv[2]);
-			return module.chip.setMap(argv[1], chw, chx, chy, chz);
+			chx = atoi(argv[2]);
+			return module.chip.setMap(argv[1], chx, two_bit);
 		case 1:
 			return module.chip.getMap(MAP_ALL);
 		default:

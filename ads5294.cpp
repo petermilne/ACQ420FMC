@@ -449,25 +449,44 @@ int Ads5294::getReg(unsigned reg, unsigned& pattern)
 
 
 Ads5294::MapLut Ads5294::maplut[] = {
- { "MAP_CH1234_TO_OUT1A", Ads5294Regs::RA_MAP_50, 0, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT1B", Ads5294Regs::RA_MAP_50, 4, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT2A", Ads5294Regs::RA_MAP_50, 8, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT2B", Ads5294Regs::RA_MAP_51, 0, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT3A", Ads5294Regs::RA_MAP_51, 4, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT3B", Ads5294Regs::RA_MAP_51, 8, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT4A", Ads5294Regs::RA_MAP_52, 0, { 1, 2, 3, 4} },
- { "MAP_CH1234_TO_OUT4B", Ads5294Regs::RA_MAP_52, 4, { 1, 2, 3, 4} },
- { "MAP_CH5678_TO_OUT5B", Ads5294Regs::RA_MAP_53, 0, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT5A", Ads5294Regs::RA_MAP_53, 4, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT6B", Ads5294Regs::RA_MAP_53, 8, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT6A", Ads5294Regs::RA_MAP_54, 0, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT7B", Ads5294Regs::RA_MAP_54, 4, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT7A", Ads5294Regs::RA_MAP_54, 8, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT8B", Ads5294Regs::RA_MAP_55, 0, { 5, 6, 7, 8} },
- { "MAP_CH5678_TO_OUT8A", Ads5294Regs::RA_MAP_55, 4, { 5, 6, 7, 8} }
+ { "MAP_CH1234_TO_OUT1A", Ads5294Regs::RA_MAP_50, 0, false },
+ { "MAP_CH1234_TO_OUT1B", Ads5294Regs::RA_MAP_50, 4, false },
+ { "MAP_CH1234_TO_OUT2A", Ads5294Regs::RA_MAP_50, 8, false },
+ { "MAP_CH1234_TO_OUT2B", Ads5294Regs::RA_MAP_51, 0, false },
+ { "MAP_CH1234_TO_OUT3A", Ads5294Regs::RA_MAP_51, 4, false },
+ { "MAP_CH1234_TO_OUT3B", Ads5294Regs::RA_MAP_51, 8, false },
+ { "MAP_CH1234_TO_OUT4A", Ads5294Regs::RA_MAP_52, 0, false },
+ { "MAP_CH1234_TO_OUT4B", Ads5294Regs::RA_MAP_52, 4, false },
+ { "MAP_CH5678_TO_OUT5B", Ads5294Regs::RA_MAP_53, 0, true },
+ { "MAP_CH5678_TO_OUT5A", Ads5294Regs::RA_MAP_53, 4, true },
+ { "MAP_CH5678_TO_OUT6B", Ads5294Regs::RA_MAP_53, 8, true },
+ { "MAP_CH5678_TO_OUT6A", Ads5294Regs::RA_MAP_54, 0, true },
+ { "MAP_CH5678_TO_OUT7B", Ads5294Regs::RA_MAP_54, 4, true },
+ { "MAP_CH5678_TO_OUT7A", Ads5294Regs::RA_MAP_54, 8, true },
+ { "MAP_CH5678_TO_OUT8B", Ads5294Regs::RA_MAP_55, 0, true },
+ { "MAP_CH5678_TO_OUT8A", Ads5294Regs::RA_MAP_55, 4, true }
 };
-
 #define NMAPLUT	(sizeof(maplut)/sizeof(MapLut))
+
+
+struct ChannelMapEncoding {
+	int chan;
+	int two_bit;
+	unsigned pattern;
+};
+ChannelMapEncoding cme[] = {
+	{ 0, 0, 0x8 },			// power down
+	{ 1, 0, 0x0 }, { 1, 2, 0x1 },	// channel 1
+	{ 2, 0, 0x2 }, { 2, 2, 0x3 },
+	{ 3, 0, 0x4 }, { 3, 2, 0x5 },
+	{ 4, 0, 0x6 }, { 4, 2, 0x7 },
+
+	{ 5, 0, 0x6 }, { 5, 2, 0x7 },
+	{ 6, 0, 0x4 }, { 6, 2, 0x5 },
+	{ 7, 0, 0x2 }, { 7, 2, 0x3 },
+	{ 8, 0, 0x0 }, { 8, 2, 0x1 }
+};
+#define NCME	(sizeof(cme)/sizeof(ChannelMapEncoding))
 
 const Ads5294::MapLut& Ads5294::lookupMap(const char* key){
 	for (int ik = 0; ik < NMAPLUT; ++ik){
@@ -485,24 +504,29 @@ void Ads5294::printMapHelp(const char* pfx)
 {
 	for (int ik = 0; ik < NMAPLUT; ++ik){
 		MapLut& map = maplut[ik];
-		printf("%s %s %d %d %d %d\n",
+		printf("%s %s %s %s # %s %s\n",
 			pfx, map.key,
-			map.wxyz[0], map.wxyz[1],
-			map.wxyz[2], map.wxyz[3]);
+			map.hi_chan? "5": "1",
+			"0",
+			map.hi_chan? "5678": "1234",
+			"02");
 	}
-	printf("%s ALL 0 0 0 0\n", pfx);
-	printf("%s ALL1234 1 2 3 4\n", pfx);
-	printf("%s ALL5678 5 6 7 8\n", pfx);
+	printf("%s ALL 0\n", pfx);
 }
+
 void Ads5294::printMap(const Ads5294::MapLut& map)
 {
 	Reg& _reg = regs->regs[map.reg];
-	unsigned chx = (_reg >> map.shl) & 0x0f;
+	unsigned pat = (_reg >> map.shl) & 0x0f;
 	printf("%s ", map.key);
-	for (int ix = 0; ix < 4; ++ix){
-		printf("%d ", (chx&(1<<ix))? map.wxyz[ix]: 0);
+	for (int ix = 0; ix < NCME; ++ix){
+		if (pat == cme[ix].pattern && isValidChx(map, cme[ix].chan)){
+			printf("%d %d", cme[ix].chan, cme[ix].two_bit);
+			printf("\n");
+			return;
+		}
 	}
-	printf("\n");
+	printf("ERROR: illegal pattern %x\n", pat);
 }
 
 void Ads5294::printMap(int imap)
@@ -510,54 +534,62 @@ void Ads5294::printMap(int imap)
 	printMap(maplut[imap]);
 }
 
-bool Ads5294::isValidChx(const Ads5294::MapLut& map, int chx)
+bool Ads5294::isValidChx(const Ads5294::MapLut& map, int chx, bool warn)
 {
 	if (chx == 0) return true;
 
-	for (int ix = 0; ix < 4; ++ix){
-		if (chx == map.wxyz[ix]){
-			return true;
-		}
+	bool ok = false;
+
+	if (map.hi_chan){
+		ok = chx >= 5 && chx <= 8;
+	}else{
+		ok = chx >= 1 && chx <= 4;
 	}
 
-	printf("WARNING: \"%s\" and %d not a valid combo\n", map.key, chx);
-	return false;
+	if (!ok && warn){
+		printf("WARNING: \"%s\" and %d not a valid combo\n", map.key, chx);
+	}
+	return ok;
 }
 
-int Ads5294::setMap(const char* mapping, int chW, int chX, int chY, int chZ)
+
+int Ads5294::setMap(const char* mapping, int chx, int two_bits)
 {
 
 	if (mapping == MAP_ALL || strncmp(mapping, "ALL", 3) == 0 ){
 		int im0 = 0;
 		int im1 = NMAPLUT;
-		if (strcmp(mapping, "ALL1234") == 0){
-			im1 = NMAPLUT/2;
-		}else if (strcmp(mapping, "ALL5678") == 0){
-			im0 = NMAPLUT/2;
-		}
+
 		// else all regs .. value for 0,0,0,0 only
 
 		for (int imap = im0; imap < im1; ++imap){
-			setMap(maplut[imap].key, chW, chX, chY, chZ);
+			setMap(maplut[imap].key, chx, two_bits);
 		}
 		return 1;
 	}else{
 		const MapLut& map = lookupMap(mapping);
 		unsigned ccc = 0;
 
-		if (chW > 0 && isValidChx(map, chW)) ccc |= 1 << ((chW-1)%4);
-		if (chX > 0 && isValidChx(map, chX)) ccc |= 1 << ((chX-1)%4);
-		if (chY > 0 && isValidChx(map, chY)) ccc |= 1 << ((chY-1)%4);
-		if (chZ > 0 && isValidChx(map, chZ)) ccc |= 1 << ((chZ-1)%4);
+		if (!isValidChx(map, chx, true)){
+			return 0;
+		}
 
-		Reg& _reg = regs->regs[map.reg];
+		for (int ix = 0; ix < NCME; ++ix){
+			if (chx == cme[ix].chan && two_bits == cme[ix].two_bit){
+				Reg& _reg = regs->regs[map.reg];
+				_reg &= ~ (0xf << map.shl);
+				_reg |= cme[ix].pattern << map.shl;
+				_reg |= 1 << MAP_EN_BIT;
+				return 1;
+			}
+		}
 
-		_reg &= ~ (0xf << map.shl);
-		_reg |= ccc << map.shl;
-		_reg |= 1 << MAP_EN_BIT;
-		return 1;
+		printf("WARNING: unable to match %s %d %d\n", mapping, chx, two_bits);
+		return 0;
 	}
 }
+
+
 int Ads5294::getMap(const char* mapping)
 {
 	if (mapping == MAP_ALL){

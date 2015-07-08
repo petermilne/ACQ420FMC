@@ -213,12 +213,12 @@ class Ads5294 {
 	struct MapLut {
 		const char* key;
 		Ads5294Regs::RegAddrs reg;
-		int shl;
-		int wxyz[4];
+		int shl;		// field shift 0,4,8
+		bool hi_chan;		// false:1-4, true 5-8
 	};
 	static MapLut maplut[];
 
-	static bool isValidChx(const Ads5294::MapLut& map, int chx);
+	static bool isValidChx(const Ads5294::MapLut& map, int chx, bool warn = false);
 	static const MapLut& lookupMap(const char* key);
 	void printMap(int imap);
 	void printMap(const Ads5294::MapLut& map);
@@ -298,7 +298,8 @@ public:
 	int getReg(unsigned reg, unsigned& pattern);
 
 #define MAP_ALL	""
-	int setMap(const char* mapping, int chW, int chX, int chY, int chZ);
+#define MAP_DISABLE 0
+	int setMap(const char* mapping, int chx, int two_bits);
 	int getMap(const char* mapping = MAP_ALL);
 	static void printMapHelp(const char* pfx);
 };
