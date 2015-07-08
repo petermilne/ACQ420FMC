@@ -457,14 +457,18 @@ Ads5294::MapLut Ads5294::maplut[] = {
  { "MAP_CH1234_TO_OUT3B", Ads5294Regs::RA_MAP_51, 8, false },
  { "MAP_CH1234_TO_OUT4A", Ads5294Regs::RA_MAP_52, 0, false },
  { "MAP_CH1234_TO_OUT4B", Ads5294Regs::RA_MAP_52, 4, false },
- { "MAP_CH5678_TO_OUT5B", Ads5294Regs::RA_MAP_53, 0, true },
+
  { "MAP_CH5678_TO_OUT5A", Ads5294Regs::RA_MAP_53, 4, true },
- { "MAP_CH5678_TO_OUT6B", Ads5294Regs::RA_MAP_53, 8, true },
+ { "MAP_CH5678_TO_OUT5B", Ads5294Regs::RA_MAP_53, 0, true },
+
  { "MAP_CH5678_TO_OUT6A", Ads5294Regs::RA_MAP_54, 0, true },
- { "MAP_CH5678_TO_OUT7B", Ads5294Regs::RA_MAP_54, 4, true },
+ { "MAP_CH5678_TO_OUT6B", Ads5294Regs::RA_MAP_53, 8, true },
+
  { "MAP_CH5678_TO_OUT7A", Ads5294Regs::RA_MAP_54, 8, true },
- { "MAP_CH5678_TO_OUT8B", Ads5294Regs::RA_MAP_55, 0, true },
- { "MAP_CH5678_TO_OUT8A", Ads5294Regs::RA_MAP_55, 4, true }
+ { "MAP_CH5678_TO_OUT7B", Ads5294Regs::RA_MAP_54, 4, true },
+
+ { "MAP_CH5678_TO_OUT8A", Ads5294Regs::RA_MAP_55, 4, true },
+ { "MAP_CH5678_TO_OUT8B", Ads5294Regs::RA_MAP_55, 0, true }
 };
 #define NMAPLUT	(sizeof(maplut)/sizeof(MapLut))
 
@@ -521,7 +525,12 @@ void Ads5294::printMap(const Ads5294::MapLut& map)
 	printf("%s ", map.key);
 	for (int ix = 0; ix < NCME; ++ix){
 		if (pat == cme[ix].pattern && isValidChx(map, cme[ix].chan)){
-			printf("%d %d", cme[ix].chan, cme[ix].two_bit);
+			if (cme[ix].chan!=0){
+				printf("%d", cme[ix].chan);
+				if (cme[ix].chan!=0 && cme[ix].two_bit==2){
+					printf(" 2");
+				}
+			}
 			printf("\n");
 			return;
 		}
