@@ -399,7 +399,7 @@ class MappingCommand: public Command {
 	}
 public:
 	MappingCommand():
-		Command("map", "{help|MAP_CHwxyz_TO_OUTab} [,chx[,2]]")
+		Command("map", "{help|MAP_CHwxyz_TO_OUTab} [ chx[ 2]]")
 	{}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		int chx = 0, two_bit = 0;
@@ -422,6 +422,23 @@ public:
 		}
 	}
 };
+
+class PllCommand: public Command {
+public:
+	PllCommand() :
+		Command("PLL", "[FSMSPS DECIM]")
+	{}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		switch(argc){
+		case 1:
+			return module.chip.getPLL();
+		case 3:
+			return module.chip.setPLL(atoi(argv[1]), atoi(argv[2]));
+		default:
+			die(help());
+		}
+	}
+};
 void Acq480FMC::init_commands()
 {
 	commands.push_back(new SetInvertCommand);
@@ -439,6 +456,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetPatSync);
 	commands.push_back(new SetDataPattern);
 	commands.push_back(new MappingCommand);
+	commands.push_back(new PllCommand);
 	commands.push_back(new SetReg);
 	commands.push_back(new DumpCommand);
 	commands.push_back(new FlushCommand);

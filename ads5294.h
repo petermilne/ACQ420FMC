@@ -72,7 +72,7 @@ struct Ads5294Regs {
 
 		RA_CUSTOM_COEFFS1	= 0x5a,
 		/* MAP : assume 1:1 on ACQ480 */
-
+		RA_PLL			= 0xd1,
 		RA_EXT_REF		= 0xf0
 	};
 };
@@ -210,6 +210,11 @@ enum FilterCoeffSelect {
 #define MAP_EN_BIT	15
 
 class Ads5294 {
+	struct PllRange {
+		int fmin, fmax;
+		unsigned pat;
+	};
+	static PllRange pllRanges[4][4];
 	struct MapLut {
 		const char* key;
 		Ads5294Regs::RegAddrs reg;
@@ -222,6 +227,8 @@ class Ads5294 {
 	static const MapLut& lookupMap(const char* key);
 	void printMap(int imap);
 	void printMap(const Ads5294::MapLut& map);
+
+	int setPLL(struct PllRange range[], int Fs);
 public:
 	struct Ads5294Regs *regs;
 
@@ -302,6 +309,8 @@ public:
 	int setMap(const char* mapping, int chx, int two_bits);
 	int getMap(const char* mapping = MAP_ALL);
 	static void printMapHelp(const char* pfx);
+	int setPLL(int Fs, int decimation);
+	int getPLL();
 };
 
 

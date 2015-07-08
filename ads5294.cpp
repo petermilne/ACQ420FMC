@@ -610,3 +610,72 @@ int Ads5294::getMap(const char* mapping)
 	}
 	return 0;
 }
+
+
+
+Ads5294::PllRange Ads5294::pllRanges[4][4] = {
+	/* Decimation 1 */
+	{
+		{ 28, 9999, 	0x0240 },
+		{ 18, 42,	0x0140 },
+		{  9, 24, 	0x00C0 },
+		{  0, 12, 	0x0040 },
+	},
+	/* Decimation 2 */
+	{
+		{ 56, 9999, 	0x0240 },
+		{ 36, 80,	0x0140 },
+		{ 18, 48, 	0x00C0 },
+		{  0, 24, 	0x0040 },
+	},
+	/* Decimation 4 */
+	{
+		{ 72, 9999,	0x0140 },
+		{ 36, 8, 	0x00C0 },
+		{  0, 48, 	0x0040 },
+	},
+	/* Decimation 8 */
+	{
+		{ 72, 80, 	0x00C0 },
+		{  0, 80, 	0x0040 },
+	},
+};
+
+int Ads5294::setPLL(struct PllRange range[], int Fs)
+{
+	for (int ii = 0; ; ++ii){
+		if (Fs >= range[ii].fmin && Fs <= range[ii].fmax){
+			Reg& _reg = regs->regs[Ads5294Regs::RA_PLL];
+			_reg = range[ii].pat;
+			return 1;
+		}
+		if (range[ii].fmin == 0){
+			break;
+		}
+	}
+
+	printf("ERROR: range match NOT FOUND\n");
+	return 0;
+}
+
+int Ads5294::setPLL(int Fs, int decimation)
+{
+	switch(decimation){
+	case 8:
+		return setPLL(pllRanges[3], Fs);
+	case 4:
+		return setPLL(pllRanges[2], Fs);
+	case 2:
+		return setPLL(pllRanges[1], Fs);
+	case 1:
+	default:
+		return setPLL(pllRanges[0], Fs);
+	}
+
+}
+int Ads5294::getPLL()
+{
+	Reg& _reg = regs->regs[Ads5294Regs::RA_PLL];
+	printf("getPLL() %02x = %04x\n", Ads5294Regs::RA_PLL, _reg);
+	return 0;
+}
