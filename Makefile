@@ -21,6 +21,7 @@ acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	acq400_debugfs.o acq400_sysfs.o acq400_lists.o \
 	acq400_proc.o hbm.o zynq-timer.o \
 	bolo8_core.o dio432_drv.o  ao424_drv.o acq400_sewfifo.o
+	
 
 mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o
 
@@ -33,7 +34,7 @@ dmatest_pgm-objs := dmatest.o zynq-timer.o
 APPS := mmap acq400_stream bigmac permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk lilmac \
-	acq480_knobs transition_counter
+	acq480_knobs transition_counter acq435_rtm_trim
 
 all: modules apps
 	
@@ -103,6 +104,9 @@ wavegen: wavegen.o acq-util.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lm
 	
 acq435_decode: acq435_decode.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
+
+acq435_rtm_trim: acq435_rtm_trim.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
 	
 bigmac: bigmac.o
