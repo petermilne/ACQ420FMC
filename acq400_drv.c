@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.812"
+#define REVID "2.813"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2488,6 +2488,39 @@ int acq400_bq_open(struct inode *inode, struct file *file)
         }
 	return 0;
 }
+
+int acq400_mmap_bar_atd(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = AXI_ATD_LEN;
+	unsigned pfn = (adev->dev_physaddr + AXI_ATD_RAM)>> PAGE_SHIFT;
+
+	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+int acq400_atd_open(struct inode* inode, struct file* file)
+{
+	static struct file_operations acq400_atd_fops = {
+	        .owner = THIS_MODULE,
+	        .release = acq400_release,
+	        .mmap = acq400_mmap_bar_atd
+	};
+	file->f_op = &acq400_atd_fops;
+	return 0;
+}
+
 int acq400_open(struct inode *inode, struct file *file)
 {
         struct acq400_dev *adev;
@@ -2550,6 +2583,9 @@ int acq400_open(struct inode *inode, struct file *file)
         	case ACQ420_MINOR_SEW1_FIFO:
         	case ACQ420_MINOR_SEW2_FIFO:
         		rc = acq420_sew_fifo_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_ATD:
+        		rc = acq400_atd_open(inode, file);
         		break;
         	default:
         		rc = -ENODEV;
@@ -3194,7 +3230,6 @@ struct file_operations acq400_fops = {
         .release = acq400_release,
         .mmap = acq400_mmap_bar
 };
-
 
 
 

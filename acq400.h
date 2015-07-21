@@ -49,8 +49,10 @@
 #include <asm/io.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */
-#define AXI_FIFO              0x1000
-#define AXI_FIFO_LEN          0x1000
+#define AXI_FIFO              	0x1000
+#define AXI_FIFO_LEN          	0x1000
+#define AXI_ATD_RAM	      	0xf000		/* Threshold regs */
+#define AXI_ATD_LEN		0x1000
 
 #define OF_IRQ_HITIDE		1	/* index of HITIDE in dtb */
 #define OF_IRQ_COUNT		3	/* number of items */
@@ -290,6 +292,8 @@
 #define ACQ420_MINOR_SEW2_FIFO	13
 #define AO420_MINOR_HB0_AWG_ONCE_RETRIG	14
 #define ACQ400_MINOR_BQ_NOWAIT	15
+#define ACQ400_MINOR_ATD	16
+
 #define ACQ420_MINOR_BUF	1000
 #define ACQ420_MINOR_BUF2	2000
 #define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2

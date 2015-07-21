@@ -71,6 +71,7 @@ build_nodes() {
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.rsv c ${MAJOR} 11
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.bq  c ${MAJOR} 15
 			[ $ID -ne 0 ] && mknod /dev/${NAME}.ev  c ${MAJOR} 6
+			[ $ID -ne 0 ] && mknod /dev/{$NAME}.atd c ${MAJOR} 16
 			
 			build_hb ${MAJOR} ${NAME}
 			
