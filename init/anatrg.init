@@ -1,0 +1,13 @@
+#!/bin/sh
+
+SITE=${1:-1}
+
+cd /etc/acq400/$SITE
+
+NC=$(cat NCHAN)
+
+for ch in $(seq 1 $NC)
+do
+	ch00=$(printf "%02d" $ch)
+	ln -s /usr/local/bin/anatrg anatrg_$ch00
+done

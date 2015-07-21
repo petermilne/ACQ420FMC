@@ -127,7 +127,11 @@ const char* cli(int argc, const char** argv, int& p1, int& p2)
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
+	char pname[80];
+	strncpy(pname, argv[0], 79);
 
+	sscanf(basename(pname), "anatrg_%d", &G::channel);
+	//printf("argv[0] %s channel:%d\n",basename(pname), G::channel);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -194,7 +198,7 @@ public:
 struct NoneCommand : public Command {
 	NoneCommand() : Command("none") {}
 	virtual unsigned operator() (int p1, int p2){
-		return ABCD(DISABLE_HI, DISABLE_HI, DISABLE_LO, DISABLE_LO);
+		return ABCD(DISABLE_HI, DISABLE_LO, DISABLE_HI, DISABLE_LO);
 	}
 };
 
@@ -205,7 +209,7 @@ struct RisingCommand: public Command {
 		if (p2 == DEFAULT_P){
 			p2 = p1 - G::hysteresis;
 		}
-		abcd = ABCD(p1, p2, DISABLE_LO, DISABLE_LO);
+		abcd = ABCD(p1, p2, DISABLE_HI, DISABLE_LO);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 
 		return abcd;
@@ -218,9 +222,9 @@ struct FallingCommand: public Command {
 		unsigned abcd;
 
 		if (p2 == DEFAULT_P){
-			p2 = p1 + G::hysteresis;
+			p2 = p1 - G::hysteresis;
 		}
-		abcd = ABCD(DISABLE_HI, DISABLE_HI, p1, p2);
+		abcd = ABCD(DISABLE_HI, DISABLE_LO, p1, p2);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 
 		return abcd;
@@ -232,7 +236,7 @@ struct InsideCommand: public Command {
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
 
-		abcd = ABCD(p1, p1 - G::hysteresis, p2, p2 + G::hysteresis);
+		abcd = ABCD(p1, p1 - G::hysteresis, p2, p2 - G::hysteresis);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 		return abcd;
 	}
@@ -242,7 +246,7 @@ struct OutsideCommand: public Command {
 	OutsideCommand() : Command("outside") {}
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
-		abcd = ABCD(p1 - G::hysteresis, p1, p2 + G::hysteresis, p2);
+		abcd = ABCD(p2, p2 - G::hysteresis, p1, p1 - G::hysteresis);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 		return abcd;
 	}

@@ -71,7 +71,7 @@ build_nodes() {
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.rsv c ${MAJOR} 11
 			[ $ID -eq 0 ] && mknod /dev/${NAME}.bq  c ${MAJOR} 15
 			[ $ID -ne 0 ] && mknod /dev/${NAME}.ev  c ${MAJOR} 6
-			[ $ID -ne 0 ] && mknod /dev/{$NAME}.atd c ${MAJOR} 16
+			[ $ID -ne 0 ] && mknod /dev/${NAME}.atd c ${MAJOR} 16
 			
 			build_hb ${MAJOR} ${NAME}
 			
@@ -119,6 +119,7 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
+	[ "x$ANATRG" = "xYES" ] && /usr/local/init/anatrg.init ${site}
 	if [ -e /mnt/local/sysconfig/site-${site}-peers ]; then
 			cp /mnt/local/sysconfig/site-${site}-peers /etc/acq400/${site}/peers
 	fi

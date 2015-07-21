@@ -1,0 +1,8 @@
+#!/bin/sh
+export SITE=1
+anatrg -H 2 -c 1 rising 10
+anatrg -H 2 -c 2 falling 3
+anatrg -H 2 -c 3 inside 10 3
+anatrg -H 2 -c 4 outside 10 3
+/usr/local/CARE/atd_dump_memory
+

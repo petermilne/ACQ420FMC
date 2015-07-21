@@ -1,0 +1,5 @@
+#!/bin/sh
+SITE=${1:-1}
+DEV=/dev/acq400.${SITE}.atd
+rm $DEV
+dd if=/dev/zero of=$DEV bs=4096 count=1
