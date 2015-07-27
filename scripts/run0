@@ -72,7 +72,7 @@ set.sys /etc/acq400/0/sites ${sitelist}
 
 # worktodo LCM wanted .. and, what if the bufferlen is something other than 1MB
 
-len BLEN=$(cat /sys/module/acq420fmc/parameters/bufferlen)
+let BLEN=$(cat /sys/module/acq420fmc/parameters/bufferlen)
 
 if [ $BLEN -eq 1048576 ]; then
 	case $nchan in
