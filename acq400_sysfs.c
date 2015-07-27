@@ -124,15 +124,7 @@ static ssize_t store_bits(
 
 #define MAKE_BITS_FROM_MASK	0xdeadbeef
 
-int getSHL(unsigned mask)
-/* converts mask to shift */
-{
-	int shl;
-	for (shl = 0; (mask&1) == 0; ++shl, mask >>= 1){
-		;
-	}
-	return shl;
-}
+
 #define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
 static ssize_t show_bits##NAME(						\
 	struct device *dev,						\
@@ -1596,6 +1588,8 @@ static ssize_t show_continuous_reader(
 
 static DEVICE_ATTR(continuous_reader, S_IRUGO, show_continuous_reader, 0);
 
+
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_role.attr,
@@ -1659,6 +1653,7 @@ static const struct attribute *acq435_attrs[] = {
 	NULL
 };
 
+extern const struct attribute *acq480_attrs[];
 
 static ssize_t show_dac_headroom(
 	struct device * dev,
@@ -3616,6 +3611,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = dio432_attrs;
 		}else if (IS_ACQ400T(adev)){
 			specials = acq400t_attrs;
+		}else if (IS_ACQ480(adev)){
+			specials = acq480_attrs;
 		}else{
 			return;
 		}

@@ -173,6 +173,10 @@
 #define ADC_CTRL_FIFO_RST	(1 << 1)
 #define ADC_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
+#define ADC480_CTRL_SYNC_TRAIN		(1<<7)
+#define ADC480_CTRL_DESKEW_TRAIN	(1<<6)
+
+
 #define DAC_CTRL_DAC_EN		ADC_CTRL_ADC_EN
 #define DAC_CTRL_DAC_RST	ADC_CTRL_ADC_RST
 #define DAC_CTRL_FIFO_EN	ADC_CTRL_FIFO_EN
@@ -203,7 +207,9 @@
 #define TIM_CTRL_MODE_SYNC	(1 << (1+TIM_CTRL_MODE_SHL))
 #define TIM_CTRL_MODE_HW_CLK	(1 << (0+TIM_CTRL_MODE_SHL))
 
-
+#define ADC480_FIFO_STA_DONE_MASK		0xff
+#define ADC480_FIFO_STA_SYNC_DONE_SHL		16
+#define ADC480_FIFO_STA_DESKEW_DONE_SHL		8
 
 #define ADC_FIFO_STA_CLK	(1<<7)
 #define ADC_FIFO_STA_TRG	(1<<6)
@@ -1070,6 +1076,14 @@ extern int acq400_event_count_limit;
 #define ACQ400T_SCR_TEST_DATA_DONE_BIT	2
 #define ACQ400T_SCR_SEND_START_BIT	1
 
-
+static inline int getSHL(unsigned mask)
+/* converts mask to shift */
+{
+	int shl;
+	for (shl = 0; (mask&1) == 0; ++shl, mask >>= 1){
+		;
+	}
+	return shl;
+}
 
 #endif /* ACQ420FMC_H_ */
