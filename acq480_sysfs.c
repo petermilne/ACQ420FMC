@@ -64,19 +64,51 @@
  * 5:		SYNC DONE			acq480_knobs : Clear SYNC
  * 4: ACTIVATE 	set CR=0x15 : go
  */
+
+enum ACQ480_TRAINING {
+	ACQ480_RESET,
+	ACQ480_START,
+	ACQ480_DESKEW,
+	ACQ480_DESKEW_DONE,
+	ACQ480_SYNC,
+	ACQ480_SYNC_DONE,
+	ACQ480_ACTIVATE
+};
+
 static ssize_t show_train(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
-	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
-					getSHL(ADC_ACC_DEC_SHIFT_MASK);
 
-	return sprintf(buf, "%u,%u\n",
-			(acc_dec&ADC_ACC_DEC_LEN)+1, shift);
+	return sprintf(buf, "%u\n", adev->acq480.train);
 }
+
+static ssize_t acq480_reset(struct acq400_dev *adev, int goodrc)
+{
+	return goodrc;
+}
+
+static ssize_t acq480_start(struct acq400_dev *adev, int goodrc)
+{
+	return goodrc;
+}
+
+static ssize_t acq480_deskew(struct acq400_dev *adev, int goodrc)
+{
+	return goodrc;
+}
+
+static ssize_t acq480_sync(struct acq400_dev *adev, int goodrc)
+{
+	return goodrc;
+}
+static ssize_t acq480_activate(struct acq400_dev *adev, int goodrc)
+{
+	return goodrc;
+}
+
 
 static ssize_t store_train(
 	struct device * dev,
@@ -86,18 +118,27 @@ static ssize_t store_train(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int train;
-	int shift = 0;
 
-	if (sscanf(buf, "%u,%u", &train, &shift) >= 1){
-		u32 acdc;
+	if (sscanf(buf, "%u", &train) == 1){
+		switch(train){
+		case ACQ480_RESET:
+			return acq480_reset(adev, count);
+		case ACQ480_START:
+			return acq480_start(adev, count);
+		case ACQ480_DESKEW:
+			return acq480_deskew(adev, count);
+		case ACQ480_SYNC:
+			return acq480_sync(adev, count);
+		case ACQ480_ACTIVATE:
+			return acq480_activate(adev, count);
+		case ACQ480_DESKEW_DONE:
+		case ACQ480_SYNC_DONE:
+			dev_err(DEVP(adev), "do not set DONE state %u", train);
+			return -1;
+		default:
+			dev_err(DEVP(adev), "unrecoginised state %u", train);
+		}
 
-		train = max(train, 1);
-		train = min(train, ADC_MAX_NACC);
-		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
-
-		acdc = train-1;
-		acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
-		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;
 	}else{
 		return -1;

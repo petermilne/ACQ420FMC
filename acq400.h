@@ -526,6 +526,10 @@ struct acq400_dev {
 		int encoded_twocmp;
 	} ao424_device_settings;
 
+	struct ACQ480 {
+		int train;
+	} acq480;
+
 	struct SewFifo {
 		struct mutex sf_mutex;
 		struct circ_buf sf_buf;
