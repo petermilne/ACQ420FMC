@@ -72,6 +72,10 @@ public:
 			}
 			return 0;
 		} else {
+			if (is_es(data)){
+				itran = 0;
+				return 0;
+			}
 			if (itran++ < ntransient){
 				return onData(data);
 			}else{
