@@ -55,7 +55,7 @@ wavespec:  filename[*N][+/-V]
 
 using namespace std;
 
-namespace Globs {
+namespace G {
 	int site = -1;
 	const char* src_dir = "/usr/local/awgdata/ch";
 	int loop = false;
@@ -90,7 +90,7 @@ public:
 		if (raw_data_signage_check_done) return;
 
 		char knob[128];
-		sprintf(knob, "/dev/acq400.%d.knobs/dac_encoding", Globs::site);
+		sprintf(knob, "/dev/acq400.%d.knobs/dac_encoding", G::site);
 		FILE* fp = fopen(knob, "r");
 		if (fp == 0){
 			perror(knob);
@@ -126,7 +126,7 @@ public:
 		cerr << fname << " ndata:" << ndata << endl;
 	}
 	static void list() {
-		cerr << "site:" << Globs::site << " sdir:" << Globs::src_dir << endl;
+		cerr << "site:" << G::site << " sdir:" << G::src_dir << endl;
 		cerr << "mapdef:" << mapdef <<endl;
 		for (int ii = 0; ii < nchan(); ++ii){
 			channels[ii]->print();
@@ -156,10 +156,10 @@ public:
 	static void output() {
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
-				Globs::site,
-				Globs::loop? "awgc":
-				Globs::autorearm? "awgr": "awg");
-		FILE *fpout = fopen(fn, Globs::append? "r+": "w");
+				G::site,
+				G::loop? "awgc":
+				G::autorearm? "awgr": "awg");
+		FILE *fpout = fopen(fn, G::append? "r+": "w");
 		if (fpout == 0){
 			perror(fn);
 			exit(1);
@@ -199,7 +199,7 @@ public:
 
 		T sam = data[cursor];
 
-		sam += Globs::ch_offset * ichan;
+		sam += G::ch_offset * ichan;
 
 		fwrite(&sam, sizeof(T), 1, fp);
 
@@ -235,7 +235,7 @@ public:
 		if (fname[0] == '/'){
 			sprintf(path, "%s", fname);
 		}else{
-			sprintf(path, "%s/%s", Globs::src_dir, fname);
+			sprintf(path, "%s/%s", G::src_dir, fname);
 		}
 
 		struct stat buf;
@@ -244,7 +244,7 @@ public:
 			exit(1);
 		}
 
-		if (Globs::verbose) cerr << "stat:" << path << " length:" << buf.st_size << endl;
+		if (G::verbose) cerr << "stat:" << path << " length:" << buf.st_size << endl;
 		ndata = buf.st_size/sizeof(T);
 		data = new T[ndata];
 		FILE *fp = fopen(path, "r");
@@ -254,17 +254,17 @@ public:
 		}
 		fclose(fp);
 
-		if (Globs::has_gain){
+		if (G::has_gain){
 			for (int ic = 0; ic < ndata; ++ic){
 				double dsam = data[ic];
-				dsam *= Globs::ch_gain;
+				dsam *= G::ch_gain;
 				data[ic] = dsam;
 			}
 		}
 		if (raw_data_unsigned){
 			convert_to_unsigned();
 		}
-		if (Globs::verbose) cerr << "New ChanDef:" <<ndata <<endl;
+		if (G::verbose) cerr << "New ChanDef:" <<ndata <<endl;
 		channels[ichan] = this;
 	}
 
@@ -354,12 +354,12 @@ char ChanDef::mapdef[256];
 
 void ChanDef::getMapping()
 {
-	if (Globs::site == -1){
+	if (G::site == -1){
 		fprintf(stderr, "ERROR SITE not defined");
 		exit(1);
 	}
 	char cmapfile[128];
-	sprintf(cmapfile, "/proc/driver/acq400/%d/channel_mapping", Globs::site);
+	sprintf(cmapfile, "/proc/driver/acq400/%d/channel_mapping", G::site);
 
 	FILE* fp = fopen(cmapfile, "r");
 	if (fp == 0) {
@@ -396,15 +396,15 @@ void ChanDef::getMapping()
 
 
 struct poptOption opt_table[] = {
-	{ "site", 	's', POPT_ARG_INT, &Globs::site, 0, "site" },
-	{ "src_dir", 	0, POPT_ARG_STRING, &Globs::src_dir, 0, "data directory" },
-	{ "loop",  	'l', POPT_ARG_INT, &Globs::loop, 0, "runs in a loop" },
-	{ "rearm", 	'R', POPT_ARG_INT, &Globs::autorearm, 0, " auto rearm after oneshot" },
+	{ "site", 	's', POPT_ARG_INT, &G::site, 0, "site" },
+	{ "src_dir", 	0, POPT_ARG_STRING, &G::src_dir, 0, "data directory" },
+	{ "loop",  	'l', POPT_ARG_INT, &G::loop, 0, "runs in a loop" },
+	{ "rearm", 	'R', POPT_ARG_INT, &G::autorearm, 0, " auto rearm after oneshot" },
 	{ "word_size", 	'w', POPT_ARG_INT, &ChanDef::word_size, 0, "word size 2 or 4" },
-	{ "ch_gain", 	0, POPT_ARG_DOUBLE, &Globs::ch_gain, 'g', "gain up xx *ch_gain" },
-	{ "ch_offset", 	0, POPT_ARG_INT, &Globs::ch_offset, 0, "ident offset + ch*ch_offset" },
-	{ "append", 	'a', POPT_ARG_INT, &Globs::append, 0, "append data" },
-	{ "verbose", 	'v', POPT_ARG_INT, &Globs::verbose, 0, "" },
+	{ "ch_gain", 	0, POPT_ARG_DOUBLE, &G::ch_gain, 'g', "gain up xx *ch_gain" },
+	{ "ch_offset", 	0, POPT_ARG_INT, &G::ch_offset, 0, "ident offset + ch*ch_offset" },
+	{ "append", 	'a', POPT_ARG_INT, &G::append, 0, "append data" },
+	{ "verbose", 	'v', POPT_ARG_INT, &G::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -419,8 +419,8 @@ void cli(int argc, const char** argv)
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'g':
-			Globs::has_gain = true;
-			printf("gain set: %f\n", Globs::ch_gain);
+			G::has_gain = true;
+			printf("gain set: %f\n", G::ch_gain);
 			break;
 		default:
 			;
@@ -438,7 +438,7 @@ void cli(int argc, const char** argv)
 int main(int argc, const char** argv)
 {
 	if (getenv("SITE")){
-		Globs::site = atoi(getenv("SITE"));
+		G::site = atoi(getenv("SITE"));
 	}
 	cli(argc, argv);
 
