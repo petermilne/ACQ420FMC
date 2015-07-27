@@ -1,0 +1,11 @@
+#!/bin/sh
+# set default mapping
+acq480_knobs map ALL 0 
+acq480_knobs map MAP_CH1234_TO_OUT1A 1
+acq480_knobs map MAP_CH1234_TO_OUT1B 2
+acq480_knobs map MAP_CH1234_TO_OUT2A 3
+acq480_knobs map MAP_CH1234_TO_OUT2B 4
+acq480_knobs map MAP_CH5678_TO_OUT5A 5
+acq480_knobs map MAP_CH5678_TO_OUT5B 6
+acq480_knobs map MAP_CH5678_TO_OUT6A 7
+acq480_knobs map MAP_CH5678_TO_OUT6B 8

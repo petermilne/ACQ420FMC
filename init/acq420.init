@@ -391,7 +391,7 @@ build_knobs() {
 	if [ "x${ACQ480_SITES}" != "x" ]; then
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 		for site in ${ACQ480_SITES}; do
-			SITE=$site acq480_knobs map
+			(export SITE=$site; acq480_set_mapping)
 		done
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
