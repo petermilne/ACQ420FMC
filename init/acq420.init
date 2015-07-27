@@ -246,7 +246,8 @@ build_knobs_device() {
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
 		CLKDIV=8;;
 	8)
-		ACQ480_SITES="${ACQ480_SITES}$site";;
+		# space deliberate
+		ACQ480_SITES="${ACQ480_SITES} $site";;
 	40)		
 		ao420_init ${site}
 		CLKDIV=250;;
@@ -395,6 +396,10 @@ build_knobs() {
 	fi	
 	if [ "x${ACQ480_SITES}" != "x" ]; then
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
+		for site in ${ACQ480_SITES}
+		do
+			SITE=$site acq480_knobs map
+		fi
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
 		echo ACQ400T : "calling /usr/local/bin/acq400t.init ${ACQ400T_SITES}"

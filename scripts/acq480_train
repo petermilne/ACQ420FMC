@@ -1,0 +1,23 @@
+#!/bin/sh
+
+SITE=${SITE:-${1:-1}}
+
+set.site $SITE train=0
+set.site $SITE train=1
+set.site $SITE acq480_setPatDeskew=1
+set.site $SITE train=2
+DESKEW_DONE=$(get.site $SITE train)
+if [ $DESKEW_DONE -ne 3 ];then
+	echo DESKEW failed
+	exit 1
+fi
+set.site $SITE acq480_setPatSync=1
+set.site $SITE train=4
+SYNC_DONE=$(get.site $SITE train)
+if [ $SYNC_DONE -ne 5 ]; then
+	echo SYNC failed
+	exit 1
+fi
+set.site $SITE train=6
+echo LINK activated
+exit 0

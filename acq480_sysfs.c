@@ -87,26 +87,86 @@ static ssize_t show_train(
 
 static ssize_t acq480_reset(struct acq400_dev *adev, int goodrc)
 {
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
+
+	adev->acq480.train = ACQ480_RESET;
 	return goodrc;
 }
 
 static ssize_t acq480_start(struct acq400_dev *adev, int goodrc)
 {
-	return goodrc;
+	if (adev->acq480.train != ACQ480_RESET){
+		dev_err(DEVP(adev), "acq480_start not in ACQ480_RESET");
+		return -1;
+	}else{
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		acq400wr32(adev, ADC_CTRL, ctrl &~ ADC_CTRL_ADC_RST);
+		adev->acq480.train = ACQ480_START;
+		return goodrc;
+	}
 }
 
 static ssize_t acq480_deskew(struct acq400_dev *adev, int goodrc)
 {
-	return goodrc;
+	if (adev->acq480.train != ACQ480_START){
+		dev_err(DEVP(adev), "acq480_deskew not in ACQ480_START");
+		return -1;
+	}else{
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		u32 stat;
+		acq400wr32(adev, ADC_CTRL, ctrl | ADC480_CTRL_DESKEW_TRAIN);
+		adev->acq480.train = ACQ480_DESKEW;
+
+		msleep(20);
+		stat = acq400rd32(adev, ADC_FIFO_STA);
+		if (((stat >> ADC480_FIFO_STA_DESKEW_DONE_SHL) &
+					ADC480_FIFO_STA_DONE_MASK) != 0){
+			dev_err(DEVP(adev), "deskew failed to complete %08x", stat);
+			return -1;
+		}else{
+			adev->acq480.train = ACQ480_DESKEW_DONE;
+			return goodrc;
+		}
+	}
 }
 
 static ssize_t acq480_sync(struct acq400_dev *adev, int goodrc)
 {
-	return goodrc;
+	if (adev->acq480.train != ACQ480_DESKEW_DONE){
+		dev_err(DEVP(adev), "acq480_sync not in ACQ480_DESKEW_DONE");
+		return -1;
+	}else{
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		u32 stat;
+		acq400wr32(adev, ADC_CTRL, ctrl | ADC480_CTRL_SYNC_TRAIN);
+		adev->acq480.train = ACQ480_SYNC;
+
+		msleep(20);
+		stat = acq400rd32(adev, ADC_FIFO_STA);
+		if (((stat >> ADC480_FIFO_STA_SYNC_DONE_SHL) &
+						ADC480_FIFO_STA_DONE_MASK) != 0){
+			dev_err(DEVP(adev), "deskew failed to complete %08x", stat);
+			return -1;
+		}else{
+			acq400wr32(adev, ADC_CTRL, ctrl &
+				~(ADC480_CTRL_DESKEW_TRAIN|ADC480_CTRL_SYNC_TRAIN));
+			adev->acq480.train = ACQ480_SYNC_DONE;
+			return goodrc;
+		}
+	}
 }
 static ssize_t acq480_activate(struct acq400_dev *adev, int goodrc)
 {
-	return goodrc;
+	if (adev->acq480.train != ACQ480_SYNC_DONE){
+		dev_err(DEVP(adev), "acq480_activate not in ACQ480_SYNC_DONE");
+		return -1;
+	}else{
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+		adev->acq480.train = ACQ480_ACTIVATE;
+		return goodrc;
+	}
 }
 
 
