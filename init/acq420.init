@@ -39,8 +39,7 @@ build_hb() {
 	mkdir $HBDIR
 	if [ $NB -gt 0 ]; then
 		let NB0=$NB-1
-		for hb in $(seq 0 $NB0)
-		do
+		for hb in $(seq 0 $NB0); do
 			if [ $hb -lt 10 ]; then
 				build_hb_node $MAJOR $hb "$HBDIR/%02d"					
 			fi
@@ -110,8 +109,7 @@ web_append()
 
 build_etc_site() {
 	mkdir -p /etc/acq400/${site}
-	for src in /dev/acq400.${site}.knobs/*
-	do
+	for src in /dev/acq400.${site}.knobs/*; do
 		case $(basename $src) in
 		driver|subsystem|power|uevent|dacspi|dacreset)
 			;;
@@ -307,8 +305,7 @@ build_site0() {
 	ln -s /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
 	ln -s /usr/local/bin/set.sync_role /etc/acq400/0/
-	for k in live_post live_pre live_mode
-	do
+	for k in live_post live_pre live_mode; do
 		echo 0 > ${ek}/$k
 	done
 	
@@ -317,12 +314,10 @@ build_site0() {
 	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/fpctl* ${dk}/spad* \
 		${dk}/di4_? ${dk}/do4_? ${dk}/data32 \
-		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route*
-	do
+		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route*; do
 		[ -e $k ] && ln -s $k /etc/acq400/0/
 	done
-	for knob in NCHAN data32 shot shot_complete
-	do
+	for knob in NCHAN data32 shot shot_complete; do
 		echo 0 > /etc/acq400/0/$knob
 	done
 	
@@ -373,8 +368,7 @@ build_knobs() {
 	if [ -e ${dir} ]; then
 		build_site0 ${dir}
 	fi
-	for dir in $spd/*acq4?0fmc $spd/*acq400pmod
-	do
+	for dir in $spd/*acq4?0fmc $spd/*acq400pmod; do
 		if [ -e ${dir}/site ]; then
 			install_cal $(cat ${dir}/site)
 			build_knobs_device ${dir}
@@ -396,18 +390,16 @@ build_knobs() {
 	fi	
 	if [ "x${ACQ480_SITES}" != "x" ]; then
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
-		for site in ${ACQ480_SITES}
-		do
+		for site in ${ACQ480_SITES}; do
 			SITE=$site acq480_knobs map
-		fi
+		done
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
 		echo ACQ400T : "calling /usr/local/bin/acq400t.init ${ACQ400T_SITES}"
 		/usr/local/bin/acq400t.init ${ACQ400T_SITES}
 	fi
 	has_sfp=0
-	for dir in ${spd}/*mgt400 
-	do
+	for dir in ${spd}/*mgt400; do
 		if [ -e ${dir}/site ]; then
 			build_mgt400 ${dir}
 			has_sfp=1		
