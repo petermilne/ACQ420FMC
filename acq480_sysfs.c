@@ -65,6 +65,35 @@
  * 4: ACTIVATE 	set CR=0x15 : go
  */
 
+void acq480wr32(struct acq400_dev *adev, int offset, u32 value)
+{
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}else{
+		dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
+	}
+
+	iowrite32(value, adev->dev_virtaddr + offset);
+}
+
+u32 acq480rd32(struct acq400_dev *adev, int offset)
+{
+	u32 rc = ioread32(adev->dev_virtaddr + offset);
+	if (adev->RW32_debug){
+		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
+	}else{
+		dev_dbg(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
+			adev->dev_virtaddr + offset, offset, rc);
+	}
+	return rc;
+}
+
+#define acq400wr32 acq480wr32
+#define acq400rd32 acq480rd32
+
 enum ACQ480_TRAINING {
 	ACQ480_RESET,
 	ACQ480_START,
@@ -180,6 +209,7 @@ static ssize_t store_train(
 	int train;
 
 	if (sscanf(buf, "%u", &train) == 1){
+		dev_dbg(DEVP(adev), "store_train() %u", train);
 		switch(train){
 		case ACQ480_RESET:
 			return acq480_reset(adev, count);
