@@ -136,6 +136,11 @@ static ssize_t acq480_start(struct acq400_dev *adev, int goodrc)
 	}
 }
 
+static int training_done(unsigned stat, unsigned shl)
+// DONE when ALL bits HI
+{
+	return ((stat>>shl) & ADC480_FIFO_STA_DONE_MASK) == ADC480_FIFO_STA_DONE_MASK;
+}
 static ssize_t acq480_deskew(struct acq400_dev *adev, int goodrc)
 {
 	if (adev->acq480.train != ACQ480_START){
@@ -150,8 +155,7 @@ static ssize_t acq480_deskew(struct acq400_dev *adev, int goodrc)
 		stat = acq400rd32(adev, ADC_FIFO_STA);
 		msleep(20);
 		stat = acq400rd32(adev, ADC_FIFO_STA);
-		if (((stat >> ADC480_FIFO_STA_DESKEW_DONE_SHL) &
-					ADC480_FIFO_STA_DONE_MASK) != 0){
+		if (!training_done(stat, ADC480_FIFO_STA_DESKEW_DONE_SHL)){
 			dev_err(DEVP(adev), "deskew failed to complete %08x", stat);
 			return -1;
 		}else{
@@ -175,8 +179,7 @@ static ssize_t acq480_sync(struct acq400_dev *adev, int goodrc)
 		stat = acq400rd32(adev, ADC_FIFO_STA);
 		msleep(20);
 		stat = acq400rd32(adev, ADC_FIFO_STA);
-		if (((stat >> ADC480_FIFO_STA_SYNC_DONE_SHL) &
-						ADC480_FIFO_STA_DONE_MASK) != 0){
+		if (!training_done(stat, ADC480_FIFO_STA_SYNC_DONE_SHL)){
 			dev_err(DEVP(adev), "deskew failed to complete %08x", stat);
 			return -1;
 		}else{
