@@ -18,6 +18,7 @@ if [ $SYNC_DONE -ne 5 ]; then
 	echo SYNC failed
 	exit 1
 fi
+set.site $SITE acq480_setPatSync=0
 set.site $SITE train=6
 echo LINK activated
 exit 0
