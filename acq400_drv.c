@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.815"
+#define REVID "2.816"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -190,6 +190,7 @@ const char* acq400_devnames[] = {
 
 int ai_data_loop(void *data);
 void acq420_onStart(struct acq400_dev *adev);
+void acq480_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
 void ao420_onStart(struct acq400_dev *adev);
 static void acq420_disable_fifo(struct acq400_dev *adev);
@@ -381,8 +382,6 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 
 static void acq480_init_defaults(struct acq400_dev *adev)
 {
-	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
-
 	dev_info(DEVP(adev), "ACQ480 device init: skeleton");
 
 	adev->data32 = 0;
@@ -394,7 +393,7 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M100;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
-	adev->onStart = acq420_onStart;
+	adev->onStart = acq480_onStart;
 	adev->onStop = acq420_disable_fifo;
 }
 
@@ -585,13 +584,15 @@ static u32 acq420_samples2bytes(struct acq400_dev *adev, u32 samples)
 }
 */
 
+
 static void acq420_reset_fifo(struct acq400_dev *adev)
 /* Raise and Release reset */
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_RST_ALL);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
 	acq400wr32(adev, ADC_CTRL, ctrl);
+	/** clear FIFO flags .. workaround hw bug */
 	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
 
 }
@@ -616,6 +617,7 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 	acq420_reset_fifo(adev);
 }
+
 
 
 void acq2006_aggregator_reset(struct acq400_dev *adev)
@@ -801,16 +803,29 @@ void dio432_onStop(struct acq400_dev *adev)
 
 void acq420_onStart(struct acq400_dev *adev)
 {
+	u32 ctrl;
 	dev_dbg(DEVP(adev), "acq420_onStart()");
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	acq420_enable_fifo(adev);
+	ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 	acq420_reset_fifo(adev);
-	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
+	acq400wr32(adev, ADC_CTRL, ctrl);
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
 }
 
+void acq480_onStart(struct acq400_dev *adev)
+{
+	dev_dbg(DEVP(adev), "acq480_onStart()");
+	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
+	acq420_enable_fifo(adev);
+
+	acq420_reset_fifo(adev);
+
+	adev->fifo_isr_done = 0;
+	//acq420_enable_interrupt(adev);
+}
 
 
 static void acq400_getID(struct acq400_dev *adev)
