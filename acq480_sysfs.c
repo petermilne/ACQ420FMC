@@ -147,6 +147,7 @@ static ssize_t acq480_deskew(struct acq400_dev *adev, int goodrc)
 		acq400wr32(adev, ADC_CTRL, ctrl | ADC480_CTRL_DESKEW_TRAIN);
 		adev->acq480.train = ACQ480_DESKEW;
 
+		stat = acq400rd32(adev, ADC_FIFO_STA);
 		msleep(20);
 		stat = acq400rd32(adev, ADC_FIFO_STA);
 		if (((stat >> ADC480_FIFO_STA_DESKEW_DONE_SHL) &
@@ -171,6 +172,7 @@ static ssize_t acq480_sync(struct acq400_dev *adev, int goodrc)
 		acq400wr32(adev, ADC_CTRL, ctrl | ADC480_CTRL_SYNC_TRAIN);
 		adev->acq480.train = ACQ480_SYNC;
 
+		stat = acq400rd32(adev, ADC_FIFO_STA);
 		msleep(20);
 		stat = acq400rd32(adev, ADC_FIFO_STA);
 		if (((stat >> ADC480_FIFO_STA_SYNC_DONE_SHL) &
