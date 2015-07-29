@@ -51,7 +51,7 @@
 /* Offsets for control registers in the AXI MM2S FIFO */
 #define AXI_FIFO              	0x1000
 #define AXI_FIFO_LEN          	0x1000
-#define AXI_ATD_RAM	      	0xf000		/* Threshold regs */
+#define AXI_ATD_RAM	      	0xe000		/* Threshold regs */
 #define AXI_ATD_LEN		0x1000
 
 #define OF_IRQ_HITIDE		1	/* index of HITIDE in dtb */
