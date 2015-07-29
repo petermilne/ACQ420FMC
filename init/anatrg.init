@@ -11,3 +11,6 @@ do
 	ch00=$(printf "%02d" $ch)
 	ln -s /usr/local/bin/anatrg anatrg_$ch00
 done
+/usr/local/CARE/monitor_atd_thresholds $SITE &
+
+

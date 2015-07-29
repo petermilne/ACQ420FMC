@@ -117,7 +117,7 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
-	[ "x$ANATRG" = "xYES" ] && /usr/local/init/anatrg.init ${site}
+	[ "x$ANATRG" = "xy" ] && /usr/local/init/anatrg.init ${site}
 	if [ -e /mnt/local/sysconfig/site-${site}-peers ]; then
 			cp /mnt/local/sysconfig/site-${site}-peers /etc/acq400/${site}/peers
 	fi
