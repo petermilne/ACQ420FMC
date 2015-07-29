@@ -1,0 +1,54 @@
+#!/bin/sh
+
+SITE=${1:-1}
+DEV=acq400.${SITE}.atd
+
+#httpd doesn't like names with periods..
+XMLNAME=$(echo $DEV | tr -d .)
+
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat> 
+EOF
+}
+
+C2R20=/dev/shm/c2rR20
+
+[ -e $C2R20 ] || cCrR 2 20 > $C2R20
+
+dump_regs() {
+	/usr/local/CARE/atd_dump_memory $SITE
+}
+
+ADDED_WEB=0
+
+add_web() {
+if [ -e /var/www/d-tacq/acq_main_page.html ]; then
+	grep -q $DEV /var/www/d-tacq/acq_main_page.html
+	if [ $? -ne 0 ]; then
+		sed -ie '/TABAPPEND/ {
+a       <li><a title="'$DEV'" href="acq_info_page.html">'$DEV'</a></li>
+}' /var/www/d-tacq/acq_main_page.html
+	fi
+	ADDED_WEB=1
+fi
+}
+
+monitor() {
+	while [ 1 ]
+	do
+		[ $ADDED_WEB -eq 0 ] && add_web				
+		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
+		sleep 1		
+	done
+}
+
+if [ -e /dev/acq400.${SITE}.atd ]; then
+	monitor
+fi
+
+
+
