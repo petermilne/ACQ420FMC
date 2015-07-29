@@ -11,6 +11,10 @@ do
 	ch00=$(printf "%02d" $ch)
 	ln -s /usr/local/bin/anatrg anatrg_$ch00
 done
-/usr/local/CARE/monitor_atd_thresholds $SITE &
+
+cat - >> $WEB_APPEND_JOB <<EOF
+nice /usr/local/CARE/monitor_atd_thresholds $SITE &
+EOF
+
 
 
