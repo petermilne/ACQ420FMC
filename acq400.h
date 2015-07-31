@@ -49,6 +49,8 @@
 #include <asm/io.h>
 
 /* Offsets for control registers in the AXI MM2S FIFO */
+
+#define PAGE_SIZE		0x1000
 #define AXI_FIFO              	0x1000
 #define AXI_FIFO_LEN          	0x1000
 #define AXI_ATD_RAM	      	0xe000		/* Threshold regs */
@@ -300,6 +302,10 @@
 #define ACQ400_MINOR_BQ_NOWAIT	15
 #define ACQ400_MINOR_ATD	16
 
+#define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
+
+#define ACQ400_MINOR_MAP_PAGE_OFFSET(minor) \
+	((minor-ACQ400_MINOR_MAP_PAGE)*PAGE_SIZE)
 #define ACQ420_MINOR_BUF	1000
 #define ACQ420_MINOR_BUF2	2000
 #define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2

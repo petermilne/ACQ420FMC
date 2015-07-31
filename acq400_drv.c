@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.817"
+#define REVID "2.821"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2504,6 +2504,40 @@ int acq400_bq_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+int acq400_mmap_bar_page(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = 0x1000;
+	unsigned long pa = adev->dev_physaddr + ACQ400_MINOR_MAP_PAGE_OFFSET(PD(file)->minor);
+	unsigned pfn = pa>> PAGE_SHIFT;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	dev_dbg(DEVP(adev), "acq400_mmap_bar_page pa:0x%08x vsize %lu psize %lu %s",
+		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+int acq400_map_page_open(struct inode* inode, struct file* file)
+{
+	static struct file_operations acq400_map_page_fops = {
+	        .owner = THIS_MODULE,
+	        .release = acq400_release,
+	        .mmap = acq400_mmap_bar_page
+	};
+	file->f_op = &acq400_map_page_fops;
+	return 0;
+}
+
 int acq400_mmap_bar_atd(struct file* file, struct vm_area_struct* vma)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
@@ -2514,6 +2548,7 @@ int acq400_mmap_bar_atd(struct file* file, struct vm_area_struct* vma)
 	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
 		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
 
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	if (vsize > psize){
 		return -EINVAL;                   /* request too big */
 	}
@@ -2603,7 +2638,12 @@ int acq400_open(struct inode *inode, struct file *file)
         		rc = acq400_atd_open(inode, file);
         		break;
         	default:
-        		rc = -ENODEV;
+        		if (minor >= ACQ400_MINOR_MAP_PAGE &&
+        		    minor < ACQ400_MINOR_MAP_PAGE+16  ){
+        			rc = acq400_map_page_open(inode, file);
+        		}else{
+        			rc = -ENODEV;
+        		}
         	}
         }
 
