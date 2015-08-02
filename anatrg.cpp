@@ -206,9 +206,9 @@ struct RisingCommand: public Command {
 	RisingCommand() : Command("rising") {}
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
-		if (p2 == DEFAULT_P){
-			p2 = p1 - G::hysteresis;
-		}
+
+		p2 = p1 - G::hysteresis;
+
 		abcd = ABCD(p1, p2, DISABLE_HI, DISABLE_LO);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 
@@ -221,9 +221,7 @@ struct FallingCommand: public Command {
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
 
-		if (p2 == DEFAULT_P){
-			p2 = p1 - G::hysteresis;
-		}
+		p2 = p1 - G::hysteresis;
 		abcd = ABCD(DISABLE_HI, DISABLE_LO, p1, p2);
 		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
 
