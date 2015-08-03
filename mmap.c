@@ -287,7 +287,7 @@ int main( int argc, char* argv[] )
 		return 1;
 	}
 
-	map_offset <<= 12;
+//	map_offset <<= 12;
 //	fprintf(stderr, "about to call mmap: length:%d map_offset:%d\n", length, map_offset);
 //	fprintf(stderr, "about to call mmap: length:%x map_offset:%x\n", length, map_offset);
 	region = mmap( NULL, length, mmap_mode, MAP_SHARED, fd, map_offset);

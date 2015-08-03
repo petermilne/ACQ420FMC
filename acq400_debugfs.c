@@ -157,6 +157,9 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(EVT_SC_LATCH);
 	DBG_REG_CREATE(ACQ435_MODE);
 	DBG_REG_CREATE(ADC_TRANSLEN);
+	DBG_REG_CREATE(ATD_TRIGGERED);
+	DBG_REG_CREATE(ATD_MASK_AND);
+	DBG_REG_CREATE(ATD_MASK_OR);
 }
 
 void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)

@@ -99,6 +99,10 @@
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 
+#define ATD_TRIGGERED		(ADC_BASE+0x60)
+#define ATD_MASK_AND		(ADC_BASE+0x64)
+#define ATD_MASK_OR		(ADC_BASE+0x68)
+
 /* AO420 CH MAC GAIN and offset control */
 
 #define DAC_MATH_BASE		(ADC_BASE+0x80)
@@ -676,6 +680,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
+
+
+#define HAS_ATD(adev)	(IS_ACQ430(adev))
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 

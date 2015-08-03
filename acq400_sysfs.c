@@ -2639,6 +2639,18 @@ static const struct attribute *dio432_attrs[] = {
 	NULL
 };
 
+
+MAKE_BITS(atd_triggered, ATD_TRIGGERED, 0, 0xffffffff);
+MAKE_BITS(atd_OR, 	 ATD_MASK_OR,   0, 0xffffffff);
+MAKE_BITS(atd_AND, 	 ATD_MASK_AND,  0, 0xffffffff);
+
+
+static const struct attribute *atd_attrs[] = {
+	&dev_attr_atd_triggered.attr,
+	&dev_attr_atd_OR.attr,
+	&dev_attr_atd_AND.attr,
+	NULL
+};
 static ssize_t show_ACQ400T_out(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3595,6 +3607,13 @@ void acq400_createSysfs(struct device *dev)
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");
 		}
+
+		if (HAS_ATD(adev)){
+			if (sysfs_create_files(&dev->kobj, atd_attrs)){
+				dev_err(dev, "failed to create atd sysfs");
+			}
+		}
+
 		if (IS_ACQ424(adev)){
 			specials = acq424_attrs;
 		}else if (IS_ACQ42X(adev)){
