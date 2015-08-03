@@ -2513,7 +2513,7 @@ int acq400_mmap_bar_page(struct file* file, struct vm_area_struct* vma)
 	unsigned pfn = pa>> PAGE_SHIFT;
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	dev_dbg(DEVP(adev), "acq400_mmap_bar_page pa:0x%08x vsize %lu psize %lu %s",
+	dev_dbg(DEVP(adev), "acq400_mmap_bar_page pa:0x%08lx vsize %lu psize %lu %s",
 		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
 
 	if (vsize > psize){

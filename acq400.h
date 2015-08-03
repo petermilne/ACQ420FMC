@@ -50,7 +50,6 @@
 
 /* Offsets for control registers in the AXI MM2S FIFO */
 
-#define PAGE_SIZE		0x1000
 #define AXI_FIFO              	0x1000
 #define AXI_FIFO_LEN          	0x1000
 #define AXI_ATD_RAM	      	0xe000		/* Threshold regs */
