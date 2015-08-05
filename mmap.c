@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------------- */
-/* mmap.c  		                     	 */
+/* mmap.c  		                     	 			     */
 /* ------------------------------------------------------------------------- */
-/*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                    *
+/*   Copyright (C) 2012 pgm, D-TACQ Solutions Ltd                            *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
  *   Created on: Mar 24, 2013
  *                                                                           *
@@ -97,7 +97,7 @@
 
 int acq200_debug;
 
-int map_offset = 0;
+unsigned map_offset;
 
 int doRegsTest(volatile unsigned* regs, unsigned* offsets, int nregs)
 {
@@ -227,6 +227,7 @@ int main( int argc, char* argv[] )
 	unsigned fill_value = 0xdeadbeef;
 	int fill_incr = 0;
 	enum MODE { M_READ, M_WRITE, M_FILL, M_TEST, M_NOP } mode = M_READ;
+	char *map_offset_str;
 
 	struct poptOption opt_table[] = {
 		{ "device", 'f', POPT_ARG_STRING,  &fname, 0   },
@@ -239,7 +240,7 @@ int main( int argc, char* argv[] )
 		{ "offset", 'o', POPT_ARG_INT,    &offset, 'o' },
 		{ "length", 'l', POPT_ARG_INT,    &length, 'l' },
 		{ "value",  'v', POPT_ARG_INT,    &fill_value, 0 },
-		{ "map_offset", 'M', POPT_ARG_INT, &map_offset, 0 },
+		{ "map_offset", 'M', POPT_ARG_STRING, &map_offset_str, 'M' },
 		{ "regstest", 'T', POPT_ARG_NONE,	0, 'T' },
 		{ "verbose", 'V', POPT_ARG_INT,   &acq200_debug, 0 },
 		POPT_AUTOHELP
@@ -276,6 +277,10 @@ int main( int argc, char* argv[] )
 			break;
 		case 'T':
 			mode = M_TEST;
+			break;
+		case 'M':
+			map_offset = strtoul(map_offset_str, 0, 0);
+			fprintf(stderr, "map_offset set 0x%08x\n", map_offset);
 			break;
 		}
 	}  // processes all other opts via arg pointers
