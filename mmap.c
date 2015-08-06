@@ -84,6 +84,7 @@
 	"    -f device name\n"						\
 	"    -r read [default]\n"					\
 	"    -w write\n"						\
+	"    -W write longs\n"						\
 	"    -n nop (just block, holding the mapping)\n"		\
 	"    -o offset\n"						\
 	"    -l length\n"						\
@@ -226,7 +227,7 @@ int main( int argc, char* argv[] )
 	int rc;
 	unsigned fill_value = 0xdeadbeef;
 	int fill_incr = 0;
-	enum MODE { M_READ, M_WRITE, M_FILL, M_TEST, M_NOP } mode = M_READ;
+	enum MODE { M_READ, M_WRITE, M_FILL, M_TEST, M_NOP, M_WRITEL } mode = M_READ;
 	char *map_offset_str;
 
 	struct poptOption opt_table[] = {
@@ -234,6 +235,7 @@ int main( int argc, char* argv[] )
 		{ "help",   'h', POPT_ARG_NONE,         0, 'h' },
 		{ "read",   'r', POPT_ARG_NONE,         0, 'r' },
 		{ "write",  'w', POPT_ARG_NONE,         0, 'w' },
+		{ "writel", 'W', POPT_ARG_NONE,         0, 'W', "write longs" },
 		{ "nop",    'n', POPT_ARG_NONE,         0, 'n' },
 		{ "fill",   'b', POPT_ARG_NONE,         0, 'f' },
 		{ "fill_incr", 'I', POPT_ARG_INT, &fill_incr, 'i' },
@@ -267,6 +269,11 @@ int main( int argc, char* argv[] )
 			mmap_mode = PROT_READ|PROT_WRITE;
 			mode = M_WRITE;
 			break;
+		case 'W':
+			open_mode = O_RDWR;
+			mmap_mode = PROT_READ|PROT_WRITE;
+			mode = M_WRITEL;
+			break;
 		case 'n':
 			mode = M_NOP;
 			break;
@@ -280,11 +287,13 @@ int main( int argc, char* argv[] )
 			break;
 		case 'M':
 			map_offset = strtoul(map_offset_str, 0, 0);
-			fprintf(stderr, "map_offset set 0x%08x\n", map_offset);
 			break;
 		}
 	}  // processes all other opts via arg pointers
 
+	if (map_offset){
+		dbg(1, "map_offset set 0x%08x\n", map_offset);
+	}
 
 	if ( (fd = open( fname, open_mode)) < 0 ){
 		fprintf( stderr, "mmap: failed to open device \"%s\" - ", fname );
@@ -332,6 +341,23 @@ int main( int argc, char* argv[] )
 
 		for ( iwrite=0; (cc = getchar()) != -1 && iwrite != length; ++iwrite ){
 			praw[iwrite] = cc;
+		}
+		break;
+	}
+	case M_WRITEL:{
+
+		// write to memory - read input until first of EOF or length
+		// it's slow char at a time stuff but who cares?
+
+		int iwrite = 0;
+		unsigned wl;
+		char* praw = &((char*)region)[offset];
+		unsigned *plong = (unsigned*)praw;
+
+		while(fread(&wl, sizeof(unsigned), 1, stdin) == 1){
+			dbg(2, "plong 0x%08x := 0x%08x\n", 
+				plong+iwrite, wl);
+			plong[iwrite++] = wl;
 		}
 		break;
 	}
