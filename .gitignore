@@ -1,0 +1,11 @@
+.cproject
+.project
+*.o
+*.ko
+*.cmd
+*.mod.c
+opkg/*
+SNIPPETS/*
+release/*
+
+
