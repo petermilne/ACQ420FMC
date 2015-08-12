@@ -38,7 +38,7 @@ int site2channel = 1;
 module_param(site2channel, int, 0444);
 MODULE_PARM_DESC(site2channel, "offset from site to i2c bus# for MTCA test set 3");
 
-struct i2c_adapter *i2c_adap[6];
+struct i2c_adapter *i2c_adap[7];	/* index from one */
 
 static const unsigned short gpio_addr[] = { 0x20, I2C_CLIENT_END };
 
