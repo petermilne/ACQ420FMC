@@ -2,11 +2,6 @@
 # configures site 0 aggregator.
 # usage: run0 site1[,site2,..]
 
-if [ "$1" = "" ]; then
-	echo USAGE: run0 site1\[,site2..\]
-	exit 1
-fi
-
 spad2nchan() {
 	mode=$1
 	nwords=$2
@@ -20,7 +15,13 @@ spad2nchan() {
 	esac
 }
 
-sitelist=$1
+if [ "x$1" = "x" ]; then
+	source /etc/sites
+	sitelist=$sites
+	echo using default sitelist $sitelist
+else
+	sitelist=$1
+fi
 sites="$(echo $sitelist | tr , \ )"
 
 echo sitelist: $sitelist
