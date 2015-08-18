@@ -114,7 +114,7 @@ static ssize_t debugfs2_read(struct file *file, char __user *user_buf,
 	value = from_mask(nodeInfo->mask, value);
 	sprintf(buf, nodeInfo->read_fmt, value);
 
-//	dbg(2, "call simple_read_from_buffer  \"%s\"", buf);
+	dev_dbg(0, "call simple_read_from_buffer  \"%s\"", buf);
 
 	return simple_read_from_buffer(
 		user_buf, count, ppos, buf, strlen(buf));
@@ -130,7 +130,7 @@ static ssize_t debugfs2_sread(struct file *file, char __user *user_buf,
 	value = from_mask(nodeInfo->mask, value);
 	sprintf(buf, nodeInfo->read_fmt, value);
 
-//	dbg(2, "call simple_read_from_buffer  \"%s\"", buf);
+	dev_dbg(0, "call simple_read_from_buffer  \"%s\"", buf);
 
 	return simple_read_from_buffer(
 		user_buf, count, ppos, buf, strlen(buf));
@@ -145,7 +145,7 @@ static ssize_t debugfs2_write(struct file *file,
 	u32 value;
 	u32 tmp;
 
-//	dbg(2, "copy_from_user %d", buf_size);
+	dev_dbg(0, "copy_from_user %d", buf_size);
 
 	if (copy_from_user(buf, user_buf, buf_size)){
 		return -EFAULT;
@@ -185,7 +185,7 @@ static ssize_t debugfs2_swrite(struct file *file,
 	int value;
 	u32 tmp;
 
-//	dbg(2, "copy_from_user %d", buf_size);
+	dev_dbg(0, "copy_from_user %d", buf_size);
 
 	if (copy_from_user(buf, user_buf, buf_size)){
 		return -EFAULT;
@@ -207,11 +207,11 @@ static ssize_t debugfs2_swrite(struct file *file,
 		value = simple_strtol(buf, 0, 0);
 	}
 
-//	dbg(2, "value:%d %08x", value, value);
+	dev_dbg(0, "value:%d %08x", value, value);
 	tmp = *nodeInfo->pwrite;
 	tmp &= ~nodeInfo->mask;
 	tmp |= to_mask(nodeInfo->mask, value);
-//	dbg(2, "writing %08x", tmp);
+	dev_dbg(0, "writing %08x", tmp);
 	*nodeInfo->pwrite = tmp;
 	return count;
 }
@@ -304,12 +304,12 @@ ssize_t debugfs2_write_line(struct file *file,
 	}
 	myline[count] = '\0';
 
-//	dbg(2, "count %d myline \"%s\" %d", count, myline, *myline);
+	dev_dbg(0, "count %d myline \"%s\" %d", count, myline, *myline);
 
 	for (cp = myline; cp - myline < count; ++cp){
 		if (*cp == '\n'){
 			*cp++ = '\0';
-//			dbg(2, "returning %d myline \"%s\"", cp-myline, myline);
+			dev_dbg(0, "returning %d myline \"%s\"", cp-myline, myline);
 			*ppos += cp - myline;
 			return cp - myline;
 		}
