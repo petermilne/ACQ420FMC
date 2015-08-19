@@ -14,7 +14,6 @@
 #define DATA_HMASK	(DATA_HISTOLEN-1)
 
 struct mgt400_dev {
-	dev_t devno;
 	struct of_prams {
 		int site;
 		int irq;
@@ -139,6 +138,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MINOR_PULL_DESC_HISTO	3
 #define MINOR_PUSH_DESC_LIST	4
 #define MINOR_PULL_DESC_LIST	5
-#define MINOR_COUNT		6
+#define MGT_MINOR_COUNT		6
+
 
 #endif /* MGT400_H_ */

@@ -39,10 +39,14 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
  */
 
 #include <asm/io.h>
-
+#include <asm/pgtable.h>
 #include <asm/types.h>
 
+#include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/list.h>
+#include <linux/mm.h>
+//#include <linux/mm_types.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 
@@ -50,6 +54,8 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 
 #include <linux/device.h>
 #include <linux/platform_device.h>
+
+
 
 #include "debugfs2.h"
 
@@ -71,41 +77,65 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 struct REGFS_DEV {
 	void* va;
 	struct platform_device* pdev;
+	struct resource *mem;
 
 	int istack;
 	struct dentry *dstack[MAXSTACK];
 	struct dentry *top;
 	struct dentry *create_hook;
+
+
+	struct cdev cdev;
+	struct list_head list;
 };
 
-#define DEVP(dev)	(&(dev)->pdev->dev)
+struct REGFS_PATH_DESCR {
+	struct REGFS_DEV* rdev;
+	int minor;
+};
+
+#define PD(filp)		((struct REGFS_PATH_DESCR*)filp->private_data)
+#define SETPD(filp, value)	(filp->private_data = (value))
+#define PDSZ			(sizeof (struct REGFS_PATH_DESCR))
+
+#define DEVP(rd)	(&(rd)->pdev->dev)
 
 #define REVID "regfs_fs B1004"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
 
+static int mem_pages(struct REGFS_DEV* rdev)
+{
+	if (rdev->mem == 0){
+		dev_err(DEVP(rdev), "error no memory region");
+		return 0;
+	}else{
+		unsigned roundup = (rdev->mem->end&~(PAGE_SIZE-1))+PAGE_SIZE;
+		return (roundup - rdev->mem->start)/PAGE_SIZE;
+	}
+}
 
 
-static void cd(struct REGFS_DEV* dev, char* dir)
+static void cd(struct REGFS_DEV* rdev, char* dir)
 {
 	if (strcmp(dir, "/") == 0){
-		dev->istack = 0;
+		rdev->istack = 0;
 	}else if (strcmp(dir, "..") == 0){
-		if (dev->istack > 0){
-			dev->istack -= 1;
+		if (rdev->istack > 0){
+			rdev->istack -= 1;
 		}
 	}else{
-		if (dev->istack+1 >= MAXSTACK){
-			dev_err(DEVP(dev), "stack depth %d reached", MAXSTACK);
+		if (rdev->istack+1 >= MAXSTACK){
+			dev_err(DEVP(rdev), "stack depth %d reached", MAXSTACK);
 		}else{
 			struct dentry *cwd = debugfs_create_dir(
-					dir, dev->dstack[dev->istack]);
+					dir, rdev->dstack[rdev->istack]);
 			if (cwd == 0){
-				dev_err(DEVP(dev), "failed to create subdir");
+				dev_err(DEVP(rdev), "failed to create subdir");
 			}else{
-				dev->dstack[++dev->istack] = cwd;
-				dev_dbg(DEVP(dev), "cd %s OK", dir);
+				rdev->dstack[++rdev->istack] = cwd;
+				dev_dbg(DEVP(rdev), "cd %s OK", dir);
 			}
 		}
 	}
@@ -182,7 +212,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 	int rc = 0;
 	dev_info(DEVP(dev), REVID);
 
-	dev_dbg(DEVP(dev), "nres = %d [0].type: %x",
+	dev_dbg(DEVP(dev), "nres = %d [0].type: %lx",
 			dev->pdev->num_resources, dev->pdev->resource[0].flags);
 
 	if (dev->pdev->dev.of_node != 0){
@@ -209,7 +239,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 	}
 	dev_dbg(DEVP(dev), "ioremap() %08x %08x",
 			mem->start, mem->end-mem->start+1);
-
+	dev->mem = mem;
 	dev->va = ioremap(mem->start, mem->end-mem->start+1);
 
 	dev_dbg(DEVP(dev), "create_dir %s", mem->name);
@@ -230,18 +260,120 @@ void regfs_remove_fs(struct REGFS_DEV* dev)
 	debugfs_remove_recursive(dev->top);
 }
 
+int regfs_page_open(struct inode *inode, struct file *file)
+/* minor is page # */
+{
+	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
+	PD(file)->rdev = container_of(inode->i_cdev, struct REGFS_DEV, cdev);
+	PD(file)->minor = MINOR(inode->i_rdev);
+	return 0;
+}
+
+ssize_t regfs_page_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	char* va = rdev->va + PD(file)->minor*PAGE_SIZE;
+	int len = PAGE_SIZE;
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	unsigned uwrite;
+	int cursor;
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+		count = count&~3;
+	}
+	for (cursor = 0; cursor < count; cursor += sizeof(unsigned)){
+		rc = copy_from_user(&uwrite, buf+cursor, sizeof(unsigned));
+		iowrite32(uwrite, va+cursor);
+		if (rc){
+			return -1;
+		}
+	}
+
+	*f_pos += count;
+	return count;
+
+}
+int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = 0x1000;
+	unsigned long pa = rdev->mem->start + PD(file)->minor*PAGE_SIZE;
+	unsigned pfn = pa>> PAGE_SHIFT;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	dev_dbg(DEVP(rdev), "regfs_page_mmap pa:0x%08lx vsize %lu psize %lu %s",
+		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+int regfs_page_release(struct inode *inode, struct file *file)
+{
+	kfree(PD(file));
+	return 0;
+}
+static struct file_operations regfs_page_fops = {
+	.owner = THIS_MODULE,
+	.open  = regfs_page_open,
+	.release = regfs_page_release,
+	.mmap = regfs_page_mmap,
+	.write = regfs_page_write,
+};
 static int regfs_probe(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = kzalloc(sizeof(struct REGFS_DEV), GFP_KERNEL);
+	dev_t devno;
+	int npages;
+	int rc;
+
 	rdev->pdev = pdev;
 
-	return regfs_init_fs(rdev);
+	rc = regfs_init_fs(rdev);
+	if (rc != 0){
+		dev_err(&pdev->dev, "regfs_init_fs() failed");
+		goto fail;
+	}
+
+	npages = mem_pages(rdev);
+	if (npages == 0){
+		return 0;
+	}
+        rc = alloc_chrdev_region(&devno, 0, npages-1, rdev->mem->name);
+        if (rc < 0) {
+        	dev_err(DEVP(rdev), "unable to register chrdev\n");
+                goto fail;
+        }
+
+        cdev_init(&rdev->cdev, &regfs_page_fops);
+        rdev->cdev.owner = THIS_MODULE;
+        rc = cdev_add(&rdev->cdev, devno, npages);
+
+fail:
+	return rc;
 }
 
 static int regfs_remove(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = 0;		// TODO LOOKUP
 	regfs_remove_fs(rdev);
+	// cdev_delete() ?
+	kfree(rdev);
 	return 0;
 }
 

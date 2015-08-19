@@ -328,6 +328,7 @@ static void enableZDMA(struct mgt400_dev* mdev)
 static int mgt400_probe(struct platform_device *pdev)
 {
         int rc = 0;
+        dev_t devno;
         struct mgt400_dev* mdev = mgt400_allocate_dev(pdev);
         dev_info(&pdev->dev, "mgt400_probe()");
 
@@ -364,8 +365,7 @@ static int mgt400_probe(struct platform_device *pdev)
         mdev->dev_virtaddr =
                	ioremap(mdev->mem->start, mdev->mem->end-mdev->mem->start+1);
 
-        rc = alloc_chrdev_region(&mdev->devno, ACQ420_MINOR_0,
-                		ACQ420_MINOR_MAX, mdev->devname);
+        rc = alloc_chrdev_region(&devno, 0, MGT_MINOR_COUNT, mdev->devname);
         if (rc < 0) {
         	dev_err(DEVP(mdev), "unable to register chrdev\n");
                 goto fail;
@@ -373,7 +373,7 @@ static int mgt400_probe(struct platform_device *pdev)
 
         cdev_init(&mdev->cdev, &mgt400_fops);
         mdev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&mdev->cdev, mdev->devno, MINOR_COUNT);
+        rc = cdev_add(&mdev->cdev, devno, MGT_MINOR_COUNT);
         if (rc < 0){
         	goto fail;
         }

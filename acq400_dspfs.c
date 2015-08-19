@@ -37,14 +37,15 @@
 #include "regfs.h"
 
 #define REVID	"0.1"
-#define MAXDEV 2
+#define MAXDEV 3
 
-ulong acq400_dsp_sites[2] = { 0x80000000, 0x80040000 };
-int acq400_dsp_sites_count = 2;
+/* include gpgram for test. */
+ulong acq400_dsp_sites[MAXDEV] = { 0x80000000, 0x80040000,  0x4000f000 };
+int acq400_dsp_sites_count = MAXDEV;
 module_param_array(acq400_dsp_sites, ulong, &acq400_dsp_sites_count, 0644);
 
-ulong acq400_dsp_len[2] = { 0x00040000, 0x00040000 };
-int acq400_dsp_len_count = 2;
+ulong acq400_dsp_len[MAXDEV] = { 0x00040000, 0x00040000, 0x1000 };
+int acq400_dsp_len_count = MAXDEV;
 module_param_array(acq400_dsp_len, ulong, &acq400_dsp_len_count, 0644);
 
 static int n_acq400_dsp;
@@ -52,8 +53,8 @@ module_param(n_acq400_dsp, int, 0444);
 
 struct platform_device* devices[MAXDEV];
 
-char* acq400_dsp_names[MAXDEV] = { "dsp1", "dsp2" };
-int n_names = 2;
+char* acq400_dsp_names[MAXDEV] = { "dsp1", "dsp2", "gpg1" };
+int n_names = MAXDEV;
 module_param_array(acq400_dsp_names, charp, &n_names, 0644);
 
 void acq400_dsp_init_site(int site)
