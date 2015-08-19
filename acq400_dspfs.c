@@ -52,7 +52,7 @@ module_param(n_acq400_dsp, int, 0444);
 
 struct platform_device* devices[MAXDEV];
 
-char* acq400_dsp_names[MAXDEV] = { "dsp0", "dsp1" };
+char* acq400_dsp_names[MAXDEV] = { "dsp1", "dsp2" };
 int n_names = 2;
 module_param_array(acq400_dsp_names, charp, &n_names, 0644);
 
