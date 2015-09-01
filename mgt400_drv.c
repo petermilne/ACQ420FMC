@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.112"
+#define REVID "0.113"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -38,6 +38,10 @@ module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 #undef MAXDEVICES
 #define MAXDEVICES 2
+
+char* MODEL = "";
+module_param(MODEL, charp, 0444);
+
 
 /* index from 0. There's only one physical MGT400, but may have 2 channels */
 struct mgt400_dev* mgt400_devices[MAXDEVICES+2];
@@ -206,6 +210,12 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
         		dev_warn(DEVP(mdev), "error: sn NOT specified in DT\n");
         		        		return -1;
         	}else{
+        		if (strcmp(MODEL, "kmcu") == 0){
+        			if (mdev->of_prams.sn > 0){
+        				dev_warn(DEVP(mdev), "Hack alert: max SFP=1");
+        				return -1;
+        			}
+        		}
         		snprintf(mdev->devname, 16, "mgt400.%c",
         				mdev->of_prams.sn+'A');
         	}

@@ -490,12 +490,12 @@ echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 
 case $MODEL in
-acq2106sfp)
+acq2106sfp|kmcu)
 	MOD=/usr/local/lib/modules/mgt400.ko
 	if [ -e /mnt/local/mgt400.ko ]; then
 		MOD=/mnt/local/mgt400.ko
 	fi
-	/sbin/insmod $MOD;;
+	/sbin/insmod $MOD MODEL=$MODEL;;
 esac
 
 
