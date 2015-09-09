@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.113"
+#define REVID "0.114"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -104,18 +104,26 @@ static struct mgt400_dev* mgt400_allocate_dev(struct platform_device *pdev)
  * 16 ID's, handles packet rate to 1600 pps - easy doable.
  */
 
-static unsigned _channel_buffer_counter(u32 current_descr, unsigned long* packet_count)
-{
-	unsigned long pc0 = *packet_count;
-	unsigned long pc = pc0;
+#define PD_ID(pkt) ((pkt)&DESCR_ID)
 
-	for (; (pc&DESCR_ID) != (current_descr&DESCR_ID); ++pc){
-		;
+static unsigned _channel_buffer_counter(u32 current_descr, struct DMA_CHANNEL* dma)
+{
+	unsigned packet_count = 0;
+
+	for (; PD_ID(dma->last_packet_id) != PD_ID(current_descr); ){
+		++dma->last_packet_id;
+		++packet_count;
 	}
-	if (pc != pc0){
-		*packet_count = pc;
+	if (packet_count){
+		if (dma->buffer_count == 0){
+			dma->buffer_count = 1;
+		}else{
+			dma->buffer_count += packet_count;
+		}
+		return current_descr;
+	}else{
+		return 0;
 	}
-	return pc != pc0? current_descr: 0;
 }
 
 static void _update_histogram(unsigned long *histo, unsigned count, unsigned mask)
@@ -153,9 +161,9 @@ static void _update_histograms(
 static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
 {
 	unsigned push = _channel_buffer_counter(
-		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push.buffer_count);
+		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push);
 	unsigned pull = _channel_buffer_counter(
-		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull.buffer_count);
+		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull);
 	if (push || pull){
 		_update_histograms(mdev, push, pull);
 	}
@@ -178,20 +186,24 @@ void mgt400_start_buffer_counter(struct mgt400_dev* mdev)
 	hrtimer_start(&mdev->buffer_counter_timer, kt_period, HRTIMER_MODE_REL);
 }
 
-void mgt400_clear_counters(struct mgt400_dev* mdev)
-{
-	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
-			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
-	memset(&mdev->push, 0, sizeof(struct DMA_CHANNEL));
-	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
-			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
-	memset(&mdev->pull, 0, sizeof(struct DMA_CHANNEL));
-}
-
 void mgt400_stop_buffer_counter(struct mgt400_dev* mdev)
 {
 	hrtimer_cancel(&mdev->buffer_counter_timer);
 }
+
+void mgt400_clear_counters(struct mgt400_dev* mdev)
+{
+	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
+			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
+	mgt400_stop_buffer_counter(mdev);
+	memset(&mdev->push, 0, sizeof(struct DMA_CHANNEL));
+	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
+			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
+	memset(&mdev->pull, 0, sizeof(struct DMA_CHANNEL));
+	mgt400_start_buffer_counter(mdev);
+}
+
+
 static int mgt400_device_tree_init(struct mgt400_dev* mdev)
 {
 	struct device_node *of_node = mdev->pdev->dev.of_node;
