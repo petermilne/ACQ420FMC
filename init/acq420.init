@@ -356,8 +356,10 @@ build_mgt400() {
 	ln -s /dev/acq400.${site}.knobs /dev/acq400.${ch}.knobs
 	ln -s /etc/acq400/${site} /etc/acq400/${ch}
 	
-	echo set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${SN##CE416}
-	set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${SN##CE416}  
+	let snd="1${SN##CE416}-10000"
+	snx=$(printf "%04x" $snd)
+	echo set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${snx}
+	set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${snx}  
 	
 	build_mgt400_node $(cat /dev/acq400.${site}.knobs/name /dev/acq400.${site}.knobs/dev)
 }
