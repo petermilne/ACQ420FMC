@@ -78,6 +78,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define COMMS_RXB_FSR   (0x0044)
 
 
+#define ZDMA_CR_AUTO_PUSH_DMA	(1<<1)
 #define ZDMA_CR_ENABLE		(1<<0)
 
 #define AURORA_CR_ENA		(1<<31)
