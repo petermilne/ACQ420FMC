@@ -43,6 +43,10 @@ int bufferlen = BUFFERLEN;
 int verbose = 0;
 const char* extension = "";
 int filesdir = FILESDIR;
+int concat;
+
+int icat;
+FILE* fp;
 
 static void processBuffer(const char* outroot, int ibuf, short* buf, int nbuf){
 	if (verbose){
@@ -59,14 +63,20 @@ static void processBuffer(const char* outroot, int ibuf, short* buf, int nbuf){
 	}
 	sprintf(fname, "%s/%03d/%06d%s", outroot, cycle, ibuf, extension);
 
-	FILE* fp = fopen(fname, "w");
-
-	if (fp == 0){
-		perror(fname);
-		_exit(errno);
+	if (icat == 0){
+		fp = fopen(fname, "w");
+		if (fp == 0){
+			perror(fname);
+			_exit(errno);
+		}
 	}
+
+
 	fwrite(buf, sizeof(short), nbuf, fp);
-	fclose(fp);
+	if (++icat > concat){
+		fclose(fp);
+		icat = 0;
+	}
 }
 
 void process(int nbuffers, int ndest, const char* dests[])
@@ -95,6 +105,8 @@ int main(int argc, const char* argv[])
 	if (getenv("VERBOSE"))   verbose   = atoi(getenv("VERBOSE"));
 	if (getenv("EXTENSION")) extension = getenv("EXTENSION");
 	if (getenv("FILESDIR"))  filesdir  = atoi(getenv("FILESDIR"));
+	if (getenv("CONCATFILES")) concat = atoi(getenv("CONCATFILES"));
+
 	if (filesdir > FILESDIR) filesdir  = FILESDIR;
 	if (argc < 3){
 		fprintf(stderr, "USAGE: acq400_stream_disk NBUFFERS dest1 [dest2]\n");
