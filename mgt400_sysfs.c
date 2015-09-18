@@ -256,7 +256,9 @@ static ssize_t store_auto_dma(
 	const char * buf,
 	size_t count)
 {
+
 	unsigned enable;
+
 	if (sscanf(buf, "%u", &enable) > 0){
 		struct mgt400_dev *mdev = mgt400_devices[dev->id];
 		u32 zdma_cr = mgt400rd32(mdev, ZDMA_CR);
@@ -266,10 +268,11 @@ static ssize_t store_auto_dma(
 			zdma_cr &= ~ZDMA_CR_AUTO_PUSH_DMA;
 		}
 		mgt400wr32(mdev, ZDMA_CR, zdma_cr);
-		return count;
 	}else{
-		return -1;
+		count = -1;
 	}
+
+	return count;
 }
 
 static DEVICE_ATTR(auto_dma, S_IRUGO|S_IWUGO, show_auto_dma, store_auto_dma);
