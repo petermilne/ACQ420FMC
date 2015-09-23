@@ -75,6 +75,8 @@ void mgt400_createDebugfs(struct mgt400_dev* adev)
 	DBG_REG_CREATE(DESC_FIFO_SR);
 	DBG_REG_CREATE(DMA_PUSH_DESC_SR);
 	DBG_REG_CREATE(DMA_PULL_DESC_SR);
+	DBG_REG_CREATE(DMA_PUSH_COUNT_LW);
+	DBG_REG_CREATE(DMA_PULL_COUNT_LW);
 }
 void mgt400_removeDebugfs(struct mgt400_dev* adev)
 {

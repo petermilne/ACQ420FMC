@@ -116,6 +116,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define DESC_FIFO_SR		(0x200C)
 #define DMA_PUSH_DESC_SR	(0x2010)
 #define DMA_PULL_DESC_SR	(0x2014)
+#define DMA_PUSH_COUNT_LW	(0x2018)
+#define DMA_PULL_COUNT_LW	(0x201C) /* speculative */
 #define DMA_PUSH_DESC_FIFO	(0x2040)
 #define DMA_PULL_DESC_FIFO	(0x2080)
 

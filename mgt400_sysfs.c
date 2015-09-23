@@ -70,6 +70,29 @@ static ssize_t show_push_buffer_count(
 
 static DEVICE_ATTR(push_buffer_count, S_IRUGO, show_push_buffer_count, 0);
 
+static ssize_t show_pull_buffer_count_lw(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", mgt400rd32(mdev, DMA_PULL_COUNT_LW));
+}
+
+static DEVICE_ATTR(pull_buffer_count_lw, S_IRUGO, show_pull_buffer_count_lw, 0);
+
+static ssize_t show_push_buffer_count_lw(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%u\n", mgt400rd32(mdev, DMA_PUSH_COUNT_LW));
+}
+
+static DEVICE_ATTR(push_buffer_count_lw, S_IRUGO, show_push_buffer_count_lw, 0);
+
+
 static ssize_t show_enable(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -453,6 +476,8 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_dma_stat_data_push.attr,
 	&dev_attr_push_buffer_count.attr,
 	&dev_attr_pull_buffer_count.attr,
+	&dev_attr_push_buffer_count_lw.attr,
+	&dev_attr_pull_buffer_count_lw.attr,
 	&dev_attr_clear_stats.attr,
 	&dev_attr_aggregator.attr,
 	&dev_attr_spad.attr,
