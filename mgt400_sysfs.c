@@ -70,13 +70,18 @@ static ssize_t show_push_buffer_count(
 
 static DEVICE_ATTR(push_buffer_count, S_IRUGO, show_push_buffer_count, 0);
 
+/* mask to 31 bits because EPICS has only signed data types.
+ * it's OK to lose dynamic range here, because there is PLENTY of range
+ * and then EPICS will expand to double anyway..
+ */
 static ssize_t show_pull_buffer_count_lw(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%u\n", mgt400rd32(mdev, DMA_PULL_COUNT_LW));
+	return sprintf(buf, "%u\n",
+		mgt400rd32(mdev, DMA_PULL_COUNT_LW)&0x7FFFFFFF);
 }
 
 static DEVICE_ATTR(pull_buffer_count_lw, S_IRUGO, show_pull_buffer_count_lw, 0);
@@ -87,7 +92,8 @@ static ssize_t show_push_buffer_count_lw(
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	return sprintf(buf, "%u\n", mgt400rd32(mdev, DMA_PUSH_COUNT_LW));
+	return sprintf(buf, "%u\n",
+		mgt400rd32(mdev, DMA_PUSH_COUNT_LW)&0x7FFFFFFF);
 }
 
 static DEVICE_ATTR(push_buffer_count_lw, S_IRUGO, show_push_buffer_count_lw, 0);
