@@ -40,7 +40,8 @@ dmatest_pgm-objs := dmatest.o zynq-timer.o
 APPS := mmap acq400_stream bigmac permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk lilmac \
-	acq480_knobs transition_counter acq435_rtm_trim anatrg
+	acq480_knobs transition_counter acq435_rtm_trim anatrg  \
+	acq400_axi_dma_test_harness
 
 all: modules apps
 	
@@ -114,6 +115,9 @@ wavegen: wavegen.o acq-util.o
 	
 acq435_decode: acq435_decode.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
+	
+acq400_axi_dma_test_harness: acq400_axi_dma_test_harness.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread	
 
 acq435_rtm_trim: acq435_rtm_trim.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread

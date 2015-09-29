@@ -138,6 +138,8 @@ struct xilinx_dma_chan {
 	void (*start_transfer)(struct xilinx_dma_chan *chan);
 	struct xilinx_dma_config config;
 					/* Device configuration info */
+	struct dentry* debug_dir;
+	char* debug_names;
 };
 
 /* DMA Device Structure */
@@ -884,16 +886,62 @@ static int xilinx_dma_device_control(struct dma_chan *dchan,
 		return -ENXIO;
 }
 
+#include <linux/debugfs.h>
+#include "acq400_debugfs_internal.h"
+struct dentry* acq400_axi_dma_debug_root;
+
+#define ADBG_REG_CREATE(reg) 					\
+	sprintf(pcursor, "%s.0x%02x", #reg, reg##_OFFSET);	\
+	debugfs_create_x32(pcursor, S_IRUGO, 			\
+		chan->debug_dir, chan->regs+(reg##_OFFSET));	\
+	pcursor += strlen(pcursor) + 1
+
+void acq400_axi_dma_createDebugfs(struct xilinx_dma_chan *chan)
+{
+	char* pcursor;
+	if (!acq400_axi_dma_debug_root){
+		acq400_axi_dma_debug_root = debugfs_create_dir("acq400_axi_dma", 0);
+		if (!acq400_axi_dma_debug_root){
+			dev_warn(chan->dev, "failed create dir acq400_axi_dma");
+			return;
+		}
+	}
+	pcursor = chan->debug_names = kmalloc(4096, GFP_KERNEL);
+	sprintf(pcursor, "adma%d", chan->id);
+
+
+	chan->debug_dir = debugfs_create_dir(pcursor, acq400_axi_dma_debug_root);
+
+	if (!chan->debug_dir){
+		dev_warn(chan->dev, "failed create dir %s", pcursor);
+		return;
+	}
+	pcursor += strlen(pcursor) + 1;
+	ADBG_REG_CREATE(XILINX_DMA_CONTROL);
+	ADBG_REG_CREATE(XILINX_DMA_STATUS);
+	ADBG_REG_CREATE(XILINX_DMA_CDESC);
+	ADBG_REG_CREATE(XILINX_DMA_TDESC);
+}
+
+void acq400_axi_dma_removeDebugfs(struct xilinx_dma_chan *chan)
+{
+	debugfs_remove_recursive(chan->debug_dir);
+	kfree(chan->debug_names);
+}
+
+
 static void xilinx_dma_free_channels(struct xilinx_dma_device *xdev)
 {
 	int i;
 
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
 		list_del(&xdev->chan[i]->common.device_node);
+		acq400_axi_dma_removeDebugfs(xdev->chan[i]);
 		tasklet_kill(&xdev->chan[i]->tasklet);
 		irq_dispose_mapping(xdev->chan[i]->irq);
 	}
 }
+
 
 /*
  * Probing channels
@@ -998,6 +1046,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	/* Add the channel to DMA device channel list */
 	list_add_tail(&chan->common.device_node, &xdev->common.channels);
 
+	acq400_axi_dma_createDebugfs(chan);
 	return 0;
 }
 
@@ -1087,14 +1136,14 @@ static int xilinx_dma_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id xilinx_dma_of_match[] = {
-	{ .compatible = "xlnx,axi-dma", },
+	{ .compatible = "xlnx-acq400,axi-dma", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, xilinx_dma_of_match);
 
 static struct platform_driver xilinx_dma_driver = {
 	.driver = {
-		.name = "xilinx-dma",
+		.name = "xilinx-acq400-dma",
 		.owner = THIS_MODULE,
 		.of_match_table = xilinx_dma_of_match,
 	},
