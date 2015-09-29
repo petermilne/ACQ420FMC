@@ -13,6 +13,7 @@ obj-m += acq400t.o
 obj-m += mgt400.o
 obj-m += regfs.o
 obj-m += acq400_dspfs.o
+obj-m += xilinx_axidma.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
