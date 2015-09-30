@@ -104,6 +104,26 @@ enum ACQ480_TRAINING {
 	ACQ480_ACTIVATE
 };
 
+static ssize_t show_train_states(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	char* pb = buf;
+#define ST_APPEND(ST) pb += sprintf(pb, "%s=%d\n", #ST, ST)
+	ST_APPEND(ACQ480_RESET);
+	ST_APPEND(ACQ480_START);
+	ST_APPEND(ACQ480_DESKEW);
+	ST_APPEND(ACQ480_DESKEW_DONE);
+	ST_APPEND(ACQ480_SYNC);
+	ST_APPEND(ACQ480_SYNC_DONE);
+	ST_APPEND(ACQ480_ACTIVATE);
+	return pb - buf;
+#undef ST_APPEND
+}
+static DEVICE_ATTR(train_states, S_IRUGO, show_train_states, 0);
+
 static ssize_t show_train(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -233,7 +253,7 @@ static ssize_t store_train(
 			dev_err(DEVP(adev), "do not set DONE state %u", train);
 			return -1;
 		default:
-			dev_err(DEVP(adev), "unrecoginised state %u", train);
+			dev_err(DEVP(adev), "unrecognised state %u", train);
 		}
 
 		return count;
@@ -244,7 +264,9 @@ static ssize_t store_train(
 
 static DEVICE_ATTR(train, S_IRUGO|S_IWUGO, show_train, store_train);
 
+
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
+	&dev_attr_train_states.attr,
 	NULL
 };
