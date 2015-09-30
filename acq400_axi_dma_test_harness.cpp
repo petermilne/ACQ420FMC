@@ -6,7 +6,7 @@
  */
 
 
-
+#include <sched.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -29,16 +29,38 @@ using namespace std;
 
 int BUFFER_LEN = 1048576;
 
+typedef unsigned u32;
+
 struct buffer {
 	char id[4];
-	unsigned pa;
-	unsigned* va;
+	u32 pa;
+	u32* va;
 	int len;
 
 	buffer() : pa(0), va(0), len(0) {
 		strcpy(id, "-");
 	}
 };
+
+
+struct xilinx_dma_desc_hw {
+	u32 next_desc;	/* 0x00 */
+	u32 pad1;	/* 0x04 */
+	u32 buf_addr;	/* 0x08 */
+	u32 pad2;	/* 0x0C */
+	u32 pad3;	/* 0x10 */
+	u32 pad4;	/* 0x14 */
+	u32 control;	/* 0x18 */
+	u32 status;	/* 0x1C */
+	u32 app_0;	/* 0x20 */
+	u32 app_1;	/* 0x24 */
+	u32 app_2;	/* 0x28 */
+	u32 app_3;	/* 0x2C */
+	u32 app_4;	/* 0x30 */
+	u32 endpad[3];
+};
+
+#define DSZ	(sizeof(struct xilinx_dma_desc_hw))
 
 void getBuffers(vector<buffer*> &buffers)
 {
@@ -108,18 +130,75 @@ unsigned* makeDmacMapping()
 	}
 	return va;
 }
+
+u32 makeChain(vector<buffer*> &buffers, int ndesc)
+{
+	buffer* descriptors = makeDescriptorMapping(buffers);
+	xilinx_dma_desc_hw* hw_desc = (xilinx_dma_desc_hw*)descriptors->va;
+
+	for (int ii = 0, lasti = ndesc - 1; ii <= lasti; ++ii){
+		xilinx_dma_desc_hw hw = {};
+		if (ii < lasti){
+			hw.next_desc = descriptors->pa + (ii+1)*DSZ;
+		}else{
+			hw.next_desc = descriptors->pa;
+		}
+		hw.buf_addr = buffers[ii]->pa;
+		hw.control = buffers[ii]->len;
+		memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
+	}
+	return descriptors->pa;
+}
+
+void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
+{
+	reg[byteoff/sizeof(unsigned)] = value;
+}
+
+void dmacInit(volatile unsigned* dmac, unsigned chain_pa, int ndesc)
+{
+	unsigned tail_pa = chain_pa + (ndesc)*DSZ;
+	writeReg(dmac, 0x30, 0x4);
+	writeReg(dmac, 0x30, 0x0);
+	writeReg(dmac, 0x38, chain_pa);
+	writeReg(dmac, 0x30, 0x11);
+	writeReg(dmac, 0x40, tail_pa);
+}
+
+void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
+{
+	volatile unsigned* status = dmac+(0x30+8)/sizeof(unsigned);
+	u32 s0 = *status;
+	u32 s1;
+
+	while(1){
+		while ((s1 = *status) == s0){
+			sched_yield();
+		}
+		printf("%03d\n", (s1-chain_pa)/DSZ);
+		s0 = s1;
+	}
+}
 int main(int argc, char* argv[])
 {
+	int ndesc = argc>1? atoi(argv[1]): 5;
+
+	//printf("size: %d\n", sizeof(struct xilinx_dma_desc_hw));
+	assert(sizeof(struct xilinx_dma_desc_hw) == 64);
 	vector<buffer*> buffers;
 	getBuffers(buffers);
 
 	std::vector<buffer*>::const_iterator i;
-	/*
+/*
 	for(i=buffers.begin(); i!=buffers.end(); ++i){
 		printf("%s pa 0x%08x\n", (*i)->id, (*i)->pa);
 	}
-	*/
-	buffer* descriptors = makeDescriptorMapping(buffers);
+*/
+	u32 chain_pa = makeChain(buffers, ndesc);
+
 	volatile unsigned *dmac = makeDmacMapping();
+	dmacInit(dmac, chain_pa, ndesc);
+
+	pollStatus(dmac, chain_pa);
 	return 0;
 }
