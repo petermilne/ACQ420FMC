@@ -118,6 +118,7 @@ static ssize_t acq480_reset(struct acq400_dev *adev, int goodrc)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 	ctrl &= ~(ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN);
+	ctrl &= ~(ADC480_CTRL_DESKEW_TRAIN|ADC480_CTRL_SYNC_TRAIN);
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 
 	adev->acq480.train = ACQ480_RESET;
