@@ -488,6 +488,19 @@ if [ -f /mnt/local/acq420_custom ]; then
 else
 	DRVR_CUSTOM=""
 fi	
+
+acq2106_sn=${dtsn#CE416}
+if [ "$acq2106_sn" != "$dtsn" ]; then
+	while [ "${acq2106_sn#0*}" != "${acq2106_sn}" ]; do
+		acq2106_sn="${acq2106_sn#0*}";
+	done
+	let snx=$acq2106_sn
+	if [ $snx -ge 20 ]; then
+		DRVR_CUSTOM="DRVR_CUSTOM is_acq2106B=1"
+	fi
+fi		
+	
+
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 

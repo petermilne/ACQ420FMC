@@ -165,6 +165,11 @@ int acq400_event_count_limit = 1;
 module_param(acq400_event_count_limit, int, 0644);
 MODULE_PARM_DESC(acq400_event_count_limit, "limit number of events per shot 0: no limit");
 
+
+int is_acq2106B = 0;
+module_param(is_acq2106B, int, 0444);
+MODULE_PARM_DESC(is_acq2106B, "boolean indicator set on load");
+
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -347,6 +352,11 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 		mcr |= MCR_PSU_SYNC;
 	}
 	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
+
+	if (IS_ACQ2106_AXI64(adev)){
+		int databursts = bufferlen/0x800;
+		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
+	}
 }
 
 

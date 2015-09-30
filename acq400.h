@@ -656,8 +656,11 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_AO42X(adev) 	(IS_AO420(adev) || IS_AO424(adev))
 
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
-#define IS_ACQ2006B(adev)  (IS_ACQ2006SC(adev) && GET_MOD_ID_VERSION(adev) != 0)
+#define IS_ACQ2006B(adev) \
+	(IS_ACQ2006SC(adev) && GET_MOD_ID_VERSION(adev) != 0)
 #define IS_ACQ2106SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2106SC)
+#define IS_ACQ2106_AXI64(adev)  \
+	(IS_ACQ2106SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
@@ -709,6 +712,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DATA_ENGINE_0		(0x0010)
 #define DATA_ENGINE_1		(0x0014)
 #define DATA_ENGINE_2		(0x0018)
+#define AXI_DMA_ENGINE_DATA	(0x0018)	/* ALIAS */
 #define DATA_ENGINE_3		(0x001c)
 #define DATA_ENGINE(e)		(0x0010+((e)*4))
 #define GPG_CTRL		(0x0020)  /* per telecon with John 201402061145 */
