@@ -3,6 +3,8 @@
 SITE=${SITE:-${1:-1}}
 
 set.site $SITE train=0
+set.site $SITE acq480_setPatDeskew=0
+set.site $SITE acq480_setPatSync=0
 set.site $SITE train=1
 set.site $SITE acq480_setPatDeskew=1
 set.site $SITE train=2
