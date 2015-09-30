@@ -4,29 +4,31 @@ SITE=${SITE:-${1:-1}}
 
 STF=/var/run/acq480_train
 
+source /dev/acq400.1.knobs/train_states
+
 echo BUSY TRAIN starts >$STF
-set.site $SITE train=0
+set.site $SITE train=$ACQ480_RESET
 set.site $SITE acq480_setPatDeskew=0
 set.site $SITE acq480_setPatSync=0
-set.site $SITE train=1
+set.site $SITE train=$ACQ480_START
 set.site $SITE acq480_setPatDeskew=1
-set.site $SITE train=2
+set.site $SITE train=$ACQ480_DESKEW
 DESKEW_DONE=$(get.site $SITE train)
-if [ $DESKEW_DONE -ne 3 ];then
+if [ $DESKEW_DONE -ne $ACQ480_DESKEW_DONE ];then
 	echo DESKEW failed
 	echo FAIL DESKEW failed >$STF
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=1
-set.site $SITE train=4
+set.site $SITE train=$ACQ480_SYNC
 SYNC_DONE=$(get.site $SITE train)
-if [ $SYNC_DONE -ne 5 ]; then
+if [ $SYNC_DONE -ne $ACQ480_SYNC_DONE ]; then
 	echo SYNC failed
 	echo FAIL SYNC failed >$STF
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=0
-set.site $SITE train=6
+set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
 echo GOOD LINK activated >$STF
 exit 0
