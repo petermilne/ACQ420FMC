@@ -166,7 +166,7 @@ static void *acq400_proc_seq_next_buffers(struct seq_file *s, void *v, loff_t *p
 {
 	struct acq400_dev *adev = s->private;
 
-	if (++*pos < adev->nbuffers){
+	if (++(*pos) < adev->nbuffers){
 		return adev->hb[*pos];
 	}else{
 		return NULL;
@@ -202,35 +202,38 @@ static int acq400_proc_open_buffers(struct inode *inode, struct file *file)
 	return intDevFromProcFile(file, &acq400_proc_seq_ops_buffers);
 }
 
-
+void* lookupQueue(struct list_head* list, loff_t cursor)
+/* this is _really_ inefficient. we don't care */
+{
+	loff_t tpos = 0;
+	struct HBM *hbm;
+	list_for_each_entry(hbm, list, list){
+		if (tpos++ == cursor){
+			return hbm;
+		}
+	}
+	return 0;
+}
 
 #define DEF_PROC_OPSQ(QNAME) \
 static void *acq400_proc_seq_start_##QNAME(struct seq_file *s, loff_t *pos)	\
 {										\
+	struct acq400_dev *adev = s->private;					\
         if (*pos == 0) {							\
-        	struct acq400_dev *adev = s->private;				\
         	if (!list_empty(&adev->QNAME)){					\
         		return list_first_entry(&adev->QNAME, struct HBM, list);\
         	}								\
-        }									\
+        }else{									\
+		return lookupQueue(&adev->QNAME, *pos);				\
+	}									\
         									\
         return NULL;								\
 }										\
 static void *acq400_proc_seq_next_##QNAME(struct seq_file *s, void *v, loff_t *pos) \
 {										\
 	struct acq400_dev *adev = s->private;					\
-	int tpos = 0;								\
-	struct HBM *hbm;							\
 										\
-	++*pos;									\
-										\
-	list_for_each_entry(hbm, &adev->QNAME, list){				\
-		if (tpos++ == *pos){						\
-			return hbm;						\
-		}								\
-	}									\
-										\
-	return NULL;								\
+	return lookupQueue(&adev->QNAME, ++(*pos));				\
 }										\
 static int acq400_proc_open_##QNAME(struct inode *inode, struct file *file)	\
 {										\
@@ -257,6 +260,7 @@ DEF_PROC_OPSQ(EMPTIES);
 DEF_PROC_OPSQ(INFLIGHT);
 DEF_PROC_OPSQ(REFILLS);
 DEF_PROC_OPSQ(OPENS);
+DEF_PROC_OPSQ(STASH);
 
 
 static struct file_operations acq400_proc_ops_channel_mappingc = {
@@ -307,6 +311,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	proc_create("INFLIGHT", 0, acq400_dev->proc_entry, &acq400_proc_ops_INFLIGHT);
 	proc_create("REFILLS", 0, acq400_dev->proc_entry, &acq400_proc_ops_REFILLS);
 	proc_create("OPENS", 0, acq400_dev->proc_entry, &acq400_proc_ops_OPENS);
+	proc_create("STASH", 0, acq400_dev->proc_entry, &acq400_proc_ops_STASH);
 	proc_create("stats", 0, acq400_dev->proc_entry, &acq400_proc_ops_stats);
 	proc_create("Qstats", 0, acq400_dev->proc_entry, &acq400_proc_ops_qstats);
 }
