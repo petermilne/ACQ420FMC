@@ -5,15 +5,17 @@
 
 DEV=${1:-acq420.0}
 
-if [ "$(basename $DEV)" != $DEV ] ; then
+if [ "$(basename $DEV)" != "$DEV" ] ; then
 	DIR=$DEV
 	DEV=$(basename $DEV)
+	echo DIR $DIR DEV $DEV
+	XMLNAME=$DEV
 else
 	DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
+#httpd doesn't like names with periods..
+	XMLNAME=${DEV%.*}${DEV#*.}
 fi
 
-#httpd doesn't like names with periods..
-XMLNAME=${DEV%.*}${DEV#*.}
 
 cCrR() {
 cat - <<EOF
@@ -26,7 +28,7 @@ EOF
 
 C2R20=/dev/shm/c2rR20
 
-[ -e $C2R20] || cCrR 2 20 > $C2R20
+[ -e $C2R20 ] || cCrR 2 20 > $C2R20
 
 dump_regs() {
 	(
@@ -39,6 +41,7 @@ dump_regs() {
 }
 
 monitor() {
+	echo monitor $XMLNAME.xml
 	while [ 1 ]
 	do
 		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
