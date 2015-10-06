@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.840"
+#define REVID "2.841"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3187,17 +3187,19 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 
 int axi64_load_dmac(struct acq400_dev *adev)
 {
-	char nbufs[8];
+	char _nbuffers[8];
+	char _bufferlen[16];
 	char *argv[] = {
-		"/usr/local/bin/acq400_axi_dma_test_harness", NULL, NULL
+		"/usr/local/bin/acq400_axi_dma_test_harness", NULL, NULL, NULL
 	};
 	static char *envp[] = {
 			"HOME=/",
 			"TERM=linux",
 			"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL
 	};
-	sprintf(nbufs, "%d", nbuffers-2);
-	argv[1] = nbufs;
+	sprintf(_nbuffers, "%d", nbuffers-2);	argv[1] = _nbuffers;
+	sprintf(_bufferlen, "%d", bufferlen);	argv[2] = _bufferlen;
+
 	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s", argv[0], argv[1]);
 	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
 }

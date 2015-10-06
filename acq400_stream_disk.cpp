@@ -39,7 +39,7 @@
 #define BUFFERLEN	0x100000
 #define FILESDIR	100
 
-int bufferlen = BUFFERLEN;
+unsigned bufferlen = BUFFERLEN;
 int verbose = 0;
 const char* extension = "";
 int filesdir = FILESDIR;

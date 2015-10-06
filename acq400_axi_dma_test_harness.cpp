@@ -180,9 +180,16 @@ void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
 	}
 }
 
+#define BL "/sys/module/acq420fmc/parameters/bufferlen"
+
+
 int main(int argc, char* argv[])
 {
 	int ndesc = argc>1? atoi(argv[1]): 5;
+
+	if (argc > 2){
+		BUFFER_LEN = strtoul(argv[2],0, 0);
+	}
 
 	//printf("size: %d\n", sizeof(struct xilinx_dma_desc_hw));
 	assert(sizeof(struct xilinx_dma_desc_hw) == 64);
