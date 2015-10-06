@@ -512,6 +512,7 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 # larger buffers for ACQ480
 		BLEN=0x400000
 		NBUF=128
+		load_axi_dma 1
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	

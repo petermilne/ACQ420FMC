@@ -1,0 +1,8 @@
+#!/bin/sh
+
+DN=${1:-1}
+
+/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
+add_webpage_site /sys/kernel/debug/acq400_axi_dma/adma$DN $DN &
+
+
