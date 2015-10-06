@@ -1588,7 +1588,17 @@ static ssize_t show_continuous_reader(
 
 static DEVICE_ATTR(continuous_reader, S_IRUGO, show_continuous_reader, 0);
 
+static ssize_t show_has_axi_dma(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
 
+	return sprintf(buf, "%u\n", IS_ACQ2106_AXI64(adev));
+}
+
+static DEVICE_ATTR(has_axi_dma, S_IRUGO, show_has_axi_dma, 0);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -1599,6 +1609,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
+	&dev_attr_has_axi_dma.attr,
 	NULL
 };
 

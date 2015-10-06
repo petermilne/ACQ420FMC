@@ -414,6 +414,9 @@ struct acq400_dev {
 		int shot;
 		int run;
 		int fifo_errors;
+
+		u32 axi64_wakeups;
+		u32 axi64_catchups;
 	} stats;
 
 	int ramp_en;
@@ -437,6 +440,7 @@ struct acq400_dev {
 	struct list_head INFLIGHT;	/* buffers in Q 	     */
 	struct list_head REFILLS;	/* full buffers waiting app  */
 	struct list_head OPENS;		/* buffers in use by app (1) */
+	struct list_head STASH;		/* buffers kept out of play */
 
 	struct HBM** hb;
 	int nbuffers;			/* number of buffers available */
@@ -504,6 +508,7 @@ struct acq400_dev {
 
 	void (*onStart)(struct acq400_dev *adev);
 	void (*onStop)(struct acq400_dev *adev);
+	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
 
 	struct Bolo8 {
 		char* awg_buffer;

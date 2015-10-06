@@ -32,6 +32,7 @@ MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)")
 
 struct HBM * getEmpty(struct acq400_dev* adev)
 {
+
 	if (!list_empty(&adev->EMPTIES)){
 		struct HBM *hbm;
 		mutex_lock(&adev->list_mutex);
@@ -124,6 +125,7 @@ void putEmpty(struct acq400_dev* adev)
 	mutex_lock(&adev->list_mutex);
 	hbm = list_first_entry(&adev->OPENS, struct HBM, list);
 	hbm->bstate = BS_EMPTY;
+	adev->onPutEmpty(adev, hbm);
 	list_move_tail(&hbm->list, &adev->EMPTIES);
 	mutex_unlock(&adev->list_mutex);
 }
@@ -186,6 +188,17 @@ void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
 	list_for_each_entry_safe(cur, tmp, elist, list){
 		cur->bstate = BS_EMPTY;
 		list_move_tail(&cur->list, &adev->EMPTIES);
+	}
+	mutex_unlock(&adev->list_mutex);
+}
+void move_list_to_stash(struct acq400_dev *adev, struct list_head* elist)
+{
+	struct HBM *cur;
+	struct HBM *tmp;
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry_safe(cur, tmp, elist, list){
+		cur->bstate = BS_EMPTY;
+		list_move_tail(&cur->list, &adev->STASH);
 	}
 	mutex_unlock(&adev->list_mutex);
 }

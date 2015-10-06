@@ -179,6 +179,7 @@ void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
 		s0 = s1;
 	}
 }
+
 int main(int argc, char* argv[])
 {
 	int ndesc = argc>1? atoi(argv[1]): 5;
@@ -199,6 +200,8 @@ int main(int argc, char* argv[])
 	volatile unsigned *dmac = makeDmacMapping();
 	dmacInit(dmac, chain_pa, ndesc);
 
-	pollStatus(dmac, chain_pa);
+	if (getenv("AXI_POLL_STATUS")){
+		pollStatus(dmac, chain_pa);
+	}
 	return 0;
 }

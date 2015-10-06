@@ -223,6 +223,8 @@ namespace G {
 
 	char* subset;
 	char* sum;
+
+	bool null_copy;
 };
 
 
@@ -1611,7 +1613,7 @@ void init(int argc, const char** argv) {
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'n':
-			G::buffer_mode = BM_NULL;
+			G::null_copy = BM_NULL;
 			break;
 		case BM_DEMUX:
 			fprintf(stderr, "--hb0 has been superceded. quitting\n");
@@ -2000,6 +2002,7 @@ class NullStreamHead: public StreamHeadImpl {
 public:
 	virtual void stream() {
 		int ib;
+
 		while((ib = getBufferId()) >= 0){
 			fprintf(stderr, "%d\n", ib);
 		}
@@ -3398,6 +3401,9 @@ StreamHead* StreamHead::instance() {
 					Progress::instance(), G::pre, G::post);
 			}
 		}else{
+			if (G::null_copy){
+				G::buffer_mode = BM_NULL;
+			}
 			switch(G::buffer_mode){
 			case BM_NULL:
 				_instance = new NullStreamHead(Progress::instance());

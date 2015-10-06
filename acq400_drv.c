@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.822"
+#define REVID "2.837"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -170,6 +170,19 @@ int is_acq2106B = 0;
 module_param(is_acq2106B, int, 0444);
 MODULE_PARM_DESC(is_acq2106B, "boolean indicator set on load");
 
+
+int AXI_BUFFER_COUNT = 500;
+module_param(AXI_BUFFER_COUNT, int, 0644);
+MODULE_PARM_DESC(AXI_BUFFER_COUNT, "number of buffers in AXI cycle");
+
+int AXI_BUFFER_CHECK_TICKS = 2;
+module_param(AXI_BUFFER_CHECK_TICKS, int , 0644);
+MODULE_PARM_DESC(AXI_BUFFER_CHECK_TICKS, "AXI buffer poll timeout");
+
+int AXI_CALL_HELPER = 1;
+module_param(AXI_CALL_HELPER, int, 0644);
+MODULE_PARM_DESC(AXI_CALL_HELPER, "call helper to set up DMA chain else, someone else did it");
+
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -194,6 +207,7 @@ const char* acq400_devnames[] = {
 
 
 int ai_data_loop(void *data);
+int axi64_data_loop(void* data);
 void acq420_onStart(struct acq400_dev *adev);
 void acq480_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
@@ -1166,7 +1180,10 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 
 int get_dma_channels(struct acq400_dev *adev)
 {
-	if (IS_AO42X(adev) || IS_DIO432X(adev)){
+	if (IS_ACQ2106_AXI64(adev)){
+		dev_info(DEVP(adev), "axi_dma not using standard driver");
+		return 0;
+	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
 		return _get_dma_chan(adev, 0);
 	}else{
 		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
@@ -1216,7 +1233,8 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 
 	if (adev->w_task == 0){
 		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
-		adev->w_task = kthread_run(ai_data_loop, adev,
+		adev->w_task = kthread_run(
+				IS_ACQ2106_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
 				"%s.ai", devname(adev));
 		if (adev->w_task == ERR_PTR(-ENOMEM)){
 			BUG();
@@ -3089,7 +3107,193 @@ int check_fifo_statuses(struct acq400_dev *adev)
 	return fail;
 }
 
+#define POISON0 0xc0de0000
+#define POISON1 0xc1de0000
 
+#define USZ	sizeof(u32)
+
+void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
+{
+	unsigned bufferlen = adev->bufferlen;
+	unsigned first_word = bufferlen/USZ-2;
+
+	hbm->va[first_word+0] = POISON0;
+	hbm->va[first_word+1] = POISON1;
+	dma_sync_single_for_device(DEVP(adev),
+				hbm->pa + bufferlen-2*USZ, 2*USZ, hbm->dir);
+}
+
+void null_put_empty(struct acq400_dev *adev, struct HBM* hbm)
+{
+
+}
+
+int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm)
+{
+	unsigned bufferlen = adev->bufferlen;
+	unsigned first_word = bufferlen/USZ-2;
+
+	dma_sync_single_for_cpu(DEVP(adev), hbm->pa + bufferlen - 2*USZ, 2*USZ, hbm->dir);
+	return hbm->va[first_word+0] != POISON0 ||
+	       hbm->va[first_word+1] != POISON1;
+}
+
+void poison_all_buffers(struct acq400_dev *adev)
+{
+	int ii;
+	move_list_to_stash(adev, &adev->EMPTIES);
+
+	if (adev->nbuffers < AXI_BUFFER_COUNT){
+		AXI_BUFFER_COUNT = adev->nbuffers;
+		dev_err(DEVP(adev), "WARNING: not enough buffers limit to %d",
+				adev->nbuffers);
+
+	}
+
+	mutex_lock(&adev->list_mutex);
+	for (ii = 0; ii < AXI_BUFFER_COUNT; ++ii){
+		struct HBM* hbm = adev->hb[ii];
+		poison_one_buffer(adev, hbm);
+		list_move_tail(&hbm->list, &adev->EMPTIES);
+	}
+	mutex_unlock(&adev->list_mutex);
+}
+
+int check_all_buffers_are_poisoned(struct acq400_dev *adev)
+{
+	struct HBM *cursor;
+	int fails = 0;
+	int pass = 0;
+	mutex_lock(&adev->list_mutex);
+	list_for_each_entry(cursor, &adev->EMPTIES, list){
+		if (poison_overwritten(adev, cursor)){
+			dev_err(DEVP(adev), "poison missing from %d", cursor->ix);
+			++fails;
+		}else{
+			++pass;
+		}
+	}
+	mutex_unlock(&adev->list_mutex);
+	if (fails == 0){
+		dev_info(DEVP(adev), "check_all_buffers_are_poisoned %d ALL GOOD", pass);
+	}
+	return fails;
+}
+int dma_done(struct acq400_dev *adev, struct HBM* hbm)
+{
+	// todo could check an interrupt status ..0
+	return poison_overwritten(adev, hbm);
+}
+
+int axi64_load_dmac(void)
+{
+	char *argv[] = {
+		"/usr/local/bin/acq400_axi_dma_test_harness", "500", NULL
+	};
+	static char *envp[] = {
+			"HOME=/",
+			"TERM=linux",
+			"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL
+	};
+	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+}
+
+int axi64_data_loop(void* data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	/* wait for event from OTHER channel */
+	int nloop = 0;
+	struct HBM* hbm;
+	int rc;
+
+	dev_dbg(DEVP(adev), "ai_data_loop() 01");
+
+	adev->onPutEmpty = poison_one_buffer;
+	poison_all_buffers(adev);
+	hbm = getEmpty(adev);
+	dev_info(DEVP(adev), "axi64_data_loop() holding hbm:%d", hbm->ix);
+
+	yield();
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
+
+	if (AXI_CALL_HELPER){
+		if ((rc = axi64_load_dmac()) != 0){
+			dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
+			return -1;
+		}else{
+			dev_info(DEVP(adev), "axi64_load_dmac() helper done");
+		}
+	}
+
+	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
+		goto quit;
+	}
+	dev_dbg(DEVP(adev), "rx initial FIFO interrupt, into the work loop\n");
+
+	for(; !kthread_should_stop(); ++nloop){
+		int ddone = 0;
+		if (wait_event_interruptible_timeout(
+			adev->DMA_READY,
+			(ddone = dma_done(adev, hbm)) || kthread_should_stop(),
+			AXI_BUFFER_CHECK_TICKS) <= 0){
+			if (kthread_should_stop()){
+				goto quit;
+			}
+		}
+		if (!dma_done(adev, hbm)){
+			continue;
+		}
+
+		putFull(adev);
+		adev->stats.axi64_wakeups++;
+
+		while((hbm = getEmpty(adev)) != 0){
+			if (poison_overwritten(adev, hbm)){
+				putFull(adev);
+				adev->stats.axi64_catchups++;
+			}else{
+				break;	/* now wait for this hbm to complete */
+			}
+		}
+
+		if (check_fifo_statuses(adev)){
+			dev_err(DEVP(adev), "ERROR: quit on fifo status check");
+			goto quit;
+		}
+
+		if (!IS_ACQx00xSC(adev)){
+			//acq420_enable_interrupt(adev);
+		}
+		if (hbm == 0){
+			++adev->stats.errors;
+			move_list_to_empty(adev, &adev->REFILLS);
+			dev_warn(DEVP(adev), "discarded FULL Q\n");
+			++adev->rt.buffers_dropped;
+
+			if (quit_on_buffer_exhaustion){
+				adev->rt.refill_error = 1;
+				wake_up_interruptible(&adev->refill_ready);
+				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+				goto quit;
+			}else{
+				hbm = getEmpty(adev);
+				if (hbm == 0){
+					dev_err(DEVP(adev), "STILL NO EMPTIES");
+					goto quit;
+				}else{
+					poison_one_buffer(adev, hbm);
+				}
+			}
+		}
+	}
+quit:
+	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
+
+	adev->task_active = 0;
+	dev_dbg(DEVP(adev), "ai_data_loop() 99");
+	return 0;
+}
 
 int ai_data_loop(void *data)
 {
@@ -3113,6 +3317,7 @@ int ai_data_loop(void *data)
 
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
+	adev->onPutEmpty = null_put_empty;
 	hbm0 = getEmpty(adev);
 	hbm1 = getEmpty(adev);
 
@@ -3407,6 +3612,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         INIT_LIST_HEAD(&adev->INFLIGHT);
         INIT_LIST_HEAD(&adev->REFILLS);
         INIT_LIST_HEAD(&adev->OPENS);
+        INIT_LIST_HEAD(&adev->STASH);
         mutex_init(&adev->list_mutex);
         INIT_LIST_HEAD(&adev->bq_clients);
         mutex_init(&adev->bq_clients_mutex);

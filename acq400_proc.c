@@ -93,9 +93,14 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
                 return -EINTR;
         }
 
-        seq_printf(s, "ngets=%d\nnputs=%d\n", adev->rt.nget, adev->rt.nput);
-        seq_printf(s, "refill_error=%d\nplease_stop=%d\n",
+        seq_printf(s, "ngets=%d\n"
+        	      "nputs=%d\n", adev->rt.nget, adev->rt.nput);
+        seq_printf(s, "refill_error=%d\n"
+        	       "please_stop=%d\n",
         		adev->rt.refill_error, adev->rt.please_stop);
+        seq_printf(s, "axi64_wakeups=%u\n"
+        	      "axi64_catchups=%u\n",
+        		adev->stats.axi64_wakeups, adev->stats.axi64_catchups);
         mutex_unlock(&adev->mutex);
         return 0;
 }
