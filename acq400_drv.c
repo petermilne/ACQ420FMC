@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.841"
+#define REVID "2.842"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3144,7 +3144,7 @@ void poison_all_buffers(struct acq400_dev *adev)
 	move_list_to_stash(adev, &adev->EMPTIES);
 
 	if (adev->nbuffers < AXI_BUFFER_COUNT){
-		AXI_BUFFER_COUNT = adev->nbuffers;
+		AXI_BUFFER_COUNT = adev->nbuffers-1;
 		dev_err(DEVP(adev), "WARNING: not enough buffers limit to %d",
 				adev->nbuffers);
 
@@ -3197,8 +3197,8 @@ int axi64_load_dmac(struct acq400_dev *adev)
 			"TERM=linux",
 			"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL
 	};
-	sprintf(_nbuffers, "%d", nbuffers-2);	argv[1] = _nbuffers;
-	sprintf(_bufferlen, "%d", bufferlen);	argv[2] = _bufferlen;
+	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
+	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
 
 	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s", argv[0], argv[1]);
 	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
