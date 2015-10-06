@@ -514,10 +514,8 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 # larger buffers for ACQ480
 		BLEN=0x400000
 		NBUF=128
-		load_axi_dma 1
 		/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
-		echo "add_webpage_site $DROOT/acq400_axi_dma/adma$DN $DN" \
-			>> $WEB_APPEND_JOB
+		web_append  $DROOT/acq400_axi_dma/adma1 1
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
