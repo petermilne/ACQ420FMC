@@ -10,8 +10,9 @@ while [ ! -e /var/www/d-tacq/acq_main_page.html ]; do
 	sleep 1
 done
 
+TITLE=$(basename $1)
 sed -ie '/TABAPPEND/ {
-i       <li><a title="'$1'" href="acq_info_page.html">'$1'</a></li>
+i       <li><a title="'$TITLE'" href="acq_info_page.html">'$TITLE'</a></li>
 }' /var/www/d-tacq/acq_main_page.html
 /usr/local/bin/monitorregs $1 &
 /usr/bin/logger -t acq420.init add_webpage $1 $2 99

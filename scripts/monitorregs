@@ -4,7 +4,13 @@
 [ "x$2" = "xnone" ] && exit 0
 
 DEV=${1:-acq420.0}
-DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
+
+if [ "$(basename $DEV)" != $DEV ] ; then
+	DIR=$DEV
+	DEV=$(basename $DEV)
+else
+	DIR=/sys/kernel/debug/${DEV%.*}/${DEV}
+fi
 
 #httpd doesn't like names with periods..
 XMLNAME=${DEV%.*}${DEV#*.}
