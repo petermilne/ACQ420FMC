@@ -30,7 +30,9 @@
 struct HBM * getEmpty(struct acq400_dev* adev);
 void putFull(struct acq400_dev* adev);
 struct HBM * getEmptyFromRefills(struct acq400_dev* adev);
-int getFull(struct acq400_dev* adev, struct HBM **first);
+int getFull(struct acq400_dev* adev, struct HBM **first, int wait);
+#define GF_WAIT 	1
+#define GF_NOWAIT	0
 void putEmpty(struct acq400_dev* adev);
 
 /* AO ops */

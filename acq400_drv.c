@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.842"
+#define REVID "2.844"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -183,6 +183,10 @@ int AXI_CALL_HELPER = 1;
 module_param(AXI_CALL_HELPER, int, 0644);
 MODULE_PARM_DESC(AXI_CALL_HELPER, "call helper to set up DMA chain else, someone else did it");
 
+
+int sync_continuous = 1;
+module_param(sync_continuous, int, 0644);
+MODULE_PARM_DESC(sync_continuous, "set zero to stub dma sync on continuous read (experiment)");
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -370,6 +374,7 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 	if (IS_ACQ2106_AXI64(adev)){
 		int databursts = bufferlen/0x800;
 		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
+		sync_continuous = 0;
 	}
 }
 
@@ -1385,8 +1390,8 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 /* NB: waits for a full buffer to ARRIVE, but only returns the 2 char ID */
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	char* lbuf = PD(file)->lbuf;
 	int rc = 0;
-	char lbuf[8];
 	struct HBM *hbm;
 	int nread;
 	unsigned long now;
@@ -1400,13 +1405,13 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
 	}
-	if (!list_empty(&adev->OPENS)){
+	while (!list_empty(&adev->OPENS)){
 		putEmpty(adev);
 	}
 
 	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull()");
 
-	switch((rc = getFull(adev, &hbm))){
+	switch((rc = getFull(adev, &hbm, GF_WAIT))){
 	case GET_FULL_OK:
 		break;
 	case GET_FULL_DONE:
@@ -1425,6 +1430,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		return -1;
 	}
 
+
 	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull() : %d", hbm->ix);
 
 	/* update every hb0 or at least once per second */
@@ -1436,16 +1442,27 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		adev->rt.hb0_ix[1] = hbm->ix;
 		adev->rt.hb0_last = now;
 		dev_dbg(DEVP(adev), "hb0 %d", adev->rt.hb0_count);
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 		wake_up_interruptible(&adev->hb0_marker);
+	}else if (sync_continuous){
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 	}
-	dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 
 	nread = sprintf(lbuf, "%02d\n", hbm->ix);
-	rc = copy_to_user(buf, lbuf, nread);
 	adev->rt.hbm_m1 = hbm;
 
 	acq400_bq_notify(adev, hbm);
-
+#if 0
+	/* pick off any other queued buffers */
+	while(getFull(adev, &hbm, GF_NOWAIT) == GET_FULL_OK){
+		acq400_bq_notify(adev, hbm);
+		nread += sprintf(lbuf+nread, "%02d\n", hbm->ix);
+		if (nread + 10 > MAXLBUF){
+			break;
+		}
+	}
+#endif
+	rc = copy_to_user(buf, lbuf, nread);
 	return rc? -rc: nread;
 }
 

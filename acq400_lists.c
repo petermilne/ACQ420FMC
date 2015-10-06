@@ -90,22 +90,10 @@ struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
 		return 0;
 	}
 }
-int getFull(struct acq400_dev* adev, struct HBM** first)
+
+int __getFull(struct acq400_dev* adev, struct HBM** first, int wait)
 {
 	struct HBM *hbm;
-	int wait = list_empty(&adev->REFILLS) == 0;
-
-	if (wait_event_interruptible(
-			adev->refill_ready,
-			!list_empty(&adev->REFILLS) ||
-			adev->rt.refill_error ||
-			adev->rt.please_stop)){
-		return -EINTR;
-	} else if (adev->rt.please_stop){
-		return GET_FULL_DONE;
-	} else if (adev->rt.refill_error){
-		return GET_FULL_REFILL_ERR;
-	}
 
 	mutex_lock(&adev->list_mutex);
 	hbm = list_first_entry(&adev->REFILLS, struct HBM, list);
@@ -118,6 +106,33 @@ int getFull(struct acq400_dev* adev, struct HBM** first)
 	dev_dbg(DEVP(adev), "getFull() %d %s", hbm->ix, wait? "WAITED": "");
 	return GET_FULL_OK;
 }
+int getFull(struct acq400_dev* adev, struct HBM** first, int wait)
+{
+	if (list_empty(&adev->REFILLS)){
+		if (!wait){
+			return -EINTR;
+		}
+	}else{
+		return __getFull(adev, first, 0);
+	}
+
+	if (wait_event_interruptible(
+			adev->refill_ready,
+			!list_empty(&adev->REFILLS) ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop)){
+		return -EINTR;
+	} else if (adev->rt.please_stop){
+		return GET_FULL_DONE;
+	} else if (adev->rt.refill_error){
+		return GET_FULL_REFILL_ERR;
+	} else {
+		return __getFull(adev, first, wait);
+	}
+
+}
+
+
 
 void putEmpty(struct acq400_dev* adev)
 {

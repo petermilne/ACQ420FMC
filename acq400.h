@@ -562,7 +562,7 @@ struct acq400_dev {
 	pid_t continuous_reader;
 };
 
-
+#define MAXLBUF	  1024
 #define BQ_MAXLEN 512
 /** acq400_path_descriptor - one per open path */
 struct acq400_path_descriptor {
@@ -577,6 +577,7 @@ struct acq400_path_descriptor {
 		int tail;
 		int bq_len;
 	} bq;
+	char lbuf[MAXLBUF];
 };
 
 #define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
