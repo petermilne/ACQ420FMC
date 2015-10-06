@@ -7,6 +7,8 @@ echo acq420.init B1010
 BLEN=1048576
 NBUF=512
 
+DROOT=/sys/kernel/debug
+
 if [ -e /mnt/local/acq400_stream ]; then
 	echo override from /mnt/local/acq400_stream
 	cp /mnt/local/acq400_stream /usr/local/bin
@@ -18,7 +20,7 @@ fi
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
 	source /mnt/local/sysconfig/acq400.sh
 fi
-ln -s /sys/kernel/debug/dynamic_debug/control /dev/ddc
+ln -s $DROOT/dynamic_debug/control /dev/ddc
 
 source /tmp/u-boot_env
 MODEL=${devicetree_image%*.dtb}; MODEL=${MODEL#*/}
@@ -513,6 +515,9 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 		BLEN=0x400000
 		NBUF=128
 		load_axi_dma 1
+		/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
+		echo "add_webpage_site $DROOT/acq400_axi_dma/adma$DN $DN" \
+			>> $WEB_APPEND_JOB
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
