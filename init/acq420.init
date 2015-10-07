@@ -516,7 +516,8 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 		NBUF=128
 		/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
 		web_append  $DROOT/acq400_axi_dma/adma1 1
-		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf 
+		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
+		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	

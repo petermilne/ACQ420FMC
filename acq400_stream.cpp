@@ -2012,6 +2012,7 @@ public:
 				setState(ST_RUN_PRE);
 			}
 			printf("%d\n", ib);
+			fflush(stdout);
 			actual.elapsed += samples_buffer;
 		}
 		setState(ST_STOP);
