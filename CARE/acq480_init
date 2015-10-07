@@ -1,0 +1,19 @@
+#!/bin/sh
+
+/usr/local/epics/scripts/wait_ioc_ready
+set.site 0 SIG:ZCLK_SRC INT33M
+set.site 0 SYS:CLK:FPMUX ZCLK
+set.site 0 SYS:CLK:DIST_CLK_SRC Si5326
+set.site 0 SYS:CLK:OE_CLK1_ZYNQ 1
+set.site 0 SYS:CLK:OE_CLK1_ELF1 1
+load.si5326 si5326_33M333-50M.txt
+
+train_fail=1
+while [ $train_fail -ne 0 ]; do
+	acq480_train
+	train_fail=$?
+done
+
+/usr/local/epics/scripts/wait_ioc_ready
+caput $(hostname):1:INTCLK_HZ 50000000
+
