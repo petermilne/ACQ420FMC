@@ -2002,10 +2002,19 @@ class NullStreamHead: public StreamHeadImpl {
 public:
 	virtual void stream() {
 		int ib;
-
-		while((ib = getBufferId()) >= 0){
-			fprintf(stderr, "%d\n", ib);
+		setState(ST_ARM);
+		if (G::soft_trigger){
+			schedule_soft_trigger();
 		}
+		while((ib = getBufferId()) >= 0){
+			switch(actual.state){
+			case ST_ARM:
+				setState(ST_RUN_PRE);
+			}
+			printf("%d\n", ib);
+			actual.elapsed += samples_buffer;
+		}
+		setState(ST_STOP);
 	}
 	NullStreamHead(Progress& progress) :
 		StreamHeadImpl(progress)
