@@ -99,8 +99,10 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
         	       "please_stop=%d\n",
         		adev->rt.refill_error, adev->rt.please_stop);
         seq_printf(s, "axi64_wakeups=%u\n"
+        	      "axi64_firstups=%u\n"
         	      "axi64_catchups=%u\n",
-        		adev->stats.axi64_wakeups, adev->stats.axi64_catchups);
+        		adev->rt.axi64_wakeups,
+        		adev->rt.axi64_firstups, adev->rt.axi64_catchups);
         mutex_unlock(&adev->mutex);
         return 0;
 }

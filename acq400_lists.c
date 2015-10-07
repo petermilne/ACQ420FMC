@@ -65,8 +65,8 @@ void putFull(struct acq400_dev* adev)
 		if (run_buffers && adev->rt.nput >= run_buffers){
 			adev->rt.please_stop = 1;
 		}
+		dev_dbg(DEVP(adev), "putFull() wake refill_ready %p", &adev->refill_ready);
 		wake_up_interruptible(&adev->refill_ready);
-		dev_dbg(DEVP(adev), "putFull() wake refill_ready");
 	}else{
 		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
 	}
@@ -103,7 +103,7 @@ int __getFull(struct acq400_dev* adev, struct HBM** first, int wait)
 
 	if (first) *first = hbm;
 
-	dev_dbg(DEVP(adev), "getFull() %d %s", hbm->ix, wait? "WAITED": "");
+	dev_dbg(DEVP(adev), "__getFull() %d %s", hbm->ix, wait? "WAITED": "");
 	return GET_FULL_OK;
 }
 int getFull(struct acq400_dev* adev, struct HBM** first, int wait)
@@ -115,7 +115,7 @@ int getFull(struct acq400_dev* adev, struct HBM** first, int wait)
 	}else{
 		return __getFull(adev, first, 0);
 	}
-
+	dev_dbg(DEVP(adev), "getFull() wait event:%p", &adev->refill_ready);
 	if (wait_event_interruptible(
 			adev->refill_ready,
 			!list_empty(&adev->REFILLS) ||

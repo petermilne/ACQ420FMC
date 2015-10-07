@@ -18,6 +18,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
+
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
@@ -26,7 +27,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.844"
+#define REVID "2.849"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -175,13 +176,17 @@ int AXI_BUFFER_COUNT = 500;
 module_param(AXI_BUFFER_COUNT, int, 0644);
 MODULE_PARM_DESC(AXI_BUFFER_COUNT, "number of buffers in AXI cycle");
 
-int AXI_BUFFER_CHECK_TICKS = 2;
+int AXI_BUFFER_CHECK_TICKS = 1;
 module_param(AXI_BUFFER_CHECK_TICKS, int , 0644);
 MODULE_PARM_DESC(AXI_BUFFER_CHECK_TICKS, "AXI buffer poll timeout");
 
 int AXI_CALL_HELPER = 1;
 module_param(AXI_CALL_HELPER, int, 0644);
 MODULE_PARM_DESC(AXI_CALL_HELPER, "call helper to set up DMA chain else, someone else did it");
+
+int AXI_DMA_HAS_CATCHUP = 1;
+module_param(AXI_DMA_HAS_CATCHUP, int, 0644);
+MODULE_PARM_DESC(AXI_DMA_HAS_CATCHUP, "catchup backlog on same tick");
 
 
 int sync_continuous = 1;
@@ -1445,6 +1450,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 		wake_up_interruptible(&adev->hb0_marker);
 	}else if (sync_continuous){
+		/* this operation is surprisingly expensive. Use sparingly */
 		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 	}
 
@@ -1453,7 +1459,9 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 
 	acq400_bq_notify(adev, hbm);
 #if 0
-	/* pick off any other queued buffers */
+	/* pick off any other queued buffers ..
+	 * enable only when acq400_stream can handle multiple responses..
+	 */
 	while(getFull(adev, &hbm, GF_NOWAIT) == GET_FULL_OK){
 		acq400_bq_notify(adev, hbm);
 		nread += sprintf(lbuf+nread, "%02d\n", hbm->ix);
@@ -3129,6 +3137,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 
 #define USZ	sizeof(u32)
 
+
 void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 {
 	unsigned bufferlen = adev->bufferlen;
@@ -3199,7 +3208,23 @@ int check_all_buffers_are_poisoned(struct acq400_dev *adev)
 int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 {
 	// todo could check an interrupt status ..0
-	return poison_overwritten(adev, hbm);
+	int rc = poison_overwritten(adev, hbm);
+
+	if (hbm->ix == 0){
+		static int last = -1;
+		static unsigned count;
+
+		if (!rc && poison_overwritten(adev, adev->hb[1])){
+			dev_warn(DEVP(adev), "dma_done hbm1 complete, hbm0 not done! .. faking it");
+			return 1;
+		}
+		if (last != rc || ++count&0xff == 0){
+			dev_dbg(DEVP(adev), "dma_done hbm [%d] : %d", hbm->ix, rc);
+			last = rc;
+		}
+	}
+
+	return rc;
 }
 
 int axi64_load_dmac(struct acq400_dev *adev)
@@ -3233,12 +3258,6 @@ int axi64_data_loop(void* data)
 
 	adev->onPutEmpty = poison_one_buffer;
 	poison_all_buffers(adev);
-	hbm = getEmpty(adev);
-	dev_info(DEVP(adev), "axi64_data_loop() holding hbm:%d", hbm->ix);
-
-	yield();
-	go_rt(MAX_RT_PRIO-4);
-	adev->task_active = 1;
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev)) != 0){
@@ -3252,7 +3271,13 @@ int axi64_data_loop(void* data)
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
 		goto quit;
 	}
-	dev_dbg(DEVP(adev), "rx initial FIFO interrupt, into the work loop\n");
+
+	hbm = getEmpty(adev);
+	dev_info(DEVP(adev), "axi64_data_loop() holding hbm:%d", hbm->ix);
+
+	yield();
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
 
 	for(; !kthread_should_stop(); ++nloop){
 		int ddone = 0;
@@ -3264,20 +3289,25 @@ int axi64_data_loop(void* data)
 				goto quit;
 			}
 		}
+		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
 		if (!dma_done(adev, hbm)){
 			continue;
 		}
 
 		putFull(adev);
-		adev->stats.axi64_wakeups++;
+		adev->rt.axi64_firstups++;
 
-		while((hbm = getEmpty(adev)) != 0){
-			if (poison_overwritten(adev, hbm)){
-				putFull(adev);
-				adev->stats.axi64_catchups++;
-			}else{
-				break;	/* now wait for this hbm to complete */
+		if (AXI_DMA_HAS_CATCHUP){
+			while((hbm = getEmpty(adev)) != 0){
+				if (poison_overwritten(adev, hbm)){
+					putFull(adev);
+					adev->rt.axi64_catchups++;
+				}else{
+					break;	/* now wait for this hbm to complete */
+				}
 			}
+		}else{
+			hbm = getEmpty(adev);
 		}
 
 		if (check_fifo_statuses(adev)){

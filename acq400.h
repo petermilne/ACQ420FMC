@@ -415,8 +415,7 @@ struct acq400_dev {
 		int run;
 		int fifo_errors;
 
-		u32 axi64_wakeups;
-		u32 axi64_catchups;
+
 	} stats;
 
 	int ramp_en;
@@ -479,6 +478,10 @@ struct acq400_dev {
 
 		u32 samples_at_event;
 		u32 sample_clocks_at_event;
+
+		u32 axi64_wakeups;		/** work look wake up count */
+		u32 axi64_firstups;		/** number of top of list buffers submitted */
+		u32 axi64_catchups;		/** number of backlog buffers submitted  */
 	} rt;
 
 	struct XO {
