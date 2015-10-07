@@ -18,7 +18,6 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
@@ -3218,7 +3217,7 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 			dev_warn(DEVP(adev), "dma_done hbm1 complete, hbm0 not done! .. faking it");
 			return 1;
 		}
-		if (last != rc || ++count&0xff == 0){
+		if (last != rc || (++count&0xff) == 0){
 			dev_dbg(DEVP(adev), "dma_done hbm [%d] : %d", hbm->ix, rc);
 			last = rc;
 		}
