@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.849"
+#define REVID "2.851"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -191,6 +191,11 @@ MODULE_PARM_DESC(AXI_DMA_HAS_CATCHUP, "catchup backlog on same tick");
 int sync_continuous = 1;
 module_param(sync_continuous, int, 0644);
 MODULE_PARM_DESC(sync_continuous, "set zero to stub dma sync on continuous read (experiment)");
+
+int AXI_INIT_BUFFERS = 0;
+module_param(AXI_INIT_BUFFERS, int, 0644);
+MODULE_PARM_DESC(AXI_INIT_BUFFERS, "initialise buffers before start .. see exactly how far DMA got for debug");
+
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -3136,7 +3141,16 @@ int check_fifo_statuses(struct acq400_dev *adev)
 
 #define USZ	sizeof(u32)
 
+void init_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
+{
+	int ii;
+	int maxwords = bufferlen/USZ;
+	u32* cursor = hbm->va;
 
+	for (ii = 0; ii < maxwords; ++ii){
+		cursor[ii] = ii;
+	}
+}
 void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 {
 	unsigned bufferlen = adev->bufferlen;
@@ -3178,6 +3192,9 @@ void poison_all_buffers(struct acq400_dev *adev)
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < AXI_BUFFER_COUNT; ++ii){
 		struct HBM* hbm = adev->hb[ii];
+		if (AXI_INIT_BUFFERS){
+			init_one_buffer(adev, hbm);
+		}
 		poison_one_buffer(adev, hbm);
 		list_move_tail(&hbm->list, &adev->EMPTIES);
 	}
@@ -3241,7 +3258,8 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
 	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
 
-	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s", argv[0], argv[1]);
+	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s",
+						argv[0], argv[1], argv[2]);
 	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
 }
 

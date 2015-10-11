@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include <syslog.h>
+
 using namespace std;
 
 int BUFFER_LEN = 1048576;
@@ -190,6 +192,8 @@ int main(int argc, char* argv[])
 	if (argc > 2){
 		BUFFER_LEN = strtoul(argv[2],0, 0);
 	}
+	openlog("acq400_axi_dma_test_harness", LOG_PID, LOG_USER);
+	syslog(LOG_DEBUG, "%d buffers each length: %d", ndesc, BUFFER_LEN);
 
 	//printf("size: %d\n", sizeof(struct xilinx_dma_desc_hw));
 	assert(sizeof(struct xilinx_dma_desc_hw) == 64);
