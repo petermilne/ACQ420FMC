@@ -7,7 +7,7 @@ list_int_configs() {
 	do
 		bn=$(basename $file)
 		fn1=${bn%*.txt}
-		speed="$speed ${fn1#si5326_33M333-*}"
+		speeds="$speeds ${fn1#si5326_33M333-*}"
 	done
 	echo $speeds
 }
@@ -20,6 +20,7 @@ else
 	if [ "x$1" = "x" ]; then
 		FREQ=50M
 	else
+		echo available configs $(list_int_configs)
 		for sp in $(list_int_configs)
 		do
 			if [ "x$1" = "x$sp" ]; then
