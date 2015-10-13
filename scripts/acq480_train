@@ -2,6 +2,7 @@
 
 SITE=${SITE:-${1:-1}}
 
+train() {
 STF=/var/run/acq480_train
 
 source /dev/acq400.1.knobs/train_states
@@ -32,3 +33,21 @@ set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
 echo GOOD LINK activated >$STF
 exit 0
+}
+
+if [ "x$2" = "xonce" ]; then
+	train
+else
+	down=1
+	let count=0
+	while [ $down -ne 0 ]; do
+		let count=$count+1
+		if [ $count -gt 20 ]; then
+			echo ERROR: failed to train in 20 attempts
+			exit 1
+		fi
+		acq480_train $SITE once
+		down=$?
+	done
+	exit 0
+fi
