@@ -47,11 +47,7 @@ set.site 0 SYS:CLK:OE_CLK1_ZYNQ 1
 set.site 0 SYS:CLK:OE_CLK1_ELF1 1
 load.si5326 $SICONF
 
-train_fail=1
-while [ $train_fail -ne 0 ]; do
-	acq480_train
-	train_fail=$?
-done
+acq480_train
 
 /usr/local/epics/scripts/wait_ioc_ready
 caput $(hostname):1:INTCLK_HZ $FREQHZ
