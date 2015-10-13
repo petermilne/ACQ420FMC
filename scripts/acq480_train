@@ -17,7 +17,7 @@ set.site $SITE train=$ACQ480_DESKEW
 DESKEW_DONE=$(get.site $SITE train)
 if [ $DESKEW_DONE -ne $ACQ480_DESKEW_DONE ];then
 	echo DESKEW failed
-	echo FAIL DESKEW failed >$STF
+	echo FAIL DESKEW failed iteration $1 >$STF
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=1
@@ -25,18 +25,18 @@ set.site $SITE train=$ACQ480_SYNC
 SYNC_DONE=$(get.site $SITE train)
 if [ $SYNC_DONE -ne $ACQ480_SYNC_DONE ]; then
 	echo SYNC failed
-	echo FAIL SYNC failed >$STF
+	echo FAIL SYNC failed iteration $1 >$STF
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
-echo GOOD LINK activated >$STF
+echo GOOD LINK activated iteration $1 >$STF
 exit 0
 }
 
-if [ "x$2" = "xonce" ]; then
-	train
+if [ "x$2" != "x" ]; then
+	train $2
 else
 	down=1
 	let count=0
@@ -46,7 +46,7 @@ else
 			echo ERROR: failed to train in 20 attempts
 			exit 1
 		fi
-		acq480_train $SITE once
+		acq480_train $SITE $count
 		down=$?
 	done
 	exit 0
