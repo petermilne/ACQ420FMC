@@ -27,6 +27,8 @@
 
 #include <syslog.h>
 
+//#define USE_DUMMY_START_DESCR
+
 using namespace std;
 
 int BUFFER_LEN = 1048576;
@@ -137,8 +139,9 @@ u32 makeChain(vector<buffer*> &buffers, int ndesc)
 {
 	buffer* descriptors = makeDescriptorMapping(buffers);
 	xilinx_dma_desc_hw* hw_desc = (xilinx_dma_desc_hw*)descriptors->va;
+	int ii = 0;
 
-	for (int ii = 0, lasti = ndesc - 1; ii <= lasti; ++ii){
+	for (int lasti = ndesc - 1; ii <= lasti; ++ii){
 		xilinx_dma_desc_hw hw = {};
 		if (ii < lasti){
 			hw.next_desc = descriptors->pa + (ii+1)*DSZ;
@@ -149,7 +152,17 @@ u32 makeChain(vector<buffer*> &buffers, int ndesc)
 		hw.control = buffers[ii]->len;
 		memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
 	}
+#ifdef USE_DUMMY_START_DESCR
+#error USE_DUMMY_START_DESCR_FAIL
+	xilinx_dma_desc_hw hw = {};
+	hw.next_desc = descriptors->pa;
+	hw.buf_addr = buffers[0]->pa;
+	hw.control = 0;
+	memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
+	return descriptors->pa + ii*DSZ;
+#else
 	return descriptors->pa;
+#endif
 }
 
 void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
