@@ -1828,7 +1828,7 @@ MAKE_AO_GO(1);
 MAKE_AO_GO(2);
 MAKE_AO_GO(3);
 MAKE_AO_GO(4);
-MAKE_AO_GO(32);
+
 
 
 static void ao420_flushImmediate(struct acq400_dev *adev)
@@ -2300,7 +2300,6 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_G2.attr, &dev_attr_D2.attr,
 	&dev_attr_G3.attr, &dev_attr_D3.attr,
 	&dev_attr_G4.attr, &dev_attr_D4.attr,
-	&dev_attr_G32.attr, &dev_attr_D32.attr,
 	NULL
 };
 
