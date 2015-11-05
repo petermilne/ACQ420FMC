@@ -18,6 +18,9 @@ echo "file acq400_sysfs.c -p" >/sys/kernel/debug/dynamic_debug/control
 
 ln -s /usr/local/bin/wavegen /etc/acq400/$SITE
 
+for gx in G1 G2 G3 G4; do
+	set.site $SITE $gz 32767
+done
 
 cat - >>/etc/acq400/$SITE/groups <<EOF
 dac_range_XX=dac_range_[0-9]*
