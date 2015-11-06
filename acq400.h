@@ -148,6 +148,9 @@
 #define MOD_ID_DIO432PMOD	0x62
 #define MOD_ID_PMODADC1		0x63
 #define MOD_ID_BOLO8B		0x64
+#define MOD_ID_PMODGPS_CELF	0x65
+#define MOD_ID_PMODGPS_FMC	0x66
+#define MOD_ID_V2F		0x67
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -692,6 +695,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
+#define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
+
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev))
 
@@ -1016,6 +1021,22 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_CPLD_CTRL_COMMAND_DATA		0xff
 
 #define DIO432_CPLD_CTRL_OUTPUT(byte)		(1<<(byte))
+
+
+/* V2F */
+
+#define V2F_MOD_ID		0x00
+#define V2F_CTRL		0x04
+#define V2F_STAT		0x14
+#define V2F_CHAN_SEL		0x60
+#define V2F_FREQ_OFF		0x64
+
+#define V2F_CTRL_DATA_PACKED	(1<<7)
+#define V2F_CTRL_RANGE_HI	(1<<6)
+#define V2F_CTRL_EN		(1<<5)
+#define V2F_CTRL_RST		(1<<4)
+#define V2F_CTRL_MODULE_EN	(1<<0)
+
 
 
 void write32(volatile u32* to, volatile u32* from, int nwords);

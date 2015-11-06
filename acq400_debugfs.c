@@ -177,6 +177,14 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO432_DO_FIFO_COUNT	);
 	DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);
 }
+
+void v2f_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE( V2F_CTRL );
+	DBG_REG_CREATE( V2F_STAT );
+	DBG_REG_CREATE( V2F_CHAN_SEL );
+	DBG_REG_CREATE( V2F_FREQ_OFF );
+}
 void acq400_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
@@ -226,6 +234,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			break;
 		case MOD_ID_ACQ400T_FMC:
 		case MOD_ID_ACQ400T_ELF:
+			break;
+		case MOD_ID_V2F:
+			v2f_createDebugfs(adev, pcursor);
 			break;
 		default:
 			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",

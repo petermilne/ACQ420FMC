@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.854"
+#define REVID "2.857"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -435,6 +435,12 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
+static void v2f_init_defaults(struct acq400_dev *adev)
+{
+	adev->data32 = 0;
+	acq400wr32(adev, V2F_CHAN_SEL, 0x4321);
+	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_DATA_PACKED|V2F_CTRL_EN);
+}
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
@@ -3866,6 +3872,9 @@ static int acq400_probe(struct platform_device *pdev)
   			break;
   		case MOD_ID_ACQ480FMC:
   			acq480_init_defaults(adev);
+  			break;
+  		case MOD_ID_V2F:
+  			v2f_init_defaults(adev);
   			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",
