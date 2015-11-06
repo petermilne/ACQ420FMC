@@ -1488,6 +1488,8 @@ static ssize_t show_module_name(
 		name = "ao420fmc"; break;
 	case MOD_ID_AO424ELF:
 		name = "ao424elf"; break;
+	case MOD_ID_V2F:
+		name = "v2f"; break;
 	default:
 		name = "unknown";
 		break;
@@ -1664,6 +1666,120 @@ static const struct attribute *acq435_attrs[] = {
 	NULL
 };
 
+
+static ssize_t show_chan_sel(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 cs = acq400rd32(adev, V2F_CHAN_SEL);
+	return sprintf(buf, "%d,%d,%d,%d\n",
+			V2F_CHAN_SEL_DEC(cs, 1), V2F_CHAN_SEL_DEC(cs, 2),
+			V2F_CHAN_SEL_DEC(cs, 3), V2F_CHAN_SEL_DEC(cs, 4));
+}
+static ssize_t store_chan_sel(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int sel[4];
+	if (sscanf(buf, "%u,%u,%u,%u", sel+0, sel+1, sel+2, sel+3) == 4){
+		u32 cs = V2F_CHAN_SEL_ENC(1, sel[0]) +
+			 V2F_CHAN_SEL_ENC(2, sel[1]) +
+			 V2F_CHAN_SEL_ENC(3, sel[2]) +
+			 V2F_CHAN_SEL_ENC(4, sel[3]);
+		acq400wr32(adev, V2F_CHAN_SEL, cs);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(chan_sel,
+		S_IRUGO|S_IWUGO, show_chan_sel, store_chan_sel);
+
+static ssize_t show_hf(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, V2F_CTRL);
+	return sprintf(buf, "%d\n", (ctrl&V2F_CTRL_RANGE_HI) != 0);
+}
+static ssize_t store_hf(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned hf;
+	if (sscanf(buf, "%u", &hf) == 1){
+		u32 ctrl = acq400rd32(adev, V2F_CTRL);
+		if (hf){
+			ctrl |= V2F_CTRL_RANGE_HI;
+		}else{
+			ctrl &= ~V2F_CTRL_RANGE_HI;
+		}
+		acq400wr32(adev, V2F_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(hf, S_IRUGO|S_IWUGO, show_hf, store_hf);
+
+#define V2F_OFFSET_PACKED_1M 	3277
+#define V2F_OFFSET_UNPACKED_1M 	838861
+
+static ssize_t show_freq_offset(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 freq_off = acq400rd32(adev, V2F_FREQ_OFF);
+	unsigned mstep = adev->data32? V2F_OFFSET_UNPACKED_1M: V2F_OFFSET_PACKED_1M;
+
+	return sprintf(buf, "%u\n", freq_off/mstep);
+}
+
+
+static ssize_t store_freq_offset(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned mstep = adev->data32? V2F_OFFSET_UNPACKED_1M: V2F_OFFSET_PACKED_1M;
+	u32 freq_off;
+
+	if (sscanf(buf, "%u", &freq_off) == 1){
+		if (freq_off > 4) freq_off = 4;
+
+		acq400wr32(adev, V2F_FREQ_OFF, freq_off*mstep);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(freq_offset,
+		S_IRUGO|S_IWUGO, show_freq_offset, store_freq_offset);
+
+static const struct attribute *sysfs_v2f_attrs[] = {
+	//&dev_attr_clkdiv.attr,
+	&dev_attr_hf.attr,
+	//&dev_attr_active_chan.attr,
+	&dev_attr_freq_offset.attr,
+	&dev_attr_chan_sel.attr,
+};
 extern const struct attribute *acq480_attrs[];
 
 static ssize_t show_dac_headroom(
@@ -3642,6 +3758,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
 			specials = acq480_attrs;
+		}else if (IS_V2F(adev)){
+			specials = sysfs_v2f_attrs;
 		}else{
 			return;
 		}

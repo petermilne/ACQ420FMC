@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.857"
+#define REVID "2.862"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -435,11 +435,28 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
+static void _v2f_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, V2F_CTRL);
+
+	if (adev->data32){
+		ctrl &= ~V2F_CTRL_DATA_PACKED;
+	}else{
+		ctrl |= V2F_CTRL_DATA_PACKED;
+	}
+	acq400wr32(adev, V2F_CTRL, ctrl&=~ V2F_CTRL_EN);
+	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_RST);
+	acq400wr32(adev, V2F_CTRL, ctrl);
+	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_EN);
+}
 static void v2f_init_defaults(struct acq400_dev *adev)
 {
 	adev->data32 = 0;
-	acq400wr32(adev, V2F_CHAN_SEL, 0x4321);
-	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_DATA_PACKED|V2F_CTRL_EN);
+	adev->word_size = 4;
+	adev->nchan_enabled = 0;
+	acq400wr32(adev, V2F_CHAN_SEL, 0x04030201);
+	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_EN);
+	adev->onStart = _v2f_onStart;
 }
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
 {

@@ -1033,10 +1033,12 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 #define V2F_CTRL_DATA_PACKED	(1<<7)
 #define V2F_CTRL_RANGE_HI	(1<<6)
-#define V2F_CTRL_EN		(1<<5)
-#define V2F_CTRL_RST		(1<<4)
+#define V2F_CTRL_EN		(1<<4)
+#define V2F_CTRL_RST		(1<<3)
 #define V2F_CTRL_MODULE_EN	(1<<0)
 
+#define V2F_CHAN_SEL_ENC(v, c)  (c << (8*((v)-1)))
+#define V2F_CHAN_SEL_DEC(cs, v) (((cs)>>(8*((v)-1)))&0x0ff)
 
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
