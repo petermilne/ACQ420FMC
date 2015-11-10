@@ -3305,10 +3305,10 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	};
 	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
 	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
-	sprintf(_oneshot,   "%d", AXI_ONESHOT);		argv[3] = _oneshot;
+	sprintf(_oneshot,   "%d", AXI_ONESHOT!=0);	argv[3] = _oneshot;
 
-	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s",
-						argv[0], argv[1], argv[2]);
+	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s %s",
+					argv[0], argv[1], argv[2], argv[3]);
 	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
 }
 
