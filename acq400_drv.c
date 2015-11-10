@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.862"
+#define REVID "2.863"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -289,7 +289,7 @@ int isGoodSite(int site)
 	}
 }
 int acq400_release(struct inode *inode, struct file *file);
-
+int acq400_hb_release(struct inode *inode, struct file *file);
 
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
@@ -1150,7 +1150,7 @@ int acq400_open_hb(struct inode *inode, struct file *file)
 		.open = acq420_dma_open,
 		.mmap = acq400_dma_mmap_host,
 		.read = acq400_hb_read,
-		.release = acq400_release,
+		.release = acq400_hb_release,
 		// sendfile method is no more.. it's probably not quite this easy ..
 		// sure enough, it's not !
 		// most likely the HB's have to be on a block device ..
@@ -2735,6 +2735,7 @@ int acq400_open(struct inode *inode, struct file *file)
         return rc;
 }
 
+
 int acq400_release(struct inode *inode, struct file *file)
 {
         struct acq400_dev *adev = ACQ400_DEV(file);
@@ -2763,6 +2764,23 @@ int acq400_release(struct inode *inode, struct file *file)
         return 0;
 }
 
+int acq400_hb_release(struct inode *inode, struct file *file)
+{
+        struct acq400_dev *adev = ACQ400_DEV(file);
+        int ibuf = BUFFER(PD(file)->minor);
+        struct HBM *hbm = adev->hb[ibuf];
+
+        /* Manage writes via reference counts */
+        switch (file->f_flags & O_ACCMODE) {
+        case O_WRONLY:
+        case O_RDWR:
+        	dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
+        default:
+        	;
+        }
+
+        return acq400_release(inode, file);
+}
 
 ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)

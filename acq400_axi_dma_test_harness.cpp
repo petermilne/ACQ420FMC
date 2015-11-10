@@ -99,7 +99,19 @@ void getBuffers(vector<buffer*> &buffers)
 	fclose(fp);
 }
 
-buffer* makeDescriptorMapping(vector<buffer*> &buffers)
+class DescriptorMapping {
+	int fd;
+	buffer* descriptors;
+public:
+	DescriptorMapping(vector<buffer*> &buffers);
+	~DescriptorMapping();
+
+	buffer* operator() (void){
+		return descriptors;
+	}
+};
+
+DescriptorMapping::DescriptorMapping(vector<buffer*> &buffers)
 {
 	buffer * descriptors = buffers.back();
 	buffers.pop_back();
@@ -115,9 +127,13 @@ buffer* makeDescriptorMapping(vector<buffer*> &buffers)
 		perror("mmap hb");
 		exit(1);
 	}
-	return descriptors;
 }
 
+DescriptorMapping::~DescriptorMapping(void)
+{
+	munmap(descriptors->va, BUFFER_LEN);
+	close(fd);
+}
 unsigned* makeDmacMapping()
 {
 	const char* fname = "/dev/mem";
@@ -137,9 +153,11 @@ unsigned* makeDmacMapping()
 
 u32 makeChain(vector<buffer*> &buffers, int ndesc)
 {
-	buffer* descriptors = makeDescriptorMapping(buffers);
+	DescriptorMapping descriptorMapping(buffers);
+	buffer* descriptors = descriptorMapping();
 	xilinx_dma_desc_hw* hw_desc = (xilinx_dma_desc_hw*)descriptors->va;
 	int ii = 0;
+	unsigned pa;
 
 	for (int lasti = ndesc - 1; ii <= lasti; ++ii){
 		xilinx_dma_desc_hw hw = {};
@@ -152,17 +170,9 @@ u32 makeChain(vector<buffer*> &buffers, int ndesc)
 		hw.control = buffers[ii]->len;
 		memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
 	}
-#ifdef USE_DUMMY_START_DESCR
-#error USE_DUMMY_START_DESCR_FAIL
-	xilinx_dma_desc_hw hw = {};
-	hw.next_desc = descriptors->pa;
-	hw.buf_addr = buffers[0]->pa;
-	hw.control = 0;
-	memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
-	return descriptors->pa + ii*DSZ;
-#else
+
 	return descriptors->pa;
-#endif
+	// destroy mapping on scope exit
 }
 
 void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
@@ -170,14 +180,33 @@ void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
 	reg[byteoff/sizeof(unsigned)] = value;
 }
 
-void dmacInit(volatile unsigned* dmac, unsigned chain_pa, int ndesc)
+#define S2MM_DMACR	0x30
+#define S2MM_DMASR	0x34
+#define S2MM_CURDESC	0x38
+#define S2MM_CURDESCM	0x3c
+#define S2MM_TAILDESC	0x40
+#define S2MM_TAILDESCM	0x44
+
+#define S2MM_DMACR_STOP 0
+#define S2MM_DMACR_RUN	(1<<0)
+#define S2MM_DMACR_RST	(1<<2)
+#define S2MM_DMACR_CYC	(1<<4)
+
+
+void dmacInit(volatile unsigned* dmac, unsigned chain_pa, int ndesc, int oneshot)
 {
-	unsigned tail_pa = chain_pa + (ndesc)*DSZ;
-	writeReg(dmac, 0x30, 0x4);
-	writeReg(dmac, 0x30, 0x0);
-	writeReg(dmac, 0x38, chain_pa);
-	writeReg(dmac, 0x30, 0x11);
-	writeReg(dmac, 0x40, tail_pa);
+	unsigned tail_pa = chain_pa + (ndesc-1)*DSZ;
+	unsigned cr;
+	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_RST);
+	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_STOP);
+	writeReg(dmac, S2MM_CURDESCM, 0);
+	writeReg(dmac, S2MM_TAILDESCM, 0);
+	writeReg(dmac, S2MM_CURDESC, chain_pa);
+	if (!oneshot){
+		writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_CYC);
+	}
+	writeReg(dmac, S2MM_DMACR, cr|S2MM_DMACR_RUN);
+	writeReg(dmac, S2MM_TAILDESC, tail_pa);
 }
 
 void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
@@ -201,9 +230,13 @@ void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
 int main(int argc, char* argv[])
 {
 	int ndesc = argc>1? atoi(argv[1]): 5;
+	int oneshot = 0;
 
 	if (argc > 2){
 		BUFFER_LEN = strtoul(argv[2],0, 0);
+	}
+	if (argc > 3){
+		oneshot = atoi(argv[3]);
 	}
 	openlog("acq400_axi_dma_test_harness", LOG_PID, LOG_USER);
 	syslog(LOG_DEBUG, "%d buffers each length: %d", ndesc, BUFFER_LEN);
@@ -222,7 +255,7 @@ int main(int argc, char* argv[])
 	u32 chain_pa = makeChain(buffers, ndesc);
 
 	volatile unsigned *dmac = makeDmacMapping();
-	dmacInit(dmac, chain_pa, ndesc);
+	dmacInit(dmac, chain_pa, ndesc, oneshot);
 
 	if (getenv("AXI_POLL_STATUS")){
 		pollStatus(dmac, chain_pa);
