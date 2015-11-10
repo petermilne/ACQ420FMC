@@ -195,7 +195,8 @@ void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
 
 void dmacInit(volatile unsigned* dmac, unsigned chain_pa, int ndesc, int oneshot)
 {
-	unsigned tail_pa = chain_pa + (ndesc-1)*DSZ;
+	// for cyclic, MUST NEVER reach TDESC, but for ONESHOT, MUST reach TDESC ..
+	unsigned tail_pa = chain_pa + (ndesc-oneshot)*DSZ;
 	unsigned cr;
 	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_RST);
 	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_STOP);
