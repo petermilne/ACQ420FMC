@@ -196,6 +196,10 @@ int AXI_INIT_BUFFERS = 0;
 module_param(AXI_INIT_BUFFERS, int, 0644);
 MODULE_PARM_DESC(AXI_INIT_BUFFERS, "initialise buffers before start .. see exactly how far DMA got for debug");
 
+int AXI_ONESHOT = 0;
+module_param(AXI_ONESHOT, int, 0644);
+MODULE_PARM_DESC(AXI_ONESHOT, "axi DMA once through");
+
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -3288,8 +3292,11 @@ int axi64_load_dmac(struct acq400_dev *adev)
 {
 	char _nbuffers[8];
 	char _bufferlen[16];
+	char _oneshot[4];
 	char *argv[] = {
-		"/usr/local/bin/acq400_axi_dma_test_harness", NULL, NULL, NULL
+		"/usr/local/bin/acq400_axi_dma_test_harness",
+		NULL, NULL, NULL,
+		NULL
 	};
 	static char *envp[] = {
 			"HOME=/",
@@ -3298,6 +3305,7 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	};
 	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
 	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
+	sprintf(_oneshot,   "%d", AXI_ONESHOT);		argv[3] = _oneshot;
 
 	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s",
 						argv[0], argv[1], argv[2]);
