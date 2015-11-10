@@ -113,11 +113,11 @@ public:
 
 DescriptorMapping::DescriptorMapping(vector<buffer*> &buffers)
 {
-	buffer * descriptors = buffers.back();
+	descriptors = buffers.back();
 	buffers.pop_back();
 	char fname[80];
 	sprintf(fname, "%s/%s", "/dev/acq400.0.hb/", descriptors->id);
-	int fd = open(fname, O_RDWR);
+	fd = open(fname, O_RDWR);
 	if (fd < 0){
 		perror(fname);
 		exit(1);
