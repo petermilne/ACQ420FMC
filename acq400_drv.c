@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.854"
+#define REVID "2.855"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -380,7 +380,7 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 	}
 	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
 
-	if (IS_ACQ2106_AXI64(adev)){
+	if (IS_AXI64(adev)){
 		int databursts = bufferlen/0x800;
 		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
 		sync_continuous = 0;
@@ -1194,7 +1194,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 
 int get_dma_channels(struct acq400_dev *adev)
 {
-	if (IS_ACQ2106_AXI64(adev)){
+	if (IS_AXI64(adev)){
 		dev_info(DEVP(adev), "axi_dma not using standard driver");
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
@@ -1248,7 +1248,7 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	if (adev->w_task == 0){
 		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
 		adev->w_task = kthread_run(
-				IS_ACQ2106_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
+				IS_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
 				"%s.ai", devname(adev));
 		if (adev->w_task == ERR_PTR(-ENOMEM)){
 			BUG();
