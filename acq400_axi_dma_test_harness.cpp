@@ -134,22 +134,6 @@ DescriptorMapping::~DescriptorMapping(void)
 	munmap(descriptors->va, BUFFER_LEN);
 	close(fd);
 }
-unsigned* makeDmacMapping()
-{
-	const char* fname = "/dev/mem";
-	unsigned *va;
-	int fd = open(fname, O_RDWR);
-	if (fd < 0){
-		perror(fname);
-		exit(1);
-	}
-	va = (unsigned*)mmap(0, 0x1000, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x801f0000);
-	if (va == MAP_FAILED){
-		perror("mmap /dev/mem");
-		exit(1);
-	}
-	return va;
-}
 
 u32 makeChain(vector<buffer*> &buffers, int ndesc)
 {
@@ -175,11 +159,6 @@ u32 makeChain(vector<buffer*> &buffers, int ndesc)
 	// destroy mapping on scope exit
 }
 
-void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
-{
-	reg[byteoff/sizeof(unsigned)] = value;
-}
-
 #define S2MM_DMACR	0x30
 #define S2MM_DMASR	0x34
 #define S2MM_CURDESC	0x38
@@ -192,38 +171,29 @@ void writeReg(volatile unsigned *reg, unsigned byteoff, unsigned value)
 #define S2MM_DMACR_RST	(1<<2)
 #define S2MM_DMACR_CYC	(1<<4)
 
+void writePram(const char* param, unsigned value)
+{
+	char fname[80];
+	snprintf(fname, 80, "%s/%s", "/sys/module/acq420fmc/parameters/", param);
+	FILE* fp = fopen(fname, "w");
+	if (fp != 0){
+		fprintf(fp, "%u\n", value);
+		fclose(fp);
+	}else{
+		perror(fname);
+		exit(1);
+	}
+}
 
-void dmacInit(volatile unsigned* dmac, unsigned chain_pa, int ndesc, int oneshot)
+void dmacInit(unsigned chain_pa, int ndesc, int oneshot)
 {
 	// for cyclic, MUST NEVER reach TDESC, but for ONESHOT, MUST reach TDESC ..
 	unsigned tail_pa = chain_pa + (ndesc-oneshot)*DSZ;
-	unsigned cr;
-	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_RST);
-	writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_STOP);
-	writeReg(dmac, S2MM_CURDESCM, 0);
-	writeReg(dmac, S2MM_TAILDESCM, 0);
-	writeReg(dmac, S2MM_CURDESC, chain_pa);
-	if (!oneshot){
-		writeReg(dmac, S2MM_DMACR, cr = S2MM_DMACR_CYC);
-	}
-	writeReg(dmac, S2MM_DMACR, cr|S2MM_DMACR_RUN);
-	writeReg(dmac, S2MM_TAILDESC, tail_pa);
+
+	writePram("AXI_HEAD_DESCR_PA", chain_pa);
+	writePram("AXI_TAIL_DESCR_PA", tail_pa);
 }
 
-void pollStatus(volatile unsigned* dmac, unsigned chain_pa)
-{
-	volatile unsigned* status = dmac+(0x30+8)/sizeof(unsigned);
-	u32 s0 = *status;
-	u32 s1;
-
-	while(1){
-		while ((s1 = *status) == s0){
-			sched_yield();
-		}
-		printf("%03d\n", (s1-chain_pa)/DSZ);
-		s0 = s1;
-	}
-}
 
 #define BL "/sys/module/acq420fmc/parameters/bufferlen"
 
@@ -255,11 +225,7 @@ int main(int argc, char* argv[])
 */
 	u32 chain_pa = makeChain(buffers, ndesc);
 
-	volatile unsigned *dmac = makeDmacMapping();
-	dmacInit(dmac, chain_pa, ndesc, oneshot);
+	dmacInit(chain_pa, ndesc, oneshot);
 
-	if (getenv("AXI_POLL_STATUS")){
-		pollStatus(dmac, chain_pa);
-	}
 	return 0;
 }

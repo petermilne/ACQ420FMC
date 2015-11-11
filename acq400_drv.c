@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.863"
+#define REVID "2.864"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -199,6 +199,12 @@ MODULE_PARM_DESC(AXI_INIT_BUFFERS, "initialise buffers before start .. see exact
 int AXI_ONESHOT = 0;
 module_param(AXI_ONESHOT, int, 0644);
 MODULE_PARM_DESC(AXI_ONESHOT, "axi DMA once through");
+
+unsigned AXI_HEAD_DESCR_PA = 0;
+module_param(AXI_HEAD_DESCR_PA, uint, 0644);
+
+unsigned AXI_TAIL_DESCR_PA = 0;
+module_param(AXI_TAIL_DESCR_PA, uint, 0644);
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -1202,6 +1208,19 @@ static bool filter_true(struct dma_chan *chan, void *param)
 	return true;
 }
 
+static bool filter_axi(struct dma_chan *chan, void *param)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)param;
+	const char* dname = chan->device->dev->driver->name;
+	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
+
+	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
+
 static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
 	dma_cap_mask_t mask;
@@ -1222,6 +1241,10 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 int get_dma_channels(struct acq400_dev *adev)
 {
 	if (IS_ACQ2106_AXI64(adev)){
+		dma_cap_mask_t mask;
+		dma_cap_zero(mask);
+		dma_cap_set(DMA_SLAVE, mask);
+		adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
 		dev_info(DEVP(adev), "axi_dma not using standard driver");
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
@@ -3288,29 +3311,6 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 	return rc;
 }
 
-int axi64_load_dmac(struct acq400_dev *adev)
-{
-	char _nbuffers[8];
-	char _bufferlen[16];
-	char _oneshot[4];
-	char *argv[] = {
-		"/usr/local/bin/acq400_axi_dma_test_harness",
-		NULL, NULL, NULL,
-		NULL
-	};
-	static char *envp[] = {
-			"HOME=/",
-			"TERM=linux",
-			"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL
-	};
-	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
-	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
-	sprintf(_oneshot,   "%d", AXI_ONESHOT!=0);	argv[3] = _oneshot;
-
-	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s %s",
-					argv[0], argv[1], argv[2], argv[3]);
-	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
-}
 
 int axi64_data_loop(void* data)
 {

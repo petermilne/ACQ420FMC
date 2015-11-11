@@ -1138,4 +1138,6 @@ static inline int getSHL(unsigned mask)
 	return shl;
 }
 
+int axi64_load_dmac(struct acq400_dev *adev);
+
 #endif /* ACQ420FMC_H_ */
