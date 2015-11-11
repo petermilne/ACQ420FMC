@@ -119,13 +119,18 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
 
 static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 {
+	printk("intDevFromProcFile() 01 private %p\n", file->private_data);
 	seq_open(file, seq_ops);
+	printk("intDevFromProcFile() 10 private %p\n", file->private_data);
+
 	{
 		// @@todo hack .. assumes parent is the id .. could do better?
 		const char* dname = file->f_path.dentry->d_parent->d_iname;
-		((struct seq_file*)file->private_data)->private =
-					acq400_lookupSite(dname[0] -'0');
+		void* adev = acq400_lookupSite(dname[0] -'0');
+		((struct seq_file*)file->private_data)->private = adev;
+		printk("intDevFromProcFile() 99 site:%d adev %p\n", dname[0] -'0', adev);
 	}
+
 	return 0;
 }
 
@@ -137,6 +142,7 @@ static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 	        .show = acq400axi_proc_seq_show_descr
 	};
 
+	printk("acq400_proc_open_axi_descr() 01 \n");
 	return intDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
 }
 static struct file_operations acq400_proc_ops_axi_descr = {
