@@ -143,18 +143,6 @@ u32 makeChain(vector<buffer*> &buffers, int ndesc)
 	int ii = 0;
 	unsigned pa;
 
-	for (int lasti = ndesc - 1; ii <= lasti; ++ii){
-		xilinx_dma_desc_hw hw = {};
-		if (ii < lasti){
-			hw.next_desc = descriptors->pa + (ii+1)*DSZ;
-		}else{
-			hw.next_desc = descriptors->pa;
-		}
-		hw.buf_addr = buffers[ii]->pa;
-		hw.control = buffers[ii]->len;
-		memcpy(&hw_desc[ii], &hw, sizeof(xilinx_dma_desc_hw));
-	}
-
 	return descriptors->pa;
 	// destroy mapping on scope exit
 }

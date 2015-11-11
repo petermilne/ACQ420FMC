@@ -281,7 +281,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(DATA_ENGINE_0);
 	if (IS_ACQ2X06SC(adev)){
 		DBG_REG_CREATE(DATA_ENGINE_1);
-		if (IS_ACQ2106_AXI64(adev)){
+		if (IS_AXI64(adev)){
 			DBG_REG_CREATE(AXI_DMA_ENGINE_DATA);
 		}else{
 			DBG_REG_CREATE(DATA_ENGINE_2);

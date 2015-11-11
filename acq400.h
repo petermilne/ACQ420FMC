@@ -676,8 +676,14 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ2106_AXI64(adev)  \
 	(IS_ACQ2106SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
+
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
+
+#define IS_ACQ1001_AXI64(adev) \
+	(IS_ACQ1001SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
+
+#define IS_AXI64(adev) (IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev))
 
 #define IS_ACQx00xSC(adev) (IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev))
 

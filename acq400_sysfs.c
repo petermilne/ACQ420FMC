@@ -1597,7 +1597,7 @@ static ssize_t show_has_axi_dma(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 
-	return sprintf(buf, "%u\n", IS_ACQ2106_AXI64(adev));
+	return sprintf(buf, "%u\n", IS_AXI64(adev));
 }
 
 static DEVICE_ATTR(has_axi_dma, S_IRUGO, show_has_axi_dma, 0);
