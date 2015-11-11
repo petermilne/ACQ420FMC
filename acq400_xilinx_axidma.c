@@ -47,17 +47,32 @@ extern unsigned AXI_TAIL_DESCR_PA;
 void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tailpa, unsigned oneshot)
 {
 	unsigned cr = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
+	unsigned halted, not_halted;
+	unsigned rs_check;
 	dev_dbg(xchan->dev, "axi64_arm_dmac() 01");
-	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr |= XILINX_DMA_CR_RESET_MASK);
+	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = XILINX_DMA_CR_RESET_MASK);
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = 0);
+	halted = dma_read(xchan, XILINX_DMA_STATUS_OFFSET);
 	dma_write(xchan, XILINX_DMA_CDESC_OFFSET, headpa);
 	if (!oneshot){
 		dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = S2MM_DMACR_CYC);
 	}
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr|XILINX_DMA_CR_RUNSTOP_MASK);
+	rs_check = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
+	not_halted = dma_read(xchan, XILINX_DMA_STATUS_OFFSET);
+	if ((rs_check&XILINX_DMA_CR_RUNSTOP_MASK) == 0){
+		dev_err(xchan->dev, "NOT ENABLED CR=%08x", rs_check);
+	}
+	if ((not_halted&XILINX_DMA_SR_HALTED_MASK) != 0){
+		dev_err(xchan->dev, "HALTED: but we wanted to GO! SR=%08x", not_halted);
+	}
 	dma_write(xchan, XILINX_DMA_TDESC_OFFSET, tailpa);
 	dev_dbg(xchan->dev, "axi64_arm_dmac() 99");
 }
+
+// put marker in reg to show we were there ...
+#define SHOTID(adev)	(adev->stats.shot|0xcafe0000)
+
 int axi64_load_dmac(struct acq400_dev *adev)
 {
 	char _nbuffers[8];
@@ -95,7 +110,9 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	}
 
 	if (AXI_HEAD_DESCR_PA != 0 && AXI_TAIL_DESCR_PA != 0){
-		axi64_arm_dmac(xchan, AXI_HEAD_DESCR_PA, AXI_TAIL_DESCR_PA, AXI_ONESHOT);
+		axi64_arm_dmac(xchan, AXI_HEAD_DESCR_PA,
+			AXI_ONESHOT? AXI_TAIL_DESCR_PA: SHOTID(adev),
+			AXI_ONESHOT);
 		return 0;
 	}else{
 		dev_err(DEVP(adev), "AXI_HEAD_DESCR_PA && AXI_TAIL_DESCR_PA not set");

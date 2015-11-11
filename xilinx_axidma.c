@@ -876,6 +876,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	chan->regs = xdev->regs;
 
 	if (chan->direction == DMA_DEV_TO_MEM) {
+		dev_info(xdev->dev, "axi-dma-s2mm-channel offset regs _%08x", XILINX_DMA_RX_CHANNEL_OFFSET);
 		chan->regs = (xdev->regs + XILINX_DMA_RX_CHANNEL_OFFSET);
 		chan->id = 1;
 	}
