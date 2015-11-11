@@ -797,6 +797,7 @@ void acq400_axi_dma_createDebugfs(struct xilinx_dma_chan *chan)
 	ADBG_REG_CREATE(XILINX_DMA_STATUS);
 	ADBG_REG_CREATE(XILINX_DMA_CDESC);
 	ADBG_REG_CREATE(XILINX_DMA_TDESC);
+	ADBG_REG_CREATE(XILINX_DMA_BTT);
 }
 
 void acq400_axi_dma_removeDebugfs(struct xilinx_dma_chan *chan)

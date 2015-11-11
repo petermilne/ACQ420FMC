@@ -71,7 +71,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 }
 
 // put marker in reg to show we were there ...
-#define SHOTID(adev)	(adev->stats.shot|0xcafe0000)
+#define SHOTID(adev)	(((adev->stats.shot&0x00ff)<<8)|0xcafe0000)
 
 int axi64_load_dmac(struct acq400_dev *adev)
 {
