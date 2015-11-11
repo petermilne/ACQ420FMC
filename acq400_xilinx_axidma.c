@@ -47,6 +47,7 @@ extern unsigned AXI_TAIL_DESCR_PA;
 void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tailpa, unsigned oneshot)
 {
 	unsigned cr = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
+	dev_dbg(xchan->dev, "axi64_arm_dmac() 01");
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr |= XILINX_DMA_CR_RESET_MASK);
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = 0);
 	dma_write(xchan, XILINX_DMA_CDESC_OFFSET, headpa);
@@ -55,6 +56,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 	}
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr|XILINX_DMA_CR_RUNSTOP_MASK);
 	dma_write(xchan, XILINX_DMA_TDESC_OFFSET, tailpa);
+	dev_dbg(xchan->dev, "axi64_arm_dmac() 99");
 }
 int axi64_load_dmac(struct acq400_dev *adev)
 {
@@ -73,7 +75,9 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	};
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
 	u32* dregs = xchan->regs;
-	printk("regs:%p : %08x %08x %08x %08x\n", dregs,
+	int rc;
+
+	dev_dbg(DEVP(adev), "regs:%p : %08x %08x %08x %08x\n", dregs,
 			dma_read(xchan, 0), dma_read(xchan, 0x4),
 			dma_read(xchan, 0x8), dma_read(xchan, 0xc)
 			);
@@ -84,9 +88,17 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	AXI_HEAD_DESCR_PA = AXI_TAIL_DESCR_PA = 0;
 	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s %s",
 					argv[0], argv[1], argv[2], argv[3]);
-	return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+	rc = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+
+	if (rc != 0){
+		dev_warn(DEVP(adev), "helper function %s returned %d", argv[0], rc);
+	}
 
 	if (AXI_HEAD_DESCR_PA != 0 && AXI_TAIL_DESCR_PA != 0){
 		axi64_arm_dmac(xchan, AXI_HEAD_DESCR_PA, AXI_TAIL_DESCR_PA, AXI_ONESHOT);
+		return 0;
+	}else{
+		dev_err(DEVP(adev), "AXI_HEAD_DESCR_PA && AXI_TAIL_DESCR_PA not set");
+		return -1;
 	}
 }

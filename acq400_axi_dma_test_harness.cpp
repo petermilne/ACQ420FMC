@@ -177,7 +177,7 @@ void writePram(const char* param, unsigned value)
 	snprintf(fname, 80, "%s/%s", "/sys/module/acq420fmc/parameters/", param);
 	FILE* fp = fopen(fname, "w");
 	if (fp != 0){
-		fprintf(fp, "%u\n", value);
+		fprintf(fp, "0x%x\n", value);
 		fclose(fp);
 	}else{
 		perror(fname);
