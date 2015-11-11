@@ -35,6 +35,8 @@
 #include <linux/amba/xilinx_dma.h>
 #include "xilinx_axidma.h"
 
+#include <linux/dmapool.h>
+
 extern int AXI_BUFFER_COUNT;
 extern int AXI_ONESHOT;
 extern int bufferlen;
@@ -44,6 +46,139 @@ extern unsigned AXI_TAIL_DESCR_PA;
 
 #define S2MM_DMACR_CYC 0x10
 
+
+
+struct AxiDescrWrapper {
+	struct xilinx_dma_desc_hw* va;
+	unsigned pa;
+};
+
+struct ACQ400_AXIPOOL {
+	int ndescriptors;
+	char pool_name[16];
+	struct dma_pool *pool;
+	struct AxiDescrWrapper *wrappers;
+};
+
+
+static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
+{
+	struct acq400_dev *adev = s->private;
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+
+        if (*pos == 0) {
+        	seq_printf(s, "AXI DESCRIPTORS\n");
+        }
+        if (*pos < apool->ndescriptors){
+        	return &apool->wrappers[*pos];
+        }
+
+        return NULL;
+}
+
+
+static void *acq400axi_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq400_dev *adev = s->private;
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+
+	if (++(*pos) < apool->ndescriptors){
+		return &apool->wrappers[*pos];
+	}else{
+		return NULL;
+	}
+}
+
+int pa2index(struct ACQ400_AXIPOOL* apool, unsigned pa)
+{
+	int ii;
+	for (ii = 0; ii < apool->ndescriptors; ++ii){
+		struct AxiDescrWrapper * cursor = apool->wrappers+ii;
+		if (cursor->pa == pa){
+			return ii;
+		}
+	}
+
+	return -1;
+}
+
+static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
+{
+        struct acq400_dev *adev = s->private;
+        struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+        struct AxiDescrWrapper * cursor = v;
+
+
+        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x\n",
+        		cursor->pa, pa2index(apool, cursor->pa),
+        		cursor->va->next_desc, pa2index(apool, cursor->va->next_desc),
+        		cursor->va->buf_addr, cursor->va->control);
+
+        return 0;
+}
+
+static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
+{
+	seq_open(file, seq_ops);
+	{
+		// @@todo hack .. assumes parent is the id .. could do better?
+		const char* dname = file->f_path.dentry->d_parent->d_iname;
+		((struct seq_file*)file->private_data)->private =
+					acq400_lookupSite(dname[0] -'0');
+	}
+	return 0;
+}
+
+static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
+{
+	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
+	        .start = acq400axi_proc_seq_start,
+	        .next = acq400axi_proc_seq_next,
+	        .show = acq400axi_proc_seq_show_descr
+	};
+
+	return intDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
+}
+static struct file_operations acq400_proc_ops_axi_descr = {
+        .owner = THIS_MODULE,
+        .open = acq400_proc_open_axi_descr,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = seq_release
+};
+
+static void init_descriptor_cache(struct acq400_dev *adev)
+{
+	struct ACQ400_AXIPOOL* apool = kzalloc(sizeof(struct ACQ400_AXIPOOL), GFP_KERNEL);
+	int ii;
+	struct AxiDescrWrapper * cursor;
+
+	apool->ndescriptors = AXI_BUFFER_COUNT;
+	snprintf(apool->pool_name, 16, "acq400_axi_pool");
+	apool->pool = dma_pool_create(apool->pool_name, DEVP(adev),
+		sizeof(struct xilinx_dma_desc_hw), 0x40, 0);
+
+	BUG_ON(apool->pool == 0);
+
+	apool->wrappers = kzalloc(sizeof(struct AxiDescrWrapper)*apool->ndescriptors, GFP_KERNEL);
+
+	for (ii = 0; ii < apool->ndescriptors; ++ii){
+		cursor = apool->wrappers+ii;
+		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
+		BUG_ON(cursor->va == 0);
+		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
+		cursor->va->buf_addr = adev->hb[ii]->pa;
+		cursor->va->control = bufferlen;
+	}
+	for (ii = 0; ii < apool->ndescriptors-1; ++ii){
+		cursor = apool->wrappers+ii;
+		cursor->va->next_desc = cursor[1].pa;
+	}
+	apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+	adev->axi_private = apool;
+
+	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
+}
 void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tailpa, unsigned oneshot)
 {
 	unsigned cr = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
@@ -73,49 +208,41 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 // put marker in reg to show we were there ...
 #define SHOTID(adev)	(((adev->stats.shot&0x00ff)<<8)|0xcafe0000)
 
+int _axi64_load_dmac(struct acq400_dev *adev)
+{
+	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+	u32 head_pa = apool->wrappers[0].pa;
+	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
+			SHOTID(adev);
+
+	axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
+	return 0;
+}
+
 int axi64_load_dmac(struct acq400_dev *adev)
 {
-	char _nbuffers[8];
-	char _bufferlen[16];
-	char _oneshot[4];
-	char *argv[] = {
-		"/usr/local/bin/acq400_axi_dma_test_harness",
-		NULL, NULL, NULL,
-		NULL
-	};
-	static char *envp[] = {
-			"HOME=/",
-			"TERM=linux",
-			"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL
-	};
-	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
-	u32* dregs = xchan->regs;
-	int rc;
 
-	dev_dbg(DEVP(adev), "regs:%p : %08x %08x %08x %08x\n", dregs,
-			dma_read(xchan, 0), dma_read(xchan, 0x4),
-			dma_read(xchan, 0x8), dma_read(xchan, 0xc)
-			);
-	sprintf(_nbuffers, "%d", AXI_BUFFER_COUNT);	argv[1] = _nbuffers;
-	sprintf(_bufferlen, "%d", bufferlen);		argv[2] = _bufferlen;
-	sprintf(_oneshot,   "%d", AXI_ONESHOT!=0);	argv[3] = _oneshot;
-
-	AXI_HEAD_DESCR_PA = AXI_TAIL_DESCR_PA = 0;
-	dev_info(DEVP(adev), "axi64_load_dmac() spawn %s %s %s %s",
-					argv[0], argv[1], argv[2], argv[3]);
-	rc = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
-
-	if (rc != 0){
-		dev_warn(DEVP(adev), "helper function %s returned %d", argv[0], rc);
+	if (adev->axi_private == 0){
+		init_descriptor_cache(adev);
 	}
+	return _axi64_load_dmac(adev);
+}
 
-	if (AXI_HEAD_DESCR_PA != 0 && AXI_TAIL_DESCR_PA != 0){
-		axi64_arm_dmac(xchan, AXI_HEAD_DESCR_PA,
-			AXI_ONESHOT? AXI_TAIL_DESCR_PA: SHOTID(adev),
-			AXI_ONESHOT);
-		return 0;
-	}else{
-		dev_err(DEVP(adev), "AXI_HEAD_DESCR_PA && AXI_TAIL_DESCR_PA not set");
-		return -1;
+int axi64_free_dmac(struct acq400_dev *adev)
+{
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+	int ii;
+	struct AxiDescrWrapper * cursor;
+
+	adev->axi_private = 0;
+
+	for (ii = 0; ii < apool->ndescriptors; ++ii){
+		cursor = apool->wrappers+ii;
+		dma_pool_free(apool->pool, cursor->va, cursor->pa);
 	}
+	kfree(apool->wrappers);
+	dma_pool_destroy(apool->pool);
+	kfree(apool);
+	return 0;
 }

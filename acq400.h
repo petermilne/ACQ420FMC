@@ -566,6 +566,8 @@ struct acq400_dev {
 
 	int bq_overruns;
 	pid_t continuous_reader;
+
+	void *axi_private;
 };
 
 #define MAXLBUF	  1024
@@ -1139,5 +1141,5 @@ static inline int getSHL(unsigned mask)
 }
 
 int axi64_load_dmac(struct acq400_dev *adev);
-
+int axi64_free_dmac(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */

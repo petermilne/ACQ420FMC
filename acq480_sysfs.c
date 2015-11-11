@@ -109,7 +109,6 @@ static ssize_t show_train_states(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev *adev = acq400_devices[dev->id];
 	char* pb = buf;
 #define ST_APPEND(ST) pb += sprintf(pb, "%s=%d\n", #ST, ST)
 	ST_APPEND(ACQ480_RESET);

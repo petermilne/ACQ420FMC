@@ -3251,10 +3251,9 @@ void poison_all_buffers(struct acq400_dev *adev)
 	move_list_to_stash(adev, &adev->EMPTIES);
 
 	if (adev->nbuffers < AXI_BUFFER_COUNT){
-		AXI_BUFFER_COUNT = adev->nbuffers-1;
+		AXI_BUFFER_COUNT = adev->nbuffers;
 		dev_err(DEVP(adev), "WARNING: not enough buffers limit to %d",
 				adev->nbuffers);
-
 	}
 
 	mutex_lock(&adev->list_mutex);
@@ -3949,7 +3948,7 @@ static int acq400_remove(struct platform_device *pdev)
 		if (adev == 0){
 			return -1;
 		}
-
+		axi64_free_dmac(adev);
 		acq400_removeDebugfs(adev);
 		hbm_free(&pdev->dev, &adev->EMPTIES);
 		hbm_free(&pdev->dev, &adev->REFILLS);
