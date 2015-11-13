@@ -4011,6 +4011,15 @@ static int __init acq400_init(void)
 module_init(acq400_init);
 module_exit(acq400_exit);
 
+void acq400_set_peripheral_SPI_CS(unsigned csword)
+{
+	struct acq400_dev* adev = acq400_devices[0];
+
+	dev_dbg(DEVP(adev), "acq400_set_peripheral_SPI_CS() %08x\n", csword);
+	acq400wr32(adev, SPI_PERIPHERAL_CS, csword);
+}
+
+EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
 EXPORT_SYMBOL_GPL(acq400_devices);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ400_FMC Driver");

@@ -2,7 +2,8 @@
 
 echo acq420.init B1010
 
-
+echo changing loglevel to debug
+echo 9 > /proc/sys/kernel/printk
 
 BLEN=1048576
 NBUF=512

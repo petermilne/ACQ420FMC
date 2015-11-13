@@ -31,7 +31,7 @@ regfs-objs := regfs_drv.o
 
 mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o
 
-acq480-objs := acq480_drv.o hbm.o
+acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
 
 acq400t-objs := acq400t_drv.o
 

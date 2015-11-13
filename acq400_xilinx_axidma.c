@@ -134,11 +134,237 @@ static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 	return 0;
 }
 
+static void acq400_proc_seq_stop(struct seq_file *s, void *v)
+{
+}
+
+
+/*
+ * seq_files have a buffer which can may overflow. When this happens a larger
+ * buffer is reallocated and all the data will be printed again.
+ * The overflow state is true when m->count == m->size.
+ */
+static bool seq_overflow(struct seq_file *m)
+{
+	return m->count == m->size;
+}
+
+static int traverse(struct seq_file *m, loff_t offset)
+{
+	loff_t pos = 0, index;
+	int error = 0;
+	void *p;
+
+	m->version = 0;
+	index = 0;
+	m->count = m->from = 0;
+	if (!offset) {
+		m->index = index;
+		return 0;
+	}
+	if (!m->buf) {
+		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+		if (!m->buf)
+			return -ENOMEM;
+	}
+	p = m->op->start(m, &index);
+	while (p) {
+		error = PTR_ERR(p);
+		if (IS_ERR(p))
+			break;
+		error = m->op->show(m, p);
+		if (error < 0)
+			break;
+		if (unlikely(error)) {
+			error = 0;
+			m->count = 0;
+		}
+		if (seq_overflow(m))
+			goto Eoverflow;
+		if (pos + m->count > offset) {
+			m->from = offset - pos;
+			m->count -= m->from;
+			m->index = index;
+			break;
+		}
+		pos += m->count;
+		m->count = 0;
+		if (pos == offset) {
+			index++;
+			m->index = index;
+			break;
+		}
+		p = m->op->next(m, p, &index);
+	}
+	m->op->stop(m, p);
+	m->index = index;
+	return error;
+
+Eoverflow:
+	m->op->stop(m, p);
+	kfree(m->buf);
+	m->count = 0;
+	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+	return !m->buf ? -ENOMEM : -EAGAIN;
+}
+
+
+/**
+ *	seq_read -	->read() method for sequential files.
+ *	@file: the file to read from
+ *	@buf: the buffer to read to
+ *	@size: the maximum number of bytes to read
+ *	@ppos: the current position in the file
+ *
+ *	Ready-made ->f_op->read()
+ */
+ssize_t acq400_seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+{
+	struct seq_file *m = file->private_data;
+	size_t copied = 0;
+	loff_t pos;
+	size_t n;
+	void *p;
+	int err = 0;
+
+	mutex_lock(&m->lock);
+
+	/*
+	 * seq_file->op->..m_start/m_stop/m_next may do special actions
+	 * or optimisations based on the file->f_version, so we want to
+	 * pass the file->f_version to those methods.
+	 *
+	 * seq_file->version is just copy of f_version, and seq_file
+	 * methods can treat it simply as file version.
+	 * It is copied in first and copied out after all operations.
+	 * It is convenient to have it as  part of structure to avoid the
+	 * need of passing another argument to all the seq_file methods.
+	 */
+	m->version = file->f_version;
+
+	/* Don't assume *ppos is where we left it */
+	if (unlikely(*ppos != m->read_pos)) {
+		while ((err = traverse(m, *ppos)) == -EAGAIN)
+			;
+		if (err) {
+			/* With prejudice... */
+			m->read_pos = 0;
+			m->version = 0;
+			m->index = 0;
+			m->count = 0;
+			goto Done;
+		} else {
+			m->read_pos = *ppos;
+		}
+	}
+
+	/* grab buffer if we didn't have one */
+	if (!m->buf) {
+		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+		if (!m->buf)
+			goto Enomem;
+	}
+	/* if not empty - flush it first */
+	if (m->count) {
+		n = min(m->count, size);
+		err = copy_to_user(buf, m->buf + m->from, n);
+		if (err)
+			goto Efault;
+		m->count -= n;
+		m->from += n;
+		size -= n;
+		buf += n;
+		copied += n;
+		if (!m->count)
+			m->index++;
+		if (!size)
+			goto Done;
+	}
+	/* we need at least one record in buffer */
+	pos = m->index;
+	p = m->op->start(m, &pos);
+	while (1) {
+		err = PTR_ERR(p);
+		if (!p || IS_ERR(p))
+			break;
+		err = m->op->show(m, p);
+		if (err < 0)
+			break;
+		if (unlikely(err))
+			m->count = 0;
+		if (unlikely(!m->count)) {
+			p = m->op->next(m, p, &pos);
+			m->index = pos;
+			continue;
+		}
+		if (m->count < m->size)
+			goto Fill;
+		m->op->stop(m, p);
+		kfree(m->buf);
+		m->count = 0;
+		m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+		if (!m->buf)
+			goto Enomem;
+		m->version = 0;
+		pos = m->index;
+		p = m->op->start(m, &pos);
+	}
+	m->op->stop(m, p);
+	m->count = 0;
+	goto Done;
+Fill:
+	/* they want more? let's try to get some more */
+	while (m->count < size) {
+		size_t offs = m->count;
+		loff_t next = pos;
+		p = m->op->next(m, p, &next);
+		if (!p || IS_ERR(p)) {
+			err = PTR_ERR(p);
+			break;
+		}
+		err = m->op->show(m, p);
+		if (seq_overflow(m) || err) {
+			m->count = offs;
+			if (likely(err <= 0))
+				break;
+		}
+		pos = next;
+	}
+	m->op->stop(m, p);
+	n = min(m->count, size);
+	err = copy_to_user(buf, m->buf, n);
+	if (err)
+		goto Efault;
+	copied += n;
+	m->count -= n;
+	if (m->count)
+		m->from = n;
+	else
+		pos++;
+	m->index = pos;
+Done:
+	if (!copied)
+		copied = err;
+	else {
+		*ppos += copied;
+		m->read_pos += copied;
+	}
+	file->f_version = m->version;
+	mutex_unlock(&m->lock);
+	return copied;
+Enomem:
+	err = -ENOMEM;
+	goto Done;
+Efault:
+	err = -EFAULT;
+	goto Done;
+}
 static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 {
 	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
 	        .start = acq400axi_proc_seq_start,
 	        .next = acq400axi_proc_seq_next,
+	        .stop = acq400_proc_seq_stop,
 	        .show = acq400axi_proc_seq_show_descr
 	};
 
@@ -148,7 +374,7 @@ static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 static struct file_operations acq400_proc_ops_axi_descr = {
         .owner = THIS_MODULE,
         .open = acq400_proc_open_axi_descr,
-        .read = seq_read,
+        .read = acq400_seq_read,
         .llseek = seq_lseek,
         .release = seq_release
 };

@@ -748,7 +748,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
 /* scratchpad */
-
+#define SPI_PERIPHERAL_CS	(0x0050)
 
 #define DATA_ENGINE_SELECT_AGG	(1<<14)
 #define DE_ENABLE		(1<<0)

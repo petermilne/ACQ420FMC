@@ -452,7 +452,7 @@ static void __exit acq480_exit(void)
 	spi_unregister_driver(&ads5294spi_driver);
 }
 
-
+extern void acq480_hook_spi(void);
 
 static int __init acq480_init(void)
 {
@@ -465,6 +465,8 @@ static int __init acq480_init(void)
 	acq480_proc_root = proc_mkdir("driver/acq480", 0);
 
 	spi_register_driver(&ads5294spi_driver);
+
+	acq480_hook_spi();
 
 	for (n_acq480 = 0; n_acq480 < acq480_sites_count; ++n_acq480){
 		acq480_init_site(acq480_sites[n_acq480]);
