@@ -35,6 +35,15 @@ proc get_gpio1 {site addr} {
 
 set SITES ""
 
+if {! [info exists ::env(ACQ480_FIXED_TERM)] } {
+	set use_gpio 1
+} else {
+	if {$::env(ACQ480_FIXED_TERM) != 0} {
+		set use_gpio 0
+	} else {
+		set use_gpio 1
+	}
+}
 if { $::argc > 0 } {
 	set i 1
 	foreach site $::argv {
@@ -45,20 +54,22 @@ if { $::argc > 0 } {
 	} 	
 	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
 	
-	foreach site $::argv {
-	    puts "build gain knobs site:$site"
-		exec mkdir -p /dev/acq480/$site
-		link_gpio $LNAMES1 $site [get_gpio1 $site 20]
+	if {$use_gpio} {
+	    	foreach site $::argv {
+	        	puts "build gain knobs site:$site"
+			exec mkdir -p /dev/acq480/$site
+			link_gpio $LNAMES1 $site [get_gpio1 $site 20]
 			
-		for {set ic 1} {$ic <= 8} {incr ic} {
-			file delete -force /etc/acq400/$site/T50R_$ic
-			set tname [lindex $LNAMES1 [expr $ic - 1]]			
-			exec ln -s /dev/acq480/1/$tname \
-				/etc/acq400/$site/$tname
-		}	
-		set fp [open "/etc/acq400/$site/groups" a+]
-		puts $fp {T50R=T50R_[0-9]*}
-		close $fp
+			for {set ic 1} {$ic <= 8} {incr ic} {
+				file delete -force /etc/acq400/$site/T50R_$ic
+				set tname [lindex $LNAMES1 [expr $ic - 1]]			
+				exec ln -s /dev/acq480/1/$tname \
+					/etc/acq400/$site/$tname
+			}	
+			set fp [open "/etc/acq400/$site/groups" a+]
+			puts $fp {T50R=T50R_[0-9]*}
+			close $fp
+		}
 	} 
 	exec acq480_spi_mknod $SITES
 } else {
