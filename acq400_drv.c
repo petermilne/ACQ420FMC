@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.865"
+#define REVID "2.866"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -205,6 +205,10 @@ module_param(AXI_HEAD_DESCR_PA, uint, 0644);
 
 unsigned AXI_TAIL_DESCR_PA = 0;
 module_param(AXI_TAIL_DESCR_PA, uint, 0644);
+
+int AXI_POISON_OFFSET = 0;
+module_param(AXI_POISON_OFFSET, int, 0644);
+MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: locate POISON in buffer (0=END)");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -3219,15 +3223,29 @@ void init_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 		cursor[ii] = ii;
 	}
 }
-void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
+
+unsigned poison_offset(struct acq400_dev *adev)
 {
 	unsigned bufferlen = adev->bufferlen;
-	unsigned first_word = bufferlen/USZ-2;
+
+	if (likely(AXI_POISON_OFFSET == 0)){
+		return bufferlen;
+	}else{
+		if (AXI_POISON_OFFSET < 0) AXI_POISON_OFFSET = 0;
+		if (AXI_POISON_OFFSET > bufferlen) AXI_POISON_OFFSET = bufferlen;
+
+		return AXI_POISON_OFFSET;
+	}
+}
+void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
+{
+	unsigned po_bytes = poison_offset(adev);
+	unsigned first_word = po_bytes/USZ-2;
 
 	hbm->va[first_word+0] = POISON0;
 	hbm->va[first_word+1] = POISON1;
 	dma_sync_single_for_device(DEVP(adev),
-				hbm->pa + bufferlen-2*USZ, 2*USZ, hbm->dir);
+				hbm->pa + po_bytes-2*USZ, 2*USZ, hbm->dir);
 }
 
 void null_put_empty(struct acq400_dev *adev, struct HBM* hbm)
@@ -3237,10 +3255,10 @@ void null_put_empty(struct acq400_dev *adev, struct HBM* hbm)
 
 int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm)
 {
-	unsigned bufferlen = adev->bufferlen;
-	unsigned first_word = bufferlen/USZ-2;
+	unsigned po_bytes = poison_offset(adev);
+	unsigned first_word = po_bytes/USZ-2;
 
-	dma_sync_single_for_cpu(DEVP(adev), hbm->pa + bufferlen - 2*USZ, 2*USZ, hbm->dir);
+	dma_sync_single_for_cpu(DEVP(adev), hbm->pa + po_bytes - 2*USZ, 2*USZ, hbm->dir);
 	return hbm->va[first_word+0] != POISON0 ||
 	       hbm->va[first_word+1] != POISON1;
 }
