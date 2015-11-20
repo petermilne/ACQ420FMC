@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.866"
+#define REVID "2.868"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -209,6 +209,10 @@ module_param(AXI_TAIL_DESCR_PA, uint, 0644);
 int AXI_POISON_OFFSET = 0;
 module_param(AXI_POISON_OFFSET, int, 0644);
 MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: locate POISON in buffer (0=END)");
+
+int AXI_DEBUG_LOOPBACK_INDEX = 0;
+module_param(AXI_DEBUG_LOOPBACK_INDEX, int, 0644);
+MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: set non zero to skip first buffers on loopback. so that we see first time contents..");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -3246,8 +3250,20 @@ void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 	hbm->va[first_word+1] = POISON1;
 	dma_sync_single_for_device(DEVP(adev),
 				hbm->pa + po_bytes-2*USZ, 2*USZ, hbm->dir);
+
+	if (adev->rt.axi64_firstups == 0 && hbm->ix == 0){
+		dev_dbg(DEVP(adev), "poison_one_buffer() poison applied at +%d bytes", first_word*USZ);
+	}
 }
 
+void poison_one_buffer_fastidious(struct acq400_dev *adev, struct HBM* hbm)
+{
+	if (AXI_DEBUG_LOOPBACK_INDEX <= hbm->ix){
+		poison_one_buffer(adev, hbm);
+	}else{
+		dev_dbg(DEVP(adev), "poison_one_buffer_fastidious() refuse to poison %d", hbm->ix);
+	}
+}
 void null_put_empty(struct acq400_dev *adev, struct HBM* hbm)
 {
 
@@ -3339,7 +3355,7 @@ int axi64_data_loop(void* data)
 
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
-	adev->onPutEmpty = poison_one_buffer;
+	adev->onPutEmpty = poison_one_buffer_fastidious;
 	poison_all_buffers(adev);
 
 	if (AXI_CALL_HELPER){

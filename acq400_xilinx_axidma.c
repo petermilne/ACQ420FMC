@@ -379,6 +379,7 @@ static struct file_operations acq400_proc_ops_axi_descr = {
         .release = seq_release
 };
 
+extern int AXI_DEBUG_LOOPBACK_INDEX;
 static void init_descriptor_cache(struct acq400_dev *adev)
 {
 	struct ACQ400_AXIPOOL* apool = kzalloc(sizeof(struct ACQ400_AXIPOOL), GFP_KERNEL);
@@ -406,7 +407,13 @@ static void init_descriptor_cache(struct acq400_dev *adev)
 		cursor = apool->wrappers+ii;
 		cursor->va->next_desc = cursor[1].pa;
 	}
-	apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+
+	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
+		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
+		apool->wrappers[ii].va->next_desc = apool->wrappers[AXI_DEBUG_LOOPBACK_INDEX].pa;
+	}else{
+		apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+	}
 	adev->axi_private = apool;
 
 	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);

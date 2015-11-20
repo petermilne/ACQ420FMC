@@ -466,7 +466,7 @@ struct acq400_dev {
 
 	unsigned *fifo_histo;
 
-	struct RUN_TIME {
+	struct RUN_TIME {			/** stats, cleared onStart */
 		int refill_error;
 		int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
 		int please_stop;
