@@ -78,6 +78,20 @@ public:
 	}
 	friend class HelpCommand;
 	friend class MakeLinksCommand;
+
+
+	void recommendRetrain() {
+		char fname[80];
+		snprintf(fname, 80, "%s/acq480.%d.retrain_requested",
+				"/dev/shm", site);
+		FILE* fp = fopen(fname, "w");
+		if (fp != 0){
+			fputs("1", fp);
+			fclose(fp);
+		}else{
+			perror(fname);
+		}
+	}
 };
 
 struct Command {
@@ -206,6 +220,7 @@ public:
 				static_cast<Ads5294::Filter>(atoi(argv[2])),
 				argc<4? false: atoi(argv[3]));
 		if (rc != 0) die("setGain failed");
+		module.recommendRetrain();
 		return 1;
 	}
 };

@@ -3,9 +3,9 @@
 SITE=${SITE:-${1:-1}}
 
 train() {
-STF=/var/run/acq480_train
+STF=/var/run/acq480.$SITE.train
 
-source /dev/acq400.1.knobs/train_states
+source /dev/acq400.$SITE.knobs/train_states
 
 echo BUSY TRAIN starts >$STF
 set.site $SITE train=$ACQ480_RESET
@@ -31,7 +31,7 @@ fi
 set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
-echo GOOD LINK activated iteration $1 >$STF
+echo GOOD LINK activated iteration $1 at CLK $(get.site 0 SIG:CLK_S1:FREQ) >$STF
 exit 0
 }
 
@@ -49,5 +49,6 @@ else
 		acq480_train $SITE $count
 		down=$?
 	done
+	rm -f /dev/shm/acq480.$SITE.retrain_requested
 	exit 0
 fi

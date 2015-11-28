@@ -229,6 +229,10 @@ class Ads5294 {
 	void printMap(const Ads5294::MapLut& map);
 
 	int setPLL(struct PllRange range[], int Fs);
+	int _setDecimationFilter(
+			Reg& freg, bool enable, bool odd_tap,
+			FilterCoeffSelect fcs, FilterRate rate
+	);
 public:
 	struct Ads5294Regs *regs;
 

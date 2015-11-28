@@ -77,12 +77,15 @@ short* Ads5294::getCustomCoefficients(Chan chan)
 	return reinterpret_cast<short*>(&regs->regs[RA_CUSTOM_COEFF(chan, 0)]);
 }
 
-int _setDecimationFilter(
+int Ads5294::_setDecimationFilter(
 	Reg& freg, bool enable, bool odd_tap, FilterCoeffSelect fcs, FilterRate rate)
 {
+	unsigned genbit = 1<<RA_GLOBAL_EN_FILTER_EN_BIT;
 	if (enable){
+		regs->regs[Ads5294Regs::RA_GLOBAL_EN_FILTER] |= genbit;
 		freg |= (1<<RA_FILTER_ENABLE);
 	}else{
+		regs->regs[Ads5294Regs::RA_GLOBAL_EN_FILTER] &= ~genbit;
 		freg &= ~ (1<<RA_FILTER_ENABLE);
 	}
 	if (odd_tap){
