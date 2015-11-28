@@ -31,7 +31,13 @@ fi
 set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
-echo GOOD LINK activated iteration $1 at CLK $(get.site 0 SIG:CLK_S1:FREQ) >$STF
+(
+echo STATUS="GOOD LINK activated iteration $1" 
+sleep 10;
+clk="$(get.site 0 SIG:CLK_S1:FREQ)"
+echo CLK="${clk% *}"
+echo FREQ="${clk#* }"
+) >$STF &
 exit 0
 }
 
