@@ -445,6 +445,7 @@ struct acq400_dev {
 	struct list_head STASH;		/* buffers kept out of play */
 
 	struct HBM** hb;
+	struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
 	int hitide;

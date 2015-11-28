@@ -1340,6 +1340,9 @@ unsigned bank_mask_txt2int(const char* txt)
 		case 'B':	mask |= 1<<1; break;
 		case 'C':	mask |= 1<<2; break;
 		case 'D':	mask |= 1<<3; break;
+		case '\n':
+		case '\r':
+				return mask;
 		default:	return BADBANKMASK;
 		}
 	}

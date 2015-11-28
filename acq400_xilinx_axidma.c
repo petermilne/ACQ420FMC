@@ -400,7 +400,7 @@ static void init_descriptor_cache(struct acq400_dev *adev)
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
-		cursor->va->buf_addr = adev->hb[ii]->pa;
+		cursor->va->buf_addr = adev->axi64_hb[ii]->pa;
 		cursor->va->control = bufferlen;
 	}
 	for (ii = 0; ii < apool->ndescriptors-1; ++ii){

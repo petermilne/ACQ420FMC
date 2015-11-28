@@ -206,36 +206,51 @@ void move_list_to_empty(struct acq400_dev *adev, struct list_head* elist)
 	}
 	mutex_unlock(&adev->list_mutex);
 }
-void move_list_to_stash(struct acq400_dev *adev, struct list_head* elist)
+/** return number of available buffers. ALWAYS OMIT #0 */
+int move_list_to_stash(struct acq400_dev *adev, struct list_head* elist)
 {
 	struct HBM *cur;
 	struct HBM *tmp;
+	int usable_buffers = 0;
 	mutex_lock(&adev->list_mutex);
 	list_for_each_entry_safe(cur, tmp, elist, list){
 		cur->bstate = BS_EMPTY;
+		if (cur->ix != 0){
+			++usable_buffers;
+		}
 		list_move_tail(&cur->list, &adev->STASH);
 	}
 	mutex_unlock(&adev->list_mutex);
+	return usable_buffers;
 }
 
-int reserve(struct acq400_path_descriptor* pd, int ibuf)
+static int _reserve(struct acq400_path_descriptor* pd, int ibuf, struct list_head* list)
 {
 	struct acq400_dev *adev = pd->dev;
 	struct HBM *cur;
 	struct HBM *tmp;
-	int rc = -1;
 
-	dev_dbg(DEVP(adev), "reserve 01");
-	mutex_lock(&adev->list_mutex);
-	list_for_each_entry_safe(cur, tmp, &adev->EMPTIES, list){
+	list_for_each_entry_safe(cur, tmp, list, list){
 		dev_dbg(DEVP(adev), "consider ix %d\n", cur->ix);
 		if (cur->ix == ibuf){
 			cur->bstate = BS_RESERVED;
 			list_move_tail(&cur->list, &pd->RESERVED);
 			dev_dbg(DEVP(adev), "reserve %d", cur->ix);
-			rc = 0;
-			break;
+			return 0;
 		}
+	}
+	return -1;
+}
+int reserve(struct acq400_path_descriptor* pd, int ibuf)
+{
+	struct acq400_dev *adev = pd->dev;
+	int rc = -1;
+
+	dev_dbg(DEVP(adev), "reserve 01");
+	mutex_lock(&adev->list_mutex);
+	rc = _reserve(pd, ibuf, &adev->STASH);
+	if (rc != 0){
+		rc = _reserve(pd, ibuf, &adev->EMPTIES);
 	}
 	mutex_unlock(&adev->list_mutex);
 	dev_dbg(DEVP(adev), "reserve 99");

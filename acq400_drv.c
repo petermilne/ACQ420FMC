@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.868"
+#define REVID "2.872"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3215,6 +3215,9 @@ int check_fifo_statuses(struct acq400_dev *adev)
 #define POISON0 0xc0de0000
 #define POISON1 0xc1de0000
 
+#define POISONA 0xdeadbeef
+#define POISONB 0xfeedc0de
+
 #define USZ	sizeof(u32)
 
 void init_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
@@ -3246,10 +3249,12 @@ void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 	unsigned po_bytes = poison_offset(adev);
 	unsigned first_word = po_bytes/USZ-2;
 
+	hbm->va[first_word-2] = POISONA;
+	hbm->va[first_word-1] = POISONB;
 	hbm->va[first_word+0] = POISON0;
 	hbm->va[first_word+1] = POISON1;
 	dma_sync_single_for_device(DEVP(adev),
-				hbm->pa + po_bytes-2*USZ, 2*USZ, hbm->dir);
+				hbm->pa + po_bytes-4*USZ, 4*USZ, hbm->dir);
 
 	if (adev->rt.axi64_firstups == 0 && hbm->ix == 0){
 		dev_dbg(DEVP(adev), "poison_one_buffer() poison applied at +%d bytes", first_word*USZ);
@@ -3273,26 +3278,38 @@ int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm)
 {
 	unsigned po_bytes = poison_offset(adev);
 	unsigned first_word = po_bytes/USZ-2;
+	int over1;
+	int over2;
 
-	dma_sync_single_for_cpu(DEVP(adev), hbm->pa + po_bytes - 2*USZ, 2*USZ, hbm->dir);
-	return hbm->va[first_word+0] != POISON0 ||
-	       hbm->va[first_word+1] != POISON1;
+	dma_sync_single_for_cpu(DEVP(adev), hbm->pa + po_bytes - 4*USZ, 4*USZ, hbm->dir);
+
+	over1 = hbm->va[first_word-2] != POISONA &&
+		hbm->va[first_word-1] != POISONB;
+	over2 = hbm->va[first_word+0] != POISON0 &&
+		hbm->va[first_word+1] != POISON1;
+
+	if (hbm == adev->axi64_hb[0] && over1 != over2){
+		dev_warn(DEVP(adev), "Partial Poison overwrite: %08x %08x %08x %08x",
+				hbm->va[first_word-2], hbm->va[first_word-1],
+				hbm->va[first_word+0], hbm->va[first_word+1]);
+	}
+	return over1 && over2;
 }
 
 void poison_all_buffers(struct acq400_dev *adev)
 {
 	int ii;
-	move_list_to_stash(adev, &adev->EMPTIES);
+	int nbuffers = move_list_to_stash(adev, &adev->EMPTIES);
 
-	if (adev->nbuffers < AXI_BUFFER_COUNT){
-		AXI_BUFFER_COUNT = adev->nbuffers;
-		dev_err(DEVP(adev), "WARNING: not enough buffers limit to %d",
-				adev->nbuffers);
+	if (nbuffers < AXI_BUFFER_COUNT){
+		AXI_BUFFER_COUNT = nbuffers;
+		dev_warn(DEVP(adev),
+			".. not enough buffers limit to %d", nbuffers);
 	}
 
 	mutex_lock(&adev->list_mutex);
-	for (ii = 0; ii < AXI_BUFFER_COUNT; ++ii){
-		struct HBM* hbm = adev->hb[ii];
+	for (ii = 0; ii < nbuffers; ++ii){
+		struct HBM* hbm = adev->axi64_hb[ii];
 		if (AXI_INIT_BUFFERS){
 			init_one_buffer(adev, hbm);
 		}
@@ -3327,11 +3344,11 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 	// todo could check an interrupt status ..0
 	int rc = poison_overwritten(adev, hbm);
 
-	if (hbm->ix == 0){
+	if (hbm == adev->axi64_hb[0]){
 		static int last = -1;
 		static unsigned count;
 
-		if (!rc && poison_overwritten(adev, adev->hb[1])){
+		if (!rc && poison_overwritten(adev, adev->axi64_hb[1])){
 			dev_warn(DEVP(adev), "dma_done hbm1 complete, hbm0 not done! .. faking it");
 			return 1;
 		}
@@ -3796,6 +3813,7 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 		adev->bufferlen = bl;
+		adev->axi64_hb = adev->hb+1;
 		return 0;
 	}
 }
