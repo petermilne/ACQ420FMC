@@ -4,6 +4,27 @@ SITE=${SITE:-${1:-1}}
 STF=/var/run/acq480.$SITE.train
 SUB_PID=/var/run/acq480_train_sub.$SITE.pid
 
+report_success() {
+	a480_clk=SIG:CLK_S$SITE:FREQ
+	retry=0
+	(
+	echo A480_STATUS=OK
+	echo A480_INFO=\"GOOD LINK activated iteration $1\"
+	) >$STF 
+	
+	while [ $retry -lt 10 ]; do
+		clk="$(get.site 0 $a480_clk)"
+		(
+		[ $retry -eq 0 ] && echo A480_CLK=$a480_clk 
+		echo A480_FREQ=${clk#* }	
+		) >> $STF
+		sleep 1
+		let retry=$retry+1
+	done
+
+	rm $SUB_PID
+}
+
 train() {
 source /dev/acq400.$SITE.knobs/train_states
 
@@ -31,15 +52,7 @@ fi
 set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
-(
-echo A480_STATUS=OK
-echo A480_INFO=\"GOOD LINK activated iteration $1\" 
-sleep 10;
-clk="$(get.site 0 SIG:CLK_S$SITE:FREQ)"
-echo A480_CLK=\"${clk% *}\"
-echo A480_FREQ=${clk#* }
-rm $SUB_PID
-) >$STF & echo $! > $SUB_PID
+report_success & echo $! > $SUB_PID
 exit 0
 }
 
