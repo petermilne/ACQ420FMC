@@ -1,10 +1,9 @@
 #!/bin/sh
 
 SITE=${SITE:-${1:-1}}
-
-train() {
 STF=/var/run/acq480.$SITE.train
 
+train() {
 source /dev/acq400.$SITE.knobs/train_states
 
 echo BUSY TRAIN starts >$STF
@@ -32,11 +31,12 @@ set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
 (
-echo STATUS="GOOD LINK activated iteration $1" 
+echo A480_STATUS=OK
+echo A480_INFO=\"GOOD LINK activated iteration $1\" 
 sleep 10;
 clk="$(get.site 0 SIG:CLK_S1:FREQ)"
-echo CLK="${clk% *}"
-echo FREQ="${clk#* }"
+echo A480_CLK=\"${clk% *}\"
+echo A480_FREQ=${clk#* }
 ) >$STF &
 exit 0
 }
@@ -48,8 +48,11 @@ else
 	let count=0
 	while [ $down -ne 0 ]; do
 		let count=$count+1
-		if [ $count -gt 20 ]; then
-			echo ERROR: failed to train in 20 attempts
+		if [ $count -gt 10 ]; then
+			( 
+				echo A480_STATUS=FAIL
+				echo A480_INFO=\"ERROR: failed to train in $count attempts\"
+			) > $STF
 			exit 1
 		fi
 		acq480_train $SITE $count
