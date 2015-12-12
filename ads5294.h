@@ -128,7 +128,7 @@ struct Ads5294Regs {
 
 #define RA_GAIN_CH_MASK		0xf
 #define RA_GAIN_14_CH(n)	(4*(n-1))		/* n = 1..4 */
-#define RA_GAIN_58_CH(n)	(4*(n-5))		/* n = 5..8 */
+#define RA_GAIN_58_CH(n)	(4*(8-n))		/* n = 5..8 */
 
 #define RA_AVG_MASK		0x3
 #define RA_AVG_14(n)		(3*(n-1))		/* n = 1..4 */
