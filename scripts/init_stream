@@ -18,9 +18,10 @@ init_stream() {
 	if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
 		source /etc/sysconfig/acq400_streamd.conf
 	fi
-	if [ -e /etc/sysconfig/acq400_streamd.$SITE.conf ]; then
-		source /etc/sysconfig/acq400_streamd.$SITE.conf 
-	fi
+	for file in /etc/sysconfig/acq400_streamd.$SITE.conf* 
+	do
+		[ -e $file ] && source $file 
+	done
 
 	site_init=/etc/sysconfig/acq400_streamd.$SITE.init
 	
