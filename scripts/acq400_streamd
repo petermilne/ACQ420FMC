@@ -17,11 +17,7 @@ if [ "x$ACQ400D_TRIG" = "xsoft_trigger" ]; then
 	STREAM_OPTS="$STREAM_OPTS --soft-trigger=1"	
 fi
 
-if [ -e /mnt/local/acq400_stream ]; then
-	ACQ400_STREAM=/mnt/local/acq400_stream
-else
-	ACQ400_STREAM=acq400_stream
-fi
+ACQ400_STREAM=acq400_stream
 
 echo $ACQ400_STREAM --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE  >>$LOG
 $ACQ400_STREAM --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE 2>/dev/null
