@@ -26,7 +26,25 @@ ln -s $DROOT/dynamic_debug/control /dev/ddc
 source /tmp/u-boot_env
 MODEL=${devicetree_image%*.dtb}; MODEL=${MODEL#*/}
 
+if [ "x$MODEL" = "x" ]; then
+	HN=$(hostname)
+	MODEL=${HN%_*}
+fi
+
 SN=${dtsn}
+
+get_bus_speed() {
+	bs=0x00000000
+	while [ "$bs" = "0x00000000" ]; do
+		bs=$(cat /sys/kernel/debug/acq400/acq400.0/GPG_DEBUG.*)
+	done
+	case $bs in
+	0x270*)		echo 100;;
+	0x2b6*)		echo 111;;
+	0x20d*)		echo 125;;
+	*)			echo WARNING unknown bus speed $bs";;
+	esac
+}
 
 build_hb_node() {
 	nn=$(printf "$3" $2)
@@ -404,12 +422,36 @@ build_knobs() {
 		#		BLEN=4194304
 		#		NBUF=128
 	fi	
-	if [ "x${ACQ480_SITES}" != "x" ]; then
+	if [ "x${ACQ480_SITES}" != "x" ]; then		
+		case $MODEL in
+		acq1*)
+			bs=$(get_bus_speed)
+			if [ "$bs" = "111" ]; then
+				echo "ACQ1001 + ACQ480 : BUS SPEED $bs : OK"
+			else
+				echo "ERROR ACQ1001 + ACQ480 : BUS SPEED $bs check BOOT.bin"
+			fi;;
+		acq21*)
+			echo "ACQ2106 + ACQ480 : OK";;
+		zc706*)
+			echo "ZC706 + ACQ480 : OK";;
+		*)
+			echo "ERROR: ACQ480 found, but not compatible with BASE $MODEL"
+			exit 1;;
+		esac
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 		for site in ${ACQ480_SITES}; do
 			(export SITE=$site; 
 			acq480_set_mapping; acq480_knobs setDataPattern 0x8404)			
 		done
+	else
+		case $MODEL in
+		acq1*)
+			bs=$(get_bus_speed)
+			if [ "$bs" = "111" ]; then
+				echo "WARNING ACQ1001 non ACQ480 : BUS SPEED $bs check BOOT.bin"
+			fi;;
+		esac
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
 		echo ACQ400T : "calling /usr/local/bin/acq400t.init ${ACQ400T_SITES}"
