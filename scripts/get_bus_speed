@@ -1,0 +1,19 @@
+#!/bin/sh
+get_bus_speed() {                             
+        bs=0x00000000                        
+        let pc=0                           
+        while [ "$bs" = "0x00000000" -a $pc -lt 5 ]; do
+                bs=$(cat /sys/kernel/debug/acq400/acq400.0/GPG_DEBUG.*)
+                let pc=$pc+1                                           
+        done                                      
+        case $bs in         
+        0x270*)         echo 100;;
+        0x2b6*)         echo 111;;
+        0x20d*)         echo 125;;
+        0x000*)         echo "FPGA with no bus speed indicator";;
+        *)              echo "Unknown bus speed $bs";;   
+        esac                                                  
+}                    
+
+get_bus_speed
+
