@@ -36,7 +36,7 @@ SN=${dtsn}
 get_bus_speed() {
 	bs=0x00000000
 	let pc=0
-	while [ "$bs" = "0x00000000" -a $pc lt 5 ]; do
+	while [ "$bs" = "0x00000000" -a $pc -lt 5 ]; do
 		bs=$(cat /sys/kernel/debug/acq400/acq400.0/GPG_DEBUG.*)
 		let pc=$pc+1
 	done
