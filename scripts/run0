@@ -31,23 +31,35 @@ rm -f /etc/acq400/0/run0_ready
 acq400_teardown
 
 let nchan=0
-
+d32=""
+ositelist=$sitelist
+sitelist=""
+sep=""
 
 for site in $sites
 do
+	s_root=/etc/acq400/$site
 	wpc=1
-	if [ "x$d32" = "x" ]; then
-		d32=$(cat /etc/acq400/$site/data32)
-	else
-		site_d32=$(cat /etc/acq400/$site/data32)
-		if [ $d32 -ne $site_d32 ];then
-			echo WARNING: mixed data size
-			if [ $site_d32 -ne 0 ]; then 
-				wpc=2
+
+	if [ -e ${s_root}/data32 ]; then
+		site_d32=$(cat ${s_root}/data32)
+		active_chan=$(cat ${s_root}/active_chan)
+		if [ "x$d32" = "x" ]; then
+			d32=$site_d32
+		else
+			if [ $d32 -ne $site_d32 ]; then
+				echo WARNING: mixed data size
+				if [ $site_d32 -ne 0 ]; then 
+					wpc=2
+				fi
 			fi
 		fi
+		let nchan="${nchan}+${active_chan}*${wpc}"
+		sitelist="${sitelist}${sep}${site}"
+		sep=","
+	else
+		echo "ERROR: site $site does not exist"
 	fi
-	let nchan="${nchan}+$(cat /etc/acq400/$site/active_chan)*$wpc"
 done
 
 # channels per word
