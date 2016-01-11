@@ -34,7 +34,7 @@ fi
 SN=${dtsn}
 
 is_adc() {
-	sn=$(cat /etc/acq400/$1/SERIAL}
+	sn=$(cat /etc/acq400/$1/SERIAL)
 	snt=${sn%????}
 	echo ${sn#????}
 }
