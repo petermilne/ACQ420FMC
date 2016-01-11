@@ -10,6 +10,8 @@ NBUF=512
 
 DROOT=/sys/kernel/debug
 
+SYSCONF=/mnt/local/sysconfig
+
 if [ -e /mnt/local/acq400_stream ]; then
 	echo override from /mnt/local/acq400_stream
 	cp /mnt/local/acq400_stream /usr/local/bin
@@ -131,12 +133,11 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
-	if [ "x$ANATRG" = "xy" ] then
-		[ $(is_adc $site) -ne 0 ] && /usr/local/init/anatrg.init ${site}
-	fi
-	if [ -e /mnt/local/sysconfig/site-${site}-peers ]; then
-			cp /mnt/local/sysconfig/site-${site}-peers /etc/acq400/${site}/peers
-	fi
+	[ "x$ANATRG" = "xy" ] && [ $(is_adc $site) -ne 0 ] && \
+		/usr/local/init/anatrg.init ${site}
+
+	[ -e ${SYSCONF}/site-${site}-peers ] && \
+		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
 }
 
 
