@@ -36,7 +36,7 @@ SN=${dtsn}
 is_adc() {
 	sn=$(cat /etc/acq400/$1/SERIAL)
 	snt=${sn%????}
-	echo ${sn#????}
+	echo ${snt#????}
 }
 
 build_hb_node() {
