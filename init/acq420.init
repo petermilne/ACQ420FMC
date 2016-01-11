@@ -37,8 +37,14 @@ SN=${dtsn}
 
 is_adc() {
 	sn=$(cat /etc/acq400/$1/SERIAL)
-	snt=${sn%????}
-	echo ${snt#????}
+	elf=${sn#???????}
+	case $elf in
+	E|F)
+		snt=${sn%????}
+		echo ${snt#????};;
+	*)
+		echo 0;;
+	esac
 }
 
 build_hb_node() {
