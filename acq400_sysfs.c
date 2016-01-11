@@ -3718,6 +3718,8 @@ void acq400_createSysfs(struct device *dev)
 
 	if (IS_DUMMY(adev)){
 		return;
+	}else if (IS_V2F(adev)){
+		specials = sysfs_v2f_attrs;
 	}else if IS_ACQx00xSC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
 			dev_err(dev, "failed to create sysfs");
@@ -3761,8 +3763,6 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
 			specials = acq480_attrs;
-		}else if (IS_V2F(adev)){
-			specials = sysfs_v2f_attrs;
 		}else{
 			return;
 		}
