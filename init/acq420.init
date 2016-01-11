@@ -33,6 +33,11 @@ fi
 
 SN=${dtsn}
 
+is_adc() {
+	sn=$(cat /etc/acq400/$1/SERIAL}
+	snt=${sn%????}
+	echo ${sn#????}
+}
 
 build_hb_node() {
 	nn=$(printf "$3" $2)
@@ -126,7 +131,9 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
-	[ "x$ANATRG" = "xy" ] && /usr/local/init/anatrg.init ${site}
+	if [ "x$ANATRG" = "xy" ] then
+		[ $(is_adc $site) -ne 0 ] && /usr/local/init/anatrg.init ${site}
+	fi
 	if [ -e /mnt/local/sysconfig/site-${site}-peers ]; then
 			cp /mnt/local/sysconfig/site-${site}-peers /etc/acq400/${site}/peers
 	fi
