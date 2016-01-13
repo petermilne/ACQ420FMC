@@ -74,17 +74,21 @@ struct poptOption opt_table[] = {
 
 #define ALL_CHANNELS 0
 
-unsigned clamp(int x)
+unsigned clp(int x)
 {
 	if (x > 127) x = 127;
 	if (x < -128) x = -128;
 
 	return x & 0x00ff;
 }
+
+
 unsigned ABCD(int a, int b, int c, int d)
 {
-	return clamp(a) << 24 | clamp(b) << 16 |
-			clamp(c) << 8 | clamp(d);
+//	return clp(a) << 24 | clp(b) << 16 | clp(c) << 8 | clp(d);	// F OK, but wrong edge R~
+	return clp(c) << 24 | clp(d) << 16 | clp(a) << 8 | clp(b);	// F**   R*~
+// DNW	return clp(c) << 24 | clp(d) << 16 | clp(b) << 8 | clp(a);	// X X
+// DNW	return clp(d) << 24 | clp(c) << 16 | clp(b) << 8 | clp(a);      // X X
 }
 
 #define DISABLE_HI	127
