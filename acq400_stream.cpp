@@ -2099,6 +2099,7 @@ void StreamHeadHB0::stream() {
 class StreamHeadLivePP : public StreamHeadHB0 {
 	int pre;
 	int post;
+	char *sweep;			/* data swept to this point */
 	const int sample_size;
 
 	int prelen() { return pre*sample_size; }
@@ -2144,7 +2145,8 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		return 0;
 	}
 public:
-	StreamHeadLivePP(): pre(0), post(4096),
+	StreamHeadLivePP():
+			pre(0), post(4096), sweep(0),
 			sample_size(G::nchan*G::wordsize) {
 		fprintf(stderr, "StreamHeadLivePP()\n");
 		startEventWatcher();
@@ -2201,11 +2203,15 @@ void StreamHeadLivePP::stream() {
 		char* es;
 
 		if (!findEvent(&ibuf, &es)){
-			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 39\n");
+			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 390\n");
 			continue;	// silently drop it. there will be more
 		}else if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
 			// only data in this buffer is guaranteed to be there .. drop it
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
+			continue;
+		}else if (sweep != 0 && es-postlen() < sweep){
+			// is is in the region we swept last time .. ignore it
+			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 398\n");
 			continue;
 		}
 		fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n",
@@ -2236,7 +2242,9 @@ void StreamHeadLivePP::stream() {
 				if (verbose) fprintf(stderr,
 					"StreamHeadLivePP::stream() 57 escount:%d\n", escount);
 			}
+			usleep(post*100);	/* assume min SR=10kHz, ensure data has arrived before read .. */
 			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
+			sweep = es1 + postlen()+eslen;
 		}
 		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 69\n");
 	}
