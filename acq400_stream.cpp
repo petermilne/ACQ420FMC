@@ -2134,6 +2134,9 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		return getPP(&pre, &post);
 	}
 
+	void waitPost() {
+		usleep(post*100);	/* assume min SR=10kHz, ensure data has arrived before read .. */
+	}
 	static bool event0_enabled(int site){
 		char event_line[80];
 		if (getKnob(site, "event0", event_line) == 1){
@@ -2242,7 +2245,7 @@ void StreamHeadLivePP::stream() {
 				if (verbose) fprintf(stderr,
 					"StreamHeadLivePP::stream() 57 escount:%d\n", escount);
 			}
-			usleep(post*100);	/* assume min SR=10kHz, ensure data has arrived before read .. */
+			waitPost();
 			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
 			sweep = es1 + postlen()+eslen;
 		}
