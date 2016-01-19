@@ -85,10 +85,12 @@ unsigned clp(int x)
 
 unsigned ABCD(int a, int b, int c, int d)
 {
-//	return clp(a) << 24 | clp(b) << 16 | clp(c) << 8 | clp(d);	// F OK, but wrong edge R~
-	return clp(c) << 24 | clp(d) << 16 | clp(a) << 8 | clp(b);	// F**   R*~
-// DNW	return clp(c) << 24 | clp(d) << 16 | clp(b) << 8 | clp(a);	// X X
-// DNW	return clp(d) << 24 | clp(c) << 16 | clp(b) << 8 | clp(a);      // X X
+	return clp(a) << 24 | clp(b) << 16 | clp(c) << 8 | clp(d);
+}
+
+unsigned CDAB(int a, int b, int c, int d)
+{
+	return clp(c) << 24 | clp(d) << 16 | clp(a) << 8 | clp(b);
 }
 
 #define DISABLE_HI	127
@@ -211,10 +213,8 @@ struct RisingCommand: public Command {
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
 
-		p2 = p1 - G::hysteresis;
-
-		abcd = ABCD(p1, p2, DISABLE_HI, DISABLE_LO);
-		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
+		abcd = CDAB(p1, p1 - G::hysteresis, DISABLE_HI, DISABLE_LO);
+		if (G::verbose) printf("%s %d %d CDAB: 0x%08x\n", key, p1, p2, abcd);
 
 		return abcd;
 	}
@@ -225,9 +225,8 @@ struct FallingCommand: public Command {
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
 
-		p2 = p1 - G::hysteresis;
-		abcd = ABCD(DISABLE_HI, DISABLE_LO, p1, p2);
-		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
+		abcd = CDAB(DISABLE_HI, DISABLE_LO, p1 + G::hysteresis, p1);
+		if (G::verbose) printf("%s %d %d CDAB: 0x%08x\n", key, p1, p2, abcd);
 
 		return abcd;
 	}
@@ -238,8 +237,8 @@ struct InsideCommand: public Command {
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
 
-		abcd = ABCD(p1, p1 - G::hysteresis, p2, p2 - G::hysteresis);
-		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
+		abcd = ABCD(p1, p1 - G::hysteresis, p2 + G::hysteresis, p2);
+		if (G::verbose) printf("%s %d %d ABCD: 0x%08x\n", key, p1, p2, abcd);
 		return abcd;
 	}
 };
@@ -248,8 +247,8 @@ struct OutsideCommand: public Command {
 	OutsideCommand() : Command("outside") {}
 	virtual unsigned operator() (int p1, int p2) {
 		unsigned abcd;
-		abcd = ABCD(p2, p2 - G::hysteresis, p1, p1 - G::hysteresis);
-		if (G::verbose) printf("%s %d %d abcd: 0x%08x\n", key, p1, p2, abcd);
+		abcd = ABCD(p1, p2 - G::hysteresis, p1 + G::hysteresis, p2);
+		if (G::verbose) printf("%s %d %d ABCD: 0x%08x\n", key, p1, p2, abcd);
 		return abcd;
 	}
 };
