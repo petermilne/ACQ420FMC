@@ -2101,9 +2101,13 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	int post;
 	char *sweep;			/* data swept to this point */
 	const int sample_size;
+	int* sample_interval_usecs;
 
 	int prelen() { return pre*sample_size; }
 	int postlen() { return post*sample_size; }
+
+	void getSampleInterval();
+	void startSampleIntervalWatcher();
 
 	static bool getPram(const char* pf, int* pram)
 	{
@@ -2135,7 +2139,13 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	}
 
 	void waitPost() {
-		usleep(post*100);	/* assume min SR=10kHz, ensure data has arrived before read .. */
+		int siu = 100;	/* assume min SR=10kHz, ensure data has arrived before read .. */
+		if (sample_interval_usecs){
+			siu = *sample_interval_usecs;
+		}
+		if (siu < 1000000){	/* Live PP should never sleep > 1s */
+			usleep(post*siu);
+		}
 	}
 	static bool event0_enabled(int site){
 		char event_line[80];
@@ -2153,6 +2163,7 @@ public:
 			sample_size(G::nchan*G::wordsize) {
 		fprintf(stderr, "StreamHeadLivePP()\n");
 		startEventWatcher();
+		startSampleIntervalWatcher();
 
 		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
 				Buffer::the_buffers[0]->getBase());
@@ -2172,6 +2183,47 @@ bool StreamHead::has_pre_post_live_demux(void) {
 	return StreamHeadLivePP::hasPP();
 }
 
+void StreamHeadLivePP::getSampleInterval()
+{
+
+	FILE *pp = popen("get.site 1 SIG:sample_count:FREQ", "r");
+
+	int freq;
+	if (fscanf(pp, "SIG:sample_count:FREQ %d", &freq) == 1 && freq > 0){
+		int siu = 1000000/freq;
+		if (siu != *sample_interval_usecs){
+			if (abs(siu - *sample_interval_usecs) > 5){
+				syslog(LOG_DEBUG, "SI change %d -> %d\n",
+						*sample_interval_usecs, siu);
+				*sample_interval_usecs = siu;
+			}
+		}
+	}
+	pclose(pp);
+}
+void StreamHeadLivePP::startSampleIntervalWatcher() {
+	int rc = shmget(0xdeadbeee, sizeof(int), IPC_CREAT|0666);
+	if (rc == -1){
+		perror("shmget()");
+		exit(1);
+	}else{
+		void *shm = shmat(rc, 0, 0);
+		if (shm == (void*)-1){
+			perror("shmat()");
+			exit(1);
+		}else{
+			sample_interval_usecs = (int*)shm;
+			*sample_interval_usecs = 100;
+
+			if (fork() == 0){
+				while (1){
+					sleep(1);
+					getSampleInterval();
+				}
+			}
+		}
+	}
+}
 void StreamHeadLivePP::stream() {
 	int rc;
 	int icat = 0;
