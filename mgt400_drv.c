@@ -222,12 +222,6 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
         		dev_warn(DEVP(mdev), "error: sn NOT specified in DT\n");
         		        		return -1;
         	}else{
-        		if (strcmp(MODEL, "kmcu") == 0){
-        			if (mdev->of_prams.sn > 0){
-        				dev_warn(DEVP(mdev), "Hack alert: max SFP=1");
-        				return -1;
-        			}
-        		}
         		snprintf(mdev->devname, 16, "mgt400.%c",
         				mdev->of_prams.sn+'A');
         	}
