@@ -2772,12 +2772,91 @@ static const struct attribute *dio432_attrs[] = {
 MAKE_BITS(atd_triggered, ATD_TRIGGERED, 0, 0xffffffff);
 MAKE_BITS(atd_OR, 	 ATD_MASK_OR,   0, 0xffffffff);
 MAKE_BITS(atd_AND, 	 ATD_MASK_AND,  0, 0xffffffff);
+MAKE_BITS(dtd_ZN, 	 DTD_CTRL,  	0, DTD_CTRL_ZN);
+MAKE_BITS(dtd_CLR,       DTD_CTRL,  	0, DTD_CTRL_CLR);
 
 
 static const struct attribute *atd_attrs[] = {
 	&dev_attr_atd_triggered.attr,
 	&dev_attr_atd_OR.attr,
 	&dev_attr_atd_AND.attr,
+	NULL
+};
+
+
+static ssize_t store_DELTRGN(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int ix)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int threshold;
+	if (sscanf(buf, "%d", &threshold) == 1){
+		return acq400_setDelTrg(adev, ix, threshold) == 0? count: -1;
+	}
+	return -1;
+}
+
+static ssize_t show_DELTRGN(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int ix)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int threshold;
+	if (acq400_getDelTrg(adev, ix, &threshold) == 0){
+		return sprintf(buf, "%d\n", threshold);
+	}else{
+		return -1;
+	}
+	return 0;
+}
+
+#define MAKE_DELTRG(IXO, IX)						\
+static ssize_t show_DELTRG##IXO(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_DELTRGN(dev, attr, buf, IX-1);			\
+}									\
+									\
+static ssize_t store_DELTRG##IXO(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_DELTRGN(dev, attr, buf, count, IX-1);		\
+}									\
+static DEVICE_ATTR(deltrg_##IXO, S_IRUGO|S_IWUGO, 			\
+		show_DELTRG##IXO, store_DELTRG##IXO)
+
+
+MAKE_DELTRG(01, 1);
+MAKE_DELTRG(02, 2);
+MAKE_DELTRG(03, 3);
+MAKE_DELTRG(04, 4);
+MAKE_DELTRG(05, 5);
+MAKE_DELTRG(06, 6);
+MAKE_DELTRG(07, 7);
+MAKE_DELTRG(08, 8);
+
+
+static const struct attribute *dtd_attrs[] = {
+	&dev_attr_deltrg_01.attr,
+	&dev_attr_deltrg_02.attr,
+	&dev_attr_deltrg_03.attr,
+	&dev_attr_deltrg_04.attr,
+	&dev_attr_deltrg_05.attr,
+	&dev_attr_deltrg_06.attr,
+	&dev_attr_deltrg_07.attr,
+	&dev_attr_deltrg_08.attr,
+	&dev_attr_dtd_ZN.attr,
+	&dev_attr_dtd_CLR.attr,
 	NULL
 };
 static ssize_t show_ACQ400T_out(
@@ -3743,6 +3822,12 @@ void acq400_createSysfs(struct device *dev)
 			if (sysfs_create_files(&dev->kobj, atd_attrs)){
 				dev_err(dev, "failed to create atd sysfs");
 			}
+		}
+		if (HAS_DTD(adev)){
+			if (sysfs_create_files(&dev->kobj, dtd_attrs)){
+				dev_err(dev, "failed to create dtd sysfs");
+			}
+			acq400_clearDelTrg(adev);
 		}
 
 		if (IS_ACQ424(adev)){

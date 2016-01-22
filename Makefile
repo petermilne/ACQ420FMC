@@ -24,7 +24,7 @@ acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	acq400_debugfs.o acq400_sysfs.o acq400_lists.o \
 	acq400_proc.o hbm.o zynq-timer.o \
 	bolo8_core.o dio432_drv.o  ao424_drv.o acq400_sewfifo.o \
-	acq480_sysfs.o acq400_xilinx_axidma.o
+	acq480_sysfs.o acq400_xilinx_axidma.o acq400_deltrg.o
 	
 regfs-objs := regfs_drv.o
 	

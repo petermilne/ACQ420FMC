@@ -102,6 +102,9 @@
 #define ATD_MASK_AND		(ADC_BASE+0x64)
 #define ATD_MASK_OR		(ADC_BASE+0x68)
 
+#define DTD_CTRL		(ADC_BASE+0x64)
+
+
 /* AO420 CH MAC GAIN and offset control */
 
 #define DAC_MATH_BASE		(ADC_BASE+0x80)
@@ -283,6 +286,11 @@
 /* AO420FMC */
 
 #define DAC_FIFO_SAMPLES_MASK	0x0000ffff
+
+
+
+#define DTD_CTRL_ZN		0x0000000f
+#define DTD_CTRL_CLR		0x00000010
 
 /*
  *  Minor encoding
@@ -707,7 +715,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
 
 
-#define HAS_ATD(adev)	(IS_ACQ430(adev))
+#define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
+#define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
@@ -1149,4 +1158,9 @@ static inline int getSHL(unsigned mask)
 
 int axi64_load_dmac(struct acq400_dev *adev);
 int axi64_free_dmac(struct acq400_dev *adev);
+
+int acq400_setDelTrg(struct acq400_dev *adev, int ch, int threshold);
+int acq400_getDelTrg(struct acq400_dev *adev, int ch, int *threshold);
+int acq400_clearDelTrg(struct acq400_dev *adev);
+int acq400_clearDelTrgEvent(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */
