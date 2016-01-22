@@ -45,7 +45,7 @@ int acq400_setDelTrg(struct acq400_dev *adev, int ch, int threshold)
 	}
 	wval = A; wval <<= 16; wval |= ((unsigned)B) &0x0000ffff;
 
-	dev_info(DEVP(adev), "acq400_setDelTrg %d %08x = %08x",
+	dev_dbg(DEVP(adev), "acq400_setDelTrg %d %08x = %08x",
 						ch, ATD_OFFSET(ch), wval);
 	acq400wr32(adev, ATD_OFFSET(ch), wval);
 	return 0;
@@ -72,7 +72,7 @@ int acq400_getDelTrg(struct acq400_dev *adev, int ch, int *threshold)
 int acq400_clearDelTrg(struct acq400_dev *adev)
 {
 	int ch;
-	dev_info(DEVP(adev), "acq400_clearDelTrg(%d) ", adev->nchan_enabled);
+	dev_dbg(DEVP(adev), "acq400_clearDelTrg(%d) ", adev->nchan_enabled);
 
 	for (ch = 0; ch < adev->nchan_enabled; ++ch){
 		acq400_setDelTrg(adev, ch, 0);
