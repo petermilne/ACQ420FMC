@@ -77,6 +77,7 @@ int acq400_clearDelTrg(struct acq400_dev *adev)
 	for (ch = 0; ch < adev->nchan_enabled; ++ch){
 		acq400_setDelTrg(adev, ch, 0);
 	}
+	acq400wr32(adev, DTD_CTRL, 1);
 	return 0;
 }
 

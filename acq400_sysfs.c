@@ -2857,6 +2857,7 @@ static const struct attribute *dtd_attrs[] = {
 	&dev_attr_deltrg_08.attr,
 	&dev_attr_dtd_ZN.attr,
 	&dev_attr_dtd_CLR.attr,
+	&dev_attr_atd_triggered.attr,
 	NULL
 };
 static ssize_t show_ACQ400T_out(
