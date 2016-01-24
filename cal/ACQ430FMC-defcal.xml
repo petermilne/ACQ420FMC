@@ -8,7 +8,7 @@
         <CalDate>20141225</CalDate>
         <Version>B1007</Version>
         <Model>ACQ430FMC</Model>
-	<Serialnum>E43010000</Serialnum>
+	<SerialNum>E43010000</SerialNum>
     </Info>
      <Data AICHAN="8" code_min="-8388608" code_max="8388607">
 	<Range name="10">
