@@ -37,9 +37,9 @@ acq400t-objs := acq400t_drv.o
 
 dmatest_pgm-objs := dmatest.o zynq-timer.o
 
-APPS := mmap acq400_stream bigmac permute acq435_decode \
+APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
-	dsp_coprocessor ramp acq400_stream_disk lilmac \
+	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg
 
 all: modules apps
