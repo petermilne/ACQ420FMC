@@ -1,30 +1,30 @@
 <?xml version="1.0" standalone="no" ?>
 <ACQ>
-<!-- acq430-default.xml
+<!-- acq424-default.xml
      add calibration data if available via <Calibrated> fields -->
 <!-- calibration data -->
 <AcqCalibration>
     <Info>
         <CalDate>20141225</CalDate>
         <Version>B1007</Version>
-        <Model>ACQ430FMC</Model>
-	<SerialNum>F43010000</SerialNum>
+        <Model>ACQ424ELF</Model>
+	<SerialNum>E42410000</SerialNum>
     </Info>
-     <Data AICHAN="8" code_min="-8388608" code_max="8388607">
-	<Range name="10">
-			<Nominal eoff="0" eslo="1.19209289551e-06" roff="0"/>
+    <Data AICHAN="32" code_min="-32768" code_max="32764" SW="">
+        <Range name="10" sw="0">
+            <Nominal min="-10" max="10" eoff="0" eslo="305.17578e-6" />
         </Range>
     </Data>
 </AcqCalibration>
 <ModelSpec>
         <ChannelBlockMask>
-                <BlockWidth>8</BlockWidth>
+                <BlockWidth>32</BlockWidth>
                 <BlockSet>"1"</BlockSet>
         </ChannelBlockMask>
-        <MaxAggregateRate>4.1 MB/sec</MaxAggregateRate>
-        <MaxDeviceRate>128 kS/sec</MaxDeviceRate>
+        <MaxAggregateRate>64 MB/sec</MaxAggregateRate>
+        <MaxDeviceRate>1 MS/sec</MaxDeviceRate>
         <MinDeviceRate>0 MS/sec</MinDeviceRate>
-        <CalClock>128000</CalClock>
+        <CalClock>1000000</CalClock>
         <CalMeanN>1024000</CalMeanN>
 </ModelSpec>
 </ACQ>
