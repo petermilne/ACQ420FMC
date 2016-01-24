@@ -1480,6 +1480,7 @@ static void holder_wait_and_pass_aggsem() {
 
 	if (verbose) fprintf(stderr, "%d  %s\n", getpid(), "after post");
 	sem_close(G::aggsem);
+	sem_unlink(G::aggsem_name);	// sem is only destroyed AFTER all users close()
 }
 
 static void hold_open(const char* sites)
