@@ -1796,7 +1796,9 @@ protected:
 			}
 			usleep(10000);
 			++repeat;
-			do_soft_trigger();
+			if (!is_triggered()) {
+				do_soft_trigger();
+			}
 		}
 		if (verbose || repeat){
 			fprintf(stderr, "soft_trigger_control() repeat %d\n", repeat);
