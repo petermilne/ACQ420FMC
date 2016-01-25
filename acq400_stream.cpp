@@ -2160,6 +2160,8 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		}
 		return 0;
 	}
+
+	int  _stream();
 public:
 	StreamHeadLivePP():
 			pre(0), post(4096), sweep(0),
@@ -2227,7 +2229,8 @@ void StreamHeadLivePP::startSampleIntervalWatcher() {
 		}
 	}
 }
-void StreamHeadLivePP::stream() {
+
+int StreamHeadLivePP::_stream() {
 	int rc;
 	int icat = 0;
 	int nb = 0;
@@ -2305,6 +2308,25 @@ void StreamHeadLivePP::stream() {
 			sweep = es1 + postlen()+eslen;
 		}
 		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 69\n");
+	}
+
+	return rc;
+}
+
+void StreamHeadLivePP::stream() {
+	while(1){
+		int rc = _stream();
+		if (rc == 0){
+			continue;
+		}
+		if (rc == -1){
+			switch(errno){
+			case EINTR:
+			case EAGAIN:
+			default:
+				break;
+			}
+		}
 	}
 }
 
