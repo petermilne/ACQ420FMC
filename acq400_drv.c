@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.875"
+#define REVID "2.877"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -453,7 +453,7 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
-static void _v2f_onStart(struct acq400_dev *adev)
+static u32 _v2f_init(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, V2F_CTRL);
 
@@ -465,6 +465,16 @@ static void _v2f_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, V2F_CTRL, ctrl&=~ V2F_CTRL_EN);
 	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_RST);
 	acq400wr32(adev, V2F_CTRL, ctrl);
+	return ctrl;
+}
+static void _v2f_onStop(struct acq400_dev *adev)
+{
+	_v2f_init(adev);
+}
+
+static void _v2f_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = _v2f_init(adev);
 	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_EN);
 }
 static void v2f_init_defaults(struct acq400_dev *adev)
@@ -475,6 +485,7 @@ static void v2f_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, V2F_CHAN_SEL, 0x04030201);
 	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_EN);
 	adev->onStart = _v2f_onStart;
+	adev->onStop = _v2f_onStop;
 }
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
 {
@@ -2184,9 +2195,6 @@ ssize_t acq400_event_read(
 		dma_sync_single_for_cpu(DEVP(adev), hbm1->pa, hbm1->len, hbm1->dir);
 	}
 
-	if (HAS_DTD(adev)){
-		acq400_clearDelTrgEvent(adev);
-	}
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s\n",
 			adev->rt.sample_clocks_at_event,
 			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "");
@@ -3597,6 +3605,9 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
 		wake_up_interruptible(&adev->event_waitq);
+		if (HAS_DTD(adev)){
+			acq400_clearDelTrgEvent(adev);
+		}
 		dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 	}
 }
