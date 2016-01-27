@@ -3785,6 +3785,31 @@ static const struct attribute *acq1001sc_attrs[] = {
 	NULL
 };
 
+static const struct attribute *kmcx_sc_attrs[] = {
+	&dev_attr_data_engine_0.attr,
+
+	&dev_attr_scount_CLK_EXT.attr,
+	&dev_attr_scount_CLK_MB.attr,
+	&dev_attr_scount_CLK_S1.attr,
+	&dev_attr_scount_CLK_S2.attr,
+
+	&dev_attr_scount_TRG_EXT.attr,
+	&dev_attr_scount_TRG_MB.attr,
+	&dev_attr_scount_TRG_S1.attr,
+	&dev_attr_scount_TRG_S2.attr,
+
+	&dev_attr_scount_EVT_EXT.attr,
+	&dev_attr_scount_EVT_MB.attr,
+	&dev_attr_scount_EVT_S1.attr,
+	&dev_attr_scount_EVT_S2.attr,
+
+	&dev_attr_scount_SYN_EXT.attr,
+	&dev_attr_scount_SYN_MB.attr,
+	&dev_attr_scount_SYN_S1.attr,
+	&dev_attr_scount_SYN_S2.attr,
+	NULL
+};
+
 
 void acq400_createSysfs(struct device *dev)
 {
@@ -3813,6 +3838,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq2006sc_attrs;
 		}else if (IS_ACQ1001SC(adev)){
 			specials = acq1001sc_attrs;
+		}else if (IS_KMCx_SC(adev)){
+			specials = kmcx_sc_attrs;
 		}
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
@@ -3854,8 +3881,7 @@ void acq400_createSysfs(struct device *dev)
 		}
 	}
 
-
-	if (sysfs_create_files(&dev->kobj, specials)){
+	if (specials != 0 && sysfs_create_files(&dev->kobj, specials)){
 		dev_err(dev, "failed to create sysfs");
 	}
 }
