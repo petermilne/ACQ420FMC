@@ -1457,47 +1457,47 @@ static ssize_t show_module_role(
 
 static DEVICE_ATTR(module_role, S_IRUGO, show_module_role, 0);
 
+static const char* _lookup_id(int id)
+{
+	static struct IDLUT_ENTRY {
+		int key;
+		const char* name;
+	} idlut[] = {
+		{ MOD_ID_ACQ1001SC, 	"acq1001sc" 	},
+		{ MOD_ID_ACQ2006SC,	"acq2006sc"	},
+		{ MOD_ID_ACQ2106SC, 	"acq2106sc"	},
+		{ MOD_ID_KMCU,		"kmcu"		},
+		{ MOD_ID_KMCU30,	"kmcu30"	},
+		{ MOD_ID_ACQ420FMC,	"acq420fmc"	},
+		{ MOD_ID_ACQ420FMC_2000, "acq420fmc"	},
+		{ MOD_ID_ACQ424ELF,	"acq424elf"	},
+		{ MOD_ID_ACQ425ELF,     "acq425elf"	},
+		{ MOD_ID_ACQ425ELF_2000, "acq425elf"	},
+		{ MOD_ID_ACQ430FMC,     "acq430fmc"	},
+		{ MOD_ID_ACQ435ELF,	"acq435elf"	},
+		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
+		{ MOD_ID_AO420FMC,	"ao420fmc"	},
+		{ MOD_ID_AO424ELF,	"ao424elf"	},
+		{ MOD_ID_V2F,		"v2f"		},
+	};
+#define NID	(sizeof(idlut)/sizeof(struct IDLUT_ENTRY))
+	int ii;
 
+	for (ii = 0; ii < NID; ++ii){
+		if (idlut[ii].key == id){
+			return idlut[ii].name;
+		}
+	}
+	return "unknown";
+}
 static ssize_t show_module_name(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	const char* name;
 
-	switch(adev->mod_id>>MOD_ID_TYPE_SHL){
-	case MOD_ID_ACQ1001SC:
-		name = "acq1001sc"; break;
-	case MOD_ID_ACQ2006SC:
-		name = "acq2006sc"; break;
-	case MOD_ID_ACQ2106SC:
-		name = "acq2106sc"; break;
-	case MOD_ID_ACQ420FMC:
-	case MOD_ID_ACQ420FMC_2000:
-		name = "acq420fmc"; break;
-	case MOD_ID_ACQ424ELF:
-		name = "acq424elf"; break;
-	case MOD_ID_ACQ435ELF:
-		name = "acq435elf"; break;
-	case MOD_ID_ACQ430FMC:
-		name = "acq430fmc"; break;
-	case MOD_ID_ACQ480FMC:
-		name = "acq480fmc"; break;
-	case MOD_ID_ACQ425ELF:
-	case MOD_ID_ACQ425ELF_2000:
-		name = "acq425elf"; break;
-	case MOD_ID_AO420FMC:
-		name = "ao420fmc"; break;
-	case MOD_ID_AO424ELF:
-		name = "ao424elf"; break;
-	case MOD_ID_V2F:
-		name = "v2f"; break;
-	default:
-		name = "unknown";
-		break;
-	}
-	return sprintf(buf, "%s\n", name);
+	return sprintf(buf, "%s\n", _lookup_id(adev->mod_id>>MOD_ID_TYPE_SHL));
 }
 
 
@@ -3800,7 +3800,7 @@ void acq400_createSysfs(struct device *dev)
 		return;
 	}else if (IS_V2F(adev)){
 		specials = sysfs_v2f_attrs;
-	}else if IS_ACQx00xSC(adev){
+	}else if IS_SC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
 			dev_err(dev, "failed to create sysfs");
 		}

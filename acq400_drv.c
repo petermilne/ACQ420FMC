@@ -1722,7 +1722,7 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 	if (rc){
 		return rc;
 	}
-	if (IS_ACQ2X06SC(adev) || IS_ACQ1001SC(adev)){
+	if (IS_SC(adev)){
 		file->f_op = &acq2006_fops_continuous;
 	}else{
 		file->f_op = &acq400_fops_continuous;
@@ -3428,7 +3428,7 @@ int axi64_data_loop(void* data)
 			goto quit;
 		}
 
-		if (!IS_ACQx00xSC(adev)){
+		if (!IS_SC(adev)){
 			//acq420_enable_interrupt(adev);
 		}
 		if (hbm == 0){
@@ -3563,7 +3563,7 @@ int ai_data_loop(void *data)
 				goto quit;
 			}
 
-			if (!IS_ACQx00xSC(adev)){
+			if (!IS_SC(adev)){
 				//acq420_enable_interrupt(adev);
 			}
 			if (emergency_drain_request){
@@ -3893,7 +3893,7 @@ static int acq400_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        if (IS_ACQx00xSC(adev)){
+        if (IS_SC(adev)){
         	adev->is_sc = true;
         	if (allocate_hbm(adev, nbuffers, bufferlen, DMA_FROM_DEVICE)){
         		dev_err(&pdev->dev, "failed to allocate buffers");

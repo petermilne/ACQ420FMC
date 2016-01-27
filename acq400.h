@@ -158,6 +158,9 @@
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
 #define MOD_ID_ACQ2106SC	0x82
+#define MOD_ID_KMCU		0x83
+#define MOD_ID_KMCU30		0x84
+
 
 #define MOD_ID_MTCA_ADAP	0xfc
 #define MOD_ID_ACQ400T_FMC	0xfd
@@ -689,12 +692,23 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
 
+#define IS_KMCU_SC(dev)		(GET_MOD_ID(adev) == MOD_ID_KMCU)
+#define IS_KMCU30_SC(dev)	(GET_MOD_ID(adev) == MOD_ID_KMCU30)
+
+#define IS_KMCx_SC(dev)		(IS_KMCU_SC(dev)||IS_KMCU30_SC(dev))
+
 #define IS_ACQ1001_AXI64(adev) \
 	(IS_ACQ1001SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
-#define IS_AXI64(adev) (IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev))
+#define IS_KMCx_AXI64(adev) \
+	(IS_KMCx_SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
-#define IS_ACQx00xSC(adev) (IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev))
+#define IS_AXI64(adev) \
+	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
+
+
+#define IS_SC(adev) \
+	(IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev)||IS_KMCx_SC(dev))
 
 #define IS_AI(adev)	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || IS_ACQ480(adev))
 #define IS_BOLO8(adev) \

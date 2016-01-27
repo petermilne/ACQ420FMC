@@ -258,7 +258,11 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
 	int site;
-	int sites = IS_ACQ2X06SC(adev)? 6: IS_ACQ1001SC(adev)? 2: 0;
+	int sites =
+		IS_ACQ2X06SC(adev)? 6:
+		IS_ACQ1001SC(adev)? 2:
+		IS_KMCx_SC(adev)  ? 2: 0;
+
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
 		if (!acq400_debug_root){
@@ -289,6 +293,8 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			DBG_REG_CREATE(DATA_ENGINE_2);
 			DBG_REG_CREATE(DATA_ENGINE_3);
 		}
+	}else if(IS_AXI64(adev)){
+		DBG_REG_CREATE(AXI_DMA_ENGINE_DATA);
 	}
 
 	DBG_REG_CREATE(GPG_CONTROL);
@@ -335,7 +341,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE_NAME(name, ACQ2006_EVT_COUNT(SITE2DX(site)));
 	}
 
-	if (IS_ACQ1001SC(adev) || IS_ACQ2106SC(adev) || (IS_ACQ2006SC(adev)&&FPGA_REV(adev) >= 8)){
+	if (IS_SC(adev) && !(IS_ACQ2006SC(adev) && FPGA_REV(adev)<8)){
 		char name[16];
 		int ii;
 		for (ii = 0; ii < SPADMAX; ++ii){
