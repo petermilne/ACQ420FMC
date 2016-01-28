@@ -505,31 +505,26 @@ static ssize_t show_signal(
 	}
 }
 
-int store_signal3(struct device* dev,
+int store_signal3(struct acq400_dev* adev,
 		unsigned REG,
 		int shl, int mbit,
 		unsigned imode, unsigned dx, unsigned rising)
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 adc_ctrl = acq400rd32(adev, REG);
 
-	if (adev->busy){
-		return -EBUSY;
-	}else{
-		u32 adc_ctrl = acq400rd32(adev, REG);
-
-		adc_ctrl &= ~mbit;
-		if (imode != 0){
-			if (dx > 7){
-				dev_warn(dev, "rejecting \"%u\" dx > 7", dx);
-				return -1;
-			}
-			adc_ctrl &= ~(CTRL_SIG_MASK << shl);
-			adc_ctrl |=  (dx|(rising? CTRL_SIG_RISING:0))<<shl;
-			adc_ctrl |= imode << getSHL(mbit);
+	adc_ctrl &= ~mbit;
+	if (imode != 0){
+		if (dx > 7){
+			dev_warn(DEVP(adev), "rejecting \"%u\" dx > 7", dx);
+			return -1;
 		}
-		acq400wr32(adev, REG, adc_ctrl);
-		return 0;
+		adc_ctrl &= ~(CTRL_SIG_MASK << shl);
+		adc_ctrl |=  (dx|(rising? CTRL_SIG_RISING:0))<<shl;
+		adc_ctrl |= imode << getSHL(mbit);
 	}
+	acq400wr32(adev, REG, adc_ctrl);
+	return 0;
+
 }
 static ssize_t store_signal(
 		struct device * dev,
@@ -537,16 +532,22 @@ static ssize_t store_signal(
 		const char * buf,
 		size_t count,
 		unsigned REG,
-		int shl, int mbit, const char* mbit_hi, const char* mbit_lo)
+		int shl, int mbit, const char* mbit_hi, const char* mbit_lo,
+		int not_while_busy)
 {
 	char sense;
 	char mode[16];
 	unsigned imode, dx, rising;
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int nscan;
 
+	if (not_while_busy && adev->busy){
+		return -EBUSY;
+	}
 	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
-	int nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);
+	nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);
 	if (nscan == 3){
-		if (store_signal3(dev, REG, shl, mbit, imode, dx, rising)){
+		if (store_signal3(adev, REG, shl, mbit, imode, dx, rising)){
 			return -1;
 		}else{
 			return count;
@@ -559,7 +560,7 @@ static ssize_t store_signal(
 	switch(nscan){
 	case 1:
 		if (strcmp(mode, mbit_lo) == 0){
-			return store_signal3(dev, REG, shl, mbit, 0, 0, 0);
+			return store_signal3(adev, REG, shl, mbit, 0, 0, 0);
 		}
 		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
 		return -1;
@@ -572,7 +573,7 @@ static ssize_t store_signal(
 				dev_warn(dev,
 				 "rejecting \"%s\" sense must be R or F", buf);
 				return -1;
-			}else if (store_signal3(dev, REG, shl, mbit, 1, dx, rising)){
+			}else if (store_signal3(adev, REG, shl, mbit, 1, dx, rising)){
 				return -1;
 			}else{
 				return count;
@@ -585,7 +586,7 @@ static ssize_t store_signal(
 	}
 }
 
-#define MAKE_SIGNAL(SIGNAME, REG, shl, mbit, HI, LO)			\
+#define MAKE_SIGNAL(SIGNAME, REG, shl, mbit, HI, LO, NWB)		\
 static ssize_t show_##SIGNAME(						\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
@@ -600,7 +601,7 @@ static ssize_t store_##SIGNAME(						\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_signal(dev, attr, buf, count, REG, shl, mbit, HI, LO);\
+	return store_signal(dev, attr, buf, count, REG, shl, mbit, HI, LO, NWB);\
 }									\
 static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 		show_##SIGNAME, store_##SIGNAME)
@@ -610,20 +611,20 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
 #define EXT	"external"
 #define SOFT	"soft"
 #define INT	"internal"
-MAKE_SIGNAL(event1, TIM_CTRL, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS);
-MAKE_SIGNAL(event0, TIM_CTRL, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS);
-MAKE_SIGNAL(trg,    TIM_CTRL, TIM_CTRL_TRIG_SHL,   TIM_CTRL_MODE_HW_TRG_EN, EXT, SOFT);
-MAKE_SIGNAL(clk,    TIM_CTRL, TIM_CTRL_CLK_SHL,	   TIM_CTRL_MODE_HW_CLK, EXT, INT);
-MAKE_SIGNAL(sync,   TIM_CTRL, TIM_CTRL_SYNC_SHL,   TIM_CTRL_MODE_SYNC,   EXT, INT);
+MAKE_SIGNAL(event1, TIM_CTRL, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS,	0);
+MAKE_SIGNAL(event0, TIM_CTRL, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS,	0);
+MAKE_SIGNAL(trg,    TIM_CTRL, TIM_CTRL_TRIG_SHL,   TIM_CTRL_MODE_HW_TRG_EN, EXT, SOFT,	1);
+MAKE_SIGNAL(clk,    TIM_CTRL, TIM_CTRL_CLK_SHL,	   TIM_CTRL_MODE_HW_CLK, EXT, INT,	1);
+MAKE_SIGNAL(sync,   TIM_CTRL, TIM_CTRL_SYNC_SHL,   TIM_CTRL_MODE_SYNC,   EXT, INT,	1);
 
 
-MAKE_SIGNAL(gpg_trg, GPG_CONTROL, GPG_CTRL_TRG_SHL, GPG_CTRL_EXT_TRG, EXT, SOFT);
-MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT);
-MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT);
+MAKE_SIGNAL(gpg_trg, GPG_CONTROL, GPG_CTRL_TRG_SHL, GPG_CTRL_EXT_TRG, EXT, SOFT,	1);
+MAKE_SIGNAL(gpg_clk, GPG_CONTROL, GPG_CTRL_CLK_SHL, GPG_CTRL_EXTCLK,  EXT, INT,		1);
+MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOFT,	1);
 
 /* MUST set RGM as well */
 MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
-		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS);
+		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS, 1);
 
 
 static ssize_t show_gpg_top_count(
