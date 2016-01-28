@@ -202,8 +202,12 @@ struct acq480_dev* acq480_allocate_dev(struct platform_device *pdev)
 	adev->pdev = pdev;
 	adev->i2c_adapter = i2c_get_adapter(I2C_CHAN(site));
 	if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
-		printk("acq480_init_site(%d) PGA1 NOT found\n", site);
+		printk("acq480_init_site(%d) 50R switch NOT found\n", site);
 	}
+	if (new_device(adev->i2c_adapter, "tca6424", 0x22, -1) == 0){
+		printk("acq480_init_site(%d) J-clean NOT found\n", site);
+	}
+
 	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
 
 	return adev;
