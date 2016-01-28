@@ -116,7 +116,7 @@ void acq400_sew_fifo_init(struct acq400_dev* adev, int ix)
 	}
 	sf->sf_buf.head = sf->sf_buf.tail = 0;
 	sf->adev = adev;
-	sf->regoff = ix? SW_EMB_WORD2: SW_EMB_WORD1;
+	sf->regoff = ix? ACQ435_SW_EMB_WORD2: ACQ435_SW_EMB_WORD1;
 	sf->sf_task = kthread_run(acq400_sew_fifo_work, sf,
 						"%s.sf", devname(adev));
 }

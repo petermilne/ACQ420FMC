@@ -154,8 +154,17 @@ void pmodadc1_createDebugfs(struct acq400_dev* adev, char* pcursor)
 void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
-	DBG_REG_CREATE(SW_EMB_WORD1);
-	DBG_REG_CREATE(SW_EMB_WORD2);
+
+	switch(GET_MOD_ID(adev)){
+	case MOD_ID_ACQ435ELF:
+		DBG_REG_CREATE(ACQ435_SW_EMB_WORD1);
+		DBG_REG_CREATE(ACQ435_SW_EMB_WORD2);
+		break;
+	case MOD_ID_ACQ430FMC:
+		if (!adev->is_slave){
+			DBG_REG_CREATE(FMC_DSR);
+		}
+	}
 	DBG_REG_CREATE(EVT_SC_LATCH);
 	DBG_REG_CREATE(ACQ435_MODE);
 	DBG_REG_CREATE(ADC_TRANSLEN);

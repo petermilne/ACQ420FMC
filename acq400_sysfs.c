@@ -71,6 +71,78 @@ module_param(reset_fifo_verbose, int, 0644);
 	} while (0)
 
 
+#define MASKSHR(x, f) (((x)&(f)) >> getSHL(f))
+
+
+static ssize_t show_triplet(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	unsigned T1,
+	unsigned T2,
+	unsigned T3)
+{
+	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+
+	return sprintf(buf, "%d,%d,%d\n",
+		MASKSHR(regval, T1), MASKSHR(regval, T2), MASKSHR(regval, T3));
+}
+
+
+#define SHLMASK(x, f) (((x)<<getSHL(f))&(f))
+
+static ssize_t store_triplet(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned T1,
+		unsigned T2,
+		unsigned T3)
+{
+	u32 v1, v2, v3;
+
+	if (sscanf(buf, "%d,%d,%d", &v1, &v2, &v3) == 3){
+		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+
+		regval &= ~(T1|T2|T3);
+		regval |= SHLMASK(v1, T1) | SHLMASK(v2, T2) | SHLMASK(v3, T3);
+
+		acq400wr32(acq400_devices[dev->id], REG, regval);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MAKE_TRIPLET(NAME, REG, T1, T2, T3)					\
+static ssize_t show_bits##NAME(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char *buf)							\
+{									\
+	return show_triplet(dev, attr, buf, REG, T1, T2, T3);		\
+}									\
+static ssize_t store_bits##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_triplet(dev, attr, buf, count, REG, T1, T2, T3);   \
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
+
+MAKE_TRIPLET(fmc_clk, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
+MAKE_TRIPLET(fmc_trg, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
+
+static const struct attribute *fmc_fp_attrs[] = {
+	&dev_attr_fmc_clk.attr,
+	&dev_attr_fmc_trg.attr,
+	NULL
+};
 /* generic show_bits, store_bits */
 
 static ssize_t show_bits(
@@ -121,6 +193,8 @@ static ssize_t store_bits(
 		return -1;
 	}
 }
+
+
 
 #define MAKE_BITS_FROM_MASK	0xdeadbeef
 
@@ -243,6 +317,8 @@ MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 
 MAKE_BITS(zclk_sel, MOD_CON, MCR_ZCLK_SELECT_SHL, MCR_ZCLK_MASK);
+
+
 
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
@@ -982,8 +1058,8 @@ static ssize_t store_reg_##REG(						\
 }									\
 static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
 
-MAKE_REG_RW(sw_emb_word1, SW_EMB_WORD1, "0x%08x\n");
-MAKE_REG_RW(sw_emb_word2, SW_EMB_WORD2, "0x%08x\n");
+MAKE_REG_RW(sw_emb_word1, ACQ435_SW_EMB_WORD1, "0x%08x\n");
+MAKE_REG_RW(sw_emb_word2, ACQ435_SW_EMB_WORD2, "0x%08x\n");
 MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH,	"%u\n");
 
 MAKE_REG_RW(rtm_translen, ADC_TRANSLEN, "%u\n");
@@ -3884,6 +3960,15 @@ void acq400_createSysfs(struct device *dev)
 
 	if (specials != 0 && sysfs_create_files(&dev->kobj, specials)){
 		dev_err(dev, "failed to create sysfs");
+	}
+
+	if (IS_ACQ420(adev) || IS_ACQ430(adev)){
+		/* @@todo should be Master site only,
+		 * but these are usually solo anyway
+		 */
+		if (sysfs_create_files(&dev->kobj, fmc_fp_attrs)){
+			dev_err(dev, "failed to create fmc_fp_attrs");
+		}
 	}
 }
 
