@@ -5,15 +5,19 @@
 set LNAMES1 [ list \
 	T50R_1 T50R_2 T50R_3 T50R_4 \
 	T50R_5 T50R_6 T50R_7 T50R_8 ]
-	
 
-proc link_gpio {lnames site gpio1 gpio2} {
-	set gpio2 [expr $gpio1 + $gpio2]
+set LNAMESJ [ list \
+	 FRQTBL BWSEL0 BWSEL1 FRQSEL0 FRQSEL1 FRQSEL2 RATE0 \
+	 RATE1 DBL2_BY INC DEC LOL LOS RESETn ]
+
+proc link_gpio {lnames site gpio1 ngpio} {
+	set nc [llength $lnames]
+	set ngpio [expr min ($ngpio, $nc ) ]
+	set gpio2 [expr $gpio1 + $ngpio]
 	for {set ix 0} {[expr $gpio1+$ix < $gpio2]} {incr ix} {		
 		set name [lindex $lnames $ix]		
 		if { [string length $name] > 0 } {
-			set gpx [expr $gpio1 + $ix]
-#			puts "lname $name pin $pin gpio $gpx"
+			set gpx [expr $gpio1 + $ix]			
 			exec set.sys /sys/class/gpio/export $gpx
 			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
 			exec ln -s /sys/class/gpio/gpio$gpx/value \
@@ -32,6 +36,42 @@ proc get_gpio12 {site addr} {
 	#	puts "get_gpio1 returning $pin1"
 	set ngpio [exec cat $gpiochip/ngpio]
 	return [list $pin1 $ngpio]
+}
+
+proc build_50R {site} {
+	global LNAMES1
+	puts "build 50R knobs site:$site"
+	set gpiox {}
+	
+	if { [catch {get_gpio12 $site 20} gpiox] } {
+		puts "ERROR: failed to find device 20"
+		return
+	}
+	lassign $gpiox gpio1 ngpio
+	link_gpio $LNAMES1 $site $gpio1 $ngpio
+	
+	for {set ic 1} {$ic <= $ngpio} {incr ic} {
+		file delete -force /etc/acq400/$site/T50R_$ic
+		set tname [lindex $LNAMES1 [expr $ic - 1]]			
+		exec ln -s /dev/acq480/$site/$tname \
+			/etc/acq400/$site/$tname
+	}	
+	set fp [open "/etc/acq400/$site/groups" a+]
+	puts $fp {T50R=T50R_[0-9]*}
+	close $fp	
+}
+
+proc build_jitter_cleaner {site} {
+	global LNAMESJ
+	puts "build Jitter Cleaner site:$site"
+	set gpiox {}
+	
+	if { [catch {get_gpio12 $site 22} gpiox] } {
+		puts "ERROR: failed to find device 22"
+		return
+	}
+	lassign $gpiox gpio1 ngpio
+	link_gpio $LNAMESJ $site $gpio1 $ngpio	
 }
 
 set SITES ""
@@ -56,21 +96,10 @@ if { $::argc > 0 } {
 	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
 	
 	if {$use_gpio} {
-	    	foreach site $::argv {
-	        	puts "build gain knobs site:$site"
+	    	foreach site $::argv {	        	
 			exec mkdir -p /dev/acq480/$site
-			lassign [get_gpio12 $site 20] gpio1 gpio2
-			link_gpio $LNAMES1 $site $gpio1 $gpio2
-			
-			for {set ic 1} {$ic <= 8} {incr ic} {
-				file delete -force /etc/acq400/$site/T50R_$ic
-				set tname [lindex $LNAMES1 [expr $ic - 1]]			
-				exec ln -s /dev/acq480/1/$tname \
-					/etc/acq400/$site/$tname
-			}	
-			set fp [open "/etc/acq400/$site/groups" a+]
-			puts $fp {T50R=T50R_[0-9]*}
-			close $fp
+			build_50R $site
+			build_jitter_cleaner $site
 		}
 	} 
 	exec acq480_spi_mknod $SITES
