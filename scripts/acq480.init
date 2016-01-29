@@ -62,17 +62,27 @@ proc build_50R {site} {
 	close $fp	
 }
 
+proc set_acq480_knob {site knob} {
+	set filename "/dev/acq480/$site/$knob"
+	set fileId [open $filename "w"]
+	puts $fileId 1
+	close $fileId
+}
+
 proc build_jitter_cleaner {site} {
 	global LNAMESJ
 	puts "build Jitter Cleaner site:$site"
 	set gpiox {}
 	
 	if { [catch {get_gpio12 $site 22} gpiox] } {
-		puts "ERROR: failed to find device 22"
+		puts "NOTE: failed to find device 22, most likely not fitted"
 		return
 	}
 	lassign $gpiox gpio1 ngpio
-	link_gpio $LNAMESJ $site $gpio1 $ngpio	
+	link_gpio $LNAMESJ $site $gpio1 $ngpio
+
+	set_acq480_knob $site DBL2_BY
+	set_acq480_knob $site RESETn
 }
 
 set SITES ""
