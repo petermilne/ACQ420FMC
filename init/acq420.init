@@ -554,7 +554,7 @@ if [ "$acq2106_sn" != "$dtsn" ]; then
 	done
 	let snx=$acq2106_sn
 	if [ $snx -ge 20 ]; then
-		DRVR_CUSTOM="DRVR_CUSTOM is_acq2106B=1"
+		DRVR_CUSTOM="$DRVR_CUSTOM is_acq2106B=1"
 	fi
 fi		
 	
