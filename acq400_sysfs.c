@@ -3215,8 +3215,8 @@ static ssize_t show_agg_reg(
 				get_agg_threshold_bytes(adev, regval));
 	}
 
-	return sprintf(buf, "reg=0x%08x %s %s\n", regval, mod_group,
-			regval&DATA_MOVER_EN? "on": "off");
+	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s\n",
+			regval, mod_group, regval&DATA_MOVER_EN? "on": "off");
 }
 
 extern int good_sites[];

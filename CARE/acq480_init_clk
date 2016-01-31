@@ -1,9 +1,11 @@
 #!/bin/sh
 # configure ACQ480 with internal clock.
 
+PNAME=$(basename $0)
+
 compat=$(cat /proc/device-tree/chosen/compatible_model)
-if [ "x$compat" != xacq2106" ]; then
-	logger -t $0 ERROR : script valid for ACQ2106 host ONLY
+if [ "x$compat" != "xacq2106" ]; then
+	logger -t $PNAME "ERROR : script valid for ACQ2106 host ONLY"
 	exit 1
 fi
 
@@ -54,7 +56,7 @@ load.si5326 $SICONF
 
 source $(get.site 0 aggregator)
 if [ "x$sites" = "xnone" ]; then
-	logger -t $0 ERROR: no sites in aggregator set
+	logger -t $PNAME "WARNING: no sites in aggregator set"
 	exit 1
 fi
 
