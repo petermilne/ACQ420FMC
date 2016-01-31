@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.877"
+#define REVID "2.878"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2160,7 +2160,7 @@ ssize_t acq400_event_read(
 				event_to);
 		if (rc < 0){
 			return -EINTR;
-		}else if (rc){
+		}else if (rc == 0){
 			return -EAGAIN;
 		}
 	}
@@ -2195,10 +2195,14 @@ ssize_t acq400_event_read(
 		dma_sync_single_for_cpu(DEVP(adev), hbm1->pa, hbm1->len, hbm1->dir);
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s\n",
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x\n",
 			adev->rt.sample_clocks_at_event,
-			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "");
+			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "OK",
+			adev->atd_event_source);
 
+	if (HAS_DTD(adev) && adev->atd_event_source){
+		adev->atd_event_source = 0;
+	}
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
 		rc = -1;
@@ -3604,8 +3608,12 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
+		if (HAS_DTD(adev)){
+			adev->atd_event_source = acq400rd32(adev, ATD_TRIGGERED);
+		}
 		wake_up_interruptible(&adev->event_waitq);
 		if (HAS_DTD(adev)){
+			/* please, make this a write-clear .. */
 			acq400_clearDelTrgEvent(adev);
 		}
 		dev_dbg(DEVP(adev), "cos_action %08x\n", status);

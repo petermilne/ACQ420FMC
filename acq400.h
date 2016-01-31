@@ -403,6 +403,8 @@ struct acq400_dev {
 
 	wait_queue_head_t event_waitq;
 
+	u32 atd_event_source;
+
 	/* fake event isr @@removeme */
 	struct timer_list event_timer;
 
