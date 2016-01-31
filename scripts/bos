@@ -28,10 +28,11 @@ if [ "x$(get.site 0 data32)" = "1" ]; then
 else
 	WS=2
 fi
-SITES=$(get.site 0 aggregator | awk '{ print $2 }')
+
+eval $(get.site 0 aggregator)
 if [ $VERBOSE -gt 0 ]; then
 	echo "acq400_stream --verbose $VERBOSE --null-copy --no_demux \
-	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
+	--nchan=$NC -w=$WS --pre=$PRE --post=$POST --sites=$sites 0"
 fi
 
 OSAM=${OSAM:-0}
@@ -42,7 +43,7 @@ else
 fi
 
 CMD="acq400_stream --verbose=$VERBOSE --soft-trigger=$SOFT_TRIGGER $CPA --no_demux \
-        --nchan=$NC -w=$WS --pre=$PRE --post=$POST --$SITES 0"
+        --nchan=$NC -w=$WS --pre=$PRE --post=$POST --sites=$sites 0"
 echo $CMD > /tmp/bos.cmd
 exec nice -n -10 $CMD 
 

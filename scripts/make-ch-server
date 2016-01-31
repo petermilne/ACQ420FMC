@@ -15,11 +15,12 @@ cat - > /etc/inetd.ch.conf <<EOF
 53000 stream tcp nowait root run.transient.service run.transient.service gash
 EOF
 
-eval $(cat /etc/acq400/0/aggregator | awk '{ print $2 }')
 
 let cix=1
 
-for site in $(echo $sites | tr , \  )
+eval $(cat /etc/acq400/0/aggregator)
+IFS=,
+for site in $sites
 do
 #	echo site $site  /dev/acq400/data/$site/
 	for ch in /dev/acq400/data/$site/??

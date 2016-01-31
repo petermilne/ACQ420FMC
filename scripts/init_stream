@@ -45,15 +45,11 @@ init_stream() {
 	RUN0_READY=/etc/acq400/0/run0_ready
 	
 	if [ $SITE -eq 0 ]; then
-		sites=
-		SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
-		
-		eval $SSPEC
+		eval $(cat /dev/acq400.0.knobs/aggregator)
 		while [ "x$sites" = "x" -o "x$sites" = "xnone" ]; do
 			sleep 1
 			logger -t acq400_streamd site0 waiting for sites
-			SSPEC=$(awk '{print $2}' </dev/acq400.0.knobs/aggregator)
-			eval $SSPEC	
+			eval $(cat /dev/acq400.0.knobs/aggregator)	
 		done
 		logger -t acq400_streamd site0 $SSPEC
 		while [ ! -e $RUN0_READY ]; do
