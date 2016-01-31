@@ -54,14 +54,15 @@ set.site 0 SYS:CLK:DIST_CLK_SRC Si5326
 set.site 0 SYS:CLK:OE_CLK1_ZYNQ 1
 load.si5326 $SICONF
 
-source $(get.site 0 aggregator)
+eval $(get.site 0 aggregator)
 if [ "x$sites" = "xnone" ]; then
 	logger -t $PNAME "WARNING: no sites in aggregator set"
 	exit 1
 fi
 
-for site in $sites
+for site in $(echo $sites | tr , \  )
 do
+	logger -t $PNAME "acq480_init_clk enable site $site"
 	set.site 0 SYS:CLK:OE_CLK1_ELF${site} 1
 	acq480_train ${site}
 done
