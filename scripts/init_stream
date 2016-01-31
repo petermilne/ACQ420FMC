@@ -51,6 +51,7 @@ init_stream() {
 			logger -t acq400_streamd site0 waiting for sites
 			eval $(cat /dev/acq400.0.knobs/aggregator)	
 		done
+		export SSPEC=sites=$sites
 		logger -t acq400_streamd site0 $SSPEC
 		while [ ! -e $RUN0_READY ]; do
 			sleep 0.2
