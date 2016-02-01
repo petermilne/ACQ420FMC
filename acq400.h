@@ -719,9 +719,12 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_SC(adev) \
 	(IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev)||IS_KMCx_SC(dev))
 
-#define IS_AI(adev)	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || IS_ACQ480(adev))
+
 #define IS_BOLO8(adev) \
 	(GET_MOD_ID(adev)==MOD_ID_BOLO8 || GET_MOD_ID(adev)==MOD_ID_BOLO8B)
+
+#define HAS_AI(adev) \
+	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || IS_ACQ480(adev) || IS_BOLO8(adev))
 
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
