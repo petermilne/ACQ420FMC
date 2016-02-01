@@ -89,7 +89,7 @@ let BLEN=$(cat /sys/module/acq420fmc/parameters/bufferlen)
 
 if [ $BLEN -eq 1048576 ]; then
 	case $nchan in
-	48|80|96|160)
+	12|24|36|40|48|80|96|160)
 		BLEN=1044480;;
 	*)
 		BLEN=1048576;;
