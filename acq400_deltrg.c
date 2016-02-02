@@ -84,7 +84,9 @@ int acq400_clearDelTrg(struct acq400_dev *adev)
 int acq400_clearDelTrgEvent(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DTD_CTRL);
+
 	acq400wr32(adev, DTD_CTRL, ctrl | DTD_CTRL_CLR);
+	dev_dbg(DEVP(adev), "acq400_clearDelTrgEvent() 45");
 	acq400wr32(adev, DTD_CTRL, ctrl &= ~DTD_CTRL_CLR);
 	return 0;
 }

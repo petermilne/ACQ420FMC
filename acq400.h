@@ -240,6 +240,8 @@
 
 #define ADC_FIFO_FLAGS 		(ADC_FIFO_STA_ERR|ADC_FIFO_STA_EMPTY)
 
+#define ADC_INT_CSR_EVENT1	(1<<10)
+#define ADC_INT_CSR_EVENT0	(1<<9)
 #define ADC_INT_CSR_COS		(1<<9)
 #define ADC_INT_CSR_HITIDE	(1<<8)
 
@@ -588,6 +590,7 @@ struct acq400_dev {
 	int bq_overruns;
 	pid_t continuous_reader;
 
+	struct hrtimer pulse_stretcher_timer;
 	void *axi_private;
 };
 

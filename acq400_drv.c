@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.879"
+#define REVID "2.885"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -213,6 +213,10 @@ MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: locate POISON in buffer (0=END)");
 int AXI_DEBUG_LOOPBACK_INDEX = 0;
 module_param(AXI_DEBUG_LOOPBACK_INDEX, int, 0644);
 MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: set non zero to skip first buffers on loopback. so that we see first time contents..");
+
+
+int dtd_pulse_nsec = 1000000;
+module_param(dtd_pulse_nsec, int, 0644);
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -3598,9 +3602,23 @@ quit:
 #undef DMA_ASYNC_MEMCPY_NWFE
 }
 
+/* this is the much-vaunted hrtimer - program in nsec,
+ * still with 10msec resolution .. */
+static enum hrtimer_restart timer_handler(struct hrtimer
+					  *handle)
+{
+	struct acq400_dev *adev;
+
+	adev = container_of(handle, struct acq400_dev, pulse_stretcher_timer);
+
+	acq400_clearDelTrgEvent(adev);
+	acq400wr32(adev, ATD_TRIGGERED, adev->atd_event_source);
+	return HRTIMER_NORESTART;
+}
+
 static void cos_action(struct acq400_dev *adev, u32 status)
 {
-	if ((status&ADC_INT_CSR_COS) != 0){
+	if ((status&ADC_INT_CSR_EVENT0) != 0){
 		if (acq400_event_count_limit &&
 				++adev->rt.event_count >= acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
@@ -3608,16 +3626,21 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
+
+		wake_up_interruptible(&adev->event_waitq);
+	}
+	if ((status&ADC_INT_CSR_EVENT1) != 0){
 		if (HAS_DTD(adev)){
 			adev->atd_event_source = acq400rd32(adev, ATD_TRIGGERED);
+
+			if (adev->atd_event_source){
+				hrtimer_start(&adev->pulse_stretcher_timer,
+						ktime_set(0, dtd_pulse_nsec),
+						HRTIMER_MODE_REL);
+			}
 		}
-		wake_up_interruptible(&adev->event_waitq);
-		if (HAS_DTD(adev)){
-			/* please, make this a write-clear .. */
-			acq400_clearDelTrgEvent(adev);
-		}
-		dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 	}
+	dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 }
 
 static void hitide_action(struct acq400_dev *adev, u32 status)
@@ -3628,13 +3651,6 @@ static void hitide_action(struct acq400_dev *adev, u32 status)
 		adev->fifo_isr_done = 1;
 		wake_up_interruptible(&adev->w_waitq);
 	}
-}
-
-void event_isr(unsigned long data)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)data;
-	volatile u32 status = x400_get_interrupt(adev);
-	cos_action(adev, status);
 }
 
 static irqreturn_t acq400_isr(int irq, void *dev_id)
@@ -3797,6 +3813,8 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         init_waitqueue_head(&adev->event_waitq);
         adev->onStart = acqXXX_onStartNOP;
         adev->onStop = acqXXX_onStopNOP;
+        hrtimer_init(&adev->pulse_stretcher_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+        adev->pulse_stretcher_timer.function = timer_handler;
         return adev;
 }
 
