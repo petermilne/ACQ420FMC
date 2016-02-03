@@ -246,30 +246,6 @@ unsigned b2s(unsigned bytes) {
 
 
 
-#define ES_MAGIC	0xaa55f150
-#define ES_MAGIC_MASK	0xfffffff0
-
-/**
- * avoid spurious lock on ES2 .. good but
- * @@todo: ES2 will appear in the data. deal with it.
- * */
-#define ES_MAGIC_EV0		0xaa55f151
-#define ES_MAGIC_MASK_EV0	0xffffffff
-
-
-
-
-bool is_es_word(unsigned word)
-{
-	return (word&ES_MAGIC_MASK) == ES_MAGIC;
-
-}
-bool IS_ES(unsigned *cursor)
-{
-	return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
-			is_es_word(cursor[2]) && is_es_word(cursor[3]);
-}
-
 template <int MASK, int PAT>
 class ES {
 	bool is_es_word(unsigned word) {
@@ -282,7 +258,8 @@ public:
 	}
 };
 
-ES<ES_MAGIC_MASK_EV0, ES_MAGIC_EV0> ev0;
+ES<0xfffffff0, 0xaa55f150> evX;
+ES<0xffffffff, 0xaa55f151> ev0;
 
 static int createOutfile(const char* fname) {
 	int fd = open(fname,
@@ -661,7 +638,7 @@ private:
 		if (verbose) fprintf(stderr, "can skip ES");
 
 		for (isam = startoff/nchan; true; ++isam, ichan = 0){
-			while (IS_ES(reinterpret_cast<unsigned*>(src))){
+			while (evX.isES(reinterpret_cast<unsigned*>(src))){
 				if (verbose) fprintf(stderr, "skip ES\n");
 				src += nchan;
 			}
@@ -1965,7 +1942,7 @@ protected:
 		int escount = 0;
 
 		for (; cursor - base < lenw; cursor += stride){
-			if (IS_ES(cursor)){
+			if (evX.isES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				++escount;
 			}
