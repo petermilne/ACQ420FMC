@@ -240,14 +240,24 @@
 
 #define ADC_FIFO_FLAGS 		(ADC_FIFO_STA_ERR|ADC_FIFO_STA_EMPTY)
 
+
+
+
 #define ADC_INT_CSR_EVENT1	(1<<10)
 #define ADC_INT_CSR_EVENT0	(1<<9)
-#define ADC_INT_CSR_COS		(1<<9)
 #define ADC_INT_CSR_HITIDE	(1<<8)
 
-#define ADC_INT_CSR_COS_EN	(1<<1)
+#define ADC_INT_CSR_EVENT1_EN	(1<<2)
+#define ADC_INT_CSR_EVENT0_EN	(1<<1)
 #define ADC_INT_CSR_HITIDE_EN	(1<<0)
 
+/* enable both event sources, clear both status, ready to run .. */
+#define ADC_INT_CSR_COS_EN_ALL \
+	(ADC_INT_CSR_EVENT1|ADC_INT_CSR_EVENT0|\
+	ADC_INT_CSR_EVENT1_EN|ADC_INT_CSR_EVENT0_EN)
+
+#define EVX_TO_INDEX(stat) \
+	(((stat)&(ADC_INT_CSR_EVENT1|ADC_INT_CSR_EVENT0))>>9)
 
 #define ADC_CLK_CTR_SRC_SHL	28
 #define ADC_CLK_CTR_SRC_MASK	0xf		/* 1:16 sources */

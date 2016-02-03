@@ -244,8 +244,20 @@ unsigned b2s(unsigned bytes) {
 	return bytes/sample_size();
 }
 
-#define ES_MAGIC	0xaa55f100
-#define ES_MAGIC_MASK	0xffffff00
+
+#ifdef MULTI_ES
+#define ES_MAGIC	0xaa55f150
+#define ES_MAGIC_MASK	0xfffffff0
+#else
+/**
+ * avoid spurious lock on ES2 .. good but
+ * @@todo: ES2 will appear in the data. deal with it.
+ * */
+#define ES_MAGIC	0xaa55f151
+#define ES_MAGIC_MASK	0xffffffff
+#endif
+
+
 
 bool is_es_word(unsigned word)
 {

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.885"
+#define REVID "2.887"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -805,6 +805,9 @@ void acq43X_onStart(struct acq400_dev *adev)
 	ctrl &= ~ADC_CTRL_FIFO_EN|ADC_CTRL_ADC_EN;
 	acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 
+	if (HAS_DTD(adev)){
+		acq400_clearDelTrgEvent(adev);
+	}
 	if (adev->ramp_en){
 		ctrl |= ADC_CTRL_RAMP_EN;
 	}else{
@@ -2130,7 +2133,7 @@ int acq400_event_open(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
 	int_csr = x400_get_interrupt(adev);
-	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN|ADC_INT_CSR_COS);
+	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN_ALL);
 
 	/* good luck using this in a 64-bit system ... */
 	/*
@@ -2241,7 +2244,9 @@ int acq400_event_release(struct inode *inode, struct file *file)
 	}else{
 		if (--adev->event_client_count == 0){
 			u32 int_csr = x400_get_interrupt(adev);
-			x400_set_interrupt(adev, int_csr&~ADC_INT_CSR_COS_EN);
+
+			int_csr &= ~(ADC_INT_CSR_EVENT1_EN|ADC_INT_CSR_EVENT0_EN);
+			x400_set_interrupt(adev, int_csr);
 		}
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
@@ -3616,6 +3621,12 @@ static enum hrtimer_restart timer_handler(struct hrtimer
 	return HRTIMER_NORESTART;
 }
 
+int cosco_count=4;
+int cosco[4];
+
+module_param_array(cosco, int, &cosco_count, 0644);
+MODULE_PARM_DESC(lotide, "histogram of cos isr");
+
 static void cos_action(struct acq400_dev *adev, u32 status)
 {
 	if ((status&ADC_INT_CSR_EVENT0) != 0){
@@ -3640,6 +3651,8 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 			}
 		}
 	}
+	cosco[EVX_TO_INDEX]++;
+
 	dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 }
 
