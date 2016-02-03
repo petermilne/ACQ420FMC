@@ -9,6 +9,14 @@ if { [string compare -length 7 $HN "acq2106"] == 0 } {
 } else {
 	set VREF	0
 }
+
+if { [string compare -length 4 $HN "kmcu"] == 0 } {
+	set V1P5	0
+	set V1		0
+} else {
+	set V1P5	1.5
+	set V1		1.0
+}
 puts "VAP $VAP VAN $VAN"
 
 #       target = xx * mx/dx + cx
@@ -48,21 +56,23 @@ set C_RES {
 
 set D_RES { 
 	{2.5 2.0 1000 0		2V5_REF_G28} 
-	{1.0 1.0 1000 0		1V_D27} 
+	{V1 1.0 1000 0		1V_D27} 
 	{2.5 2.0 1000 0		2V5_REF_G27} 
-	{1.5 1.0 1000 0		1V5_C27} 
-	{1.5 1.0 1000 0		1V5_C26}
-	{1.0 1.0 1000 0		1V_D26} 
+	{V1P5 1.0 1000 0	1V5_C27} 
+	{V1P5 1.0 1000 0	1V5_C26}
+	{V1 1.0 1000 0		1V_D26} 
 	{0.0 0.0 1000 0		NC} 
 	{0.0 0.0 1000 0		NC}
 }
 
 proc test_point {label reading formula} {
-	global VAN VAP VREF 	
+	global VAN VAP VREF V1P5 V1	
 	lassign $formula target mx dx cx pin
 	if { $target == "VAP" } { set target $VAP }
 	if { $target == "VAN" } { set target $VAN }
 	if { $target == "VREF" } { set target $VREF }
+	if { $target == "V1P5" } { set target $V1P5 }
+	if { $target == "V1" } { set target $V1 }
 	
 	set actual [expr $reading*$mx/$dx +$cx]
 	set delta [expr $target - $actual]
