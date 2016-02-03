@@ -3651,7 +3651,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 			}
 		}
 	}
-	cosco[EVX_TO_INDEX]++;
+	cosco[EVX_TO_INDEX(status)]++;
 
 	dev_dbg(DEVP(adev), "cos_action %08x\n", status);
 }
