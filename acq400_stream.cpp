@@ -245,17 +245,17 @@ unsigned b2s(unsigned bytes) {
 }
 
 
-#ifdef MULTI_ES
+
 #define ES_MAGIC	0xaa55f150
 #define ES_MAGIC_MASK	0xfffffff0
-#else
+
 /**
  * avoid spurious lock on ES2 .. good but
  * @@todo: ES2 will appear in the data. deal with it.
  * */
-#define ES_MAGIC	0xaa55f151
-#define ES_MAGIC_MASK	0xffffffff
-#endif
+#define ES_MAGIC_EV0		0xaa55f151
+#define ES_MAGIC_MASK_EV0	0xffffffff
+
 
 
 
@@ -269,6 +269,20 @@ bool IS_ES(unsigned *cursor)
 	return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
 			is_es_word(cursor[2]) && is_es_word(cursor[3]);
 }
+
+template <int MASK, int PAT>
+class ES {
+	bool is_es_word(unsigned word) {
+		return (word&MASK) == PAT;
+	}
+public:
+	bool isES(unsigned *cursor){
+		return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
+			is_es_word(cursor[2]) && is_es_word(cursor[3]);
+	}
+};
+
+ES<ES_MAGIC_MASK_EV0, ES_MAGIC_EV0> ev0;
 
 static int createOutfile(const char* fname) {
 	int fd = open(fname,
@@ -1969,7 +1983,7 @@ protected:
 
 		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
-			if (IS_ES(cursor)){
+			if (ev0.isES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
