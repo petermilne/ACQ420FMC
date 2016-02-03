@@ -6,12 +6,19 @@ set LNAMES1 [ list \
 	T50R_1 T50R_2 T50R_3 T50R_4 \
 	T50R_5 T50R_6 T50R_7 T50R_8 ]
 
+set DIR1 [ list \
+ 	out	out	out	out \
+ 	out	out	out	out ]
+
 #	1	2	3	4	5	6	7	8
 set LNAMESJ [ list \
 	 FRQTBL BWSEL0 BWSEL1 FRQSEL0 FRQSEL1 FRQSEL2 FRQSEL3 RATE0 \
-	 RATE1 DBL2_BY INC DEC LOL LOS RESETn ]
+	 RATE1 	DBL2_BY INC 	DEC 	LOL 	LOS 	RESETn ]
+set DIRJ [ list \
+	out	out	out	out	out	out	out	out \
+	out	out	out	out	in	in	out 	]
 
-proc link_gpio {lnames site gpio1 ngpio} {
+proc link_gpio {lnames outputs root gpio1 ngpio} {
 	set nc [llength $lnames]
 	set ngpio [expr min ($ngpio, $nc ) ]
 	set gpio2 [expr $gpio1 + $ngpio]
@@ -20,9 +27,12 @@ proc link_gpio {lnames site gpio1 ngpio} {
 		if { [string length $name] > 0 } {
 			set gpx [expr $gpio1 + $ix]			
 			exec set.sys /sys/class/gpio/export $gpx
-			exec set.sys  /sys/class/gpio/gpio$gpx/direction out
+			exec set.sys  /sys/class/gpio/gpio$gpx/direction \
+				[lindex $outputs $ix]
 			exec ln -s /sys/class/gpio/gpio$gpx/value \
-				/dev/acq480/$site/$name
+				$root/$name
+			exec ln -s /sys/class/gpio/gpio$gpx/direction \
+				$root/.$name.direction
 		}
 	}
 }
@@ -40,7 +50,7 @@ proc get_gpio12 {site addr} {
 }
 
 proc build_50R {site} {
-	global LNAMES1
+	global LNAMES1 DIR1
 	puts "build 50R knobs site:$site"
 	set gpiox {}
 	
@@ -49,7 +59,7 @@ proc build_50R {site} {
 		return
 	}
 	lassign $gpiox gpio1 ngpio
-	link_gpio $LNAMES1 $site $gpio1 $ngpio
+	link_gpio $LNAMES1 $DIR1 "/dev/acq480/$site" $gpio1 $ngpio
 	
 	for {set ic 1} {$ic <= $ngpio} {incr ic} {
 		file delete -force /etc/acq400/$site/T50R_$ic
@@ -70,7 +80,7 @@ proc set_acq480_knob {site knob} {
 }
 
 proc build_jitter_cleaner {site} {
-	global LNAMESJ
+	global LNAMESJ DIRJ
 	puts "build Jitter Cleaner site:$site"
 	set gpiox {}
 	
@@ -79,10 +89,10 @@ proc build_jitter_cleaner {site} {
 		return
 	}
 	lassign $gpiox gpio1 ngpio
-	link_gpio $LNAMESJ $site $gpio1 $ngpio
+	link_gpio $LNAMESJ $DIRJ "/dev/acq480/$site/JC" $gpio1 $ngpio
 
-	set_acq480_knob $site DBL2_BY
-	set_acq480_knob $site RESETn
+	set_acq480_knob $site JC/DBL2_BY
+	set_acq480_knob $site JC/RESETn
 }
 
 set SITES ""
@@ -108,7 +118,7 @@ if { $::argc > 0 } {
 	
 	if {$use_gpio} {
 	    	foreach site $::argv {	        	
-			exec mkdir -p /dev/acq480/$site
+			exec mkdir -p /dev/acq480/$site/JC
 			build_50R $site
 			build_jitter_cleaner $site
 		}
