@@ -61,6 +61,10 @@ proc isMTCA_ADAPTER {} {
 	}
 }
 
+proc isKMCU {} {
+	return [string compare -length 4 $HN "kmcu"] == 0 
+}
+
 set SITES ""
 
 if { $::argc > 0 } {
@@ -74,8 +78,10 @@ if { $::argc > 0 } {
 	
 	set parms acq400t_sites=$SITES
 	set siteplus 0
-	if {[isMTCA_ADAPTER] != 0 } {
+	if {[isMTCA_ADAPTER]} {
 		set parms "$parms site2channel=3"
+	}
+	if {[isKCMU]} {
 		set siteplus 1
 	}
 	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
