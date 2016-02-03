@@ -1,6 +1,7 @@
 #!/usr/bin/expect
 
 set PLAN "CARE/Si5317-plan"
+set SITE 1
 
 set pf [open $PLAN "r"]
 
@@ -16,8 +17,69 @@ while { [gets $pf line] >= 0 } {
 	incr ln
 }
 
+set KNOBS {FRQTBL FRQSEL3 FRQSEL2 FRQSEL1 FRQSEL0}
+
+proc setFile {path value} {
+	puts "setFile $path=$value"
+	set fp [open $path "w"]
+	puts $fp $value
+	close $fp
+}
+proc setKnob {knob bit} {
+	global SITE
+	
+	if { $bit == "M" } {
+		setFile /dev/acq480/$SITE/JC/.$knob.direction in
+	} else {
+		setFile /dev/acq480/$SITE/JC/.$knob.direction out
+		if { $bit == "H" } {
+			setFile /dev/acq480/$SITE/JC/$knob 1
+		} else {
+			setFile /dev/acq480/$SITE/JC/$knob 0
+		}
+	}
+}
+proc setHW {fc plan} {
+	global KNOBS
+	lassign $plan pn fmin fmax FRQTBL FRQSEL
+	set bits [split "$FRQTBL$FRQSEL" {}]
+	puts "fc=$fc plan=$pn $bits"
+	set ib 0
+	foreach bit $bits {
+		set knob [lindex $KNOBS $ib] 
+		setKnob $knob $bit
+		incr ib
+	}
+}
+
 puts "processed $ln plans"
 
-foreach idx [lsort -real [array names PLANS]] {
-	puts "$idx $PLANS($idx)"
+set keys [lsort -real [array names PLANS]] 
+#foreach idx $keys {
+#	puts "$idx $PLANS($idx)"
+#}
+
+if { $::argc > 0 } {
+	set fx [lindex $::argv 0]
+	set fplan1 0
+	foreach fplan $keys {
+		if {$fx < $fplan} {
+			if {$fplan == 0} {
+				puts "ERROR $fx < fmin=$fplan"
+				exit 1
+			}
+			puts "$fplan1 < $fx < $fplan"
+			set err1 [expr $fx - $fplan1]
+			set err2 [expr $fplan - $fx]
+			if {$err1 < $err2} {
+				setHW $fplan1 $PLANS($fplan1)
+			} else {
+				setHW $fplan1 $PLANS($fplan)
+			}
+			break;
+		}
+		set fplan1 $fplan
+	}
+} else {
+	puts "USAGE: acq480-jc-setup FREQ"
 }
