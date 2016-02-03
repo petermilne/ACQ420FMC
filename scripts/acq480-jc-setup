@@ -1,0 +1,23 @@
+#!/usr/bin/expect
+
+set PLAN "CARE/Si5317-plan"
+
+set pf [open $PLAN "r"]
+
+set ln 0
+
+array set PLANS {}
+
+while { [gets $pf line] >= 0 } {
+	lassign $line pn FRQTBL FRQSEL fmin fc fmax
+	if { $pn > 10 } {
+		set PLANS($fc) [list $pn $fmin $fmax $FRQTBL $FRQSEL]
+	}
+	incr ln
+}
+
+puts "processed $ln plans"
+
+foreach idx [lsort -real [array names PLANS]] {
+	puts "$idx $PLANS($idx)"
+}
