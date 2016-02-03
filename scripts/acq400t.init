@@ -84,15 +84,16 @@ if { $::argc > 0 } {
 		set SITES "$SITES$site"	
 	} 	
 	
-	set parms acq400t_sites=$SITES
-	set siteplus 0
+	set parms acq400t_sites=$SITES	
 	if {[isMTCA_ADAPTER]} {
 		set parms "$parms site2channel=3"
 	}
+	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
+	
+	set siteplus 0
 	if {[isKMCU]} {
 		set siteplus 1
 	}
-	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
 	
 	foreach site $::argv {
 	    puts "build knobs site:$site"
