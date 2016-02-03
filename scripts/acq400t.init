@@ -4,6 +4,7 @@
 
 set LNAMES1 [ list M2 M1 M0 LED_R LED_G CLK0 CLK01 ]
 
+
 proc link_gpio {lnames site gpio1} {
 	set gpio2 [expr $gpio1 + 7]
 	for {set ix 0} {[expr $gpio1+$ix <= $gpio2]} {incr ix} {		
@@ -52,6 +53,7 @@ proc link_hwmon {hsite site} {
  	exec ln -s $hwmon$hsite/device/in4_input	/dev/acq400t/$site/MuxD
 }
 
+# MTCA_ADAPTER was a once-off tester, fits ACQ2006
 proc isMTCA_ADAPTER {} {
 	if {[file exists /dev/acq400.5.knobs/module_type] != 0 &&
 	    [exec cat 	/dev/acq400.5.knobs/module_type] == {FC} } {
@@ -61,8 +63,14 @@ proc isMTCA_ADAPTER {} {
 	}
 }
 
+# so far, all MTCA uses KMCU
 proc isKMCU {} {
-	return [string compare -length 4 $HN "kmcu"] == 0 
+	set HN [exec hostname]
+	if { [string compare -length 4 $HN "kmcu"] == 0 } {
+		return 1
+	} else {
+		return 0
+	}
 }
 
 set SITES ""
@@ -81,7 +89,7 @@ if { $::argc > 0 } {
 	if {[isMTCA_ADAPTER]} {
 		set parms "$parms site2channel=3"
 	}
-	if {[isKCMU]} {
+	if {[isKMCU]} {
 		set siteplus 1
 	}
 	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
