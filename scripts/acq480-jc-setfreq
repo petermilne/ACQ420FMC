@@ -1,4 +1,4 @@
-#!/usr/bin/expect
+#!/usr/local/bin/expect
 
 set PLAN "/usr/local/CARE/Si5317-plan"
 set SITE 1
@@ -48,16 +48,16 @@ proc setFreq {fc plan} {
 		setKnob $knob $bit
 		incr ib
 	}
-	setKnob RESETn 0
-	setKnob RESETn 1
+	setKnob RESETn L
+	setKnob RESETn H
 }
 
 
 proc setBypass {} {
 	puts "bypass"
 	setKnob DBL2_BY 1
-	setKnob RESETn 0
-	setKnob RESETn 1
+	setKnob RESETn L
+	setKnob RESETn H
 }
 
 
