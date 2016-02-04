@@ -34,11 +34,14 @@ proc setKnob {knob bit} {
 		}
 	}
 }
-proc setHW {fc plan} {
+proc setFreq {fc plan} {
 	global KNOBS
+
+	setKnob DBL2_BY 0
+
 	lassign $plan pn fmin fmax FRQTBL FRQSEL
 	set bits [split "$FRQTBL$FRQSEL" {}]
-#	puts "fc=$fc plan=$pn $bits"
+	puts "fc=$fc plan=$pn $bits"
 	set ib 0
 	foreach bit $bits {
 		set knob [lindex $KNOBS $ib] 
@@ -50,7 +53,12 @@ proc setHW {fc plan} {
 }
 
 
-
+proc setBypass {} {
+	puts "bypass"
+	setKnob DBL2_BY 1
+	setKnob RESETn 0
+	setKnob RESETn 1
+}
 
 
 
@@ -79,6 +87,11 @@ set keys [lsort -real [array names PLANS]]
 
 if { $::argc > 0 } {
 	set fx [lindex $::argv 0]
+
+	if { $fx == 0 } {
+		setBypass
+		exit 0
+	}
 	set fplan1 0
 	foreach fplan $keys {
 		if {$fx < $fplan} {
@@ -90,9 +103,9 @@ if { $::argc > 0 } {
 			set err1 [expr $fx - $fplan1]
 			set err2 [expr $fplan - $fx]
 			if {$err1 < $err2} {
-				setHW $fplan1 $PLANS($fplan1)
+				setFreq $fplan1 $PLANS($fplan1)
 			} else {
-				setHW $fplan1 $PLANS($fplan)
+				setFreq $fplan1 $PLANS($fplan)
 			}
 			break;
 		}
