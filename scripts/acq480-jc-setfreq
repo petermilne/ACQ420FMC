@@ -60,30 +60,24 @@ proc setBypass {} {
 	setKnob RESETn H
 }
 
-
-
-set pf [open $PLAN "r"]
-
-set ln 0
-
 array set PLANS {}
 
-while { [gets $pf line] >= 0 } {
-	lassign $line pn FRQTBL FRQSEL fmin fc fmax
-	if { $pn > 10 } {
-		set PLANS($fc) [list $pn $fmin $fmax $FRQTBL $FRQSEL]
+proc getPlans {} {
+	global PLAN PLANS
+	set pf [open $PLAN "r"]
+	set ln 0
+
+	while { [gets $pf line] >= 0 } {
+		lassign $line pn FRQTBL FRQSEL fmin fc fmax
+		if { $pn > 10 } {
+			set PLANS($fc) [list $pn $fmin $fmax $FRQTBL $FRQSEL]
+		}
+		incr ln
 	}
-	incr ln
+#	puts "processed $ln plans"
 }
 
-
-#puts "processed $ln plans"
-
-set keys [lsort -real [array names PLANS]] 
-
-#foreach idx $keys {
-#	puts "$idx $PLANS($idx)"
-#}
+# main processing starts here
 
 if { $::argc > 0 } {
 	set fx [lindex $::argv 0]
@@ -93,6 +87,9 @@ if { $::argc > 0 } {
 		exit 0
 	}
 	set fplan1 0
+	getPlans
+	set keys [lsort -real [array names PLANS]] 
+
 	foreach fplan $keys {
 		if {$fx < $fplan} {
 			if {$fplan == 0} {
@@ -107,10 +104,14 @@ if { $::argc > 0 } {
 			} else {
 				setFreq $fplan1 $PLANS($fplan)
 			}
-			break;
+			exit 0
 		}
 		set fplan1 $fplan
 	}
+
+	puts "ERROR $fx is too high"
+	exit 1
 } else {
 	puts "USAGE: acq480-jc-setup FREQ"
+	exit 1
 }
