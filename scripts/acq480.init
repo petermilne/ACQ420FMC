@@ -25,14 +25,14 @@ proc link_gpio {lnames outputs root gpio1 ngpio} {
 	for {set ix 0} {[expr $gpio1+$ix < $gpio2]} {incr ix} {		
 		set name [lindex $lnames $ix]		
 		if { [string length $name] > 0 } {
-			set gpx [expr $gpio1 + $ix]			
+			set gpx [expr $gpio1 + $ix]
+			set io [lindex $outputs $ix]
 			exec set.sys /sys/class/gpio/export $gpx
-			exec set.sys  /sys/class/gpio/gpio$gpx/direction \
-				[lindex $outputs $ix]
+			exec set.sys  /sys/class/gpio/gpio$gpx/direction $io
 			exec ln -s /sys/class/gpio/gpio$gpx/value \
 				$root/$name
 			exec ln -s /sys/class/gpio/gpio$gpx/direction \
-				$root/.$name.direction
+				$root/.direction.$name
 		}
 	}
 }
@@ -89,7 +89,11 @@ proc build_jitter_cleaner {site} {
 		return
 	}
 	lassign $gpiox gpio1 ngpio
-	link_gpio $LNAMESJ $DIRJ "/dev/acq480/$site/JC" $gpio1 $ngpio
+	set jcpath "/dev/acq480/$site/JC"
+	link_gpio $LNAMESJ $DIRJ $jcpath $gpio1 $ngpio
+
+	exec ln -s $jcpath/LOL /etc/acq400/$site/JC_LOL
+	exec ln -s $jcpath/LOS /etc/acq400/$site/JC_LOS
 
 	set_acq480_knob $site JC/DBL2_BY
 	set_acq480_knob $site JC/RESETn
