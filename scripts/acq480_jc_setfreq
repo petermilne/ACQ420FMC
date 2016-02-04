@@ -20,6 +20,14 @@ proc setFile {path value} {
 	puts $fp $value
 	close $fp
 }
+
+proc getKnob {knob} {
+	global KPATH
+	set fp [open "$KPATH/$knob" "r"]
+	gets $fp line
+	return $line
+}
+
 proc setKnob {knob bit} {
 	global KPATH
 	
@@ -49,7 +57,21 @@ proc setFreq {fc plan} {
 		incr ib
 	}
 	setKnob RESETn L
+	after 100
 	setKnob RESETn H
+	
+	set pollcat 0
+	while {[getKnob LOL] != 0} {
+		after 100
+		incr pollcat
+		if {[expr $pollcat % 10] == 0} {
+			puts "WAITING for LOL to go low"
+		}
+		if {$pollcat > 100} {
+			puts "ERROR timed out waiting for LOL to go"
+			exit 1
+		}
+	}
 }
 
 
@@ -96,7 +118,7 @@ if { $::argc > 0 } {
 				puts "ERROR $fx < fmin=$fplan"
 				exit 1
 			}
-			puts "$fplan1 < $fx < $fplan"
+			puts "acq480_jc_setfreq site=$SITE $fplan1 < $fx < $fplan"
 			set err1 [expr $fx - $fplan1]
 			set err2 [expr $fplan - $fx]
 			if {$err1 < $err2} {
