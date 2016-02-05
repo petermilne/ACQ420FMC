@@ -57,11 +57,14 @@
 #define MODIFY_REG_ACCESS_READ_AFTER	0x2
 int modify_reg_access;
 module_param(modify_reg_access, int, 0644);
-MODULE_PARM_DESC(modify_spad_access,
-"1: force read before, 2: force read after");
+MODULE_PARM_DESC(modify_spad_access, "1: force read before, 2: force read after");
 
 int reset_fifo_verbose;
 module_param(reset_fifo_verbose, int, 0644);
+
+int hook_dac_gx_to_spad;
+module_param(hook_dac_gx_to_spad, int, 0644);
+MODULE_PARM_DESC(hook_dac_gx_to_spad, "1: writes to DAC GX mirrored to SPADx");
 
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
@@ -1970,6 +1973,19 @@ static ssize_t show_ao_GO(
 	return sprintf(buf, "%u\n", go>>SHL & 0x0000ffff);
 }
 
+void set_spad_gx(struct acq400_dev* adev, int CH0, unsigned go)
+/* cross couple gx setting to SPAD. CH 0..3 */
+{
+	if (hook_dac_gx_to_spad < 0){
+		/* hardware didn't match original? */
+		unsigned tmp = go&0x0000ffff;
+		go >>= 16;
+		go |= tmp << 16;
+	}
+	set_spadN(adev, CH0+4, go);
+}
+
+
 static ssize_t store_ao_GO(
 		const int CH, const int SHL,
 		struct device * dev,
@@ -1989,6 +2005,10 @@ static ssize_t store_ao_GO(
 		go |= (gx&0x0000ffff) << SHL;
 
 		acq400wr32(acq400_devices[dev->id], DAC_GAIN_OFF(CH), go);
+
+		if (hook_dac_gx_to_spad){
+			set_spad_gx(acq400_devices[0], CH-1, go);
+		}
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 4");

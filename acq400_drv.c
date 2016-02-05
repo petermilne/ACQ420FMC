@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.887"
+#define REVID "2.888"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -378,6 +378,9 @@ u32 get_spadN(struct acq400_dev* adev, int n)
 		return acq400rd32(adev, SPADN(n));
 	}
 }
+
+
+
 u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
