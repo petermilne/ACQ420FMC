@@ -140,7 +140,7 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
-	[ -e $kdir/atd_OR ] /usr/local/init/anatrg.init ${site}
+	[ -e $kdir/atd_OR ] && /usr/local/init/anatrg.init ${site}
 
 	[ -e ${SYSCONF}/site-${site}-peers ] && \
 		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
