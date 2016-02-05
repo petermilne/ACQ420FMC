@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.890"
+#define REVID "2.892"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -218,7 +218,7 @@ MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: set non zero to skip first buffers o
 int dtd_pulse_nsec = 1000000;
 module_param(dtd_pulse_nsec, int, 0644);
 
-int dtd_display_pulse_nsec = 100000000;
+int dtd_display_pulse_nsec = 200000000;
 module_param(dtd_display_pulse_nsec, int, 0644);
 
 // @@todo pgm: crude: index by site, index from 0
@@ -3644,6 +3644,23 @@ int cosco[4];
 module_param_array(cosco, int, &cosco_count, 0644);
 MODULE_PARM_DESC(lotide, "histogram of cos isr");
 
+static void xtd_action(struct acq400_dev *adev)
+{
+	adev->atd.event_source = acq400rd32(adev, ATD_TRIGGERED);
+
+	if (adev->atd.event_source){
+			adev->atd_display.event_source = adev->atd.event_source;
+
+		if (HAS_DTD(adev)){
+			hrtimer_start(&adev->atd.timer,	ktime_set(0, dtd_pulse_nsec),
+					HRTIMER_MODE_REL);
+		}
+
+		hrtimer_start(&adev->atd_display.timer,
+			ktime_set(0, dtd_display_pulse_nsec), HRTIMER_MODE_REL);
+	}
+}
+
 static void cos_action(struct acq400_dev *adev, u32 status)
 {
 	if ((status&ADC_INT_CSR_EVENT0) != 0){
@@ -3654,24 +3671,15 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
+		if (HAS_XTD(adev)){
+			xtd_action(adev);
+		}
 
 		wake_up_interruptible(&adev->event_waitq);
 	}
 	if ((status&ADC_INT_CSR_EVENT1) != 0){
-		if (HAS_DTD(adev)){
-			adev->atd.event_source = acq400rd32(adev, ATD_TRIGGERED);
-
-			if (adev->atd.event_source){
-				adev->atd_display.event_source = adev->atd.event_source;
-
-				hrtimer_start(&adev->atd.timer,
-						ktime_set(0, dtd_pulse_nsec),
-						HRTIMER_MODE_REL);
-
-				hrtimer_start(&adev->atd_display.timer,
-						ktime_set(0, dtd_display_pulse_nsec),
-						HRTIMER_MODE_REL);
-			}
+		if (HAS_XTD(adev)){
+			xtd_action(adev);
 		}
 	}
 	cosco[EVX_TO_INDEX(status)]++;
