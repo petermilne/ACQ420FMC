@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.888"
+#define REVID "2.890"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -217,6 +217,9 @@ MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: set non zero to skip first buffers o
 
 int dtd_pulse_nsec = 1000000;
 module_param(dtd_pulse_nsec, int, 0644);
+
+int dtd_display_pulse_nsec = 100000000;
+module_param(dtd_display_pulse_nsec, int, 0644);
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -2208,10 +2211,10 @@ ssize_t acq400_event_read(
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x\n",
 			adev->rt.sample_clocks_at_event,
 			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "OK",
-			adev->atd_event_source);
+			adev->atd.event_source);
 
-	if (HAS_DTD(adev) && adev->atd_event_source){
-		adev->atd_event_source = 0;
+	if (HAS_DTD(adev) && adev->atd.event_source){
+		adev->atd.event_source = 0;
 	}
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
@@ -3611,16 +3614,27 @@ quit:
 }
 
 /* this is the much-vaunted hrtimer - program in nsec,
- * still with 10msec resolution .. */
-static enum hrtimer_restart timer_handler(struct hrtimer
+ * still with 10msec resolution .. or maybe it's really good (second time around)
+ */
+static enum hrtimer_restart pulse_stretcher_timer_handler(struct hrtimer
 					  *handle)
 {
 	struct acq400_dev *adev;
 
-	adev = container_of(handle, struct acq400_dev, pulse_stretcher_timer);
+	adev = container_of(handle, struct acq400_dev, atd.timer);
 
 	acq400_clearDelTrgEvent(adev);
-	acq400wr32(adev, ATD_TRIGGERED, adev->atd_event_source);
+	acq400wr32(adev, ATD_TRIGGERED, adev->atd.event_source);
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart pulse_stretcher_display_timer_handler(
+		struct hrtimer *handle)
+{
+	struct acq400_dev *adev;
+
+	adev = container_of(handle, struct acq400_dev, atd_display.timer);
+	adev->atd_display.event_source = 0;
 	return HRTIMER_NORESTART;
 }
 
@@ -3645,11 +3659,17 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 	}
 	if ((status&ADC_INT_CSR_EVENT1) != 0){
 		if (HAS_DTD(adev)){
-			adev->atd_event_source = acq400rd32(adev, ATD_TRIGGERED);
+			adev->atd.event_source = acq400rd32(adev, ATD_TRIGGERED);
 
-			if (adev->atd_event_source){
-				hrtimer_start(&adev->pulse_stretcher_timer,
+			if (adev->atd.event_source){
+				adev->atd_display.event_source = adev->atd.event_source;
+
+				hrtimer_start(&adev->atd.timer,
 						ktime_set(0, dtd_pulse_nsec),
+						HRTIMER_MODE_REL);
+
+				hrtimer_start(&adev->atd_display.timer,
+						ktime_set(0, dtd_display_pulse_nsec),
 						HRTIMER_MODE_REL);
 			}
 		}
@@ -3797,6 +3817,13 @@ static int acq400_device_tree_init(struct acq400_dev* adev)
         return -1;
 }
 
+void acq400_timer_init(
+	struct hrtimer* timer,
+	enum hrtimer_restart (*function)(struct hrtimer *))
+{
+	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer->function = function;
+}
 static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
 /* Allocate and init a private structure to manage this device */
 {
@@ -3829,8 +3856,11 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         init_waitqueue_head(&adev->event_waitq);
         adev->onStart = acqXXX_onStartNOP;
         adev->onStop = acqXXX_onStopNOP;
-        hrtimer_init(&adev->pulse_stretcher_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-        adev->pulse_stretcher_timer.function = timer_handler;
+
+        acq400_timer_init(&adev->atd.timer, pulse_stretcher_timer_handler);
+        acq400_timer_init(&adev->atd_display.timer,
+        		pulse_stretcher_display_timer_handler);
+
         return adev;
 }
 

@@ -2872,9 +2872,21 @@ MAKE_BITS(atd_AND, 	 ATD_MASK_AND,  0, 0xffffffff);
 MAKE_BITS(dtd_ZN, 	 DTD_CTRL,  	0, DTD_CTRL_ZN);
 MAKE_BITS(dtd_CLR,       DTD_CTRL,  	0, DTD_CTRL_CLR);
 
+static ssize_t show_atd_triggered_display(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "0x%08x\n", adev->atd_display.event_source);
+
+}
+static DEVICE_ATTR(atd_triggered_display, S_IRUGO, show_atd_triggered_display, 0);
 
 static const struct attribute *atd_attrs[] = {
 	&dev_attr_atd_triggered.attr,
+	&dev_attr_atd_triggered_display.attr,
 	&dev_attr_atd_OR.attr,
 	&dev_attr_atd_AND.attr,
 	NULL
@@ -2955,6 +2967,7 @@ static const struct attribute *dtd_attrs[] = {
 	&dev_attr_dtd_ZN.attr,
 	&dev_attr_dtd_CLR.attr,
 	&dev_attr_atd_triggered.attr,
+	&dev_attr_atd_triggered_display.attr,
 	NULL
 };
 static ssize_t show_ACQ400T_out(

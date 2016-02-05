@@ -415,7 +415,6 @@ struct acq400_dev {
 
 	wait_queue_head_t event_waitq;
 
-	u32 atd_event_source;
 
 	/* fake event isr @@removeme */
 	struct timer_list event_timer;
@@ -600,7 +599,11 @@ struct acq400_dev {
 	int bq_overruns;
 	pid_t continuous_reader;
 
-	struct hrtimer pulse_stretcher_timer;
+	struct ATD {
+		u32 event_source;
+		struct hrtimer timer;
+	} atd, atd_display;
+
 	void *axi_private;
 };
 
