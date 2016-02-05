@@ -3957,11 +3957,13 @@ void acq400_createSysfs(struct device *dev)
 		}
 
 		if (HAS_ATD(adev)){
+			dev_info(dev, "HAS_ATD");
 			if (sysfs_create_files(&dev->kobj, atd_attrs)){
 				dev_err(dev, "failed to create atd sysfs");
 			}
 		}
 		if (HAS_DTD(adev)){
+			dev_info(dev, "HAS_DTD");
 			if (sysfs_create_files(&dev->kobj, dtd_attrs)){
 				dev_err(dev, "failed to create dtd sysfs");
 			}

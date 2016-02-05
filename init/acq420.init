@@ -131,7 +131,8 @@ web_append()
 
 build_etc_site() {
 	mkdir -p /etc/acq400/${site}
-	for src in /dev/acq400.${site}.knobs/*; do
+	kdir=/dev/acq400.${site}.knobs
+	for src in ${kdir}/*; do
 		case $(basename $src) in
 		driver|subsystem|power|uevent|dacspi|dacreset)
 			;;
@@ -139,8 +140,7 @@ build_etc_site() {
 			ln -s ${src} /etc/acq400/${site};;
 		esac
 	done
-	[ "x$ANATRG" = "xy" ] && [ $(is_adc $site) -ne 0 ] && \
-		/usr/local/init/anatrg.init ${site}
+	[ -e $kdir/atd_OR ] /usr/local/init/anatrg.init ${site}
 
 	[ -e ${SYSCONF}/site-${site}-peers ] && \
 		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
