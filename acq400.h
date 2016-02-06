@@ -155,6 +155,7 @@
 #define MOD_ID_PMODGPS_CELF	0x65
 #define MOD_ID_PMODGPS_FMC	0x66
 #define MOD_ID_V2F		0x67
+#define MOD_ID_PIG_CELF		0x68
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -755,7 +756,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
 #define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
-
+#define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
@@ -1206,4 +1207,15 @@ int acq400_setDelTrg(struct acq400_dev *adev, int ch, int threshold);
 int acq400_getDelTrg(struct acq400_dev *adev, int ch, int *threshold);
 int acq400_clearDelTrg(struct acq400_dev *adev);
 int acq400_clearDelTrgEvent(struct acq400_dev *adev);
+
+/* PIGCELF PC */
+#define PIG_CTL			0x04
+
+#define PC_DDS_DAC_CLKDIV	0x40
+#define PC_ADC_CLKDIV		0x44
+#define PC_DDS_PHASE_INC	0x48
+
+#define PIG_CTL_PSU_EN		0x00008000
+#define PIG_CTL_MASTER		0x00000100
+
 #endif /* ACQ420FMC_H_ */

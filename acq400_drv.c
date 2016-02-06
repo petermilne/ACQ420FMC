@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.892"
+#define REVID "2.893"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -496,6 +496,15 @@ static void v2f_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_EN);
 	adev->onStart = _v2f_onStart;
 	adev->onStop = _v2f_onStop;
+}
+
+static void pig_celf_init_defaults(struct acq400_dev *adev)
+{
+	adev->data32 = 0;
+	/* data is 4 x 32 bits, but I+Q surely 16 bit each? */
+	adev->word_size = 2;
+	adev->nchan_enabled = 8;
+	dev_info(DEVP(adev), "pig_celf_init_defaults()");
 }
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
 {
@@ -4049,6 +4058,9 @@ static int acq400_probe(struct platform_device *pdev)
   			break;
   		case MOD_ID_V2F:
   			v2f_init_defaults(adev);
+  			break;
+  		case MOD_ID_PIG_CELF:
+  			pig_celf_init_defaults(adev);
   			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",

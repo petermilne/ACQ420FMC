@@ -196,6 +196,23 @@ void v2f_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( V2F_CHAN_SEL );
 	DBG_REG_CREATE( V2F_FREQ_OFF );
 }
+
+void pig_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(ADC_CTRL);
+	DBG_REG_CREATE(TIM_CTRL);
+	DBG_REG_CREATE(ADC_HITIDE);
+	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
+	DBG_REG_CREATE_RW(ADC_FIFO_STA);
+	DBG_REG_CREATE(ADC_INT_CSR);
+	DBG_REG_CREATE(ADC_CLK_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
+	DBG_REG_CREATE(PC_DDS_DAC_CLKDIV);
+	DBG_REG_CREATE(PC_ADC_CLKDIV);
+	DBG_REG_CREATE(PC_DDS_PHASE_INC);
+}
+
 void acq400_createDebugfs(struct acq400_dev* adev)
 {
 	char* pcursor;
@@ -249,6 +266,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_V2F:
 			v2f_createDebugfs(adev, pcursor);
 			break;
+		case MOD_ID_PIG_CELF:
+			pig_celf_createDebugfs(adev, pcursor);
 		default:
 			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
 				GET_MOD_ID(adev));

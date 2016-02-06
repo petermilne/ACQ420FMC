@@ -269,3 +269,6 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_train_states.attr,
 	NULL
 };
+
+
+
