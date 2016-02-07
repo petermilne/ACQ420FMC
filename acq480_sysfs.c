@@ -101,7 +101,8 @@ enum ACQ480_TRAINING {
 	ACQ480_DESKEW_DONE,
 	ACQ480_SYNC,
 	ACQ480_SYNC_DONE,
-	ACQ480_ACTIVATE
+	ACQ480_ACTIVATE,
+	ACQ480_FAIL
 };
 
 static ssize_t show_train_states(
@@ -118,6 +119,7 @@ static ssize_t show_train_states(
 	ST_APPEND(ACQ480_SYNC);
 	ST_APPEND(ACQ480_SYNC_DONE);
 	ST_APPEND(ACQ480_ACTIVATE);
+	ST_APPEND(ACQ480_FAIL);
 	return pb - buf;
 #undef ST_APPEND
 }
@@ -251,6 +253,9 @@ static ssize_t store_train(
 		case ACQ480_SYNC_DONE:
 			dev_err(DEVP(adev), "do not set DONE state %u", train);
 			return -1;
+		case ACQ480_FAIL:
+			adev->acq480.train = ACQ480_FAIL;
+			break;
 		default:
 			dev_err(DEVP(adev), "unrecognised state %u", train);
 		}

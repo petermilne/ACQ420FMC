@@ -47,6 +47,7 @@ SYNC_DONE=$(get.site $SITE train)
 if [ $SYNC_DONE -ne $ACQ480_SYNC_DONE ]; then
 	echo SYNC failed
 	echo FAIL SYNC failed iteration $1 >$STF
+	set.site $SITE train=$ACQ480_FAIL
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=0
