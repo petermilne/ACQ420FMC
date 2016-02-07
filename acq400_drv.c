@@ -4067,6 +4067,9 @@ static int acq400_probe(struct platform_device *pdev)
   		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);
   		}
   	}
+  	if (IS_AXI64(adev)){
+  		axi64_init_dmac(adev);
+  	}
         acq400_createSysfs(&pdev->dev);
         acq400_init_proc(adev);
         acq400_createDebugfs(adev);

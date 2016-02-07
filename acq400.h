@@ -1200,6 +1200,7 @@ static inline int getSHL(unsigned mask)
 	return shl;
 }
 
+int axi64_init_dmac(struct acq400_dev *adev);
 int axi64_load_dmac(struct acq400_dev *adev);
 int axi64_free_dmac(struct acq400_dev *adev);
 

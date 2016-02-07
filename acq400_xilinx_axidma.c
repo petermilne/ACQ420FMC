@@ -52,14 +52,31 @@ struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
 	unsigned pa;
 };
+#define AXI_DESCR_WRAPPER_SZ	sizeof(struct AxiDescrWrapper)
+
+struct SEGMENT {
+	enum { DUMP, STORE } mode;
+	unsigned short nblocks;
+};
+typedef struct SEGMENT Segment;
+
+#define ACQ400_AXIPOOL_SZ	4096
 
 struct ACQ400_AXIPOOL {
 	int ndescriptors;
 	char pool_name[16];
 	struct dma_pool *pool;
 	struct AxiDescrWrapper *wrappers;
+	int segment_cursor;
+	Segment segments[1];		/* first segment */
 };
 
+#define GET_ACQ400_AXIPOOL(adev) \
+	((struct ACQ400_AXIPOOL*)(adev)->axi_private)
+#define MAX_SEGMENTS \
+	((ACQ400_AXIPOOL_SZ-sizeof(struct ACQ400_AXIPOOL))/sizeof(Segment))
+
+#define SEGDEF_LEN	5	/* [+-]NNN\n */
 
 static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 {
@@ -117,21 +134,24 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
         return 0;
 }
 
-static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
+static int _initDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 {
-	printk("intDevFromProcFile() 01 private %p\n", file->private_data);
-	seq_open(file, seq_ops);
-	printk("intDevFromProcFile() 10 private %p\n", file->private_data);
-
-	{
-		// @@todo hack .. assumes parent is the id .. could do better?
-		const char* dname = file->f_path.dentry->d_parent->d_iname;
-		void* adev = acq400_lookupSite(dname[0] -'0');
-		((struct seq_file*)file->private_data)->private = adev;
-		printk("intDevFromProcFile() 99 site:%d adev %p\n", dname[0] -'0', adev);
+	// @@todo hack .. assumes parent is the id .. could do better?
+	const char* dname = file->f_path.dentry->d_parent->d_iname;
+	struct acq400_dev* adev = acq400_lookupSite(dname[0] -'0');
+	if (adev->axi_private == 0){
+		return -ENODEV;
 	}
-
+	((struct seq_file*)file->private_data)->private = adev;
+	printk("initDevFromProcFile() 99 site:%d adev %p\n", dname[0] -'0', adev);
 	return 0;
+}
+static int initDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
+{
+	printk("initDevFromProcFile() 01 private %p\n", file->private_data);
+	seq_open(file, seq_ops);
+	printk("initDevFromProcFile() 10 private %p\n", file->private_data);
+	return _initDevFromProcFile(file, seq_ops);
 }
 
 static void acq400_proc_seq_stop(struct seq_file *s, void *v)
@@ -150,7 +170,7 @@ static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 	};
 
 	printk("acq400_proc_open_axi_descr() 01 \n");
-	return intDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
+	return initDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
 }
 static struct file_operations acq400_proc_ops_axi_descr = {
         .owner = THIS_MODULE,
@@ -160,36 +180,176 @@ static struct file_operations acq400_proc_ops_axi_descr = {
         .release = seq_release
 };
 
+static void *axi_seg_proc_seq_start(struct seq_file *s, loff_t *pos)
+{
+	struct acq400_dev *adev = s->private;
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+
+        if (*pos == 0) {
+        	seq_printf(s, "DMA SEGMENTS\n");
+        }
+        if (*pos < apool->segment_cursor){
+        	int cursor = *pos;
+        	return (void*)cursor;
+        }
+
+        return NULL;
+}
+
+static void *axi_seg_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	struct acq400_dev *adev = s->private;
+	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+	int read_cursor = (int)v;
+
+	if (read_cursor < apool->segment_cursor){
+		++(*pos);
+		return (void*)++read_cursor;
+	}else{
+		return NULL;
+	}
+}
+
+static int axi_seg_proc_seq_show(struct seq_file *s, void *v)
+{
+        struct acq400_dev *adev = s->private;
+        struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+        int read_cursor = (int)v;
+        Segment *seg = &apool->segments[read_cursor];
+
+        seq_printf(s, "%c%03d\n", seg->mode==DUMP? '-':'+', seg->nblocks);
+        return 0;
+}
 
 
+static int acq400_proc_open_axi_segments(struct inode *inode, struct file *file)
+{
+	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
+	        .start = axi_seg_proc_seq_start,
+	        .next = axi_seg_proc_seq_next,
+	        .stop = acq400_proc_seq_stop,
+	        .show = axi_seg_proc_seq_show
+	};
+
+	printk("acq400_proc_open_axi_descr() 01 \n");
+	return initDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
+}
+
+int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	char *cursor = ubuf;
+	char *eol;
+	int iseg = 0;
+
+	for (; cursor - ubuf < count; cursor = eol){
+		char skip_or_store;
+		int blocks;
+
+		eol = strchr(cursor, '\n');
+		if (eol == NULL){
+			eol = cursor+strlen(cursor);
+		}else{
+			*eol = '\0';
+		}
+
+		if (sscanf(cursor, "%c%3d", &skip_or_store, &blocks) == 2){
+			if (iseg < MAX_SEGMENTS){
+				switch(skip_or_store){
+				case '+':
+					apool->segments[iseg].mode = STORE;
+					break;
+				case '-':
+					apool->segments[iseg].mode = DUMP;
+					break;
+				default:
+					dev_err(DEVP(adev), "[%d] bad mode %c\n",
+							iseg, skip_or_store);
+					return -EINVAL;
+				}
+				apool->segments[iseg++].nblocks = blocks;
+			}else{
+				dev_err(DEVP(adev), "[%d] no space", iseg);
+				return -ENOSPC;
+			}
+		}else{
+			dev_err(DEVP(adev),
+					"[%d] bad spec \"%s\"\n", iseg, cursor);
+			return -EINVAL;
+		}
+	}
+	apool->segment_cursor = iseg;
+	return count;
+}
+/**
+ * This function is called with the /proc file is written
+ *
+ */
+
+ssize_t acq400_proc_seqments_write(
+	struct file *file, const char *buffer, size_t count, loff_t *data)
+{
+	const char* dname = file->f_path.dentry->d_parent->d_iname;
+	struct acq400_dev *adev = acq400_lookupSite(dname[0] -'0');
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	char* lbuf;
+	int rc;
+
+	if (apool == 0){
+		return -ENODEV;
+	}
+	if (count > MAX_SEGMENTS*SEGDEF_LEN) {
+		return -EFBIG;
+	}
+	lbuf = kmalloc(count+1, GFP_KERNEL);
+	/* write data to the buffer */
+	if (copy_from_user(lbuf, buffer, count) ) {
+		rc = -EFAULT;
+	}else{
+		lbuf[count] = '\0';
+		rc = parse_user_segments(adev, lbuf, count);
+	}
+
+	kfree(lbuf);
+	return rc;
+}
 static struct file_operations acq400_proc_ops_axi_segments = {
         .owner = THIS_MODULE,
-/*
         .open = acq400_proc_open_axi_segments,
-        .read = acq400_seq_segments_read,
-	.write = acq400_seq_segments_write,
+        .read = seq_read,
+	.write = acq400_proc_seqments_write,
         .llseek = seq_lseek,
         .release = seq_release
-*/
 };
 
 extern int AXI_DEBUG_LOOPBACK_INDEX;
-static void init_descriptor_cache(struct acq400_dev *adev)
+
+
+static void _finalize_descriptor_chain(struct acq400_dev *adev, int ndescriptors)
 {
-	struct ACQ400_AXIPOOL* apool = kzalloc(sizeof(struct ACQ400_AXIPOOL), GFP_KERNEL);
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	int ii;
+	struct AxiDescrWrapper * cursor;
+	for (ii = 0; ii < ndescriptors-1; ++ii){
+		cursor = apool->wrappers+ii;
+		cursor->va->next_desc = cursor[1].pa;
+	}
+
+	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
+		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
+		apool->wrappers[ii].va->next_desc =
+				apool->wrappers[AXI_DEBUG_LOOPBACK_INDEX].pa;
+	}else{
+		apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+	}
+}
+static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescriptors)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
 	struct AxiDescrWrapper * cursor;
 
-	apool->ndescriptors = AXI_BUFFER_COUNT;
-	snprintf(apool->pool_name, 16, "acq400_axi_pool");
-	apool->pool = dma_pool_create(apool->pool_name, DEVP(adev),
-		sizeof(struct xilinx_dma_desc_hw), 0x40, 0);
-
-	BUG_ON(apool->pool == 0);
-
-	apool->wrappers = kzalloc(sizeof(struct AxiDescrWrapper)*apool->ndescriptors, GFP_KERNEL);
-
-	for (ii = 0; ii < apool->ndescriptors; ++ii){
+	for (ii = 0; ii < ndescriptors; ++ii){
 		cursor = apool->wrappers+ii;
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
@@ -197,21 +357,91 @@ static void init_descriptor_cache(struct acq400_dev *adev)
 		cursor->va->buf_addr = adev->axi64_hb[ii]->pa;
 		cursor->va->control = bufferlen;
 	}
-	for (ii = 0; ii < apool->ndescriptors-1; ++ii){
-		cursor = apool->wrappers+ii;
-		cursor->va->next_desc = cursor[1].pa;
-	}
+	_finalize_descriptor_chain(adev, ndescriptors);
+}
 
-	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
-		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
-		apool->wrappers[ii].va->next_desc = apool->wrappers[AXI_DEBUG_LOOPBACK_INDEX].pa;
+static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescriptors)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	struct AxiDescrWrapper * cursor = apool->wrappers;
+	int last_buffer = AXI_BUFFER_COUNT-1;
+	struct AxiDescrWrapper dump;
+	int ihb = 0;
+	int iseg;
+
+	dump.va = dma_pool_alloc(apool->pool, GFP_KERNEL, &dump.pa);
+	dump.va->buf_addr = adev->axi64_hb[last_buffer]->pa;
+	dump.va->control = bufferlen;
+
+	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
+		Segment* segment = &apool->segments[iseg];
+		int ib;
+		for (ib = 0; ib < segment->nblocks; ++ib){
+			cursor->va =
+				dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
+			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
+
+			if (segment->mode == STORE){
+				if (ihb >= last_buffer){
+					dev_err(DEVP(adev), "ERROR: out of host buffers");
+					break;
+				}
+				cursor->va->buf_addr = adev->axi64_hb[ihb++]->pa;
+			}else{
+				cursor->va->buf_addr = dump.pa;
+			}
+			cursor->va->control = bufferlen;
+		}
+	}
+	_finalize_descriptor_chain(adev, ndescriptors);
+}
+
+int get_segmented_descriptor_total(struct acq400_dev *adev)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	int ii;
+	int ndesc = 0;
+
+	for (ii = 0; ii < apool->segment_cursor; ++ii){
+		ndesc += apool->segments[ii].nblocks;
+	}
+	return ndesc;
+}
+
+static void delete_pool(struct ACQ400_AXIPOOL* apool)
+{
+	struct AxiDescrWrapper * cursor = apool->wrappers;
+	int iw = 0;
+	for (; iw < apool->ndescriptors; ++iw, ++cursor){
+		dma_pool_free(apool->pool, cursor->va, cursor->pa);
+	}
+	kfree(apool->wrappers);
+	apool->ndescriptors = 0;
+}
+static void init_descriptor_cache(struct acq400_dev *adev)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	int ndescriptors;
+
+	if (apool->segment_cursor){
+		ndescriptors = get_segmented_descriptor_total(adev);
 	}else{
-		apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+		ndescriptors = AXI_BUFFER_COUNT;
 	}
-	adev->axi_private = apool;
+	if (apool->ndescriptors && apool->ndescriptors < ndescriptors){
+		delete_pool(apool);
+	}
+	if (apool->ndescriptors == 0){
+		apool->wrappers =
+			kzalloc(AXI_DESCR_WRAPPER_SZ*ndescriptors, GFP_KERNEL);
+		apool->ndescriptors = ndescriptors;
+	}
+	if (apool->segment_cursor){
+		init_descriptor_cache_segmented(adev, ndescriptors);
+	}else{
+		init_descriptor_cache_nonseg(adev, ndescriptors);
+	}
 
-	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
-	proc_create("SEGMENTS", 0, adev->proc_entry, &acq400_proc_ops_axi_segments);
 }
 void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tailpa, unsigned oneshot)
 {
@@ -245,7 +475,8 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 int _axi64_load_dmac(struct acq400_dev *adev)
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
-	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+
 	u32 head_pa = apool->wrappers[0].pa;
 	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
 			SHOTID(adev);
@@ -254,18 +485,37 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 	return 0;
 }
 
+
+
+int axi64_init_dmac(struct acq400_dev *adev)
+{
+	struct ACQ400_AXIPOOL* apool = kzalloc(ACQ400_AXIPOOL_SZ, GFP_KERNEL);
+
+	snprintf(apool->pool_name, 16, "acq400_axi_pool");
+	apool->pool = dma_pool_create(apool->pool_name, DEVP(adev),
+		sizeof(struct xilinx_dma_desc_hw), 0x40, 0);
+
+	BUG_ON(apool->pool == 0);
+	adev->axi_private = apool;
+
+	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
+	proc_create("SEGMENTS", 0, adev->proc_entry, &acq400_proc_ops_axi_segments);
+	return 0;
+}
+
 int axi64_load_dmac(struct acq400_dev *adev)
 {
-
 	if (adev->axi_private == 0){
+		axi64_init_dmac(adev);
 		init_descriptor_cache(adev);
 	}
 	return _axi64_load_dmac(adev);
 }
 
+
 int axi64_free_dmac(struct acq400_dev *adev)
 {
-	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
 	struct AxiDescrWrapper * cursor;
 
