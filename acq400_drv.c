@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.894"
+#define REVID "2.899"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3995,6 +3995,9 @@ static int acq400_probe(struct platform_device *pdev)
         	acq400_init_proc(adev);
         	acq2006_createDebugfs(adev);
         	acq400sc_init_defaults(adev);
+          	if (IS_AXI64(adev)){
+          		axi64_init_dmac(adev);
+          	}
         	return 0;
         }else if (IS_AO424(adev)){
         	if (allocate_hbm(adev, AO420_NBUFFERS,
@@ -4067,9 +4070,7 @@ static int acq400_probe(struct platform_device *pdev)
   		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);
   		}
   	}
-  	if (IS_AXI64(adev)){
-  		axi64_init_dmac(adev);
-  	}
+
         acq400_createSysfs(&pdev->dev);
         acq400_init_proc(adev);
         acq400_createDebugfs(adev);

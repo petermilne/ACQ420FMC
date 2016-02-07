@@ -491,6 +491,7 @@ int axi64_init_dmac(struct acq400_dev *adev)
 {
 	struct ACQ400_AXIPOOL* apool = kzalloc(ACQ400_AXIPOOL_SZ, GFP_KERNEL);
 
+	dev_dbg(DEVP(adev), "axi64_init_dmac() 01");
 	snprintf(apool->pool_name, 16, "acq400_axi_pool");
 	apool->pool = dma_pool_create(apool->pool_name, DEVP(adev),
 		sizeof(struct xilinx_dma_desc_hw), 0x40, 0);
@@ -498,8 +499,11 @@ int axi64_init_dmac(struct acq400_dev *adev)
 	BUG_ON(apool->pool == 0);
 	adev->axi_private = apool;
 
+	init_descriptor_cache(adev);
+
 	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
 	proc_create("SEGMENTS", 0, adev->proc_entry, &acq400_proc_ops_axi_segments);
+	dev_dbg(DEVP(adev), "axi64_init_dmac() 99");
 	return 0;
 }
 
@@ -507,7 +511,6 @@ int axi64_load_dmac(struct acq400_dev *adev)
 {
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
-		init_descriptor_cache(adev);
 	}
 	return _axi64_load_dmac(adev);
 }
