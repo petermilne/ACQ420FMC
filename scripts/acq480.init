@@ -78,6 +78,12 @@ proc set_acq480_knob {site knob} {
 	puts $fileId 1
 	close $fileId
 }
+proc clr_acq480_knob {site knob} {
+	set filename "/dev/acq480/$site/$knob"
+	set fileId [open $filename "w"]
+	puts $fileId 0
+	close $fileId
+}
 
 proc build_jitter_cleaner {site} {
 	global LNAMESJ DIRJ
@@ -86,6 +92,8 @@ proc build_jitter_cleaner {site} {
 	
 	if { [catch {get_gpio12 $site 22} gpiox] } {
 		puts "NOTE: failed to find device 22, most likely not fitted"
+		clr_acq480_knob $site JC_LOL
+		clr_acq480_knob $site JC_LOS
 		return
 	}
 	lassign $gpiox gpio1 ngpio
