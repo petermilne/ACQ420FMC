@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.899"
+#define REVID "2.900"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3326,11 +3326,7 @@ void poison_all_buffers(struct acq400_dev *adev)
 	int ii;
 	int nbuffers = move_list_to_stash(adev, &adev->EMPTIES);
 
-	if (nbuffers < AXI_BUFFER_COUNT){
-		AXI_BUFFER_COUNT = nbuffers;
-		dev_warn(DEVP(adev),
-			".. not enough buffers limit to %d", nbuffers);
-	}
+
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
@@ -3996,6 +3992,11 @@ static int acq400_probe(struct platform_device *pdev)
         	acq2006_createDebugfs(adev);
         	acq400sc_init_defaults(adev);
           	if (IS_AXI64(adev)){
+          		if (nbuffers < AXI_BUFFER_COUNT){
+          			AXI_BUFFER_COUNT = nbuffers - 1;
+          			dev_warn(DEVP(adev),
+          				".. not enough buffers limit to %d", nbuffers);
+          		}
           		axi64_init_dmac(adev);
           	}
         	return 0;
