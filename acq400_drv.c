@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.903"
+#define REVID "2.904"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -508,7 +508,11 @@ static void pig_celf_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
 	adev->onStart = acq420_onStart;
 	adev->onStop = acq420_disable_fifo;
+	acq400wr32(adev, PC_DDS_DAC_CLKDIV, 	0x5);
+	acq400wr32(adev, PC_ADC_CLKDIV, 	0x14);
+	acq400wr32(adev, PC_DDS_PHASE_INC, 	0x80000);
 }
+
 static void pmodadc1_init_defaults(struct acq400_dev *adev)
 {
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);

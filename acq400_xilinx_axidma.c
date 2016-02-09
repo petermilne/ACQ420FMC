@@ -243,6 +243,8 @@ int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
 	for (; cursor - ubuf < count; cursor = eol + 1){
 		char skip_or_store;
 		int blocks;
+		int loopcount = 0;
+		int loopstart = 0;
 
 		eol = strchr(cursor, '\n');
 		if (eol == NULL){
@@ -254,8 +256,13 @@ int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
 		if (strlen(cursor) == 0) continue;
 		if (cursor[0] == '#') continue;
 
+
 		dev_dbg(DEVP(adev), "parse_user_segments() [%d] \"%s\"",
 				iseg, cursor);
+
+		if (sscanf(cursor, "loop to=%d count=%d", &loopstart, &loopcount) == 2){
+			; 	// do loop
+		}
 
 		if (sscanf(cursor, "%c%d", &skip_or_store, &blocks) == 2){
 			if (iseg < MAX_SEGMENTS){
