@@ -186,13 +186,11 @@ static void *axi_seg_proc_seq_start(struct seq_file *s, loff_t *pos)
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
         if (*pos == 0) {
-        	seq_printf(s, "DMA SEGMENTS\n");
+        	seq_printf(s, "# DMA SEGMENTS\n");
         }
         if (*pos < apool->segment_cursor){
-        	int cursor = *pos;
-        	return (void*)cursor;
+        	return &apool->segments[*pos];
         }
-
         return NULL;
 }
 
@@ -200,11 +198,11 @@ static void *axi_seg_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
 	struct acq400_dev *adev = s->private;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
-	int read_cursor = (int)v;
+	Segment *seg = (Segment*)v;
 
-	if (read_cursor < apool->segment_cursor){
+	if (++seg - apool->segments < apool->segment_cursor){
 		++(*pos);
-		return (void*)++read_cursor;
+		return (void*)seg;
 	}else{
 		return NULL;
 	}
@@ -214,8 +212,7 @@ static int axi_seg_proc_seq_show(struct seq_file *s, void *v)
 {
         struct acq400_dev *adev = s->private;
         struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
-        int read_cursor = (int)v;
-        Segment *seg = &apool->segments[read_cursor];
+        Segment *seg = (Segment*)v;
 
         seq_printf(s, "%c%03d\n", seg->mode==DUMP? '-':'+', seg->nblocks);
         return 0;
@@ -224,7 +221,7 @@ static int axi_seg_proc_seq_show(struct seq_file *s, void *v)
 
 static int acq400_proc_open_axi_segments(struct inode *inode, struct file *file)
 {
-	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
+	static struct seq_operations acq400_proc_seq_seg = {
 	        .start = axi_seg_proc_seq_start,
 	        .next = axi_seg_proc_seq_next,
 	        .stop = acq400_proc_seq_stop,
@@ -232,7 +229,7 @@ static int acq400_proc_open_axi_segments(struct inode *inode, struct file *file)
 	};
 
 	printk("acq400_proc_open_axi_descr() 01 \n");
-	return initDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
+	return initDevFromProcFile(file, &acq400_proc_seq_seg);
 }
 
 int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
@@ -286,6 +283,7 @@ int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
 		}
 	}
 	apool->segment_cursor = iseg;
+	dev_dbg(DEVP(adev), "parse_user_segments() OK %d", iseg);
 	return count;
 }
 /**
@@ -293,7 +291,7 @@ int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
  *
  */
 
-ssize_t acq400_proc_seqments_write(
+ssize_t acq400_proc_segments_write(
 	struct file *file, const char *buffer, size_t count, loff_t *data)
 {
 	const char* dname = file->f_path.dentry->d_parent->d_iname;
@@ -308,6 +306,7 @@ ssize_t acq400_proc_seqments_write(
 	if (count > MAX_SEGMENTS*SEGDEF_LEN) {
 		return -EFBIG;
 	}
+
 	lbuf = kmalloc(count+1, GFP_KERNEL);
 	/* write data to the buffer */
 	if (copy_from_user(lbuf, buffer, count) ) {
@@ -318,13 +317,14 @@ ssize_t acq400_proc_seqments_write(
 	}
 
 	kfree(lbuf);
+
 	return rc;
 }
 static struct file_operations acq400_proc_ops_axi_segments = {
         .owner = THIS_MODULE,
         .open = acq400_proc_open_axi_segments,
         .read = seq_read,
-	.write = acq400_proc_seqments_write,
+	.write = acq400_proc_segments_write,
         .llseek = seq_lseek,
         .release = seq_release
 };

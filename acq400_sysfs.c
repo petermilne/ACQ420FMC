@@ -3301,6 +3301,30 @@ void clear_set(struct acq400_dev* set[])
 	}
 }
 
+int read_set(struct acq400_dev* set[],
+		struct acq400_dev *adev, char *buf, int maxbuf)
+{
+	int ia = 0;
+	int cursor = 0;
+
+	for (ia = 0; ia < MAXSITES; ++ia){
+		if (set[ia] != 0){
+			int site = set[ia]->of_prams.site;
+			if (cursor){
+				cursor += sprintf(buf+cursor, ",%d", site);
+			}else{
+				cursor += sprintf(buf+cursor, "%d", site);
+			}
+
+			if (cursor > maxbuf - 3){
+				break;
+			}
+		}
+	}
+	cursor += sprintf(buf+cursor, "\n");
+	return cursor;
+}
+
 static inline void reset_fifo(struct acq400_dev *adev, int enable)
 {
 	u32 ctrl;
@@ -3335,6 +3359,12 @@ int add_aggregator_set(struct acq400_dev *adev, int site)
 {
 	return add_set(adev->aggregator_set, adev, site);
 }
+
+int read_aggregator_set(struct acq400_dev *adev, char *buf, int maxbuf)
+{
+	return read_set(adev->aggregator_set, adev, buf, maxbuf);
+}
+
 void clear_aggregator_set(struct acq400_dev *adev)
 {
 	clear_set(adev->aggregator_set);
@@ -3477,7 +3507,15 @@ REG_KNOB(data_engine_1, DATA_ENGINE(1), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_2, DATA_ENGINE(2), DATA_ENGINE_MSHIFT);
 REG_KNOB(data_engine_3, DATA_ENGINE(3), DATA_ENGINE_MSHIFT);
 
-
+static ssize_t show_aggregator_set(
+	struct device* dev,
+	struct device_attribute* attr,
+	char *buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return read_aggregator_set(adev, buf, 32);
+}
+static DEVICE_ATTR(aggregator_set, S_IRUGO, show_aggregator_set, 0);
 
 static ssize_t show_dist_reg(
 	struct device * dev,
@@ -3795,6 +3833,7 @@ static DEVICE_ATTR(bq_overruns, S_IRUGO|S_IWUGO, show_bq_overruns, store_bq_over
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
+	&dev_attr_aggregator_set.attr,
 	&dev_attr_distributor.attr,
 	&dev_attr_decimate.attr,
 	&dev_attr_aggsta_fifo_count.attr,
