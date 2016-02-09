@@ -740,8 +740,6 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_BOLO8(adev) \
 	(GET_MOD_ID(adev)==MOD_ID_BOLO8 || GET_MOD_ID(adev)==MOD_ID_BOLO8B)
 
-#define HAS_AI(adev) \
-	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || IS_ACQ480(adev) || IS_BOLO8(adev))
 
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
@@ -757,6 +755,10 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
+
+#define HAS_AI(adev) \
+	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || \
+	IS_ACQ480(adev) || IS_BOLO8(adev) || IS_PIG_CELF(adev))
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
