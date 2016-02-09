@@ -15,7 +15,7 @@ set LNAMESJ [ list \
 	 FRQTBL BWSEL0 BWSEL1 FRQSEL0 FRQSEL1 FRQSEL2 FRQSEL3 RATE0 \
 	 RATE1 	DBL2_BY INC 	DEC 	LOL 	LOS 	RESETn ]
 set DIRJ [ list \
-	out	out	out	out	out	out	out	in \
+	out	out	in	out	out	out	out	in \
 	in	out	out	out	in	in	out 	]
 
 proc link_gpio {lnames outputs root gpio1 ngpio} {
