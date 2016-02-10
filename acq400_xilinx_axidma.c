@@ -67,6 +67,7 @@ struct ACQ400_AXIPOOL {
 	char pool_name[16];
 	struct dma_pool *pool;
 	struct AxiDescrWrapper *wrappers;
+	unsigned dump_pa;
 	int active_descriptors;
 	int segment_cursor;
 	Segment segments[1];		/* first segment */
@@ -128,10 +129,12 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
         struct AxiDescrWrapper * cursor = v;
 
 
-        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x\n",
+        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x %c\n",
         		cursor->pa, pa2index(apool, cursor->pa),
         		cursor->va->next_desc, pa2index(apool, cursor->va->next_desc),
-        		cursor->va->buf_addr, cursor->va->control);
+        		cursor->va->buf_addr, cursor->va->control,
+			apool->dump_pa==0? ' ':
+				cursor->va->buf_addr==apool->dump_pa? '-': '+');
 
         return 0;
 }
@@ -212,7 +215,6 @@ static void *axi_seg_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 
 static int axi_seg_proc_seq_show(struct seq_file *s, void *v)
 {
-        struct acq400_dev *adev = s->private;
         Segment *seg = (Segment*)v;
 
         seq_printf(s, "%c%03d\n", seg->mode==DUMP? '-':'+', seg->nblocks);
@@ -409,17 +411,11 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	struct AxiDescrWrapper * wrapper = apool->wrappers;
 	int last_buffer = AXI_BUFFER_COUNT-1;
-	struct AxiDescrWrapper dump;
 	int ihb = 0;
 	int iseg;
 
 	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d", ndescriptors);
-	dump.va = dma_pool_alloc(apool->pool, GFP_KERNEL, &dump.pa);
-	dump.va->buf_addr = adev->axi64_hb[last_buffer]->pa;
-	dump.va->control = bufferlen;
-
-	dev_dbg(DEVP(adev), "dump is [%d] pa:0x%08x", last_buffer, dump.va->buf_addr);
-
+	apool->dump_pa = adev->axi64_hb[last_buffer]->pa;
 
 	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
 		Segment* segment = &apool->segments[iseg];
@@ -436,7 +432,7 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 				}
 				wrapper->va->buf_addr = adev->axi64_hb[ihb++]->pa;
 			}else{
-				wrapper->va->buf_addr = dump.va->buf_addr;
+				wrapper->va->buf_addr = apool->dump_pa;
 			}
 			wrapper->va->control = bufferlen;
 		}
