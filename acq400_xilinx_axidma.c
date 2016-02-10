@@ -67,6 +67,7 @@ struct ACQ400_AXIPOOL {
 	char pool_name[16];
 	struct dma_pool *pool;
 	struct AxiDescrWrapper *wrappers;
+	int active_descriptors;
 	int segment_cursor;
 	Segment segments[1];		/* first segment */
 };
@@ -84,9 +85,10 @@ static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
         if (*pos == 0) {
-        	seq_printf(s, "AXI DESCRIPTORS\n");
+        	seq_printf(s, "# AXI DESCRIPTORS %d/%d\n",
+        			apool->active_descriptors, apool->ndescriptors);
         }
-        if (*pos < apool->ndescriptors){
+        if (*pos < apool->active_descriptors){
         	return &apool->wrappers[*pos];
         }
 
@@ -99,7 +101,7 @@ static void *acq400axi_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 	struct acq400_dev *adev = s->private;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
-	if (++(*pos) < apool->ndescriptors){
+	if (++(*pos) < apool->active_descriptors){
 		return &apool->wrappers[*pos];
 	}else{
 		return NULL;
@@ -109,7 +111,7 @@ static void *acq400axi_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 int pa2index(struct ACQ400_AXIPOOL* apool, unsigned pa)
 {
 	int ii;
-	for (ii = 0; ii < apool->ndescriptors; ++ii){
+	for (ii = 0; ii < apool->active_descriptors; ++ii){
 		struct AxiDescrWrapper * cursor = apool->wrappers+ii;
 		if (cursor->pa == pa){
 			return ii;
@@ -211,7 +213,6 @@ static void *axi_seg_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 static int axi_seg_proc_seq_show(struct seq_file *s, void *v)
 {
         struct acq400_dev *adev = s->private;
-        struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
         Segment *seg = (Segment*)v;
 
         seq_printf(s, "%c%03d\n", seg->mode==DUMP? '-':'+', seg->nblocks);
@@ -232,6 +233,28 @@ static int acq400_proc_open_axi_segments(struct inode *inode, struct file *file)
 	return initDevFromProcFile(file, &acq400_proc_seq_seg);
 }
 
+int addLoop(struct acq400_dev *adev, int iseg, int loopstart, int loopcount)
+{
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	int iloop;
+	int loop_cursor;
+	int seg = iseg;
+
+	for (iloop = 0; iloop < loopcount; ++iloop){
+		for (loop_cursor = loopstart; loop_cursor < iseg;
+						++seg, ++loop_cursor){
+			if (seg >= MAX_SEGMENTS){
+				dev_err(DEVP(adev),
+					"addLoop() MAX_SEGMENTS %d exceeded",
+					seg);
+				return seg;
+			}
+			apool->segments[seg] = apool->segments[loop_cursor];
+		}
+	}
+
+	return seg;
+}
 int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
@@ -261,7 +284,12 @@ int parse_user_segments(struct acq400_dev *adev, char* ubuf, int count)
 				iseg, cursor);
 
 		if (sscanf(cursor, "loop to=%d count=%d", &loopstart, &loopcount) == 2){
-			; 	// do loop
+			if (loopstart >= iseg){
+				dev_err(DEVP(adev), "loop to %d not available", loopstart);
+				return -EINVAL;
+			}
+			iseg = addLoop(adev, iseg, loopstart, loopcount);
+			continue;
 		}
 
 		if (sscanf(cursor, "%c%d", &skip_or_store, &blocks) == 2){
@@ -357,6 +385,7 @@ static void _finalize_descriptor_chain(struct acq400_dev *adev, int ndescriptors
 	}else{
 		apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
 	}
+	apool->active_descriptors = ndescriptors;
 }
 static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescriptors)
 {
