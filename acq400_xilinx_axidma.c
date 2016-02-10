@@ -344,6 +344,7 @@ static void _finalize_descriptor_chain(struct acq400_dev *adev, int ndescriptors
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
 	struct AxiDescrWrapper * cursor;
+
 	for (ii = 0; ii < ndescriptors-1; ++ii){
 		cursor = apool->wrappers+ii;
 		cursor->va->next_desc = cursor[1].pa;
@@ -377,37 +378,42 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescripto
 static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescriptors)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	struct AxiDescrWrapper * cursor = apool->wrappers;
+	struct AxiDescrWrapper * wrapper = apool->wrappers;
 	int last_buffer = AXI_BUFFER_COUNT-1;
 	struct AxiDescrWrapper dump;
 	int ihb = 0;
 	int iseg;
 
+	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d", ndescriptors);
 	dump.va = dma_pool_alloc(apool->pool, GFP_KERNEL, &dump.pa);
 	dump.va->buf_addr = adev->axi64_hb[last_buffer]->pa;
 	dump.va->control = bufferlen;
 
+	dev_dbg(DEVP(adev), "dump is [%d] pa:0x%08x", last_buffer, dump.va->buf_addr);
+
+
 	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
 		Segment* segment = &apool->segments[iseg];
 		int ib;
-		for (ib = 0; ib < segment->nblocks; ++ib){
-			cursor->va =
-				dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
-			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
+		for (ib = 0; ib < segment->nblocks; ++ib, ++wrapper){
+			wrapper->va =
+				dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
+			memset(wrapper->va, 0, sizeof(struct xilinx_dma_desc_hw));
 
 			if (segment->mode == STORE){
 				if (ihb >= last_buffer){
-					dev_err(DEVP(adev), "ERROR: out of host buffers");
+					dev_info(DEVP(adev), "DONE: out of host buffers");
 					break;
 				}
-				cursor->va->buf_addr = adev->axi64_hb[ihb++]->pa;
+				wrapper->va->buf_addr = adev->axi64_hb[ihb++]->pa;
 			}else{
-				cursor->va->buf_addr = dump.pa;
+				wrapper->va->buf_addr = dump.va->buf_addr;
 			}
-			cursor->va->control = bufferlen;
+			wrapper->va->control = bufferlen;
 		}
 	}
-	_finalize_descriptor_chain(adev, ndescriptors);
+	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 88 %d", wrapper-apool->wrappers);
+	_finalize_descriptor_chain(adev, wrapper-apool->wrappers);
 }
 
 int get_segmented_descriptor_total(struct acq400_dev *adev)
@@ -462,7 +468,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 	unsigned cr = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
 	unsigned halted, not_halted;
 	unsigned rs_check;
-	dev_dbg(xchan->dev, "axi64_arm_dmac() 01");
+
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = XILINX_DMA_CR_RESET_MASK);
 	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = 0);
 	halted = dma_read(xchan, XILINX_DMA_STATUS_OFFSET);
@@ -480,11 +486,12 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 		dev_err(xchan->dev, "HALTED: but we wanted to GO! SR=%08x", not_halted);
 	}
 	dma_write(xchan, XILINX_DMA_TDESC_OFFSET, tailpa);
-	dev_dbg(xchan->dev, "axi64_arm_dmac() 99");
 }
 
 // put marker in reg to show we were there ...
 #define SHOTID(adev)	(((adev->stats.shot&0x00ff)<<8)|0xcafe0000)
+
+extern int wimp_out;
 
 int _axi64_load_dmac(struct acq400_dev *adev)
 {
@@ -495,7 +502,9 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
 			SHOTID(adev);
 
-	axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
+	if (!wimp_out){
+		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
+	}
 	return 0;
 }
 
@@ -513,8 +522,6 @@ int axi64_init_dmac(struct acq400_dev *adev)
 	BUG_ON(apool->pool == 0);
 	adev->axi_private = apool;
 
-	init_descriptor_cache(adev);
-
 	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
 	proc_create("SEGMENTS", 0, adev->proc_entry, &acq400_proc_ops_axi_segments);
 	dev_dbg(DEVP(adev), "axi64_init_dmac() 99");
@@ -526,6 +533,7 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
 	}
+	init_descriptor_cache(adev);
 	return _axi64_load_dmac(adev);
 }
 

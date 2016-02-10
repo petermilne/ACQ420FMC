@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.904"
+#define REVID "2.910"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -220,6 +220,10 @@ module_param(dtd_pulse_nsec, int, 0644);
 
 int dtd_display_pulse_nsec = 200000000;
 module_param(dtd_display_pulse_nsec, int, 0644);
+
+
+int wimp_out;
+module_param(wimp_out, int, 0644);
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
