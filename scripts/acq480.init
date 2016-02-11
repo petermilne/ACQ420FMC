@@ -1,5 +1,5 @@
 #!/usr/local/bin/expect
-# acq480 T50R termination
+# acq480 T50R termination and jitter cleaner JC
 
 
 set LNAMES1 [ list \
