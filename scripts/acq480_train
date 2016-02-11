@@ -53,7 +53,7 @@ fi
 set.site $SITE acq480_setPatSync=0
 set.site $SITE train=$ACQ480_ACTIVATE
 echo LINK activated
-nice report_success & echo $! > $SUB_PID
+report_success & echo $! > $SUB_PID
 exit 0
 }
 
