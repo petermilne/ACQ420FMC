@@ -1,0 +1,10 @@
+#!/bin/sh
+# configure routing to sample the trigger
+# SOFT_TRIG (TRG.d1) -> HDMI OUT -> HDMI TERM -> HDMI IN
+# From HDMI TERM, tee the TRG signal to AI eg AI02
+
+set.site 0 SIG:SYNC_OUT:TRG=TRG
+set.site 0 SIG:SYNC_OUT:TRG:DX=d1
+set.site 0 SIG:SRC:TRG:0=HDMI
+
+# run a transient as normal .. d0 as TRG
