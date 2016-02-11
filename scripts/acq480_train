@@ -1,6 +1,8 @@
 #!/bin/sh
 
 SITE=${SITE:-${1:-1}}
+
+# STF will be sourced. key=value pairs ONLY please
 STF=/var/run/acq480.$SITE.train
 SUB_PID=/var/run/acq480_train_sub.$SITE.pid
 
@@ -28,7 +30,7 @@ report_success() {
 train() {
 source /dev/acq400.$SITE.knobs/train_states
 
-echo BUSY TRAIN starts >$STF
+echo A480_STATUS=TRAINING_STARTED >$STF
 set.site $SITE train=$ACQ480_RESET
 set.site $SITE acq480_setPatDeskew=0
 set.site $SITE acq480_setPatSync=0
@@ -38,7 +40,8 @@ set.site $SITE train=$ACQ480_DESKEW
 DESKEW_DONE=$(get.site $SITE train)
 if [ $DESKEW_DONE -ne $ACQ480_DESKEW_DONE ];then
 	echo DESKEW failed
-	echo FAIL DESKEW failed iteration $1 >$STF
+	(echo A480_STATUS=FAIL; 
+	 echo  A480_INFO=\"ERROR DESKEW failed iteration $1\" ) >$STF
 	exit 1
 fi
 set.site $SITE acq480_setPatSync=1
@@ -46,7 +49,8 @@ set.site $SITE train=$ACQ480_SYNC
 SYNC_DONE=$(get.site $SITE train)
 if [ $SYNC_DONE -ne $ACQ480_SYNC_DONE ]; then
 	echo SYNC failed
-	echo FAIL SYNC failed iteration $1 >$STF
+	(echo A480_STATUS=FAIL; 
+	 echo A480_INFO=\"FAIL SYNC failed iteration $1\" ) >$STF
 	set.site $SITE train=$ACQ480_FAIL
 	exit 1
 fi
