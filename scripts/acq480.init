@@ -92,12 +92,11 @@ proc build_jitter_cleaner {site} {
 	
 	if { [catch {get_gpio12 $site 22} gpiox] } {
 		puts "NOTE: failed to find device 22, most likely not fitted"
-		clr_acq480_knob $site JC_LOL
-		clr_acq480_knob $site JC_LOS
 		return
 	}
 	lassign $gpiox gpio1 ngpio
 	set jcpath "/dev/acq480/$site/JC"
+	exec mkdir -p $jcpath
 	link_gpio $LNAMESJ $DIRJ $jcpath $gpio1 $ngpio
 
 	exec ln -s $jcpath/LOL /etc/acq400/$site/JC_LOL
@@ -130,7 +129,7 @@ if { $::argc > 0 } {
 	
 	if {$use_gpio} {
 	    	foreach site $::argv {	        	
-			exec mkdir -p /dev/acq480/$site/JC
+			exec mkdir -p /dev/acq480/$site
 			build_50R $site
 			build_jitter_cleaner $site
 		}
