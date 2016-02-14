@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.914"
+#define REVID "2.915"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3381,7 +3381,10 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 		static unsigned count;
 
 		if (!rc && poison_overwritten(adev, adev->axi64_hb[1])){
-			dev_warn(DEVP(adev), "dma_done hbm1 complete, hbm0 not done! .. faking it");
+			/* check again, maybe happened in timeslice */
+			if (!poison_overwritten(adev, hbm)){
+				dev_warn(DEVP(adev), "dma_done hbm1 complete, hbm0 not done! .. faking it");
+			}
 			return 1;
 		}
 		if (last != rc || (++count&0xff) == 0){
