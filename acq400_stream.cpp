@@ -605,7 +605,7 @@ private:
 					src[0], data_fits_buffer);
 		}
 
-		if (start && !data_fits_buffer){
+		if (sizeof(T)==4 && start && !data_fits_buffer){
 			/* search for start point - site 1 */
 			for (; !(ch_id(src[0]) == ch_id(0x20) &&
 			         ch_id(src[1]) == ch_id(0x21) &&
