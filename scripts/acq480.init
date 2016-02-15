@@ -135,6 +135,13 @@ if { $::argc > 0 } {
 		}
 	} 
 	exec acq480_spi_mknod $SITES
+
+	if { [info exists ::env(MODEL)] } {
+		if { [string compare -length 7 $::env(MODEL) "acq2106"] == 0 } {
+			exec ln -s /usr/local/CARE/acq480_init_clk \
+							/etc/acq400/0/
+		}
+	}
 } else {
 	puts "usage acq480.init site1[ site 2...]	
 }

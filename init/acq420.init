@@ -441,6 +441,7 @@ build_knobs() {
 			echo "ERROR: ACQ480 found, but not compatible with BASE $MODEL"
 			exit 1;;
 		esac
+		export MODEL;
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 		for site in ${ACQ480_SITES}; do
 			(export SITE=$site; 
