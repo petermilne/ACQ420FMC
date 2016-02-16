@@ -1098,6 +1098,7 @@ extern int bufferlen;
 
 #define AXI_DMA_BLOCK	0x800
 
+
 static ssize_t store_optimise_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1113,7 +1114,7 @@ static ssize_t store_optimise_bufferlen(
 		int newbl;
 
 		if (is_acq480){
-			mindma = lcm(sample_size, AXI_DMA_BLOCK);
+			mindma = lcm(sample_size, PAGE_SIZE);
 		}else{
 			mindma = sample_size;
 
