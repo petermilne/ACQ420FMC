@@ -1079,7 +1079,57 @@ static ssize_t show_nbuffers(
 
 static DEVICE_ATTR(nbuffers, S_IRUGO, show_nbuffers, 0);
 
+int lcm(int x, int y)
+{
+	int n1 = x;
+	int n2 = y;
 
+	while(n1!=n2){
+		if(n1>n2){
+			n1=n1-n2;
+		}else{
+			n2=n2-n1;
+		}
+	}
+	return x*y/n1;
+}
+
+extern int bufferlen;
+
+static ssize_t store_optimise_bufferlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 sample_size;
+	if (sscanf(buf, "%u", &sample_size) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+		int spb;
+		int mindma;
+
+		if (IS_ACQ480(acq400_devices[1])){
+			mindma = lcm(sample_size, 0x800);
+			spb = bufferlen/mindma;
+
+			acq400wr32(adev, AXI_DMA_ENGINE_DATA, spb-1);
+		}else{
+			mindma = sample_size;
+			spb = bufferlen/mindma;
+		}
+
+		dev_dbg(DEVP(adev), "store_optimise_bufferlen ss:%d mindma:0x%x spb:%d len:0x%x",
+				sample_size, mindma, spb, spb*mindma);
+
+		acq400_set_bufferlen(adev, spb*mindma);
+
+		return count;
+	}
+
+	return -1;
+}
+
+static DEVICE_ATTR(optimise_bufferlen, S_IWUGO, 0, store_optimise_bufferlen);
 static ssize_t store_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1691,6 +1741,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_name.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
+	&dev_attr_optimise_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
