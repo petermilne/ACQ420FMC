@@ -401,7 +401,7 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescripto
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 		cursor->va->buf_addr = adev->axi64_hb[ii]->pa;
-		cursor->va->control = bufferlen;
+		cursor->va->control = adev->bufferlen;
 	}
 	_finalize_descriptor_chain(adev, ndescriptors);
 }
