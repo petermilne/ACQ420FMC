@@ -434,7 +434,7 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 			}else{
 				wrapper->va->buf_addr = apool->dump_pa;
 			}
-			wrapper->va->control = bufferlen;
+			wrapper->va->control = adev->bufferlen;
 		}
 	}
 	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 88 %d", wrapper-apool->wrappers);

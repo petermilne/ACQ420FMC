@@ -83,10 +83,16 @@ then
 fi
 set.sys /etc/acq400/0/sites ${sitelist}
 
-# worktodo LCM wanted .. and, what if the bufferlen is something other than 1MB
+# worktodo LCM wanted .. 
 
 let BLEN=$(cat /sys/module/acq420fmc/parameters/bufferlen)
 
+if [ $BLEN -eq 4194304 ]; then
+	BLEN=1048576
+	BM=4
+else
+	BM=1
+fi
 if [ $BLEN -eq 1048576 ]; then
 	case $nchan in
 	12|24|36|40|48|80|96|160)
@@ -94,6 +100,7 @@ if [ $BLEN -eq 1048576 ]; then
 	*)
 		BLEN=1048576;;
 	esac
+	let BLEN="$BLEN*$BM"
 	set.sys /dev/acq400.0.knobs/bufferlen $BLEN
 fi
 
