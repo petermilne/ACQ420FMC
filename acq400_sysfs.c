@@ -1096,6 +1096,8 @@ int lcm(int x, int y)
 
 extern int bufferlen;
 
+#define AXI_DMA_BLOCK	0x800
+
 static ssize_t store_optimise_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1107,22 +1109,28 @@ static ssize_t store_optimise_bufferlen(
 		struct acq400_dev *adev = acq400_devices[dev->id];
 		int spb;
 		int mindma;
+		int is_acq480 = IS_ACQ480(acq400_devices[1]);
+		int newbl;
 
-		if (IS_ACQ480(acq400_devices[1])){
-			mindma = lcm(sample_size, 0x800);
-			spb = bufferlen/mindma;
-
-			acq400wr32(adev, AXI_DMA_ENGINE_DATA, spb-1);
+		if (is_acq480){
+			mindma = lcm(sample_size, AXI_DMA_BLOCK);
 		}else{
 			mindma = sample_size;
-			spb = bufferlen/mindma;
+
 		}
+		spb = bufferlen/mindma;
+		newbl = spb*mindma;
 
 		dev_dbg(DEVP(adev), "store_optimise_bufferlen ss:%d mindma:0x%x spb:%d len:0x%x",
-				sample_size, mindma, spb, spb*mindma);
+				sample_size, mindma, spb, newbl);
 
-		acq400_set_bufferlen(adev, spb*mindma);
+		acq400_set_bufferlen(adev, newbl);
 
+		if (is_acq480){
+			int blocks = newbl/AXI_DMA_BLOCK;
+
+			acq400wr32(adev, AXI_DMA_ENGINE_DATA, blocks-1);
+		}
 		return count;
 	}
 
