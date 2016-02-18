@@ -15,6 +15,7 @@ obj-m += regfs.o
 obj-m += acq400_dspfs.o
 obj-m += xilinx_axidma.o
 obj-m += pigcelf.o
+obj-m += dmadescfs.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
@@ -27,6 +28,8 @@ acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	bolo8_core.o dio432_drv.o  ao424_drv.o acq400_sewfifo.o \
 	acq480_sysfs.o acq400_xilinx_axidma.o acq400_deltrg.o
 	
+dmadescfs-objs := dmadescfs_drv.o hbm.o	
+
 regfs-objs := regfs_drv.o
 	
 
