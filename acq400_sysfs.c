@@ -1773,7 +1773,6 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
-	&dev_attr_rgm.attr,
 	&dev_attr_nacc.attr,
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
@@ -1802,7 +1801,7 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_sw_emb_word2.attr,
 	&dev_attr_evt_sc_latch.attr,
 	&dev_attr_gate_sync.attr,
-	&dev_attr_rtm_translen.attr,
+
 	NULL
 };
 
@@ -3885,6 +3884,51 @@ static ssize_t store_bq_overruns(
 	}
 }
 
+
+static ssize_t show_es_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+
+	return sprintf(buf, "%d\n", (ctrl&ADC_CTRL_ES_EN) != 0);
+}
+
+static ssize_t store_es_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned es_enable;
+
+	if (sscanf(buf, "%u", &es_enable) == 1){
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		if (es_enable){
+			ctrl |= ADC_CTRL_ES_EN;
+		}else{
+			ctrl &= ~ADC_CTRL_ES_EN;
+		}
+		acq400wr32(adev, ADC_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(es_enable, S_IRUGO|S_IWUGO, show_es_enable, store_es_enable);
+
+static const struct attribute *rgm_attrs[] = {
+	&dev_attr_rgm.attr,
+	&dev_attr_rtm_translen.attr,
+	&dev_attr_es_enable.attr,
+	NULL
+};
+
+
 static DEVICE_ATTR(bq_overruns, S_IRUGO|S_IWUGO, show_bq_overruns, store_bq_overruns);
 
 
@@ -4068,6 +4112,11 @@ void acq400_createSysfs(struct device *dev)
 			dev_err(dev, "failed to create sysfs");
 		}
 
+		if (HAS_RGM(adev)){
+			if (sysfs_create_files(&dev->kobj, rgm_attrs)){
+				dev_err(dev, "failed to create rgm sysfs");
+			}
+		}
 		if (HAS_ATD(adev)){
 			dev_info(dev, "HAS_ATD");
 			if (sysfs_create_files(&dev->kobj, atd_attrs)){

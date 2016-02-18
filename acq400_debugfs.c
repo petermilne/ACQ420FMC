@@ -147,6 +147,11 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ADC_CONV_TIME);
 }
 
+void acq480_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(ADC_TRANSLEN);
+}
 void pmodadc1_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
@@ -255,7 +260,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			acq43x_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_ACQ480FMC:
-			adc_createDebugfs(adev, pcursor);
+			acq480_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_PMODADC1:
 			pmodadc1_createDebugfs(adev, pcursor);

@@ -175,6 +175,7 @@
 #define ADC_CTRL_RGM_MODE_MASK  0x3
 #define ADC_CTRL_435_GATE_SYNC	(1 << 10)	/* special resync mode */
 
+#define ADC_CTRL_ES_EN		(1 << 9)	/* enables ES ACQ480FMC */
 #define ADC_CTRL32B_data	(1 << 7)	/* ACQ420FMC */
 #define ADC_CTRL_420_18B	(1 << 6)	/* ACQ420FMC */
 #define ADC_CTRL_435_EMBED_STR	(1 << 6)	/* ACQ435 bitslice data */
@@ -763,6 +764,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
+
+#define HAS_RGM(adev) 	(IS_ACQ435(adev) || IS_ACQ480(adev))
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
