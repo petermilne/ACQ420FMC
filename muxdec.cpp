@@ -83,6 +83,33 @@ void dump_channels_ascii(const char* fmt, int c1, int c2, int nsam)
 	}
 }
 
+template <class T>
+void dump_channels_json(const char* fmt, int c1, int c2, int nsam)
+{
+	int ccount = c2 - c1 + 1;
+	File<T> **files = new File<T> * [ccount];
+	int cx;
+
+	for (cx = c1; cx <= c2; ++cx){
+		files[cx-c1] = new File<T>(fmt, cx, nsam);
+	}
+
+
+
+	for (int isam = 0; isam < nsam; ++isam){
+		char row[80];
+		char* cursor = row;
+
+		cursor += sprintf(cursor, "[");
+		cursor += sprintf(cursor, "%d,", isam);
+		for (cx = c1; cx <= c2; ++cx){
+			cursor += sprintf(cursor, "%d%s",
+				files[cx-c1]->buf[isam], cx == c2? "]\n": ",");
+		}
+		fputs(row, stdout);
+	}
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -94,7 +121,8 @@ int main(int argc, char* argv[])
 	system("inotifywait /dev/shm/AI.1.wf.fin 2>/dev/null >/dev/null");
 	//syslog(LOG_DEBUG, "muxdec 88\n"); return 0;
 	//dump_channels<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
-	dump_channels_ascii<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
+	//dump_channels_ascii<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
+	dump_channels_json<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
 	syslog(LOG_DEBUG, "muxdec 99\n");
 }
 
