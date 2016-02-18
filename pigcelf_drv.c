@@ -133,12 +133,7 @@ struct pigcelf_dev* pigcelf_allocate_dev(struct platform_device *pdev)
 	if (new_device(adev->i2c_adapter, "ad7417", 0x29, -1) == 0){
 		printk("pigcelf_init_site(%d) ad7417#2 NOT found\n", site);
 	}
-/*
-	dev_info(&pdev->dev, "modelling MCU as 24c01 eeprom (experimental)");
-	if (new_device(adev->i2c_adapter, "24c01", 0x67, -1) == 0){
-		printk("pigcelf_init_site(%d) MCU NOT found\n", site);
-	}
-*/
+
 	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
 
 	return adev;
