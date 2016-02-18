@@ -47,18 +47,85 @@
 #include <linux/dma-mapping.h>
 #include "hbm.h"
 
+#include "dmadescfs_ioctl.h"
+
+#define MAXBLOCKS	10
+
+
+
+struct dmadescfs_dev {
+	dev_t devno;
+	struct cdev cdev;
+	struct platform_device *pdev;
+	struct list_head hbm;
+};
+
+struct dmadescfs_dev* devices[1];		// only ONE device
 
 #define REVID 		"1"
 #define MODULE_NAME	"dmadescfs"
 
-static int dmadescfs_probe(struct platform_device *pdev)
+int dmadescfs_open(struct inode *inode, struct file *file)
 {
 	return 0;
 }
 
+int dmadescfs_mmap(struct file* file, struct vm_area_struct* vma)
+{
+	return 0;
+}
+int dmadescfs_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+struct file_operations dmadescfs_fops = {
+        .owner = THIS_MODULE,
+        .open = dmadescfs_open,
+        .release = dmadescfs_release,
+        .mmap = dmadescfs_mmap
+};
+
+
+static int dmadescfs_probe(struct platform_device *pdev)
+{
+	struct dmadescfs_dev *ddev =
+			kzalloc(sizeof(struct dmadescfs_dev), GFP_KERNEL);
+	int rc;
+
+	if (pdev->id != 0){
+		goto fail;
+	}
+	ddev->pdev = pdev;
+
+	INIT_LIST_HEAD(&devices[0]->hbm);
+        rc = alloc_chrdev_region(&ddev->devno, 0, MAXBLOCKS-1, "dmadescfs");
+        if (rc < 0) {
+                dev_err(&pdev->dev, "unable to register chrdev\n");
+                goto fail;
+        }
+        cdev_init(&ddev->cdev, &dmadescfs_fops);
+        ddev->cdev.owner = THIS_MODULE;
+        rc = cdev_add(&ddev->cdev, ddev->devno, MAXBLOCKS-1);
+        if (rc < 0){
+        	goto fail;
+        }
+
+        devices[pdev->id] = ddev;
+	return 0;
+
+fail:
+	kfree(ddev);
+	return -1;
+}
+
 static int dmadescfs_remove(struct platform_device *pdev)
 {
+	struct dmadescfs_dev *ddev = devices[pdev->id];
 
+	BUG_ON(pdev->id != 0);
+	hbm_free(&pdev->dev, &ddev->hbm);
+
+	platform_device_unregister(pdev);
 	return 0;
 }
 
