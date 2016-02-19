@@ -52,25 +52,11 @@
 #include "hbm.h"
 
 
-#define REVID 		"1"
+#define REVID 		"3"
 #define MODULE_NAME	"pigcelf"
 
 #define PIG_CELF_FPGA_SITE 2		/* site 2 in FPGA memory map */
-
-int pigcelf_sites[6] = { 0,  };
-int pigcelf_sites_count = 0;
-module_param_array(pigcelf_sites, int, &pigcelf_sites_count, 0644);
-
-static int n_pigcelf;
-module_param(n_pigcelf, int, 0444);
-
-
-#define I2C_CHAN(site) 	((site)+2)	/* CELF BUS = 4 */
-#define NGPIO_CHIP	8
-
-#define SPI_BUFFER_LEN	4096	/* 1 page */
-
-#define REGS_LEN	0x100
+#define I2C_CHAN(site)         ((site)+2)      /* CELF BUS = 4 */
 
 int site2cs(int site)
 {
@@ -84,8 +70,6 @@ int cs2site(int cs)
 
 
 struct pigcelf_dev {
-	dev_t devno;
-	struct cdev cdev;
 	struct platform_device *pdev;
 	struct i2c_adapter *i2c_adapter;
 	char devname[16];
@@ -168,9 +152,8 @@ static void pigcelf_init_site(int site)
 		.modalias = "adis16448",
 		.max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = 1,
-		.chip_select = 0,
+		.chip_select = 1,
 		.platform_data = NULL, /* No spi_driver specific config */
-		.mode = SPI_MODE_3,
 		.irq = -1,
 	};
 
@@ -180,7 +163,7 @@ static void pigcelf_init_site(int site)
 	pdev->id = site;
 	platform_device_register(pdev);
 
-	imu.chip_select = site - 1;
+	imu.chip_select = site2cs(site);
 	spi_register_board_info(&imu, 1);
 }
 
