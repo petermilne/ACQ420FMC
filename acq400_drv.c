@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.922"
+#define REVID "2.923"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -734,6 +734,8 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 static void acq420_disable_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	dev_dbg(DEVP(adev), "acq420_disable_fifo() %08x -> %08x",
+			ctrl, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
 	acq420_reset_fifo(adev);
 }

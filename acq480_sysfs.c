@@ -269,9 +269,42 @@ static ssize_t store_train(
 static DEVICE_ATTR(train, S_IRUGO|S_IWUGO, show_train, store_train);
 
 
+static ssize_t store_dclock_reset(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 reset;
+
+	if (sscanf(buf, "%u", &reset) == 1 && reset == 1){
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		if (ctrl & ADC_CTRL_ENABLE_CAPTURE){
+			dev_err(dev, "resetting DCLK, but ADC_ENABLED: 0x%08x", ctrl);
+		}
+		if (ctrl & ADC_CTRL_480_DCLK_SYNC){
+			dev_err(dev, "resetting DCLK, but it was already set: 0x%08x", ctrl);
+		}
+		ctrl &= ~ADC_CTRL_480_DCLK_SYNC;
+		dev_dbg(dev, "setting ADC_CTRL %08x", ctrl|ADC_CTRL_480_DCLK_SYNC);
+		acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_480_DCLK_SYNC);
+		msleep(1);
+		dev_dbg(dev, "clear ADC_CTRL %08x", ctrl);
+		acq400wr32(adev, ADC_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dclock_reset, S_IWUGO, 0, store_dclock_reset);
+
+
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
 	&dev_attr_train_states.attr,
+	&dev_attr_dclock_reset.attr,
 	NULL
 };
 

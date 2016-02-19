@@ -64,8 +64,9 @@ for site in $(echo $sites | tr , \  )
 do
 	logger -t $PNAME "acq480_init_clk enable site $site"
 	set.site 0 SYS:CLK:OE_CLK1_ELF${site} 1
-	acq480_train ${site}
 done
+
+/usr/local/CARE/acq480_streamd.0.conf
 
 /usr/local/epics/scripts/wait_ioc_ready
 caput $(hostname):1:INTCLK_HZ $FREQHZ

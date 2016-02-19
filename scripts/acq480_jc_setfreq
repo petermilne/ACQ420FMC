@@ -42,6 +42,21 @@ proc setKnob {knob bit} {
 		}
 	}
 }
+
+proc waitLOL {level} {
+	set pollcat 0
+	while {[getKnob LOL] != $level} {
+		incr pollcat
+		if {[expr $pollcat % 10] == 0} {
+			puts "WAITING for LOL to go $level"
+		}
+		if {$pollcat > 100} {
+			puts "ERROR timed out waiting for LOL to go $level"
+			exit 1
+		}
+		after 100
+	}
+}
 proc setFreq {fc plan} {
 	global KNOBS
 
@@ -57,21 +72,9 @@ proc setFreq {fc plan} {
 		incr ib
 	}
 	setKnob RESETn L
-	after 100
+	waitLOL 1
 	setKnob RESETn H
-	
-	set pollcat 0
-	while {[getKnob LOL] != 0} {
-		after 100
-		incr pollcat
-		if {[expr $pollcat % 10] == 0} {
-			puts "WAITING for LOL to go low"
-		}
-		if {$pollcat > 100} {
-			puts "ERROR timed out waiting for LOL to go"
-			exit 1
-		}
-	}
+	waitLOL 0
 }
 
 
