@@ -1,0 +1,15 @@
+/sbin/insmod dmadescfs.ko
+echo 9 >/proc/sys/kernel/printk
+echo file dmadescfs_drv.c +p > /dev/ddc
+
+major=$(grep dmadesc /proc/devices | awk '{ print $1 }')
+
+for buf in 0 1 2 3
+do
+	mknod /dev/dmadesc.$buf c $major $buf
+done
+
+# example usage
+# ./dmadescfs_test /dev/dmadesc.0 write
+# ./dmadescfs_test /dev/dmadesc.0 | hexdump
+

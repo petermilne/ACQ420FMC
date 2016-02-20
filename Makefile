@@ -28,7 +28,7 @@ acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	bolo8_core.o dio432_drv.o  ao424_drv.o acq400_sewfifo.o \
 	acq480_sysfs.o acq400_xilinx_axidma.o acq400_deltrg.o
 	
-dmadescfs-objs := dmadescfs_drv.o hbm.o	
+dmadescfs-objs := dmadescfs_drv.o
 
 regfs-objs := regfs_drv.o
 	
@@ -47,7 +47,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
-	muxdec
+	muxdec dmadescfs_test
 
 all: modules apps
 	
