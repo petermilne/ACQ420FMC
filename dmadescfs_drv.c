@@ -50,10 +50,10 @@
 
 #include "dmadescfs_ioctl.h"
 
-#define REVID 		"1"
+#define REVID 		"2"
 #define MODULE_NAME	"dmadescfs"
 
-#define MAXBLOCKS	10
+#define MAXBLOCKS	16		/* # minor nodes one buffer per minor */
 
 /** buffer definition. could be many buffers per device */
 struct desc_buf {
@@ -95,6 +95,7 @@ struct desc_buf* dmadescfs_find_buf(struct dmadescfs_dev *ddev, int id)
 	dev_dbg(DEVP(ddev), "dmadescfs_find_buf() 01");
 
 	list_for_each_entry(cur, &ddev->buffers, db_list){
+		dev_dbg(DEVP(ddev), "dmadescfs_find_buf() 01 cur id %d", cur->id);
 		if (cur->id == id){
 			dev_dbg(DEVP(ddev), "dmadescfs_find_buf() return %p", cur);
 			return cur;
@@ -131,6 +132,7 @@ struct desc_buf* dmadescfs_get_buf(
 		return 0;
 	}
 	cur->length = vsize;
+	cur->id = id;
 	INIT_LIST_HEAD(&cur->db_list);
 	list_add_tail(&cur->db_list, &ddev->buffers);
 	dev_dbg(DEVP(ddev), "dmadescfs_get_buf() return new %p", cur);
@@ -143,7 +145,8 @@ int dmadescfs_open(struct inode *inode, struct file *file)
 	PD(file)->dev = container_of(inode->i_cdev, struct dmadescfs_dev, cdev);
 	PD(file)->id = MINOR(inode->i_rdev);
 
-	dev_dbg(DEVP(PD(file)->dev), "dmadescfs_open mode %x", file->f_mode);
+	dev_dbg(DEVP(PD(file)->dev), "dmadescfs_open mode dev:%p id:%d %x",
+			PD(file)->dev, PD(file)->id, file->f_mode);
 
 	return 0;
 }
