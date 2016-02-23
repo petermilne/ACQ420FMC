@@ -4063,6 +4063,7 @@ static const struct attribute *kmcx_sc_attrs[] = {
 
 MAKE_BITS(pig_psu_en,     PIG_CTL,    		0, PIG_CTL_PSU_EN);
 MAKE_BITS(pig_master, 	  PIG_CTL,		0, PIG_CTL_MASTER);
+MAKE_BITS(pig_imu_rst,    PIG_CTL,              0, PIG_CTL_IMU_RST);
 MAKE_BITS(dds_dac_clkdiv, PC_DDS_DAC_CLKDIV, 	0, 0x0000ffff);
 MAKE_BITS(adc_clkdiv,	  PC_ADC_CLKDIV,	0, 0x0000ffff);
 MAKE_BITS(dds_phase_inc,  PC_DDS_PHASE_INC,	0, 0xffffffff);
@@ -4071,6 +4072,7 @@ MAKE_BITS(dds_phase_inc,  PC_DDS_PHASE_INC,	0, 0xffffffff);
 const struct attribute *pig_celf_attrs[] = {
 	&dev_attr_pig_psu_en.attr,
 	&dev_attr_pig_master.attr,
+	&dev_attr_pig_imu_rst.attr,
 	&dev_attr_dds_dac_clkdiv.attr,
 	&dev_attr_adc_clkdiv.attr,
 	&dev_attr_dds_phase_inc.attr,

@@ -52,7 +52,7 @@
 #include "hbm.h"
 
 
-#define REVID 		"3"
+#define REVID 		"5"
 #define MODULE_NAME	"pigcelf"
 
 #define PIG_CELF_FPGA_SITE 2		/* site 2 in FPGA memory map */
@@ -150,11 +150,11 @@ static void pigcelf_init_site(int site)
 {
 	static struct spi_board_info imu = {
 		.modalias = "adis16448",
-		.max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+		.max_speed_hz = 1000000,
 		.bus_num = 1,
 		.chip_select = 1,
 		.platform_data = NULL, /* No spi_driver specific config */
-		.irq = -1,
+		.irq = 0x42,
 	};
 
 	struct platform_device* pdev =
@@ -162,6 +162,9 @@ static void pigcelf_init_site(int site)
 	pdev->name = MODULE_NAME;
 	pdev->id = site;
 	platform_device_register(pdev);
+
+	dev_info(&pdev->dev, "pigcelf_init_site() irq %u", imu.irq);
+	dev_info(&pdev->dev, "pigcelf_init_site() set max_speed_hz %u", imu.max_speed_hz);
 
 	imu.chip_select = site2cs(site);
 	spi_register_board_info(&imu, 1);
@@ -195,6 +198,7 @@ static int __init pigcelf_init(void)
 
 
 	printk("D-TACQ pigcelf Driver %s\n", REVID);
+
 
 	platform_driver_register(&pigcelf_driver);
 	pigcelf_proc_root = proc_mkdir("driver/pigcelf", 0);

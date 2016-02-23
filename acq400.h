@@ -1222,6 +1222,7 @@ int acq400_clearDelTrgEvent(struct acq400_dev *adev);
 #define PC_ADC_CLKDIV		0x44
 #define PC_DDS_PHASE_INC	0x48
 
+#define PIG_CTL_IMU_RST		(1<<3)
 #define PIG_CTL_PSU_EN		0x00008000
 #define PIG_CTL_MASTER		0x00000100
 
