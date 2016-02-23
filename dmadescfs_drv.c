@@ -50,7 +50,7 @@
 
 #include "dmadescfs_ioctl.h"
 
-#define REVID 		"2"
+#define REVID 		"3"
 #define MODULE_NAME	"dmadescfs"
 
 #define MAXBLOCKS	16		/* # minor nodes one buffer per minor */
@@ -86,6 +86,16 @@ struct dmadescfs_pathdescriptor {
 
 struct dmadescfs_dev* devices[1];		// only ONE device
 
+static int getOrder(int len)
+{
+	int order;
+	len /= PAGE_SIZE;
+
+	for (order = 0; 1 << order < len; ++order){
+		;
+	}
+	return order;
+}
 
 
 
@@ -124,13 +134,14 @@ struct desc_buf* dmadescfs_get_buf(
 	}
 
 	cur = kzalloc(sizeof(struct desc_buf), GFP_KERNEL);
-	cur->va = dma_zalloc_coherent(DEVP(ddev), vsize, &cur->pa, GFP_KERNEL);
+	cur->va =  (void*)__get_free_pages(GFP_KERNEL, getOrder(vsize));
 
 	if (cur->va == 0){
 		dev_err(DEVP(ddev), "dma_alloc_coherent %lu FAIL", vsize);
 		kfree(cur);
 		return 0;
 	}
+	cur->pa = dma_map_single(DEVP(ddev), cur->va, vsize, DMA_BIDIRECTIONAL);
 	cur->length = vsize;
 	cur->id = id;
 	INIT_LIST_HEAD(&cur->db_list);
@@ -184,6 +195,12 @@ dmadescfs_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case DD_GETPA:
 		dev_dbg(DEVP(ddev), "ioctl DD_GETPA 0x%08x", db->pa);
 		*(unsigned long*)arg = db->pa;
+		return 0;
+	case DD_TOCPU:
+		dma_sync_single_for_cpu(DEVP(ddev), db->pa, db->length, DMA_FROM_DEVICE);
+		return 0;
+	case DD_TODEV:
+		dma_sync_single_for_device(DEVP(ddev), db->pa, db->length, DMA_TO_DEVICE);
 		return 0;
 	default:
 		return -ENODEV;
@@ -251,7 +268,8 @@ static int dmadescfs_remove(struct platform_device *pdev)
 	BUG_ON(pdev->id != 0);
 
 	list_for_each_entry(cur, &ddev->buffers, db_list){
-		dma_free_coherent(DEVP(ddev), cur->length, cur->va, cur->pa);
+		dma_unmap_single(DEVP(ddev), cur->pa, cur->length, DMA_BIDIRECTIONAL);
+		free_pages((unsigned long)cur->va, getOrder(cur->length));
 	}
 	kfree(ddev);
 	platform_device_unregister(pdev);

@@ -53,6 +53,10 @@ int write_test(char* fname)
 	for (ii = 1; ii < 512/sizeof(unsigned); ++ii){
 		buf[ii] = ii;
 	}
+	if (ioctl(fd, DD_TODEV, 0) != 0){
+		perror("ioctl DD_TOCPU FAIL");
+		exit(1);
+	}
 }
 
 int read_test(char* fname)
@@ -68,6 +72,10 @@ int read_test(char* fname)
 	}
 	buf = get_mapping(fd, PROT_READ);
 	report_pa(fd);
+	if (ioctl(fd, DD_TOCPU, 0) != 0){
+		perror("ioctl DD_TOCPU FAIL");
+		exit(1);
+	}
 
 	write(1, buf, 512);
 }

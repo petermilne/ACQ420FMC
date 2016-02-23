@@ -140,6 +140,10 @@ lilmac: lilmac.o
 bigmac.x86: bigmac.o
 	$(CXX) -O3 -o $@ $^ -lpopt	
 
+
+rtpackage:
+	tar cvzf dmadescfs.tgz dmadescfs* scripts/load.dmadescfs
+
 		
 zynq:
 	./make.zynq
