@@ -881,7 +881,7 @@ static ssize_t store_spad(
 	struct Spad spad = { 1, 8, 0 };
 	if (sscanf(buf, "%u,%u,%u", &spad.spad_en, &spad.len, &spad.diX) > 0){
 		if (spad.diX > SD_DI32) spad.diX = SD_SEW;
-		if (spad.len > 8) spad.len = 8;
+		if (spad.len > AGG_SPAD_LEN) spad.len = AGG_SPAD_LEN;
 		switch(spad.spad_en){
 		default:
 			spad.spad_en = SP_OFF;	/* fall thru */

@@ -826,7 +826,9 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define AGG_SPAD_EN		(1<<17)
 #define AGG_SPAD_FRAME		(1<<16)
 #define AGG_SPAD_LEN_SHL	4
-#define AGG_SPAD_LEN_MASK	0x7
+
+#define AGG_SPAD_LEN		16
+#define AGG_SPAD_LEN_MASK	(AGG_SPAD_LEN-1)
 
 #define AGG_SPAD_ALL_MASK \
 	(AGG_SPAD_LEN_MASK<<AGG_SPAD_LEN_SHL|\
