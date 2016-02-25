@@ -435,7 +435,7 @@ build_knobs() {
 			fi;;
 		acq21*)
 			echo "ACQ2106 + ACQ480 : OK";;
-		zc706*)
+		*zc706*)
 			echo "ZC706 + ACQ480 : OK";;
 		*)
 			echo "ERROR: ACQ480 found, but not compatible with BASE $MODEL"
