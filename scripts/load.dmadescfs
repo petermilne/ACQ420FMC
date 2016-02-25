@@ -1,4 +1,4 @@
-/sbin/insmod dmadescfs.ko
+/sbin/insmod /usr/local/lib/modules/dmadescfs.ko
 echo 9 >/proc/sys/kernel/printk
 echo file dmadescfs_drv.c +p > /dev/ddc
 
