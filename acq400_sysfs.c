@@ -392,10 +392,12 @@ static ssize_t store_clkdiv(
 	const char * buf,
 	size_t count)
 {
+	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 clkdiv;
+
 	if (sscanf(buf, "%u", &clkdiv) == 1 &&
-	    clkdiv >= 1 && clkdiv <= ADC_CLK_DIV_MASK){
-		acq400wr32(acq400_devices[dev->id], ADC_CLKDIV, clkdiv);
+	    clkdiv >= 1 && clkdiv <= adev->clkdiv_mask){
+		acq400wr32(adev, ADC_CLKDIV, clkdiv);
 		return count;
 	}else{
 		return -1;

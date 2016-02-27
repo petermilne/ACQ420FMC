@@ -112,6 +112,11 @@ module_param(BQ_LEN_SHL, int, 0644);
 
 int hb0_no_ratelimit = 0;
 module_param(hb0_no_ratelimit, int, 0644);
+
+/* PIG TEST. SLAVE has non zero settings */
+int sideport_does_not_touch_trg = 0;
+module_param(sideport_does_not_touch_trg, int, 0644);
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -508,6 +513,7 @@ static void pig_celf_init_defaults(struct acq400_dev *adev)
 	/* data is 4 x 32 bits, but I+Q surely 16 bit each? */
 	adev->word_size = 2;
 	adev->nchan_enabled = 8;
+	adev->clkdiv_mask = 0;	/* unfortunate alias of clkdiv reg. stub it */
 	dev_info(DEVP(adev), "pig_celf_init_defaults()");
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
 	adev->onStart = acq420_onStart;
@@ -1773,7 +1779,9 @@ int acq420_sideported_start(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	dev_dbg(DEVP(adev), "acq420_sideported_start()");
-	acq400_enable_trg(adev, 0);
+	if (sideport_does_not_touch_trg == 0){
+		acq400_enable_trg(adev, 0);
+	}
 	return _acq420_continuous_start(adev, 0);
 }
 
@@ -3886,6 +3894,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         init_waitqueue_head(&adev->event_waitq);
         adev->onStart = acqXXX_onStartNOP;
         adev->onStop = acqXXX_onStopNOP;
+        adev->clkdiv_mask = ADC_CLK_DIV_MASK;
 
         acq400_timer_init(&adev->atd.timer, pulse_stretcher_timer_handler);
         acq400_timer_init(&adev->atd_display.timer,

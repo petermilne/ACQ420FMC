@@ -607,6 +607,7 @@ struct acq400_dev {
 		struct hrtimer timer;
 	} atd, atd_display;
 
+	unsigned clkdiv_mask;
 	void *axi_private;
 };
 
