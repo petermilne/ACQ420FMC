@@ -845,6 +845,10 @@ int interpreter(FILE* fin, FILE* fout)
 				if (is_query){
 					rc = knob->get(obuf, 4096);
 					if (is_glob){
+						if (dynamic_cast<Help*>(knob) != 0){
+							/* don't query Help */
+							continue;
+						}
 						if (!strstr(obuf, knob->getName())){
 							fprintf(fout, "%s ", knob->getName());
 						}
