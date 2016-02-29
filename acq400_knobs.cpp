@@ -561,13 +561,18 @@ void Grouper::create(string def_file)
 	fclose(fp);
 }
 
-class Prompt: public Knob
+class Helper: public Knob
+{
+public:
+	Helper(const char* _name) : Knob(_name) {}
+};
+class Prompt: public Helper
 /* singleton */
 {
 
 	static bool enabled;
-	Prompt(): Knob("prompt") {
-	}
+	Prompt(): Helper("prompt") {}
+
 	/* return >0 on success, <0 on fail */
 	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (strcmp(args, "on") == 0){
@@ -623,7 +628,7 @@ done
 
 #define HROOT "/usr/share/doc"
 
-class Help: public Knob {
+class Help: public Helper {
 
 protected:
 	virtual int query(Knob* knob, char* buf, int buflen){
@@ -641,8 +646,8 @@ protected:
 		return 1;
 	}
 public:
-	Help() : Knob("help") {}
-	Help(const char* _key) : Knob(_key) {}
+	Help() : Helper("help") {}
+	Help(const char* _key) : Helper(_key) {}
 	virtual int get(char* buf, int maxbuf) {
 		char* cursor = buf;
 		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
@@ -845,8 +850,8 @@ int interpreter(FILE* fin, FILE* fout)
 				if (is_query){
 					rc = knob->get(obuf, 4096);
 					if (is_glob){
-						if (dynamic_cast<Help*>(knob) != 0){
-							/* don't query Help */
+						if (dynamic_cast<Helper*>(knob) != 0){
+							/* don't query Helper */
 							continue;
 						}
 						if (!strstr(obuf, knob->getName())){
