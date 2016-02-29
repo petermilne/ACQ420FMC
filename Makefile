@@ -136,6 +136,8 @@ bigmac: bigmac.o
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
 
+muxdec: muxdec.o acq-util.o
+	$(CXX) -O3 -o muxdec muxdec.o acq-util.o
 
 bigmac.x86: bigmac.o
 	$(CXX) -O3 -o $@ $^ -lpopt	
