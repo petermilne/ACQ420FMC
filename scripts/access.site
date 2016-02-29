@@ -1,14 +1,19 @@
 #!/bin/sh
 
-site=${1:-0}
-shift
-
-let port="4220+$site"
-	
 if [ "x$1" != "x" ]; then
-	echo "$*" | nc localhost $port
+	let port="4220+$1"
+	shift
+
+	if [ "x$1" != "x" ]; then
+		echo "$*" | nc localhost $port
+	else
+		nc localhost $port
+	fi
+	exit 0
 else
-	nc localhost $port
+	echo ERROR site not set
+	exit 1
 fi
+
 
 
