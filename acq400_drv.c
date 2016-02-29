@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.925"
+#define REVID "2.926"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -599,8 +599,10 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 static void ao424_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-	dev_info(DEVP(adev), "AO424 device init");
 
+	/* default to +/-10V bipolar. That's what 99% of the people want .. */
+	dev_info(DEVP(adev), "AO424 device initi default SPAN=3");
+	ao424_setspan_defaults(adev);
 	adev->data32 = 0;
 	adev->nchan_enabled = 32;
 	adev->word_size = 2;

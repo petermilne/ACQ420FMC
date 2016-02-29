@@ -210,3 +210,14 @@ int ao424_set_spans(struct acq400_dev* adev)
 	}
 	return rc;
 }
+
+/* default to +/-10V */
+void ao424_setspan_defaults(struct acq400_dev* adev)
+{
+	struct AO424 *ao424ch = &adev->ao424_device_settings;
+	int ic;
+
+	for (ic = 0; ic < AO424_MAXCHAN; ++ic){
+		ao424ch->u.ch.ao424_spans[ic] = 3;
+	}
+}

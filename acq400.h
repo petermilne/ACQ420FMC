@@ -1127,6 +1127,7 @@ extern const char* devname(struct acq400_dev *adev);
 #define AO424_DAC_CTRL_SPAN	(1<<5)
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
+void ao424_setspan_defaults(struct acq400_dev* adev);
 int ao424_set_spans(struct acq400_dev* adev);
 
 void acq400_sew_fifo_init(struct acq400_dev* adev, int ix);
