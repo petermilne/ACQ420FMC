@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.926"
+#define REVID "2.927"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2645,7 +2645,7 @@ int acq400_bq_release(struct inode *inode, struct file *file)
         return acq400_release(inode, file);
 }
 
-int acq400_bq_open(struct inode *inode, struct file *file)
+int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 {
 	static struct file_operations acq400_fops_bq = {
 			.read = acq400_bq_read,
@@ -2662,7 +2662,7 @@ int acq400_bq_open(struct inode *inode, struct file *file)
         file->f_op = &acq400_fops_bq;
 
         INIT_LIST_HEAD(&pdesc->bq_list);
-        pdesc->bq.bq_len = 1 << BQ_LEN_SHL;
+        pdesc->bq.bq_len = backlog;
         pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
 
         if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
@@ -2805,7 +2805,10 @@ int acq400_open(struct inode *inode, struct file *file)
         		rc = acq420_reserve_open(inode, file);
         		break;
         	case ACQ400_MINOR_BQ_NOWAIT:
-        		rc = acq400_bq_open(inode, file);
+        		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);
+        		break;
+        	case ACQ400_MINOR_BQ_FULL:
+        		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
         		break;
         	case ACQ420_MINOR_SEW1_FIFO:
         	case ACQ420_MINOR_SEW2_FIFO:

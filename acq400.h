@@ -340,6 +340,7 @@
 #define AO420_MINOR_HB0_AWG_ONCE_RETRIG	14
 #define ACQ400_MINOR_BQ_NOWAIT	15
 #define ACQ400_MINOR_ATD	16
+#define ACQ400_MINOR_BQ_FULL	17
 
 #define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
 
@@ -351,6 +352,9 @@
 #define ACQ420_MINOR_CHAN	200
 #define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
 
+
+#define BQ_MIN_BACKLOG		2
+#define BQ_MAX_BACKLOG		512
 
 #define IS_BUFFER(minor) \
 	((minor) >= ACQ420_MINOR_BUF && (minor) <= ACQ420_MINOR_BUF2)
