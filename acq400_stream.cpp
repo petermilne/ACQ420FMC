@@ -86,6 +86,7 @@
 #include <vector>
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
+#include "knobs.h"
 
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
@@ -111,65 +112,6 @@ int timespec_subtract (timespec *result, timespec *x, timespec *y) {
 	return x->tv_sec < y->tv_sec;
 }
 
-static int getKnob(int idev, const char* knob, unsigned* value)
-{
-	char kpath[128];
-	if (knob[0] == '/'){
-		strncpy(kpath, knob, 128);
-	}else{
-		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
-	}
-	FILE *fp = fopen(kpath, "r");
-	if (fp){
-		int rc = fscanf(fp, "%u", value);
-		fclose(fp);
-		return rc;
-	} else {
-		return -1;
-	}
-}
-
-static int getKnob(int idev, const char* knob, char* value)
-{
-	char kpath[128];
-	if (knob[0] == '/'){
-		strncpy(kpath, knob, 128);
-	}else{
-		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
-	}
-	FILE *fp = fopen(kpath, "r");
-	if (fp){
-		int rc = fscanf(fp, "%s", value);
-		fclose(fp);
-		return rc;
-	} else {
-		return -1;
-	}
-}
-
-static int setKnob(int idev, const char* knob, const char* value)
-{
-	char kpath[128];
-	if (knob[0] == '/'){
-		strncpy(kpath, knob, 128);
-	}else{
-		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
-	}
-	FILE *fp = fopen(kpath, "w");
-	if (fp){
-		int rc = fprintf(fp, "%s\n", value);
-		fclose(fp);
-		return rc;
-	} else {
-		return -1;
-	}
-}
-
-static int setKnob(int idev, const char* knob, int value)
-{
-	char vx[32]; snprintf(vx, 32, "%d", value);
-	return setKnob(idev, knob, vx);
-}
 
 #define BM_NOT_SPECIFIED	'\0'
 #define BM_NULL			'n'
