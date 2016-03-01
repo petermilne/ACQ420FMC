@@ -10,11 +10,14 @@
         <Model>ACQ435ELF</Model>
 	<SerialNum>E43510000</SerialNum>
     </Info>
-     <Data AICHAN="32" code_min="-8388608" code_max="8388607">
-		<Range name="10">
+     <Data AICHAN="32" code_min="-8388608" code_max="8388607" SW="hi_res_mode,gain%d">
+		<Range name="HI_RES_10V" sw="1,0">		
 			<Nominal eoff="0" eslo="1.19209289551e-06" roff="0"/>
         </Range>
-    </Data>
+        <Range name="HI_SPEED_10V" sw="0,0">
+ 			<Nominal eoff="0" eslo="1.19209289551e-06" roff="0"/>
+        </Range>
+     </Data>
 </AcqCalibration>
 <ModelSpec>
         <ChannelBlockMask>
