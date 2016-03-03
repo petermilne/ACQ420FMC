@@ -771,7 +771,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
 
-#define HAS_RGM(adev) 	(IS_ACQ435(adev) || IS_ACQ480(adev))
+#define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ480(adev))
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
