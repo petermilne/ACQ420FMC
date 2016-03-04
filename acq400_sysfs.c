@@ -1914,11 +1914,45 @@ static ssize_t store_freq_offset(
 static DEVICE_ATTR(freq_offset,
 		S_IRUGO|S_IWUGO, show_freq_offset, store_freq_offset);
 
+static ssize_t show_freq_offset_raw(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 freq_off = acq400rd32(adev, V2F_FREQ_OFF);
+
+	return sprintf(buf, "%u\n", freq_off);
+}
+
+
+static ssize_t store_freq_offset_raw(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned mstep = adev->data32? V2F_OFFSET_UNPACKED_1M: V2F_OFFSET_PACKED_1M;
+	u32 freq_off;
+
+	if (sscanf(buf, "%u", &freq_off) == 1){
+		acq400wr32(adev, V2F_FREQ_OFF, freq_off);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(freq_offset_raw,
+		S_IRUGO|S_IWUGO, show_freq_offset_raw, store_freq_offset_raw);
+
 static const struct attribute *sysfs_v2f_attrs[] = {
 	//&dev_attr_clkdiv.attr,
 	&dev_attr_hf.attr,
 	//&dev_attr_active_chan.attr,
 	&dev_attr_freq_offset.attr,
+	&dev_attr_freq_offset_raw.attr,
 	&dev_attr_chan_sel.attr,
 };
 extern const struct attribute *acq480_attrs[];
