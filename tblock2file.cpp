@@ -102,16 +102,22 @@ public:
 
 class File {
 	FILE *_fp;
+
 public:
-	File(const char *fname, const char* mode){
+	static const bool NOCHECK = false;
+
+	File(const char *fname, const char* mode, bool check = true){
 		_fp = fopen(fname, mode);
-		if (_fp == 0){
+		if (check && _fp == 0){
 			perror(fname);
 			exit(1);
 		}
 	}
 	~File() {
-		fclose(_fp);
+		if (_fp) fclose(_fp);
+	}
+	FILE* fp() {
+		return _fp;
 	}
 	FILE* operator() () {
 		return _fp;
@@ -131,6 +137,8 @@ class Archiver {
 
 	char outbase[128];
 
+	File* aux_file;
+
 	char* makeDateRoot(char ydmh[], int maxstr = 32) {
 	        time_t t = time(NULL);
 	        struct tm *tmp = localtime(&t);
@@ -148,10 +156,28 @@ class Archiver {
 		File fn("/dev/shm/tblock2file", "w");
 		fprintf(fn(), "FILE=%s/%06d\n", outbase, seq);
 	}
+
+	void createAuxFile() {
+		if (aux_file) delete aux_file;
+
+		char auxfn[128];
+		snprintf(auxfn, 128, "%s/%06d%s", outbase, seq, txt.data());
+		aux_file = new File(auxfn, "w");
+	}
+	void stashAux(const char* in_fname){
+		File fp_sensors(in_fname, "r", File::NOCHECK);
+		if (fp_sensors()){
+			char buf[256];
+			fgets(buf, 256, fp_sensors());
+			fputs(buf, aux_file->fp());
+		}else{
+			fprintf(fp_sensors(), "file \"%s\" not available", in_fname);
+		}
+	}
 public:
 	Archiver(string _job) :
 		job(_job), jobroot("/data/"), base ("/dev/acq400.0.hb/"), dat(".dat"), txt(".txt"),
-		seq(0)	{
+		seq(0), aux_file(0)	{
 		jobroot = jobroot + job;
 		bq = fopen("/dev/acq400.0.bqf", "r");
 		if (bq == 0){
@@ -160,6 +186,7 @@ public:
 		}
 		makeDateRoot(ydhm);
 		mkdir(ydhm);
+		createAuxFile();
 	}
 
 	int operator() () {
@@ -192,9 +219,10 @@ public:
 		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
 	}
 	void processAux(void) {
-		char cmd[128];
-		snprintf(cmd, 128, "cat /dev/shm/sensors > %s/%06d%s", outbase, seq, txt.data());
-		system(cmd);
+		fprintf(aux_file->fp(), "%06d", seq);
+		stashAux("/dev/shm/sensors");
+		stashAux("/dev/shm/imu");
+		fputs("\n", aux_file->fp());
 	}
 };
 
