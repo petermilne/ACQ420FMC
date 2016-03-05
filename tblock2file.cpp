@@ -34,6 +34,10 @@
 #include "local.h"
 #include "knobs.h"
 
+#include "File.h"
+
+#include "acq-util.h"
+
 #define NCHAN	4
 
 using namespace std;
@@ -45,6 +49,10 @@ namespace G {
 	unsigned int nchan = NCHAN;
 	int wordsize = 2;
 	const char *fmt  = "%Y-%j/%H/%M";
+	int *channels;				// index from 1
+	int nchan_selected;
+	int shr = 4;				// scale 20 bit to 16 bit. Gain possible ..
+	bool raw = false;
 };
 
 void init_globs(void)
@@ -56,11 +64,33 @@ void init_globs(void)
 	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
 	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
+	G::channels = new int[G::nchan+1];
+	memset(G::channels, 0, G::nchan+1*sizeof(int));
+
+	File env("/etc/sysconfig/tblock2burst.ini", "r", File::NOCHECK);
+	if (env.fp()){
+		char ebuf[128];
+		while (fgets(ebuf, 128, env.fp())){
+			if (strstr(ebuf, "CH=") == ebuf){
+				G::nchan_selected =
+					acqMakeChannelRange(G::channels, G::nchan, ebuf+3);
+			}
+			if (strstr(ebuf, "SHR=") == ebuf){
+				G::shr = atoi(ebuf+4);
+			}
+		}
+	}
+
+	if (G::nchan_selected == 0){
+		G::nchan_selected = acqMakeChannelRange(
+				G::channels, G::nchan, ":");
+	}
+	fprintf(stderr, "selected %d channels\n", G::nchan_selected);
 }
 
 struct poptOption opt_table[] = {
-		POPT_AUTOHELP
-		POPT_TABLEEND
+	POPT_AUTOHELP
+	POPT_TABLEEND
 };
 
 void init(int argc, const char** argv) {
@@ -77,55 +107,10 @@ void init(int argc, const char** argv) {
 	}
 }
 
-template <class T>
-class Mapping {
-	T* _data;
-	int fd;
-public:
-	Mapping(string fname, int len) {
-		int fd = open(fname.data(), O_RDWR, 0777);
-		_data = static_cast<T*>(mmap(0, G::bufferlen,
-			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0));
-		if (_data == MAP_FAILED){
-			perror(fname.data());
-			exit(1);
-		}
-	}
-	~Mapping() {
-		munmap(_data, G::bufferlen);
-		close(fd);
-	}
-	const T* operator() () {
-		return _data;
-	}
-};
 
-class File {
-	FILE *_fp;
 
-public:
-	static const bool NOCHECK = false;
-
-	File(const char *fname, const char* mode, bool check = true){
-		_fp = fopen(fname, mode);
-		if (check && _fp == 0){
-			perror(fname);
-			exit(1);
-		}
-	}
-	~File() {
-		if (_fp) fclose(_fp);
-	}
-	FILE* fp() {
-		return _fp;
-	}
-	FILE* operator() () {
-		return _fp;
-	}
-};
-
-template <class T>
 class Archiver {
+protected:
 	FILE *bq;
 	string job;
 	string jobroot;
@@ -211,26 +196,78 @@ public:
 			mkdir(ydhm);
 		}
 	}
-	void process(string bufn){
-		Mapping<T> m(bufn, G::bufferlen);
-		char fname[128];
-		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
-		File fout(fname, "w");
-		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
-	}
+	virtual void process(string bufn) = 0;
+
 	void processAux(void) {
 		fprintf(aux_file->fp(), "%06d", seq);
 		stashAux("/dev/shm/sensors");
 		stashAux("/dev/shm/imu");
 		fputs("\n", aux_file->fp());
 	}
+
+	static Archiver& create(string _job);
 };
+
+template <class T>
+class RawArchiver : public Archiver {
+	friend class Archiver;
+protected:
+	RawArchiver(string _job) : Archiver(_job) {}
+public:
+	virtual void process(string bufn){
+		Mapping<T> m(bufn, G::bufferlen);
+		char fname[128];
+		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
+		File fout(fname, "w");
+		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
+	}
+};
+
+template <class FROM, class TO>
+class ChannelArchiver : public Archiver {
+	friend class Archiver;
+protected:
+	TO *tobuf;
+
+	ChannelArchiver(string _job) : Archiver(_job) {
+		tobuf = new TO [G::nchan_selected];
+	}
+public:
+	virtual ~ChannelArchiver() {
+		delete [] tobuf;
+	}
+	virtual void process(string bufn){
+		Mapping<FROM> m(bufn, G::bufferlen);
+		char fname[128];
+		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
+		File fout(fname, "w");
+
+		const FROM* cmax = m() + G::bufferlen/sizeof(FROM);
+
+		for (const FROM* cursor = m(); cursor < cmax; cursor += G::nchan){
+			TO* toc = tobuf;
+			for (int ic = 0;
+				ic < G::nchan && toc-tobuf < G::nchan_selected; ++ic){
+				if (G::channels[ic+1]){
+					*toc++ = (cursor[ic] >> G::shr) & 0x0000FFFF;
+				}
+			}
+		}
+		fwrite(tobuf, sizeof(TO), G::nchan_selected, fout());
+	}
+};
+Archiver& Archiver::create(string _job) {
+	if (G::raw){
+		return * new RawArchiver<int> (_job);
+	}else{
+		return * new ChannelArchiver<int, short> (_job);
+	}
+}
 
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-
-	Archiver<int> archiver("job");
+	Archiver& archiver = Archiver::create("job");
 	return archiver();
 }
 

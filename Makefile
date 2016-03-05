@@ -105,7 +105,7 @@ udp_client: udp_client.o
 acq400_stream: acq400_stream.o knobs.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 
-tblock2file: tblock2file.o knobs.o
+tblock2file: tblock2file.o knobs.o acq-util.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 
 is_ramp: is_ramp.o
