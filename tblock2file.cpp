@@ -144,6 +144,10 @@ class Archiver {
 		system(cmd);
 	}
 
+	void notify() {
+		File fn("/dev/shm/tblock2file", "w");
+		fprintf(fn(), "FILE=%s/%06d\n", outbase, seq);
+	}
 public:
 	Archiver(string _job) :
 		job(_job), jobroot("/data/"), base ("/dev/acq400.0.hb/"), dat(".dat"), txt(".txt"),
@@ -164,6 +168,7 @@ public:
 		for(; fgets(bufn, 32, bq); ++seq){
 			checkTime();
 			string _bufn(chomp(bufn));
+
 			process(base + bufn);
 			processAux();
 		}
@@ -184,7 +189,6 @@ public:
 		char fname[128];
 		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
 		File fout(fname, "w");
-		printf("fwrite %d*%d\n", sizeof(T), G::bufferlen/sizeof(T));
 		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
 	}
 	void processAux(void) {
@@ -198,7 +202,6 @@ int main(int argc, const char** argv)
 {
 	init(argc, argv);
 
-	printf("tblock2file G:bufferlen:%d\n", G::bufferlen);
 	Archiver<int> archiver("job");
 	return archiver();
 }
