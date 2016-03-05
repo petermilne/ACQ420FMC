@@ -1925,6 +1925,7 @@ static ssize_t show_freq_offset_raw(
 	return sprintf(buf, "%u\n", freq_off);
 }
 
+#define V2F_FREQ_OFF_MAX ((1<<22)-1)
 
 static ssize_t store_freq_offset_raw(
 	struct device * dev,
@@ -1937,6 +1938,7 @@ static ssize_t store_freq_offset_raw(
 	u32 freq_off;
 
 	if (sscanf(buf, "%u", &freq_off) == 1){
+		if (freq_off > V2F_FREQ_OFF_MAX) freq_off = V2F_FREQ_OFF_MAX;
 		acq400wr32(adev, V2F_FREQ_OFF, freq_off);
 		return count;
 	}else{
