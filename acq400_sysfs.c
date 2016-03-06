@@ -1934,7 +1934,6 @@ static ssize_t store_freq_offset_raw(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned mstep = adev->data32? V2F_OFFSET_UNPACKED_1M: V2F_OFFSET_PACKED_1M;
 	u32 freq_off;
 
 	if (sscanf(buf, "%u", &freq_off) == 1){
