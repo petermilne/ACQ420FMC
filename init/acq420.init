@@ -244,6 +244,9 @@ build_knobs_device() {
 	
 	echo build_knobs_device site:$site mtype:$mtype
 	
+	touch /dev/shm/AI.${site}.wf.fin
+	web_append acq400.${site} ${site}	
+		
 	case $mtype in
 	5|A5)
 		if [ "x$ACQ425_SITES" != "x" ]; then
@@ -290,6 +293,8 @@ build_knobs_device() {
 		fi		
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
+	68)
+		return;;
 	*)
 		CLKDIV=200;;
 	esac		
@@ -298,8 +303,6 @@ build_knobs_device() {
 	if [ -e $dk/gains ]; then
 		set.sys ${dk}/gains 0000		
 	fi
-	touch /dev/shm/AI.${site}.wf.fin
-	web_append acq400.${site} ${site}	
 }
 
 install_cal() {
