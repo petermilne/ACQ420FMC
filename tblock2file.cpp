@@ -212,7 +212,9 @@ template <class T>
 class RawArchiver : public Archiver {
 	friend class Archiver;
 protected:
-	RawArchiver(string _job) : Archiver(_job) {}
+	RawArchiver(string _job) : Archiver(_job) {
+		fprintf(stderr, "RawArchiver<%d>\n", sizeof(T));
+	}
 public:
 	virtual void process(string bufn){
 		Mapping<T> m(bufn, G::bufferlen);
@@ -230,6 +232,7 @@ protected:
 	TO *tobuf;
 
 	ChannelArchiver(string _job) : Archiver(_job) {
+		fprintf(stderr, "ChannelArchiver<%d,%d>\n", sizeof(FROM), sizeof(TO));
 		tobuf = new TO [G::nchan_selected];
 	}
 public:
