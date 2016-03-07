@@ -258,11 +258,11 @@ int main(int argc, char* argv[])
 	fgets(cmd, 80, stdin);
 	// strcat augment defaults ?
 	syslog(LOG_DEBUG, "muxdec 44\n");
-	system("inotifywait /dev/shm/AI.1.wf.fin 2>/dev/null >/dev/null");
+	system("inotifywait /dev/shm/AI.0.wf.fin 2>/dev/null >/dev/null");
 	//syslog(LOG_DEBUG, "muxdec 88\n"); return 0;
 	//dump_channels<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
 	//dump_channels_ascii<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
-	df.dump("/dev/shm/AI.1.wf/CH%02d", 512);
+	df.dump("/dev/shm/AI.0.wf/CH%02d", 512);
 	syslog(LOG_DEBUG, "muxdec 99\n");
 }
 
