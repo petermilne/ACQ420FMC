@@ -179,7 +179,7 @@ DataFormatter& DataFormatter::create(char *defaults) {
 int main(int argc, char* argv[])
 {
 	openlog("muxdec", LOG_PID, LOG_USER);
-	syslog(LOG_DEBUG, "muxdec 01\n");
+	//syslog(LOG_DEBUG, "muxdec 01\n");
 	char defaults[128];
 	FILE* fp = fopen("/dev/shm/muxdec.sh", "r");
 	if (fp){
@@ -194,6 +194,6 @@ int main(int argc, char* argv[])
 	syslog(LOG_DEBUG, "muxdec 44\n");
 	system("inotifywait /dev/shm/AI.0.wf.fin 2>/dev/null >/dev/null");
 	df.dump("/dev/shm/AI.0.wf/CH%02d", 512);
-	syslog(LOG_DEBUG, "muxdec 99\n");
+	//syslog(LOG_DEBUG, "muxdec 99\n");
 }
 

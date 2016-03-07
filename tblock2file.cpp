@@ -156,7 +156,7 @@ protected:
 		if (fp_sensors()){
 			char buf[256];
 			fgets(buf, 256, fp_sensors());
-			fputs(buf, aux_file->fp());
+			fputs(chomp(buf), aux_file->fp());
 		}else{
 			fprintf(fp_sensors(), "file \"%s\" not available", in_fname);
 		}
@@ -196,6 +196,7 @@ public:
 		if (strcmp(ydhm, ydhm1) != 0){
 			strcpy(ydhm, ydhm1);
 			mkdir(ydhm);
+			createAuxFile();
 		}
 	}
 	virtual void process(string bufn) = 0;
@@ -257,8 +258,8 @@ public:
 					*toc++ = (cursor[ic] >> G::shr) & 0x0000FFFF;
 				}
 			}
+			fwrite(tobuf, sizeof(TO), G::nchan_selected, fout());
 		}
-		fwrite(tobuf, sizeof(TO), G::nchan_selected, fout());
 	}
 };
 Archiver& Archiver::create(string _job) {
