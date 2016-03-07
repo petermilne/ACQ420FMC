@@ -44,85 +44,13 @@ struct File {
 	}
 };
 
-template <class T>
-void dump_channels(const char* fmt, int c1, int c2, int nsam)
-{
-	int ccount = c2 - c1 + 1;
-	File<T> **files = new File<T> * [ccount];
-	T* raw = new T[nsam*ccount];
-	T* dest = raw;
-
-	int cx;
-
-	for (cx = c1; cx <= c2; ++cx){
-		files[cx-c1] = new File<T>(fmt, cx, nsam);
-	}
-
-	for (int isam = 0; isam < nsam; ++isam){
-		for (cx = c1; cx <= c2; ++cx){
-			*dest++ = files[cx-c1]->buf[isam];
-		}
-	}
-	fwrite(raw, sizeof(T), nsam, stdout);
-}
-
-template <class T>
-void dump_channels_ascii(const char* fmt, int c1, int c2, int nsam)
-{
-	int ccount = c2 - c1 + 1;
-	File<T> **files = new File<T> * [ccount];
-	int cx;
-
-	for (cx = c1; cx <= c2; ++cx){
-		files[cx-c1] = new File<T>(fmt, cx, nsam);
-	}
-
-
-
-	for (int isam = 0; isam < nsam; ++isam){
-		char row[80];
-		char* cursor = row;
-
-		for (cx = c1; cx <= c2; ++cx){
-			cursor += sprintf(cursor, "%d%c",
-				files[cx-c1]->buf[isam], cx == c2? '\n': ' ');
-		}
-		fputs(row, stdout);
-	}
-}
-
-template <class T>
-void dump_channels_json(const char* fmt, int c1, int c2, int nsam)
-{
-	int ccount = c2 - c1 + 1;
-	File<T> **files = new File<T> * [ccount];
-	int cx;
-
-	for (cx = c1; cx <= c2; ++cx){
-		files[cx-c1] = new File<T>(fmt, cx, nsam);
-	}
-
-
-
-	for (int isam = 0; isam < nsam; ++isam){
-		char row[80];
-		char* cursor = row;
-
-		cursor += sprintf(cursor, "[");
-		cursor += sprintf(cursor, "%d,", isam);
-		for (cx = c1; cx <= c2; ++cx){
-			cursor += sprintf(cursor, "%d%s",
-				files[cx-c1]->buf[isam], cx == c2? "]\n": ",");
-		}
-		fputs(row, stdout);
-	}
-}
 
 class DataFormatter {
 protected:
-	int nchan;
+	const int nchan;
+	const int stride;
+	const int shr;
 	std::vector<int> channels;
-	int stride;
 
 	static int getNC(char* def) {
 		char* cursor;
@@ -146,7 +74,6 @@ protected:
 
 		if ((cursor = strstr(def, "CH=")) != 0 &&
 			sscanf(cursor, "CH=%s", _def) == 1){
-			fprintf(stderr, "acqMakeChannelRange \"%s\"\n", _def);
 			int nprint = acqMakeChannelRange(_channels, nchan, _def);
 
 			if (nprint == 0){
@@ -155,7 +82,6 @@ protected:
 			}
 			for (ic = 1; ic <= nchan; ++ic){
 				if (_channels[ic]){
-					fprintf(stderr, "chan sel \"%s\" nprint:%d push_back %d\n", _def, nprint, ic);
 					channels.push_back(ic);
 				}
 			}
@@ -174,9 +100,19 @@ protected:
 		}
 		return stride;
 	}
+
+	static int getShr(char* def) {
+		char* cursor;
+		int shr = 0;
+
+		if ((cursor = strstr(def, "SHR=")) != 0){
+			sscanf(cursor, "SHR=%d", &shr);
+		}
+		return shr;
+	}
 public:
 // NC=n ; CH=channel-def
-	DataFormatter(char *def) : nchan(getNC(def)),stride(getStride(def)) {
+	DataFormatter(char *def) : nchan(getNC(def)),stride(getStride(def)),shr(getShr(def)) {
 		channels.reserve(nchan);
 		getChannels(def);
 	}
@@ -197,11 +133,12 @@ protected:
 			char row[80];
 			char* cursor = row;
 
-			cursor += sprintf(cursor, "[");
+			cursor += sprintf(cursor, "[ \"d\", ");
 			cursor += sprintf(cursor, "%d,", isam*stride);
 			for (int cx = 0; cx < nchan; ++cx){
 				cursor += sprintf(cursor, "%d%s",
-					files[cx]->buf[isam*stride], cx+1 == nchan? "]\n": ",");
+					files[cx]->buf[isam*stride] >> shr,
+					cx+1==nchan? "]\n": ",");
 			}
 			fputs(row, stdout);
 		}
@@ -215,14 +152,11 @@ public:
 		File<T> **files = new File<T> * [ccount];
 		int cx;
 
-		printf("// nchan:%d ccount:%d stride:%d nsam:%d\n",
-				nchan, ccount, stride, nsam);
-		printf("// [ ");
+		printf("[ \"l\", \"sample\",");
 		for (cx = 0; cx < ccount; ++cx){
 			files[cx] = new File<T>(fmt, channels[cx], nsam*stride);
-			printf("%d, ", channels[cx]);
+			printf("\"CH%02d\"%s", channels[cx], cx+1==ccount? "]\n": ",");
 		}
-		printf(" ]; \n");
 
 		onDump(files, ccount, nsam);
 	}
@@ -259,9 +193,6 @@ int main(int argc, char* argv[])
 	// strcat augment defaults ?
 	syslog(LOG_DEBUG, "muxdec 44\n");
 	system("inotifywait /dev/shm/AI.0.wf.fin 2>/dev/null >/dev/null");
-	//syslog(LOG_DEBUG, "muxdec 88\n"); return 0;
-	//dump_channels<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
-	//dump_channels_ascii<int>("/dev/shm/AI.1.wf/CH%02d", 1, 8, 512);
 	df.dump("/dev/shm/AI.0.wf/CH%02d", 512);
 	syslog(LOG_DEBUG, "muxdec 99\n");
 }
