@@ -71,12 +71,14 @@ void init_globs(void)
 	if (env.fp()){
 		char ebuf[128];
 		while (fgets(ebuf, 128, env.fp())){
-			if (strstr(ebuf, "CH=") == ebuf){
+			char *cursor;
+
+			if ((cursor = strstr(ebuf, "CH=")) != 0){
 				G::nchan_selected =
-					acqMakeChannelRange(G::channels, G::nchan, ebuf+3);
+					acqMakeChannelRange(G::channels, G::nchan, cursor+3);
 			}
-			if (strstr(ebuf, "SHR=") == ebuf){
-				G::shr = atoi(ebuf+4);
+			if ((cursor = strstr(ebuf, "SHR=")) != 0){
+				G::shr = atoi(cursor+4);
 			}
 		}
 	}
