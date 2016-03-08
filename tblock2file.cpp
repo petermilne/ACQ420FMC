@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <signal.h>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,8 @@ namespace G {
 	int nchan_selected;
 	int shr = 4;				// scale 20 bit to 16 bit. Gain possible ..
 	bool raw = false;
+	const char* job;
+	int runtime;
 };
 
 void init_globs(void)
@@ -91,11 +94,37 @@ void init_globs(void)
 }
 
 struct poptOption opt_table[] = {
+	{ "runtime", 'R', POPT_ARG_INT, &G::runtime, 'R',
+				"duration of run in seconds" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
 
+static void alarm_handler(int signum) {
+	syslog(LOG_DEBUG, "runtime complete\n");
+	rename("/mnt/local/pig-job", "/mnt/local/pig-job.old");
+	exit(0);
+}
+
+
+static void install_handlers(void) {
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_handler = alarm_handler;
+
+        if (sigaction(SIGALRM, &sa, NULL)) perror ("sigaction");
+        /*
+        struct sigaction saq;
+        memset(&saq, 0, sizeof(saq));
+        sa.sa_handler = quit_handler;
+
+        if (sigaction(SIGINT, &saq, NULL)) perror ("sigaction");
+        */
+}
+
+
 void init(int argc, const char** argv) {
+	openlog("tblock2file", LOG_PID, LOG_USER);
 	init_globs();
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
@@ -104,9 +133,15 @@ void init(int argc, const char** argv) {
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
-			;
+		case 'R':
+			if (G::runtime > 60) alarm(G::runtime);
+			break;
 		}
 	}
+	const char* job = poptGetArg(opt_context);
+	G::job = job==0? "job": job;
+
+	install_handlers();
 }
 
 
@@ -202,7 +237,7 @@ public:
 	virtual void process(string bufn) = 0;
 
 	void processAux(void) {
-		fprintf(aux_file->fp(), "%06d", seq);
+		fprintf(aux_file->fp(), "%06d ", seq);
 		stashAux("/dev/shm/sensors");
 		stashAux("/dev/shm/imu");
 		fputs("\n", aux_file->fp());
@@ -273,7 +308,7 @@ Archiver& Archiver::create(string _job) {
 int main(int argc, const char** argv)
 {
 	init(argc, argv);
-	Archiver& archiver = Archiver::create("job");
+	Archiver& archiver = Archiver::create(G::job);
 	return archiver();
 }
 
