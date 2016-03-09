@@ -86,11 +86,7 @@ void init_globs(void)
 		}
 	}
 
-	if (G::nchan_selected == 0){
-		G::nchan_selected = acqMakeChannelRange(
-				G::channels, G::nchan, ":");
-	}
-	fprintf(stderr, "selected %d channels\n", G::nchan_selected);
+
 }
 
 static const char *chandef;
@@ -153,6 +149,10 @@ void init(int argc, const char** argv) {
 	const char* job = poptGetArg(opt_context);
 	G::job = job==0? "job": job;
 
+	if (G::nchan_selected == 0){
+		G::nchan_selected = acqMakeChannelRange(
+				G::channels, G::nchan, ":");
+	}
 	install_handlers();
 }
 
