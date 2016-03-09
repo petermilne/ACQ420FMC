@@ -93,9 +93,16 @@ void init_globs(void)
 	fprintf(stderr, "selected %d channels\n", G::nchan_selected);
 }
 
+static char chandef[128];
+
 struct poptOption opt_table[] = {
 	{ "runtime", 'R', POPT_ARG_INT, &G::runtime, 'R',
 				"duration of run in seconds" },
+	{ "channel-mask", 'C', POPT_ARG_STRING, chandef, 'C',
+				"channel mask" 		},
+	{ "SHR", 'S', POPT_ARG_INT, &G::shr, 0,
+				"right shift scaling factor"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -135,6 +142,10 @@ void init(int argc, const char** argv) {
 		switch(rc){
 		case 'R':
 			if (G::runtime > 60) alarm(G::runtime);
+			break;
+		case 'C':
+			G::nchan_selected = acqMakeChannelRange(
+					G::channels, G::nchan, chandef);
 			break;
 		}
 	}
