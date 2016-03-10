@@ -191,7 +191,7 @@ int main(int argc, char* argv[])
 	char cmd[80];
 	fgets(cmd, 80, stdin);
 	// strcat augment defaults ?
-	syslog(LOG_DEBUG, "muxdec 44\n");
+	//syslog(LOG_DEBUG, "muxdec 44\n");
 	system("inotifywait /dev/shm/AI.0.wf.fin 2>/dev/null >/dev/null");
 	df.dump("/dev/shm/AI.0.wf/CH%02d", 512);
 	//syslog(LOG_DEBUG, "muxdec 99\n");
