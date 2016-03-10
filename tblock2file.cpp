@@ -56,6 +56,7 @@ namespace G {
 	bool raw = false;
 	const char* job;
 	int runtime;
+	int verbose;
 };
 
 void init_globs(void)
@@ -68,7 +69,7 @@ void init_globs(void)
 	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
 	G::channels = new int[G::nchan+1];
-	memset(G::channels, 0, G::nchan+1*sizeof(int));
+	memset(G::channels, 0, (G::nchan+1)*sizeof(int));
 
 	File env("/etc/sysconfig/tblock2burst.ini", "r", File::NOCHECK);
 	if (env.fp()){
@@ -99,6 +100,7 @@ struct poptOption opt_table[] = {
 	{ "SHR", 'S', POPT_ARG_INT, &G::shr, 0,
 				"right shift scaling factor [4] 0..4"
 	},
+	{ "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -142,6 +144,13 @@ void init(int argc, const char** argv) {
 		case 'C':
 			G::nchan_selected = acqMakeChannelRange(
 					G::channels, G::nchan, chandef);
+			if (G::verbose > 1){
+				printf("mask for chandef \"%s\" %d %d\n", chandef, G::nchan, G::nchan_selected);
+				for (int ii = 1; ii <= G::nchan; ++ii){
+					printf("%d,", G::channels[ii]);
+				}
+				printf("\n");
+			}
 			syslog(LOG_DEBUG, "channel-mask selected %d\n", G::nchan_selected);
 			break;
 		}
