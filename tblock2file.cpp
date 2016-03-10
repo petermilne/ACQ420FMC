@@ -49,7 +49,7 @@ namespace G {
 	unsigned int bufferlen;
 	unsigned int nchan = NCHAN;
 	int wordsize = 2;
-	const char *fmt  = "%Y-%j/%H/%M";
+	const char *fmt  = "%Y-%j-%H/%H/%M";
 	int *channels;				// index from 1
 	int nchan_selected;
 	int shr = 4;				// scale 20 bit to 16 bit. Gain possible ..
