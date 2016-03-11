@@ -30,15 +30,26 @@
 class File {
 	FILE *_fp;
 
-public:
-	static const bool NOCHECK = false;
-
-	File(const char *fname, const char* mode, bool check = true){
+	void _file(const char *fname, const char* mode, bool check = true) {
 		_fp = fopen(fname, mode);
 		if (check && _fp == 0){
 			perror(fname);
 			exit(1);
 		}
+	}
+public:
+	static const bool NOCHECK = false;
+
+	File(const char *fname, const char* mode, bool check = true){
+		_file(fname, mode, check);
+	}
+	File(const char* root, const char *fname, const char* mode, bool check = true){
+		char* buf = new char[strlen(root)+1+strlen(fname)+1];
+		strcpy(buf, root);
+		strcat(buf, "/");
+		strcat(buf, fname);
+		_file(fname, mode, check);
+		delete [] buf;
 	}
 	~File() {
 		if (_fp) fclose(_fp);

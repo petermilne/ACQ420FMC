@@ -188,7 +188,12 @@ protected:
 
 	char outbase[128];
 
-	File* aux_file;
+	File* aux_file;		// per minute nav data
+
+	File* aux_summary;	// per shot nav data, one entry per minute
+	File* raw_summary;	// per shot raw data, one entry per minute
+
+	bool is_new_minute;
 
 	static bool file_exists (char *filename)
 	{
@@ -201,12 +206,16 @@ protected:
 	        struct tm *tmp = localtime(&t);
 	        strftime(hm, maxstr, G::datfmt, tmp);
 	}
-	void mkdir(char* root){
-		snprintf(outbase, 128, "%s/%s", jobroot.data(), root);
+
+	static void _mkdir(char* dirname) {
 		char cmd[128];
 		strcpy(cmd, "mkdir -p ");
-		strcat(cmd, outbase);
+		strncat(cmd, dirname, 128-strlen(cmd));
 		system(cmd);
+	}
+	void mkdir(char* root){
+		snprintf(outbase, 128, "%s/%s", jobroot.data(), root);
+		_mkdir(outbase);
 	}
 
 
@@ -215,6 +224,10 @@ protected:
 		fprintf(fn(), "FILE=%s/%06d\n", outbase, seq);
 	}
 
+	void createSummaryFiles() {
+		aux_summary = new File(jobroot, "summary.txt", "w");
+		raw_summary = new File(jobroot, "summary.bin", "w");
+	}
 	void createAuxFile() {
 		if (aux_file) delete aux_file;
 
@@ -222,14 +235,14 @@ protected:
 		snprintf(auxfn, 128, "%s/%06d%s", outbase, seq, txt.data());
 		aux_file = new File(auxfn, "w");
 	}
-	void stashAux(const char* in_fname){
+	void stashAux(FILE *fout, const char* in_fname){
 		File fp_sensors(in_fname, "r", File::NOCHECK);
 		if (fp_sensors()){
 			char buf[256];
 			fgets(buf, 256, fp_sensors());
-			fputs(chomp(buf), aux_file->fp());
+			fputs(chomp(buf), fout);
 		}else{
-			fprintf(fp_sensors(), "file \"%s\" not available", in_fname);
+			fprintf(stderr, "file \"%s\" not available", in_fname);
 		}
 	}
 	static char* makeJobRoot(const char* root) {
@@ -248,6 +261,7 @@ protected:
 			sprintf(jr+len1, ".%02d", seq);
 
 			if (!file_exists(jr)){
+				_mkdir(jr);
 				File ident("/var/run/tblock2file.job", "w");
 				fputs(jr+strlen(root), ident.fp());
 				return jr;
@@ -258,11 +272,17 @@ protected:
 		exit(1);
 		return 0;
 	}
+	void processAux(FILE *fp) {
+		fprintf(fp, "%06d ", seq);
+		stashAux(fp, "/dev/shm/sensors");
+		stashAux(fp, "/dev/shm/imu");
+		fputs("\n", aux_file->fp());
+	}
 public:
 	Archiver(string _job) :
-		job(_job), jobroot(makeJobRoot("/data/")),
+		job(_job), jobroot(makeJobRoot("/data/job")),
 		base ("/dev/acq400.0.hb/"), dat(".dat"), txt(".txt"),
-		seq(0), aux_file(0)	{
+		seq(0), aux_file(0), is_new_minute(false)	{
 		bq = fopen("/dev/acq400.0.bqf", "r");
 		if (bq == 0){
 			perror("/dev/acq400.0.bqf");
@@ -270,6 +290,7 @@ public:
 		}
 		makeDateRoot(hm);
 		mkdir(hm);
+
 		createAuxFile();
 	}
 
@@ -277,7 +298,7 @@ public:
 		char bufn[32];
 
 		for(; fgets(bufn, 32, bq); ++seq){
-			checkTime();
+			is_new_minute = checkTime();
 			string _bufn(chomp(bufn));
 
 			process(base + bufn);
@@ -287,22 +308,25 @@ public:
 		return 0;
 	}
 
-	void checkTime() {
+	bool checkTime() {
 		char ydhm1[32];
 		makeDateRoot(ydhm1);
 		if (strcmp(hm, ydhm1) != 0){
 			strcpy(hm, ydhm1);
 			mkdir(hm);
 			createAuxFile();
+			return true;
+		}else{
+			return false;
 		}
 	}
 	virtual void process(string bufn) = 0;
 
 	void processAux(void) {
-		fprintf(aux_file->fp(), "%06d ", seq);
-		stashAux("/dev/shm/sensors");
-		stashAux("/dev/shm/imu");
-		fputs("\n", aux_file->fp());
+		processAux(aux_file->fp());
+		if (is_new_minute){
+			processAux(aux_summary->fp());
+		}
 	}
 
 	static Archiver& create(string _job);
@@ -322,6 +346,9 @@ public:
 		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
 		File fout(fname, "w");
 		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
+		if (is_new_minute){
+			write(m(), sizeof(T), G::nchan_selected, aux_summary->fp());
+		}
 	}
 };
 
@@ -356,6 +383,9 @@ public:
 				}
 			}
 			fwrite(tobuf, sizeof(TO), G::nchan_selected, fout());
+			if (is_new_minute){
+				write(tobuf, sizeof(TO), G::nchan_selected, raw_summary->fp());
+			}
 		}
 	}
 };
