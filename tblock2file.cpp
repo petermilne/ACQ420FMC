@@ -225,8 +225,8 @@ protected:
 	}
 
 	void createSummaryFiles() {
-		aux_summary = new File(jobroot, "summary.txt", "w");
-		raw_summary = new File(jobroot, "summary.bin", "w");
+		aux_summary = new File(jobroot.c_str(), "summary.txt", "w");
+		raw_summary = new File(jobroot.c_str(), "summary.bin", "w");
 	}
 	void createAuxFile() {
 		if (aux_file) delete aux_file;
@@ -347,7 +347,7 @@ public:
 		File fout(fname, "w");
 		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
 		if (is_new_minute){
-			write(m(), sizeof(T), G::nchan_selected, aux_summary->fp());
+			fwrite(m(), sizeof(T), G::nchan_selected, aux_summary->fp());
 		}
 	}
 };
@@ -384,7 +384,7 @@ public:
 			}
 			fwrite(tobuf, sizeof(TO), G::nchan_selected, fout());
 			if (is_new_minute){
-				write(tobuf, sizeof(TO), G::nchan_selected, raw_summary->fp());
+				fwrite(tobuf, sizeof(TO), G::nchan_selected, raw_summary->fp());
 			}
 		}
 	}
