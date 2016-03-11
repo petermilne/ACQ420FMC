@@ -93,6 +93,7 @@ void init_globs(void)
 }
 
 static const char *chandef;
+static const char *pidname;
 
 struct poptOption opt_table[] = {
 	{ "runtime", 'R', POPT_ARG_INT, &G::runtime, 'R',
@@ -102,36 +103,44 @@ struct poptOption opt_table[] = {
 	{ "SHR", 'S', POPT_ARG_INT, &G::shr, 0,
 				"right shift scaling factor [4] 0..4"
 	},
+	{ "pidname", 'p', POPT_ARG_STRING, &pidname, 'p', "pid file" },
 	{ "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
 
-static void alarm_handler(int signum) {
-	syslog(LOG_DEBUG, "runtime complete\n");
+static void cleanup(const char* message) {
 	rename("/mnt/local/pig-job", "/mnt/local/pig-job.old");
+	if (pidname) unlink(pidname);
+	syslog(LOG_DEBUG, message);
+	fprintf(stderr, message);
 	exit(0);
+}
+static void alarm_handler(int signum) {
+	cleanup("runtime complete\n");
 }
 
 static void quit_handler(int signum) {
-	syslog(LOG_DEBUG, "told to quit\n");
-	rename("/mnt/local/pig-job", "/mnt/local/pig-job.old");
-	exit(0);
+	cleanup("told to quit\n");
 }
 
-
+static bool file_exists (const char *filename)
+{
+  struct stat   buffer;
+  return (stat (filename, &buffer) == 0);
+}
 
 static void install_handlers(void) {
         struct sigaction sa;
-        memset(&sa, 0, sizeof(sa));
         sa.sa_handler = alarm_handler;
-
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
         if (sigaction(SIGALRM, &sa, NULL)) perror ("sigaction");
 
         struct sigaction saq;
-        memset(&saq, 0, sizeof(saq));
-        sa.sa_handler = quit_handler;
-
+        saq.sa_handler = quit_handler;
+        sigemptyset(&saq.sa_mask);
+        saq.sa_flags = 0;
         if (sigaction(SIGINT, &saq, NULL)) perror ("sigaction");
 }
 
@@ -160,6 +169,15 @@ void init(int argc, const char** argv) {
 				printf("\n");
 			}
 			syslog(LOG_DEBUG, "channel-mask selected %d\n", G::nchan_selected);
+			break;
+		case 'p':
+			if (file_exists(pidname)){
+				syslog(LOG_DEBUG, "existing process at \"%s\" quitting\n", pidname);
+				exit(1);
+			} else {
+				File pid(pidname, "w");
+				fprintf(pid.fp(), "%d\n", getpid());
+			}
 			break;
 		}
 	}
@@ -195,11 +213,7 @@ protected:
 
 	bool is_new_minute;
 
-	static bool file_exists (char *filename)
-	{
-	  struct stat   buffer;
-	  return (stat (filename, &buffer) == 0);
-	}
+
 
 	static char* makeDateRoot(char hm[], int maxstr = 32) {
 	        time_t t = time(NULL);
@@ -225,6 +239,7 @@ protected:
 	}
 
 	void createSummaryFiles() {
+		fprintf(stderr, "createSummaryFiles() %s/%s\n", jobroot.c_str(), "summary.txt");
 		aux_summary = new File(jobroot.c_str(), "summary.txt", "w");
 		raw_summary = new File(jobroot.c_str(), "summary.bin", "w");
 	}
@@ -252,6 +267,7 @@ protected:
 
 		strncpy(jr, root, 80);
 		strcat(jr, "/");
+		char *bname = jr+strlen(jr);
 		strftime(jr+strlen(jr), 80-strlen(jr), G::jobfmt, tmp);
 
 		int len1 = strlen(jr);
@@ -263,7 +279,7 @@ protected:
 			if (!file_exists(jr)){
 				_mkdir(jr);
 				File ident("/var/run/tblock2file.job", "w");
-				fputs(jr+strlen(root), ident.fp());
+				fputs(bname, ident.fp());
 				return jr;
 			}
 		}
@@ -276,7 +292,7 @@ protected:
 		fprintf(fp, "%06d ", seq);
 		stashAux(fp, "/dev/shm/sensors");
 		stashAux(fp, "/dev/shm/imu");
-		fputs("\n", aux_file->fp());
+		fputs("\n", fp);
 	}
 public:
 	Archiver(string _job) :
@@ -288,6 +304,7 @@ public:
 			perror("/dev/acq400.0.bqf");
 			exit(1);
 		}
+		createSummaryFiles();
 		makeDateRoot(hm);
 		mkdir(hm);
 
@@ -325,6 +342,7 @@ public:
 	void processAux(void) {
 		processAux(aux_file->fp());
 		if (is_new_minute){
+			fprintf(stderr, "processAux %d\n", is_new_minute);
 			processAux(aux_summary->fp());
 		}
 	}

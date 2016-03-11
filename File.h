@@ -43,12 +43,12 @@ public:
 	File(const char *fname, const char* mode, bool check = true){
 		_file(fname, mode, check);
 	}
-	File(const char* root, const char *fname, const char* mode, bool check = true){
-		char* buf = new char[strlen(root)+1+strlen(fname)+1];
-		strcpy(buf, root);
+	File(const char* path, const char *fname, const char* mode, bool check = true){
+		char* buf = new char[strlen(path)+1+strlen(fname)+1];
+		strcpy(buf, path);
 		strcat(buf, "/");
 		strcat(buf, fname);
-		_file(fname, mode, check);
+		_file(buf, mode, check);
 		delete [] buf;
 	}
 	~File() {
