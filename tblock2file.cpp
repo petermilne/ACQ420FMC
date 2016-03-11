@@ -40,6 +40,7 @@
 #include "acq-util.h"
 
 #define NCHAN	4
+#define MAXJOBS_PER_DAY	24
 
 using namespace std;
 
@@ -49,7 +50,8 @@ namespace G {
 	unsigned int bufferlen;
 	unsigned int nchan = NCHAN;
 	int wordsize = 2;
-	const char *fmt  = "%Y-%j-%H/%H/%M";
+	const char *jobfmt = "%Y-%j";		// do this ONCE
+	const char *datfmt  = "%H/%M";		// do this every
 	int *channels;				// index from 1
 	int nchan_selected;
 	int shr = 4;				// scale 20 bit to 16 bit. Gain possible ..
@@ -111,6 +113,13 @@ static void alarm_handler(int signum) {
 	exit(0);
 }
 
+static void quit_handler(int signum) {
+	syslog(LOG_DEBUG, "told to quit\n");
+	rename("/mnt/local/pig-job", "/mnt/local/pig-job.old");
+	exit(0);
+}
+
+
 
 static void install_handlers(void) {
         struct sigaction sa;
@@ -118,13 +127,12 @@ static void install_handlers(void) {
         sa.sa_handler = alarm_handler;
 
         if (sigaction(SIGALRM, &sa, NULL)) perror ("sigaction");
-        /*
+
         struct sigaction saq;
         memset(&saq, 0, sizeof(saq));
         sa.sa_handler = quit_handler;
 
         if (sigaction(SIGINT, &saq, NULL)) perror ("sigaction");
-        */
 }
 
 
@@ -176,16 +184,22 @@ protected:
 	string dat;
 	string txt;
 	int seq;
-	char ydhm[32];
+	char hm[32];
 
 	char outbase[128];
 
 	File* aux_file;
 
-	char* makeDateRoot(char ydmh[], int maxstr = 32) {
+	static bool file_exists (char *filename)
+	{
+	  struct stat   buffer;
+	  return (stat (filename, &buffer) == 0);
+	}
+
+	static char* makeDateRoot(char hm[], int maxstr = 32) {
 	        time_t t = time(NULL);
 	        struct tm *tmp = localtime(&t);
-	        strftime(ydmh, maxstr, G::fmt, tmp);
+	        strftime(hm, maxstr, G::datfmt, tmp);
 	}
 	void mkdir(char* root){
 		snprintf(outbase, 128, "%s/%s", jobroot.data(), root);
@@ -194,6 +208,7 @@ protected:
 		strcat(cmd, outbase);
 		system(cmd);
 	}
+
 
 	void notify() {
 		File fn("/dev/shm/tblock2file", "w");
@@ -217,18 +232,44 @@ protected:
 			fprintf(fp_sensors(), "file \"%s\" not available", in_fname);
 		}
 	}
+	static char* makeJobRoot(const char* root) {
+		static char jr[80];
+		time_t t = time(NULL);
+		struct tm *tmp = localtime(&t);
+
+		strncpy(jr, root, 80);
+		strcat(jr, "/");
+		strftime(jr+strlen(jr), 80-strlen(jr), G::jobfmt, tmp);
+
+		int len1 = strlen(jr);
+		int seq = 1;
+
+		for (int seq = 0; seq <= MAXJOBS_PER_DAY; ++seq){
+			sprintf(jr+len1, ".%02d", seq);
+
+			if (!file_exists(jr)){
+				File ident("/var/run/tblock2file.job", "w");
+				fputs(jr+strlen(root), ident.fp());
+				return jr;
+			}
+		}
+
+		fprintf(stderr, "maximum 24 jobs per day exceeded\n");
+		exit(1);
+		return 0;
+	}
 public:
 	Archiver(string _job) :
-		job(_job), jobroot("/data/"), base ("/dev/acq400.0.hb/"), dat(".dat"), txt(".txt"),
+		job(_job), jobroot(makeJobRoot("/data/")),
+		base ("/dev/acq400.0.hb/"), dat(".dat"), txt(".txt"),
 		seq(0), aux_file(0)	{
-		jobroot = jobroot + job;
 		bq = fopen("/dev/acq400.0.bqf", "r");
 		if (bq == 0){
 			perror("/dev/acq400.0.bqf");
 			exit(1);
 		}
-		makeDateRoot(ydhm);
-		mkdir(ydhm);
+		makeDateRoot(hm);
+		mkdir(hm);
 		createAuxFile();
 	}
 
@@ -249,9 +290,9 @@ public:
 	void checkTime() {
 		char ydhm1[32];
 		makeDateRoot(ydhm1);
-		if (strcmp(ydhm, ydhm1) != 0){
-			strcpy(ydhm, ydhm1);
-			mkdir(ydhm);
+		if (strcmp(hm, ydhm1) != 0){
+			strcpy(hm, ydhm1);
+			mkdir(hm);
 			createAuxFile();
 		}
 	}
