@@ -344,6 +344,7 @@ public:
 		if (is_new_minute){
 			fprintf(stderr, "processAux %d\n", is_new_minute);
 			processAux(aux_summary->fp());
+			fflush(aux_summary->fp());
 		}
 	}
 
