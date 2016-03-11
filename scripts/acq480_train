@@ -27,8 +27,19 @@ report_success() {
 	rm $SUB_PID
 }
 
+clk_ready() {
+	get.site 0 SIG:CLK_MB:READY | awk '{ print $2 };
+}
+
 train() {
 source /dev/acq400.$SITE.knobs/train_states
+
+let wcount=0
+while [ "$(clk_ready)" != 1 ]; do
+	echo A480_STATUS=WAIT_CLK_READY_$wcount >$STF	
+	let wcount=$wcount+1
+	sleep 1
+done
 
 echo A480_STATUS=TRAINING_STARTED >$STF
 set.site $SITE train=$ACQ480_RESET
