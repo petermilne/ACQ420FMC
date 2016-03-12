@@ -1948,6 +1948,8 @@ static ssize_t store_freq_offset_raw(
 static DEVICE_ATTR(freq_offset_raw,
 		S_IRUGO|S_IWUGO, show_freq_offset_raw, store_freq_offset_raw);
 
+
+
 static const struct attribute *sysfs_v2f_attrs[] = {
 	//&dev_attr_clkdiv.attr,
 	&dev_attr_hf.attr,

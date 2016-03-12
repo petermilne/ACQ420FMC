@@ -151,6 +151,9 @@ void acq480_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
 	DBG_REG_CREATE(ADC_TRANSLEN);
+	DBG_REG_CREATE(ACQ480_TRAIN_CTRL);
+	DBG_REG_CREATE(ACQ480_TRAIN_HI_VAL);
+	DBG_REG_CREATE(ACQ480_TRAIN_LO_VAL);
 }
 void pmodadc1_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {

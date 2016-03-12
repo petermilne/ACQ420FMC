@@ -105,6 +105,9 @@
 
 #define DTD_CTRL		(ADC_BASE+0x64)
 
+#define ACQ480_TRAIN_CTRL	(ADC_BASE+0x28)
+#define ACQ480_TRAIN_HI_VAL	(ADC_BASE+0x2C)
+#define ACQ480_TRAIN_LO_VAL	(ADC_BASE+0x30)
 
 /* AO420 CH MAC GAIN and offset control */
 

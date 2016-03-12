@@ -298,13 +298,78 @@ static ssize_t store_dclock_reset(
 	}
 }
 
+
 static DEVICE_ATTR(dclock_reset, S_IWUGO, 0, store_dclock_reset);
+
+static ssize_t show_acq480_train_ctrl(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc = acq400rd32(adev, ACQ480_TRAIN_CTRL);
+
+	return sprintf(buf, "0x%08x\n", tc);
+}
+
+#define V2F_FREQ_OFF_MAX ((1<<22)-1)
+
+static ssize_t store_acq480_train_ctrl(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc;
+
+	if (sscanf(buf, "%x", &tc) == 1){
+		acq400wr32(adev, ACQ480_TRAIN_CTRL, tc);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(acq480_train_ctrl,
+		S_IRUGO|S_IWUGO, show_acq480_train_ctrl, store_acq480_train_ctrl);
+
+static ssize_t show_acq480_train_hi_val(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc = acq400rd32(adev, ACQ480_TRAIN_HI_VAL);
+
+	return sprintf(buf, "0x%08x\n", tc);
+}
+
+
+static DEVICE_ATTR(acq480_train_hi_val, S_IRUGO, show_acq480_train_hi_val, 0);
+
+static ssize_t show_acq480_train_lo_val(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc = acq400rd32(adev, ACQ480_TRAIN_LO_VAL);
+
+	return sprintf(buf, "0x%08x\n", tc);
+}
+
+
+static DEVICE_ATTR(acq480_train_lo_val, S_IRUGO, show_acq480_train_lo_val, 0);
 
 
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
 	&dev_attr_train_states.attr,
 	&dev_attr_dclock_reset.attr,
+	&dev_attr_acq480_train_ctrl.attr,
+	&dev_attr_acq480_train_hi_val.attr,
+	&dev_attr_acq480_train_lo_val.attr,
 	NULL
 };
 
