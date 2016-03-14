@@ -28,7 +28,7 @@ report_success() {
 }
 
 clk_ready() {
-	get.site 0 SIG:CLK_MB:READY | awk '{ print $2 };
+	get.site 0 SIG:CLK_MB:READY | awk '{ print $2 }';
 }
 
 train() {
