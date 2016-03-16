@@ -531,6 +531,14 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 
 extern int wimp_out;
 
+static void acq400_dma_do_tasklet(unsigned long data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+
+	dev_dbg(DEVP(adev), "DMA_READY");
+	wake_up_interruptible(&adev->DMA_READY);
+}
+
 int _axi64_load_dmac(struct acq400_dev *adev)
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
@@ -540,6 +548,7 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
 			SHOTID(adev);
 
+	tasklet_init(&xchan->tasklet, acq400_dma_do_tasklet, (unsigned long)adev);
 	if (!wimp_out){
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}
