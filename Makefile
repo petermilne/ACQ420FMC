@@ -147,7 +147,7 @@ bigmac.x86: bigmac.o
 
 
 rtpackage:
-	tar cvzf dmadescfs.tgz dmadescfs* scripts/load.dmadescfs
+	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
 		
 zynq:
