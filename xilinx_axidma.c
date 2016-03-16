@@ -419,11 +419,11 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 	u32 stat, reg;
 
 	reg = dma_read(chan, XILINX_DMA_CONTROL_OFFSET);
-
+#if 0
 	/* Disable intr */
 	dma_write(chan, XILINX_DMA_CONTROL_OFFSET,
 		  reg & ~XILINX_DMA_XR_IRQ_ALL_MASK);
-
+#endif
 	stat = dma_read(chan, XILINX_DMA_STATUS_OFFSET);
 	if (!(stat & XILINX_DMA_XR_IRQ_ALL_MASK))
 		return IRQ_NONE;
@@ -471,7 +471,7 @@ static void dma_do_tasklet(unsigned long data)
 {
 	struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
 
-	xilinx_chan_desc_cleanup(chan);
+	//xilinx_chan_desc_cleanup(chan);
 }
 
 /* Append the descriptor list to the pending list */

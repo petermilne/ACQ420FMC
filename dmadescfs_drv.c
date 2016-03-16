@@ -50,7 +50,7 @@
 
 #include "dmadescfs_ioctl.h"
 
-#define REVID 		"3"
+#define REVID 		"4"
 #define MODULE_NAME	"dmadescfs"
 
 #define MAXBLOCKS	16		/* # minor nodes one buffer per minor */
@@ -197,9 +197,11 @@ dmadescfs_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		*(unsigned long*)arg = db->pa;
 		return 0;
 	case DD_TOCPU:
+		dev_dbg(DEVP(ddev), "ioctl DD_TOCPU pa:0x%08x, len:0x%08lx", db->pa, db->length);
 		dma_sync_single_for_cpu(DEVP(ddev), db->pa, db->length, DMA_FROM_DEVICE);
 		return 0;
 	case DD_TODEV:
+		dev_dbg(DEVP(ddev), "ioctl DD_TODEV pa:0x%08x, len:0x%08lx", db->pa, db->length);
 		dma_sync_single_for_device(DEVP(ddev), db->pa, db->length, DMA_TO_DEVICE);
 		return 0;
 	default:
