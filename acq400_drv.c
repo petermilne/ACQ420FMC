@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.930"
+#define REVID "2.939"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -219,7 +219,6 @@ MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: locate POISON in buffer (0=END)");
 int AXI_DEBUG_LOOPBACK_INDEX = 0;
 module_param(AXI_DEBUG_LOOPBACK_INDEX, int, 0644);
 MODULE_PARM_DESC(AXI_POISON_OFFSET, "DEBUG: set non zero to skip first buffers on loopback. so that we see first time contents..");
-
 
 int dtd_pulse_nsec = 1000000;
 module_param(dtd_pulse_nsec, int, 0644);
@@ -3389,28 +3388,7 @@ int check_all_buffers_are_poisoned(struct acq400_dev *adev)
 }
 int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 {
-	static unsigned count;
-	// todo could check an interrupt status ..0
-	int rc = poison_overwritten(adev, hbm);
-
-	count += 1;
-
-	if (hbm == adev->axi64_hb[0]){
-		static int last = -1;
-
-		if (!rc && poison_overwritten(adev, adev->axi64_hb[1])){
-			/* check again, maybe happened in timeslice */
-			if (!poison_overwritten(adev, hbm)){
-				dev_warn(DEVP(adev),
-				"dma_done hbm1 complete, hbm0 not. last:%d now %d .. faking it",
-					last, count);
-				last = count;
-			}
-			return 1;
-		}
-	}
-
-	return rc;
+	return poison_overwritten(adev, hbm);
 }
 
 
@@ -3458,7 +3436,7 @@ int axi64_data_loop(void* data)
 			}
 		}
 		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
-		if (!dma_done(adev, hbm)){
+		if (!ddone){
 			continue;
 		}
 
