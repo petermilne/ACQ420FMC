@@ -180,7 +180,8 @@ int AXI_BUFFER_COUNT = 500;
 module_param(AXI_BUFFER_COUNT, int, 0644);
 MODULE_PARM_DESC(AXI_BUFFER_COUNT, "number of buffers in AXI cycle");
 
-int AXI_BUFFER_CHECK_TICKS = 20;
+
+int AXI_BUFFER_CHECK_TICKS = 100;
 module_param(AXI_BUFFER_CHECK_TICKS, int , 0644);
 MODULE_PARM_DESC(AXI_BUFFER_CHECK_TICKS, "AXI buffer poll timeout");
 

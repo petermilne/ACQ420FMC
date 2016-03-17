@@ -46,9 +46,9 @@ extern unsigned AXI_TAIL_DESCR_PA;
 
 #define S2MM_DMACR_CYC 0x10
 
-int use_eot_interrupts = 0;
-module_param(use_eot_interrupts, int, 0644);
-MODULE_PARM_DESC(use_eot_interrupts, "1: enable interrupts");
+int AXI_use_eot_interrupts = 1;
+module_param(AXI_use_eot_interrupts, int, 0644);
+MODULE_PARM_DESC(AXI_use_eot_interrupts, "1: enable interrupts");
 
 struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
@@ -398,17 +398,11 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescripto
 	struct AxiDescrWrapper * cursor;
 
 	for (ii = 0; ii < ndescriptors; ++ii){
-		u32 ctrl;
 		cursor = apool->wrappers+ii;
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 		cursor->va->buf_addr = adev->axi64_hb[ii]->pa;
-		ctrl = adev->bufferlen;
-		if (use_eot_interrupts){
-			/* micro mode only, but it's the only control in site */
-			ctrl |= XILINX_DMA_BD_EOP;
-		}
 		cursor->va->control = adev->bufferlen;
 	}
 	_finalize_descriptor_chain(adev, ndescriptors);
@@ -509,7 +503,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 	if (!oneshot){
 		dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = S2MM_DMACR_CYC);
 	}
-	if (use_eot_interrupts){
+	if (AXI_use_eot_interrupts){
 		cr |= XILINX_DMA_XR_IRQ_ALL_MASK;
 	}else{
 		cr &= ~XILINX_DMA_XR_IRQ_ALL_MASK;
@@ -531,11 +525,9 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 
 extern int wimp_out;
 
-static void acq400_dma_do_tasklet(unsigned long data)
+static void acq400_dma_on_ioc(struct xilinx_dma_chan *chan)
 {
-	struct acq400_dev *adev = (struct acq400_dev *)data;
-
-	dev_dbg(DEVP(adev), "DMA_READY");
+	struct acq400_dev *adev = (struct acq400_dev *)chan->client_private;
 	wake_up_interruptible(&adev->DMA_READY);
 }
 
@@ -548,7 +540,9 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
 			SHOTID(adev);
 
-	tasklet_init(&xchan->tasklet, acq400_dma_do_tasklet, (unsigned long)adev);
+	xchan->client_private = adev;
+	xchan->start_transfer = acq400_dma_on_ioc;
+
 	if (!wimp_out){
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}

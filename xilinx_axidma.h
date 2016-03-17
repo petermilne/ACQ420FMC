@@ -65,6 +65,8 @@ struct xilinx_dma_chan {
 					/* Device configuration info */
 	struct dentry* debug_dir;
 	char* debug_names;
+
+	void* client_private;
 };
 
 /* DMA Device Structure */
