@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.939"
+#define REVID "2.940"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -545,6 +545,38 @@ static void pmodadc1_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
+int xtd_watchdog(void *data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	int nzcount;
+	u32 trg_src0 = 0;
+	u32 trg_src;
+
+	while(1) {
+		msleep(10);
+		trg_src = acq400rd32(adev, ATD_TRIGGERED);
+
+		if (trg_src == 0){
+			nzcount = 0;
+			trg_src0 = 0;
+		}else if (trg_src0 != 0 && (trg_src&trg_src0) == trg_src0){
+			if (++nzcount >= 3){
+				dev_info(DEVP(adev), "xtd_watchdog clears %08x", trg_src);
+				acq400_clearDelTrgEvent(adev);
+				acq400wr32(adev, ATD_TRIGGERED, trg_src);
+				trg_src0 = 0;
+			}
+		}else{
+			trg_src0 = trg_src;
+		}
+	}
+}
+
+
+static void start_xtd_watchdog(struct acq400_dev *adev)
+{
+	kthread_run(xtd_watchdog, adev, "%s.xtd", devname(adev));
+}
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
 	int is_acq430 = IS_ACQ430(adev);
@@ -571,6 +603,9 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
 	adev->onStart = acq43X_onStart;
 	adev->onStop = acq420_disable_fifo;
+	if (HAS_XTD(adev)){
+		start_xtd_watchdog(adev);
+	}
 }
 
 
