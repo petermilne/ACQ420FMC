@@ -744,7 +744,7 @@ static ssize_t show_axi_freq(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 clk = acq400rd32(adev, SYS_CLK);
+	u32 clk = acq400rd32(adev, SYS_CLK) >> 16;
 
 	if (clk != 0) clk = clk+1;
 
