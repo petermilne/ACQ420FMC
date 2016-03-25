@@ -73,7 +73,7 @@ caput $(hostname):1:INTCLK_HZ $FREQHZ
 
 deltaF() {
 	echo $(get.site 0 SIG:CLK_MB:FREQ) $FREQHZ 100000 | \
-		awk '{ x=($2/$4 - $3/$4); print x>=0? x: -x }'
+		awk '{ x=($2/$4 - $3/$4); printf("%d\n", (x>=0? x: -x)) }'
 }
 
 sleep 1
