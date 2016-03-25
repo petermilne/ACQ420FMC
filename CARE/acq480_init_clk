@@ -71,3 +71,15 @@ done
 /usr/local/epics/scripts/wait_ioc_ready
 caput $(hostname):1:INTCLK_HZ $FREQHZ
 
+deltaF() {
+	echo $(get.site 0 SIG:CLK_MB:FREQ) $FREQHZ 100000 | \
+		awk '{ x=($2/$4 - $3/$4); print x>=0? x: -x }'
+}
+
+sleep 1
+if [ $(deltaF) -ne 0 ]; then
+	logger -t $PNAME "acq480_init_clk warning clock error
+fi
+
+set.site 0 SIG:CLK_MB:READY 1
+
