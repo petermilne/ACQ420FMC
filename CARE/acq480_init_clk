@@ -69,6 +69,7 @@ done
 /usr/local/CARE/acq480_streamd.0.conf
 
 /usr/local/epics/scripts/wait_ioc_ready
+set.site 0 SIG:CLK_MB:SET 0
 caput $(hostname):1:INTCLK_HZ $FREQHZ
 
 deltaF() {
