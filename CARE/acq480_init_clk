@@ -78,7 +78,7 @@ deltaF() {
 
 sleep 1
 if [ $(deltaF) -ne 0 ]; then
-	logger -t $PNAME "acq480_init_clk warning clock error
+	logger -t $PNAME "acq480_init_clk warning clock error"
 fi
 
 set.site 0 SIG:CLK_MB:READY 1
