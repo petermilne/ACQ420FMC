@@ -576,6 +576,9 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 	web_append  $DROOT/acq400_axi_dma/adma1 1
 	echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
 	cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+	VAP=7
+else
+	VAP=13
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
@@ -597,6 +600,7 @@ grep acq400\.[0-9] /proc/devices | build_nodes
 
 
 echo ++ Enable analog power..
+
 set.sys /dev/gpio/15VA_EN 1
 		
 if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
@@ -607,8 +611,8 @@ if [ -e /mnt/local/power ]; then
 	cp /mnt/local/power /etc/sysconfig/power
 else
 	cat - >/etc/sysconfig/power <<EOF
-	VAP=13
-	VAN=-13
+	VAP=$VAP
+	VAN=-$VAP
 EOF
 fi
 
