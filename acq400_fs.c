@@ -32,6 +32,8 @@
 #include "acq400.h"
 #include "hbm.h"
 
+#include "acq400_fs_ioctl.h"
+
 #define ACQ400_FS_MAGIC	0xd1ac0400
 
 #define XX	0
@@ -50,6 +52,9 @@ struct A400_FS_PDESC {
 	struct InodeMap *map;
 	int word_offset;
 	unsigned buffer_offset;
+	int stride;
+	int lbuf_len;
+	void* lbuf;
 };
 
 #define FS_DESC(file)		((struct A400_FS_PDESC*)((file)->private_data))
@@ -198,7 +203,7 @@ int get_buffer_offset_b(int word_offset)
  */
 static int a400fs_open(struct inode *inode, struct file *file)
 {
-	struct A400_FS_PDESC* pd = kmalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
+	struct A400_FS_PDESC* pd = kzalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
 	int rc = 0;
 #define RETERR(errcode) do { 						 	\
 		rc = errcode;								\
@@ -213,6 +218,7 @@ static int a400fs_open(struct inode *inode, struct file *file)
 		RETERR(-ENODEV);
 	}else{
 		pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
+		pd->stride = 1;
 
 		dev_dbg(DEVP(pd->map->adev), "a400fs_open() %d.%d wo:%d bo:%d",
 				pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
@@ -316,7 +322,6 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 
 	int headroom = min(buf_headroom, set_headroom);
 
-
 	if (set_headroom <= 0){
 		return 0;
 	}else if (!(ibuf >= 0 || ibuf < adev0->nbuffers)){
@@ -333,15 +338,37 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 		if (count > headroom){
 			count = headroom;
 		}
-		if (copy_to_user(buf, bp+cursor, count)){
-			return -EFAULT;
+		if (pd->stride == 1){
+			if (copy_to_user(buf, bp+cursor, count)){
+				return -EFAULT;
+			}
+			*offset += count;
+		}else{
+			int wsize = adev0->word_size;
+			int wcount;
+			int iw;
+			if (!pd->lbuf){
+				/* lazy allocation .. chances are all calls to
+				 * read() in a single session will have same (or smaller) count
+				 * free() on release.
+				 */
+				pd->lbuf = kmalloc(count, GFP_KERNEL);
+				pd->lbuf_len = count;
+			}else if (unlikely(count > pd->lbuf_len)){
+				count = pd->lbuf_len;
+			}
+			wcount = count/wsize/pd->stride;
+			for (iw = 0; iw < wcount; iw += pd->stride){
+				memcpy(pd->lbuf+iw*wsize, bp+cursor+iw*wsize, wsize);
+			}
+			if (copy_to_user(buf, pd->lbuf, iw*wsize)){
+				return -EFAULT;
+			}
+			*offset += wcount*wsize*pd->stride;
 		}
-		*offset += count;
+
 		return count;
 	}
-
-	/* temporary */
-	//return a400fs_read_file(file, buf, count, offset);
 }
 /*
  * Write a file.
@@ -359,10 +386,24 @@ int a400fs_release(struct inode *inode, struct file *file)
 	dev_dbg(DEVP(pd->map->adev), "a400fs_release() : %d.%d wo:%d bo:%d",
 		pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
 
+	if (pd->lbuf) kfree(pd->lbuf);
 	kfree(pd);
 	return 0;
 }
 
+
+static long
+a400fs_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct A400_FS_PDESC* pd = FS_DESC(file);
+	switch(cmd){
+	case ACQ400_FS_STRIDE:
+		pd->stride = arg;
+		return 0;
+	default:
+		return -ENODEV;
+	}
+}
 /*
  * Now we can put together our file operations structure.
  */
@@ -370,6 +411,8 @@ static struct file_operations a400fs_chan_file_ops = {
 	.open	= a400fs_open,
 	.read 	= a400fs_read_chan_file,
 	.write  = a400fs_write_file,
+	.unlocked_ioctl = a400fs_unlocked_ioctl,
+	.llseek = generic_file_llseek,
 	.release= a400fs_release
 };
 
