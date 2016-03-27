@@ -56,15 +56,43 @@ namespace G {
 	int *the_channels;
 	int ws = sizeof(short);
 	char* buffer = new char[MAXBUF];
-	FILE * fout = stdout;
+	const char* sout = "-";
 };
 struct poptOption opt_table[] = {
 	{ "site", 	's', POPT_ARG_INT, &G::site, 0, "site" },
 	{ "ssl",        'T', POPT_ARG_STRING,  &G::ssl, 0, "start,stride,length" },
 	{ "ws", 	'w', POPT_ARG_INT, &G::ws, 0, "wordsize" },
+	{ "outfmt",     'o', POPT_ARG_STRING, &G::sout, 0, "output file name format [-]" },
 	{ "verbose", 	'v', POPT_ARG_INT, &G::verbose, 0, "" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
+};
+
+class Output {
+	File *fp;
+	int ic;
+	Output() : fp(0), ic(-1) {}		// singleton.
+public:
+	FILE* getFOUT(int _ic) {
+		if (strcmp(G::sout, "-") == 0){
+			return stdout;
+		}else if (_ic == ic){
+			return fp->fp();
+		}else{
+			if (fp){
+				delete fp;
+			}
+			char fname [128];
+			sprintf(fname, G::sout, ic = _ic);
+			fp = new File(fname, "w");
+			return fp->fp();
+		}
+	}
+	static Output& instance() {
+		static Output _output;
+
+		return _output;
+	}
 };
 
 int getSSL() {
@@ -97,7 +125,7 @@ int process(int ic)
 
 	int nread;
 	while((nread = fread(G::buffer, 1, MAXBUF, ff.fp())) > 0){
-		fwrite(G::buffer, 1, nread, G::fout);
+		fwrite(G::buffer, 1, nread, Output::instance().getFOUT(ic));
 	}
 	if (ferror(ff.fp())){
 		perror("fread");
