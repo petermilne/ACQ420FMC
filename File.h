@@ -26,6 +26,12 @@
 #ifndef FILE_H_
 #define FILE_H_
 
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/mman.h>
+
+#include <string>
+
 
 class File {
 	FILE *_fp;
@@ -56,6 +62,9 @@ public:
 	}
 	FILE* fp() {
 		return _fp;
+	}
+	int fd() {
+		return fileno(_fp);
 	}
 	FILE* operator() () {
 		return _fp;

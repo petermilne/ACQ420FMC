@@ -358,8 +358,8 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 				count = pd->lbuf_len;
 			}
 			wcount = count/wsize/pd->stride;
-			for (iw = 0; iw < wcount; iw += pd->stride){
-				memcpy(pd->lbuf+iw*wsize, bp+cursor+iw*wsize, wsize);
+			for (iw = 0; iw < wcount; ++iw){
+				memcpy(pd->lbuf+iw*wsize, bp+cursor+iw*pd->stride*wsize, wsize);
 			}
 			if (copy_to_user(buf, pd->lbuf, iw*wsize)){
 				return -EFAULT;

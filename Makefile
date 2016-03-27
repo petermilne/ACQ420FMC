@@ -47,7 +47,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
-	muxdec dmadescfs_test tblock2file
+	muxdec dmadescfs_test tblock2file acq400_ssl
 
 all: modules apps
 	
@@ -98,6 +98,9 @@ dsp_coprocessor: dsp_coprocessor.o
 
 mmaptest: mmaptest.o
 	$(CC) -o $@ $^ -L../lib -lpopt
+
+acq400_ssl: acq400_ssl.o acq-util.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt	
 		
 udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
