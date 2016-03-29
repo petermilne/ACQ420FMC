@@ -3613,7 +3613,32 @@ static ssize_t show_aggregator_set(
 	return read_aggregator_set(adev, buf, 32);
 }
 static DEVICE_ATTR(aggregator_set, S_IRUGO, show_aggregator_set, 0);
-
+enum DistComms {
+	DC_A9 = 0, DC_COMMS_B = 1, DC_COMMS_A = 2
+};
+static enum DistComms fromDistCommsFudge(u32 reg)
+{
+	switch(reg&DIST_COMMS_MASK){
+	case DIST_COMMS_A:
+		return DC_COMMS_A;
+	case DIST_COMMS_B:
+		return DC_COMMS_B;
+	default:
+		return DC_A9;
+	}
+}
+static u32 toDistCommsFudge(enum DistComms dc)
+{
+	switch(dc){
+	case DC_A9:
+	default:
+		return 0;
+	case DC_COMMS_B:
+		return DIST_COMMS_B;
+	case DC_COMMS_A:
+		return DIST_COMMS_A;
+	}
+}
 static ssize_t show_dist_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3643,7 +3668,7 @@ static ssize_t show_dist_reg(
 		sprintf(mod_group, "sites=none");
 	}
 	sprintf(mod_group+strlen(mod_group), " comms=%d",
-				(regval&DIST_COMMS_MODE) != 0);
+				fromDistCommsFudge(regval));
 
 	if ((regval&AGG_SPAD_EN) != 0){
 		int pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
@@ -3683,14 +3708,13 @@ static ssize_t store_dist_reg(
 	const unsigned mshift)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned regval;
+	unsigned regval = acq400rd32(adev, offset);
 	char* match;
 	int pass = 0;
 
 	dev_dbg(DEVP(adev), "store_dist_reg \"%s\"", buf);
 
 	if ((match = strstr(buf, "sites=")) != 0){
-		unsigned regval = acq400rd32(adev, offset);
 		char* cursor = match+strlen("sites=");
 		int site;
 
@@ -3716,7 +3740,6 @@ static ssize_t store_dist_reg(
 				}
 			}
 		}
-		acq400wr32(adev, offset, regval);
 		pass = 1;
 	}
 	if (mshift == AGGREGATOR_MSHIFT){
@@ -3724,12 +3747,10 @@ static ssize_t store_dist_reg(
 		if (th_sel){
 			int thbytes = 0;
 			if (sscanf(th_sel, TH_SEL"%d", &thbytes) == 1){
-				unsigned regval = acq400rd32(adev, offset);
 				unsigned th = thbytes/AGG_SIZE_UNIT(adev);
 				if (th > AGG_SIZE_MASK) th = AGG_SIZE_MASK;
 				regval &= ~(AGG_SIZE_MASK<<AGG_SIZE_SHL);
 				regval |= th<<AGG_SIZE_SHL;
-				acq400wr32(adev, offset, regval);
 				pass = 1;
 			}else{
 				dev_err(dev, "arg not integer (%s)", th_sel);
@@ -3740,13 +3761,9 @@ static ssize_t store_dist_reg(
 	if ((match = strstr(buf, "comms")) != 0){
 		int en;
 		if (sscanf(match, "comms=%d", &en) == 1){
-			unsigned regval = acq400rd32(adev, offset);
-			if (en){
-				regval |= DIST_COMMS_MODE;
-			}else{
-				regval &= ~DIST_COMMS_MODE;
-			}
-			acq400wr32(adev, offset, regval);
+			regval &= ~DIST_COMMS_MASK;
+			dev_dbg(DEVP(adev), "comms=%d set 0x%08x", en, toDistCommsFudge(en));
+			regval |= toDistCommsFudge(en);
 			pass = 1;
 		}else{
 			dev_err(dev, "comms=%%d");
@@ -3756,7 +3773,6 @@ static ssize_t store_dist_reg(
 	if ((match = strstr(buf, "pad")) != 0){
 		int padlen;
 		if (sscanf(match, "pad=%d", &padlen) == 1){
-			unsigned regval = acq400rd32(adev, offset);
 			regval &= ~DIST_TRASH_LEN_MASK << AGG_SPAD_LEN_SHL;
 			if (padlen){
 				regval |= AGG_SPAD_EN;
@@ -3765,19 +3781,18 @@ static ssize_t store_dist_reg(
 			}else{
 				regval &= ~AGG_SPAD_EN;
 			}
-			acq400wr32(adev, offset, regval);
 			pass = 1;
 		}
 	}
-	if ((match = strstr(buf, "on")) != 0){
-		onDistributorEnable(adev, offset);
-		pass = 1;
-	}else if ((match = strstr(buf, "off")) != 0){
-		onDistributorDisable(adev, offset);
-		pass = 1;
-	}
+
 
 	if (pass){
+		acq400wr32(adev, offset, regval);
+		if ((match = strstr(buf, "on")) != 0){
+			onDistributorEnable(adev, offset);
+		}else if ((match = strstr(buf, "off")) != 0){
+			onDistributorDisable(adev, offset);
+		}
 		return count;
 	}else{
 		/* aggregator= passes this paragraph, so put it LAST! */

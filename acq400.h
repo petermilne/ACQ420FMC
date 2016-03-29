@@ -867,7 +867,10 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
 		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
 
-#define DIST_COMMS_MODE		(1<<29)
+
+#define DIST_COMMS_MASK		(0x3<<28)
+#define DIST_COMMS_A		(0x1<<28)
+#define DIST_COMMS_B		(0x2<<28)
 #define DIST_MSHIFT		18
 #define DIST_MOD_EN(s)		AGG_MOD_EN(s, DIST_MSHIFT)
 
