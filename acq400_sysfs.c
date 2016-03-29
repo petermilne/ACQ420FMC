@@ -3674,7 +3674,8 @@ static ssize_t show_dist_reg(
 		int pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
 		sprintf(mod_group+strlen(mod_group), " pad=%d", pad);
 	}
-	return sprintf(buf, "0x%08x %s %s\n", regval, mod_group,
+
+	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s\n", regval, mod_group,
 			regval&DATA_MOVER_EN? "on": "off");
 }
 
