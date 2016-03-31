@@ -66,6 +66,9 @@ int hook_dac_gx_to_spad;
 module_param(hook_dac_gx_to_spad, int, 0644);
 MODULE_PARM_DESC(hook_dac_gx_to_spad, "1: writes to DAC GX mirrored to SPADx");
 
+int acq480_rtm_translen_offset = 2;
+module_param(acq480_rtm_translen_offset, int, 0644);
+
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
 		if (device_create_file(dev, attr)){ 					\
@@ -999,11 +1002,12 @@ static ssize_t show_reg(
 	struct device_attribute *attr,
 	char * buf,
 	const int reg_off,
-	const char* fmt)
+	const char* fmt,
+	int ff)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 reg = acq400rd32(adev, reg_off);
-	return sprintf(buf, fmt, reg);
+	return sprintf(buf, fmt, reg+ff);
 }
 
 static ssize_t store_reg(
@@ -1011,11 +1015,17 @@ static ssize_t store_reg(
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count,
-	const int reg_off)
+	const int reg_off,
+	int ff)
 {
 	u32 reg;
 	if (sscanf(buf, "0x%x", &reg) == 1 || sscanf(buf, "%u", &reg) == 1){
 		struct acq400_dev* adev = acq400_devices[dev->id];
+		if (reg > ff){
+			reg -= ff;
+		}else{
+			reg = 0;
+		}
 		if ((modify_reg_access&MODIFY_REG_ACCESS_READ_BEFORE) != 0){
 			acq400rd32(adev, reg_off);
 		}
@@ -1041,7 +1051,7 @@ static ssize_t show_reg_##REG(						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, REG, FMT);			\
+	return show_reg(dev, attr, buf, REG, FMT, 0);			\
 }									\
 									\
 static DEVICE_ATTR(kname, S_IRUGO, show_reg_##REG, 0)
@@ -1052,7 +1062,7 @@ static ssize_t show_reg_##REG(						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_reg(dev, attr, buf, REG, FMT);			\
+	return show_reg(dev, attr, buf, REG, FMT, 0);			\
 }									\
 									\
 static ssize_t store_reg_##REG(						\
@@ -1061,7 +1071,7 @@ static ssize_t store_reg_##REG(						\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_reg(dev, attr, buf, count, REG);	\
+	return store_reg(dev, attr, buf, count, REG, 0);	\
 }									\
 static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
 
@@ -1069,7 +1079,31 @@ MAKE_REG_RW(sw_emb_word1, ACQ435_SW_EMB_WORD1, "0x%08x\n");
 MAKE_REG_RW(sw_emb_word2, ACQ435_SW_EMB_WORD2, "0x%08x\n");
 MAKE_REG_RO(evt_sc_latch, EVT_SC_LATCH,	"%u\n");
 
-MAKE_REG_RW(rtm_translen, ADC_TRANSLEN, "%u\n");
+static ssize_t show_reg_rtm_translen(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int ff = IS_ACQ480(adev)? acq480_rtm_translen_offset: 0;
+
+	return show_reg(dev, attr, buf, ADC_TRANSLEN, "%u\n", ff);
+}
+
+static ssize_t store_reg_rtm_translen(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int ff = IS_ACQ480(adev)? acq480_rtm_translen_offset: 0;
+
+	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, ff);
+}
+static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUGO,
+		show_reg_rtm_translen, store_reg_rtm_translen);
+
 
 
 static ssize_t show_nbuffers(
@@ -1109,6 +1143,28 @@ extern int bufferlen;
  * calculation, but it is needed to set the transfer #blocks in the FPGA.
  */
 
+static ssize_t _store_optimise_bufferlen(
+	struct device * dev,
+	u32 sample_size,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int mindma = lcm(sample_size, PAGE_SIZE);
+	int spb = bufferlen/mindma;
+	int newbl = spb*mindma;
+
+	dev_dbg(DEVP(adev), "store_optimise_bufferlen ss:%d mindma:0x%x spb:%d len:0x%x",
+			sample_size, mindma, spb, newbl);
+
+	acq400_set_bufferlen(adev, newbl);
+
+	if (IS_ACQ480(acq400_devices[1])){
+		int blocks = newbl/AXI_DMA_BLOCK;
+
+		acq400wr32(adev, AXI_DMA_ENGINE_DATA, blocks-1);
+	}
+	return count;
+}
 static ssize_t store_optimise_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1116,24 +1172,12 @@ static ssize_t store_optimise_bufferlen(
 	size_t count)
 {
 	u32 sample_size;
-	if (sscanf(buf, "%u", &sample_size) == 1){
-		struct acq400_dev *adev = acq400_devices[dev->id];
-
-		int mindma = lcm(sample_size, PAGE_SIZE);
-		int spb = bufferlen/mindma;
-		int newbl = spb*mindma;
-
-		dev_dbg(DEVP(adev), "store_optimise_bufferlen ss:%d mindma:0x%x spb:%d len:0x%x",
-				sample_size, mindma, spb, newbl);
-
-		acq400_set_bufferlen(adev, newbl);
-
-		if (IS_ACQ480(acq400_devices[1])){
-			int blocks = newbl/AXI_DMA_BLOCK;
-
-			acq400wr32(adev, AXI_DMA_ENGINE_DATA, blocks-1);
+	u32 burst_len = 1;
+	if (sscanf(buf, "%u %u", &sample_size, &burst_len) >= 1){
+		if (burst_len > 1){
+			sample_size = lcm(sample_size, burst_len);
 		}
-		return count;
+		return _store_optimise_bufferlen(dev, sample_size, count);
 	}
 
 	return -1;
