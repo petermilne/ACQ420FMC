@@ -338,6 +338,7 @@ build_site0() {
 	ln -s /usr/local/bin/run0 ${ek}
 	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
 	ln -s /usr/local/bin/transient ${ek}
+	ln -s /usr/local/bin/fit_rtm_translen_to_buffer ${ek}
 	ln -s /dev/acq400.0.knobs/bufferlen ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
 	ln -s /usr/local/bin/set.sync_role ${ek}
