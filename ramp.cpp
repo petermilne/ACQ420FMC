@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 		printf("eg ramp 64000 1 4 32\n");
 		exit(1);
 	}
-	int length = argc>1? atoi(argv[1]): 1024;
+	int length = argc>1? strtoul(argv[1], 0, 0): 1024;
 	int step = argc>2? atoi(argv[2]): 1;
 	int wsize = argc>3?  atoi(argv[3]): 4;
 	int ssize = argc>4?  atoi(argv[4]): 1;
