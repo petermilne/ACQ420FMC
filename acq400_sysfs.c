@@ -1175,7 +1175,10 @@ static ssize_t store_optimise_bufferlen(
 	u32 burst_len = 1;
 	if (sscanf(buf, "%u %u", &sample_size, &burst_len) >= 1){
 		if (burst_len > 1){
-			sample_size = lcm(sample_size, burst_len);
+			if (burst_len * sample_size < bufferlen){
+				sample_size = burst_len * sample_size;
+			}
+			/* else .. not going to fit, don't even try */
 		}
 		return _store_optimise_bufferlen(dev, sample_size, count);
 	}
