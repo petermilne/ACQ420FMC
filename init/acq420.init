@@ -246,6 +246,7 @@ build_knobs_device() {
 	
 	touch /dev/shm/AI.${site}.wf.fin
 	web_append acq400.${site} ${site}	
+	CLKDIV="noset"
 		
 	case $mtype in
 	5|A5)
@@ -280,7 +281,7 @@ build_knobs_device() {
 		CLKDIV=8;;
 	8)
 		# space deliberate
-		ACQ480_SITES="${ACQ480_SITES} $site";;
+		ACQ480_SITES="${ACQ480_SITES} $site";;	
 	40)		
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
 		CLKDIV=250;;
@@ -297,9 +298,11 @@ build_knobs_device() {
 		return;;
 	*)
 		CLKDIV=200;;
-	esac		
-	set.sys $dk/clkdiv $CLKDIV
-	echo "set clkdiv $CLKDIV get.sys $dk/clkdiv $(get.sys $dk/clkdiv)"
+	esac
+	if [ "$CLKDIV" != "noset" ]; then
+		set.sys $dk/clkdiv $CLKDIV
+		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv $(get.sys $dk/clkdiv)"
+	fi
 	if [ -e $dk/gains ]; then
 		set.sys ${dk}/gains 0000		
 	fi
