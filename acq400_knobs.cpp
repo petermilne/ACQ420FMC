@@ -306,6 +306,7 @@ public:
 
 class KnobX : public Knob {
 	int runcmd(const char* cmd, char* buf, int maxbuf);
+	char attr[4];
 protected:
 	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (!isValid(buf, maxbuf, args)){
@@ -317,7 +318,22 @@ protected:
 
 	}
 public:
-	KnobX(const char* _name) : Knob(_name) {}
+	KnobX(const char* _name) : Knob(_name) {
+		struct stat sb;
+		int ic = 0; attr[ic] = '\0';
+		if (stat(name, &sb) != -1){
+			if (sb.st_mode&(S_IRUSR|S_IRGRP|S_IROTH)) attr[ic++] = 'r';
+			if (sb.st_mode&(S_IWUSR|S_IWGRP|S_IWOTH)) attr[ic++] = 'w';
+			if (sb.st_mode&(S_IXUSR|S_IXGRP|S_IXOTH)){
+				attr[ic++] = 'x';
+			}else{
+				fprintf(stderr, "ERROR: KnobX \"%s\" is not executable\n", _name);
+			}
+			attr[ic] = '\0';
+		}else{
+			fprintf(stderr, "ERROR: KnobX \"%s\" does not exist\n", _name);
+		}
+	}
 
 	virtual int get(char* buf, int maxbuf) {
 		char cmd[128];
@@ -326,7 +342,7 @@ public:
 	}
 	virtual void print(void) { cprint("KnobX"); }
 	virtual const char* getAttr() {
-			return "rwx";
+		return attr;
 	}
 };
 
