@@ -65,7 +65,7 @@ package: all
 	cp *.ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
-	cp acq435_decode CARE/* opkg/usr/local/CARE
+	cp acq435_decode CARE/* scripts/streamtonowhere opkg/usr/local/CARE
 	cp init/* opkg/usr/local/init
 	cp map/* opkg/usr/local/map
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
