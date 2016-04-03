@@ -125,7 +125,7 @@ if { $::argc > 0 } {
 		if { [string length $SITES] > 0 } {
 			set SITES "$SITES,"
 		}
-		set port [expr 4320 + %site]
+		set port [expr 4320 + $site]
 		puts FINETD "$port stream tcp nowait root acq400_knobs_mon acq400_knobs_mon /etc/acq400/$site/train"
 		set SITES "$SITES$site"	
 	}
