@@ -1,0 +1,18 @@
+#!/usr/local/bin/expect
+# report changes to knob
+
+if { $argc < 1 } {
+	puts "USAGE acq400_knobs_mon k1 \[k2\]"
+	exit 1
+}
+log_user 0
+set KNOB [lindex $argv 0]
+# what about other args ..
+
+spawn inotifywait -e CLOSE_WRITE -m $KNOB
+
+while { 1 } {
+	expect "CLOSE_WRITE,CLOSE" {
+		puts [exec cat $KNOB]
+	}
+}

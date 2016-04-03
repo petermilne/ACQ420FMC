@@ -119,12 +119,18 @@ if {! [info exists ::env(ACQ480_FIXED_TERM)] } {
 }
 if { $::argc > 0 } {
 	set i 1
+	set FINETD [open /etc/inetd.conf a]
+
 	foreach site $::argv {
 		if { [string length $SITES] > 0 } {
 			set SITES "$SITES,"
 		}
+		set port [expr 4320 + %site]
+		puts FINETD "$port stream tcp nowait root acq400_knobs_mon acq400_knobs_mon /etc/acq400/$site/train"
 		set SITES "$SITES$site"	
-	} 	
+	}
+	close $FINETD
+
 	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
 	
 	if {$use_gpio} {
