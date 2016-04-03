@@ -607,6 +607,7 @@ struct acq400_dev {
 	int event_client_count;
 
 	int bq_overruns;
+	int bq_max;
 	pid_t continuous_reader;
 
 	struct ATD {

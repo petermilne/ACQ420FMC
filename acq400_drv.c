@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.947"
+#define REVID "2.948"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1528,6 +1528,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	/* _safe should not be needed since we're mutexed, but .. */
 	list_for_each_entry_safe(cur, tmp, &adev->bq_clients, bq_list){
 		struct BQ* bq = &cur->bq;
+		int nq = CIRC_CNT(bq->head, bq->tail, bq->bq_len);
 		if (!(CIRC_SPACE(bq->head, bq->tail, bq->bq_len) >= 1)){
 			bq->head = bq->tail = 0;
 			++adev->bq_overruns;
@@ -1536,6 +1537,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
 		wake_up_interruptible(&cur->waitq);
 		++nelems;
+		if (nq > adev->bq_max) adev->bq_max = nq;
 	}
 	mutex_unlock(&adev->bq_clients_mutex);
 	dev_dbg(DEVP(adev), "acq400_bq_notify() nelems:%d", nelems);

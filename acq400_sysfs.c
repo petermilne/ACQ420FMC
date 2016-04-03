@@ -3968,25 +3968,28 @@ static ssize_t show_bq_overruns(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", adev->bq_overruns);
+	int rc = sprintf(buf, "%u\n", adev->bq_overruns);
+	adev->bq_overruns = 0;
+	return rc;
 }
 
-static ssize_t store_bq_overruns(
+
+static DEVICE_ATTR(bq_overruns, S_IRUGO, show_bq_overruns, 0);
+
+static ssize_t show_bq_max(
 	struct device * dev,
 	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
+	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	unsigned bq_overruns = 0;
-
-	if (sscanf(buf, "%u", &bq_overruns) == 1){
-		adev->bq_overruns = 0;
-		return count;
-	}else{
-		return -1;
-	}
+	int rc = sprintf(buf, "%u\n", adev->bq_max);
+	adev->bq_max = 0;
+	return rc;
 }
+
+
+static DEVICE_ATTR(bq_max, S_IRUGO, show_bq_max, 0);
+
 
 
 static ssize_t show_es_enable(
@@ -4033,7 +4036,7 @@ static const struct attribute *rgm_attrs[] = {
 };
 
 
-static DEVICE_ATTR(bq_overruns, S_IRUGO|S_IWUGO, show_bq_overruns, store_bq_overruns);
+
 
 
 static const struct attribute *sc_common_attrs[] = {
@@ -4066,6 +4069,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_spad7.attr,
 	&dev_attr_estop.attr,
 	&dev_attr_bq_overruns.attr,
+	&dev_attr_bq_max.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
