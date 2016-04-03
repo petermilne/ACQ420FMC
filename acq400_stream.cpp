@@ -167,6 +167,7 @@ namespace G {
 	char* sum;
 
 	bool null_copy;
+	int is_spy;		/* spy task runs independently of main capture */
 };
 
 
@@ -1194,6 +1195,7 @@ int fill_ramp_incr;
 struct poptOption opt_table[] = {
 	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0,
 			"reduce buffer len" },
+	{ "spy", 0, POPT_ARG_INT, &G::is_spy, 0, "separate spy task" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL,
 			"no output copy"    },
 	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,
@@ -3414,6 +3416,10 @@ StreamHead* StreamHead::instance() {
 
 	if (_instance == 0){
 
+		if (G::is_spy){
+			return _instance =
+				new StreamHead(open("/dev/acq400.0.bq", O_RDONLY), 1);
+		}
 		setEventCountLimit(G::stream_mode == SM_TRANSIENT);
 
 		if (G::oversampling && fork() == 0){
@@ -3465,16 +3471,16 @@ StreamHead* StreamHead::instance() {
 				break;
 			}
 		}
-
-	}
-	aggregator_init();
-	if (G::aggsem){
-		if (sem_post(G::aggsem) != 0){
-			perror("sem_post");
+		aggregator_init();
+		if (G::aggsem){
+			if (sem_post(G::aggsem) != 0){
+				perror("sem_post");
+			}
 		}
+		waitHolders();
+		if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
 	}
-	waitHolders();
-	if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
+
 	return _instance;
 }
 
