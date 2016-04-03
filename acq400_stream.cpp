@@ -1543,6 +1543,19 @@ void init_globs(void)
 	}
 }
 
+void aggregator_init()
+{
+	if (G::devnum == 0 && G::aggregator_sites == 0){
+		static char _sites[32];
+		getKnob(0, "/etc/acq400/0/sites", _sites);
+		G::aggregator_sites = _sites;
+		if (verbose) fprintf(stderr, "default sites:%s\n", G::aggregator_sites);
+	}
+	/* else .. defaults to 0 */
+	if (G::aggregator_sites != 0){
+		hold_open(G::aggregator_sites);
+	}
+}
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1555,6 +1568,9 @@ void init(int argc, const char** argv) {
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
 	bool fill_ramp = false;
+
+	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
+	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -1601,8 +1617,6 @@ void init(int argc, const char** argv) {
 		}
 	}
 
-	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
-	getKnob(G::devnum, "bufferlen", &G::bufferlen);
 
 	if (G::pre || G::demux){
 		reserve_block0();		// MUST get length first ..
@@ -1615,21 +1629,11 @@ void init(int argc, const char** argv) {
 		G::devnum = atoi(devc);
 	}
 
-	if (G::devnum == 0 && G::aggregator_sites == 0){
-		static char _sites[32];
-		getKnob(0, "/etc/acq400/0/sites", _sites);
-		G::aggregator_sites = _sites;
-		if (verbose) fprintf(stderr, "default sites:%s\n", G::aggregator_sites);
-	}
-	/* else .. defaults to 0 */
 
 	if (G::stream_mode == SM_TRANSIENT){
 		if (G::buffer_mode == BM_NOT_SPECIFIED){
 			G::buffer_mode = BM_PREPOST;
 		}
-	}
-	if (G::aggregator_sites != 0){
-		hold_open(G::aggregator_sites);
 	}
 
 	root = getRoot(G::devnum);
@@ -1643,6 +1647,7 @@ void init(int argc, const char** argv) {
 	if (fill_ramp){
 		do_fill_ramp();
 	}
+
 }
 
 class StreamHead {
@@ -1688,7 +1693,6 @@ public:
 		stream();
 	}
 	static StreamHead* instance();
-
 };
 
 
@@ -3461,7 +3465,9 @@ StreamHead* StreamHead::instance() {
 				break;
 			}
 		}
+
 	}
+	aggregator_init();
 	if (G::aggsem){
 		if (sem_post(G::aggsem) != 0){
 			perror("sem_post");
