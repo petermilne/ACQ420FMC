@@ -117,6 +117,7 @@ if {! [info exists ::env(ACQ480_FIXED_TERM)] } {
 		set use_gpio 1
 	}
 }
+
 if { $::argc > 0 } {
 	set i 1
 	set FINETD [open /etc/inetd.conf a]
@@ -129,6 +130,8 @@ if { $::argc > 0 } {
 		puts $FINETD "$port stream tcp nowait root acq400_knobs_mon acq400_knobs_mon /etc/acq400/$site/train"
 		set SITES "$SITES$site"	
 	}
+# spy streaming port	
+	puts $FINETD "4280 stream tcp nowait root acq400_stream acq400_stream --spy 1 --wrbuflen \$\(get.site 0 bufferlen)"
 	close $FINETD
 
 	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
