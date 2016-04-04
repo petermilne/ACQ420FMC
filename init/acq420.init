@@ -627,7 +627,7 @@ fi
 if [ "x${ACQ480_SITES}" != "x" ]; then
 	for site in $ACQ480_SITES
 	do
-			web_append ACQ480.$site nomon
+			web_append acq480.$site nomon
 	done
 fi
 
