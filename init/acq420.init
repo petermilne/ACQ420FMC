@@ -629,6 +629,7 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 	do
 			web_append acq480.$site nomon
 	done
+	echo 1 > /etc/acq400/0/acq480_force_training
 fi
 
 if [ "x${BOLO8_SITES}" != "x" ]; then

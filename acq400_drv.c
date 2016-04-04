@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.951"
+#define REVID "2.952"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3307,30 +3307,31 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 
 int check_fifo_statuses(struct acq400_dev *adev)
 {
-	int fail = false;
 	if (adev->is_sc){
 		int islave = 0;
 		for (islave = 0; islave < MAXSITES; ++islave){
 			struct acq400_dev* slave = adev->aggregator_set[islave];
-			if (slave){
-				u32 fifsta = acq400rd32(slave, ADC_FIFO_STA);
-				dev_dbg(DEVP(slave), "%d fifsta 0x%08x %s", slave->of_prams.site, fifsta,
-							(fifsta&FIFERR)? "ERROR": "OK");
-				if (acq420_isFifoError(slave)){
-					dev_err(DEVP(adev), "fifo error in slave %d", slave->of_prams.site);
-					fail = true;
-					slave->rt.refill_error = true;
-					wake_up_interruptible(&adev->refill_ready);
-				}
-			}else{
-				break;
+			if (!slave) break;
+
+			if (acq420_isFifoError(slave)){
+				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
+				slave->rt.refill_error = true;
+				goto fail;
+			} else if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) != 0){
+				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
+				slave->rt.refill_error = true;
+				goto fail;
+			} else {
+				continue;
 			}
 		}
 	}else{
 		return acq420_isFifoError(adev);
 	}
-
-	return fail;
+	return 0;
+fail:
+	wake_up_interruptible(&adev->refill_ready);
+	return 1;
 }
 
 #define POISON0 0xc0de0000

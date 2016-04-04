@@ -167,7 +167,7 @@
 #define MOD_ID_ACQ400T_FMC	0xfd
 #define MOD_ID_ACQ400T_ELF	0xfe
 
-
+#define ADC_CTRL_480_TRAIN_OK	(1 << 31)
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_SHL   (10)
@@ -640,7 +640,7 @@ struct acq400_path_descriptor {
 #define PDSZ			(sizeof (struct acq400_path_descriptor))
 #define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)
-
+#define SITE(adev)		((adev).of_prams.site)
 
 #define MIN_DMA_BYTES	256
 
