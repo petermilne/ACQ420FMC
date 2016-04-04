@@ -55,6 +55,7 @@ if [ $DESKEW_DONE -ne $ACQ480_DESKEW_DONE ];then
 	 echo  A480_INFO=\"ERROR DESKEW failed iteration $1\" ) >$STF
 	exit 1
 fi
+set.site $SITE acq480_setPatDeskew=0
 set.site $SITE acq480_setPatSync=1
 set.site $SITE train=$ACQ480_SYNC
 SYNC_DONE=$(get.site $SITE train)

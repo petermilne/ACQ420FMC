@@ -310,10 +310,15 @@ int Ads5294::SetLvdsTestPatDeskew(bool enable)
 int Ads5294::setPatDeskew(bool enable)
 {
 	Reg& reg = regs->regs[Ads5294Regs::RA_PAT];
+	Reg& frame = regs->regs[Ads5294Regs::RA_EN_FRAME];
 
 	reg &= ~0x03;
 	if (enable){
 		reg |= 0x01;
+
+		frame = (1<<RA_EN_FRAME_BIT)|0x1555;
+	}else{
+		frame = 0;
 	}
 	return 1;
 }
