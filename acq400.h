@@ -120,14 +120,12 @@
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define SPADMAX			8
 
-/* doxy says this
-//#define ADC_FIFO_SAMPLE_MASK	((1<<14)-1)
- but observation says this:
- */
-#define ADC_FIFO_SAMPLE_MASK	0x3ff
+#define ADC_FIFO_SAMPLE_MASK	0xff
 
 #define FIFO_HISTO_SZ	      	(1<<8)
-#define STATUS_TO_HISTO(stat)	(((stat)&ADC_FIFO_SAMPLE_MASK)>>(10-8))
+#define STATUS_TO_HISTO(stat)	\
+	((stat)>ADC_FIFO_SAMPLE_MASK? \
+		ADC_FIFO_SAMPLE_MASK: (stat)&ADC_FIFO_SAMPLE_MASK)
 
 
 #define MOD_ID_TYPE_SHL		24
@@ -419,6 +417,7 @@ struct acq400_dev {
 	struct dma_chan* dma_chan[2];
 	int dma_cookies[2];
 	struct task_struct* w_task;
+	struct task_struct* h_task;	/* creates fifo histogram */
 	wait_queue_head_t w_waitq;
 	int task_active;
 

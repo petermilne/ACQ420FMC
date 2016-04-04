@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.948"
+#define REVID "2.949"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -230,6 +230,11 @@ module_param(dtd_display_pulse_nsec, int, 0644);
 int wimp_out;
 module_param(wimp_out, int, 0644);
 
+int histo_poll_ms = 10;
+module_param(histo_poll_ms, int, 0644);
+MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
+
+
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
 const char* acq400_devnames[] = {
@@ -255,6 +260,8 @@ const char* acq400_devnames[] = {
 
 int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
+int fifo_monitor(void* data);
+
 void acq420_onStart(struct acq400_dev *adev);
 void acq480_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
@@ -1405,6 +1412,9 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 				"acq420_continuous_start() task already running ?\n");
 	}
 
+	if (adev->h_task == 0){
+		adev->h_task = kthread_run(fifo_monitor, adev, "%s.fm", devname(adev));
+	}
 	while(!adev->task_active){
 		yield();
 		if ((++pollcat&0x1ffff) == 0){
@@ -1635,6 +1645,9 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 	if (adev->task_active && adev->w_task){
 		kthread_stop(adev->w_task);
 	}
+	kthread_stop(adev->h_task);
+	adev->h_task = 0;
+
 	wake_up_interruptible(&adev->DMA_READY);
 	wake_up_interruptible(&adev->w_waitq);
 
@@ -3299,6 +3312,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_dbg(DEVP(slave), "%d fifsta 0x%08x %s", slave->of_prams.site, fifsta,
 							(fifsta&FIFERR)? "ERROR": "OK");
 				if (acq420_isFifoError(slave)){
+					dev_err(DEVP(adev), "fifo error in slave %d", slave->of_prams.site);
 					fail = true;
 					slave->rt.refill_error = true;
 					wake_up_interruptible(&adev->refill_ready);
@@ -3428,6 +3442,52 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 	return poison_overwritten(adev, hbm);
 }
 
+void histo_clear_all(struct acq400_dev *devs[], int maxdev)
+{
+	int cursor;
+	for (cursor = 0; cursor < maxdev; ++cursor){
+		acq400_clear_histo(devs[cursor]);
+	}
+}
+
+void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
+{
+	int cursor;
+	for (cursor = i1; cursor < maxdev; ++cursor){
+		struct acq400_dev *adev = devs[cursor];
+		add_fifo_histo(adev, acq420_get_fifo_samples(adev));
+	}
+	for (cursor = 0; cursor < i1; ++cursor){
+		struct acq400_dev *adev = devs[cursor];
+		add_fifo_histo(adev, acq420_get_fifo_samples(adev));
+	}
+}
+
+int fifo_monitor(void* data)
+{
+	struct acq400_dev *devs[MAXSITES+1];
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	int idev = 0;
+	int cursor;
+	int i1 = 0;		/* randomize start time */
+
+	devs[idev++] = adev;
+	for (cursor = 0; cursor < MAXSITES; ++cursor){
+		struct acq400_dev* slave = adev->aggregator_set[cursor];
+		if (slave){
+			devs[idev++] = slave;
+		}
+	}
+	histo_clear_all(devs, idev);
+
+	while(!kthread_should_stop()) {
+		histo_add_all(devs, idev, i1);
+		msleep(histo_poll_ms);
+		if (++i1 >= idev) i1 = 0;
+	}
+
+	return 0;
+}
 
 int axi64_data_loop(void* data)
 {

@@ -1,0 +1,3 @@
+#!/bin/sh
+SITE=${1:-0}
+hexdump -e '"%3_ad " 1/4 "%d\n"' /dev/acq400.$SITE.histo
