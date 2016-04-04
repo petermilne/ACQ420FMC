@@ -3317,7 +3317,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
-			} else if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) != 0){
+			} else if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
 				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
