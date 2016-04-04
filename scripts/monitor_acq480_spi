@@ -23,24 +23,9 @@ dump_regs() {
 	cat $DIR/spibuf
 }
 
-ADDED_WEB=0
-
-add_web() {
-if [ -e /var/www/d-tacq/acq_main_page.html ]; then
-	grep -q $DEV /var/www/d-tacq/acq_main_page.html
-	if [ $? -ne 0 ]; then
-		sed -ie '/TABAPPEND/ {
-a       <li><a title="'$DEV'" href="acq_info_page.html">'$DEV'</a></li>
-}' /var/www/d-tacq/acq_main_page.html
-	fi
-	ADDED_WEB=1
-fi
-}
-
 monitor() {
 	while [ 1 ]
 	do
-		[ $ADDED_WEB -eq 0 ] && add_web				
 		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
 		sleep 1		
 	done
