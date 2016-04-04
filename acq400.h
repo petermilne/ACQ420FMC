@@ -123,9 +123,7 @@
 #define ADC_FIFO_SAMPLE_MASK	0xff
 
 #define FIFO_HISTO_SZ	      	(1<<8)
-#define STATUS_TO_HISTO(stat)	\
-	((stat)>ADC_FIFO_SAMPLE_MASK? \
-		ADC_FIFO_SAMPLE_MASK: (stat)&ADC_FIFO_SAMPLE_MASK)
+#define STATUS_TO_HISTO(stat)	((stat)&ADC_FIFO_SAMPLE_MASK)
 
 
 #define MOD_ID_TYPE_SHL		24
@@ -553,6 +551,7 @@ struct acq400_dev {
 
 	u32 fake_spad[SPADMAX];
 
+	u32 (*get_fifo_samples)(struct acq400_dev *adev);
 	void (*onStart)(struct acq400_dev *adev);
 	void (*onStop)(struct acq400_dev *adev);
 	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);

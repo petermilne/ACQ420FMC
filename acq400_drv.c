@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.949"
+#define REVID "2.951"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -745,6 +745,11 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
 	return acq400rd32(adev, ADC_FIFO_SAMPLES);
+}
+
+static u32 aggregator_get_fifo_samples(struct acq400_dev *adev)
+{
+	return acq400rd32(adev, AGGSTA);
 }
 
 /* @@todo not used
@@ -3455,11 +3460,11 @@ void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
 	int cursor;
 	for (cursor = i1; cursor < maxdev; ++cursor){
 		struct acq400_dev *adev = devs[cursor];
-		add_fifo_histo(adev, acq420_get_fifo_samples(adev));
+		add_fifo_histo(adev, adev->get_fifo_samples(adev));
 	}
 	for (cursor = 0; cursor < i1; ++cursor){
 		struct acq400_dev *adev = devs[cursor];
-		add_fifo_histo(adev, acq420_get_fifo_samples(adev));
+		add_fifo_histo(adev, adev->get_fifo_samples(adev));
 	}
 }
 
@@ -3472,10 +3477,12 @@ int fifo_monitor(void* data)
 	int i1 = 0;		/* randomize start time */
 
 	devs[idev++] = adev;
+	adev->get_fifo_samples = aggregator_get_fifo_samples;
 	for (cursor = 0; cursor < MAXSITES; ++cursor){
 		struct acq400_dev* slave = adev->aggregator_set[cursor];
 		if (slave){
 			devs[idev++] = slave;
+			slave->get_fifo_samples = acq420_get_fifo_samples;
 		}
 	}
 	histo_clear_all(devs, idev);
