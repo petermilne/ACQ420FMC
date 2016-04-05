@@ -1,0 +1,16 @@
+#!/bin/sh
+
+report_site() {
+echo $(get.site $1 acq480_train_hi_val; get.site $1 acq480_train_lo_val; get.site $1 acq480_loti)
+}
+
+
+eval $(get.site 0 aggregator)
+
+printf "%10s %10s %s\n" train_hi train_lo LOTI
+
+for s in $(echo $sites | tr , \  )
+do
+	report_site $s
+done
+
