@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.952"
+#define REVID "2.953"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -116,6 +116,10 @@ module_param(hb0_no_ratelimit, int, 0644);
 /* PIG TEST. SLAVE has non zero settings */
 int sideport_does_not_touch_trg = 0;
 module_param(sideport_does_not_touch_trg, int, 0644);
+
+int check_train_ok = 0;
+module_param(check_train_ok, int, 0644);
+MODULE_PARM_DESC(check_train_ok, "check training status from FPGA (experimental)");
 
 /* GLOBALS */
 
@@ -3317,10 +3321,14 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
-			} else if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
+			} else if (check_train_ok && adev->rt.nget != 0 &&
+				   (acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
 				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
-				slave->rt.refill_error = true;
-				goto fail;
+				if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
+					dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d 2nd strike", SITE(*slave));
+					slave->rt.refill_error = true;
+					goto fail;
+				}
 			} else {
 				continue;
 			}
