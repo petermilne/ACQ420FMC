@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.954"
+#define REVID "2.955"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -116,10 +116,6 @@ module_param(hb0_no_ratelimit, int, 0644);
 /* PIG TEST. SLAVE has non zero settings */
 int sideport_does_not_touch_trg = 0;
 module_param(sideport_does_not_touch_trg, int, 0644);
-
-int check_train_ok = 0;
-module_param(check_train_ok, int, 0444);
-MODULE_PARM_DESC(check_train_ok, "check training status from FPGA (experimental)");
 
 /* GLOBALS */
 
@@ -466,6 +462,14 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	}
 }
 
+int acq480_train_fail(struct acq400_dev *adev)
+{
+	if ((adev->mod_id&MOD_ID_REV_MASK) >= 0xa){
+		return (acq400rd32(adev, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0;
+	}else{
+		return -1;
+	}
+}
 static void acq480_init_defaults(struct acq400_dev *adev)
 {
 	dev_info(DEVP(adev), "ACQ480 device init: skeleton");
@@ -481,11 +485,8 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->lotide = lotide;
 	adev->onStart = acq480_onStart;
 	adev->onStop = acq420_disable_fifo;
-
-	if ((adev->mod_id&MOD_ID_REV_MASK) >= 0xa){
-		check_train_ok = 1;
-	}
 }
+
 
 static u32 _v2f_init(struct acq400_dev *adev)
 {
@@ -3325,10 +3326,9 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
-			} else if (check_train_ok && adev->rt.nget != 0 &&
-				   (acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
+			} else if (adev->rt.nget != 0 && acq480_train_fail(slave) == 1){
 				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
-				if ((acq400rd32(slave, ADC_CTRL)&ADC_CTRL_480_TRAIN_OK) == 0){
+				if (acq480_train_fail(slave) == 1){
 					dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d 2nd strike", SITE(*slave));
 					slave->rt.refill_error = true;
 					goto fail;

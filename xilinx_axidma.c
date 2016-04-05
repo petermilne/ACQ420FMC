@@ -470,7 +470,7 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 
 static void dma_do_tasklet(unsigned long data)
 {
-	struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
+	//struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
 
 	//xilinx_chan_desc_cleanup(chan);
 }

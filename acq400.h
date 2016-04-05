@@ -1228,6 +1228,8 @@ int acq400_getDelTrg(struct acq400_dev *adev, int ch, int *threshold);
 int acq400_clearDelTrg(struct acq400_dev *adev);
 int acq400_clearDelTrgEvent(struct acq400_dev *adev);
 
+int acq480_train_fail(struct acq400_dev *adev);
+
 /* PIGCELF PC */
 #define PIG_CTL			0x04
 
