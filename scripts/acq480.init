@@ -131,7 +131,7 @@ if { $::argc > 0 } {
 		set SITES "$SITES$site"	
 	}
 # spy streaming port	
-	puts $FINETD "4280 stream tcp nowait root acq400_stream acq400_stream --spy 1 --wrbuflen \$\(get.site 0 bufferlen)"
+	puts $FINETD "4280 stream tcp nowait root acq400_stream acq400_stream --spy 1"
 	close $FINETD
 
 	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES

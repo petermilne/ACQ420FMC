@@ -3417,8 +3417,8 @@ StreamHead* StreamHead::instance() {
 	if (_instance == 0){
 
 		if (G::is_spy){
-			return _instance =
-				new StreamHead(open("/dev/acq400.0.bq", O_RDONLY), 1);
+			return _instance = new StreamHead(
+					open("/dev/acq400.0.bqf", O_RDONLY), 1);
 		}
 		setEventCountLimit(G::stream_mode == SM_TRANSIENT);
 
