@@ -167,7 +167,8 @@
 #define MOD_ID_ACQ400T_FMC	0xfd
 #define MOD_ID_ACQ400T_ELF	0xfe
 
-#define ADC_CTRL_480_TRAIN_OK	(1 << 31)
+
+
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_SHL   (10)
@@ -190,9 +191,13 @@
 #define ADC_CTRL_FIFO_RST	(1 << 1)
 #define ADC_CTRL_MODULE_EN	(1 << 0)	/* enable at enumeration, leave up */
 
+#define ADC480_CTRL_TRAIN_OK		(1 << 31)
 #define ADC480_CTRL_SYNC_TRAIN		(1<<7)
 #define ADC480_CTRL_DESKEW_TRAIN	(1<<6)
 
+#define ADC480_CTRL_FRAME_HI_SHL 20
+#define ADC480_CTRL_FRAME_LO_SHL 16
+#define ADC480_CTRL_FRAME_MASK	 0x0f
 
 #define DAC_CTRL_DAC_EN		ADC_CTRL_ADC_EN
 #define DAC_CTRL_DAC_RST	ADC_CTRL_ADC_RST

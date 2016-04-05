@@ -334,15 +334,28 @@ static ssize_t store_acq480_train_ctrl(
 static DEVICE_ATTR(acq480_train_ctrl,
 		S_IRUGO|S_IWUGO, show_acq480_train_ctrl, store_acq480_train_ctrl);
 
+static ssize_t show_acq480_train_xx_val(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	int data_reg, int frame_shl)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc = acq400rd32(adev, data_reg);
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+
+	return sprintf(buf, "0x%08x %x\n", tc,
+			(ctrl>>frame_shl)&ADC480_CTRL_FRAME_MASK);
+}
+
+
 static ssize_t show_acq480_train_hi_val(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 tc = acq400rd32(adev, ACQ480_TRAIN_HI_VAL);
-
-	return sprintf(buf, "0x%08x\n", tc);
+	return show_acq480_train_xx_val(dev,attr, buf,
+			ACQ480_TRAIN_HI_VAL, ADC480_CTRL_FRAME_HI_SHL);
 }
 
 
@@ -353,10 +366,8 @@ static ssize_t show_acq480_train_lo_val(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 tc = acq400rd32(adev, ACQ480_TRAIN_LO_VAL);
-
-	return sprintf(buf, "0x%08x\n", tc);
+	return show_acq480_train_xx_val(dev,attr, buf,
+			ACQ480_TRAIN_LO_VAL, ADC480_CTRL_FRAME_LO_SHL);
 }
 
 
