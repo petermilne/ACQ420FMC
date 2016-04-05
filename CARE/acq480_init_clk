@@ -66,8 +66,7 @@ do
 	set.site 0 SYS:CLK:OE_CLK1_ELF${site} 1
 done
 
-/usr/local/CARE/acq480_streamd.0.conf
-
+set.site 0 acq480_force_training 1
 /usr/local/epics/scripts/wait_ioc_ready
 set.site 0 SIG:CLK_MB:SET 0
 caput $(hostname):1:INTCLK_HZ $FREQHZ
