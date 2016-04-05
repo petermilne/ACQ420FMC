@@ -363,6 +363,24 @@ static ssize_t show_acq480_train_lo_val(
 static DEVICE_ATTR(acq480_train_lo_val, S_IRUGO, show_acq480_train_lo_val, 0);
 
 
+static ssize_t show_acq480_loti(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (check_train_ok){
+		u32 stat = acq400rd32(slave, ADC_CTRL);
+		return sprintf(buf, "%d\n", (stat&ADC_CTRL_480_TRAIN_OK) == 0);
+	}else{
+		return sprintf(buf, "-1\n");
+	}
+}
+
+
+static DEVICE_ATTR(acq480_loti, S_IRUGO, show_acq480_loti, 0);
+
+
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
 	&dev_attr_train_states.attr,
@@ -370,6 +388,7 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_train_ctrl.attr,
 	&dev_attr_acq480_train_hi_val.attr,
 	&dev_attr_acq480_train_lo_val.attr,
+	&dev_attr_acq480_loti.attr,
 	NULL
 };
 

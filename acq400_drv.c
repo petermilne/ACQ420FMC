@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.953"
+#define REVID "2.954"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -118,7 +118,7 @@ int sideport_does_not_touch_trg = 0;
 module_param(sideport_does_not_touch_trg, int, 0644);
 
 int check_train_ok = 0;
-module_param(check_train_ok, int, 0644);
+module_param(check_train_ok, int, 0444);
 MODULE_PARM_DESC(check_train_ok, "check training status from FPGA (experimental)");
 
 /* GLOBALS */
@@ -481,6 +481,10 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->lotide = lotide;
 	adev->onStart = acq480_onStart;
 	adev->onStop = acq420_disable_fifo;
+
+	if ((adev->mod_id&MOD_ID_REV_MASK) >= 0xa){
+		check_train_ok = 1;
+	}
 }
 
 static u32 _v2f_init(struct acq400_dev *adev)
