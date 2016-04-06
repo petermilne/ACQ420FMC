@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.955"
+#define REVID "2.957"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1546,6 +1546,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	struct acq400_path_descriptor *tmp;
 	int ix = hbm->ix;
 	int nelems = 0;
+	int th = nbuffers - 2;
 
 	mutex_lock(&adev->bq_clients_mutex);
 
@@ -1553,7 +1554,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	list_for_each_entry_safe(cur, tmp, &adev->bq_clients, bq_list){
 		struct BQ* bq = &cur->bq;
 		int nq = CIRC_CNT(bq->head, bq->tail, bq->bq_len);
-		if (!(CIRC_SPACE(bq->head, bq->tail, bq->bq_len) >= 1)){
+		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len) < 1 || nq > th){
 			bq->head = bq->tail = 0;
 			++adev->bq_overruns;
 		}
