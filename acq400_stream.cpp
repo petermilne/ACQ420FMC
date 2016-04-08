@@ -76,7 +76,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1006"
+#define VERID	"B1007"
 
 #define NCHAN	4
 
@@ -1437,7 +1437,6 @@ static void hold_open(const char* sites)
 				ss+0, ss+1, ss+2, ss+3, ss+4, ss+5);
 
 	if (G::nsites){
-		setpgid(0, 0);
 		pid_t child = fork();
 		if (child != 0){
 			/* original becomes reaper */
@@ -1618,7 +1617,8 @@ void init(int argc, const char** argv) {
 			}
 		}
 	}
-
+	/* do this early so all descendents get the same pgid .. so we can kill them :-) */
+	setpgid(0, 0);
 
 	if (G::pre || G::demux){
 		reserve_block0();		// MUST get length first ..

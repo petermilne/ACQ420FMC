@@ -1660,8 +1660,11 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 	if (adev->task_active && adev->w_task){
 		kthread_stop(adev->w_task);
 	}
-	kthread_stop(adev->h_task);
-	adev->h_task = 0;
+	if (adev->h_task){
+		kthread_stop(adev->h_task);
+		adev->h_task = 0;
+	}
+
 
 	wake_up_interruptible(&adev->DMA_READY);
 	wake_up_interruptible(&adev->w_waitq);
