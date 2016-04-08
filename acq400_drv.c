@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.957"
+#define REVID "2.958"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3327,7 +3327,8 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
-			} else if (adev->rt.nget != 0 && acq480_train_fail(slave) == 1){
+			} else if (IS_ACQ480(adev) && adev->rt.nget != 0 &&
+						acq480_train_fail(slave) == 1){
 				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
 				if (acq480_train_fail(slave) == 1){
 					dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d 2nd strike", SITE(*slave));
