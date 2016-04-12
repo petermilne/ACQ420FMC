@@ -1115,6 +1115,7 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define V2F_STAT		0x14
 #define V2F_CHAN_SEL		0x60
 #define V2F_FREQ_OFF		0x64		/* 1,2,3,4 */
+
 #define V2F_FREQ_SLO		0x74		/* 1,2,3,4 */
 
 #define V2F_CTRL_DATA_PACKED	(1<<7)

@@ -197,12 +197,30 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);
 }
 
+#define V2F_FREQ_OFF_1		V2F_FREQ_OFF
+#define V2F_FREQ_OFF_2		(V2F_FREQ_OFF_1+0x4)
+#define V2F_FREQ_OFF_3		(V2F_FREQ_OFF_1+0x8)
+#define V2F_FREQ_OFF_4		(V2F_FREQ_OFF_1+0xc)
+
+#define V2F_FREQ_SLO_1		V2F_FREQ_SLO
+#define V2F_FREQ_SLO_2		(V2F_FREQ_SLO+0x4)
+#define V2F_FREQ_SLO_3		(V2F_FREQ_SLO+0x8)
+#define V2F_FREQ_SLO_4		(V2F_FREQ_SLO+0xc)
+
+
 void v2f_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE( V2F_CTRL );
 	DBG_REG_CREATE( V2F_STAT );
 	DBG_REG_CREATE( V2F_CHAN_SEL );
-	DBG_REG_CREATE( V2F_FREQ_OFF );
+	DBG_REG_CREATE( V2F_FREQ_OFF_1 );
+	DBG_REG_CREATE( V2F_FREQ_OFF_2 );
+	DBG_REG_CREATE( V2F_FREQ_OFF_3 );
+	DBG_REG_CREATE( V2F_FREQ_OFF_4 );
+	DBG_REG_CREATE( V2F_FREQ_SLO_1 );
+	DBG_REG_CREATE( V2F_FREQ_SLO_2 );
+	DBG_REG_CREATE( V2F_FREQ_SLO_3 );
+	DBG_REG_CREATE( V2F_FREQ_SLO_4 );
 }
 
 void pig_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
