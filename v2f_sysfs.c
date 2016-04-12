@@ -241,4 +241,5 @@ const struct attribute *sysfs_v2f_attrs[] = {
 	&dev_attr_v2f_freq_slo_2.attr,
 	&dev_attr_v2f_freq_slo_3.attr,
 	&dev_attr_v2f_freq_slo_4.attr,
+	NULL
 };
