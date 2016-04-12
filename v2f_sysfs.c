@@ -93,6 +93,7 @@ static ssize_t store_hf(
 
 static DEVICE_ATTR(hf, S_IRUGO|S_IWUGO, show_hf, store_hf);
 
+/*
 #define V2F_OFFSET_PACKED_1M 	3277
 #define V2F_OFFSET_UNPACKED_1M 	838861
 
@@ -131,7 +132,7 @@ static ssize_t store_freq_offset(
 
 static DEVICE_ATTR(freq_offset,
 		S_IRUGO|S_IWUGO, show_freq_offset, store_freq_offset);
-
+*/
 static ssize_t show_freq_offset_raw(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -143,7 +144,6 @@ static ssize_t show_freq_offset_raw(
 	return sprintf(buf, "%u\n", freq_off);
 }
 
-#define V2F_FREQ_OFF_MAX ((1<<22)-1)
 
 static ssize_t store_freq_offset_raw(
 	struct device * dev,
@@ -167,12 +167,78 @@ static DEVICE_ATTR(freq_offset_raw,
 		S_IRUGO|S_IWUGO, show_freq_offset_raw, store_freq_offset_raw);
 
 
+static ssize_t show_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int reg_off)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 reg = acq400rd32(adev, reg_off);
+	return sprintf(buf, "%u\n", reg);
+}
+
+static ssize_t store_reg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int reg_off,
+	const unsigned RMAX)
+{
+	u32 reg;
+	if (sscanf(buf, "0x%x", &reg) == 1 || sscanf(buf, "%u", &reg) == 1){
+		struct acq400_dev* adev = acq400_devices[dev->id];
+		if (reg > RMAX) reg = RMAX;
+		acq400wr32(adev, reg_off, reg);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MAKE_REG_CAL(kname, REG, MAX)							\
+static ssize_t show_reg_##kname(							\
+	struct device *dev,								\
+	struct device_attribute *attr,							\
+	char* buf)									\
+{											\
+	return show_reg(dev, attr, buf, REG);						\
+}											\
+static ssize_t store_reg_##kname(							\
+	struct device *dev, 								\
+	struct device_attribute *attr,							\
+	const char* buf,								\
+	size_t count)									\
+{											\
+	return store_reg(dev, attr, buf, count, REG, MAX);				\
+}											\
+static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##kname, store_reg_##kname)
+
+
+MAKE_REG_CAL(v2f_freq_off_1, V2F_FREQ_OFF+0x0, V2F_FREQ_OFF_MAX);
+MAKE_REG_CAL(v2f_freq_off_2, V2F_FREQ_OFF+0x4, V2F_FREQ_OFF_MAX);
+MAKE_REG_CAL(v2f_freq_off_3, V2F_FREQ_OFF+0x8, V2F_FREQ_OFF_MAX);
+MAKE_REG_CAL(v2f_freq_off_4, V2F_FREQ_OFF+0xc, V2F_FREQ_OFF_MAX);
+
+MAKE_REG_CAL(v2f_freq_slo_1, V2F_FREQ_SLO+0x0, V2F_FREQ_SLO_MAX);
+MAKE_REG_CAL(v2f_freq_slo_2, V2F_FREQ_SLO+0x4, V2F_FREQ_SLO_MAX);
+MAKE_REG_CAL(v2f_freq_slo_3, V2F_FREQ_SLO+0x8, V2F_FREQ_SLO_MAX);
+MAKE_REG_CAL(v2f_freq_slo_4, V2F_FREQ_SLO+0xc, V2F_FREQ_SLO_MAX);
 
 const struct attribute *sysfs_v2f_attrs[] = {
-	//&dev_attr_clkdiv.attr,
 	&dev_attr_hf.attr,
-	//&dev_attr_active_chan.attr,
-	&dev_attr_freq_offset.attr,
+	//&dev_attr_freq_offset.attr,
 	&dev_attr_freq_offset_raw.attr,
 	&dev_attr_chan_sel.attr,
+
+	&dev_attr_v2f_freq_off_1.attr,
+	&dev_attr_v2f_freq_off_2.attr,
+	&dev_attr_v2f_freq_off_3.attr,
+	&dev_attr_v2f_freq_off_4.attr,
+
+	&dev_attr_v2f_freq_slo_1.attr,
+	&dev_attr_v2f_freq_slo_2.attr,
+	&dev_attr_v2f_freq_slo_3.attr,
+	&dev_attr_v2f_freq_slo_4.attr,
 };

@@ -1114,7 +1114,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define V2F_CTRL		0x04
 #define V2F_STAT		0x14
 #define V2F_CHAN_SEL		0x60
-#define V2F_FREQ_OFF		0x64
+#define V2F_FREQ_OFF		0x64		/* 1,2,3,4 */
+#define V2F_FREQ_SLO		0x74		/* 1,2,3,4 */
 
 #define V2F_CTRL_DATA_PACKED	(1<<7)
 #define V2F_CTRL_RANGE_HI	(1<<6)
@@ -1125,6 +1126,8 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define V2F_CHAN_SEL_ENC(v, c)  (c << (8*((v)-1)))
 #define V2F_CHAN_SEL_DEC(cs, v) (((cs)>>(8*((v)-1)))&0x0ff)
 
+#define V2F_FREQ_OFF_MAX	((1<<21) - 1)
+#define V2F_FREQ_SLO_MAX	((1<<27) - 1)
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
