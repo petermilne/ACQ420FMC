@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.958"
+#define REVID "2.959"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1660,11 +1660,8 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 	if (adev->task_active && adev->w_task){
 		kthread_stop(adev->w_task);
 	}
-	if (adev->h_task){
-		kthread_stop(adev->h_task);
-		adev->h_task = 0;
-	}
-
+	kthread_stop(adev->h_task);
+	adev->h_task = 0;
 
 	wake_up_interruptible(&adev->DMA_READY);
 	wake_up_interruptible(&adev->w_waitq);
@@ -3330,8 +3327,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
-			} else if (IS_ACQ480(adev) && adev->rt.nget != 0 &&
-						acq480_train_fail(slave) == 1){
+			} else if (adev->rt.nget != 0 && acq480_train_fail(slave) == 1){
 				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
 				if (acq480_train_fail(slave) == 1){
 					dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d 2nd strike", SITE(*slave));

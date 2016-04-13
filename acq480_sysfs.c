@@ -25,33 +25,6 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-#include <linux/device.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/list.h>
-#include <linux/pci.h>
-#include <linux/time.h>
-#include <linux/init.h>
-#include <linux/timex.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-#include <linux/moduleparam.h>
-#include <linux/mutex.h>
-
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-
-#include <asm/uaccess.h>  /* VERIFY_READ|WRITE */
-
-#include "lk-shim.h"
-
-
-#include <linux/device.h>
-#include <linux/module.h>
-#include <linux/user.h>
-
 #include "acq400.h"
 
 /* acq480 training
