@@ -1736,13 +1736,17 @@ static ssize_t store_nacc(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int nacc;
-	int shift = 0;
+	int shift = 999;
 
 	if (sscanf(buf, "%u,%u", &nacc, &shift) >= 1){
 		u32 acdc;
 
 		nacc = max(nacc, 1);
 		nacc = min(nacc, ADC_MAX_NACC);
+		if (shift == 999){
+			for (; 1<<shift < nacc; ++shift)
+				;
+		}
 		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
 
 		acdc = nacc-1;
