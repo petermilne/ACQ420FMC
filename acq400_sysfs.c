@@ -1744,7 +1744,7 @@ static ssize_t store_nacc(
 		nacc = max(nacc, 1);
 		nacc = min(nacc, ADC_MAX_NACC);
 		if (shift == 999){
-			for (; 1<<shift < nacc; ++shift)
+			for (shift = 0; 1<<shift < nacc; ++shift)
 				;
 		}
 		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
