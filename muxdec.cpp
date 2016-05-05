@@ -180,16 +180,19 @@ int main(int argc, char* argv[])
 {
 	openlog("muxdec", LOG_PID, LOG_USER);
 	//syslog(LOG_DEBUG, "muxdec 01\n");
-	char defaults[128];
+	char defaults[256];
 	FILE* fp = fopen("/dev/shm/muxdec.sh", "r");
 	if (fp){
 		fgets(defaults, 128, fp);
 		fclose(fp);
 	}
 
-	DataFormatter& df =  DataFormatter::create(defaults);
-	char cmd[80];
-	fgets(cmd, 80, stdin);
+	/* DataFormatter uses strstr(), overrides from the beginning of str */
+	char cmd[256];
+	fgets(cmd, 256, stdin);
+	strncat(cmd, " ", 256);
+	strncat(cmd, defaults, 256);
+	DataFormatter& df =  DataFormatter::create(cmd);
 	// strcat augment defaults ?
 	//syslog(LOG_DEBUG, "muxdec 44\n");
 	system("inotifywait /dev/shm/AI.0.wf.fin 2>/dev/null >/dev/null");
