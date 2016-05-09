@@ -291,6 +291,7 @@ ssize_t regfs_page_write(struct file *file, const char __user *buf, size_t count
 	}
 	for (cursor = 0; cursor < count; cursor += sizeof(unsigned)){
 		rc = copy_from_user(&uwrite, buf+cursor, sizeof(unsigned));
+		dev_dbg(DEVP(rdev), "0x%08x => iowrite(%p)", uwrite, va+cursor);
 		iowrite32(uwrite, va+cursor);
 		if (rc){
 			return -1;
@@ -301,6 +302,41 @@ ssize_t regfs_page_write(struct file *file, const char __user *buf, size_t count
 	return count;
 
 }
+
+ssize_t regfs_page_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	char* va = rdev->va + PD(file)->minor*PAGE_SIZE;
+	int len = PAGE_SIZE;
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	unsigned uread;
+	int cursor;
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+		count = count&~3;
+	}
+	for (cursor = 0; cursor < count; cursor += sizeof(unsigned)){
+		uread = ioread32(va+cursor);
+		dev_dbg(DEVP(rdev), "0x%08x <= ioread(%p)", uread, va+cursor);
+		rc = copy_to_user(buf+cursor, &uread, sizeof(unsigned));
+
+		if (rc){
+			return -1;
+		}
+	}
+
+	*f_pos += count;
+	return count;
+}
+
 int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 {
 	struct REGFS_DEV *rdev = PD(file)->rdev;
@@ -334,6 +370,7 @@ static struct file_operations regfs_page_fops = {
 	.release = regfs_page_release,
 	.mmap = regfs_page_mmap,
 	.write = regfs_page_write,
+	.read = regfs_page_read
 };
 static int regfs_probe(struct platform_device *pdev)
 {
