@@ -164,7 +164,7 @@ static void pigcelf_init_site(int site)
 	pdev->id = site;
 	platform_device_register(pdev);
 
-	zynq_spi_goslow_msec_kludge = 1;
+	zynq_spi_goslow_msec_kludge = 0;
 	dev_info(&pdev->dev, "pigcelf_init_site() zynq_spi_goslow_msec_kludge %d", zynq_spi_goslow_msec_kludge);
 	dev_info(&pdev->dev, "pigcelf_init_site() irq %u", imu.irq);
 	dev_info(&pdev->dev, "pigcelf_init_site() set max_speed_hz %u", imu.max_speed_hz);
