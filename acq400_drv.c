@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.969"
+#define REVID "2.970"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1725,6 +1725,10 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
 	adev->continuous_reader = 0;
+	if (adev->rt.event_count >= acq400_event_count_limit){
+		dev_dbg(DEVP(adev), "acq2006_continuous_stop() restore event..");
+		acq400_enable_event0(adev, 1);
+	}
 	return acq400_release(inode, file);
 }
 
