@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.962"
+#define REVID "2.967"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1660,8 +1660,11 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 	if (adev->task_active && adev->w_task){
 		kthread_stop(adev->w_task);
 	}
-	kthread_stop(adev->h_task);
-	adev->h_task = 0;
+
+	if (adev->h_task != 0){
+		kthread_stop(adev->h_task);
+		adev->h_task = 0;
+	}
 
 	wake_up_interruptible(&adev->DMA_READY);
 	wake_up_interruptible(&adev->w_waitq);
@@ -2258,12 +2261,20 @@ ssize_t acq400_event_read(
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	u32 old_sample = adev->rt.sample_clocks_at_event;
 	int timeout = 0;
+	int pollin = PD(file)->pollin;
+	if (pollin){
+		PD(file)->pollin = 0;
+	}
 
+	dev_dbg(DEVP(adev), "acq400_event_read() 01 old_sample %d ecount %d", old_sample, adev->rt.event_count);
 	/* force caller to wait fresh event. This is an auto-rate-limit
 	 * it's also re-entrant (supports multiple clients each at own rate)
 	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
 	 */
-	if (old_sample == 0 || adev->rt.event_count != 0){
+	if (pollin == 0 && adev->rt.event_count != 0){
+
+		dev_dbg(DEVP(adev), "acq400_event_read() 10 wait event");
+
 		rc = wait_event_interruptible_timeout(
 				adev->event_waitq,
 				adev->rt.sample_clocks_at_event != old_sample,
@@ -2287,6 +2298,8 @@ ssize_t acq400_event_read(
 	}
 	mutex_unlock(&adev0->list_mutex);
 
+	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
+			hbm0, hbm1, hbm1? "must wait for hbm1 to complete": "ready");
 	if (hbm0){
 		dma_sync_single_for_cpu(DEVP(adev), hbm0->pa, hbm0->len, hbm0->dir);
 	}
@@ -2319,6 +2332,7 @@ ssize_t acq400_event_read(
 	}else{
 		rc = nbytes;
 	}
+	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", lbuf, rc);
 	return rc;
 }
 
@@ -2328,11 +2342,11 @@ static unsigned int acq400_event_poll(
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	if (adev->rt.sample_clocks_at_event){
-		return POLLIN;
+		return PD(file)->pollin = POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
 		if (adev->rt.sample_clocks_at_event){
-			return POLLIN;
+			return PD(file)->pollin = POLLIN;
 		}else{
 			return 0;
 		}
@@ -3343,7 +3357,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 	}
 	return 0;
 fail:
-	wake_up_interruptible(&adev->refill_ready);
+	wake_up_interruptible_all(&adev->refill_ready);
 	return 1;
 }
 
@@ -3590,7 +3604,7 @@ int axi64_data_loop(void* data)
 
 			if (quit_on_buffer_exhaustion){
 				adev->rt.refill_error = 1;
-				wake_up_interruptible(&adev->refill_ready);
+				wake_up_interruptible_all(&adev->refill_ready);
 				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
 				goto quit;
 			}else{
@@ -3724,7 +3738,7 @@ int ai_data_loop(void *data)
 
 				if (quit_on_buffer_exhaustion){
 					adev->rt.refill_error = 1;
-					wake_up_interruptible(&adev->refill_ready);
+					wake_up_interruptible_all(&adev->refill_ready);
 					dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
 					goto quit;
 				}

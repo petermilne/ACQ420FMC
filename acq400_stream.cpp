@@ -168,6 +168,7 @@ namespace G {
 
 	bool null_copy;
 	int is_spy;		/* spy task runs independently of main capture */
+	int show_events;
 };
 
 
@@ -1254,6 +1255,9 @@ struct poptOption opt_table[] = {
 	  "exit-on-trigger-fail", 0, POPT_ARG_INT, &G::exit_on_trigger_fail, 0,
 	  	  	  "force quit on trigger fail"
 	},
+	{ "show-events", 0, POPT_ARG_INT, &G::show_events, 0,
+			"show events in data"
+	},
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
 	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
@@ -2190,7 +2194,7 @@ int StreamHeadLivePP::_stream() {
 	int bo2 = Buffer::BO_NONE; ;
 
 
-	fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
+	if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 
 	// 1637099 -1 201    sample_count, hb0 hb1
 	for( getPP(); (rc = read(f_ev, event_info, 80)) > 0; getPP()){
@@ -2288,13 +2292,22 @@ unsigned total_buffer_limit() {
 }
 
 class Demuxer {
+protected:
+	static int verbose;
 public:
+	Demuxer() {
+		const char* vs = getenv("DemuxerVerbose");
+		vs && (verbose == atoi(vs));
+	}
 	virtual int demux(void *start, int nbytes) = 0;
 	int operator()(void *start, int nsamples){
 		if (verbose) fprintf(stderr, "%s %p %d\n", __FUNCTION__, start, nsamples);
 		return demux(start, nsamples);
 	}
 };
+
+int Demuxer::verbose;
+
 template <class T>
 class DemuxerImpl : public Demuxer {
 
@@ -2681,6 +2694,7 @@ public:
 	int headroom;
 	bool pre_fits;
 	bool post_fits;
+	int verbose;
 
 	BufferDistribution(int _ibuf, char *_esp) :
 		ibuf(_ibuf), esp(_esp),
@@ -2690,7 +2704,10 @@ public:
 		headroom(b2s(ba_hi - esp)),
 		pre_fits(tailroom >= G::pre),
 		post_fits(headroom >= G::post)
-	{}
+	{
+		const char* bv = getenv("BufferDistributionVerbose");
+		bv && (verbose = atoi(bv));
+	}
 	void show() {
 		if (pre_fits&&post_fits){
 			fprintf(stderr, "linear: %p |%p| %p\n",
@@ -2898,17 +2915,27 @@ public:
 class Event0 {
 	char event[80];
 	bool disabled;
+	int verbose;
 
 	void setEvent0(const char* triplet){
 		char cmd[80];
-		sprintf(cmd, "set.site 1 event0=%s\n", triplet);
+		sprintf(cmd, "set.site 1 event0=%s;get.site 1 event0\n", triplet);
 		if (verbose) fprintf(stderr, cmd);
 		FILE *pp = popen(cmd, "r");
-		fgets(cmd, 80, pp);
-		pclose(pp);
+		if (pp == 0){
+			perror("Event0 popen() fail");
+		}else{
+			fgets(cmd, 80, pp);
+			if (verbose) fprintf(stderr, "response %s\n", cmd);
+			pclose(pp);
+		}
 	}
 public:
 	Event0() : disabled(false) {
+		if (getenv("EVENT_VERBOSE")){
+			verbose = atoi(getenv("EVENT_VERBOSE"));
+			fprintf(stderr, "Event0 verbose set %d\n", verbose);
+		}
 		char cmd[80];
 		sprintf(cmd, "get.site 1 event0");
 		FILE *pp = popen(cmd, "r");
@@ -2988,6 +3015,7 @@ protected:
 	bool cooked;
 	char* typestring;
 	Event0 event0;
+	static int verbose;
 
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
@@ -3095,6 +3123,7 @@ protected:
 					int ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= G::nbuffers);
+					if (verbose) fprintf(stderr, "getBufferId() ret %d\n", ib);
 					return ib;
 				}else{
 					return -1;
@@ -3117,7 +3146,9 @@ protected:
 		while((ib = getBufferId()) >= 0){
 			blog.update(ib);
 
-			if (verbose > 1) fprintf(stderr, "streamCore %d 01\n", ib);
+			if (verbose > 1) fprintf(stderr,
+					"streamCore 01 ib:%d state:%d pre %d/%d post %d/%d\n",
+					ib, actual.state, actual.pre, pre, actual.post, post);
 
 			switch(actual.state){
 			case ST_ARM:
@@ -3207,6 +3238,11 @@ public:
 		pre(_pre), post(_post),
 		cooked(false)
 		{
+
+		if (getenv("StreamHeadPrePostVerbose")){
+			verbose = atoi(getenv("StreamHeadPrePostVerbose"));
+			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
+		}
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "StreamHeadPrePost()\n");
 		setState(ST_STOP);
@@ -3251,7 +3287,7 @@ public:
 
 
 
-	void stream() {
+	virtual void stream() {
 		setState(ST_ARM);
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamStart();
@@ -3289,6 +3325,8 @@ public:
 
 	}
 };
+
+int StreamHeadPrePost::verbose;
 
 static void reserve_block0() {
 	StreamHeadPrePost::reserve_block0();
@@ -3341,7 +3379,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 			system(G::pre_demux_script);
 		}
 		if (verbose) fprintf(stderr, "**********************\n");
-		if (verbose) fprintf(stderr, "%s %d %p\n", __FUNCTION__, ibuf, es);
+		if (verbose) fprintf(stderr, "DemuxingStreamHeadPrePost::postProcess %d %p\n", ibuf, es);
 		if (pre){
 			BufferDistribution bd(ibuf, es);
 			bd.report();
@@ -3397,7 +3435,7 @@ StreamHead* StreamHead::createLiveDataInstance()
 	BufferCloner::cloneBuffers<DemuxBufferCloner>();
 	stream_fmt = "%s.hb0";
 
-	bool live_pp = has_pre_post_live_demux();
+	bool live_pp = G::stream_mode != SM_TRANSIENT && has_pre_post_live_demux();
 	setKnob(0, "/etc/acq400/0/live_mode", live_pp? "2": "1");
 	if (live_pp){
 		return new StreamHeadLivePP;
@@ -3408,6 +3446,7 @@ StreamHead* StreamHead::createLiveDataInstance()
 
 void setEventCountLimit(int limit)
 {
+	fprintf(stderr, "setEventCountLimit() %d\n", limit);
 	setKnob(0,
 	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
 }
@@ -3416,11 +3455,14 @@ StreamHead* StreamHead::instance() {
 
 	if (_instance == 0){
 
+		setEventCountLimit(
+				G::show_events? G::show_events:
+				G::stream_mode == SM_TRANSIENT? 1: 0);
+
 		if (G::is_spy){
 			return _instance = new StreamHead(
 					open("/dev/acq400.0.bqf", O_RDONLY), 1);
 		}
-		setEventCountLimit(G::stream_mode == SM_TRANSIENT);
 
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;

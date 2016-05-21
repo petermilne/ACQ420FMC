@@ -638,6 +638,7 @@ struct acq400_path_descriptor {
 		int bq_len;
 	} bq;
 	char lbuf[MAXLBUF];
+	int pollin;		/* call to poll detected data */
 };
 
 #define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
