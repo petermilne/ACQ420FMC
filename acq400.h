@@ -625,6 +625,12 @@ struct acq400_dev {
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512
 /** acq400_path_descriptor - one per open path */
+
+struct EventInfo {
+	int pollin;
+	struct HBM *hbm0;
+	struct HBM *hbm1;
+};
 struct acq400_path_descriptor {
 	struct acq400_dev* dev;
 	int minor;
@@ -638,7 +644,7 @@ struct acq400_path_descriptor {
 		int bq_len;
 	} bq;
 	char lbuf[MAXLBUF];
-	int pollin;		/* call to poll detected data */
+	struct EventInfo eventInfo;
 };
 
 #define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)

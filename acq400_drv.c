@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.967"
+#define REVID "2.969"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2249,6 +2249,24 @@ int acq400_event_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+void init_event_info(struct EventInfo *eventInfo)
+{
+	struct acq400_dev* adev0 = acq400_lookupSite(0);
+	memset(eventInfo, 0, sizeof(struct EventInfo));
+
+	mutex_lock(&adev0->list_mutex);
+	/* event is somewhere between these two blocks */
+	if (!list_empty(&adev0->REFILLS)){
+		eventInfo->hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
+	}else if (!list_empty(&adev0->OPENS)){
+		eventInfo->hbm0 = list_last_entry(&adev0->OPENS, struct HBM, list);
+	}
+	if (!list_empty(&adev0->INFLIGHT)){
+		eventInfo->hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
+	}
+	mutex_unlock(&adev0->list_mutex);
+	eventInfo->pollin = 1;
+}
 ssize_t acq400_event_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
@@ -2256,23 +2274,23 @@ ssize_t acq400_event_read(
 	char lbuf[40];
 	int nbytes;
 	int rc;
-	struct HBM *hbm0 = 0;
-	struct HBM *hbm1 = 0;
+	struct EventInfo eventInfo = PD(file)->eventInfo;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	u32 old_sample = adev->rt.sample_clocks_at_event;
 	int timeout = 0;
-	int pollin = PD(file)->pollin;
-	if (pollin){
-		PD(file)->pollin = 0;
+
+	if (eventInfo.pollin){
+		PD(file)->eventInfo.pollin = 0;
 	}
 
-	dev_dbg(DEVP(adev), "acq400_event_read() 01 old_sample %d ecount %d", old_sample, adev->rt.event_count);
-	/* force caller to wait fresh event. This is an auto-rate-limit
-	 * it's also re-entrant (supports multiple clients each at own rate)
-	 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
-	 */
-	if (pollin == 0 && adev->rt.event_count != 0){
+	dev_dbg(DEVP(adev), "acq400_event_read() 01 pollin %d old_sample %d",
+			eventInfo.pollin, old_sample);
 
+	if (eventInfo.pollin == 0){
+		/* force caller to wait fresh event. This is an auto-rate-limit
+		 * it's also re-entrant (supports multiple clients each at own rate)
+		 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
+		 */
 		dev_dbg(DEVP(adev), "acq400_event_read() 10 wait event");
 
 		rc = wait_event_interruptible_timeout(
@@ -2284,29 +2302,20 @@ ssize_t acq400_event_read(
 		}else if (rc == 0){
 			return -EAGAIN;
 		}
+		init_event_info(&eventInfo);
 	}
-
-	mutex_lock(&adev0->list_mutex);
-	/* event is somewhere between these two blocks */
-	if (!list_empty(&adev0->REFILLS)){
-		hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
-	}else if (!list_empty(&adev0->OPENS)){
-		hbm0 = list_last_entry(&adev0->OPENS, struct HBM, list);
-	}
-	if (!list_empty(&adev0->INFLIGHT)){
-		hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
-	}
-	mutex_unlock(&adev0->list_mutex);
 
 	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
-			hbm0, hbm1, hbm1? "must wait for hbm1 to complete": "ready");
-	if (hbm0){
-		dma_sync_single_for_cpu(DEVP(adev), hbm0->pa, hbm0->len, hbm0->dir);
+			eventInfo.hbm0, eventInfo.hbm1,
+			eventInfo.hbm1? "must wait for hbm1 to complete": "ready");
+
+	if (eventInfo.hbm0){
+		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm0->pa, eventInfo.hbm0->len, eventInfo.hbm0->dir);
 	}
-	if (hbm1){
+	if (eventInfo.hbm1){
 		int rc = wait_event_interruptible_timeout(
 			adev0->refill_ready,
-			hbm1->bstate != BS_FILLING ||
+			eventInfo.hbm1->bstate != BS_FILLING ||
 				adev0->rt.refill_error ||
 				adev0->rt.please_stop,
 			event_to);
@@ -2315,12 +2324,13 @@ ssize_t acq400_event_read(
 		}else if (rc == 0){
 			timeout = 1;
 		}
-		dma_sync_single_for_cpu(DEVP(adev), hbm1->pa, hbm1->len, hbm1->dir);
+		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm1->pa, eventInfo.hbm1->len, eventInfo.hbm1->dir);
 	}
 
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x\n",
 			adev->rt.sample_clocks_at_event,
-			hbm0? hbm0->ix: -1, hbm1? hbm1->ix: -1, timeout? "TO": "OK",
+			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
+			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			adev->atd.event_source);
 
 	if (HAS_DTD(adev) && adev->atd.event_source){
@@ -2342,11 +2352,13 @@ static unsigned int acq400_event_poll(
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	if (adev->rt.sample_clocks_at_event){
-		return PD(file)->pollin = POLLIN;
+		init_event_info(&PD(file)->eventInfo);
+		return POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
 		if (adev->rt.sample_clocks_at_event){
-			return PD(file)->pollin = POLLIN;
+			init_event_info(&PD(file)->eventInfo);
+			return POLLIN;
 		}else{
 			return 0;
 		}
