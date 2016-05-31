@@ -189,7 +189,7 @@ unsigned b2s(unsigned bytes) {
 }
 
 bool ISACQ480() {
-	char* mval;
+	char mval[80];
 	if (getKnob(0, "/etc/acq400/1/MODEL", mval) >= 0){
 		return(strstr(mval, "ACQ480") != NULL);
 	}
@@ -239,9 +239,9 @@ AbstractES* AbstractES::ev0_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xfffffff0, 0xaa55f151, 0x0a>;
+			_instance = new ES<0xffffffff, 0xaa55f151, 0x0a>;
 		}else{
-			_instance = new ES<0xfffffff0, 0xaa55f151, 0x0f>;
+			_instance = new ES<0xffffffff, 0xaa55f151, 0x0f>;
 		}
 	}
 	return _instance;
