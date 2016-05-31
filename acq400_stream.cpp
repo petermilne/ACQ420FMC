@@ -189,6 +189,10 @@ unsigned b2s(unsigned bytes) {
 }
 
 bool ISACQ480() {
+	char* mval;
+	if (getKnob(0, "/etc/acq400/1/MODEL", mval) >= 0){
+		return(strstr(mval, "ACQ480") != NULL);
+	}
 	return false;
 }
 class AbstractES {
