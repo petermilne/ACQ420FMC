@@ -190,20 +190,33 @@ unsigned b2s(unsigned bytes) {
 
 
 
-template <int MASK, int PAT>
+template <int MASK, int PAT, unsigned MATCHES>
 class ES {
 	bool is_es_word(unsigned word) {
 		return (word&MASK) == PAT;
 	}
 public:
 	bool isES(unsigned *cursor){
-		return is_es_word(cursor[0]) && is_es_word(cursor[1]) &&
-			is_es_word(cursor[2]) && is_es_word(cursor[3]);
+		bool is_es = false;
+		unsigned matches = MATCHES;
+		for (int ic = 0; matches != 0; ++ic, matches >>= 1){
+			if ((matches&0x1) != 0){
+				if (is_es_word(cursor[ic])){
+					is_es = true;
+				}else{
+					return false;
+				}
+			}
+		}
+		return is_es;
 	}
 };
 
-ES<0xfffffff0, 0xaa55f150> evX;
-ES<0xffffffff, 0xaa55f151> ev0;
+ES<0xfffffff0, 0xaa55f150, 0x0f> evX;
+ES<0xffffffff, 0xaa55f151, 0x0f> ev0;
+
+ES<0xfffffff0, 0xaa55f150, 0x0a> evX_480;
+ES<0xffffffff, 0xaa55f151, 0x0a> ev0_480;
 
 static int createOutfile(const char* fname) {
 	int fd = open(fname,
@@ -1703,7 +1716,10 @@ public:
 
 
 class StreamHeadImpl: public StreamHead {
+
 protected:
+	int verbose;
+
 	Progress& actual;
 	const int samples_buffer;
 
@@ -1925,8 +1941,11 @@ public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
 		samples_buffer(G::bufferlen/sample_size()),
-		f_ev(0), nfds(0), event_received(0) {
-		if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+		f_ev(0), nfds(0), event_received(0), verbose(0) {
+			const char* vs = getenv("StreamHeadImplVerbose");
+			vs && (verbose = atoi(vs));
+
+			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
 	}
 	virtual void startStream() {
 		fc = open_feed();
