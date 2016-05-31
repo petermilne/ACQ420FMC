@@ -188,10 +188,18 @@ unsigned b2s(unsigned bytes) {
 	return bytes/sample_size();
 }
 
-
+bool ISACQ480() {
+	return false;
+}
+class AbstractES {
+public:
+	virtual bool isES(unsigned *cursor) = 0;
+	static AbstractES* evX_instance();
+	static AbstractES* ev0_instance();
+};
 
 template <int MASK, int PAT, unsigned MATCHES>
-class ES {
+class ES : public AbstractES {
 	bool is_es_word(unsigned word) {
 		return (word&MASK) == PAT;
 	}
@@ -212,11 +220,28 @@ public:
 	}
 };
 
-ES<0xfffffff0, 0xaa55f150, 0x0f> evX;
-ES<0xffffffff, 0xaa55f151, 0x0f> ev0;
-
-ES<0xfffffff0, 0xaa55f150, 0x0a> evX_480;
-ES<0xffffffff, 0xaa55f151, 0x0a> ev0_480;
+AbstractES* AbstractES::evX_instance() {
+	static AbstractES* _instance;
+	if (!_instance){
+		if (ISACQ480()){
+			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0a>;
+		}else{
+			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0f>;
+		}
+	}
+	return _instance;
+}
+AbstractES* AbstractES::ev0_instance() {
+	static AbstractES* _instance;
+	if (!_instance){
+		if (ISACQ480()){
+			_instance = new ES<0xfffffff0, 0xaa55f151, 0x0a>;
+		}else{
+			_instance = new ES<0xfffffff0, 0xaa55f151, 0x0f>;
+		}
+	}
+	return _instance;
+}
 
 static int createOutfile(const char* fname) {
 	int fd = open(fname,
@@ -492,6 +517,8 @@ private:
 
 	static int startchan;
 
+	AbstractES& evX;
+
 	static void init() {
 		if (ID_MASK) return;
 
@@ -679,7 +706,8 @@ public:
 
 	DemuxBuffer(Buffer* cpy, unsigned _mask) :
 		Buffer(cpy),
-		nchan(G::nchan)
+		nchan(G::nchan),
+		evX(*AbstractES::evX_instance())
 	{
 		nsam = buffer_len/sizeof(T)/G::nchan;
 		init();
@@ -1798,6 +1826,8 @@ protected:
 	int nfds;
 	bool event_received;
 	char event_info[80];
+	AbstractES& evX;
+	AbstractES& ev0;
 
 	void startEventWatcher() {
 		f_ev = open("/dev/acq400.1.ev", O_RDONLY);
@@ -1941,7 +1971,9 @@ public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
 		samples_buffer(G::bufferlen/sample_size()),
-		f_ev(0), nfds(0), event_received(0), verbose(0) {
+		f_ev(0), nfds(0), event_received(0), verbose(0),
+		evX(*AbstractES::evX_instance()),
+		ev0(*AbstractES::ev0_instance()) {
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
 
