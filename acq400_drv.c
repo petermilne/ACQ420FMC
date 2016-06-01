@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.970"
+#define REVID "2.971"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2280,7 +2280,7 @@ ssize_t acq400_event_read(
 	int rc;
 	struct EventInfo eventInfo = PD(file)->eventInfo;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
-	u32 old_sample = adev->rt.sample_clocks_at_event;
+	u32 old_sample = adev->rt.samples_at_event;
 	int timeout = 0;
 
 	if (eventInfo.pollin){
@@ -2299,7 +2299,7 @@ ssize_t acq400_event_read(
 
 		rc = wait_event_interruptible_timeout(
 				adev->event_waitq,
-				adev->rt.sample_clocks_at_event != old_sample,
+				adev->rt.samples_at_event != old_sample,
 				event_to);
 		if (rc < 0){
 			return -EINTR;
@@ -2332,7 +2332,7 @@ ssize_t acq400_event_read(
 	}
 
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x\n",
-			adev->rt.sample_clocks_at_event,
+			adev->rt.samples_at_event,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			adev->atd.event_source);
@@ -2355,12 +2355,12 @@ static unsigned int acq400_event_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
-	if (adev->rt.sample_clocks_at_event){
+	if (adev->rt.samples_at_event){
 		init_event_info(&PD(file)->eventInfo);
 		return POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
-		if (adev->rt.sample_clocks_at_event){
+		if (adev->rt.samples_at_event){
 			init_event_info(&PD(file)->eventInfo);
 			return POLLIN;
 		}else{
