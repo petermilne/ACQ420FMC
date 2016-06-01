@@ -2171,13 +2171,20 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	}
 
 	int  _stream();
+	int verbose;
 public:
 	StreamHeadLivePP():
 			pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
-		fprintf(stderr, "StreamHeadLivePP()\n");
+		const char* vs = getenv("StreamHeadLivePPVerbose");
+		vs && (verbose = atoi(vs));
+
+		fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
 		startEventWatcher();
 		startSampleIntervalWatcher();
+
+
+		if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
 
 		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
 				Buffer::the_buffers[0]->getBase());
