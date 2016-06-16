@@ -1614,7 +1614,10 @@ static ssize_t store_active_chan(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int active_chan;
-	if (sscanf(buf, "active_chan=%d", &active_chan) == 1){
+
+	dev_dbg(DEVP(adev), "store_active_chan 01 \"%s\"", buf);
+	if (sscanf(buf, "%d", &active_chan) == 1){
+		dev_dbg(DEVP(adev), "store_active_chan 50 set nchan_enabled %d", active_chan);
 		adev->nchan_enabled = active_chan;
 	}else{
 		return -1;
@@ -1631,7 +1634,7 @@ static ssize_t show_active_chan(
 }
 
 static DEVICE_ATTR(active_chan,
-		S_IRUGO|S_IWUGO, show_active_chan, show_active_chan);
+		S_IRUGO|S_IWUGO, show_active_chan, store_active_chan);
 
 static ssize_t show_module_type(
 	struct device * dev,
