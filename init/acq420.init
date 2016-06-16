@@ -653,7 +653,3 @@ killall -q inetd
 cat /usr/local/init/inetd.conf >>/etc/inetd.conf
 inetd /etc/inetd.conf
 
-mkdir -p /dev/acq400/data/
-mount -t acq400fs acq400fs /dev/acq400/data
-
-

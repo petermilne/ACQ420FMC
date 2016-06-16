@@ -1606,6 +1606,20 @@ static ssize_t store_bank_mask(
 static DEVICE_ATTR(bank_mask,
 		S_IRUGO|S_IWUGO, show_bank_mask, store_bank_mask);
 
+static ssize_t store_active_chan(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int active_chan;
+	if (sscanf(buf, "active_chan=%d", &active_chan) == 1){
+		adev->nchan_enabled = active_chan;
+	}else{
+		return -1;
+	}
+}
 
 static ssize_t show_active_chan(
 	struct device * dev,
@@ -1617,7 +1631,7 @@ static ssize_t show_active_chan(
 }
 
 static DEVICE_ATTR(active_chan,
-		S_IRUGO|S_IWUGO, show_active_chan, 0);
+		S_IRUGO|S_IWUGO, show_active_chan, show_active_chan);
 
 static ssize_t show_module_type(
 	struct device * dev,

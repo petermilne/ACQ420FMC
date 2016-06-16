@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.971"
+#define REVID "2.973"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -737,7 +737,7 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	syscon |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, B8_SYS_CON, syscon);
 	adev->data32 = data_32b;
-	adev->nchan_enabled = 8;	// 32 are you sure?.
+	adev->nchan_enabled = 8;
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
