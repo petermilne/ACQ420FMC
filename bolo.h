@@ -48,6 +48,8 @@
 #define B8_DAC_SPI		0x0248
 #define B8_DAC_SPI_RBK		0x024c
 
+#define B8_DAC_CON_JL_MAGIC	0x94		/* write this to enable the DAC */
+
 /* Current ADc */
 #define B8_CAD_CON		0x0304
 #define B8_CAD_DELAY		0x0340
