@@ -4,6 +4,13 @@ set HN [exec hostname]
 set VAP [exec caget -t "$HN:SYS:VAP"]
 set VAN1 [exec caget -t "$HN:SYS:VAN"]
 
+set quit_on_fail 0
+if { [info exists $::env(QOF) ] } {
+	if { $::env(QOF) != 0 } {
+		set quit_on_fail 1
+	}
+}
+
 if { [string compare -length 3 $VAN1 "-12"] == 0 } {
         set VAN        -12
 } elseif { [string compare -length 2 $VAN1 "-6"] == 0 } {
@@ -77,7 +84,7 @@ set D_RES {
 }
 
 proc test_point {label reading formula} {
-	global VAN VAP VREF V1P5 V1	
+	global VAN VAP VREF V1P5 V1 quit_on_fail
 	lassign $formula target mx dx cx pin
 	if { $target == "VAP" } { set target $VAP }
 	if { $target == "VAN" } { set target $VAN }
@@ -87,15 +94,25 @@ proc test_point {label reading formula} {
 	
 	set actual [expr $reading*$mx/$dx +$cx]
 	set delta [expr $target - $actual]
+	set quit 0
 	if {$target != 0} {
 		set derr [expr abs($delta / $target)]
 		if {[expr $derr < 0.1]} {
 			set pass "PASS"
 		} else {
 			set pass "FAIL"
+			if {$quit_onfail != 0} {
+				set quit 1
+			}
 		}
 		puts [format "$label %20s target=%6.2f actual=%6.2f $pass" \
 			$pin $target $actual]
+
+	}
+	if {$quit != 0} {
+		puts "ERROR"
+		exit 1
+	}
 	}
 }
 
