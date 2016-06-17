@@ -1,0 +1,110 @@
+#!/usr/local/bin/expect
+
+set HN [exec hostname]
+set VAP [exec caget -t "$HN:SYS:VAP"]
+set VAN1 [exec caget -t "$HN:SYS:VAN"]
+
+if { [string compare -length 3 $VAN1 "-12"] == 0 } {
+        set VAN        -12
+} elseif { [string compare -length 2 $VAN1 "-6"] == 0 } {
+        set VAN        -7
+} else {                 
+        set VAN [exec caget -t "$HN:SYS:VAN"]
+puts "Something is wrong with VAN, quitting"
+puts "VAN value is $VAN"
+exit 1
+}
+
+if { [string compare -length 7 $HN "acq2106"] == 0 } {
+	set VREF	0.9
+} else {
+	set VREF	0
+}
+
+if { [string compare -length 4 $HN "kmcu"] == 0 } {
+	set V1P5	0
+	set V1		0
+} else {
+	set V1P5	1.5
+	set V1		1.0
+}
+puts "VAP $VAP VAN $VAN"
+
+#       target = xx * mx/dx + cx
+
+set A_RES { 
+	{3.3 2.0 1000 0 	3V3_C39} 
+	{12 11.0 1000 0 	12V_C37} 
+	{3.3 2.0 1000 0 	3V3_D40} 
+	{3.3 2.0 1000 0 	3V3_D38}
+	{1.8 2.0 1000 0 	VFMCIO_G39} 
+	{1.8 1.0 1000 0 	1V8_G37} 
+	{1.8 2.0 1000 0 	VFMCIO_H40} 
+	{VREF 1.0 1000 0 	VREF_A_M2C_H1}
+}
+
+set B_RES { 
+	{2.5 2.0 1000 0 	2V5_H38} 
+	{12 11.0 1000 0 	12V_C35} 
+	{3.3 2.0 1000 0 	3V3_D36} 
+	{1.8 1.0 1000 0 	1V8_G36}
+	{VAN 6.6 1000 -18.48 	-VA_G34} 
+ 	{VAN 6.6 1000 -18.48 	-VA_G33} 
+	{2.5 2.0 1000 0 	2V5_H37}
+	{0.0 0.0 1000 0 	NC}
+}
+
+set C_RES { 
+	{5.0 4.0 1000 0		5V_H35}   
+	{5.0 4.0 1000 0		5V_H34} 
+	{3.3 2.0 1000 0		3V3AUX_D32} 
+	{VAP 11.0 1000 0	+VA_H32} 
+	{VAP 11.0 1000 0	+VA_H31}
+	{5.0 4.0 1000 0		5V_REF_H29}   
+	{5.0 4.0 1000 0		5V_REF_H28} 
+	{0.0 0.0 1000 0		NC}
+}
+
+set D_RES { 
+	{2.5 2.0 1000 0		2V5_REF_G28} 
+	{V1 1.0 1000 0		1V_D27} 
+	{2.5 2.0 1000 0		2V5_REF_G27} 
+	{V1P5 1.0 1000 0	1V5_C27} 
+	{V1P5 1.0 1000 0	1V5_C26}
+	{V1 1.0 1000 0		1V_D26} 
+	{0.0 0.0 1000 0		NC} 
+	{0.0 0.0 1000 0		NC}
+}
+
+proc test_point {label reading formula} {
+	global VAN VAP VREF V1P5 V1	
+	lassign $formula target mx dx cx pin
+	if { $target == "VAP" } { set target $VAP }
+	if { $target == "VAN" } { set target $VAN }
+	if { $target == "VREF" } { set target $VREF }
+	if { $target == "V1P5" } { set target $V1P5 }
+	if { $target == "V1" } { set target $V1 }
+	
+	set actual [expr $reading*$mx/$dx +$cx]
+	set delta [expr $target - $actual]
+	if {$target != 0} {
+		set derr [expr abs($delta / $target)]
+		if {[expr $derr < 0.1]} {
+			set pass "PASS"
+		} else {
+			set pass "FAIL"
+		}
+		puts [format "$label %20s target=%6.2f actual=%6.2f $pass" \
+			$pin $target $actual]
+	}
+}
+
+# processing starts here ..
+while {[gets stdin line] >= 0 && [string length $line] > 1} {
+	set fields [regexp -all -inline {\S+} $line]
+	set MX [lindex $fields 1]
+	test_point "$MX:MA" [lindex $fields 5] [lindex $A_RES $MX]
+	test_point "$MX:MB" [lindex $fields 6] [lindex $B_RES $MX]
+	test_point "$MX:MC" [lindex $fields 7] [lindex $C_RES $MX]
+	test_point "$MX:MD" [lindex $fields 8] [lindex $D_RES $MX]
+}
