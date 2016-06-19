@@ -168,7 +168,7 @@
 #define MOD_ID_ACQ400T_ELF	0xfe
 
 
-
+#define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_SHL   (10)

@@ -307,6 +307,44 @@ static ssize_t store_acq480_train_ctrl(
 static DEVICE_ATTR(acq480_train_ctrl,
 		S_IRUGO|S_IWUGO, show_acq480_train_ctrl, store_acq480_train_ctrl);
 
+static ssize_t show_acq480_two_lane_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+
+	return sprintf(buf, "%d\n", (adc_ctrl&ADC_CTRL_480_TWO_LANE_MODE) != 0);
+}
+
+
+static ssize_t store_acq480_two_lane_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc;
+
+	if (sscanf(buf, "%x", &tc) == 1){
+		u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+		if (tc){
+			adc_ctrl |= ADC_CTRL_480_TWO_LANE_MODE;
+		} else {
+			adc_ctrl &+ ~ADC_CTRL_480_TWO_LANE_MODE;
+		}
+		acq400wr32(adev, ADC_CTRL, adc_ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(acq480_two_lane_mode,
+		S_IRUGO|S_IWUGO, show_acq480_two_lane_mode, store_acq480_two_lane_mode);
+
 static ssize_t show_acq480_train_xx_val(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -370,6 +408,7 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_train_hi_val.attr,
 	&dev_attr_acq480_train_lo_val.attr,
 	&dev_attr_acq480_loti.attr,
+	&dev_attr_acq480_two_lane_mode.attr,
 	NULL
 };
 
