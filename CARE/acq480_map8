@@ -1,6 +1,8 @@
 #!/bin/sh
 
-set.site 1 << EOF
+SITE=${1:-${SITE:-1}}
+
+set.site ${SITE} << EOF
 acq480_map ALL 0
 acq480_map MAP_CH1234_TO_OUT1A 1
 acq480_map MAP_CH1234_TO_OUT1B 2
