@@ -1694,6 +1694,7 @@ void init(int argc, const char** argv) {
 
 	if (ISACQ480() && G::nchan == 4){
 		G::double_up = true;
+		if (verbose) fprintf(stderr, "G::double_up set true\n");
 	}
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
@@ -2366,7 +2367,8 @@ protected:
 public:
 	Demuxer() {
 		const char* vs = getenv("DemuxerVerbose");
-		vs && (verbose == atoi(vs));
+		vs && (verbose = atoi(vs));
+		fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
 	virtual int demux(void *start, int nbytes) = 0;
 	int operator()(void *start, int nsamples){
@@ -2433,13 +2435,17 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	T* pdst = reinterpret_cast<T*>(dst.cursor);
 	T* psrc = reinterpret_cast<T*>(start);
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
+	const int step = G::double_up? 2: 1;
 
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
 			__FUNCTION__, start, nbytes, b1, pdst, psrc, nsam, cbs);
 
+	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", __FUNCTION__, step, G::double_up, G::nchan);
+
 	msync(MapBuffer::ba(b1), G::bufferlen, MS_SYNC);
 
-	for (int sam = 0; sam < nsam; ++sam){
+	for (int sam = 0; sam < nsam; sam += step){
+		T* psrct = psrc;
 		for (int chan = 0; chan < G::nchan; ++chan){
 #ifdef BUFFER_IDENT
 			if (chan == 7){
@@ -2447,9 +2453,12 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 				continue;
 			}
 #endif
-			pdst[chan*cbs+sam] = psrc[chan];
+			pdst[chan*cbs+sam] = *psrct++;
+			if (step == 2){
+				pdst[chan*cbs+sam+1] = *psrct++;
+			}
 		}
-		T* psrc2 = psrc + G::nchan;
+		T* psrc2 = psrc + G::nchan*step;
 
 		int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2));
 		if (b1 != b2){
