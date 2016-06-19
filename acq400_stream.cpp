@@ -160,15 +160,16 @@ namespace G {
 	int nsites;
 	int the_sites[6];
 	char* progress;
-	int corner_turn_delay;	/* test pre/post caps on corner turn, buffers */
+	int corner_turn_delay;	// test pre/post caps on corner turn, buffers
 	int exit_on_trigger_fail;
 
 	char* subset;
 	char* sum;
 
 	bool null_copy;
-	int is_spy;		/* spy task runs independently of main capture */
+	int is_spy;		// spy task runs independently of main capture
 	int show_events;
+	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
 };
 
 
@@ -584,6 +585,7 @@ private:
 		T* src = reinterpret_cast<T*>(pdata+start_off);
 		int Tlen = len/sizeof(T);
 		int isam = 0;
+		const bool double_up = G::double_up;
 
 		if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
 				start_off, src);
@@ -631,8 +633,9 @@ private:
 				src += nchan;
 			}
 			for (; ichan < nchan; ++ichan){
-				T last = (*src++)&mask[ichan];
-				*ddcursors[ichan]++ = last;
+				*ddcursors[ichan]++ = (*src++)&mask[ichan];
+				if (double_up) *ddcursors[ichan]++ = (*src++)&mask[ichan];
+
 				if (src-src1 >= Tlen){
 					if (verbose){
 						fprintf(stderr,
@@ -747,7 +750,7 @@ template<class T> unsigned DemuxBuffer<T>::ID_MASK;
 template<class T> int DemuxBuffer<T>::startchan;
 template<class T> T** DemuxBuffer<T>::dddata;
 template<class T> T** DemuxBuffer<T>::ddcursors;
-
+bool double_up;
 
 template <class T>
 class OversamplingMapBuffer: public Buffer {
@@ -1688,6 +1691,10 @@ void init(int argc, const char** argv) {
 	}
 
 	root = getRoot(G::devnum);
+
+	if (ISACQ480() && G::nchan == 4){
+		G::double_up = true;
+	}
 
 	for (int ii = 0; ii < G::nbuffers; ++ii){
 		Buffer::create(root, G::bufferlen);
