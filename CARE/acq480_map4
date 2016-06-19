@@ -12,6 +12,8 @@ acq480_map MAP_CH5678_TO_OUT5A 5
 acq480_map MAP_CH5678_TO_OUT5B 5 2
 acq480_map MAP_CH5678_TO_OUT6A 6 
 acq480_map MAP_CH5678_TO_OUT6B 6 2
+acq480_setTwoWireMode 1
+active_chan 4
 EOF
 
 
