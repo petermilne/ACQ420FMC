@@ -340,6 +340,7 @@ int Ads5294::setDataPattern(unsigned short regval)
 	return 1;
 }
 
+#define WIRE_MODE_2WIRE	(1<<0)
 struct KeyLut {
 	const char* key;
 	unsigned short pat;
@@ -687,3 +688,17 @@ int Ads5294::getPLL()
 	printf("getPLL() %02x = %04x\n", Ads5294Regs::RA_PLL, _reg);
 	return 0;
 }
+int Ads5294::setTwoWireMode(bool enable)
+{
+	Reg& _bitorder = regs->regs[Ads5294Regs::RA_BITORDER];
+	Reg& _wiremode = regs->regs[Ads5294Regs::RA_WIRE_MODE];
+
+	if (enable){
+		_bitorder = 0x8000;
+		_wiremode |= WIRE_MODE_2WIRE;
+	} else {
+		_bitorder = 0x0000;
+		_wiremode &= ~WIRE_MODE_2WIRE;
+	}
+}
+

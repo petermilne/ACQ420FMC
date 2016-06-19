@@ -454,6 +454,24 @@ public:
 		}
 	}
 };
+
+class SetTwoWireMode: public Command {
+public:
+	SetTwoWireMode() :
+		Command ("setTwoWireMode", "0|1")
+	{}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		bool enable = true;
+		switch(argc){
+		case 2:
+			enable = atoi(argv[1]); // fall thru
+		case 1:
+			return module.chip.setTwoWireMode(enable);
+		default:
+			die(help());
+		}
+	}
+};
 void Acq480FMC::init_commands()
 {
 	commands.push_back(new SetInvertCommand);
@@ -470,6 +488,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetPatDeskew);
 	commands.push_back(new SetPatSync);
 	commands.push_back(new SetDataPattern);
+	commands.push_back(new SetTwoWireMode);
 	commands.push_back(new MappingCommand);
 	commands.push_back(new PllCommand);
 	commands.push_back(new SetReg);

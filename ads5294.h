@@ -315,6 +315,8 @@ public:
 	static void printMapHelp(const char* pfx);
 	int setPLL(int Fs, int decimation);
 	int getPLL();
+
+	int setTwoWireMode(bool enable);
 };
 
 
