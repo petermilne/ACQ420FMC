@@ -333,7 +333,7 @@ static ssize_t store_acq480_two_lane_mode(
 		if (tc){
 			adc_ctrl |= ADC_CTRL_480_TWO_LANE_MODE;
 		} else {
-			adc_ctrl &+ ~ADC_CTRL_480_TWO_LANE_MODE;
+			adc_ctrl &= ~ADC_CTRL_480_TWO_LANE_MODE;
 		}
 		acq400wr32(adev, ADC_CTRL, adc_ctrl);
 		return count;
