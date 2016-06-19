@@ -94,12 +94,15 @@ struct InodeMap* lookup_ino(unsigned ino)
 	return 0;
 }
 
+
 static unsigned update_inode_stats(struct inode *inode)
 {
 	struct InodeMap* pmap = lookup_ino(inode->i_ino);
 
 	if (!pmap){
 		return inode->i_size;
+	}else if (pmap->channel >= pmap->adev->nchan_enabled){
+		return 0;
 	}else{
 		loff_t i_size = 0;
 		if (CAPDAT.is_cooked){
@@ -322,7 +325,9 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 
 	int headroom = min(buf_headroom, set_headroom);
 
-	if (set_headroom <= 0){
+	if (pd->map->channel >= pd->map->adev->nchan_enabled){
+		return -1;
+	}else if (set_headroom <= 0){
 		return 0;
 	}else if (!(ibuf >= 0 || ibuf < adev0->nbuffers)){
 		dev_err(DEVP(adev0), "bad ibuf %d", ibuf);
