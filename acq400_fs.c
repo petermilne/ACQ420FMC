@@ -101,7 +101,7 @@ static unsigned update_inode_stats(struct inode *inode)
 
 	if (!pmap){
 		return inode->i_size;
-	}else if (pmap->channel >= pmap->adev->nchan_enabled){
+	}else if (pmap->channel > pmap->adev->nchan_enabled){
 		return 0;
 	}else{
 		loff_t i_size = 0;
