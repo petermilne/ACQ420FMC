@@ -1139,7 +1139,7 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
-void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode);
+void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force);
 /* immediate, clocked */
 void dio432_init_clocked(struct acq400_dev* adev);
 void dio432_disable(struct acq400_dev* adev);

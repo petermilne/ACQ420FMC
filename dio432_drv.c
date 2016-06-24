@@ -139,11 +139,13 @@ void dio432_disable(struct acq400_dev* adev)
 {
 	u32 syscon = _acq400rd32(adev, DIO432_DIO_CTRL);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon &= ~DIO432_CTRL_DIO_EN);
+
+	dev_dbg(DEVP(adev), "dio432_disable() syscon=0x%08x", syscon);
 }
 
-void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode)
+void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force)
 {
-	if (adev->dio432.mode == mode){
+	if (!force && adev->dio432.mode == mode){
 		return;
 	}
 

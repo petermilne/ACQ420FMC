@@ -2781,7 +2781,7 @@ static ssize_t store_mode(
 	unsigned mode = 0;
 
 	if (sscanf(buf, "%u", &mode) == 1){
-		dio432_set_mode(adev, mode);
+		dio432_set_mode(adev, mode, 0);
 		return count;
 	}else{
 		return -1;

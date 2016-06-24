@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.976"
+#define REVID "2.979"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -971,7 +971,7 @@ static void _ao420_onStop(struct acq400_dev *adev)
 
 static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
-	dio432_set_mode(adev, DIO432_CLOCKED);
+	dio432_set_mode(adev, DIO432_CLOCKED, 1);
 
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
@@ -987,7 +987,7 @@ void dio432_onStop(struct acq400_dev *adev)
 {
 	x400_disable_interrupt(adev);
 	dio432_disable(adev);
-	dio432_init_clocked(adev);
+	//dio432_init_clocked(adev);
 }
 
 void acq420_onStart(struct acq400_dev *adev)
