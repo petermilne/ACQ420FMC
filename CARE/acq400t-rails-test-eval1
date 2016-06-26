@@ -5,7 +5,7 @@ set VAP [exec caget -t "$HN:SYS:VAP"]
 set VAN1 [exec caget -t "$HN:SYS:VAN"]
 
 set quit_on_fail 0
-if { [info exists $::env(QOF) ] } {
+if { [info exists ::env(QOF) ] } {
 	if { $::env(QOF) != 0 } {
 		set quit_on_fail 1
 	}
@@ -112,7 +112,6 @@ proc test_point {label reading formula} {
 	if {$quit != 0} {
 		puts "ERROR"
 		exit 1
-	}
 	}
 }
 
