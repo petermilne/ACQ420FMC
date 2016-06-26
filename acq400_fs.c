@@ -325,7 +325,7 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 
 	int headroom = min(buf_headroom, set_headroom);
 
-	if (pd->map->channel >= pd->map->adev->nchan_enabled){
+	if (pd->map->channel > pd->map->adev->nchan_enabled){
 		return -1;
 	}else if (set_headroom <= 0){
 		return 0;
