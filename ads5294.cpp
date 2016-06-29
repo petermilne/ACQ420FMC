@@ -64,7 +64,7 @@ int Ads5294::setCustomCoefficients(Chan chan, short* coeffs)
 		if (coeffs){
 			dst[tap] |= 1<<RA_CUSTOM_COEFF_EN_BIT;
 		}else{
-			dst[tap] &= ~(1<<RA_CUSTOM_COEFF_EN_BIT);
+			dst[tap] = 0;
 		}
 	}
 	return 0;
