@@ -285,7 +285,7 @@ static ssize_t show_acq480_train_ctrl(
 	return sprintf(buf, "0x%08x\n", tc);
 }
 
-#define V2F_FREQ_OFF_MAX ((1<<22)-1)
+
 
 static ssize_t store_acq480_train_ctrl(
 	struct device * dev,
@@ -399,6 +399,29 @@ static ssize_t show_acq480_loti(
 
 static DEVICE_ATTR(acq480_loti, S_IRUGO, show_acq480_loti, 0);
 
+static ssize_t show_acq480_fpga_decim(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 version = GET_MOD_ID_VERSION(acq400_devices[dev->id]);
+	int decim;
+
+	switch(version){
+	case MOD_ID_TYPE_ACQ480DIV4:
+		decim = 4; break;
+	case MOD_ID_TYPE_ACQ480DIV10:
+		decim = 10; break;
+	default:
+		decim = 1;
+	}
+
+	return sprintf(buf, "%d\n", decim);
+}
+
+
+static DEVICE_ATTR(acq480_fpga_decim, S_IRUGO, show_acq480_fpga_decim, 0);
+
 
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
@@ -409,6 +432,7 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_train_lo_val.attr,
 	&dev_attr_acq480_loti.attr,
 	&dev_attr_acq480_two_lane_mode.attr,
+	&dev_attr_acq480_fpga_decim.attr,
 	NULL
 };
 

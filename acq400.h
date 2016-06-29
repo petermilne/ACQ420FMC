@@ -167,6 +167,8 @@
 #define MOD_ID_ACQ400T_FMC	0xfd
 #define MOD_ID_ACQ400T_ELF	0xfe
 
+#define MOD_ID_TYPE_ACQ480DIV4	0x1
+#define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
@@ -1135,6 +1137,10 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define V2F_CHAN_SEL_DEC(cs, v) (((cs)>>(8*((v)-1)))&0x0ff)
 
 #define V2F_FREQ_OFF_MAX	((1<<21) - 1)
+#ifdef PGMCOMOUT
+/* @@todo .. which is it? */
+#define V2F_FREQ_OFF_MAX 	((1<<22)-1)
+#endif
 #define V2F_FREQ_SLO_MAX	((1<<27) - 1)
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
