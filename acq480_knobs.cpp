@@ -242,9 +242,22 @@ public:
 		if (argc > 2){
 			setCoeffs(coeffs, argc-2, argv+2);
 		}
-		int rc = module.chip.setCustomCoefficients(
-			static_cast<Ads5294::Chan>(atoi(argv[1])),
-			argc > 2? coeffs: 0);
+
+		Ads5294::Chan chan = static_cast<Ads5294::Chan>(atoi(argv[1]));
+		if (chan == Ads5294::CHX){
+			for (int ch = 1; ch <= 8; ch = ch+1){
+				if (module.chip.setCustomCoefficients(
+					static_cast<Ads5294::Chan>(ch),
+					argc > 2? coeffs: 0) != 0){
+					return -1;
+				}
+			}
+		}else{
+			if (module.chip.setCustomCoefficients(
+						chan, argc > 2? coeffs: 0) != 0){
+				return -1;
+			}
+		}
 		return 1;
 	}
 };
