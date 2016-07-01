@@ -447,8 +447,7 @@ static DEVICE_ATTR(ffir_reset, S_IWUGO, 0, store_ffir_reset);
 static ssize_t show_ffir_counter(
 	struct device * dev,
 	struct device_attribute *attr,
-	char * buf,
-	unsigned mask)
+	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 csr = acq400rd32(adev, ACQ480_FIRCO_CSR);
