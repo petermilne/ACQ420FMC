@@ -640,6 +640,7 @@ static struct file_operations a400fs_control_ops = {
 
 static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 {
+	struct acq400_dev *adev0 = acq400_devices[0];
 	int dev;
 	FSN.root_dentry = root;
 	FSN.sb = sb;
@@ -659,6 +660,7 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 
 	for (dev = 0; dev <= MAXDEVICES; ++dev){
 		struct acq400_dev *adev = acq400_devices[dev];
+		dev_dbg(DEVP(adev0), "dev:%d adev:%p", dev, adev);
 		if (adev && (HAS_AI(adev) || IS_SC(adev) || IS_DIO432X(adev))){
 			a400fs_add_site(adev->of_prams.site, adev, &FSN);
 		}
