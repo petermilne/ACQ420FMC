@@ -422,6 +422,59 @@ static ssize_t show_acq480_fpga_decim(
 
 static DEVICE_ATTR(acq480_fpga_decim, S_IRUGO, show_acq480_fpga_decim, 0);
 
+static ssize_t store_ffir_reset(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned reset;
+
+	if (sscanf(buf, "%u", &reset) == 1 && reset){
+		u32 csr = acq400rd32(adev, ACQ480_FIRCO_CSR);
+		csr &= ~ACQ480_FIRCO_CSR_RESET;
+		acq400wr32(adev, ACQ480_FIRCO_CSR, csr|ACQ480_FIRCO_CSR_RESET);
+		mdelay(2);
+		acq400wr32(adev, ACQ480_FIRCO_CSR, csr);
+		return count;
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(ffir_reset, S_IWUGO, 0, store_ffir_reset);
+
+static ssize_t show_ffir_counter(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned mask)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 csr = acq400rd32(adev, ACQ480_FIRCO_CSR);
+	u32 ctr = (csr&ACQ480_FIRCO_CSR_CTR)>>ACQ480_FIRCO_CSR_CTR_SHL;
+	return sprintf(buf, "%u\n", ctr);
+}
+
+static DEVICE_ATTR(ffir_counter, S_IRUGO, show_ffir_counter, 0);
+
+static ssize_t store_ffir_coeff(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int coeff;
+
+	if (sscanf(buf, "%d", &coeff) == 1){
+		acq400wr32(adev, ACQ480_FIRCO_LOAD, coeff);
+		return count;
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(ffir_coeff, S_IWUGO, 0, store_ffir_coeff);
 
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
@@ -433,6 +486,9 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_loti.attr,
 	&dev_attr_acq480_two_lane_mode.attr,
 	&dev_attr_acq480_fpga_decim.attr,
+	&dev_attr_ffir_reset.attr,
+	&dev_attr_ffir_counter.attr,
+	&dev_attr_ffir_coeff.attr,
 	NULL
 };
 

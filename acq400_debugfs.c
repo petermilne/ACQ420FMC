@@ -154,6 +154,10 @@ void acq480_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ACQ480_TRAIN_CTRL);
 	DBG_REG_CREATE(ACQ480_TRAIN_HI_VAL);
 	DBG_REG_CREATE(ACQ480_TRAIN_LO_VAL);
+	if (HAS_FPGA_FIR(adev)){
+		DBG_REG_CREATE(ACQ480_FIRCO_LOAD);
+		DBG_REG_CREATE(ACQ480_FIRCO_CSR);
+	}
 }
 void pmodadc1_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {

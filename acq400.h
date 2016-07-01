@@ -114,6 +114,9 @@
 #define DAC_MATH_BASE		(ADC_BASE+0x80)
 #define DAC_GAIN_OFF(n)		(DAC_MATH_BASE+(n-1)*sizeof(u32))
 
+#define ACQ480_FIRCO_LOAD	(ADC_BASE+0x80)
+#define ACQ480_FIRCO_CSR	(ADC_BASE+0x84)
+
 #define DAC_MATH_GAIN_SHL	16
 #define DAC_MATH_OFFS_SHL	0
 
@@ -789,6 +792,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ480(adev))
 
+#define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_ID_VERSION(adev) != 0)
+
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
 void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
@@ -1143,6 +1148,10 @@ struct acq400_dev* acq400_lookupSite(int site);
 #endif
 #define V2F_FREQ_SLO_MAX	((1<<27) - 1)
 
+
+#define ACQ480_FIRCO_CSR_RESET	(1<<24)
+#define ACQ480_FIRCO_CSR_CTR	(0x003f0000)
+#define ACQ480_FIRCO_CSR_CTR_SHL 16
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
 void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force);
