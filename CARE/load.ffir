@@ -100,4 +100,4 @@ while { $ctr != 0 } {
 	incr ii
 }
 
-vprint 1 "Completed at $ii out of $#COEFFS with ipad $ipad"
+vprint 1 "Completed at $ii out of [llength $COEFFS] with ipad $ipad"
