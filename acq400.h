@@ -131,6 +131,7 @@
 
 #define MOD_ID_TYPE_SHL		24
 #define MOD_ID_IS_SLAVE		(1<<23)
+#define MOD_ID_IS_CLKOUT	(1<<22)		// SITE 0 ONLY
 #define MOD_ID_VERSION_SHL	16
 #define MOD_ID_REV_SHL		0
 #define MOD_ID_REV_MASK		0x0000ffff

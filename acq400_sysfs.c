@@ -1655,8 +1655,17 @@ static ssize_t show_module_role(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%s\n",
-		(adev->mod_id&MOD_ID_IS_SLAVE) ? "SLAVE": "MASTER");
+	unsigned caps = (adev->mod_id >> MOD_ID_VERSION_SHL) & 0x00ff;
+
+	if (adev->of_prams.site == 0){
+		int clkout = adev->mod_id& MOD_ID_IS_CLKOUT;
+		return sprintf(buf, "%s %02x\n",
+				clkout? "CLKOUT": "CLKIN", caps);
+	}else{
+		int slave = adev->mod_id&MOD_ID_IS_SLAVE;
+		return sprintf(buf, "%s %02x\n",
+				slave ? "SLAVE": "MASTER", caps);
+	}
 }
 
 
