@@ -21,7 +21,7 @@
  *
  * TODO 
  * TODO
-/* ------------------------------------------------------------------------- */
+\* ------------------------------------------------------------------------- */
 
 
 
@@ -89,8 +89,8 @@ Buffer::Buffer(const char* _fname, int _buffer_len):
 Buffer::Buffer(Buffer* cpy) :
 	fd(cpy->fd),
 	fname(cpy->fname),
-	buffer_len(cpy->buffer_len),
 	ibuf(cpy->ibuf),
+	buffer_len(cpy->buffer_len),
 	pdata(cpy->pdata)
 {}
 
@@ -153,6 +153,29 @@ const char* MapBuffer::listBuffers(char* p0, char* p1, bool show_ba){
 	strcpy(ret, report);
 	return ret;
 }
+
+int MapBuffer::writeBuffer(int out_fd, int b_opts, unsigned start_off, unsigned len)
+/**< all offsets in bytes */
+{
+	if (start_off > buffer_len) {
+		return 0;
+	}else{
+		if (buffer_len - start_off < len){
+			len = buffer_len - start_off;
+		}
+	}
+	return write(out_fd, pdata+start_off, len);
+}
+
+int MapBuffer::writeBuffer(int out_fd, int b_opts) {
+	return write(out_fd, pdata, buffer_len);
+}
+int MapBuffer::copyBuffer(void* dest) {
+	memcpy(dest, pdata, buffer_len);
+	return buffer_len;
+}
+
+
 int Buffer::verbose;
 unsigned Buffer::bufferlen;
 unsigned Buffer::nbuffers;

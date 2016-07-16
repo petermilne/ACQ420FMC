@@ -21,7 +21,7 @@
  *
  * TODO 
  * TODO
-/* ------------------------------------------------------------------------- */
+\* ------------------------------------------------------------------------- */
 
 #ifndef BUFFER_H_
 #define BUFFER_H_
@@ -32,8 +32,9 @@ class Buffer {
 protected:
 	int fd;
 	const char* fname;
-	int buffer_len;
 	const int ibuf;
+	unsigned buffer_len;
+
 	static int last_buf;
 protected:
 	char *pdata;
@@ -117,26 +118,10 @@ protected:
 	static bool buffer_0_reserved;
 
 public:
-	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
-	/**< all offsets in bytes */
-	{
-		if (start_off > buffer_len) {
-			return 0;
-		}else{
-			if (buffer_len - start_off < len){
-				len = buffer_len - start_off;
-			}
-		}
-		return write(out_fd, pdata+start_off, len);
-	}
+	virtual int writeBuffer(int out_fd, int b_opts, unsigned start_off, unsigned len);
 
-	virtual int writeBuffer(int out_fd, int b_opts) {
-		return write(out_fd, pdata, buffer_len);
-	}
-	virtual int copyBuffer(void* dest) {
-		memcpy(dest, pdata, buffer_len);
-		return buffer_len;
-	}
+	virtual int writeBuffer(int out_fd, int b_opts);
+	virtual int copyBuffer(void* dest);
 
 	static char* get_ba0()	 { return ba0;   }
 	static char* get_ba_lo() { return ba_lo; }
