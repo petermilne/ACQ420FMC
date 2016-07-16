@@ -88,6 +88,8 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
+
+
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
 	const unsigned nsps = 1000000000;
@@ -258,242 +260,7 @@ static int createOutfile(const char* fname) {
 	return fd;
 }
 
-class Buffer {
-
-protected:
-	int fd;
-	const char* fname;	
-	int buffer_len;
-	const int ibuf;
-	static int last_buf;
-protected:
-	char *pdata;
-public:
-	enum BUFFER_OPTS { BO_NONE, BO_START=0x1, BO_FINISH=0x2 };
-
-	int getLen() { return buffer_len; }
-
-	virtual unsigned getItem(int ii) { return 0; }
-	virtual unsigned getSizeofItem() { return 1; }
-
-	virtual int writeBuffer(int out_fd, int b_opts) = 0;
-	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
-	{
-		return -1;
-	}
-
-	virtual int copyBuffer(void* dest) { return -1; }
-
-	Buffer(const char* _fname, int _buffer_len):
-		fname(_fname),
-		ibuf(last_buf++),
-		buffer_len(_buffer_len)
-	{
-		fd = open(fname, O_RDWR, 0777);
-
-		if (fd < 0){
-			perror(fname);
-			exit(1);
-		}
-
-		the_buffers.push_back(this);
-	}
-	Buffer(Buffer* cpy) :
-		fd(cpy->fd),
-		fname(cpy->fname),
-		buffer_len(cpy->buffer_len),
-		ibuf(cpy->ibuf),
-		pdata(cpy->pdata)
-	{}
-	virtual ~Buffer() {
-		close(fd);
-	}
-/*
-	Buffer(const char* _fname, int _ibuf, int _buffer_len, bool nofile):
-		fname(_fname),
-		ibuf(_ibuf),
-		buffer_len(_buffer_len)
-	{
-		if (!nofile){
-			fd = open(fname, O_RDONLY);
-			assert(fd > 0);
-		}
-	}
-*/
-	static Buffer* create(const char* root, int _buffer_len);
-	static vector<Buffer*> the_buffers;
-
-	const char* getName() {
-		return fname;
-	}
-
-	virtual int pred() {
-		return ibuf == 0? last_buf-1: ibuf-1;
-	}
-	virtual int succ() {
-		return ibuf >= last_buf-1? 0: ibuf+1;
-	}
-	int ib() {
-		return ibuf;
-	}
-	virtual char* getBase() { return pdata; }
-
-	char *getEnd() {
-		return getBase() + getLen();
-	}
-
-	static int samples_per_buffer() {
-		return G::bufferlen/sample_size();
-	}
-};
-
-int Buffer::last_buf;
-vector<Buffer*> Buffer::the_buffers;
-
-class NullBuffer: public Buffer {
-public:
-	NullBuffer(const char* _fname, int _buffer_len):
-		Buffer(_fname, _buffer_len)
-	{
-		static int report;
-		if (!report &&verbose){
-			fprintf(stderr, "NullBuffer()\n");
-			++report;
-		}
-	}
-	virtual int writeBuffer(int out_fd, int b_opts) {
-		return buffer_len;
-	}
-};
-class MapBuffer: public Buffer {
-protected:
-	static char* ba0;		/* low end of mapping */
-	static char* ba1;		/* hi end of mapping */
-	static char* ba_lo;		/* lo end of data set */
-	static char* ba_hi;		/* hi end of data set likely == ba1 */
-	static bool buffer_0_reserved;
-
-public:
-	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
-	/**< all offsets in bytes */
-	{
-		if (start_off > buffer_len) {
-			return 0;
-		}else{
-			if (buffer_len - start_off < len){
-				len = buffer_len - start_off;
-			}
-		}
-		return write(out_fd, pdata+start_off, len);
-	}
-
-	virtual int writeBuffer(int out_fd, int b_opts) {
-		return write(out_fd, pdata, buffer_len);
-	}
-	virtual int copyBuffer(void* dest) {
-		memcpy(dest, pdata, buffer_len);
-		return buffer_len;
-	}
-
-	static char* get_ba0()	 { return ba0;   }
-	static char* get_ba_lo() { return ba_lo; }
-	static char* get_ba_hi() { return ba_hi; }
-
-
-	int includes(void *cursor)
-	/** returns remain length if buffer includes cursor */
-	{
-		char* cc = static_cast<char *>(cursor);
-		char* bp = static_cast<char *>(pdata);
-		char *be = bp + buffer_len;
-		int remain = 0;
-		if (cc >= bp && cc <= be){
-			remain =  buffer_len - (cc-bp);
-		}
-
-		if (verbose){
-			fprintf(stderr, "%s %s ret %d\n", __func__, fname, remain);
-		}
-		return remain;
-	}
-
-	MapBuffer(const char* _fname, int _buffer_len) :
-		Buffer(_fname, _buffer_len)
-	{
-
-		pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), G::bufferlen,
-			PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, fd, 0));
-
-		if (pdata != ba1){
-			fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
-			exit(1);
-		}
-		if (verbose > 2) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
-				the_buffers.size()-1, fname, pdata);
-
-		ba_hi = ba1 += G::bufferlen;
-		assert(pdata != MAP_FAILED);
-	}
-	virtual ~MapBuffer() {
-		munmap(pdata, G::bufferlen);
-	}
-	static int getBuffer(char* pb) {
-		if (pb < ba0){
-			return -1;
-		}else if (pb > ba1){
-			return -2;
-		}else{
-			return (pb-ba0)/G::bufferlen;
-		}
-	}
-	static const char* listBuffers(char* p0, char* p1, bool show_ba = false){
-		char report[512];
-		report[0] = '\0';
-		int ibuf1 = -1;
-
-		for(char* pn = p0; pn <= p1; pn += G::bufferlen){
-			int ibuf = getBuffer(pn);
-			if (ibuf != ibuf1){
-				if (!show_ba){
-					sprintf(report+strlen(report), strlen(report)? ",%d":"%d", ibuf);
-				}else{
-					char* ba = reinterpret_cast<MapBuffer*>(the_buffers[ibuf])->pdata;
-					sprintf(report+strlen(report), strlen(report)? ",%p":"%p", ba);
-				}
-				ibuf1 = ibuf;
-			}
-		}
-		char* ret = new char[strlen(report)+1]; // yes, this is a leak
-		strcpy(ret, report);
-		return ret;
-	}
-	static void reserve() {
-		ba_lo = ba0 + G::bufferlen;
-		buffer_0_reserved = true;
-	}
-	static bool hasReserved() {
-		return buffer_0_reserved;
-	}
-	virtual int pred() {
-		int first_buf = buffer_0_reserved? 1: 0;
-		return ibuf == first_buf? last_buf-1: ibuf-1;
-	}
-	virtual int succ() {
-		int first_buf = buffer_0_reserved? 1: 0;
-		return ibuf >= last_buf-1? first_buf: ibuf+1;
-	}
-
-	static char* ba(int ibuf){
-		return reinterpret_cast<MapBuffer*>(Buffer::the_buffers[ibuf])->pdata;
-	}
-};
-
-#define MAPBUFFER_BA0     (char*)(0x40000000)
-char* MapBuffer::ba0   = MAPBUFFER_BA0;		/* const */
-char* MapBuffer::ba1   = MAPBUFFER_BA0;		/* initial value increments to top */
-char* MapBuffer::ba_lo = MAPBUFFER_BA0;		/* initial value, may move by reserve count */
-char* MapBuffer::ba_hi;				/* tracks ba1 @@todo may be redundant */
-bool MapBuffer::buffer_0_reserved;
+#include "Buffer.h"
 
 #define FMT_OUT_ROOT		"/dev/shm/AI.%d.wf"
 #define FMT_OUT_ROOT_NEW	"/dev/shm/AI.%d.new"
@@ -1622,8 +1389,8 @@ void init(int argc, const char** argv) {
 	int rc;
 	bool fill_ramp = false;
 
-	getKnob(G::devnum, "nbuffers",  &G::nbuffers);
-	getKnob(G::devnum, "bufferlen", &G::bufferlen);
+	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
+	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -1675,6 +1442,7 @@ void init(int argc, const char** argv) {
 	if (G::pre || G::demux){
 		reserve_block0();		// MUST get length first ..
 	}
+	Buffer::sample_size = sample_size();
 
 	openlog("acq400_stream", LOG_PID, LOG_USER);
 	syslog(LOG_DEBUG, "hello world %s", VERID);
