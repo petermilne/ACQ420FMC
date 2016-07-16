@@ -80,7 +80,7 @@ void ui(int argc, const char* argv[])
 		perror("mmap");
 		exit(1);
 	}
-	tgt = (char*)region+first;
+	tgt = (unsigned*)((char*)region+first);
 	src = calloc(last+sizeof(unsigned)-first, sizeof(unsigned));
 }
 
@@ -132,18 +132,20 @@ void dump(const char* label, unsigned* stuff)
 	}
 	printf("\n");
 }
-void compare() {
+int compare() {
 	int ii;
+	int has_errors = 0;
 	for (ii = 0; ii < NWORDS; ++ii){
 		if(verbose || src[ii] != tgt[ii]){
 			dump(">>", src);
 			dump(src[ii] != tgt[ii]? "EE": "<<", tgt);
+			has_errors = 1;
 			break;
 		}
 	}
-
+	return has_errors;
 }
-void mtest() {
+int mtest() {
 	unsigned prbs[4][8] = {
 		{ 0, 1, 2, 3, 4, 5, 6, 7 },
 		{ 7, 6, 5, 4, 3, 2, 1, 0 },
@@ -152,16 +154,20 @@ void mtest() {
 	};
 	int ii = 0;
 	int jj;
+	int has_errors = 0;
 	init();
 	for(;; ii++){
 		for (jj = 0; jj < 8; ++jj){
 			write_copy(prbs[ii&3][jj]);
-			compare();
+			if (compare()){
+				has_errors = 1;
+			}
 		}
 	}
+	return has_errors;
 }
 
 int main(int argc, const char* argv[]) {
 	ui(argc, argv);
-	mtest();
+	return mtest();
 }

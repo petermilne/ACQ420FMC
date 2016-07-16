@@ -4,12 +4,14 @@
 #include <strings.h>
 #include <stdlib.h>
 
+#include <arpa/inet.h>
+
 #define MAXDGRAM 10240
 
 int main(int argc, char**argv)
 {
    	int sockfd;
-	struct sockaddr_in servaddr,cliaddr;
+	struct sockaddr_in servaddr;
 #define ADDRP	(struct sockaddr *)&servaddr
 #define ADDRSZ  sizeof(servaddr)
 	char *sendbuf = malloc(MAXDGRAM);
@@ -36,4 +38,5 @@ int main(int argc, char**argv)
 	while((nb = fread(sendbuf, 1, maxdgram, stdin)) > 0){
 		sendto(sockfd, sendbuf, nb, 0, ADDRP, ADDRSZ);
 	}
+	return 0;
 }

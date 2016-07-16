@@ -192,7 +192,7 @@ public:
 
 	static Validator* create(const char* def){
 		const char* ndef;
-		if (ndef = strstr(def, "numeric=")){
+		if ((ndef = strstr(def, "numeric=")) != 0){
 			int _rmin, _rmax;
 			if (sscanf(ndef, "numeric=%d,%d", &_rmin, &_rmax) == 2){
 				return new NumericValidator(_rmin, _rmax);
@@ -352,9 +352,8 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 		return -snprintf(buf, maxbuf,
 				"ERROR: failed to open \"%s\"\n", name);
 	}
-	char* cursor;
-	for (char* cursor = buf;
-		(cursor = fgets(cursor, maxbuf-(cursor-buf), knob.fp)) != NULL;
+	char* cursor = buf;
+	for (; (cursor = fgets(cursor, maxbuf-(cursor-buf), knob.fp)) != NULL;
 		cursor += strlen(cursor)){
 		;
 	}
@@ -468,6 +467,7 @@ PeerFinder* PeerFinder::create(string def_file)
 			}
 		}
 	}
+	return _instance;
 }
 Knob* Knob::create(const string _name, mode_t mode)
 {
@@ -498,7 +498,9 @@ class GroupKnob : public Knob {
 
 	virtual int _set(char* buf, int maxbuf, const char* args)
 	/* the peers do ALL the work */
-	{}
+	{
+		return -1;
+	}
 public:
 
 	virtual int get(char* buf, int maxbuf) {
@@ -621,7 +623,7 @@ public:
 		if (!_instance){
 			return _instance = new Prompt;
 		}else{
-			_instance;
+			return _instance;
 		}
 	}
 };
@@ -760,6 +762,7 @@ int do_scan()
 
 	setenv("PATH", newpath, 1);
 	announce();
+	return 0;
 }
 
 
@@ -829,7 +832,6 @@ int interpreter(FILE* fin, FILE* fout)
 
 	for (; fgets(ibuf, 4096, fin); Prompt::instance()->prompt(fout)){
 		char *args = 0;
-		int cursor;
 		char *key = 0;
 		bool is_query = false;
 
@@ -839,9 +841,9 @@ int interpreter(FILE* fin, FILE* fout)
 		if (len == 0){
 			continue;
 		}else{
-			int isep = strcspn(ibuf, "= ");
+			unsigned isep = strcspn(ibuf, "= ");
 			if (isep != strlen(ibuf)){
-				args = ibuf + isep+ strspn(ibuf+isep, "= ");
+				args = ibuf + isep + strspn(ibuf+isep, "= ");
 				ibuf[isep] = '\0';
 			}else{
 				is_query = true;
@@ -891,6 +893,7 @@ int interpreter(FILE* fin, FILE* fout)
 			fprintf(fout, "ERROR:\%s\" not found\n", key);
 		}
 	}
+	return 0;
 }
 
 

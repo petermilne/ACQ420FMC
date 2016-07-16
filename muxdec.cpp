@@ -68,7 +68,6 @@ protected:
 		int* _channels = new int[nchan];
 		char _def[128];
 		int ic;
-		int nprint = nchan;
 
 		memset(_channels, 0, nchan*sizeof(int));
 

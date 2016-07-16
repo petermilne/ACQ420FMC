@@ -41,10 +41,10 @@ Ads5294::Gain Ads5294::getGain(Chan chan)
 	Reg reg;
 
 	if (chan <= 4){
-		Reg reg = regs->regs[Ads5294Regs::RA_GAIN_14];
+		reg = regs->regs[Ads5294Regs::RA_GAIN_14];
 		reg >>= RA_GAIN_14_CH(chan);
 	}else{
-		Reg reg = regs->regs[Ads5294Regs::RA_GAIN_58];
+		reg = regs->regs[Ads5294Regs::RA_GAIN_58];
 		reg >>= RA_GAIN_58_CH(chan);
 	}
 
@@ -257,9 +257,7 @@ unsigned Ads5294::getInvert(Chan chan)
 {
 	if (!isValidChan(chan)) die("chan not valid");
 
-	unsigned inverts = regs->regs[Ads5294Regs::RA_INVERT_CH];
-
-	return inverts&CHAN2BIT(chan) != 0;
+	return (regs->regs[Ads5294Regs::RA_INVERT_CH]&CHAN2BIT(chan)) != 0;
 }
 
 int Ads5294::setLFNS(Chan chan, bool enable)
@@ -279,9 +277,7 @@ bool Ads5294::getLFNS(Chan chan)
 {
 	if (!isValidChan(chan)) die("chan not valid");
 
-	unsigned lfns = regs->regs[Ads5294Regs::RA_LFNS];
-
-	return lfns&CHAN2BIT(chan) != 0;
+	return (regs->regs[Ads5294Regs::RA_LFNS]&CHAN2BIT(chan)) != 0;
 }
 
 int Ads5294::SetLvdsTestPatRamp(bool enable)
@@ -360,10 +356,8 @@ KeyLut keyLut[] = {
 
 int _help() {
 	printf("_help() NKEYS %d\n", NKEYS);
-	for (int ikey = 0; ikey < NKEYS; ++ikey){
+	for (unsigned ikey = 0; ikey < NKEYS; ++ikey){
 		const char* k = keyLut[ikey].key;
-		unsigned short bv = keyLut[ikey].pat;
-
 		printf("%s ", k);
 	}
 	printf("\n");
@@ -384,7 +378,7 @@ int Ads5294::setDataPattern(int argc, char* argv[])
 				negate = true;
 				tok += 1;
 			}
-			for (int ikey = 0; ikey < NKEYS; ++ikey){
+			for (unsigned ikey = 0; ikey < NKEYS; ++ikey){
 				const char* k = keyLut[ikey].key;
 				unsigned short bv = keyLut[ikey].pat;
 				unsigned clr = ~keyLut[ikey].pat_field;
@@ -414,7 +408,7 @@ int Ads5294::getDataPattern()
 {
 	Reg& reg = regs->regs[Ads5294Regs::RA_WIRE_MODE];
 
-	for (int ikey = 0; ikey < NKEYS; ++ikey){
+	for (unsigned ikey = 0; ikey < NKEYS; ++ikey){
 		unsigned rv = reg;
 		if (keyLut[ikey].pat_field){
 			rv &= keyLut[ikey].pat_field;
@@ -428,10 +422,11 @@ int Ads5294::getDataPattern()
 		}
 	}
 	printf("\n");
+	return 0;
 }
 int Ads5294::setReg(unsigned reg, unsigned pattern)
 {
-	printf("setReg() %02x %04x\n", reg);
+	printf("setReg() %02x %04x\n", reg, pattern);
 	if (reg > 0 && reg < 255){
 		Reg& _reg = regs->regs[reg];
 		_reg = pattern;
@@ -502,7 +497,7 @@ ChannelMapEncoding cme[] = {
 #define NCME	(sizeof(cme)/sizeof(ChannelMapEncoding))
 
 const Ads5294::MapLut& Ads5294::lookupMap(const char* key){
-	for (int ik = 0; ik < NMAPLUT; ++ik){
+	for (unsigned ik = 0; ik < NMAPLUT; ++ik){
 		if (strcmp(key, maplut[ik].key) == 0){
 			return maplut[ik];
 		}
@@ -515,7 +510,7 @@ const Ads5294::MapLut& Ads5294::lookupMap(const char* key){
 
 void Ads5294::printMapHelp(const char* pfx)
 {
-	for (int ik = 0; ik < NMAPLUT; ++ik){
+	for (unsigned ik = 0; ik < NMAPLUT; ++ik){
 		MapLut& map = maplut[ik];
 		printf("%s %s %s %s # %s %s\n",
 			pfx, map.key,
@@ -532,7 +527,7 @@ void Ads5294::printMap(const Ads5294::MapLut& map)
 	Reg& _reg = regs->regs[map.reg];
 	unsigned pat = (_reg >> map.shl) & 0x0f;
 	printf("%s ", map.key);
-	for (int ix = 0; ix < NCME; ++ix){
+	for (unsigned ix = 0; ix < NCME; ++ix){
 		if (pat == cme[ix].pattern && isValidChx(map, cme[ix].chan)){
 			if (cme[ix].chan!=0){
 				printf("%d", cme[ix].chan);
@@ -574,7 +569,7 @@ bool Ads5294::isValidChx(const Ads5294::MapLut& map, int chx, bool warn)
 int Ads5294::setMap(const char* mapping, int chx, int two_bits)
 {
 
-	if (mapping == MAP_ALL || strncmp(mapping, "ALL", 3) == 0 ){
+	if (strcmp(mapping, MAP_ALL) == 0 || strncmp(mapping, "ALL", 3) == 0 ){
 		int im0 = 0;
 		int im1 = NMAPLUT;
 
@@ -586,13 +581,12 @@ int Ads5294::setMap(const char* mapping, int chx, int two_bits)
 		return 1;
 	}else{
 		const MapLut& map = lookupMap(mapping);
-		unsigned ccc = 0;
 
 		if (!isValidChx(map, chx, true)){
 			return 0;
 		}
 
-		for (int ix = 0; ix < NCME; ++ix){
+		for (unsigned ix = 0; ix < NCME; ++ix){
 			if (chx == cme[ix].chan && two_bits == cme[ix].two_bit){
 				Reg& _reg = regs->regs[map.reg];
 				_reg &= ~ (0xf << map.shl);
@@ -610,8 +604,8 @@ int Ads5294::setMap(const char* mapping, int chx, int two_bits)
 
 int Ads5294::getMap(const char* mapping)
 {
-	if (mapping == MAP_ALL){
-		for (int imap = 0; imap < NMAPLUT; ++imap){
+	if (strcmp(mapping, MAP_ALL) == 0){
+		for (unsigned imap = 0; imap < NMAPLUT; ++imap){
 			printMap(imap);
 		}
 	}else{
@@ -700,5 +694,6 @@ int Ads5294::setTwoWireMode(bool enable)
 		_bitorder = 0x0000;
 		_wiremode &= ~WIRE_MODE_2WIRE;
 	}
+	return 0;
 }
 

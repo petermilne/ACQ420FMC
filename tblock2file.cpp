@@ -151,7 +151,6 @@ void init(int argc, const char** argv) {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
-	bool fill_ramp = false;
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -163,7 +162,7 @@ void init(int argc, const char** argv) {
 					G::channels, G::nchan, chandef);
 			if (G::verbose > 1){
 				printf("mask for chandef \"%s\" %d %d\n", chandef, G::nchan, G::nchan_selected);
-				for (int ii = 1; ii <= G::nchan; ++ii){
+				for (unsigned ii = 1; ii <= G::nchan; ++ii){
 					printf("%d,", G::channels[ii]);
 				}
 				printf("\n");
@@ -219,6 +218,7 @@ protected:
 	        time_t t = time(NULL);
 	        struct tm *tmp = localtime(&t);
 	        strftime(hm, maxstr, G::datfmt, tmp);
+	        return hm;
 	}
 
 	static void _mkdir(char* dirname) {
@@ -271,7 +271,6 @@ protected:
 		strftime(jr+strlen(jr), 80-strlen(jr), G::jobfmt, tmp);
 
 		int len1 = strlen(jr);
-		int seq = 1;
 
 		for (int seq = 0; seq <= MAXJOBS_PER_DAY; ++seq){
 			sprintf(jr+len1, ".%02d", seq);
@@ -395,7 +394,7 @@ public:
 
 		for (const FROM* cursor = m(); cursor < cmax; cursor += G::nchan){
 			TO* toc = tobuf;
-			for (int ic = 0;
+			for (unsigned ic = 0;
 				ic < G::nchan && toc-tobuf < G::nchan_selected; ++ic){
 				if (G::channels[ic+1]){
 					*toc++ = (cursor[ic] >> G::shr) & 0x0000FFFF;

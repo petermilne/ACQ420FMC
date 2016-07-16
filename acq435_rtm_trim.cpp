@@ -29,7 +29,7 @@
 #include <pthread.h>
 #include "popt.h"
 
-int nchan = 32;
+unsigned nchan = 32;
 int ntransient = 16;
 const char* decoder_type = "pass_thru";
 
@@ -106,13 +106,13 @@ protected:
 		if (itran == 1){
 			clear(sums);
 		}
-		for (int ii = 0; ii < nchan; ++ii){
+		for (unsigned ii = 0; ii < nchan; ++ii){
 			sums[ii] += data[ii] >> 8;
 		}
 
 		if (itran == ntransient){
 			int shl = 8 - ntbits;
-			for (int ii = 0; ii < nchan; ++ii){
+			for (unsigned ii = 0; ii < nchan; ++ii){
 				data[ii] = (sums[ii] << shl) | (data[ii]&0x00ff);
 			}
 			rc = 1;

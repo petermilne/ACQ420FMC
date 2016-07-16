@@ -45,12 +45,12 @@ int monitor_interval;	/* seconds between monitor reports, 0: disable */
 class Decoder {
 	const int NC;
 protected:
-	int imatch;
+	unsigned imatch;
 
 	Decoder() : NC(32), imatch(0) {}
 	Decoder(int nc) : NC(nc), imatch(0) {}
 
-	int incr(int ii) {
+	unsigned incr(unsigned ii) {
 		return ++ii & 0x1f;
 	}
 public:
@@ -196,11 +196,12 @@ void cli(int argc, const char** argv)
 void *monitor(void *data)
 {
 	Decoder *decoder = static_cast<Decoder*>(data);
-	for(unsigned runtime = 0; ; ++runtime){
+	for (unsigned runtime = 0; ; ++runtime){
 		sleep(monitor_interval);
 		printf("monitor:%5ds ", runtime);
 		decoder->monitor();
 	}
+	return 0;
 }
 
 void start_monitor(void *data) {

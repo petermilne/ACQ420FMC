@@ -34,10 +34,10 @@
 
 
 
-int permute(int nchan, char** _mapping){
-	int *mapping = new int[nchan];
+int permute(unsigned nchan, char** _mapping){
+	unsigned *mapping = new unsigned[nchan];
 
-	for (int ic = 0; ic < nchan; ++ic){
+	for (unsigned ic = 0; ic < nchan; ++ic){
 		mapping[ic] = atoi(_mapping[ic]) - 1;
 		assert(mapping[ic] >= 0 && mapping[ic] < nchan);
 	}
@@ -46,11 +46,12 @@ int permute(int nchan, char** _mapping){
 	short *dst = new short[nchan];
 
 	while(fread(src, sizeof(short), nchan, stdin) == nchan){
-		for (int ic = 0; ic < nchan; ++ic){
+		for (unsigned ic = 0; ic < nchan; ++ic){
 			dst[ic] = src[mapping[ic]];
 		}
 		fwrite(dst, sizeof(short), nchan, stdout);
 	}
+	return 0;
 }
 int main(int argc, char* argv[])
 {

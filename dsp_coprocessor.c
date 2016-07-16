@@ -43,6 +43,7 @@
 #include <sched.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #define SRC_OFFSET	0x80000000U
 #define SRC_LEN		0x00020000U
@@ -127,7 +128,7 @@ void make_mappings()
 	}
 }
 
-blt32(unsigned *dst, unsigned * src, unsigned wc)
+void blt32(unsigned *dst, unsigned * src, unsigned wc)
 {
 	fprintf(stderr, "blt32 %p %p %d\n", dst, src, wc);
 	while(wc--){
@@ -138,7 +139,7 @@ blt32(unsigned *dst, unsigned * src, unsigned wc)
 	}
 }
 
-checksum(void* buf, int len)
+void checksum(void* buf, int len)
 {
 	FILE *fp = popen("md5sum", "w");
 	fwrite(buf, 1, len, fp);
@@ -228,4 +229,5 @@ int main(int argc, char* argv[]){
 	fill_src();
 	process();
 	copy_dst();
+	return 0;
 }

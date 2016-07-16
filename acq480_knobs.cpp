@@ -122,6 +122,7 @@ public:
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			printf("%s\n", (*it)->help());
 		}
+		return 0;
 	}
 };
 
@@ -137,6 +138,7 @@ public:
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			printf("ln -s %s acq480_%s\n", "/usr/local/bin/acq480_knobs", (*it)->cmd);
 		}
+		return 0;
 	}
 };
 class ResetCommand: public Command {
@@ -269,12 +271,12 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 
-		int rc = module.chip.setHiPassFilter(
+		module.chip.setHiPassFilter(
 				static_cast<Ads5294::Chan>(atoi(argv[1])),
 				argc > 2? atoi(argv[2]): false,
 				argc > 3? strtoul(argv[3], 0, 0): 0
 				);
-		return 1;
+		return 0;
 	}
 };
 
@@ -284,8 +286,8 @@ public:
 		Command("setDataRate", "RATE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setDataRate(
-				static_cast<Ads5294::DataRate>(atoi(argv[1])));
+		module.chip.setDataRate(
+			static_cast<Ads5294::DataRate>(atoi(argv[1])));
 		return 1;
 	}
 };
@@ -296,7 +298,7 @@ public:
 		Command("setAverageSelect", "CHAN [ENABLE RATE]") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setAverageSelect(
+		module.chip.setAverageSelect(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): false,
 			argc>3? strtoul(argv[3], 0, 0): 0
@@ -311,7 +313,7 @@ public:
 		Command("setInvert", "CHAN [disable]") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setInvert(
+		module.chip.setInvert(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
 		);
@@ -324,7 +326,7 @@ public:
 		Command("setLFNS", "CHAN [disable]") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setLFNS(
+		module.chip.setLFNS(
 			static_cast<Ads5294::Chan>(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
 		);
@@ -338,7 +340,7 @@ public:
 		Command("setLvdsTestPatRamp", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.SetLvdsTestPatRamp(atoi(argv[1]));
+		module.chip.SetLvdsTestPatRamp(atoi(argv[1]));
 		return 1;
 	}
 };
@@ -349,7 +351,7 @@ public:
 		Command("setLvdsTestPatDeskew", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.SetLvdsTestPatDeskew(atoi(argv[1]));
+		module.chip.SetLvdsTestPatDeskew(atoi(argv[1]));
 		return 1;
 	}
 };
@@ -360,7 +362,7 @@ public:
 		Command("setPatDeskew", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setPatDeskew(atoi(argv[1]));
+		module.chip.setPatDeskew(atoi(argv[1]));
 		return 1;
 	}
 };
@@ -371,7 +373,7 @@ public:
 		Command("setPatSync", "ENABLE") {}
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
-		int rc = module.chip.setPatSync(atoi(argv[1]));
+		module.chip.setPatSync(atoi(argv[1]));
 		return 1;
 	}
 };
@@ -464,6 +466,7 @@ public:
 			return module.chip.setPLL(atoi(argv[1]), atoi(argv[2]));
 		default:
 			die(help());
+			return -1;		// not gonna happen
 		}
 	}
 };
@@ -482,6 +485,7 @@ public:
 			return module.chip.setTwoWireMode(enable);
 		default:
 			die(help());
+			return -1;		// not gonna happen
 		}
 	}
 };

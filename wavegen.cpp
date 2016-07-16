@@ -81,8 +81,8 @@ public:
 	static char mapdef[256];
 	int ichan;
 	const char* fname;
-	int ndata;
-	int cursor;
+	unsigned ndata;
+	unsigned cursor;
 	static bool raw_data_unsigned;
 	static bool raw_data_signage_check_done;
 
@@ -134,7 +134,7 @@ public:
 	}
 
 	static int output(FILE *fpout) {
-		int nwrite = 0;
+		unsigned nwrite = 0;
 
 		for (int nbusy = nchan(), sample = 0; nbusy; ++sample){
 			nbusy = 0;
@@ -187,7 +187,7 @@ class ChanDefImpl: public ChanDef {
 	void convert_to_unsigned() {
 		T sbit = 1<<(ChanDef::word_size == 2? 15: 31);
 
-		for (int ii = 0; ii < ndata; ++ii){
+		for (unsigned ii = 0; ii < ndata; ++ii){
 			data[ii] ^= sbit;
 		}
 	}
@@ -223,7 +223,7 @@ public:
 		}
 		fname = expr;
 		/* avoid duplicating source data */
-		for (int ii = 0; ii < channels.size(); ++ii){
+		for (unsigned ii = 0; ii < channels.size(); ++ii){
 			if (strcmp(channels[ii]->fname, fname) == 0){
 				data = dynamic_cast<ChanDefImpl<T> *>(channels[ii])->data;
 				ndata = channels[ii]->ndata;
@@ -255,7 +255,7 @@ public:
 		fclose(fp);
 
 		if (G::has_gain){
-			for (int ic = 0; ic < ndata; ++ic){
+			for (unsigned ic = 0; ic < ndata; ++ic){
 				double dsam = data[ic];
 				dsam *= G::ch_gain;
 				data[ic] = dsam;
@@ -311,7 +311,6 @@ void ChanDef::create(const char* spec) {
 	size_t pos = 0;
 
 	int* channels = new int[nchan()+1]; /* index from 1 */
-	int ndef = 0;
 
 	//cerr << "ChanDef(" << ss << ")" <<endl;
 	if ((pos = ss.find(delim)) != string::npos){
@@ -321,7 +320,7 @@ void ChanDef::create(const char* spec) {
 		for (int ichan = 1; ichan <= nchan(); ++ichan){
 			channels[ichan] = 0;
 		}
-		ndef = acqMakeChannelRange(channels, nchan(), _chan_def);
+		acqMakeChannelRange(channels, nchan(), _chan_def);
 	}else{
 		fprintf(stderr, "ERROR, unable to use arg \"%s\"\n", spec);
 		exit(1);

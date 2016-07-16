@@ -92,7 +92,7 @@
 
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
-	const unsigned nsps = 1000000000;
+	const int nsps = 1000000000;
 	/* Perform the carry for the later subtraction by updating y. */
 	if (x->tv_nsec < y->tv_nsec) {
 		int nsec = (y->tv_nsec - x->tv_nsec) / 1000000 + 1;
@@ -127,18 +127,16 @@ int timespec_subtract (timespec *result, timespec *x, timespec *y) {
 
 /* all globals in one namespace : G */
 namespace G {
-	unsigned int nchan = NCHAN;
-	unsigned int nbuffers = 16;
-	unsigned int bufferlen = 0x40000;
-	int wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
+	unsigned nchan = NCHAN;
+	unsigned wordsize = 2;		/** choice sizeof(short) or sizeof(int) */
 	#define FULL_MASK 0xffffffff
 	unsigned mask = FULL_MASK;	/** mask data with this value */
-	int m1 = 0;			/** start masking from here */
+	unsigned m1 = 0;			/** start masking from here */
 	int oversampling = 0;
 	int devnum = 0;
 	const char* script_runs_on_completion = 0;
 	const char* aggregator_sites = 0;
-	int nsam = 4096;
+	unsigned nsam = 4096;
 
 	int control_handle;
 
@@ -177,10 +175,10 @@ namespace G {
 
 
 int verbose;
-int nb_cat =1;	/* number of buffers to concatenate */
+unsigned nb_cat =1;	/* number of buffers to concatenate */
 
 
-int sample_size() {
+unsigned sample_size() {
 	return G::nchan * G::wordsize;
 }
 
@@ -205,7 +203,7 @@ public:
 	static AbstractES* ev0_instance();
 };
 
-template <int MASK, int PAT, unsigned MATCHES>
+template <int MASK, unsigned PAT, unsigned MATCHES>
 class ES : public AbstractES {
 	bool is_es_word(unsigned word) {
 		return (word&MASK) == PAT;
@@ -272,8 +270,8 @@ template <class T>
 class DemuxBuffer: public Buffer {
 private:
 	unsigned* mask;
-	int nchan;
-	int nsam;
+	unsigned nchan;
+	unsigned nsam;
 	static T** dddata;
 	static T** ddcursors;
 
@@ -311,7 +309,7 @@ private:
 		fnames = new char* [nchan];
 		char buf[132];
 
-		for (int ic = 0; ic < nchan; ++ic){
+		for (unsigned ic = 0; ic < nchan; ++ic){
 			int len = sprintf(buf, "%s/CH%02d", OUT_ROOT_NEW, ic+1);
 			fnames[ic] = new char[len+1];
 			strcpy(fnames[ic], buf);
@@ -319,7 +317,7 @@ private:
 	}
 	void start() {
 		mkdir(OUT_ROOT_NEW, 0777);
-		for (int ic = 0; ic < nchan; ++ic){
+		for (unsigned ic = 0; ic < nchan; ++ic){
 			ddcursors[ic] =	dddata[ic];
 		}
 		startchan = 0;
@@ -388,7 +386,7 @@ private:
 			fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
 					start, startchan, *src);
 		}
-		int ichan = startchan;
+		unsigned ichan = startchan;
 		/* run to the end of buffer. nsam could be rounded down,
 		 * so do not use it.
 		 */
@@ -432,7 +430,7 @@ private:
 		int nelems = ddcursors[ic]-dddata[ic];
 		int nwrite = fwrite(dddata[ic], sizeof(T), nelems, fp);
 		fclose(fp);
-		if (nwrite != nelems || verbose&&ic==0){
+		if (nwrite != nelems || (verbose&&ic==0)){
 			fprintf(stderr, "DemuxBuffer::writeChan(%s) %d %d %s\n",
 					fnames[ic], nwrite, nelems, nwrite!=nelems? "ERROR":"");
 		}
@@ -445,7 +443,7 @@ public:
 		}
 		demux((b_opts&BO_START),0, buffer_len);
 		if ((b_opts&BO_FINISH) != 0){
-			for (int ic = 0; ic < nchan; ++ic){
+			for (unsigned ic = 0; ic < nchan; ++ic){
 				if (writeChan(ic)){
 					// links take out from under
 					return -1;
@@ -466,7 +464,7 @@ public:
 
 		demux((b_opts&BO_START), start_off, len);
 		if ((b_opts&BO_FINISH) != 0){
-			for (int ic = 0; ic < nchan; ++ic){
+			for (unsigned ic = 0; ic < nchan; ++ic){
 				if (writeChan(ic)){
 					if (verbose) fprintf(stderr, "writeChan() fail\n");
 					// links take out from under
@@ -486,13 +484,13 @@ public:
 		nsam = buffer_len/sizeof(T)/G::nchan;
 		init();
 		mask = new unsigned[nchan];
-		for (int ic = 0; ic < nchan; ++ic){
+		for (unsigned ic = 0; ic < nchan; ++ic){
 			mask[ic] = ic < G::m1? FULL_MASK: _mask;
 		}
 		if (dddata == 0){
 			dddata = new T*[nchan];
 			ddcursors = new T*[nchan];
-			for (int ic = 0; ic < nchan; ++ic){
+			for (unsigned ic = 0; ic < nchan; ++ic){
 				ddcursors[ic] =	dddata[ic] = new T[nsam*nb_cat];
 			}
 		}
@@ -555,11 +553,11 @@ public:
 		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; ++isam){
-			for (int ic = 0; ic < G::nchan; ++ic){
+			for (unsigned ic = 0; ic < G::nchan; ++ic){
 				sums[ic] += src[isam*G::nchan+ic] >> asr1;
 			}
 			if (++nsum >= over){
-				for (int ic = 0; ic < G::nchan; ++ic){
+				for (unsigned ic = 0; ic < G::nchan; ++ic){
 					outbuf[osam*G::nchan+ic] = sums[ic] >> asr;
 					sums[ic] = 0;
 				}
@@ -606,7 +604,7 @@ public:
 		if (G::show_first_sample){
 			memset(sums, 0, G::nchan*sizeof(int));
 
-			for (int ic = 0; ic < G::nchan; ++ic){
+			for (unsigned ic = 0; ic < G::nchan; ++ic){
 				sums[ic] += src[ic];
 			}
 			int fd = createOutfile("/dev/shm/first_sample");
@@ -619,7 +617,7 @@ public:
 			/* runs of samples are bad - could be ES, could be strange 0x0000 .. either way, REJECT */
 			T checkit = src[isam*G::nchan+0] >> asr1;
 			bool checkit_ok = false;
-			for (int ic = 1; ic < 4; ++ic){
+			for (unsigned ic = 1; ic < 4; ++ic){
 				T checkit2 = src[isam*G::nchan+ic] >> asr1;
 				if (checkit2 != checkit){
 					checkit_ok = true;
@@ -630,13 +628,13 @@ public:
 				fprintf(stderr, "checkit_ok reject\n");
 				return 0;
 			}
-			for (int ic = 0; ic < G::nchan; ++ic){
+			for (unsigned ic = 0; ic < G::nchan; ++ic){
 				sums[ic] += src[isam*G::nchan+ic] >> asr1;
 			}
 		}
 
 		if (asr){
-			for (int ic = 0; ic < G::nchan; ++ic){
+			for (unsigned ic = 0; ic < G::nchan; ++ic){
 				sums[ic] >>= asr;
 			}
 		}
@@ -688,7 +686,7 @@ class ScratchpadTestBuffer: public MapBuffer {
 					return 1;
 				}
 			}
-			fprintf(stderr, "ERROR buffer %5d failed to realign, try next buffer\n");
+			fprintf(stderr, "ERROR buffer %5d failed to realign, try next buffer\n", ibuf);
 			return -1;
 		}
 	}
@@ -706,7 +704,7 @@ class ScratchpadTestBuffer: public MapBuffer {
 		fprintf(stderr, ".. searching exact location\n");
 		unsigned sc1 = src[scoff()];
 
-		for (int ii = 0; ii < samples_per_buffer; ++ii, src += G::nchan){
+		for (unsigned ii = 0; ii < samples_per_buffer; ++ii, src += G::nchan){
 			if (!isValidQuad(src, shim)){
 				fprintf(stderr, "Channel Jump at sample %d offset 0x%08x\n",
 							ii, byteoff(ii));
@@ -820,7 +818,7 @@ class BufferCloner {
 		vector<Buffer*> cpyBuffers = Buffer::the_buffers;
 
 		Buffer::the_buffers.clear();
-		for (int ii = 0; ii < cpyBuffers.size(); ++ii){
+		for (unsigned ii = 0; ii < cpyBuffers.size(); ++ii){
 			Buffer::the_buffers[ii] = cloner(cpyBuffers[ii]);
 		}
 	}
@@ -919,8 +917,8 @@ long diffmsec(struct timespec* t0, struct timespec *t1){
 
 struct Progress {
 	enum STATE state;
-	int pre;
-	int post;
+	unsigned pre;
+	unsigned post;
 	unsigned long long elapsed;
 	struct timespec last_time;
 	static long min_report_interval;
@@ -949,7 +947,7 @@ struct Progress {
 		if (getenv("MIN_REPORT_INTERVAL_MS")){
 			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
 			if (verbose){
-				fprintf(status_fp, "min_report_interval set %d\n",
+				fprintf(status_fp, "min_report_interval set %ld\n",
 						min_report_interval);
 			}
 		}
@@ -1009,7 +1007,7 @@ int shuffle_test;
 int fill_ramp_incr;
 
 struct poptOption opt_table[] = {
-	{ "wrbuflen", 0, POPT_ARG_INT, &G::bufferlen, 0,
+	{ "wrbuflen", 0, POPT_ARG_INT, &Buffer::bufferlen, 0,
 			"reduce buffer len" },
 	{ "spy", 0, POPT_ARG_INT, &G::is_spy, 0, "separate spy task" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL,
@@ -1292,19 +1290,19 @@ static void kill_the_holders() {
 void shuffle_all_down1() {
 	char *to = Buffer::the_buffers[0]->getBase();
 	char *from = Buffer::the_buffers[1]->getBase();
-	int len = G::bufferlen * (G::nbuffers-1);
+	int len = Buffer::bufferlen * (Buffer::nbuffers-1);
 	fprintf(stderr, "shuffle_all_down1: to:%p from:%p len:%d\n", to, from, len);
 	memcpy(to,from,len);
 }
 
 template <class T>
 void demux_all_down1(bool use_new) {
-	T* to = use_new? new T[G::bufferlen/sizeof(T)] :
+	T* to = use_new? new T[Buffer::bufferlen/sizeof(T)] :
 			reinterpret_cast<T*>(Buffer::the_buffers[0]->getBase());
 	T* from = reinterpret_cast<T*>(Buffer::the_buffers[1]->getBase());
 	const unsigned nchan = G::nchan;
-	const unsigned nsam = G::bufferlen * (G::nbuffers-1) / sample_size();
-	const unsigned tomask = use_new? G::bufferlen/sizeof(T)-1: 0xffffffff;
+	const unsigned nsam = Buffer::bufferlen * (Buffer::nbuffers-1) / sample_size();
+	const unsigned tomask = use_new? Buffer::bufferlen/sizeof(T)-1: 0xffffffff;
 
 	fprintf(stderr, "demux_all_down1 nchan:%d nsam:%d ws=%d mask:%08x\n",
 			nchan, nsam, sizeof(T), tomask);
@@ -1465,8 +1463,8 @@ void init(int argc, const char** argv) {
 		if (verbose) fprintf(stderr, "G::double_up set true\n");
 	}
 
-	for (int ii = 0; ii < G::nbuffers; ++ii){
-		Buffer::create(root, G::bufferlen);
+	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
+		Buffer::create(root, Buffer::bufferlen);
 	}
 	if (shuffle_test){
 		do_shuffle_test(shuffle_test);
@@ -1496,9 +1494,9 @@ protected:
 
 		if (rc > 0){
 			buf[rc] = '\0';
-			int ib = strtoul(buf, 0, 10);
+			unsigned ib = strtoul(buf, 0, 10);
 			assert(ib >= 0);
-			assert(ib <= G::nbuffers);
+			assert(ib <= Buffer::nbuffers);
 			return ib;
 		}else{
 			return rc;
@@ -1526,10 +1524,23 @@ public:
 class StreamHeadImpl: public StreamHead {
 
 protected:
-	int verbose;
-
 	Progress& actual;
 	const int samples_buffer;
+	int f_ev;
+	int nfds;
+	bool event_received;
+	int verbose;
+
+
+
+
+
+	char event_info[80];
+	AbstractES& evX;
+	AbstractES& ev0;
+
+
+
 
 	void close() {
 		kill_the_holders();
@@ -1602,12 +1613,6 @@ protected:
 		return _fc;
 	}
 
-	int f_ev;
-	int nfds;
-	bool event_received;
-	char event_info[80];
-	AbstractES& evX;
-	AbstractES& ev0;
 
 	void startEventWatcher() {
 		f_ev = open("/dev/acq400.1.ev", O_RDONLY);
@@ -1716,7 +1721,7 @@ protected:
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *cursor = reinterpret_cast<unsigned*>(start);
 		unsigned *base = cursor;
-		unsigned lenw = len/G::wordsize;
+		int lenw = len/G::wordsize;
 		int escount = 0;
 
 		for (; cursor - base < lenw; cursor += stride){
@@ -1731,7 +1736,7 @@ protected:
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
 		unsigned *base = cursor;
-		unsigned lenw = the_buffer->getLen()/G::wordsize;
+		int lenw = the_buffer->getLen()/G::wordsize;
 		int sample_offset = 0;
 
 		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d\n", base, lenw);
@@ -1750,7 +1755,7 @@ protected:
 public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
-		samples_buffer(G::bufferlen/sample_size()),
+		samples_buffer(Buffer::bufferlen/sample_size()),
 		f_ev(0), nfds(0), event_received(0), verbose(0),
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()) {
@@ -1778,6 +1783,8 @@ public:
 			switch(actual.state){
 			case ST_ARM:
 				setState(ST_RUN_PRE);
+			default:
+				;
 			}
 			actual.elapsed += samples_buffer;
 		}
@@ -1799,6 +1806,8 @@ public:
 			switch(actual.state){
 			case ST_ARM:
 				setState(ST_RUN_PRE);
+			default:
+				;
 			}
 			printf("%d\n", ib);
 			fflush(stdout);
@@ -1829,17 +1838,16 @@ public:
 void StreamHeadHB0::stream() {
 	char buf[80];
 	int rc;
-	int icat = 0;
 	int nb = 0;
 
 	while((rc = read(fc, buf, 80)) > 0){
 		buf[rc] = '\0';
 
-		int ib[2];
+		unsigned ib[2];
 		int nscan = sscanf(buf, "%d %d", ib, ib+1);
 		assert(nscan >= 1);
-		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < G::nbuffers);
-		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < G::nbuffers);
+		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < Buffer::nbuffers);
+		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < Buffer::nbuffers);
 
 		if (verbose) fprintf(stderr, "\n\n\nUPDATE:%4d nscan:%d read: %s",
 				++nb, nscan, buf);
@@ -1880,14 +1888,14 @@ void StreamHeadHB0::stream() {
 }
 
 #define OBS_ROOT "/dev/shm/transient"
-#define TOTAL_BUFFER_LIMIT	(G::nbuffers * G::bufferlen)
+#define TOTAL_BUFFER_LIMIT	(Buffer::nbuffers * Buffer::bufferlen)
 
 #define LIVE_PRE	"/etc/acq400/0/live_pre"
 #define LIVE_POST	"/etc/acq400/0/live_post"
 
 class StreamHeadLivePP : public StreamHeadHB0 {
-	int pre;
-	int post;
+	unsigned pre;
+	unsigned post;
 	const int sample_size;
 	int* sample_interval_usecs;
 
@@ -1911,7 +1919,7 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		fclose(fp);
 		return rc;
 	}
-	static bool getPP(int *_pre, int* _post)
+	static bool getPP(unsigned *_pre, unsigned* _post)
 	{
 		int pp[2];
 		if (getPram(LIVE_PRE, pp) && getPram(LIVE_POST, pp+1)){
@@ -1969,7 +1977,7 @@ public:
 	}
 
 	static bool hasPP() {
-		int pp[2];
+		unsigned pp[2];
 
 		return event0_enabled(1) && getPP(pp, pp+1) && pp[0]+pp[1] > 0;
 	}
@@ -2024,8 +2032,6 @@ void StreamHeadLivePP::startSampleIntervalWatcher() {
 
 int StreamHeadLivePP::_stream() {
 	int rc;
-	int icat = 0;
-	int nb = 0;
 	char* b0 = MapBuffer::get_ba_lo();
 	char* b1 = MapBuffer::get_ba_hi();
 	int bo1 = Buffer::BO_NONE;
@@ -2125,9 +2131,6 @@ typedef std::vector<FILE *>::iterator FPV_IT;
 
 #define TRANSOUT	OBS_ROOT"/ch"
 
-unsigned total_buffer_limit() {
-
-}
 
 class Demuxer {
 protected:
@@ -2168,7 +2171,7 @@ class DemuxerImpl : public Demuxer {
 			if (verbose) fprintf(stderr, "BufferCursor::init(%d) base:%p\n", ibuf, base);
 		}
 		BufferCursor() :
-			channel_buffer_bytes(G::bufferlen/G::nchan)
+			channel_buffer_bytes(Buffer::bufferlen/G::nchan)
 		{
 			init(0);
 		}
@@ -2210,11 +2213,11 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", __FUNCTION__, step, G::double_up, G::nchan);
 
-	msync(MapBuffer::ba(b1), G::bufferlen, MS_SYNC);
+	msync(MapBuffer::ba(b1), Buffer::bufferlen, MS_SYNC);
 
 	for (int sam = 0; sam < nsam; sam += step){
 		T* psrct = psrc;
-		for (int chan = 0; chan < G::nchan; ++chan){
+		for (unsigned chan = 0; chan < G::nchan; ++chan){
 #ifdef BUFFER_IDENT
 			if (chan == 7){
 				pdst[chan*cbs+sam] = b1;
@@ -2231,7 +2234,7 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 		int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2));
 		if (b1 != b2){
 			Progress::instance().print(true, b2);
-			msync(MapBuffer::ba(b2), G::bufferlen, MS_SYNC);
+			msync(MapBuffer::ba(b2), Buffer::bufferlen, MS_SYNC);
 		}
 		psrc = psrc2;
 		b1 = b2;
@@ -2309,9 +2312,11 @@ Progress& Progress::instance(FILE *fp) {
 
 				if (getenv("MIN_REPORT_INTERVAL_MS")){
 					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-					fprintf(stderr,"min_report_interval set %d\n", min_report_interval);
+					fprintf(stderr,"min_report_interval set %ld\n",
+							min_report_interval);
 				}
-				if (verbose) fprintf(stderr,"min_report_interval set %d\n", min_report_interval);
+				if (verbose) fprintf(stderr,"min_report_interval set %ld\n",
+						min_report_interval);
 			}
 		}
 
@@ -2327,7 +2332,7 @@ static bool cleanup_done;
 static void wait_and_cleanup_sighandler(int signo)
 {
 	if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler(%d) pid:%d %s\n",
-			signo, getpid, cleanup_done? "FRESH": "DONE");
+			signo, getpid(), cleanup_done? "FRESH": "DONE");
 	if (!cleanup_done){
 		kill(0, SIGTERM);
 		cleanup_done = true;
@@ -2364,12 +2369,14 @@ public:
 	bool update(int ib){
 		if (ib0 == -1){
 			ib0 = ib;
+			all_full = false;
 		}else if (ib == ib0){
 			all_full = true;
 		}
 		if (!all_full){
 			fprintf(blog, "%03d ", ib);
 		}
+		return all_full;
 	}
 };
 
@@ -2429,7 +2436,7 @@ class SumStreamHeadClientImpl: public SumStreamHeadClient {
 public:
 	SumStreamHeadClientImpl<T>(const char* def) : SumStreamHeadClient(def)
 	{
-		nbuf = G::bufferlen/sample_size();
+		nbuf = Buffer::bufferlen/sample_size();
 		sum_buf = new int[nbuf];
 	}
 	virtual void onStreamBufferStart(int ib) {
@@ -2483,7 +2490,7 @@ class SubsetStreamHeadClientImpl: public SubsetStreamHeadClient {
 public:
 	SubsetStreamHeadClientImpl<T>(const char* def) : SubsetStreamHeadClient(def)
 	{
-		nbuf = G::bufferlen/sample_size()*len;
+		nbuf = Buffer::bufferlen/sample_size()*len;
 		buf = new T [nbuf];
 	}
 	virtual void onStreamBufferStart(int ib) {
@@ -2491,7 +2498,6 @@ public:
 		T* data = reinterpret_cast<T*>(buffer->getBase());
 		T* end = reinterpret_cast<T*>(buffer->getEnd());
 		int totchan = G::nchan;
-		int nwrite = len*sizeof(T);
 
 		for (int isam = 0; data < end; data += totchan, ++isam){
 			memcpy(buf+isam*len, data+start, len*sizeof(T));
@@ -2566,7 +2572,7 @@ public:
 				fprintf(stderr, "buffers:%s | %s | %s\n",
 				MapBuffer::listBuffers(esp - s2b(G::pre), esp, true),
 				MapBuffer::listBuffers(esp, esp, true),
-				MapBuffer::listBuffers(esp, esp + s2b(G::post)), true);
+				MapBuffer::listBuffers(esp, esp + s2b(G::post), true));
 			}
 
 			if (G::wordsize == 4){
@@ -2607,7 +2613,7 @@ public:
 	}
 
 
-	enum BD_MODE { BD_LINEAR, BD_PRECORNER, BD_POSTCORNER };
+	enum BD_MODE { BD_ERROR=-1, BD_LINEAR, BD_PRECORNER, BD_POSTCORNER };
 
 	enum BD_MODE mode() const {
 		if (pre_fits&&post_fits){
@@ -2618,6 +2624,7 @@ public:
 			return BD_POSTCORNER;
 		}else{
 			assert(pre_fits||post_fits);
+			return BD_ERROR;
 		}
 	}
 
@@ -2652,7 +2659,7 @@ void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 	if (!G::report_es) return;
 	fprintf(stderr, "StreamHeadPrePost::report: buffer:%s [%d] esp:%p\n",
 			id, ibuf, esp);
-	fprintf(stderr, "Buffer length bytes: %d\n", G::bufferlen);
+	fprintf(stderr, "Buffer length bytes: %d\n", Buffer::bufferlen);
 	fprintf(stderr, "Buffer length samples: %d\n", Buffer::samples_per_buffer());
 	fprintf(stderr, "Prelen: %d\n", G::pre);
 	fprintf(stderr, "Postlen: %d\n", G::post);
@@ -2840,6 +2847,8 @@ public:
 			switch(actual.state){
 			case ST_ARM:
 				setState(ST_RUN_PRE);
+			default:
+				;
 			}
 			actual.elapsed += samples_buffer;
 		}
@@ -2852,11 +2861,11 @@ public:
 };
 class StreamHeadPrePost: public StreamHeadWithClients, StreamHeadClient  {
 protected:
-	int pre;
-	int post;
+	unsigned pre;
+	unsigned post;
 
-	int total_bs;
-	int nobufs;
+	unsigned total_bs;
+	unsigned nobufs;
 
 	bool cooked;
 	char* typestring;
@@ -2966,9 +2975,9 @@ protected:
 
 				if (rc > 0){
 					buf[rc] = '\0';
-					int ib = atoi(buf);
+					unsigned ib = atoi(buf);
 					assert(ib >= 0);
-					assert(ib <= G::nbuffers);
+					assert(ib <= Buffer::nbuffers);
 					if (verbose) fprintf(stderr, "getBufferId() ret %d\n", ib);
 					return ib;
 				}else{
@@ -2999,6 +3008,8 @@ protected:
 			switch(actual.state){
 			case ST_ARM:
 				setState(pre? ST_RUN_PRE: ST_RUN_POST);
+			default:
+				;
 			}
 
 			for (IT it = peers.begin(); it != peers.end(); ++it){
@@ -3092,7 +3103,7 @@ public:
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "StreamHeadPrePost()\n");
 		setState(ST_STOP);
-		int total_bs = (pre+post)*sample_size() + G::bufferlen;
+		unsigned total_bs = (pre+post)*sample_size() + Buffer::bufferlen;
 		nfds = fc+1;
 
 		while((pre+post)*sample_size() > TOTAL_BUFFER_LIMIT){
@@ -3110,8 +3121,8 @@ public:
 		*/
 
 
-		nobufs = total_bs/G::bufferlen;
-		while (nobufs*G::bufferlen < total_bs || nobufs < 2){
+		nobufs = total_bs/Buffer::bufferlen;
+		while (nobufs*Buffer::bufferlen < total_bs || nobufs < 2){
 			++nobufs;
 		}
 
@@ -3121,7 +3132,7 @@ public:
 			fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
 				sample_size());
 			fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
-				total_bs, G::bufferlen, nobufs);
+				total_bs, Buffer::bufferlen, nobufs);
 		}
 		peers.push_back(this);
 
@@ -3275,7 +3286,7 @@ StreamHead* StreamHead::createLiveDataInstance()
 	ident("acq400_stream_hb0");
 
 	for (nb_cat = 1;
-	     nb_cat*G::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
+	     nb_cat*Buffer::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
 		;
 	}
 	BufferCloner::cloneBuffers<DemuxBufferCloner>();

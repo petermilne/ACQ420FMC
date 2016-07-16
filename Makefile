@@ -20,7 +20,8 @@ obj-m += dmadescfs.o
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
 
-CPPFLAGS += -O3
+
+CPPFLAGS += -O3 -Wall
 
 acq420fmc-objs := acq400_drv.o  acq400_fs.o \
 	acq400_debugfs.o acq400_sysfs.o acq400_lists.o \

@@ -24,7 +24,7 @@
  *
  * TODO 
  * TODO
-/* ------------------------------------------------------------------------- */
+\* ------------------------------------------------------------------------- */
 
 #include <stdio.h>
 #include <string.h>
@@ -95,11 +95,11 @@ public:
 	}
 };
 
-int getSSL() {
+void getSSL() {
 	sscanf(G::ssl, "%d,%d,%d", &G::start, &G::stride, &G::length);
 }
 
-int getChannelList()
+void getChannelList()
 {
 	acqMakeChannelRange(G::the_channels, MAXCHAN, G::channels);
 }

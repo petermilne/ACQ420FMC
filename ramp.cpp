@@ -16,6 +16,7 @@ int ramp(int nsam, int step, int ssize)
 			ch = 0;
 		}
 	}
+	return 0;
 }
 
 int main(int argc, char* argv[])

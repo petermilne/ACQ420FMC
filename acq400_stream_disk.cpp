@@ -81,7 +81,7 @@ static void processBuffer(const char* outroot, int ibuf, short* buf, int nbuf){
 
 void process(int nbuffers, int ndest, const char* dests[])
 {
-	int nshorts = bufferlen/sizeof(short);
+	unsigned nshorts = bufferlen/sizeof(short);
 	short* buf = new short[nshorts];
 	long ibuf = 0;
 

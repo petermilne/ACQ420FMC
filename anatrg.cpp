@@ -154,9 +154,7 @@ const char* cli(int argc, const char** argv, int& p1, int& p2)
 struct Command {
 	const char* key;
 	Command(const char* _key) : key(_key) {}
-	virtual unsigned operator() (int p1, int p2) {
-
-	}
+	virtual unsigned operator() (int p1, int p2) = 0;
 	bool match(const char *testkey){
 		return strcmp(key, testkey) == 0;
 	}

@@ -215,7 +215,7 @@ static void install_handlers(void) {
 }
 
 
-int main( int argc, char* argv[] )
+int main( int argc, const char** argv)
 {
 	/* WORKTODO ... args handling */
 
@@ -355,7 +355,7 @@ int main( int argc, char* argv[] )
 		unsigned *plong = (unsigned*)praw;
 
 		while(fread(&wl, sizeof(unsigned), 1, stdin) == 1){
-			dbg(2, "plong 0x%08x := 0x%08x\n", 
+			dbg(2, "plong %p := 0x%08x\n",
 				plong+iwrite, wl);
 			plong[iwrite++] = wl;
 		}
