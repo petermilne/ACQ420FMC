@@ -129,6 +129,7 @@ MapBuffer::MapBuffer(const char* _fname, int _buffer_len) :
 	assert(pdata != MAP_FAILED);
 }
 MapBuffer::~MapBuffer() {
+	if (verbose) fprintf(stderr, "~MapBuffer() %d munmap %p\n", ibuf, pdata);
 	munmap(pdata, bufferlen);
 }
 
