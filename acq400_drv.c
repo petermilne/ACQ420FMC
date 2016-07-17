@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.987"
+#define REVID "2.988"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3177,14 +3177,21 @@ static int ao_auto_rearm(void *clidat)
 /* poll for AWG complete, then rearm it */
 {
 	struct acq400_dev* adev = (struct acq400_dev*)clidat;
+	unsigned dio_sc;
 	wait_queue_head_t wait;
 	init_waitqueue_head(&wait);
 
 	dev_dbg(DEVP(adev), "ao_auto_rearm() 01");
 
 	while (adev->xo.getFifoSamples(adev)){
-		wait_event_interruptible_timeout(wait, 0, 2);
+		wait_event_interruptible_timeout(wait, 0, 1);
 	}
+	dio_sc = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
+	_ao420_stop(adev);
+	if (IS_DIO432X(adev)){
+		dev_info(DEVP(adev), "ao_auto_rearm FIFO drained count %u", dio_sc);
+	}
+
 	if (adev->AO_playloop.length > 0 &&
 		adev->AO_playloop.one_shot == AO_oneshot_rearm){
 		dev_dbg(DEVP(adev), "ao_auto_rearm() reset %d", adev->AO_playloop.length);
@@ -3245,10 +3252,8 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;
-				if (adev->AO_playloop.one_shot == AO_oneshot_rearm){
-					kthread_run(ao_auto_rearm, adev,
+				kthread_run(ao_auto_rearm, adev,
 							"%s.awgrearm", devname(adev));
-				}
 				goto done_no_check;
 			}else{
 				adev->AO_playloop.cursor = 0;
