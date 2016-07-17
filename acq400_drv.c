@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.985"
+#define REVID "2.987"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -117,6 +117,9 @@ module_param(hb0_no_ratelimit, int, 0644);
 int sideport_does_not_touch_trg = 0;
 module_param(sideport_does_not_touch_trg, int, 0644);
 
+int default_dma_direction = DMA_FROM_DEVICE;
+module_param(default_dma_direction, int , 0644);
+MODULE_PARM_DESC(default_dma_direction, "set=1 for XO only device");
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -2969,6 +2972,9 @@ int acq400_hb_release(struct inode *inode, struct file *file)
         switch (file->f_flags & O_ACCMODE) {
         case O_WRONLY:
         case O_RDWR:
+        	dev_dbg(DEVP(adev),
+        	"acq400_hb_release() mode %x, dma_sync_single_for_device: pa:0x%08x len:%d dir:%d",
+		file->f_flags & O_ACCMODE, hbm->pa, hbm->len, hbm->dir);
         	dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
         default:
         	;
@@ -4138,7 +4144,7 @@ static int acq400_probe(struct platform_device *pdev)
 
         if (IS_SC(adev)){
         	adev->is_sc = true;
-        	if (allocate_hbm(adev, nbuffers, bufferlen, DMA_FROM_DEVICE)){
+        	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
         		dev_err(&pdev->dev, "failed to allocate buffers");
         		goto fail;
         	}
