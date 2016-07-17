@@ -69,9 +69,12 @@ using namespace std;
 
 namespace G {
 	unsigned sample_size = sizeof(unsigned);	// bytes per sample
+	int play_site = 1;
 	const char* play = "/dev/acq400.1.knobs/playloop_length";
 	unsigned offset = 0;
 	int devnum = 0;					// full system.
+	FILE* fp_out = stdout;
+	FILE* fp_in = stdin;
 };
 
 #include "Buffer.h"
@@ -80,8 +83,8 @@ struct poptOption opt_table[] = {
 	{ "sample-size", 'S', POPT_ARG_INT, &G::sample_size, 0,
 			"bytes per sample"
 	},
-	{ "play", 'P', POPT_ARG_STRING, &G::play, 0,
-			"AWG control knob"
+	{ "play", 'P', POPT_ARG_INT, &G::play_site, 0,
+			"AWG site"
 	},
 	{ "offset, 'o', POPT_ARG_INT, &G::offset, 0, "
 			"offset in buffer (for multi-site ops)"
@@ -92,10 +95,56 @@ struct poptOption opt_table[] = {
 
 enum RUN_MODE { M_LOAD, M_DUMP };
 
+char *getRoot(int devnum)
+{
+	char *_root = new char [128];
+	struct stat sb;
+
+	sprintf(_root, "/dev/acq420.%d", devnum);
+	if (stat(_root, &sb) == 0){
+		return _root;
+	}
+
+	sprintf(_root, "/dev/acq400.%d", devnum);
+	if (stat(_root, &sb) == 0){
+		return _root;
+	}
+
+	fprintf(stderr, "ERROR: /dev/acq4x0.%d NOT FOUND\n", devnum);
+	exit(1);
+}
+
+Buffer* Buffer::create(const char* root, int _buffer_len)
+{
+	char* fname = new char[128];
+	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
+
+	return new MapBuffer(fname, _buffer_len);
+}
+
+void init_buffers()
+{
+	const char* root = getRoot(G::devnum);
+	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
+		Buffer::create(root, Buffer::bufferlen);
+	}
+}
+
 int load() {
+	init_buffers();
+	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
+
+	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, maxbuf, G::fp_in);
+	setKnob(G::play_site, "playloop_length", nsamples);
 	return 0;
 }
 int dump() {
+	init_buffers();
+	unsigned nsamples;
+	getKnob(G::play_site, "playloop_length", &nsamples);
+	fwrite(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, nsamples, G::fp_out);
 	return 0;
 }
 RUN_MODE ui(int argc, const char** argv)
@@ -115,7 +164,7 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 
 	const char* mode = poptGetArg(opt_context);
-	return strcmp(mode, "load") == 0? M_LOAD: M_DUMP;
+	return mode!= 0 && strcmp(mode, "load") == 0? M_LOAD: M_DUMP;
 }
 int main(int argc, const char** argv)
 {
