@@ -63,9 +63,13 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
+#include "File.h"
 
 
 using namespace std;
+
+/* copy from driver .. */
+enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
 namespace G {
 	unsigned sample_size = sizeof(unsigned);	// bytes per sample
@@ -75,6 +79,8 @@ namespace G {
 	int devnum = 0;					// full system.
 	FILE* fp_out = stdout;
 	FILE* fp_in = stdin;
+
+	int mode = AO_oneshot;
 };
 
 #include "Buffer.h"
@@ -86,8 +92,11 @@ struct poptOption opt_table[] = {
 	{ "play", 'P', POPT_ARG_INT, &G::play_site, 0,
 			"AWG site"
 	},
-	{ "offset, 'o', POPT_ARG_INT, &G::offset, 0, "
+	{ "offset", 'o', POPT_ARG_INT, &G::offset, 0,
 			"offset in buffer (for multi-site ops)"
+	},
+	{ "mode",  'm', POPT_ARG_INT, &G::mode, 0,
+			"play mode 0: continuous, 1:oneshot 2:oneshot_rearm"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -136,13 +145,23 @@ int load() {
 
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
-	setKnob(G::play_site, "playloop_length", nsamples);
+
+	char fname[128];
+	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", G::play_site);
+	File enable(fname, "w");
+	fprintf(enable.fp(), "%d %d\n", nsamples, G::mode);
+
+	/* this _should_ be automatic. But it's not! */
+	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
+		delete Buffer::the_buffers[ii];
+	}
 	return 0;
 }
 int dump() {
 	init_buffers();
 	unsigned nsamples;
 	getKnob(G::play_site, "playloop_length", &nsamples);
+
 	fwrite(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, nsamples, G::fp_out);
 	return 0;
