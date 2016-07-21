@@ -1151,7 +1151,7 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 
 #define ACQ480_FIRCO_CSR_RESET	(1<<24)
-#define ACQ480_FIRCO_CSR_CTR	(0x003f0000)
+#define ACQ480_FIRCO_CSR_CTR	(0x00ff0000)
 #define ACQ480_FIRCO_CSR_CTR_SHL 16
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
