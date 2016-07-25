@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.992"
+#define REVID "2.996"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -125,9 +125,6 @@ int xo_use_bigbuf = 0;
 module_param(xo_use_bigbuf, int, 0644);
 MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load long AWG");
 
-int xo_ignore_residue = 0;
-module_param(xo_ignore_residue, int, 0644);
-MODULE_PARM_DESC(xo_ignore_residue, "set=1 for DMA load only, must over spec playloop..");
 
 /* GLOBALS */
 
@@ -986,16 +983,18 @@ static void _ao420_onStop(struct acq400_dev *adev)
 
 static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
-	dio432_set_mode(adev, DIO432_CLOCKED, 1);
 
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
+		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
 	}else{
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
+		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 20");
 	}
 	acq400wr32(adev, DAC_CTRL, acq400rd32(adev, DAC_CTRL)|DAC_CTRL_DAC_EN);
+	dev_dbg(DEVP(adev), "_dio432_DO_onStart() 99");
 }
 
 void dio432_onStop(struct acq400_dev *adev)
@@ -3079,6 +3078,7 @@ void _ao420_stop(struct acq400_dev* adev)
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 	x400_disable_interrupt(adev);
 
+	dev_dbg(DEVP(adev), "_ao420_stop() reset FIFO and clear histo\n");
 
 	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
@@ -3219,6 +3219,8 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	int rc = 1;		/* assume more ints wanted unless complete */
 	int maxiter = 1000;
 
+	dev_dbg(DEVP(adev), "xo420_fill_fifo() 01\n");
+
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return 0;
 	}
@@ -3255,7 +3257,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 			}else{
 				/* we really have to write the end of the buffer .. */
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
-				if (!xo_ignore_residue){
+				if (!xo_use_bigbuf){
 					xo400_write_fifo(adev, cursor, lenbytes);
 				}
 			}
@@ -3284,8 +3286,8 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	check_fiferr(adev, adev->xo.fsr);
 done_no_check:
 	mutex_unlock(&adev->awg_mutex);
-	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
-			adev->xo.getFifoSamples(adev));
+	dev_dbg(DEVP(adev), "xo420_fill_fifo() done filling, samples:%08x headroom %d\n",
+			adev->xo.getFifoSamples(adev), ao420_getFifoHeadroom(adev));
 	return rc;
 }
 static irqreturn_t xo400_dma(int irq, void *dev_id)
@@ -3295,6 +3297,8 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 
 	if (adev->AO_playloop.length){
 		u32 start_samples = adev->xo.getFifoSamples(adev);
+		dev_dbg(DEVP(adev), "xo400_dma() start_samples: %u, headroom %d\n",
+					start_samples, ao420_getFifoHeadroom(adev));
 		if (xo400_fill_fifo(adev)){
 			x400_enable_interrupt(adev);
 		}
@@ -3353,6 +3357,9 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	}
 
 	if (playloop_length != 0){
+		if (IS_DIO432X(adev)){
+			dio432_set_mode(adev, DIO432_CLOCKED, 1);
+		}
 		xo400_getDMA(adev);
 		adev->AO_playloop.length = playloop_length;
 		if (adev->xo.getFifoSamples(adev) != 0){
@@ -3361,6 +3368,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		}
 		xo400_fill_fifo(adev);
 		ao420_clear_fifo_flags(adev);
+
 		adev->onStart(adev);
 	}
 }

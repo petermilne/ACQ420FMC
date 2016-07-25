@@ -139,17 +139,41 @@ void init_buffers()
 	}
 }
 
+void set_playloop_length(int nsamples)
+{
+	char fname[128];
+	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", G::play_site);
+	File enable(fname, "w");
+	fprintf(enable.fp(), "%d %d\n", nsamples, G::mode);
+}
+
+void pad(int nsamples, int npad)
+{
+	unsigned* base = static_case<unsigned*>(Buffer::the_buffers[0]->getBase());
+	base +=  nsamples > 0? nsamples-1: 0;
+
+	unsigned lastv = base[0];
+
+	for (int ipad = 1; ipad <= npad; ++ipad){
+		base[ipad] = lastv;
+	}
+}
+#define PAD	2048	// ensure DMAC used throughout
+
 int load() {
+	set_playloop_length(0);
 	init_buffers();
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
 
-	char fname[128];
-	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", G::play_site);
-	File enable(fname, "w");
-	fprintf(enable.fp(), "%d %d\n", nsamples, G::mode);
+	if (G::mode == AO_ONESHOT){
+		pad(nsamples, PAD);
+		nsamples += PAD;
+	}
+
+	set_playloop_length(nsamples);
 
 	/* this _should_ be automatic. But it's not! */
 	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
