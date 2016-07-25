@@ -168,11 +168,6 @@ int load() {
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
 
-	if (G::mode == AO_oneshot){
-		pad(nsamples, PAD);
-		nsamples += PAD;
-	}
-
 	set_playloop_length(nsamples);
 
 	/* this _should_ be automatic. But it's not! */

@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.996"
+#define REVID "2.997"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3257,9 +3257,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 			}else{
 				/* we really have to write the end of the buffer .. */
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
-				if (!xo_use_bigbuf){
-					xo400_write_fifo(adev, cursor, lenbytes);
-				}
+				xo400_write_fifo_dma(adev, cursor, lenbytes);
 			}
 			/* UGLY: has divide. */
 			adev->AO_playloop.cursor += AOBYTES2SAMPLES(adev, lenbytes);
