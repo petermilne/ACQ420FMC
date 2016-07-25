@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.988"
+#define REVID "2.992"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -120,6 +120,15 @@ module_param(sideport_does_not_touch_trg, int, 0644);
 int default_dma_direction = DMA_FROM_DEVICE;
 module_param(default_dma_direction, int , 0644);
 MODULE_PARM_DESC(default_dma_direction, "set=1 for XO only device");
+
+int xo_use_bigbuf = 0;
+module_param(xo_use_bigbuf, int, 0644);
+MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load long AWG");
+
+int xo_ignore_residue = 0;
+module_param(xo_ignore_residue, int, 0644);
+MODULE_PARM_DESC(xo_ignore_residue, "set=1 for DMA load only, must over spec playloop..");
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -645,6 +654,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->onStop = _ao420_onStop;
 	adev->xo.physchan = ao420_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
+	adev->xo.fsr = DAC_FIFO_STA;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	measure_ao_fifo(adev);
@@ -666,6 +676,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->onStart = _ao420_onStart;
 	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
+	adev->xo.fsr = DAC_FIFO_STA;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	adev->ao424_device_settings.encoded_twocmp = 0;
@@ -703,6 +714,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
+	adev->xo.fsr = DIO432_DO_FIFO_STATUS;
 
 	if (FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
@@ -3144,17 +3156,17 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	ao420_reset_fifo(adev);
 }
 
-void check_fiferr(struct acq400_dev* adev)
+void check_fiferr(struct acq400_dev* adev, unsigned fsr)
 {
-	u32 fifo_sta = acq400rd32(adev, ADC_FIFO_STA);
+	u32 fifo_sta = acq400rd32(adev, fsr);
 
 	if ((fifo_sta&ADC_FIFO_STA_ACTIVE) == 0){
 		return;
 	}
 	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
-		unsigned stat2  = acq400rd32(adev, ADC_FIFO_STA);
+		unsigned stat2  = acq400rd32(adev, fsr);
 
-		acq400wr32(adev, ADC_FIFO_STA, fifo_sta&0x0000000f);
+		acq400wr32(adev, fsr, fifo_sta&0x0000000f);
 
 		if (++adev->stats.fifo_errors < 10){
 			if ((fifo_sta & ADC_FIFO_STA_EMPTY) != 0){
@@ -3213,7 +3225,9 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	go_rt(adev->nchan_enabled>8? MAX_RT_PRIO: MAX_RT_PRIO-2);
 
 	while(adev->AO_playloop.length != 0 &&
-	      (headroom = ao420_getFifoHeadroom(adev)) > xo400_getFillThreshold(adev)){
+	      (headroom = ao420_getFifoHeadroom(adev)) > xo400_getFillThreshold(adev) &&
+	      adev->AO_playloop.length > adev->AO_playloop.cursor			 ){
+
 		int remaining = adev->AO_playloop.length - adev->AO_playloop.cursor;
 		int headroom_lt_remaining = headroom < remaining;
 
@@ -3241,7 +3255,9 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 			}else{
 				/* we really have to write the end of the buffer .. */
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
-				xo400_write_fifo(adev, cursor, lenbytes);
+				if (!xo_ignore_residue){
+					xo400_write_fifo(adev, cursor, lenbytes);
+				}
 			}
 			/* UGLY: has divide. */
 			adev->AO_playloop.cursor += AOBYTES2SAMPLES(adev, lenbytes);
@@ -3265,7 +3281,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 		}
 	}
 
-	check_fiferr(adev);
+	check_fiferr(adev, adev->xo.fsr);
 done_no_check:
 	mutex_unlock(&adev->awg_mutex);
 	dev_dbg(DEVP(adev), "ao420_fill_fifo() done filling, samples:%08x\n",
@@ -4169,20 +4185,26 @@ static int acq400_probe(struct platform_device *pdev)
           		axi64_init_dmac(adev);
           	}
         	return 0;
-        }else if (IS_AO424(adev)){
-        	if (allocate_hbm(adev, AO420_NBUFFERS,
-        	        ao424_buffer_length, DMA_TO_DEVICE)){
-        	        dev_err(&pdev->dev, "failed to allocate buffers");
-        	        goto fail;
-        	}
-        }else if (IS_AO420(adev) || IS_DIO432X(adev)){
-        	if (allocate_hbm(adev, AO420_NBUFFERS,
+        }else{
+        	if (IS_XO(adev) && xo_use_bigbuf){
+        		adev->hb = acq400_devices[0]->hb;
+        		dev_info(DEVP(adev), "site %d using MAIN HB", adev->of_prams.site);
+        	}else{
+        		if (IS_AO424(adev)){
+        			if (allocate_hbm(adev, AO420_NBUFFERS,
+        					ao424_buffer_length, DMA_TO_DEVICE)){
+        				dev_err(&pdev->dev, "failed to allocate buffers");
+        				goto fail;
+        			}
+        		}else if (IS_AO420(adev) || IS_DIO432X(adev)){
+        			if (allocate_hbm(adev, AO420_NBUFFERS,
         				ao420_buffer_length, DMA_TO_DEVICE)){
-        		dev_err(&pdev->dev, "failed to allocate buffers");
-        		goto fail;
+        				dev_err(&pdev->dev, "failed to allocate buffers");
+        				goto fail;
+        			}
+        		}
         	}
         }
-
         if (IS_AO42X(adev)||IS_DIO432X(adev)){
         	rc = devm_request_threaded_irq(
         	          	DEVP(adev), adev->of_prams.irq,

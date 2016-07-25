@@ -543,6 +543,7 @@ struct acq400_dev {
 		int (*getFifoSamples)(struct acq400_dev* adev);
 		/* physchan is offset 0..N-1, lchan is faceplate 1..N */
 		int (*physchan)(int lchan);
+		unsigned fsr;
 	} xo;
 	struct AO_Immediate {
 		union {
@@ -771,6 +772,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev))
+
+#define IS_XO(adev)		(IS_DIO432X(adev) || IS_AO42X(adev))
 
 #define IS_PMODADC1(adev)	(GET_MOD_ID(adev) == MOD_ID_PMODADC1)
 
