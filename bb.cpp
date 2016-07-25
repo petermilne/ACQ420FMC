@@ -149,7 +149,7 @@ void set_playloop_length(int nsamples)
 
 void pad(int nsamples, int npad)
 {
-	unsigned* base = static_case<unsigned*>(Buffer::the_buffers[0]->getBase());
+	unsigned* base = reinterpret_cast<unsigned*>(Buffer::the_buffers[0]->getBase());
 	base +=  nsamples > 0? nsamples-1: 0;
 
 	unsigned lastv = base[0];
@@ -168,7 +168,7 @@ int load() {
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
 
-	if (G::mode == AO_ONESHOT){
+	if (G::mode == AO_oneshot){
 		pad(nsamples, PAD);
 		nsamples += PAD;
 	}
