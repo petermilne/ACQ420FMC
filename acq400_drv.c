@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "2.997"
+#define REVID "3.004"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -644,7 +644,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 0;
 	adev->nchan_enabled = 4;
 	adev->word_size = 2;
-	adev->cursor.hb = adev->hb[0];
+	adev->cursor.hb = &adev->hb[0];
 
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
@@ -667,7 +667,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 0;
 	adev->nchan_enabled = 32;
 	adev->word_size = 2;
-	adev->cursor.hb = adev->hb[0];
+	adev->cursor.hb = &adev->hb[0];
 
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
@@ -704,7 +704,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 1;
 	adev->nchan_enabled = 1;
 	adev->word_size = 4;
-	adev->cursor.hb = adev->hb[0];
+	adev->cursor.hb = &adev->hb[0];
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
 	adev->sysclkhz = SYSCLK_M66;
@@ -741,7 +741,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	//set_debugs("off");
 	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
 			__LINE__, acq400rd32(adev, DAC_CTRL));
-	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %p", adev->cursor.hb);
+	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
 }
 static void bolo8_init_defaults(struct acq400_dev* adev)
 {
@@ -2183,7 +2183,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 	dev_dbg(DEVP(adev), "write 01");
 
 	if (!adev->stream_dac_producer.hb){
-		while((adev->stream_dac_producer.hb = ao_getEmpty(adev)) == 0){
+		while((adev->stream_dac_producer.hb[0] = ao_getEmpty(adev)) == 0){
 			dev_dbg(DEVP(adev), "ao_getEmpty() fail");
 			if (wait_event_interruptible(
 				adev->w_waitq,
@@ -2193,7 +2193,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 		}
 		adev->stream_dac_producer.offset = 0;
 	}
-	va = (char*)adev->stream_dac_producer.hb->va;
+	va = (char*)adev->stream_dac_producer.hb[0]->va;
 	headroom = len - adev->stream_dac_producer.offset;
 	if (count > headroom){
 		count = headroom;
@@ -2207,7 +2207,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 	adev->stream_dac_producer.offset += count;
 	if (adev->stream_dac_producer.offset >= len){
 		dev_dbg(DEVP(adev), "putFull %p", adev->stream_dac_producer.hb);
-		ao_putFull(adev, adev->stream_dac_producer.hb);
+		ao_putFull(adev, adev->stream_dac_producer.hb[0]);
 		adev->stream_dac_producer.hb = 0;
 	}
 
@@ -2546,19 +2546,23 @@ ssize_t xo400_awg_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int len = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
+	int pll = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
+	unsigned len = adev->cursor.hb[0]->len;
+
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	unsigned ib = bcursor/len;
+	unsigned offset = bcursor - ib*len;
 	int rc;
 
-	if (bcursor >= len){
+	if (bcursor >= pll){
 		return 0;
 	}else{
-		int headroom = (len - bcursor);
+		int headroom = min(len-offset, pll-bcursor);
 		if (count > headroom){
 			count = headroom;
 		}
 	}
-	rc = copy_to_user(buf, (char*)adev->cursor.hb->va + bcursor, count);
+	rc = copy_to_user(buf, (char*)adev->cursor.hb[ib]->va + offset, count);
 	if (rc){
 		return -1;
 	}
@@ -2581,40 +2585,37 @@ ssize_t xo400_awg_write(
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	unsigned bcursor = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
-	struct HBM *hbm = adev->cursor.hb;
-	int len = hbm->len;
+	unsigned len = adev->cursor.hb[0]->len;
+
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	unsigned ib = bcursor/len;
+	/** @@todo check ib within bounds .. what bounds? */
+	unsigned offset = bcursor - ib*len;
+	int headroom = (len - offset);
+	char* dst = (char*)adev->cursor.hb[ib]->va + offset;
 	int rc;
-	char *cursor;
 
-	count = AOSAMPLES2BYTES(adev, AOBYTES2SAMPLES(adev, count));
-
-	if (bcursor >= len){
-		return 0;
-	}else{
-		int headroom = (len - bcursor);
-		if (count > headroom){
-			count = headroom;
-		}
+	if (count > headroom){
+		count = headroom;
 	}
-	cursor = (char*)hbm->va + bcursor;
-	rc = copy_from_user(cursor, buf, count);
+
+	rc = copy_from_user(dst, buf, count);
 
 	if (rc){
 		return -1;
 	}
 	if (IS_AO424(adev) && SPAN_IS_BIPOLAR(adev)){
-		flip_x16_sign_bit((unsigned short*)cursor, count/sizeof(unsigned short));
+		flip_x16_sign_bit((unsigned short*)dst, count/sizeof(unsigned short));
 	}
 
 	dev_dbg(DEVP(adev),
 		"dma_sync_single_for_device() %08x %d len:%d demand:%d %d (DMA_TO_DEVICE=%d)",
-		adev->cursor.hb->pa + bcursor, count,
-		hbm->len, bcursor+count,
-		hbm->dir, DMA_TO_DEVICE);
+		adev->cursor.hb[ib]->pa + offset, count,
+		len, bcursor+count,
+		adev->cursor.hb[ib]->dir, DMA_TO_DEVICE);
 
 	dma_sync_single_for_device(DEVP(adev),
-			hbm->pa + bcursor, count, hbm->dir);
+			adev->cursor.hb[ib]->pa + offset, count, adev->cursor.hb[ib]->dir);
 
 	*f_pos += count;
 	adev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
@@ -3048,28 +3049,51 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 	}
 }
 
-static void xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
+static int xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
 {
-	int rc = dma_memcpy(adev,
-		adev->dev_physaddr+AXI_FIFO,
-		adev->cursor.hb->pa+frombyte, bytes);
+	/* index from cursor to find correct hb.
+	 * HB's are NOT physically contiguous ..
+	 * WARNING: assumes all HB's are the same length ..
+	 * WARNING: assumes NEVER overlaps HB end ..
+	 * This is OK provided xo400_write_fifo_dma is a factor of hb->len (it is).
+	 * easy to catch anyway .. warn that we took the catch ..
+	 */
+	unsigned len = adev->cursor.hb[0]->len;
+	unsigned ib = frombyte/len;
+	unsigned offset = frombyte - ib*len;
+	int rc;
+
+	if (unlikely(offset + bytes > len)){
+		bytes = len - offset;		// buffer head room
+		dev_dbg(DEVP(adev), "xo400_write_fifo_dma() [%d] %d %d unlikely happened",
+				ib, frombyte, bytes);
+	}
+
+	rc = dma_memcpy(adev,
+			adev->dev_physaddr+AXI_FIFO,
+			adev->cursor.hb[ib]->pa+offset, bytes);
 
 	if (rc != bytes){
 		dev_err(DEVP(adev), "dma_memcpy FAILED :%d\n", rc);
 	}
+	return rc;
 }
 
 void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 {
+	unsigned len = adev->cursor.hb[0]->len;
+	unsigned ib = frombyte/len;
+	unsigned offset = frombyte - ib*len;
+	/* WARNING: assumes NEVER overlaps HB end .. */
 	dev_dbg(DEVP(adev), "write32(%p = %p+%d, %d",
 			adev->dev_virtaddr+AXI_FIFO,
-			adev->cursor.hb->va,
-			frombyte/sizeof(u32),
+			adev->cursor.hb[ib]->va,
+			offset/sizeof(u32),
 			bytes/sizeof(u32)
 	);
 
 	write32(adev->dev_virtaddr+AXI_FIFO,
-		adev->cursor.hb->va+frombyte/sizeof(u32),
+		adev->cursor.hb[ib]->va+offset/sizeof(u32),
 		bytes/sizeof(u32));
 }
 
@@ -3249,17 +3273,20 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				int dma_bytes = nbuf*MIN_DMA_BYTES;
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
-				xo400_write_fifo_dma(adev, cursor, dma_bytes);
-				lenbytes = dma_bytes;
+				lenbytes = xo400_write_fifo_dma(adev, cursor, dma_bytes);
 			}else if (headroom_lt_remaining){
 				/* FIFO nearly full, catch it next time */
 				break;
 			}else{
 				/* we really have to write the end of the buffer .. */
 				dev_dbg(DEVP(adev), "pio: cursor:%5d lenbytes: %d", cursor, lenbytes);
-				xo400_write_fifo_dma(adev, cursor, lenbytes);
+				lenbytes = xo400_write_fifo_dma(adev, cursor, lenbytes);
 			}
 			/* UGLY: has divide. */
+			if (lenbytes < 0){
+				dev_err(DEVP(adev), "ERROR in DMA");
+				break;
+			}
 			adev->AO_playloop.cursor += AOBYTES2SAMPLES(adev, lenbytes);
 		}
 

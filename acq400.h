@@ -504,7 +504,7 @@ struct acq400_dev {
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
 	struct CURSOR {
-		struct HBM* hb;
+		struct HBM** hb;
 		int offset;
 	} cursor;
 	wait_queue_head_t refill_ready;
@@ -1029,8 +1029,10 @@ int ao420_physChan(int lchan /* 1..4 */ );
 #define FPCTL_IS_INPUT	0x0
 
 int set_gpg_top(struct acq400_dev* adev, u32 gpg_count);
-#define AOSAMPLES2BYTES(adev, xx) ((xx)*(adev)->nchan_enabled*(adev)->word_size)
-#define AOBYTES2SAMPLES(adev, xx) ((xx)/(adev)->nchan_enabled/(adev)->word_size)
+
+#define AOSS(adev)	((adev)->nchan_enabled*(adev)->word_size)
+#define AOSAMPLES2BYTES(adev, xx) ((xx)*AOSS(adev))
+#define AOBYTES2SAMPLES(adev, xx) ((xx)/AOSS(adev))
 
 
 static inline unsigned xo400_getFillThreshold(struct acq400_dev *adev)
