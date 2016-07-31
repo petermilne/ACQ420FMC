@@ -166,6 +166,7 @@ static void *acq400_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 
         if (*pos == 0) {
         	seq_printf(s, "Buffers\n");
+        	seq_printf(s, "%3s,%8s,%10s,%8s,%s\n", "ix", "va", "pa", "len", "state");
         }
         if (*pos < adev->nbuffers){
         	return adev->hb[*pos];
@@ -196,7 +197,7 @@ static int acq400_proc_seq_show_buffers(struct seq_file *s, void *v)
                 return -EINTR;
         }
 
-        seq_printf(s, "%03d,%p,0x%08x,%d\n", hbm->ix, hbm->va, hbm->pa, hbm->bstate);
+        seq_printf(s, "%03d,%p,0x%08x,0x%06x,%d\n", hbm->ix, hbm->va, hbm->pa, hbm->len, hbm->bstate);
         mutex_unlock(&dev->mutex);
         return 0;
 }

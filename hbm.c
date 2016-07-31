@@ -73,6 +73,17 @@ struct HBM* hbm_allocate1(struct device *dev, int len, int ix, enum dma_data_dir
 	return hbm;
 }
 
+void fillpa(struct HBM* hbm)
+{
+	int lenw = hbm->len/sizeof(unsigned);
+	unsigned *cursor = (unsigned*)hbm->va;
+	unsigned pa = hbm->pa;
+
+	while(lenw--){
+		*cursor++ = pa;
+		pa += sizeof(unsigned);
+	}
+}
 int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir)
 {
 	int order = getOrder(len);
@@ -89,6 +100,8 @@ int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *bu
 		hbm->ix = ix;
 		hbm->bstate = BS_EMPTY;
 		list_add_tail(&hbm->list, buffers);
+
+		fillpa(hbm);
 	}
 
 	return 0;
