@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.004"
+#define REVID "3.010"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -125,7 +125,9 @@ int xo_use_bigbuf = 0;
 module_param(xo_use_bigbuf, int, 0644);
 MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load long AWG");
 
-
+int xo_use_contiguous_pa_if_possible = 0;
+module_param(xo_use_contiguous_pa_if_possible, int, 0644);
+MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into next HB if contiguous");
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -3049,37 +3051,7 @@ void write32(volatile u32* to, volatile u32* from, int nwords)
 	}
 }
 
-static int xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
-{
-	/* index from cursor to find correct hb.
-	 * HB's are NOT physically contiguous ..
-	 * WARNING: assumes all HB's are the same length ..
-	 * WARNING: assumes NEVER overlaps HB end ..
-	 * This is OK provided xo400_write_fifo_dma is a factor of hb->len (it is).
-	 * easy to catch anyway .. warn that we took the catch ..
-	 */
-	unsigned len = adev->cursor.hb[0]->len;
-	unsigned ib = frombyte/len;
-	unsigned offset = frombyte - ib*len;
-	int rc;
-
-	if (unlikely(offset + bytes > len)){
-		bytes = len - offset;		// buffer head room
-		dev_dbg(DEVP(adev), "xo400_write_fifo_dma() [%d] %d %d unlikely happened",
-				ib, frombyte, bytes);
-	}
-
-	rc = dma_memcpy(adev,
-			adev->dev_physaddr+AXI_FIFO,
-			adev->cursor.hb[ib]->pa+offset, bytes);
-
-	if (rc != bytes){
-		dev_err(DEVP(adev), "dma_memcpy FAILED :%d\n", rc);
-	}
-	return rc;
-}
-
-void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
+int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 {
 	unsigned len = adev->cursor.hb[0]->len;
 	unsigned ib = frombyte/len;
@@ -3095,7 +3067,58 @@ void xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
 	write32(adev->dev_virtaddr+AXI_FIFO,
 		adev->cursor.hb[ib]->va+offset/sizeof(u32),
 		bytes/sizeof(u32));
+	return bytes;
 }
+
+/* minimum PL330 size
+ * could be a physical limit, but also pragmatic given slow setup time
+ */
+
+
+static int xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes)
+{
+	/* index from cursor to find correct hb.
+	 * HB's are NOT physically contiguous ..
+	 * WARNING: assumes all HB's are the same length ..
+	 * WARNING: assumes NEVER overlaps HB end ..
+	 * This is OK provided xo400_write_fifo_dma is a factor of hb->len (it is).
+	 * easy to catch anyway .. warn that we took the catch ..
+	 */
+	unsigned len = adev->cursor.hb[0]->len;
+	unsigned ib = frombyte/len;
+	unsigned offset = frombyte - ib*len;
+	int rc;
+
+	if (unlikely(offset + bytes > len)){
+		if (xo_use_contiguous_pa_if_possible && adev->cursor.hb[ib]->pa + len == adev->cursor.hb[ib+1]->pa){
+			dev_dbg(DEVP(adev), "xo400_write_fifo_dma() [%d] %d %d unlikely happened we have contiguous pa, keep going",
+							ib, frombyte, bytes);
+		}else{
+			bytes = len - offset;		// buffer head room
+			dev_dbg(DEVP(adev), "xo400_write_fifo_dma() [%d] %d %d unlikely happened",
+				ib, frombyte, bytes);
+		}
+	}
+	if (bytes >= MIN_DMA_BYTES){
+		int rbytes = (bytes/MIN_DMA_BYTES)*MIN_DMA_BYTES;
+		if (rbytes != bytes){
+			dev_dbg(DEVP(adev), "xo400_write_fifo_dma() rounding bytes from %d to %d", bytes, rbytes);
+			bytes = rbytes;
+		}
+	}else{
+		return xo400_write_fifo(adev, frombyte, bytes);
+	}
+
+	rc = dma_memcpy(adev,
+			adev->dev_physaddr+AXI_FIFO,
+			adev->cursor.hb[ib]->pa+offset, bytes);
+
+	if (rc != bytes){
+		dev_err(DEVP(adev), "dma_memcpy FAILED :%d\n", rc);
+	}
+	return rc;
+}
+
 
 void _ao420_stop(struct acq400_dev* adev)
 {
@@ -3242,6 +3265,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 	int headroom;
 	int rc = 1;		/* assume more ints wanted unless complete */
 	int maxiter = 1000;
+	static int next_one_verbose;
 
 	dev_dbg(DEVP(adev), "xo420_fill_fifo() 01\n");
 
@@ -3274,6 +3298,11 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				lenbytes = xo400_write_fifo_dma(adev, cursor, dma_bytes);
+				if (next_one_verbose || lenbytes != dma_bytes){
+					dev_info(DEVP(adev), "dma: [%d] cursor:%5d dma_bytes %d lenbytes: %d",
+							next_one_verbose, cursor, dma_bytes, lenbytes);
+					next_one_verbose = !next_one_verbose;
+				}
 			}else if (headroom_lt_remaining){
 				/* FIFO nearly full, catch it next time */
 				break;
