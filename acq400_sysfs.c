@@ -321,6 +321,7 @@ MAKE_BITS(fpctl_sync,		 FPCTL,         FPCTL_SYNC_SHL, FPCTL_MASK);
 MAKE_BITS(fpctl_trg,             FPCTL,         FPCTL_TRG_SHL,  FPCTL_MASK);
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
+MAKE_BITS(bolo_dac_lowlat, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_LL);
 MAKE_BITS(bolo_dac_enable, B8_DAC_CON, 0, 0xff);
 MAKE_BITS(zclk_sel, MOD_CON, MCR_ZCLK_SELECT_SHL, MCR_ZCLK_MASK);
 
@@ -2692,6 +2693,7 @@ static DEVICE_ATTR(dac_sample_count, S_IRUGO, show_dac_sample_count, 0);
 static const struct attribute *bolo8_attrs[] = {
 	&dev_attr_current_adc_enable.attr,
 	&dev_attr_offset_dac_enable.attr,
+	&dev_attr_bolo_dac_lowlat.attr,
 	&dev_attr_bolo_dac_enable.attr,
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
