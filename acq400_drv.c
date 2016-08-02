@@ -3204,6 +3204,8 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	ao420_reset_fifo(adev);
 }
 
+#define DAC_FIFO_STA_ERR (ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_EMPTY)
+
 void check_fiferr(struct acq400_dev* adev, unsigned fsr)
 {
 	u32 fifo_sta = acq400rd32(adev, fsr);
@@ -3211,7 +3213,7 @@ void check_fiferr(struct acq400_dev* adev, unsigned fsr)
 	if ((fifo_sta&ADC_FIFO_STA_ACTIVE) == 0){
 		return;
 	}
-	if ((fifo_sta&ADC_FIFO_STA_ERR) != 0){
+	if ((fifo_sta&DAC_FIFO_STA_ERR) != 0){
 		unsigned stat2  = acq400rd32(adev, fsr);
 
 		acq400wr32(adev, fsr, fifo_sta&0x0000000f);
