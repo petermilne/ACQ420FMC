@@ -370,7 +370,8 @@ static struct file_operations regfs_page_fops = {
 	.release = regfs_page_release,
 	.mmap = regfs_page_mmap,
 	.write = regfs_page_write,
-	.read = regfs_page_read
+	.read = regfs_page_read,
+	.llseek = generic_file_llseek,
 };
 static int regfs_probe(struct platform_device *pdev)
 {
