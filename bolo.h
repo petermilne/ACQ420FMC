@@ -48,16 +48,14 @@
 #define B8_DAC_SPI		0x0248
 #define B8_DAC_SPI_RBK		0x024c
 
-#define B8_DAC_CON_JL_MAGIC	0x94		/* write this to enable the DAC */
 #define B8_DAC_CON_LL		0x00000100      /* 1 */
-#define B8_DAC_CON_DS		0x00000080      /* data size (what?) 1 */
+#define B8_DAC_CON_DS32		0x00000080      /* data size 0: packed 1:unpacked */
 #define B8_DAC_CON_ENA		0x00000010      /* 1 */
 #define B8_DAC_CON_RST		0x00000008      /* 0 */
 #define B8_DAC_CON_FIFO_EN	0x00000004      /* 1 */
 #define B8_DAC_CON_FIFO_RST     0x00000002      /* 0 */
 
-#define B8_DAC_CON_INIT	\
-	(B8_DAC_CON_LL|B8_DAC_CON_DS|B8_DAC_CON_ENA|B8_DAC_CON_FIFO_EN)
+#define B8_DAC_CON_INIT		(B8_DAC_CON_DS32|B8_DAC_CON_FIFO_EN)
 
 /* Current ADc */
 #define B8_CAD_CON		0x0304

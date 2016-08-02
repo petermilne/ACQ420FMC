@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.011"
+#define REVID "3.016"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -750,6 +750,7 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
 	syscon |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, B8_SYS_CON, syscon);
+	acq400wr32(adev, B8_DAC_CON, 0);
 	acq400wr32(adev, B8_DAC_CON, B8_DAC_CON_INIT);
 	adev->data32 = data_32b;
 	adev->nchan_enabled = 8;
@@ -3204,11 +3205,13 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	ao420_reset_fifo(adev);
 }
 
-#define DAC_FIFO_STA_ERR (ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_EMPTY)
+#define DAC_FIFO_STA_ERR (ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_ERR)
 
 void check_fiferr(struct acq400_dev* adev, unsigned fsr)
 {
 	u32 fifo_sta = acq400rd32(adev, fsr);
+
+	dev_dbg(DEVP(adev), "check_fiferr() fsr:%04x sta:%08x", fsr, fifo_sta);
 
 	if ((fifo_sta&ADC_FIFO_STA_ACTIVE) == 0){
 		return;
