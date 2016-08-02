@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.016"
+#define REVID "3.018"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -749,9 +749,12 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 {
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
 	syscon |= ADC_CTRL_MODULE_EN;
+
 	acq400wr32(adev, B8_SYS_CON, syscon);
-	acq400wr32(adev, B8_DAC_CON, 0);
 	acq400wr32(adev, B8_DAC_CON, B8_DAC_CON_INIT);
+	dev_info(DEVP(adev), "bolo8_init_defaults() B8_DAC_CON set:%x get:%x",
+			B8_DAC_CON_INIT, acq400rd32(adev, B8_DAC_CON));
+
 	adev->data32 = data_32b;
 	adev->nchan_enabled = 8;
 	adev->word_size = adev->data32? 4: 2;
@@ -2431,7 +2434,7 @@ void bolo_awg_commit(struct acq400_dev* adev)
 	}
 	/* wavetop in shorts, starting from zero */
 	acq400wr32(adev, B8_DAC_WAVE_TOP, adev->bolo8.awg_buffer_cursor/sizeof(u16)-1);
-	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|DAC_CTRL_DAC_EN);
+	acq400wr32(adev, B8_DAC_CON, acq400rd32(adev, B8_DAC_CON)|B8_DAC_CON_ENA);
 }
 int bolo_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
