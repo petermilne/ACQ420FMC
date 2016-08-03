@@ -29,7 +29,7 @@ echo sites: $sites
 
 set.sys /dev/acq400.0.knobs/distributor 0
 set.sys /dev/acq400.0.knobs/data_engine_1 0
-set.sys /dev/acq400.0.knobs/data_engine_1 aggregator=1 
+set.sys /dev/acq400.0.knobs/data_engine_1 distributor=1 
 set.sys /dev/acq400.0.knobs/distributor threshold=16384 sites=${sitelist}
 echo 1 > /etc/acq400/0/play0_ready
 
