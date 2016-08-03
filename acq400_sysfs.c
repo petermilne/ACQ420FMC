@@ -3238,6 +3238,7 @@ int get_agg_threshold_bytes(struct acq400_dev *adev, u32 agg)
 }
 
 #define AGG_SEL	"aggregator="
+#define DIST_SEL "distributor="
 #define TH_SEL	"threshold="
 
 static ssize_t show_agg_reg(
@@ -3269,7 +3270,8 @@ static ssize_t show_agg_reg(
 		sprintf(mod_group, "sites=none");
 	}
 	if (mshift == DATA_ENGINE_MSHIFT){
-		sprintf(mod_group+strlen(mod_group), " %s%d", AGG_SEL,
+		sprintf(mod_group+strlen(mod_group), " %s%d",
+				offset==DATA_ENGINE_1? DIST_SEL: AGG_SEL,
 				regval&DATA_ENGINE_SELECT_AGG? 1: 0);
 	}else if(mshift == AGGREGATOR_MSHIFT){
 		sprintf(mod_group+strlen(mod_group), " %s%d", TH_SEL,
@@ -3453,18 +3455,24 @@ static ssize_t store_agg_reg(
 		pass = 1;
 	}
 	if (mshift == DATA_ENGINE_MSHIFT){
-		char *agg_sel = strstr(buf, AGG_SEL);
-		if (agg_sel){
-			int include_agg = 0;
-			if (sscanf(agg_sel, AGG_SEL"%d", &include_agg) == 1){
-				unsigned regval = acq400rd32(adev, offset);
-				if (include_agg){
-					regval |= DATA_ENGINE_SELECT_AGG;
-				}else{
-					regval &= ~DATA_ENGINE_SELECT_AGG;
+		char *sel = strstr(buf, offset==DATA_ENGINE_1? DIST_SEL: AGG_SEL);
+
+		if (sel){
+			char *pv = strchr(sel, '=');
+			if (pv == 0){
+				dev_err(dev, "ERROR: %s %d", __FILE__, __LINE__);
+			}else{
+				int include_agg = 0;
+				if (sscanf(pv+1, "%d", &include_agg) == 1){
+					unsigned regval = acq400rd32(adev, offset);
+					if (include_agg){
+						regval |= DATA_ENGINE_SELECT_AGG;
+					}else{
+						regval &= ~DATA_ENGINE_SELECT_AGG;
+					}
+					acq400wr32(adev, offset, regval);
+					pass = 1;
 				}
-				acq400wr32(adev, offset, regval);
-				pass = 1;
 			}
 		}
 	}else if (mshift == AGGREGATOR_MSHIFT){

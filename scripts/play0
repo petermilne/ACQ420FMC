@@ -1,0 +1,38 @@
+#!/bin/sh
+# configures site 0 distributor.
+# usage: play0 site1[,site2,..]
+
+spad2nchan() {
+	mode=$1
+	nwords=$2
+	case $mode in
+	0)
+		echo 0;;
+	1)
+		echo $nwords;;
+	2)
+		echo 1;;
+	esac
+}
+
+if [ "x$1" = "x" ]; then
+	source /etc/sites
+	sitelist=$sites
+	echo using default sitelist $sitelist
+else
+	sitelist=$1
+fi
+sites="$(echo $sitelist | tr , \ )"
+
+echo sitelist: $sitelist
+echo sites: $sites
+
+set.sys /dev/acq400.0.knobs/distributor 0
+set.sys /dev/acq400.0.knobs/data_engine_1 0
+set.sys /dev/acq400.0.knobs/data_engine_1 aggregator=1 
+set.sys /dev/acq400.0.knobs/distributor threshold=16384 sites=${sitelist}
+echo 1 > /etc/acq400/0/play0_ready
+
+
+
+

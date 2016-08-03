@@ -609,7 +609,7 @@ echo ++ Enable analog power..
 set.sys /dev/gpio/15VA_EN 1
 		
 if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
-		set.sys /dev/acq400.0.knobs/celf_power_en 1	
+	set.sys /dev/acq400.0.knobs/celf_power_en 1	
 fi
 
 if [ -e /mnt/local/power ]; then
