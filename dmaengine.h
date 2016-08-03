@@ -33,6 +33,10 @@ enum dma_ctrl_flags_dt {
 	DMA_CHANNEL_EV0	= (0xf << 12)		/* Event : 1:15 */
 };
 
+/* need a nonzero value .. */
+#define PRI_TO_CTRL_FLAGS(pri) ((pri)+1)
+#define CTRL_FLAGS_TO_PRI(flg) ((flg)-1)
+
 
 /**
  * dma_cookie_init - initialize the cookies for a DMA channel

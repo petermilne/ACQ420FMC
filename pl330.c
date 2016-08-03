@@ -1388,10 +1388,10 @@ static inline int _loop(unsigned dry_run, u8 buf[],
 	 *
 	 */
 	if (pxs->r->cfg->ends_flushp){
-		off += _emit_FLUSHP(dry_run, &buf[off], pxs->r->cfg->ends_flushp-1);
+		off += _emit_FLUSHP(dry_run, &buf[off], CTRL_FLAGS_TO_PRI(pxs->r->cfg->ends_flushp));
 	}
 	if (pxs->r->cfg->starts_wfp){
-		off += _emit_WFP(dry_run, &buf[off], ALWAYS, pxs->r->cfg->starts_wfp-1);
+		off += _emit_WFP(dry_run, &buf[off], ALWAYS, CTRL_FLAGS_TO_PRI(pxs->r->cfg->starts_wfp));
 	}
 
 	off += _emit_LP(dry_run, &buf[off], 1, lcnt1);

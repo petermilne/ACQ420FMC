@@ -260,14 +260,22 @@ const char* acq400_devnames[] = {
 #define ACQ420_BUFFERLEN frontside_bufferlen
 
 /* SC uses DMA with peripheral control */
-#define PGM_E 	8		/* use this event (and +1) 	*/
-#define PGM_P	1		/* use this peripheral 		*/
+#define SC_PRI	0		/* use this peripheral 		*/
+#define SC_EV	8		/* use this event (and +1) 	*/
 
 #define DMA_SC_FLAGS \
-	(PGM_E << DMA_CHANNEL_EV0_SHL        | \
-	 PGM_P << DMA_CHANNEL_STARTS_WFP_SHL | \
-	 PGM_P << DMA_CHANNEL_ENDS_FLUSHP_SHL)
+	(SC_EV << DMA_CHANNEL_EV0_SHL        | \
+	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_STARTS_WFP_SHL | \
+	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_ENDS_FLUSHP_SHL)
 
+/* DS0 uses DMA with peripheral control */
+#define DS0_PRI	1
+#define DS0_EV	10
+
+#define DMA_DS0_FLAGS \
+	(DS0_EV << DMA_CHANNEL_EV0_SHL        | \
+	 PRI_TO_CTRL_FLAGS(DS0_PRI) << DMA_CHANNEL_STARTS_WFP_SHL | \
+	 PRI_TO_CTRL_FLAGS(DS0_PRI) << DMA_CHANNEL_ENDS_FLUSHP_SHL)
 
 int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
