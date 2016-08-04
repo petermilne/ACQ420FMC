@@ -16,6 +16,9 @@ obj-m += acq400_dspfs.o
 obj-m += xilinx_axidma.o
 obj-m += pigcelf.o
 obj-m += dmadescfs.o
+obj-m += radcelf.o
+obj-m += ad9854.o
+obj-m += ad9512.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
@@ -39,6 +42,8 @@ mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o
 acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
 
 pigcelf-objs := pigcelf_drv.o zynq_peripheral_spi_shim.o
+
+radcelf-objs := radcelf_drv.o zynq_peripheral_spi_shim.o
 
 acq400t-objs := acq400t_drv.o
 
