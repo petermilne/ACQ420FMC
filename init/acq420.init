@@ -388,22 +388,29 @@ build_mgt400() {
 	name=$(cat $1/name)
 	site=$(cat $1/site)
 	web_append ${name} ${site}
-	ln -s $1  /dev/acq400.${site}.knobs
+	knobs=/dev/acq400.${site}.knobs
+	ln -s $1  $knobs
 	mkdir /etc/acq400/${site}
 
-	ln -s /dev/acq400.${site}.knobs/* /etc/acq400/${site}
+	ln -s $knobs/* /etc/acq400/${site}
 	ch=$(cat /etc/acq400/${site}/name )
 	ch=${ch#*.}
 	
-	ln -s /dev/acq400.${site}.knobs /dev/acq400.${ch}.knobs
+	ln -s $knobs /dev/acq400.${ch}.knobs
 	ln -s /etc/acq400/${site} /etc/acq400/${ch}
 	
 	let snd="1${SN##CE4??}-10000"
 	snx=$(printf "%04x" $snd)
-	echo set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${snx}
-	set.sys /dev/acq400.${site}.knobs/ident 0x21${name##*.}6${snx}  
-	
-	build_mgt400_node $(cat /dev/acq400.${site}.knobs/name /dev/acq400.${site}.knobs/dev)
+        let mtyp=${dtsn#CE*}/10000
+        case $mtyp in
+        416)
+                echo set.sys $knobs/ident 0x21${name##*.}6${snx}
+                set.sys $knobs/ident 0x21${name##*.}6${snx}  ;;
+        *)
+                set.sys $knobs/ident 0x${mtyp}${name##*.}${snx};;
+        esac
+
+	build_mgt400_node $(cat $knobs/name $knobs/dev)
 }
 
 build_knobs() {
