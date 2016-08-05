@@ -1,7 +1,5 @@
 /* ------------------------------------------------------------------------- */
-/* ad9854.c ACQ420_FMC						     */
-/* ------------------------------------------------------------------------- */
-/* ad9854.c  D-TACQ ACQ400 FMC  DRIVER                                   
+/* ad9854.c  DDS  DRIVER
  * Project: ACQ420_FMC
  * Created: 4 Aug 2016  			/ User: pgm
  * ------------------------------------------------------------------------- *
@@ -30,6 +28,7 @@
  *
 
 NB: with the serial interface, addresses are by REGISTER, not by BYTE
+
 SO: Serial offset or register offset
 Len: length in bytes
 Knob: linux virtual file "knob name"
