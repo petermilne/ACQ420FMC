@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.019"
+#define REVID "3.028"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -245,6 +245,9 @@ int histo_poll_ms = 10;
 module_param(histo_poll_ms, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
 
+int xo_use_distributor;
+module_param(xo_use_distributor, int, 0644);
+MODULE_PARM_DESC(xo_use_distributor, "use distributor and PRI for XO transfer";)
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -265,6 +268,7 @@ const char* acq400_devnames[] = {
 
 #define DMA_SC_FLAGS \
 	(SC_EV << DMA_CHANNEL_EV0_SHL        | \
+	 DMA_SRC_NO_INCR | \
 	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_STARTS_WFP_SHL | \
 	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_ENDS_FLUSHP_SHL)
 
@@ -274,8 +278,14 @@ const char* acq400_devnames[] = {
 
 #define DMA_DS0_FLAGS \
 	(DS0_EV << DMA_CHANNEL_EV0_SHL        | \
+	 DMA_DST_NO_INCR | \
 	 PRI_TO_CTRL_FLAGS(DS0_PRI) << DMA_CHANNEL_STARTS_WFP_SHL | \
 	 PRI_TO_CTRL_FLAGS(DS0_PRI) << DMA_CHANNEL_ENDS_FLUSHP_SHL)
+
+
+#define DMA_TIMEOUT 		msecs_to_jiffies(10000)
+/* first time : infinite timeout .. we probably won't live this many jiffies */
+#define START_TIMEOUT		0x7fffffff
 
 int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
@@ -999,8 +1009,9 @@ static void _ao420_onStop(struct acq400_dev *adev)
 static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
 
-	if (adev->AO_playloop.one_shot == 0 ||
-			adev->AO_playloop.length > adev->lotide){
+	if (!xo_use_distributor &&
+	    (adev->AO_playloop.one_shot == 0 ||
+			adev->AO_playloop.length > adev->lotide)){
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
@@ -1113,27 +1124,30 @@ void acq400_dma_callback(void *param)
 }
 
 dma_cookie_t
-dma_async_memcpy_pa_to_buf(
-		struct acq400_dev* adev,
-		struct dma_chan *chan, struct HBM *dest,
-		dma_addr_t dma_src, size_t len, unsigned long flags)
+dma_async_memcpy_callback(
+	struct dma_chan *chan,
+	dma_addr_t dma_dst, dma_addr_t dma_src,
+	size_t len, unsigned long flags,
+	dma_async_tx_callback callback,
+	void *callback_param)
 {
 	struct dma_device *dev = chan->device;
 	struct dma_async_tx_descriptor *tx;
-	flags |= DMA_SRC_NO_INCR | DMA_CTRL_ACK;
+	flags |=  DMA_CTRL_ACK;
 
 	DMA_NS;
 	dev_dbg(dev->dev, "dev->prep_dma_memcpy %d 0x%08x 0x%08x %d %08lx",
-			chan->chan_id, dest->pa, dma_src, len, flags);
-	tx = dev->device_prep_dma_memcpy(chan, dest->pa, dma_src, len, flags);
+			chan->chan_id, dma_dst, dma_src, len, flags);
+	tx = dev->device_prep_dma_memcpy(chan, dma_dst, dma_src, len, flags);
 
 	DMA_NS;
 	if (!tx) {
+		dev_err(dev->dev, "prep failed");
 		return -ENOMEM;
 	} else{
 		dma_cookie_t cookie;
-		tx->callback = acq400_dma_callback;
-		tx->callback_param = adev;
+		tx->callback = callback;
+		tx->callback_param = callback_param;
 		cookie = tx->tx_submit(tx);
 		dev_dbg(dev->dev, "submit(%d) done %x", chan->chan_id, cookie);
 		DMA_NS;
@@ -1379,8 +1393,10 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 	if (adev->dma_chan[ic] == 0){
 		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
 					adev, adev->pdev->dev.id);
+	}else{
+		dev_dbg(DEVP(adev), "dma chan[%d] selected: %d",
+				ic, adev->dma_chan[ic]->chan_id);
 	}
-	dev_dbg(DEVP(adev), "dma channel selected: %d", adev->dma_chan[ic]->chan_id);
 	return adev->dma_chan[ic] == 0 ? -1: 0;
 }
 
@@ -1395,7 +1411,12 @@ int get_dma_channels(struct acq400_dev *adev)
 		dev_info(DEVP(adev), "axi_dma not using standard driver");
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
-		return _get_dma_chan(adev, 0);
+		if (xo_use_distributor){
+			int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
+			return rc;
+		}else{
+			return _get_dma_chan(adev, 0);
+		}
 	}else{
 		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
 		return rc;
@@ -3398,6 +3419,110 @@ void xo400_getDMA(struct acq400_dev* adev)
 	}
 }
 
+int ao_samples_per_hb(struct acq400_dev *adev)
+{
+	// @@todo valid single DIO432 ONLY!
+	return 0x100000 / sizeof(unsigned);
+}
+int xo_data_loop(void *data)
+{
+	static const unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
+	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	struct HBM** hbm = acq400_devices[0]->hb;
+	int ic = 0;
+	int ib = 0;
+	unsigned cursor = 0;
+	long dma_timeout = START_TIMEOUT;
+
+#define DMA_ASYNC_PUSH(adev, chan, hbm) \
+	dma_async_memcpy_callback(adev->dma_chan[chan], \
+			FIFO_PA(adev), hbm->pa, acq400_devices[0]->bufferlen, \
+			DMA_DS0_FLAGS|wflags[chan]|sflags[chan], \
+			acq400_dma_callback, adev)
+#define DMA_ASYNC_PUSH_NWFE(adev, chan, hbm) \
+	dma_async_memcpy_callback(adev->dma_chan[chan], \
+			FIFO_PA(adev), hbm->pa, acq400_devices[0]->bufferlen, \
+			DMA_DS0_FLAGS|sflags[chan], \
+			acq400_dma_callback, adev)
+
+	/* prime the DMAC with buffers 0 and 1 ready to go.
+	 * 0 starts filling right away
+	 * */
+	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm[ib++]);
+	adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm[ib++]);
+
+	dma_async_issue_pending(adev->dma_chan[1]);
+	dma_async_issue_pending(adev->dma_chan[0]);
+
+	dev_dbg(DEVP(adev), "xo_data_loop() 01");
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
+
+	for(; cursor < adev->AO_playloop.length && !kthread_should_stop();
+			ic = !ic, dma_timeout = DMA_TIMEOUT){
+		if (wait_event_interruptible_timeout(
+				adev->DMA_READY,
+				adev->dma_callback_done || kthread_should_stop(),
+				dma_timeout) <= 0){
+			dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
+			goto quit;
+		}
+		--adev->dma_callback_done;
+		if (kthread_should_stop()){
+			goto quit;
+		}
+		if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
+			dev_err(DEVP(adev), "dma_sync_wait cursor:%d chan:%d timeout", cursor, ic);
+			goto quit;
+		}
+
+		cursor += ao_samples_per_hb(adev);
+		if (cursor < adev->AO_playloop.length){
+			adev->dma_cookies[ic] = DMA_ASYNC_PUSH(adev, ic, hbm[ib++]);
+			dma_async_issue_pending(adev->dma_chan[ic]);
+		}
+		yield();
+	}
+
+quit:
+	adev->task_active = 0;
+	dev_dbg(DEVP(adev), "xo_data_loop() 99");
+	return 0;
+}
+
+void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
+{
+	/* adev is the site (1?) adev. so wtask is dedicated to xo */
+	/* @@todo start stop feeder loop */
+	if (enable){
+		adev->w_task = kthread_run(
+			xo_data_loop, adev,
+			"%s.xo", devname(adev));
+	}else{
+		if (adev->task_active && adev->w_task != 0){
+			kthread_stop(adev->w_task);
+		}
+	}
+}
+
+void xo_fix_ll(struct acq400_dev* adev, unsigned playloop_length)
+{
+	unsigned cr = acq400rd32(adev, DAC_CTRL);
+
+	if (playloop_length == 0){
+		if ((cr&DAC_CTRL_LL) == 0){
+			cr |= DAC_CTRL_LL;
+			acq400wr32(adev, DAC_CTRL, cr);
+		}
+	}else{
+		if ((cr&DAC_CTRL_LL) != 0){
+			cr &= ~DAC_CTRL_LL;
+			acq400wr32(adev, DAC_CTRL, cr);
+		}
+
+	}
+}
 
 void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
@@ -3409,23 +3534,17 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 					adev->AO_playloop.length);
 	_ao420_stop(adev);
 
+	if (xo_use_distributor){
+		xo400_distributor_feeder_control(adev, 0);
+	}
 	mutex_unlock(&adev->awg_mutex);
 
-	{
-		unsigned cr = acq400rd32(adev, DAC_CTRL);
-
-		if (playloop_length == 0){
-			if ((cr&DAC_CTRL_LL) == 0){
-				cr |= DAC_CTRL_LL;
-				acq400wr32(adev, DAC_CTRL, cr);
-			}
-		}else{
-			if ((cr&DAC_CTRL_LL) != 0){
-				cr &= ~DAC_CTRL_LL;
-				acq400wr32(adev, DAC_CTRL, cr);
-			}
-		}
+	while(adev->task_active){
+		dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+		msleep(100);
 	}
+
+	xo_fix_ll(adev, playloop_length);
 
 	if (playloop_length != 0){
 		if (IS_DIO432X(adev)){
@@ -3437,18 +3556,23 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 			dev_err(DEVP(adev), "ERROR: FIFO not EMPTY at start fill %d",
 					adev->xo.getFifoSamples(adev));
 		}
-		xo400_fill_fifo(adev);
-		ao420_clear_fifo_flags(adev);
+		if (xo_use_distributor){
+			xo400_distributor_feeder_control(adev, 1);
+		}else{
+			xo400_fill_fifo(adev);
+			ao420_clear_fifo_flags(adev);
+		}
 
+		while(!adev->task_active){
+			dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+			msleep(100);
+		}
 		adev->onStart(adev);
 	}
 }
 
 
 
-#define DMA_TIMEOUT 		msecs_to_jiffies(10000)
-/* first time : infinite timeout .. we probably won't live this many jiffies */
-#define START_TIMEOUT		0x7fffffff
 
 
 int check_fifo_statuses(struct acq400_dev *adev)
@@ -3761,11 +3885,15 @@ int ai_data_loop(void *data)
 	struct HBM* hbm1;
 
 #define DMA_ASYNC_MEMCPY(adev, chan, hbm) \
-	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
-			FIFO_PA(adev), adev->bufferlen, DMA_SC_FLAGS|wflags[chan]|sflags[chan])
+	dma_async_memcpy_callback(adev->dma_chan[chan], hbm->pa, \
+			FIFO_PA(adev), adev->bufferlen, \
+			DMA_SC_FLAGS|wflags[chan]|sflags[chan], \
+			acq400_dma_callback, adev)
 #define DMA_ASYNC_MEMCPY_NWFE(adev, chan, hbm) \
-	dma_async_memcpy_pa_to_buf(adev, adev->dma_chan[chan], hbm, \
-			FIFO_PA(adev), adev->bufferlen, DMA_SC_FLAGS|sflags[chan])
+	dma_async_memcpy_callback(adev->dma_chan[chan], hbm->pa, \
+			FIFO_PA(adev), adev->bufferlen, \
+			DMA_SC_FLAGS|sflags[chan], \
+			acq400_dma_callback, adev)
 
 
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
