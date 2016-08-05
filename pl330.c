@@ -2829,8 +2829,15 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	int burst;
 	unsigned ev0 = (flags&DMA_CHANNEL_EV0) >> DMA_CHANNEL_EV0_SHL;
 
-	if (unlikely(!pch || !len))
+	if (unlikely(!pch)){
+		dev_err(0, "%s %d", __FILE__, __LINE__);
 		return NULL;
+	}
+	if (unlikely(!len)){
+		dev_err(0, "%s %d", __FILE__, __LINE__);
+		return NULL;
+	}
+
 
 	pi = &pch->dmac->pif;
 
