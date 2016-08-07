@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.029"
+#define REVID "3.031"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -852,11 +852,12 @@ void acq2006_aggregator_reset(struct acq400_dev *adev)
 	acq400rd32(adev, AGGREGATOR);
 }
 
-void acq2006_data_engine0_reset_enable(struct acq400_dev *adev)
+void sc_data_engine_reset_enable(unsigned dex)
 {
-	u32 DE0 = acq400rd32(adev, DATA_ENGINE_0);
-	acq400wr32(adev, DATA_ENGINE_0, DE0 &= ~(DE_ENABLE));
-	acq400wr32(adev, DATA_ENGINE_0, DE0 | DE_ENABLE);
+	struct acq400_dev *adev = acq400_devices[0];
+	u32 DEX = acq400rd32(adev, dex);
+	acq400wr32(adev, dex, DEX &= ~(DE_ENABLE));
+	acq400wr32(adev, dex, DEX | DE_ENABLE);
 }
 void acq2006_aggregator_enable(struct acq400_dev *adev)
 {
@@ -1568,7 +1569,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 	acq2006_aggregator_reset(adev);				/* (1) */
-	acq2006_data_engine0_reset_enable(adev);		/* (2) */
+	sc_data_engine_reset_enable(DATA_ENGINE_0);	/* (2) */
 
 	if (agg_reset_dbg) dev_info(DEVP(adev), "start dma");
 	rc =_acq420_continuous_start_dma(adev);			/* (3) */
@@ -3463,6 +3464,7 @@ int xo_data_loop(void *data)
 
 	dev_dbg(DEVP(adev), "xo_data_loop() 01");
 	go_rt(MAX_RT_PRIO-4);
+	sc_data_engine_reset_enable(DATA_ENGINE_1);
 	adev->task_active = 1;
 
 	for(; cursor < adev->AO_playloop.length && !kthread_should_stop();
@@ -3564,15 +3566,16 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		}
 		if (xo_use_distributor){
 			xo400_distributor_feeder_control(adev, 1);
+			while(!adev->task_active){
+				dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+				msleep(100);
+			}
 		}else{
 			xo400_fill_fifo(adev);
 			ao420_clear_fifo_flags(adev);
 		}
 
-		while(!adev->task_active){
-			dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
-			msleep(100);
-		}
+
 		adev->onStart(adev);
 	}
 }
