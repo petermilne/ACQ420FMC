@@ -62,7 +62,7 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 
 #include <linux/spi/spi.h>
 
-#define REVID	"1"
+#define REVID	"3"
 
 
 #define POTW1_OFF	0
@@ -91,8 +91,71 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 #define SKRR_LEN	1
 #define QDACR_LEN	2
 
+#define MAX_OFF		11
+#define MAX_DATA	6
+#define ADDR_MASK	0x0f
 
 
+#define AD9854RnW	0x80
+
+int dummy_device;
+module_param(dummy_device, int, 0644);
+
+static int dummy_spi_write_then_read(
+	struct device * dev,
+	const void *txbuf, unsigned n_tx, void *rxbuf, unsigned n_rx)
+{
+	static char mirror[MAX_OFF][MAX_DATA];	/** @todo one mirror for all devs? */
+	const char* txb = (const char*)txbuf;
+	char *rxb = (char*)rxbuf;
+	int addr = txb[0]&ADDR_MASK;
+	int is_read = (txb[0]&AD9854RnW) != 0;
+	if (addr > MAX_OFF){
+		dev_err(dev, "ERROR bad addr > MAX_OFF");
+		return -1;
+	}
+	++txb;
+	if (is_read){
+		dev_dbg(dev, "read %d: %02x %02x .. ", n_rx, mirror[addr][0], mirror[addr][1]);
+		memcpy(rxb, mirror[addr], n_rx);
+	}else{
+		dev_dbg(dev, "write %d: %02x %02x .. ", n_tx-1, txb[0], txb[1]);
+		memcpy(mirror[addr], txb, n_tx-1);
+	}
+	return 0;
+}
+
+static int ad9854_spi_write_then_read(
+	struct device * dev, const void *txbuf, unsigned n_tx,
+	void *rxbuf, unsigned n_rx)
+{
+	if (dummy_device){
+		return dummy_spi_write_then_read(dev, txbuf, n_tx, rxbuf, n_rx);
+	}else{
+		return spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, n_rx);
+	}
+}
+
+int get_hex_bytes(const char* buf, char* data, int maxdata)
+{
+	char tmp[4] = {};
+	const char* cursor = buf;
+	int it;
+	int id = 0;
+
+	for (it = 0; id < maxdata && *cursor; it = !it, ++cursor){
+		tmp[it] = *cursor;
+		if (it == 1){
+			if (kstrtou8(tmp, 16, &data[id]) == 0){
+				++id;
+			}else{
+				dev_err(0, "kstrtou8 returns error on \"%s\"", tmp);
+				return id;
+			}
+		}
+	}
+	return id;
+}
 static ssize_t store_multibytes(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -100,16 +163,48 @@ static ssize_t store_multibytes(
 	size_t count,
 	const int REG, const int LEN)
 {
-	dev_info(dev, "store_multibytes REG:%d LEN:%d", REG, LEN);
+	char data[MAX_DATA+1];
+
+	dev_info(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
+
+	if (get_hex_bytes(buf, data+1, MAX_DATA) == LEN){
+		data[0] = REG;
+		dev_info(dev, "data: %02x %02x%02x%02x%02x%02x%02x",
+				data[0],data[1],data[2],data[3],data[4],data[5],data[6]);
+		if (ad9854_spi_write_then_read(dev, data, LEN+1, 0, 0) == 0){
+			return count;
+		}else{
+			dev_err(dev, "ad9854_spi_write_then_read failed");
+			return -1;
+		}
+	}else{
+		dev_err(dev, "store_multibytes %d bytes needed", LEN);
+		return -1;
+	}
+
 	return 0;
 }
-static ssize_t show_multibytes(	struct device * dev,
+static ssize_t show_multibytes(
+	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
 	const int REG, const int LEN)
 {
+	char cmd = REG|AD9854RnW;
+	char data[MAX_DATA];
+
 	dev_info(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
-	return 1;
+	if (ad9854_spi_write_then_read(dev, &cmd, 1, data, LEN) == 0){
+		int ib;
+		char* cursor = buf;
+		for (ib = 0; ib < LEN; ++ib){
+			cursor += sprintf(cursor, "%02x", data[ib]);
+		}
+		strcat(cursor, "\n");
+		return strlen(buf);
+	}else{
+		return -1;
+	}
 }
 
 #define AD9854_REG(name) 						\
@@ -197,7 +292,7 @@ static int __init ad9854_init(void)
 {
         int status = 0;
 
-	printk("D-TACQ ACQ480 Driver %s\n", REVID);
+	printk("D-TACQ AD9854 DDS serial driver %s\n", REVID);
 
 	spi_register_driver(&ad9854_spi_driver);
 

@@ -70,7 +70,7 @@ static int __init ad9512_init(void)
 {
         int status = 0;
 
-	printk("D-TACQ ACQ480 Driver %s\n", REVID);
+	printk("D-TACQ AD9512 spi driver %s\n", REVID);
 
 	spi_register_driver(&ad98512_spi_driver);
 
