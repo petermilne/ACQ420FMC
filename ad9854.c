@@ -64,8 +64,108 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 
 #define REVID	"1"
 
+
+#define POTW1	0
+#define POTW2	1
+#define FTW1	2
+#define FTW2	3
+#define DFR	4
+#define UCR	5
+#define RRCR	6
+#define CR	7
+#define IPDMR	8
+#define QPDMR	9
+#define SKRR	10
+#define QDACR	11
+
+#define POTW1_LEN	2
+#define POTW2_LEN	2
+#define FTW1_LEN	6
+#define FTW2_LEN	6
+#define DFR_LEN		6
+#define UCR_LEN		4
+#define RRCR_LEN	3
+#define CR_LEN		4
+#define IPDMR_LEN	2
+#define QPDMR_LEN	2
+#define SKRR_LEN	1
+#define DQACR_LEN	2
+
+
+
+static ssize_t store_multibytes(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int REG, const int LEN)
+{
+	return 0;
+}
+static ssize_t show_multibytes(	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int REG, const int LEN)
+{
+	return 1;
+}
+
+#define AD9854_REG(name) 						\
+static ssize_t show_##name(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char* buf)							\
+{									\
+	return 0;							\
+}									\
+static ssize_t store_##name(						\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	const char* buf,						\
+	size_t count)							\
+{									\
+	return 0;							\
+}									\
+static DEVICE_ATTR( r##name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+
+AD9854_REG(POTW1);
+AD9854_REG(POTW2);
+AD9854_REG(FTW1);
+AD9854_REG(FTW2);
+AD9854_REG(DFR);
+AD9854_REG(UCR);
+AD9854_REG(RRCR);
+AD9854_REG(CR);
+AD9854_REG(IPDMR);
+AD9854_REG(QPDMR);
+AD9854_REG(SKRR);
+AD9854_REG(QDACR);
+
+
+
+
+const struct attribute *ad9854_attrs[] = {
+	&dev_attr_rPOTW1.attr,
+	&dev_attr_rPOTW2.attr,
+	&dev_attr_rFTW1.attr,
+	&dev_attr_rFTW2.attr,
+	&dev_attr_rDFR.attr,
+	&dev_attr_rUCR.attr,
+	&dev_attr_rRRCR.attr,
+	&dev_attr_rCR.attr,
+	&dev_attr_rIPDMR.attr,
+	&dev_attr_rQPDMR.attr,
+	&dev_attr_rSKRR.attr,
+	&dev_attr_rQDACR.attr,
+	0
+};
 static int ad9854_probe(struct spi_device *spi)
 {
+	struct device *dev = &spi->dev;
+	if (sysfs_create_files(&dev->kobj, ad9854_attrs)){
+		dev_err(dev, "ad9854_probe() failed to create knobs");
+		return -1;
+	}
 	return 0;
 }
 static int ad9854_remove(struct spi_device *spi)
