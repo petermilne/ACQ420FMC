@@ -65,18 +65,18 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 #define REVID	"1"
 
 
-#define POTW1	0
-#define POTW2	1
-#define FTW1	2
-#define FTW2	3
-#define DFR	4
-#define UCR	5
-#define RRCR	6
-#define CR	7
-#define IPDMR	8
-#define QPDMR	9
-#define SKRR	10
-#define QDACR	11
+#define POTW1_OFF	0
+#define POTW2_OFF	1
+#define FTW1_OFF	2
+#define FTW2_OFF	3
+#define DFR_OFF		4
+#define UCR_OFF		5
+#define RRCR_OFF	6
+#define CR_OFF		7
+#define IPDMR_OFF	8
+#define QPDMR_OFF	9
+#define SKRR_OFF	10
+#define QDACR_OFF	11
 
 #define POTW1_LEN	2
 #define POTW2_LEN	2
@@ -89,7 +89,7 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 #define IPDMR_LEN	2
 #define QPDMR_LEN	2
 #define SKRR_LEN	1
-#define DQACR_LEN	2
+#define QDACR_LEN	2
 
 
 
@@ -100,6 +100,7 @@ static ssize_t store_multibytes(
 	size_t count,
 	const int REG, const int LEN)
 {
+	dev_info(dev, "store_multibytes REG:%d LEN:%d", REG, LEN);
 	return 0;
 }
 static ssize_t show_multibytes(	struct device * dev,
@@ -107,6 +108,7 @@ static ssize_t show_multibytes(	struct device * dev,
 	char * buf,
 	const int REG, const int LEN)
 {
+	dev_info(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
 	return 1;
 }
 
@@ -116,7 +118,7 @@ static ssize_t show_##name(						\
 	struct device_attribute *attr,					\
 	char* buf)							\
 {									\
-	return 0;							\
+	return show_multibytes(dev, attr, buf, name##_OFF, name##_LEN);	\
 }									\
 static ssize_t store_##name(						\
 	struct device *dev,						\
@@ -124,9 +126,9 @@ static ssize_t store_##name(						\
 	const char* buf,						\
 	size_t count)							\
 {									\
-	return 0;							\
+	return store_multibytes(dev, attr, buf, count, name##_OFF, name##_LEN);\
 }									\
-static DEVICE_ATTR( r##name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
 
 AD9854_REG(POTW1);
 AD9854_REG(POTW2);
@@ -145,18 +147,18 @@ AD9854_REG(QDACR);
 
 
 const struct attribute *ad9854_attrs[] = {
-	&dev_attr_rPOTW1.attr,
-	&dev_attr_rPOTW2.attr,
-	&dev_attr_rFTW1.attr,
-	&dev_attr_rFTW2.attr,
-	&dev_attr_rDFR.attr,
-	&dev_attr_rUCR.attr,
-	&dev_attr_rRRCR.attr,
-	&dev_attr_rCR.attr,
-	&dev_attr_rIPDMR.attr,
-	&dev_attr_rQPDMR.attr,
-	&dev_attr_rSKRR.attr,
-	&dev_attr_rQDACR.attr,
+	&dev_attr_POTW1.attr,
+	&dev_attr_POTW2.attr,
+	&dev_attr_FTW1.attr,
+	&dev_attr_FTW2.attr,
+	&dev_attr_DFR.attr,
+	&dev_attr_UCR.attr,
+	&dev_attr_RRCR.attr,
+	&dev_attr_CR.attr,
+	&dev_attr_IPDMR.attr,
+	&dev_attr_QPDMR.attr,
+	&dev_attr_SKRR.attr,
+	&dev_attr_QDACR.attr,
 	0
 };
 static int ad9854_probe(struct spi_device *spi)
