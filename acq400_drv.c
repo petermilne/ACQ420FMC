@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.028"
+#define REVID "3.029"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3425,11 +3425,17 @@ int ao_samples_per_hb(struct acq400_dev *adev)
 	return 0x100000 / sizeof(unsigned);
 }
 int xo_data_loop(void *data)
+/** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
+ * actually associated with the master site
+ * (usually 1, where playloop_length is set)
+ * hence: adev: master site, adev0: distributor access.
+ */
 {
 	static const unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
 	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
 	struct acq400_dev *adev = (struct acq400_dev *)data;
-	struct HBM** hbm = acq400_devices[0]->hb;
+	struct acq400_dev *adev0 = acq400_devices[0];
+	struct HBM** hbm = adev0->hb;
 	int ic = 0;
 	int ib = 0;
 	unsigned cursor = 0;
@@ -3437,12 +3443,12 @@ int xo_data_loop(void *data)
 
 #define DMA_ASYNC_PUSH(adev, chan, hbm) \
 	dma_async_memcpy_callback(adev->dma_chan[chan], \
-			FIFO_PA(adev), hbm->pa, acq400_devices[0]->bufferlen, \
+			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|wflags[chan]|sflags[chan], \
 			acq400_dma_callback, adev)
 #define DMA_ASYNC_PUSH_NWFE(adev, chan, hbm) \
 	dma_async_memcpy_callback(adev->dma_chan[chan], \
-			FIFO_PA(adev), hbm->pa, acq400_devices[0]->bufferlen, \
+			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|sflags[chan], \
 			acq400_dma_callback, adev)
 
