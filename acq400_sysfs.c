@@ -4110,6 +4110,8 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_KMCx_SC(adev)){
 			specials = kmcx_sc_attrs;
 		}
+	}else if (IS_RAD_CELF(adev)){
+		;
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");

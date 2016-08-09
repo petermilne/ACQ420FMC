@@ -159,6 +159,7 @@
 #define MOD_ID_PMODGPS_FMC	0x66
 #define MOD_ID_V2F		0x67
 #define MOD_ID_PIG_CELF		0x68
+#define MOD_ID_RAD_CELF		0x69
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -785,6 +786,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
+#define IS_RAD_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_RAD_CELF)
 
 #define HAS_AI(adev) \
 	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || \
