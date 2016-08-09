@@ -3682,7 +3682,7 @@ static ssize_t store_dist_reg(
 		}
 		pass = 1;
 	}
-	if (mshift == AGGREGATOR_MSHIFT){
+	if (mshift == DIST_MSHIFT){
 		char *th_sel = strstr(buf, TH_SEL);
 		if (th_sel){
 			int thbytes = 0;

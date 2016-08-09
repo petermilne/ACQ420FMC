@@ -893,7 +893,7 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define DIST_COMMS_MASK		(0x3<<28)
 #define DIST_COMMS_A		(0x1<<28)
 #define DIST_COMMS_B		(0x2<<28)
-#define DIST_MSHIFT		18
+#define DIST_MSHIFT		AGGREGATOR_MSHIFT
 #define DIST_MOD_EN(s)		AGG_MOD_EN(s, DIST_MSHIFT)
 
 #define DIST_SPAD_EN		AGG_SPAD_EN
