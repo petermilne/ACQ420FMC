@@ -215,6 +215,16 @@ static ssize_t show_multibytes(
 	}
 }
 
+static ssize_t show_help(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int REG, const int LEN)
+{
+	return sprintf(buf, "%d %d\n", REG, LEN);
+}
+
+
 #define AD9512_REG(name) 						\
 static ssize_t show_##name(						\
 	struct device *dev,						\
@@ -222,6 +232,13 @@ static ssize_t show_##name(						\
 	char* buf)							\
 {									\
 	return show_multibytes(dev, attr, buf, name##_OFF, name##_LEN);	\
+}									\
+static ssize_t show_##name##_help(					\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char* buf)							\
+{									\
+	return show_help(dev, attr, buf, name##_OFF, name##_LEN);	\
 }									\
 static ssize_t store_##name(						\
 	struct device *dev,						\
@@ -231,7 +248,8 @@ static ssize_t store_##name(						\
 {									\
 	return store_multibytes(dev, attr, buf, count, name##_OFF, name##_LEN);\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name);	\
+static DEVICE_ATTR(_##name, S_IRUGO, show_##name##_help, 0);
 
 
 AD9512_REG(SCPC);
@@ -255,25 +273,25 @@ AD9512_REG(FUNPS);
 AD9512_REG(UPDATE);
 
 const struct attribute *ad9512_attrs[] = {
-	&dev_attr_SCPC.attr,
-	&dev_attr_DBP4.attr,
-	&dev_attr_DFS4.attr,
-	&dev_attr_DFA4.attr,
-	&dev_attr_LVPECL0.attr,
-	&dev_attr_LVPECL1.attr,
-	&dev_attr_LVPELC2.attr,
-	&dev_attr_LVDS3.attr,
-	&dev_attr_LVDS4.attr,
-	&dev_attr_CSPD.attr,
+	&dev_attr_SCPC.attr,	&dev_attr__SCPC.attr,
+	&dev_attr_DBP4.attr,	&dev_attr__DBP4.attr,
+	&dev_attr_DFS4.attr,	&dev_attr__DFS4.attr,
+	&dev_attr_DFA4.attr,	&dev_attr__DFA4.attr,
+	&dev_attr_LVPECL0.attr,	&dev_attr__LVPECL0.attr,
+	&dev_attr_LVPECL1.attr,	&dev_attr__LVPECL1.attr,
+	&dev_attr_LVPELC2.attr,	&dev_attr__LVPELC2.attr,
+	&dev_attr_LVDS3.attr,	&dev_attr__LVDS3.attr,
+	&dev_attr_LVDS4.attr,	&dev_attr__LVDS4.attr,
+	&dev_attr_CSPD.attr,	&dev_attr__CSPD.attr,
 
-	&dev_attr_DIV0.attr,
-	&dev_attr_DIV1.attr,
-	&dev_attr_DIV2.attr,
-	&dev_attr_DIV3.attr,
-	&dev_attr_DIV4.attr,
+	&dev_attr_DIV0.attr,	&dev_attr__DIV0.attr,
+	&dev_attr_DIV1.attr,	&dev_attr__DIV1.attr,
+	&dev_attr_DIV2.attr,	&dev_attr__DIV2.attr,
+	&dev_attr_DIV3.attr,	&dev_attr__DIV3.attr,
+	&dev_attr_DIV4.attr,	&dev_attr__DIV4.attr,
 
-	&dev_attr_FUNPS.attr,
-	&dev_attr_UPDATE.attr,
+	&dev_attr_FUNPS.attr,	&dev_attr__FUNPS.attr,
+	&dev_attr_UPDATE.attr,	&dev_attr__UPDATE.attr,
 	0
 };
 static int ad9512_probe(struct spi_device *spi)

@@ -207,6 +207,15 @@ static ssize_t show_multibytes(
 	}
 }
 
+static ssize_t show_help(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int REG, const int LEN)
+{
+	return sprintf(buf, "%d %d\n", REG, LEN);
+}
+
 #define AD9854_REG(name) 						\
 static ssize_t show_##name(						\
 	struct device *dev,						\
@@ -214,6 +223,13 @@ static ssize_t show_##name(						\
 	char* buf)							\
 {									\
 	return show_multibytes(dev, attr, buf, name##_OFF, name##_LEN);	\
+}									\
+static ssize_t show_##name##_help(					\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char* buf)							\
+{									\
+	return show_help(dev, attr, buf, name##_OFF, name##_LEN);	\
 }									\
 static ssize_t store_##name(						\
 	struct device *dev,						\
@@ -223,7 +239,8 @@ static ssize_t store_##name(						\
 {									\
 	return store_multibytes(dev, attr, buf, count, name##_OFF, name##_LEN);\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name);   \
+static DEVICE_ATTR(_##name, S_IRUGO, show_##name##_help, 0);
 
 AD9854_REG(POTW1);
 AD9854_REG(POTW2);
@@ -242,18 +259,18 @@ AD9854_REG(QDACR);
 
 
 const struct attribute *ad9854_attrs[] = {
-	&dev_attr_POTW1.attr,
-	&dev_attr_POTW2.attr,
-	&dev_attr_FTW1.attr,
-	&dev_attr_FTW2.attr,
-	&dev_attr_DFR.attr,
-	&dev_attr_UCR.attr,
-	&dev_attr_RRCR.attr,
-	&dev_attr_CR.attr,
-	&dev_attr_IPDMR.attr,
-	&dev_attr_QPDMR.attr,
-	&dev_attr_SKRR.attr,
-	&dev_attr_QDACR.attr,
+	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
+	&dev_attr_POTW2.attr, 	&dev_attr__POTW2.attr,
+	&dev_attr_FTW1.attr,  	&dev_attr__FTW1.attr,
+	&dev_attr_FTW2.attr,  	&dev_attr__FTW2.attr,
+	&dev_attr_DFR.attr,	&dev_attr__DFR.attr,
+	&dev_attr_UCR.attr,	&dev_attr__UCR.attr,
+	&dev_attr_RRCR.attr,	&dev_attr__RRCR.attr,
+	&dev_attr_CR.attr,	&dev_attr__CR.attr,
+	&dev_attr_IPDMR.attr,	&dev_attr__IPDMR.attr,
+	&dev_attr_QPDMR.attr,	&dev_attr__QPDMR.attr,
+	&dev_attr_SKRR.attr,	&dev_attr__SKRR.attr,
+	&dev_attr_QDACR.attr,	&dev_attr__QDACR.attr,
 	0
 };
 static int ad9854_probe(struct spi_device *spi)
