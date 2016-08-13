@@ -101,6 +101,41 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 int dummy_device;
 module_param(dummy_device, int, 0644);
 
+int idev;
+static struct proc_dir_entry *ad9854_proc_root;
+
+#define MAXDEV	8
+struct DEVLUT {
+	char devname[8];
+	struct spi_device *spi;
+};
+
+static struct DEVLUT devlut[MAXDEV];
+
+struct REGLUT {
+	const char* key;
+	int offset;
+	int len;
+};
+
+#define REGENT(key) { #key, key##_OFF, key##_LEN }
+
+struct REGLUT reglut[] = {
+		REGENT(POTW1),
+		REGENT(POTW2),
+		REGENT(FTW1),
+		REGENT(FTW2),
+		REGENT(DFR),
+		REGENT(UCR),
+		REGENT(RRCR),
+		REGENT(CR),
+		REGENT(IPDMR),
+		REGENT(QPDMR),
+		REGENT(SKRR),
+		REGENT(QDACR)
+};
+#define NREGENT	(sizeof(reglut)/sizeof(struct REGLUT))
+
 static int dummy_spi_write_then_read(
 	struct device * dev,
 	const void *txbuf, unsigned n_tx, void *rxbuf, unsigned n_rx)
@@ -188,7 +223,7 @@ static ssize_t show_multibytes(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const int REG, const int LEN)
+	const int REG, const int LEN, const char ENDL)
 {
 	char cmd = REG|AD9854RnW;
 	char data[MAX_DATA];
@@ -200,8 +235,8 @@ static ssize_t show_multibytes(
 		for (ib = 0; ib < LEN; ++ib){
 			cursor += sprintf(cursor, "%02x", data[ib]);
 		}
-		strcat(cursor, "\n");
-		return strlen(buf);
+		cursor += sprintf(cursor, "%c", ENDL);
+		return cursor - buf;
 	}else{
 		return -1;
 	}
@@ -222,7 +257,7 @@ static ssize_t show_##name(						\
 	struct device_attribute *attr,					\
 	char* buf)							\
 {									\
-	return show_multibytes(dev, attr, buf, name##_OFF, name##_LEN);	\
+	return show_multibytes(dev, attr, buf, name##_OFF, name##_LEN, '\n');	\
 }									\
 static ssize_t show_##name##_help(					\
 	struct device *dev,						\
@@ -256,8 +291,6 @@ AD9854_REG(SKRR);
 AD9854_REG(QDACR);
 
 
-
-
 const struct attribute *ad9854_attrs[] = {
 	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
 	&dev_attr_POTW2.attr, 	&dev_attr__POTW2.attr,
@@ -273,6 +306,115 @@ const struct attribute *ad9854_attrs[] = {
 	&dev_attr_QDACR.attr,	&dev_attr__QDACR.attr,
 	0
 };
+
+static void *ad9854_proc_seq_start(struct seq_file *s, loff_t *pos)
+{
+       if (*pos < NREGENT){
+        	return reglut+*pos;
+        }
+
+        return NULL;
+}
+
+
+static void *ad9854_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	if (++(*pos) < NREGENT){
+		return reglut+*pos;
+	}else{
+		return NULL;
+	}
+}
+
+static void ad9854_proc_seq_stop(struct seq_file *s, void *v)
+{
+}
+
+static int ad9854_proc_seq_show_raw(struct seq_file *s, void *v)
+{
+	struct REGLUT* prl = (struct REGLUT*)v;
+        int ii = (int)s->private;
+        char lbuf[64];
+        show_multibytes(&devlut[ii].spi->dev, 0, lbuf, prl->offset, prl->len, ' ');
+        seq_printf(s, "%s", lbuf);
+        return 0;
+}
+
+static int ad9854_proc_seq_show_rare(struct seq_file *s, void *v)
+{
+	struct REGLUT* prl = (struct REGLUT*)v;
+	int ii = (int)s->private;
+        char lbuf[64];
+        show_multibytes(&devlut[ii].spi->dev, 0, lbuf, prl->offset, prl->len, '\n');
+        seq_printf(s, "%s", lbuf);
+        return 0;
+}
+
+static int ad9854_proc_seq_show_full(struct seq_file *s, void *v)
+{
+	struct REGLUT* prl = (struct REGLUT*)v;
+	int ii = (int)s->private;
+        char lbuf[64];
+        show_multibytes(&devlut[ii].spi->dev, 0, lbuf, prl->offset, prl->len, '\n');
+        seq_printf(s, "%6s %x %s", prl->key, prl->offset, lbuf);
+        return 0;
+}
+static int initDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
+{
+	seq_open(file, seq_ops);
+	{
+		// @@todo hack .. assumes parent is the id .. could do better?
+		const char* dname = file->f_path.dentry->d_parent->d_iname;
+		int idev;
+
+		for (idev = 0; idev < MAXDEV; ++idev){
+			if (strcmp(dname, devlut[idev].devname) == 0){
+				((struct seq_file*)file->private_data)->private = (void*)idev;
+				return 0;
+			}
+		}
+
+	}
+	return -1;
+}
+#define PROC_OPEN(name) \
+static int ad9854_proc_open_##name(struct inode *inode, struct file *file) \
+{ \
+	static struct seq_operations seq_ops = { \
+	        .start = ad9854_proc_seq_start, \
+	        .next = ad9854_proc_seq_next, \
+	        .stop = ad9854_proc_seq_stop, \
+	        .show = ad9854_proc_seq_show_##name \
+	}; \
+	return initDevFromProcFile(file, &seq_ops); \
+} \
+
+PROC_OPEN(raw);
+PROC_OPEN(rare);
+PROC_OPEN(full);
+
+static int ad9854_procfs_init(struct spi_device *spi)
+{
+#define SFO(name) \
+	static struct file_operations ad9854_po_##name = { \
+	.owner = THIS_MODULE, \
+	.open = ad9854_proc_open_##name, \
+	.read = seq_read, .llseek = seq_lseek, .release = seq_release }
+
+SFO(raw);
+SFO(rare);
+SFO(full);
+	struct proc_dir_entry *proc_root;
+
+	sprintf(devlut[idev].devname, "dds%c", 'A'+idev);
+	proc_root = proc_mkdir(devlut[idev].devname, ad9854_proc_root);
+	devlut[idev].spi = spi;
+	proc_create("raw", 0, proc_root, &ad9854_po_raw);
+	proc_create("rare", 0, proc_root, &ad9854_po_rare);
+	proc_create("biencuite", 0, proc_root, &ad9854_po_full);
+	return 0;
+}
+
 static int ad9854_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
@@ -280,6 +422,12 @@ static int ad9854_probe(struct spi_device *spi)
 		dev_err(dev, "ad9854_probe() failed to create knobs");
 		return -1;
 	}
+	if (ad9854_procfs_init(spi)){
+		dev_err(dev, "ad9854_probe() procfs fail");
+		return -1;
+	}
+
+	++idev;
 	return 0;
 }
 static int ad9854_remove(struct spi_device *spi)
@@ -310,7 +458,7 @@ static int __init ad9854_init(void)
         int status = 0;
 
 	printk("D-TACQ AD9854 DDS serial driver %s\n", REVID);
-
+	ad9854_proc_root = proc_mkdir("driver/ad9854", 0);
 	spi_register_driver(&ad9854_spi_driver);
 
         return status;
