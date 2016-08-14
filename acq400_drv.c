@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.037"
+#define REVID "3.038"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3539,9 +3539,17 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 			xo_data_loop, adev,
 			"%s.xo", devname(adev));
 	}else{
+		int pollcat = 0;
 		if (adev->task_active && adev->w_task != 0){
 			kthread_stop(adev->w_task);
 		}
+		while(!adev->task_active != 0){
+			msleep(10);
+			if (++pollcat > 100){
+				dev_warn(DEVP(adev), "waiting for task stop");
+			}
+		}
+		adev->w_task = 0;
 	}
 }
 
