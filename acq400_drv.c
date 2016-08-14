@@ -3543,7 +3543,7 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 		if (adev->task_active && adev->w_task != 0){
 			kthread_stop(adev->w_task);
 		}
-		while(!adev->task_active != 0){
+		while(adev->task_active){
 			msleep(10);
 			if (++pollcat > 100){
 				dev_warn(DEVP(adev), "waiting for task stop");
