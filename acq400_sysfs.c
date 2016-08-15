@@ -4093,6 +4093,7 @@ MAKE_BITS(ddsB_upd_clk, RAD_DDS_B, 0, RAD_DDS_UPD_CLK);
 MAKE_BITS(ddsC_upd_clk, RAD_DDS_C, 0, RAD_DDS_UPD_CLK);
 MAKE_BITS(ddsAB_upd_clk, RAD_DDS_AB, 0, RAD_DDS_UPD_CLK);
 
+
 MAKE_BITS(ddsA_clk_OEn, RAD_DDS_A, 0, RAD_DDS_CLK_OEn);
 MAKE_BITS(ddsB_clk_OEn, RAD_DDS_B, 0, RAD_DDS_CLK_OEn);
 MAKE_BITS(ddsC_clk_OEn, RAD_DDS_C, 0, RAD_DDS_CLK_OEn);
@@ -4105,6 +4106,18 @@ MAKE_BITS(ddsA_BPSK, RAD_DDS_A, 0, RAD_DDS_BPSK);
 MAKE_BITS(ddsB_BPSK, RAD_DDS_B, 0, RAD_DDS_BPSK);
 MAKE_BITS(ddsC_BPSK, RAD_DDS_C, 0, RAD_DDS_BPSK);
 
+static void _acq400_spi_strobe(struct acq400_dev *adev, const int REG)
+{
+	u32 ctrl = acq400rd32(adev, REG);
+
+	dev_dbg(DEVP(adev), "_acq400_spi_strobe %x", REG);
+
+	ctrl &= ~RAD_DDS_UPD_CLK;
+	acq400wr32(adev, REG, ctrl);
+	acq400wr32(adev, REG, ctrl|RAD_DDS_UPD_CLK);
+	msleep(dds_strobe_msec);
+	acq400wr32(adev, REG, ctrl);
+}
 static ssize_t store_strobe(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -4116,13 +4129,8 @@ static ssize_t store_strobe(
 	unsigned strobe;
 
 	if (sscanf(buf, "%u", &strobe) == 1){
-		u32 ctrl = acq400rd32(adev, REG);
 		if (strobe){
-			ctrl &= ~RAD_DDS_UPD_CLK;
-			acq400wr32(adev, REG, ctrl);
-			acq400wr32(adev, REG, ctrl|RAD_DDS_UPD_CLK);
-			msleep(dds_strobe_msec);
-			acq400wr32(adev, REG, ctrl);
+			_acq400_spi_strobe(adev, REG);
 		}
 		return count;
 	}else{
@@ -4278,4 +4286,34 @@ void acq400_delSysfs(struct device *dev)
 	// @@todo .. undoing the rest will be interesting .. */
 }
 
+void acq400_spi_strobe(void *clidata, int cs, int mode)
+{
+	struct acq400_dev* adev = (struct acq400_dev*)clidata;
+	switch (mode){
+	case SPI_STROBE_GROUP:
+		if (cs==0||cs==1){
+			_acq400_spi_strobe(adev, RAD_DDS_AB);
+			break;
+		}
+		/* fall thru */
+	case SPI_STROBE_SELF:
+		switch(cs){
+		case 0:
+			_acq400_spi_strobe(adev, RAD_DDS_A);
+			break;
+		case 1:
+			_acq400_spi_strobe(adev, RAD_DDS_B);
+			break;
+		case 2:
+			_acq400_spi_strobe(adev, RAD_DDS_C);
+			break;
+		default:
+			;
+		}
+	default:
+		;
+	}
+}
+
+EXPORT_SYMBOL_GPL(acq400_spi_strobe);
 

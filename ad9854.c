@@ -62,6 +62,9 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 
 #include <linux/spi/spi.h>
 
+#include "ad9854.h"
+
+
 #define REVID	"3"
 
 
@@ -191,6 +194,11 @@ int get_hex_bytes(const char* buf, char* data, int maxdata)
 	}
 	return id;
 }
+
+static void external_strobe(struct device * dev, struct AD9854_PlatformData* apd)
+{
+	apd->strobe(apd->dev_private, to_spi_device(dev)->chip_select, apd->strobe_mode);
+}
 static ssize_t store_multibytes(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -207,6 +215,10 @@ static ssize_t store_multibytes(
 		dev_info(dev, "data: %02x %02x%02x%02x%02x%02x%02x",
 				data[0],data[1],data[2],data[3],data[4],data[5],data[6]);
 		if (ad9854_spi_write_then_read(dev, data, LEN+1, 0, 0) == 0){
+			if (dev->platform_data){
+				external_strobe(dev,
+					(struct AD9854_PlatformData*)dev->platform_data);
+			}
 			return count;
 		}else{
 			dev_err(dev, "ad9854_spi_write_then_read failed");
@@ -290,6 +302,36 @@ AD9854_REG(QPDMR);
 AD9854_REG(SKRR);
 AD9854_REG(QDACR);
 
+static ssize_t show_strobe_mode(
+	struct device *dev,
+	struct device_attribute *attr,
+	char* buf)
+{
+	struct AD9854_PlatformData* apd =
+			(struct AD9854_PlatformData*)dev->platform_data;
+	return sprintf(buf, "%d\n", apd->strobe_mode);
+}
+
+static ssize_t store_strobe_mode(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char* buf,
+	size_t count)
+{
+	struct AD9854_PlatformData* apd =
+			(struct AD9854_PlatformData*)dev->platform_data;
+	switch(buf[0]){
+	case '0':
+	case '1':
+	case '2':
+		apd->strobe_mode = buf[0] - '0';
+		return count;
+	default:
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(strobe_mode, S_IRUGO|S_IWUGO, show_strobe_mode, store_strobe_mode);
 
 const struct attribute *ad9854_attrs[] = {
 	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
@@ -304,6 +346,7 @@ const struct attribute *ad9854_attrs[] = {
 	&dev_attr_QPDMR.attr,	&dev_attr__QPDMR.attr,
 	&dev_attr_SKRR.attr,	&dev_attr__SKRR.attr,
 	&dev_attr_QDACR.attr,	&dev_attr__QDACR.attr,
+	&dev_attr_strobe_mode.attr,
 	0
 };
 

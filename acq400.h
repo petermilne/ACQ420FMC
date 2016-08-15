@@ -629,6 +629,7 @@ struct acq400_dev {
 		struct hrtimer timer;
 	} atd, atd_display;
 
+
 	unsigned clkdiv_mask;
 	void *axi_private;
 };
@@ -1271,6 +1272,12 @@ int acq400_clearDelTrg(struct acq400_dev *adev);
 int acq400_clearDelTrgEvent(struct acq400_dev *adev);
 
 int acq480_train_fail(struct acq400_dev *adev);
+
+
+#define SPI_STROBE_NONE 0
+#define SPI_STROBE_SELF 1
+#define SPI_STROBE_GROUP 2
+void acq400_spi_strobe(void *clidata, int cs, int mode);
 
 /* PIGCELF PC */
 #define PIG_CTL			0x04

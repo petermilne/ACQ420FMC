@@ -59,6 +59,9 @@
 #include <linux/dma-mapping.h>
 #include "hbm.h"
 
+#include "acq400.h"
+#include "ad9854.h"
+
 int radcelf_gpio_base = 128;
 module_param(radcelf_gpio_base, int, 0644);
 
@@ -72,13 +75,15 @@ struct radcelf_dev {
 
 static int radcelf_init_spi(void)
 {
+	static struct AD9854_PlatformData pd;
+
 	static struct spi_board_info spi_devs [5] = {
 	{
 		.modalias = "ad9854",
 		.max_speed_hz = 1000000,
 		.bus_num = 1,
 		.chip_select = 0,
-		.platform_data = NULL, /* No spi_driver specific config */
+		.platform_data = &pd, /* No spi_driver specific config */
 		.irq = 0,
 	},
 	{
@@ -86,7 +91,7 @@ static int radcelf_init_spi(void)
 		.max_speed_hz = 1000000,
 		.bus_num = 1,
 		.chip_select = 1,
-		.platform_data = NULL, /* No spi_driver specific config */
+		.platform_data = &pd, /* No spi_driver specific config */
 		.irq = 0,
 	},
 	{
@@ -94,7 +99,7 @@ static int radcelf_init_spi(void)
 		.max_speed_hz = 1000000,
 		.bus_num = 1,
 		.chip_select = 2,
-		.platform_data = NULL, /* No spi_driver specific config */
+		.platform_data = &pd, /* No spi_driver specific config */
 		.irq = 0,
 	},
 	{
@@ -114,6 +119,11 @@ static int radcelf_init_spi(void)
 		.irq = 0,
 	}
 	};
+
+	pd.dev_private = acq400_devices[2];
+	pd.strobe = acq400_spi_strobe;
+	pd.strobe_mode = SPI_STROBE_SELF;
+
 
 	return spi_register_board_info(spi_devs, 5);
 }
