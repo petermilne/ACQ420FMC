@@ -4176,13 +4176,6 @@ const struct attribute *sysfs_radcelf_attrs[] = {
 };
 void acq400_createSysfs(struct device *dev)
 {
-	static const struct attribute *sysfs_base0_attrs[] = {
-		&dev_attr_module_type.attr,
-		&dev_attr_module_role.attr,
-		&dev_attr_module_name.attr,
-		NULL
-	};
-
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	const struct attribute **specials = 0;
 
@@ -4195,6 +4188,11 @@ void acq400_createSysfs(struct device *dev)
 		return;
 	}else if (IS_V2F(adev)){
 		specials = sysfs_v2f_attrs;
+	}else if (IS_RAD_CELF(adev)){
+		if (sysfs_create_files(&dev->kobj, sysfs_radcelf_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
+		return;
 	}else if IS_SC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
 			dev_err(dev, "failed to create sysfs");
@@ -4210,13 +4208,6 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq1001sc_attrs;
 		}else if (IS_KMCx_SC(adev)){
 			specials = kmcx_sc_attrs;
-		}
-	}else if (IS_RAD_CELF(adev)){
-		if (sysfs_create_files(&dev->kobj, sysfs_base0_attrs)){
-			dev_err(dev, "failed to create sysfs");
-		}
-		if (sysfs_create_files(&dev->kobj, sysfs_radcelf_attrs)){
-			dev_err(dev, "failed to create sysfs");
 		}
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){

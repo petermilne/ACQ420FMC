@@ -307,8 +307,10 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			break;
 		case MOD_ID_PIG_CELF:
 			pig_celf_createDebugfs(adev, pcursor);
+			break;
 		case MOD_ID_RAD_CELF:
 			rad_celf_createDebugfs(adev, pcursor);
+			break;
 		default:
 			dev_warn(&adev->pdev->dev, "unsupported MOD_ID:%02x",
 				GET_MOD_ID(adev));
