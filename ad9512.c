@@ -39,7 +39,7 @@
 
 #include <linux/spi/spi.h>
 
-#define REVID	"1"
+#define REVID	"2"
 
 #define SCPC_OFF	0x00
 #define DBP4_OFF	0x34
@@ -47,7 +47,7 @@
 #define DFA4_OFF	0x36
 #define LVPECL0_OFF	0x3d
 #define LVPECL1_OFF	0x3e
-#define LVPELC2_OFF 0x3f
+#define LVPECL2_OFF 0x3f
 #define LVDS3_OFF	0x40
 #define LVDS4_OFF	0x41
 #define CSPD_OFF	0x45
@@ -67,7 +67,7 @@
 #define DFA4_LEN	1
 #define LVPECL0_LEN	1
 #define LVPECL1_LEN	1
-#define LVPELC2_LEN 	1
+#define LVPECL2_LEN 	1
 #define LVDS3_LEN	1
 #define LVDS4_LEN	1
 #define CSPD_LEN	1
@@ -258,7 +258,7 @@ AD9512_REG(DFS4);
 AD9512_REG(DFA4);
 AD9512_REG(LVPECL0);
 AD9512_REG(LVPECL1);
-AD9512_REG(LVPELC2);
+AD9512_REG(LVPECL2);
 AD9512_REG(LVDS3);
 AD9512_REG(LVDS4);
 AD9512_REG(CSPD);
@@ -279,7 +279,7 @@ const struct attribute *ad9512_attrs[] = {
 	&dev_attr_DFA4.attr,	&dev_attr__DFA4.attr,
 	&dev_attr_LVPECL0.attr,	&dev_attr__LVPECL0.attr,
 	&dev_attr_LVPECL1.attr,	&dev_attr__LVPECL1.attr,
-	&dev_attr_LVPELC2.attr,	&dev_attr__LVPELC2.attr,
+	&dev_attr_LVPECL2.attr,	&dev_attr__LVPECL2.attr,
 	&dev_attr_LVDS3.attr,	&dev_attr__LVDS3.attr,
 	&dev_attr_LVDS4.attr,	&dev_attr__LVDS4.attr,
 	&dev_attr_CSPD.attr,	&dev_attr__CSPD.attr,
