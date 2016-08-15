@@ -468,7 +468,10 @@ struct acq400_dev {
 		int run;
 		int fifo_errors;
 
-
+		struct XO_STATS {
+			int dma_buffers_out;
+			int dma_buffers_in;
+		} xo;
 	} stats;
 
 	int ramp_en;

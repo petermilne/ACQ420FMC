@@ -26,7 +26,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.038"
+#define REVID "3.043"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1014,10 +1014,11 @@ static void _ao420_onStop(struct acq400_dev *adev)
 
 static void _dio432_DO_onStart(struct acq400_dev *adev)
 {
-
-	if (!xo_use_distributor &&
-	    (adev->AO_playloop.one_shot == 0 ||
-			adev->AO_playloop.length > adev->lotide)){
+	if (xo_use_distributor){
+		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
+		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
+	}else if (adev->AO_playloop.one_shot == 0 ||
+			adev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
@@ -3430,6 +3431,21 @@ int ao_samples_per_hb(struct acq400_dev *adev)
 	// @@todo valid single DIO432 ONLY!
 	return 0x100000 / sizeof(unsigned);
 }
+
+#define XO_MAX_POLL 100
+
+int waitXoFifoEmpty(struct acq400_dev *adev)
+{
+	int pollcat = 0;
+	while (adev->xo.getFifoSamples(adev) > 0){
+		msleep(10);
+		if (++pollcat > XO_MAX_POLL){
+			dev_err(DEVP(adev), "TIMEOUT waiting for XO FIFO EMPTY");
+			return -1;
+		}
+	}
+	return 0;
+}
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
  * actually associated with the master site
@@ -3444,11 +3460,12 @@ int xo_data_loop(void *data)
 	struct HBM** hbm = adev0->hb;
 	int ic = 0;
 	int ib = 0;
-	int dma_buffers_out = 0;
-	int dma_buffers_in = 0;
+
 
 	long dma_timeout = START_TIMEOUT;
 
+	adev->stats.xo.dma_buffers_out =
+			adev->stats.xo.dma_buffers_in = 0;
 
 #define DMA_ASYNC_PUSH(adev, chan, hbm) \
 	dma_async_memcpy_callback(adev->dma_chan[chan], \
@@ -3460,6 +3477,17 @@ int xo_data_loop(void *data)
 			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|sflags[chan], \
 			acq400_dma_callback, adev)
+#define DMA_ASYNC_PUSH_NOSETEV(adev, chan, hbm) \
+	dma_async_memcpy_callback(adev->dma_chan[chan], \
+			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
+			DMA_DS0_FLAGS|wflags[chan], \
+			acq400_dma_callback, adev)
+#define DMA_ASYNC_ISSUE_PENDING(chan) do { 			\
+		dma_async_issue_pending(chan);			\
+		++adev->stats.xo.dma_buffers_out; } while(0)
+#define DMA_COUNT_IN	++adev->stats.xo.dma_buffers_in
+#define LAST_PUSH(adev)	\
+ (adev->AO_playloop.cursor + ao_samples_per_hb(adev) >=	adev->AO_playloop.length)
 
 	/* prime the DMAC with buffers 0 and 1 ready to go.
 	 * 0 starts filling right away
@@ -3467,9 +3495,9 @@ int xo_data_loop(void *data)
 	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm[ib++]);
 	adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm[ib++]);
 
-	dma_async_issue_pending(adev->dma_chan[1]); ++dma_buffers_out;
+	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
-	dma_async_issue_pending(adev->dma_chan[0]); ++dma_buffers_out;
+	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
 
 	dev_dbg(DEVP(adev), "xo_data_loop() 01");
 	go_rt(MAX_RT_PRIO-4);
@@ -3489,7 +3517,7 @@ int xo_data_loop(void *data)
 		}
 		if (adev->dma_callback_done){
 			--adev->dma_callback_done;
-			++dma_buffers_in;
+			DMA_COUNT_IN;
 		}
 		if (kthread_should_stop()){
 			goto quit;
@@ -3502,18 +3530,20 @@ int xo_data_loop(void *data)
 
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 		if (adev->AO_playloop.cursor < adev->AO_playloop.length){
-			adev->dma_cookies[ic] = DMA_ASYNC_PUSH(adev, ic, hbm[ib++]);
-			dma_async_issue_pending(adev->dma_chan[ic]);
-			++dma_buffers_out;
+			adev->dma_cookies[ic] = LAST_PUSH(adev)?
+					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm[ib]):
+					DMA_ASYNC_PUSH(adev, ic, hbm[ib]);
+			ib++;
+			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
 		yield();
 	}
 
 quit:
 	dev_dbg(DEVP(adev), "xo_data_loop() quit out:%d in:%d",
-			dma_buffers_out, dma_buffers_in);
+			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 
-	if (dma_buffers_in < dma_buffers_out){
+	if (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
 		if (wait_event_interruptible_timeout(
 			adev->DMA_READY,
 			adev->dma_callback_done, dma_timeout) <= 0){
@@ -3522,11 +3552,14 @@ quit:
 	}
 	if (adev->dma_callback_done){
 		--adev->dma_callback_done;
-		++dma_buffers_in;
+		DMA_COUNT_IN;
 	}
+	waitXoFifoEmpty(adev);
+
+	adev->onStop(adev);
 	adev->task_active = 0;
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
-			dma_buffers_out, dma_buffers_in);
+			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 	return 0;
 }
 

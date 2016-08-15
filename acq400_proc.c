@@ -108,6 +108,8 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
         seq_printf(s, "refill_error=%d "
         	       "please_stop=%d ",
         		adev->rt.refill_error, adev->rt.please_stop);
+        seq_printf(s, "xo_out=%d xo_in=%d", adev->stats.xo.dma_buffers_out,
+        		adev->stats.xo.dma_buffers_out);
         seq_printf(s, "\n");
         mutex_unlock(&adev->mutex);
         return 0;
