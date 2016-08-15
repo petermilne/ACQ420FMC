@@ -245,7 +245,11 @@ void pig_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 void rad_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
-
+	DBG_REG_CREATE(RAD_CTL);
+	DBG_REG_CREATE(RAD_DDS_A);
+	DBG_REG_CREATE(RAD_DDS_B);
+	DBG_REG_CREATE(RAD_DDS_AB);
+	DBG_REG_CREATE(RAD_DDS_C);
 }
 
 void acq400_createDebugfs(struct acq400_dev* adev)

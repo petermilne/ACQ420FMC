@@ -69,6 +69,10 @@ MODULE_PARM_DESC(hook_dac_gx_to_spad, "1: writes to DAC GX mirrored to SPADx");
 int acq480_rtm_translen_offset = 2;
 module_param(acq480_rtm_translen_offset, int, 0644);
 
+int dds_strobe_msec;
+module_param(dds_strobe_msec, int, 0644);
+MODULE_PARM_DESC(dds_strobe_msec, "STROBE HI TIME in msec");
+
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
 		if (device_create_file(dev, attr)){ 					\
@@ -4080,8 +4084,105 @@ const struct attribute *pig_celf_attrs[] = {
 	NULL
 };
 
+MAKE_BITS(ddsA_upd_clk_fpga, RAD_DDS_A, 0, RAD_DDS_UPD_CLK_FPGA);
+MAKE_BITS(ddsB_upd_clk_fpga, RAD_DDS_B, 0, RAD_DDS_UPD_CLK_FPGA);
+MAKE_BITS(ddsC_upd_clk_fpga, RAD_DDS_C, 0, RAD_DDS_UPD_CLK_FPGA);
+
+MAKE_BITS(ddsA_upd_clk, RAD_DDS_A, 0, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsB_upd_clk, RAD_DDS_B, 0, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsC_upd_clk, RAD_DDS_C, 0, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsAB_upd_clk, RAD_DDS_AB, 0, RAD_DDS_UPD_CLK);
+
+MAKE_BITS(ddsA_clk_OEn, RAD_DDS_A, 0, RAD_DDS_CLK_OEn);
+MAKE_BITS(ddsB_clk_OEn, RAD_DDS_B, 0, RAD_DDS_CLK_OEn);
+MAKE_BITS(ddsC_clk_OEn, RAD_DDS_C, 0, RAD_DDS_CLK_OEn);
+
+MAKE_BITS(ddsA_OSK, RAD_DDS_A, 0, RAD_DDS_OSK);
+MAKE_BITS(ddsB_OSK, RAD_DDS_B, 0, RAD_DDS_OSK);
+MAKE_BITS(ddsC_OSK, RAD_DDS_C, 0, RAD_DDS_OSK);
+
+MAKE_BITS(ddsA_BPSK, RAD_DDS_A, 0, RAD_DDS_BPSK);
+MAKE_BITS(ddsB_BPSK, RAD_DDS_B, 0, RAD_DDS_BPSK);
+MAKE_BITS(ddsC_BPSK, RAD_DDS_C, 0, RAD_DDS_BPSK);
+
+static ssize_t store_strobe(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int REG)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned strobe;
+
+	if (sscanf(buf, "%u", &strobe) == 1){
+		u32 ctrl = acq400rd32(adev, REG);
+		if (strobe){
+			ctrl &= ~RAD_DDS_UPD_CLK;
+			acq400wr32(adev, REG, ctrl);
+			acq400wr32(adev, REG, ctrl|RAD_DDS_UPD_CLK);
+			msleep(dds_strobe_msec);
+			acq400wr32(adev, REG, ctrl);
+		}
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MAKE_DDS_STROBE(DDS)						\
+static ssize_t store_strobe##DDS(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_strobe(dev, attr, buf, count, RAD_DDS_##DDS);	\
+}									\
+static DEVICE_ATTR(strobe##DDS, S_IWUGO, 0, store_strobe##DDS)
+
+MAKE_DDS_STROBE(A);
+MAKE_DDS_STROBE(B);
+MAKE_DDS_STROBE(C);
+MAKE_DDS_STROBE(AB);
+
+const struct attribute *sysfs_radcelf_attrs[] = {
+	&dev_attr_ddsA_upd_clk_fpga.attr,
+	&dev_attr_ddsB_upd_clk_fpga.attr,
+	&dev_attr_ddsC_upd_clk_fpga.attr,
+
+	&dev_attr_ddsA_upd_clk.attr,
+	&dev_attr_ddsB_upd_clk.attr,
+	&dev_attr_ddsC_upd_clk.attr,
+	&dev_attr_ddsAB_upd_clk.attr,
+
+	&dev_attr_ddsA_clk_OEn.attr,
+	&dev_attr_ddsB_clk_OEn.attr,
+	&dev_attr_ddsC_clk_OEn.attr,
+
+	&dev_attr_ddsA_OSK.attr,
+	&dev_attr_ddsB_OSK.attr,
+	&dev_attr_ddsC_OSK.attr,
+
+	&dev_attr_ddsA_BPSK.attr,
+	&dev_attr_ddsB_BPSK.attr,
+	&dev_attr_ddsC_BPSK.attr,
+
+	&dev_attr_strobeA.attr,
+	&dev_attr_strobeB.attr,
+	&dev_attr_strobeC.attr,
+	&dev_attr_strobeAB.attr,
+	NULL
+};
 void acq400_createSysfs(struct device *dev)
 {
+	static const struct attribute *sysfs_base0_attrs[] = {
+		&dev_attr_module_type.attr,
+		&dev_attr_module_role.attr,
+		&dev_attr_module_name.attr,
+		NULL
+	};
+
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	const struct attribute **specials = 0;
 
@@ -4111,7 +4212,12 @@ void acq400_createSysfs(struct device *dev)
 			specials = kmcx_sc_attrs;
 		}
 	}else if (IS_RAD_CELF(adev)){
-		;
+		if (sysfs_create_files(&dev->kobj, sysfs_base0_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
+		if (sysfs_create_files(&dev->kobj, sysfs_radcelf_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");

@@ -1283,4 +1283,17 @@ int acq480_train_fail(struct acq400_dev *adev);
 #define PIG_CTL_PSU_EN		0x00008000
 #define PIG_CTL_MASTER		0x00000100
 
+/* RADCELF */
+#define RAD_CTL			0x04
+#define RAD_DDS_A		0x10
+#define RAD_DDS_B		0x14
+#define RAD_DDS_AB		0x18	/* UPDATE ONLY */
+#define RAD_DDS_C		0x20
+
+#define RAD_DDS_UPD_CLK_FPGA	(1<<9)
+#define RAD_DDS_UPD_CLK		(1<<8)
+#define RAD_DDS_CLK_OEn		(1<<4)
+#define RAD_DDS_OSK		(1<<1)
+#define RAD_DDS_BPSK		(1<<0)
+
 #endif /* ACQ420FMC_H_ */
