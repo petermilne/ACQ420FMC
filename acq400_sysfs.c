@@ -4191,14 +4191,13 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 	NULL
 };
 void sysfs_radcelf_create_files(struct device *dev){
-	struct acq400_dev *adev = acq400_devices[dev->id];
 	struct acq400_dev *adev0 = acq400_devices[0];
 
 	if (sysfs_create_files(&dev->kobj, sysfs_radcelf_attrs)){
 		dev_err(dev, "failed to create sysfs");
 	}
-	if (sysfs_create_files(&adev->pdev->dev.kobj, sysfs_sc_remaining_clocks)){
-		dev_err(adev->pdev->dev, "failed to create sysfs");
+	if (sysfs_create_files(&adev0->pdev->dev.kobj, sysfs_sc_remaining_clocks)){
+		dev_err(&adev0->pdev->dev, "failed to create sysfs");
 	}
 }
 void acq400_createSysfs(struct device *dev)
@@ -4216,7 +4215,7 @@ void acq400_createSysfs(struct device *dev)
 	}else if (IS_V2F(adev)){
 		specials = sysfs_v2f_attrs;
 	}else if (IS_RAD_CELF(adev)){
-		sysfs_radcelf_create_files(adev);
+		sysfs_radcelf_create_files(dev);
 		return;
 	}else if IS_SC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
