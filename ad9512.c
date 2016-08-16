@@ -168,7 +168,7 @@ static ssize_t store_multibytes(
 {
 	char data[MAX_DATA+2];
 
-	dev_info(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
+	dev_dbg(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
 
 	if (get_hex_bytes(buf, data+2, MAX_DATA) == LEN){
 		data[CMD] = LEN==2? AD9512_WX2: AD9512_WX1;
@@ -201,7 +201,7 @@ static ssize_t show_multibytes(
 	cmd[CMD] = AD9512RnW | (LEN==2? AD9512_WX2: AD9512_WX1);
 	cmd[ADDR] = REG;
 
-	dev_info(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
+	dev_dbg(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
 	if (ad9512_spi_write_then_read(dev, cmd, 2, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
