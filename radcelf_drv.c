@@ -122,7 +122,7 @@ static int radcelf_init_spi(void)
 
 	pd.dev_private = acq400_devices[2];
 	pd.strobe = acq400_spi_strobe;
-	pd.strobe_mode = SPI_STROBE_SELF;
+	pd.strobe_mode = SPI_STROBE_NONE;
 
 
 	return spi_register_board_info(spi_devs, 5);

@@ -4106,7 +4106,7 @@ MAKE_BITS(ddsA_BPSK, RAD_DDS_A, 0, RAD_DDS_BPSK);
 MAKE_BITS(ddsB_BPSK, RAD_DDS_B, 0, RAD_DDS_BPSK);
 MAKE_BITS(ddsC_BPSK, RAD_DDS_C, 0, RAD_DDS_BPSK);
 
-static void _acq400_spi_strobe(struct acq400_dev *adev, const int REG)
+void _acq400_spi_strobe(struct acq400_dev *adev, const int REG)
 {
 	u32 ctrl = acq400rd32(adev, REG);
 

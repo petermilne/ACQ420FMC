@@ -452,7 +452,7 @@ SFO(full);
 	sprintf(devlut[idev].devname, "dds%c", 'A'+idev);
 	proc_root = proc_mkdir(devlut[idev].devname, ad9854_proc_root);
 	devlut[idev].spi = spi;
-	proc_create("raw", 0, proc_root, &ad9854_po_raw);
+	proc_create("bleu", 0, proc_root, &ad9854_po_raw);
 	proc_create("rare", 0, proc_root, &ad9854_po_rare);
 	proc_create("biencuite", 0, proc_root, &ad9854_po_full);
 	return 0;
