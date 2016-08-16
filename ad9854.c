@@ -212,7 +212,7 @@ static ssize_t store_multibytes(
 {
 	char data[MAX_DATA+1];
 
-	dev_info(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
+	dev_dbg(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
 
 	if (get_hex_bytes(buf, data+1, MAX_DATA) == LEN){
 		data[0] = REG;
@@ -243,7 +243,7 @@ static ssize_t show_multibytes(
 	char cmd = REG|AD9854RnW;
 	char data[MAX_DATA];
 
-	dev_info(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
+	dev_dbg(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
 	if (ad9854_spi_write_then_read(dev, &cmd, 1, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
