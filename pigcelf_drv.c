@@ -145,7 +145,7 @@ static int pigcelf_remove(struct platform_device *pdev)
 	return -1;
 }
 
-extern int zynq_spi_goslow_msec_kludge;
+extern int zynq_spi_goslow_usec_kludge;
 
 static void pigcelf_init_site(int site)
 {
@@ -164,8 +164,10 @@ static void pigcelf_init_site(int site)
 	pdev->id = site;
 	platform_device_register(pdev);
 
-	zynq_spi_goslow_msec_kludge = 0;
-	dev_info(&pdev->dev, "pigcelf_init_site() zynq_spi_goslow_msec_kludge %d", zynq_spi_goslow_msec_kludge);
+	zynq_spi_goslow_usec_kludge = 0;
+	dev_info(&pdev->dev,
+			"pigcelf_init_site() zynq_spi_goslow_msec_kludge %d",
+			zynq_spi_goslow_usec_kludge);
 	dev_info(&pdev->dev, "pigcelf_init_site() irq %u", imu.irq);
 	dev_info(&pdev->dev, "pigcelf_init_site() set max_speed_hz %u", imu.max_speed_hz);
 

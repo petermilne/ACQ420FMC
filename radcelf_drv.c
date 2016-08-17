@@ -65,8 +65,8 @@
 int radcelf_gpio_base = 128;
 module_param(radcelf_gpio_base, int, 0644);
 
-int goslow_msec_kludge;
-module_param(goslow_msec_kludge, int, 0644);
+int goslow_usec_kludge;
+module_param(goslow_usec_kludge, int, 0644);
 
 struct radcelf_dev {
 	struct platform_device *pdev;
@@ -167,7 +167,7 @@ static int radcelf_init_i2c(void)
 }
 
 extern void acq480_hook_spi(void);
-extern int zynq_spi_goslow_msec_kludge;
+extern int zynq_spi_goslow_usec_kludge;
 
 static int __init radcelf_init(void)
 {
@@ -175,9 +175,9 @@ static int __init radcelf_init(void)
 
 	printk("D-TACQ RADCELF Driver %s\n", REVID);
 
-	if (goslow_msec_kludge){
-		zynq_spi_goslow_msec_kludge = goslow_msec_kludge;
-		printk("zynq_spi_goslow_msec_kludge %d", zynq_spi_goslow_msec_kludge);
+	if (goslow_usec_kludge){
+		zynq_spi_goslow_usec_kludge = goslow_usec_kludge;
+		printk("zynq_spi_goslow_usec_kludge %d", zynq_spi_goslow_usec_kludge);
 	}
 	acq480_hook_spi();
 
