@@ -294,7 +294,7 @@ build_knobs_device() {
 		fi		
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
-	68)
+	68|69)
 		return;;
 	*)
 		CLKDIV=200;;
