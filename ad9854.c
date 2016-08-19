@@ -216,7 +216,7 @@ static ssize_t store_multibytes(
 
 	if (get_hex_bytes(buf, data+1, MAX_DATA) == LEN){
 		data[0] = REG;
-		dev_info(dev, "data: %02x %02x%02x%02x%02x%02x%02x",
+		dev_dbg(dev, "data: %02x %02x%02x%02x%02x%02x%02x",
 				data[0],data[1],data[2],data[3],data[4],data[5],data[6]);
 		if (ad9854_spi_write_then_read(dev, data, LEN+1, 0, 0) == 0){
 			if (dev->platform_data){
