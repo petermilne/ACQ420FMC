@@ -76,6 +76,7 @@ struct radcelf_dev {
 	struct spi_device *spi;
 };
 
+#define M1	1000000
 static int radcelf_init_spi(void)
 {
 	static struct AD9854_PlatformData pd;
@@ -83,7 +84,7 @@ static int radcelf_init_spi(void)
 	static struct spi_board_info spi_devs [5] = {
 	{
 		.modalias = "ad9854",
-		.max_speed_hz = 1000000,
+		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 0,
 		.platform_data = &pd, /* No spi_driver specific config */
@@ -91,7 +92,7 @@ static int radcelf_init_spi(void)
 	},
 	{
 		.modalias = "ad9854",
-		.max_speed_hz = 1000000,
+		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 1,
 		.platform_data = &pd, /* No spi_driver specific config */
@@ -99,7 +100,7 @@ static int radcelf_init_spi(void)
 	},
 	{
 		.modalias = "ad9854",
-		.max_speed_hz = 1000000,
+		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 2,
 		.platform_data = &pd, /* No spi_driver specific config */
@@ -107,7 +108,7 @@ static int radcelf_init_spi(void)
 	},
 	{
 		.modalias = "ad9512",
-		.max_speed_hz = 1000000,
+		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 3,
 		.platform_data = NULL, /* No spi_driver specific config */
@@ -115,7 +116,7 @@ static int radcelf_init_spi(void)
 	},
 	{
 		.modalias = "ad9512",
-		.max_speed_hz = 1000000,
+		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 4,
 		.platform_data = NULL, /* No spi_driver specific config */
