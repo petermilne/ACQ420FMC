@@ -26,10 +26,13 @@
 #ifndef AD9854_H_
 #define AD9854_H_
 
+struct AD9854_ChipData;
+
 struct AD9854_PlatformData {
 	void (*strobe)(void* dev_private, int cs, int strobe_mode);
 	void* dev_private;
 	int strobe_mode;			/* 0: OFF, 1:SELF 2:SHARED */
+	struct AD9854_ChipData* chip_private;
 };
 
 #endif /* AD9854_H_ */

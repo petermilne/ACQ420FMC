@@ -65,7 +65,7 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 #include "ad9854.h"
 
 
-#define REVID	"3"
+#define REVID	"6"
 
 
 #define POTW1_OFF	0
@@ -98,8 +98,10 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 #define MAX_DATA	6
 #define ADDR_MASK	0x0f
 
-
+#define MAXBYTES	128	/* 6 x 11 = 66 this is conservative */
 #define AD9854RnW	0x80
+
+#define GET_APD(dev)	((struct AD9854_PlatformData*)(dev)->platform_data)
 
 int dummy_device;
 module_param(dummy_device, int, 0644);
@@ -119,6 +121,7 @@ struct REGLUT {
 	const char* key;
 	int offset;
 	int len;
+	int bto;			/* byte offset */
 };
 
 #define REGENT(key) { #key, key##_OFF, key##_LEN }
@@ -139,6 +142,125 @@ struct REGLUT reglut[] = {
 };
 #define NREGENT	(sizeof(reglut)/sizeof(struct REGLUT))
 
+static void init_reglut(void)
+{
+	int ii;
+	int bto = 0;
+
+	for (ii = 0; ii < NREGENT; ++ii){
+		reglut[ii].bto = bto;
+		bto += reglut[ii].len;
+	}
+}
+
+static struct REGLUT* reglut_lookup(unsigned offset)
+{
+	int ii;
+
+	offset &= ~AD9854RnW;
+
+	for (ii = 0; ii < NREGENT; ++ii){
+		if (reglut[ii].offset == offset){
+			return reglut+ii;
+		}
+	}
+	return 0;
+}
+struct AD9854_ChipData {
+	u_int8_t cache[MAXBYTES];
+	u_int8_t dirty[MAXBYTES];
+};
+
+static int cache_invalidate(struct spi_device *spi)
+{
+	struct device *dev = &spi->dev;
+	struct AD9854_PlatformData*apd = GET_APD(dev);
+	struct AD9854_ChipData* acd = apd->chip_private;
+	int ir;
+	char txbuf[1];
+
+	for (ir = 0; ir < NREGENT; ++ir){
+		u_int8_t* cbytes = acd->cache+reglut[ir].bto;
+		u_int8_t* dbytes = acd->dirty+reglut[ir].bto;
+		int rxlen = reglut[ir].len;
+
+		txbuf[0] = reglut[ir].offset|AD9854RnW;
+		if (spi_write_then_read(spi, txbuf, 1, cbytes, rxlen) == 0){
+			memset(dbytes, 0, rxlen);
+		}else{
+			dev_err(dev, "spi_write_then_read() fail at %x", txbuf[0]);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int ad9854_spi_write_cache(struct device * dev, const void *txbuf, unsigned n_tx)
+{
+	struct AD9854_PlatformData *apd = GET_APD(dev);
+	struct AD9854_ChipData *cd = apd->chip_private;
+	u_int8_t cmd = ((u_int8_t*)txbuf)[0];
+	struct REGLUT* reg = reglut_lookup(cmd);
+	u_int8_t* tx_data = ((u_int8_t*)txbuf)+1;
+	u_int8_t rxbuf[1];
+
+	if (reg == 0){
+		dev_err(dev, "BAD REG %d", cmd);
+		return -1;
+	}
+	memcpy(cd->cache+reg->bto, tx_data, n_tx-1);
+	memset(cd->dirty+reg->bto, 1, n_tx);
+	if (spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
+		memset(cd->dirty+reg->bto, 0, n_tx);
+		return 0;
+	}else{
+		dev_err(dev, "spi_write_then_read fail");
+		return -1;
+	}
+}
+
+int ad9854_spi_read_cache(
+	struct device * dev,
+	const void *txbuf, unsigned n_tx,
+	void *rxbuf, unsigned n_rx)
+{
+	struct AD9854_PlatformData *apd = GET_APD(dev);
+	struct AD9854_ChipData *cd = apd->chip_private;
+	u_int8_t cmd = ((u_int8_t*)txbuf)[0];
+	struct REGLUT* reg = reglut_lookup(cmd);
+
+	if (reg == 0){
+		dev_err(dev, "BAD REG %d", cmd);
+		return -1;
+	}
+	if (cd->dirty[reg->offset] == 0){
+		memcpy(rxbuf, cd->cache+reg->bto, n_rx);
+		return 0;
+	}else{
+		dev_dbg(dev, "ad9854_spi_read_cache() reading cache");
+		if (spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
+			memcpy(cd->cache+reg->bto, rxbuf, n_rx);
+			memset(cd->dirty+reg->bto, 0, n_rx);
+			return 0;
+		}else{
+			dev_err(dev, "spi_write_then_read() read fail");
+			return -1;
+		}
+	}
+}
+static int init_apd(struct spi_device *spi)
+{
+	struct device *dev = &spi->dev;
+	struct AD9854_PlatformData*apd = GET_APD(dev);
+	int ii = 0;
+	apd->chip_private = kzalloc(sizeof(struct AD9854_ChipData), GFP_KERNEL);
+	for (; ii < MAXBYTES; ++ii){
+		apd->chip_private->dirty[ii] = 1;
+	}
+	cache_invalidate(spi);
+	return 0;
+}
 static int dummy_spi_write_then_read(
 	struct device * dev,
 	const void *txbuf, unsigned n_tx, void *rxbuf, unsigned n_rx)
@@ -169,8 +291,10 @@ static int ad9854_spi_write_then_read(
 {
 	if (dummy_device){
 		return dummy_spi_write_then_read(dev, txbuf, n_tx, rxbuf, n_rx);
+	}else if (n_rx == 0){
+		return ad9854_spi_write_cache(dev, txbuf, n_tx);
 	}else{
-		return spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, n_rx);
+		return ad9854_spi_read_cache(dev, txbuf, n_tx, rxbuf, n_rx);
 	}
 }
 
@@ -327,6 +451,7 @@ static ssize_t store_strobe_mode(
 	case '0':
 	case '1':
 	case '2':
+	case '3':
 		apd->strobe_mode = buf[0] - '0';
 		return count;
 	default:
@@ -342,8 +467,6 @@ static ssize_t store_strobe(
 	const char* buf,
 	size_t count)
 {
-	struct AD9854_PlatformData* apd =
-			(struct AD9854_PlatformData*)dev->platform_data;
 	switch(buf[0]){
 	case '1':
 		if (dev->platform_data){
@@ -355,7 +478,7 @@ static ssize_t store_strobe(
 	}
 }
 
-static DEVICE_ATTR(strobe, S_IWUGO, 0, store_strobe_mode);
+static DEVICE_ATTR(strobe, S_IWUGO, 0, store_strobe);
 
 const struct attribute *ad9854_attrs[] = {
 	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
@@ -483,9 +606,14 @@ SFO(full);
 	return 0;
 }
 
+
 static int ad9854_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
+
+	init_apd(spi);
+
+
 	if (sysfs_create_files(&dev->kobj, ad9854_attrs)){
 		dev_err(dev, "ad9854_probe() failed to create knobs");
 		return -1;
@@ -525,6 +653,7 @@ static int __init ad9854_init(void)
 {
         int status = 0;
 
+        init_reglut();
 	printk("D-TACQ AD9854 DDS serial driver %s\n", REVID);
 	ad9854_proc_root = proc_mkdir("driver/ad9854", 0);
 	spi_register_driver(&ad9854_spi_driver);
