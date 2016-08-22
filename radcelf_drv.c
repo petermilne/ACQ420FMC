@@ -77,6 +77,7 @@ struct radcelf_dev {
 };
 
 #define M1	1000000
+
 static int radcelf_init_spi(void)
 {
 	static struct AD9854_PlatformData pd;

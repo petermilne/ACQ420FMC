@@ -52,6 +52,7 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 
 #include <linux/kernel.h>
 #include <linux/cdev.h>
+#include <linux/ctype.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
@@ -62,10 +63,12 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 
 #include <linux/spi/spi.h>
 
+#include <asm/uaccess.h>
+
 #include "ad9854.h"
 
 
-#define REVID	"6"
+#define REVID	"0.9.2"
 
 
 #define POTW1_OFF	0
@@ -106,8 +109,13 @@ B  | 2   |QDACR|Q DAC Register 2 Bytes
 int dummy_device;
 module_param(dummy_device, int, 0644);
 
+int Baadd_mode_strobe_every = 1;
+module_param(Baadd_mode_strobe_every, int, 0644);
+
 int idev;
 static struct proc_dir_entry *ad9854_proc_root;
+
+
 
 #define MAXDEV	8
 struct DEVLUT {
@@ -171,6 +179,44 @@ struct AD9854_ChipData {
 	u_int8_t dirty[MAXBYTES];
 };
 
+static void external_strobe(struct device * dev, struct AD9854_PlatformData* apd, int act_strobe_group)
+{
+	if (apd->strobe_mode == 2 && !act_strobe_group) return;
+	apd->strobe(apd->dev_private, to_spi_device(dev)->chip_select, apd->strobe_mode);
+}
+
+#define GET_APD(dev)	((struct AD9854_PlatformData*)(dev)->platform_data)
+
+char* bytes2string(const u_int8_t* bytes, int nb)
+{
+	static char str[80];
+	const u_int8_t* ubytes = (u_int8_t*)bytes;
+	char* cursor = str;
+	int ii;
+	str[0] = '\0';
+	for (ii = 0; ii < nb; ++ii){
+		cursor += sprintf(cursor, "%02x%c", ubytes[ii], ii+1<nb? ',' : ' ');
+	}
+	return str;
+}
+
+int dbg_spi_write_then_read(struct spi_device *spi,
+		const void *txbuf, unsigned n_tx,
+		void *rxbuf, unsigned n_rx)
+{
+	int rc;
+
+	dev_dbg(&spi->dev, "TX %s", bytes2string(txbuf, n_tx));
+
+	rc = spi_write_then_read(spi, txbuf, n_tx, rxbuf, n_rx);
+
+	if (rc == 0){
+		dev_dbg(&spi->dev, "RX %s", bytes2string(rxbuf, n_rx));
+	}
+
+	return rc;
+}
+
 static int cache_invalidate(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
@@ -185,7 +231,7 @@ static int cache_invalidate(struct spi_device *spi)
 		int rxlen = reglut[ir].len;
 
 		txbuf[0] = reglut[ir].offset|AD9854RnW;
-		if (spi_write_then_read(spi, txbuf, 1, cbytes, rxlen) == 0){
+		if (dbg_spi_write_then_read(spi, txbuf, 1, cbytes, rxlen) == 0){
 			memset(dbytes, 0, rxlen);
 		}else{
 			dev_err(dev, "spi_write_then_read() fail at %x", txbuf[0]);
@@ -195,6 +241,8 @@ static int cache_invalidate(struct spi_device *spi)
 
 	return 0;
 }
+
+
 
 int ad9854_spi_write_cache(struct device * dev, const void *txbuf, unsigned n_tx)
 {
@@ -211,13 +259,54 @@ int ad9854_spi_write_cache(struct device * dev, const void *txbuf, unsigned n_tx
 	}
 	memcpy(cd->cache+reg->bto, tx_data, n_tx-1);
 	memset(cd->dirty+reg->bto, 1, n_tx);
-	if (spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
+	if (dbg_spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
 		memset(cd->dirty+reg->bto, 0, n_tx);
 		return 0;
 	}else{
 		dev_err(dev, "spi_write_then_read fail");
 		return -1;
 	}
+}
+
+int ad9854_spi_write_cache_byte(struct device * dev, u_int8_t aa, u_int8_t bb)
+{
+	struct AD9854_PlatformData *apd = GET_APD(dev);
+	struct AD9854_ChipData *cd = apd->chip_private;
+
+	int ir;
+	int ii;
+
+	for (ir = 0; ir < NREGENT; ++ir){
+		struct REGLUT* reg = reglut+ir;
+
+		if (aa >= reg->bto && aa < reg->bto+reg->len){
+			cd->cache[aa] = bb;
+			cd->dirty[aa] = 1;
+
+			if (Baadd_mode_strobe_every ||aa == reg->bto+reg->len-1){
+				u_int8_t rxbuf[1];
+				u_int8_t tx_data[MAX_DATA+1];
+				tx_data[0] = reg->offset;
+				for (ii = 0; ii < reg->len; ++ii){
+					tx_data[1+ii] = cd->cache[reg->bto+ii];
+				}
+				if (dbg_spi_write_then_read(to_spi_device(dev), tx_data, ii+1, rxbuf, 0) == 0){
+					memset(cd->dirty+reg->bto, 0, ii+1);
+					if (dev->platform_data){
+						external_strobe(dev, GET_APD(dev), 0);
+					}
+					return 0;
+				}else{
+					dev_err(dev, "spi_write_then_read fail");
+					return -1;
+				}
+			}else{
+				return 0;
+			}
+		}
+	}
+	dev_err(dev, "ad9854_spi_write_cache_byte aa:%x out of range", aa);
+	return -1;
 }
 
 int ad9854_spi_read_cache(
@@ -239,7 +328,7 @@ int ad9854_spi_read_cache(
 		return 0;
 	}else{
 		dev_dbg(dev, "ad9854_spi_read_cache() reading cache");
-		if (spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
+		if (dbg_spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, 0) == 0){
 			memcpy(cd->cache+reg->bto, rxbuf, n_rx);
 			memset(cd->dirty+reg->bto, 0, n_rx);
 			return 0;
@@ -292,7 +381,11 @@ static int ad9854_spi_write_then_read(
 	if (dummy_device){
 		return dummy_spi_write_then_read(dev, txbuf, n_tx, rxbuf, n_rx);
 	}else if (n_rx == 0){
-		return ad9854_spi_write_cache(dev, txbuf, n_tx);
+		int rc = ad9854_spi_write_cache(dev, txbuf, n_tx);
+		if (rc == 0 && dev->platform_data){
+			external_strobe(dev, GET_APD(dev), 0);
+		}
+		return rc;
 	}else{
 		return ad9854_spi_read_cache(dev, txbuf, n_tx, rxbuf, n_rx);
 	}
@@ -319,13 +412,6 @@ int get_hex_bytes(const char* buf, char* data, int maxdata)
 	return id;
 }
 
-static void external_strobe(struct device * dev, struct AD9854_PlatformData* apd, int act_strobe_group)
-{
-	if (apd->strobe_mode == 2 && !act_strobe_group) return;
-	apd->strobe(apd->dev_private, to_spi_device(dev)->chip_select, apd->strobe_mode);
-}
-
-#define GET_APD(dev)	((struct AD9854_PlatformData*)(dev)->platform_data)
 
 static ssize_t store_multibytes(
 	struct device * dev,
@@ -343,9 +429,6 @@ static ssize_t store_multibytes(
 		dev_dbg(dev, "data: %02x %02x%02x%02x%02x%02x%02x",
 				data[0],data[1],data[2],data[3],data[4],data[5],data[6]);
 		if (ad9854_spi_write_then_read(dev, data, LEN+1, 0, 0) == 0){
-			if (dev->platform_data){
-				external_strobe(dev, GET_APD(dev), 0);
-			}
 			return count;
 		}else{
 			dev_err(dev, "ad9854_spi_write_then_read failed");
@@ -480,6 +563,28 @@ static ssize_t store_strobe(
 
 static DEVICE_ATTR(strobe, S_IWUGO, 0, store_strobe);
 
+static ssize_t store_Baadd(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char* buf,
+	size_t count)
+{
+	unsigned aa;
+	unsigned dd;
+
+	if (sscanf(buf, "B%2x%2x", &aa, &dd) == 2){
+		if (ad9854_spi_write_cache_byte(dev, (u_int8_t)aa, (u_int8_t)dd) == 0){
+			return count;
+		}else{
+			return -1;
+		}
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(Baadd, S_IWUGO, 0, store_Baadd);
+
 const struct attribute *ad9854_attrs[] = {
 	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
 	&dev_attr_POTW2.attr, 	&dev_attr__POTW2.attr,
@@ -495,6 +600,7 @@ const struct attribute *ad9854_attrs[] = {
 	&dev_attr_QDACR.attr,	&dev_attr__QDACR.attr,
 	&dev_attr_strobe_mode.attr,
 	&dev_attr_strobe.attr,
+	&dev_attr_Baadd.attr,
 	0
 };
 
@@ -568,6 +674,46 @@ static int initDevFromProcFile(struct file* file, struct seq_operations *seq_ops
 	}
 	return -1;
 }
+
+ssize_t ad9854_proc_write(struct file *file, const char *user_buffer,
+		size_t count, loff_t *data)
+{
+	int idev = (int)((struct seq_file*)file->private_data)->private;
+	struct spi_device *spi = devlut[idev].spi;
+	char* lbuf = kzalloc(count+1, GFP_KERNEL);
+	unsigned bto = *data;
+	ssize_t rc = count;
+
+	if (copy_from_user(lbuf, user_buffer, count) == 0){
+		int cursor = 0;
+		char bytestr[4] = {};
+		int ib = -1;
+		for (cursor = 0; cursor < count; ++cursor){
+			if (isxdigit(lbuf[cursor])){
+				bytestr[++ib] = lbuf[cursor];
+			}
+			if (ib == 1){
+				unsigned long dd;
+				if (kstrtoul(bytestr, 16, &dd) == 0){
+					ad9854_spi_write_cache_byte(
+						&spi->dev, bto++, dd);
+				}else{
+					dev_err(&spi->dev, "ERROR kstroul()");
+					return -1;
+				}
+				ib = -1;
+			}
+		}
+		*data = bto;
+		rc = count;
+	}else{
+		rc = -1;
+	}
+
+	kfree(lbuf);
+	return rc;
+}
+
 #define PROC_OPEN(name) \
 static int ad9854_proc_open_##name(struct inode *inode, struct file *file) \
 { \
@@ -596,6 +742,9 @@ SFO(raw);
 SFO(rare);
 SFO(full);
 	struct proc_dir_entry *proc_root;
+
+	ad9854_po_raw.write = ad9854_proc_write;
+	ad9854_po_rare.write = ad9854_proc_write;
 
 	sprintf(devlut[idev].devname, "dds%c", 'A'+idev);
 	proc_root = proc_mkdir(devlut[idev].devname, ad9854_proc_root);
