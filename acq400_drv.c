@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.048"
+#define REVID "3.049"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3460,9 +3460,14 @@ int xo_data_loop(void *data)
 	struct HBM** hbm = adev0->hb;
 	int ic = 0;
 	int ib = 0;
-
-
 	long dma_timeout = START_TIMEOUT;
+
+	int shot_buffer_count = adev->AO_playloop.length/ao_samples_per_hb(adev);
+
+	if (shot_buffer_count*ao_samples_per_hb(adev) < adev->AO_playloop.length){
+		shot_buffer_count += 1;
+		dev_err(DEVP(adev), "ao play data buffer overspill");
+	}
 
 	adev->stats.xo.dma_buffers_out =
 			adev->stats.xo.dma_buffers_in = 0;
@@ -3486,8 +3491,7 @@ int xo_data_loop(void *data)
 		dma_async_issue_pending(chan);			\
 		++adev->stats.xo.dma_buffers_out; } while(0)
 #define DMA_COUNT_IN	++adev->stats.xo.dma_buffers_in
-#define LAST_PUSH(adev)	\
- (adev->AO_playloop.cursor + ao_samples_per_hb(adev) >=	adev->AO_playloop.length)
+#define LAST_PUSH(adev)	(adev->stats.xo.dma_buffers_out+1 >=shot_buffer_count)
 
 	/* prime the DMAC with buffers 0 and 1 ready to go.
 	 * 0 starts filling right away
@@ -3529,7 +3533,7 @@ int xo_data_loop(void *data)
 		}
 
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
-		if (adev->AO_playloop.cursor < adev->AO_playloop.length){
+		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			adev->dma_cookies[ic] = LAST_PUSH(adev)?
 					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm[ib]):
 					DMA_ASYNC_PUSH(adev, ic, hbm[ib]);
