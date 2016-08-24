@@ -2259,6 +2259,32 @@ static ssize_t store_playloop_cursor(
 static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
 
+static ssize_t show_playloop_repeats(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->AO_playloop.repeats);
+}
+
+static ssize_t store_playloop_repeats(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (sscanf(buf, "%u", &adev->AO_playloop.repeats) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_repeats,
+		S_IRUGO|S_IWUGO, show_playloop_repeats, store_playloop_repeats);
+
 
 #define TIMEOUT 1000
 
@@ -2535,6 +2561,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_04.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
+	&dev_attr_playloop_repeats.attr,
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,

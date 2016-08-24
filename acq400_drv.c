@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.047"
+#define REVID "3.048"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3364,7 +3364,8 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 		}
 
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
-			if (adev->AO_playloop.one_shot){
+			if (adev->AO_playloop.one_shot &&
+				(adev->AO_playloop.repeats==0 || --adev->AO_playloop.repeats==0)){
 				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;

@@ -560,6 +560,7 @@ struct acq400_dev {
 		unsigned length;
 		unsigned cursor;
 		unsigned one_shot;
+		unsigned repeats;	/* run one-shot more than once */
 	} AO_playloop;
 
 	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
