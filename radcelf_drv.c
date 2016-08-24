@@ -135,20 +135,6 @@ static int radcelf_init_spi(void)
 	return spi_register_board_info(spi_devs, 5);
 }
 
-static struct i2c_client* new_device(
-		struct i2c_adapter *adap,
-		const char* name, unsigned short addr, void* platform_data)
-{
-	struct i2c_board_info info = {};
-
-	strlcpy(info.type, name, I2C_NAME_SIZE);
-	info.addr = addr;
-	info.platform_data = platform_data;
-	return i2c_new_device(adap, &info);
-}
-
-
-
 extern void acq480_hook_spi(void);
 extern int zynq_spi_goslow_usec_kludge;
 
