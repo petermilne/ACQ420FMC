@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.049"
+#define REVID "3.051"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -247,6 +247,10 @@ MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
 int xo_use_distributor;
 module_param(xo_use_distributor, int, 0644);
 MODULE_PARM_DESC(xo_use_distributor, "use distributor and PRI for XO transfer";)
+
+int xo_distributor_sample_size = sizeof(unsigned);
+module_param(xo_distributor_sample_size, int, 0644);
+MODULE_PARM_DESC(xo_distributor_sample_size, "sample size in distributor set");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -3429,7 +3433,7 @@ void xo400_getDMA(struct acq400_dev* adev)
 int ao_samples_per_hb(struct acq400_dev *adev)
 {
 	// @@todo valid single DIO432 ONLY!
-	return 0x100000 / sizeof(unsigned);
+	return 0x100000 / xo_distributor_sample_size;
 }
 
 #define XO_MAX_POLL 100
