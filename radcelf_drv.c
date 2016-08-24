@@ -148,27 +148,6 @@ static struct i2c_client* new_device(
 }
 
 
-#define I2C_CHAN         (4)      /* CELF BUS = 4 */
-
-static int radcelf_init_i2c(void)
-{
-	struct i2c_adapter *i2c_adap = i2c_get_adapter(I2C_CHAN);
-	{
-		struct pca953x_platform_data pca_data = {};
-		pca_data.gpio_base = radcelf_gpio_base;
-		pca_data.irq_base = -1;
-		if (new_device(i2c_adap, "tca6408", 0x20, &pca_data) == 0){
-			printk("radcelf_init_i2c dio NOT found\n");
-		}
-	}
-	if (new_device(i2c_adap, "ad7417", 0x28, 0) == 0){
-		printk("radcelf_init_i2c ad7417#1 NOT found\n");
-	}
-	if (new_device(i2c_adap, "ad7417", 0x29, 0) == 0){
-		printk("radcelf_init_i2c ad7417#2 NOT found\n");
-	}
-	return 0;
-}
 
 extern void acq480_hook_spi(void);
 extern int zynq_spi_goslow_usec_kludge;
@@ -186,9 +165,6 @@ static int __init radcelf_init(void)
 	acq480_hook_spi();
 
 	status = radcelf_init_spi();
-	if (status == 0){
-		status = radcelf_init_i2c();
-	}
         return status;
 }
 
