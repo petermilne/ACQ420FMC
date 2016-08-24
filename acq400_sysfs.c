@@ -2611,6 +2611,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_32.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
+	&dev_attr_playloop_repeats.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -2921,6 +2922,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_ext_clk_from_sync.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
+	&dev_attr_playloop_repeats.attr,
 	NULL
 };
 
