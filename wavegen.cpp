@@ -65,6 +65,8 @@ namespace G {
 	double ch_gain = 1;
 	int verbose;
 	int append;
+	int use_bb;
+	char* bb_cmd;
 };
 
 #define MINBYTES	0x20000
@@ -153,6 +155,14 @@ public:
 
 		return nwrite;
 	}
+	static void outputFP(FILE *fpout) {
+		int totwrite = 0;
+		int minsam = MINBYTES/nchan()/word_size;
+
+		while (totwrite < minsam){
+			totwrite += output(fpout);
+		}
+	}
 	static void output() {
 		char fn[256];
 		sprintf(fn, "/dev/acq400.%d.%s",
@@ -165,12 +175,7 @@ public:
 			exit(1);
 		}
 
-		int totwrite = 0;
-		int minsam = MINBYTES/nchan()/word_size;
-
-		while (totwrite < minsam){
-			totwrite += output(fpout);
-		}
+		output(fpout);
 
 		fclose(fpout);
 	}
@@ -434,13 +439,46 @@ void cli(int argc, const char** argv)
 	}
 }
 
-int main(int argc, const char** argv)
-{
+void get_from_env() {
+	G::bb_cmd = new char[80];
+	strcpy(G::bb_cmd, "bb -P %d load");
+	FILE *fp = fopen("/mnt/local/sysconfig/wavegen.sh", "r");
+		if (fp != 0){
+			char buf[128];
+			while (fgets(buf, 128, fp)){
+				strstr(buf, "#") ||
+				sscanf(buf, "SITE=%d",   &G::site)   ||
+				sscanf(buf, "USE_BB=%d", &G::use_bb) ||
+				(strstr(buf, "BB_CMD=") &&
+					strncpy(G::bb_cmd, buf+strlen("BB_CMD="), 80));
+			}
+
+			fclose(fp);
+		}
 	if (getenv("SITE")){
 		G::site = atoi(getenv("SITE"));
 	}
+	if (getenv("USE_BB")){
+		G::use_bb = 1;
+	}
+	if (G::use_bb){
+		printf("using BB %s\n", G::bb_cmd);
+	}
+}
+int main(int argc, const char** argv)
+{
+	get_from_env();
 	cli(argc, argv);
 
 	ChanDef::list();
-	ChanDef::output();
+	if (G::use_bb){
+		char cmd[80];
+		snprintf(cmd, 80, G::bb_cmd, G::site);
+		printf("popen \"%s\"\n", cmd);
+		FILE* consumer = popen(cmd, "w");
+		ChanDef::outputFP(consumer);
+		pclose(consumer);
+	}else{
+		ChanDef::output();
+	}
 }
