@@ -577,7 +577,7 @@ fi
 	
 if [ "x$(get_mtype 1)" = "x08" ]; then
 # larger buffers for ACQ480
-	if [ "x$BLEN" != "x0400000" ]; then
+	if [ "x$ACQ480_CUSTOM_BUF" != "xy" ]; then
 		BLEN=0x400000
 		NBUF=129
 	else
