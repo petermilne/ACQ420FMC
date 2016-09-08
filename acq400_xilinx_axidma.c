@@ -423,8 +423,10 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 		Segment* segment = &apool->segments[iseg];
 		int ib;
 		for (ib = 0; ib < segment->nblocks; ++ib, ++wrapper){
-			wrapper->va =
-				dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
+			if (wrapper->va == 0){
+				wrapper->va =
+					dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
+			}
 			memset(wrapper->va, 0, sizeof(struct xilinx_dma_desc_hw));
 
 			if (segment->mode == STORE){
@@ -589,7 +591,9 @@ int axi64_free_dmac(struct acq400_dev *adev)
 
 	for (ii = 0; ii < apool->ndescriptors; ++ii){
 		cursor = apool->wrappers+ii;
-		dma_pool_free(apool->pool, cursor->va, cursor->pa);
+		if (cursor->va){
+			dma_pool_free(apool->pool, cursor->va, cursor->pa);
+		}
 	}
 	kfree(apool->wrappers);
 	dma_pool_destroy(apool->pool);
