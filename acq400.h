@@ -1298,6 +1298,7 @@ void acq400_spi_strobe(void *clidata, int cs, int mode);
 #define RAD_DDS_AB		0x18	/* UPDATE ONLY */
 #define RAD_DDS_C		0x20
 
+#define RAD_CTL_DDS_RESET	(1<<3)
 #define RAD_DDS_UPD_CLK_FPGA	(1<<9)
 #define RAD_DDS_UPD_CLK		(1<<8)
 #define RAD_DDS_CLK_OEn		(1<<4)

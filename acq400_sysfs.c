@@ -4113,6 +4113,7 @@ const struct attribute *pig_celf_attrs[] = {
 	NULL
 };
 
+MAKE_BITS(ddsX_hard_reset, RAD_CTL, 0, RAD_CTL_DDS_RESET);
 MAKE_BITS(ddsA_upd_clk_fpga, RAD_DDS_A, 0, RAD_DDS_UPD_CLK_FPGA);
 MAKE_BITS(ddsB_upd_clk_fpga, RAD_DDS_B, 0, RAD_DDS_UPD_CLK_FPGA);
 MAKE_BITS(ddsC_upd_clk_fpga, RAD_DDS_C, 0, RAD_DDS_UPD_CLK_FPGA);
@@ -4184,6 +4185,7 @@ MAKE_DDS_STROBE(C);
 MAKE_DDS_STROBE(AB);
 
 const struct attribute *sysfs_radcelf_attrs[] = {
+	&dev_attr_ddsX_hard_reset.attr,
 	&dev_attr_ddsA_upd_clk_fpga.attr,
 	&dev_attr_ddsB_upd_clk_fpga.attr,
 	&dev_attr_ddsC_upd_clk_fpga.attr,
