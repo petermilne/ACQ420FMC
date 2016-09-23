@@ -141,10 +141,9 @@ void init_buffers()
 
 void set_playloop_length(int nsamples)
 {
-	char fname[128];
-	sprintf(fname, "/dev/acq400.%d.knobs/playloop_length", G::play_site);
-	File enable(fname, "w");
-	fprintf(enable.fp(), "%d %d\n", nsamples, G::mode);
+	char cmd[128];
+	sprintf(cmd, "set.site %d playloop_length=%d", G::play_site, nsamples);
+	system(cmd);
 }
 
 void pad(int nsamples, int npad)
