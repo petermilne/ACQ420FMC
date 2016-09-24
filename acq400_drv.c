@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.054"
+#define REVID "3.055"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3473,6 +3473,7 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");
 	}
 
+	adev->stats.shot++;
 	adev->stats.xo.dma_buffers_out =
 			adev->stats.xo.dma_buffers_in = 0;
 
@@ -3565,7 +3566,8 @@ quit:
 	waitXoFifoEmpty(adev);
 
 
-	adev->onStop(adev);
+	acq400_visit_set(adev0->distributor_set, adev->onStop);
+
 	adev->task_active = 0;
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
