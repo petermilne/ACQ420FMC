@@ -1305,4 +1305,16 @@ void acq400_spi_strobe(void *clidata, int cs, int mode);
 #define RAD_DDS_OSK		(1<<1)
 #define RAD_DDS_BPSK		(1<<0)
 
+int acq400_get_site(struct acq400_dev *adev, char s);
+int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site);
+void acq400_clear_set(struct acq400_dev* set[]);
+int acq400_read_set(struct acq400_dev* set[],
+		struct acq400_dev *adev, char *buf, int maxbuf);
+int acq400_add_aggregator_set(struct acq400_dev *adev, int site);
+int acq400_read_aggregator_set(struct acq400_dev *adev, char *buf, int maxbuf);
+void acq400_clear_aggregator_set(struct acq400_dev *adev);
+int acq400_add_distributor_set(struct acq400_dev *adev, int site);
+void acq400_clear_distributor_set(struct acq400_dev *adev);
+void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
+
 #endif /* ACQ420FMC_H_ */

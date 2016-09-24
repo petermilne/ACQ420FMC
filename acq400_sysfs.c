@@ -2264,6 +2264,17 @@ static ssize_t store_playloop_cursor(
 static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
 
+static ssize_t show_task_active(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->AO_playloop.cursor);
+}
+
+static DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
+
 static ssize_t show_playloop_repeats(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2567,6 +2578,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_task_active.attr,
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
@@ -2617,6 +2629,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_task_active.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -2928,6 +2941,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_task_active.attr,
 	NULL
 };
 
@@ -3320,78 +3334,7 @@ static ssize_t show_agg_reg(
 			regval, mod_group, regval&DATA_MOVER_EN? "on": "off");
 }
 
-extern int good_sites[];
-extern int good_sites_count;
 
-
-int get_site(struct acq400_dev *adev, char s)
-{
-	int ii;
-	int site = s-'0';
-
-	for(ii = 0; ii < good_sites_count; ++ii){
-		if (site == good_sites[ii]){
-			if (IS_ACQ1001SC(adev) && site == 4){
-				/* @@todo site 3/4 frig */
-				return 3;
-			}else{
-				return site;
-			}
-		}
-	}
-
-	return -1;
-}
-
-int add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site)
-{
-	int ia = 0;
-	struct acq400_dev *slave = acq400_lookupSite(site);
-	for (ia = 0; ia < MAXSITES; ++ia){
-		dev_dbg(DEVP(adev), "add_set [%d]=%p site:%d %p",
-				ia, set[ia], site, slave);
-		if (set[ia] == slave){
-			return 0;
-		}else if (set[ia] == 0){
-			set[ia] = slave;
-			return 0;
-		}
-	}
-	dev_err(DEVP(adev), "ERROR: add_set() failed");
-	return 1;
-}
-
-void clear_set(struct acq400_dev* set[])
-{
-	int ia = 0;
-	for (ia = 0; ia < MAXSITES; ++ia){
-		set[ia] = 0;
-	}
-}
-
-int read_set(struct acq400_dev* set[],
-		struct acq400_dev *adev, char *buf, int maxbuf)
-{
-	int ia = 0;
-	int cursor = 0;
-
-	for (ia = 0; ia < MAXSITES; ++ia){
-		if (set[ia] != 0){
-			int site = set[ia]->of_prams.site;
-			if (cursor){
-				cursor += sprintf(buf+cursor, ",%d", site);
-			}else{
-				cursor += sprintf(buf+cursor, "%d", site);
-			}
-
-			if (cursor > maxbuf - 3){
-				break;
-			}
-		}
-	}
-	cursor += sprintf(buf+cursor, "\n");
-	return cursor;
-}
 
 static inline void reset_fifo(struct acq400_dev *adev, int enable)
 {
@@ -3412,39 +3355,20 @@ static inline void reset_fifo(struct acq400_dev *adev, int enable)
 
 #define ENABLE	1
 
+static void reset_fifo_enable(struct acq400_dev* adev)
+{
+	reset_fifo(adev, ENABLE);
+}
+
+static void reset_fifo_clr(struct acq400_dev* adev)
+{
+	reset_fifo(adev, 0);
+}
 void reset_fifo_set(struct acq400_dev* adev, struct acq400_dev* set[], int enable)
 {
-	int site;
-	for (site = 0; site < MAXSITES; ++site){
-		dev_dbg(DEVP(adev), "reset_fifo_set [%d] %p", site, set[site]);
-		if (set[site]){
-			reset_fifo(set[site], enable);
-		}
-	}
+	acq400_visit_set(set, enable? reset_fifo_enable: reset_fifo_clr);
 }
 
-int add_aggregator_set(struct acq400_dev *adev, int site)
-{
-	return add_set(adev->aggregator_set, adev, site);
-}
-
-int read_aggregator_set(struct acq400_dev *adev, char *buf, int maxbuf)
-{
-	return read_set(adev->aggregator_set, adev, buf, maxbuf);
-}
-
-void clear_aggregator_set(struct acq400_dev *adev)
-{
-	clear_set(adev->aggregator_set);
-}
-int add_distributor_set(struct acq400_dev *adev, int site)
-{
-	return add_set(adev->distributor_set, adev, site);
-}
-void clear_distributor_set(struct acq400_dev *adev)
-{
-	clear_set(adev->distributor_set);
-}
 
 
 static ssize_t store_agg_reg(
@@ -3469,7 +3393,7 @@ static ssize_t store_agg_reg(
 
 		regval &= ~(AGG_SITES_MASK << mshift);
 
-		clear_aggregator_set(adev);
+		acq400_clear_aggregator_set(adev);
 		if (strncmp(cursor, "none", 4) != 0){
 			for (; *cursor && *cursor != ' '; ++cursor){
 				switch(*cursor){
@@ -3477,10 +3401,10 @@ static ssize_t store_agg_reg(
 				case ' ':	continue;
 				case '\n':  	break;
 				default:
-					site = get_site(adev, *cursor);
+					site = acq400_get_site(adev, *cursor);
 					if (site > 0){
 						regval |= AGG_MOD_EN(site, mshift);
-						add_aggregator_set(adev, site);
+						acq400_add_aggregator_set(adev, site);
 						break;
 					}else{
 						dev_err(dev, "bad site designator: %c", *cursor);
@@ -3587,7 +3511,7 @@ static ssize_t show_aggregator_set(
 	char *buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return read_aggregator_set(adev, buf, 32);
+	return acq400_read_aggregator_set(adev, buf, 32);
 }
 static DEVICE_ATTR(aggregator_set, S_IRUGO, show_aggregator_set, 0);
 enum DistComms {
@@ -3698,7 +3622,7 @@ static ssize_t store_dist_reg(
 
 		regval &= ~(AGG_SITES_MASK << mshift);
 
-		clear_distributor_set(adev);
+		acq400_clear_distributor_set(adev);
 		if (strncmp(cursor, "none", 4) != 0){
 			for (; *cursor && *cursor != ' '; ++cursor){
 				switch(*cursor){
@@ -3706,10 +3630,10 @@ static ssize_t store_dist_reg(
 				case ' ':	continue;
 				case '\n':  	break;
 				default:
-					site = get_site(adev, *cursor);
+					site = acq400_get_site(adev, *cursor);
 					if (site > 0){
 						regval |= AGG_MOD_EN(site, mshift);
-						add_distributor_set(adev, site);
+						acq400_add_distributor_set(adev, site);
 						break;
 					}else{
 						dev_err(dev, "bad site designator: %c", *cursor);

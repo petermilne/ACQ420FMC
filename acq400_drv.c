@@ -3564,6 +3564,7 @@ quit:
 	}
 	waitXoFifoEmpty(adev);
 
+
 	adev->onStop(adev);
 	adev->task_active = 0;
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
