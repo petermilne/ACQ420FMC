@@ -2270,7 +2270,7 @@ static ssize_t show_task_active(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.cursor);
+	return sprintf(buf, "%u\n", adev->task_active);
 }
 
 static DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
