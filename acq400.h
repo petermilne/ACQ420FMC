@@ -807,7 +807,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
-void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
+int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 #define SYSCLK_M100	100000000
 #define SYSCLK_M66       66000000

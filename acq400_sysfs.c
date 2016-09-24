@@ -2211,6 +2211,7 @@ static ssize_t store_playloop_length(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned playloop_length;
 	unsigned one_shot;
+	int rc;
 
 	switch(sscanf(buf, "%u %u", &playloop_length, &one_shot)){
 	case 2:
@@ -2223,8 +2224,12 @@ static ssize_t store_playloop_length(
 			adev->AO_playloop.one_shot = one_shot; /* fall thru */
 		}
 	case 1:
-		xo400_reset_playloop(adev, playloop_length);
-		return count;
+		rc = xo400_reset_playloop(adev, playloop_length);
+		if (rc == 0){
+			return count;
+		}else{
+			return rc;
+		}
 	default:
 		return -1;
 	}

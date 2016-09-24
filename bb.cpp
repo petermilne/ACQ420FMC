@@ -142,7 +142,7 @@ void init_buffers()
 void set_playloop_length(int nsamples)
 {
 	char cmd[128];
-	sprintf(cmd, "set.site %d playloop_length=%d", G::play_site, nsamples);
+	sprintf(cmd, "set.site %d playloop_length %d %d", G::play_site, nsamples, G::mode);
 	system(cmd);
 }
 

@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.053"
+#define REVID "3.054"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3470,7 +3470,7 @@ int xo_data_loop(void *data)
 
 	if (shot_buffer_count*ao_samples_per_hb(adev) < adev->AO_playloop.length){
 		shot_buffer_count += 1;
-		dev_err(DEVP(adev), "ao play data buffer overspill");
+		dev_dbg(DEVP(adev), "ao play data buffer overspill");
 	}
 
 	adev->stats.xo.dma_buffers_out =
@@ -3612,22 +3612,28 @@ void xo_fix_ll(struct acq400_dev* adev, unsigned playloop_length)
 	}
 }
 
-void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
+int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
 	int is_master = (adev->mod_id&MOD_ID_IS_SLAVE) == 0;
 
+	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d) => %d",
+					adev->AO_playloop.length, playloop_length);
+
+	if (adev->AO_playloop.length && xo_use_distributor && adev->task_active){
+		dev_warn(DEVP(adev), "XO AWG is already tee'd up, not possible to abort");
+		return -1;
+	}
+
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
-		return;
-	}
+		return -1;
+	}else{
+		_ao420_stop(adev);
 
-	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d)",
-					adev->AO_playloop.length);
-	_ao420_stop(adev);
-
-	if (xo_use_distributor && is_master){
-		xo400_distributor_feeder_control(adev, 0);
+		if (xo_use_distributor && is_master){
+			xo400_distributor_feeder_control(adev, 0);
+		}
+		mutex_unlock(&adev->awg_mutex);
 	}
-	mutex_unlock(&adev->awg_mutex);
 
 	while(adev->task_active){
 		dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
@@ -3663,6 +3669,8 @@ void xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 
 		adev->onStart(adev);
 	}
+
+	return 0;
 }
 
 
