@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.056"
+#define REVID "3.067"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -920,10 +920,16 @@ int acq420_isFifoError(struct acq400_dev *adev)
 {
 	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
 	int err = (fifsta&fiferr) != 0;
+
+	acq400wr32(adev, ADC_FIFO_STA, fifsta);
+
 	if (err){
-		dev_warn(DEVP(adev), "FIFERR mask:%08x cmp:%08x actual:%08x\n",
-				FIFERR, fiferr, fifsta);
+		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
+		dev_warn(DEVP(adev), "FIFERR mask:%08x cmp:%08x actual:%08x %s\n",
+				FIFERR, fiferr, fifsta,
+				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
 	}
+
 	return err;
 }
 
@@ -1475,13 +1481,23 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 			adev, adev->pdev->dev.id, adev->dma_chan);
 
 
+
 	if (adev->w_task == 0){
-		dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
-		adev->w_task = kthread_run(
+		int retry = 0;
+		for(; IS_ERR_OR_NULL(adev->w_task); ++retry){
+			dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
+			adev->w_task = kthread_run(
 				IS_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
 				"%s.ai", devname(adev));
-		if (adev->w_task == ERR_PTR(-ENOMEM)){
-			BUG();
+			if (IS_ERR_OR_NULL(adev->w_task)){
+				dev_err(DEVP(adev), "ERROR: failed to start task %p", adev->w_task);
+				if (++retry > 5){
+					BUG();
+				}
+				msleep(10*retry);
+			}else{
+				break;
+			}
 		}
 	}else{
 		dev_warn(DEVP(adev),
@@ -1720,7 +1736,11 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 {
 	unsigned long work_task_wait = 0;
-	if (adev->task_active && adev->w_task){
+
+	while(mutex_lock_interruptible(&adev->mutex)) {
+		;
+	}
+	if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
 		kthread_stop(adev->w_task);
 	}
 
@@ -1728,6 +1748,7 @@ void _acq420_continuous_dma_stop(struct acq400_dev *adev)
 		kthread_stop(adev->h_task);
 		adev->h_task = 0;
 	}
+	mutex_unlock(&adev->mutex);
 
 	wake_up_interruptible(&adev->DMA_READY);
 	wake_up_interruptible(&adev->w_waitq);
@@ -1798,8 +1819,11 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 void acq2006_estop(struct acq400_dev *adev)
 {
 	fiferr = 0;				/* don't care about any errs now */
+
+	dev_dbg(DEVP(adev), "acq2006_estop() fiferr clr from %08x", FIFERR);
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
+	dev_dbg(DEVP(adev), "acq2006_estop() 99");
 }
 
 static unsigned int acq420_continuous_poll(
@@ -2796,7 +2820,7 @@ int acq400_bq_release(struct inode *inode, struct file *file)
         mutex_unlock(&adev->bq_clients_mutex);
 
         if (nelems){
-        	dev_info(DEVP(adev), "nelems:%d", nelems);
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }else{
         	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }
@@ -2834,7 +2858,7 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
         }
         mutex_unlock(&adev->bq_clients_mutex);
         if (nelems > 1){
-        	dev_info(DEVP(adev), "nelems:%d", nelems);
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }else{
         	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }
@@ -3727,6 +3751,8 @@ int check_fifo_statuses(struct acq400_dev *adev)
 	}
 	return 0;
 fail:
+	adev->rt.refill_error = true;
+	dev_err(DEVP(adev), "ERROR: quit on FIFERR set refill_error");
 	wake_up_interruptible_all(&adev->refill_ready);
 	return 1;
 }
@@ -3998,10 +4024,11 @@ quit:
 
 int ai_data_loop(void *data)
 {
-	struct acq400_dev *adev = (struct acq400_dev *)data;
 	/* wait for event from OTHER channel */
-	unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
-	unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
+	static const unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
+	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
+
+	struct acq400_dev *adev = (struct acq400_dev *)data;
 	int nloop = 0;
 	int ic;
 	long dma_timeout = START_TIMEOUT;
@@ -4054,7 +4081,9 @@ int ai_data_loop(void *data)
 	if (kthread_should_stop()){
 		goto quit;
 	}
+#if 0
 	dev_dbg(DEVP(adev), "rx initial FIFO interrupt, into the work loop\n");
+#endif
 
 	for(; !kthread_should_stop(); ++nloop){
 		for (ic = 0; ic < 2 && !kthread_should_stop();
@@ -4062,8 +4091,9 @@ int ai_data_loop(void *data)
 			struct HBM* hbm;
 			int emergency_drain_request = 0;
 
-			dev_dbg(DEVP(adev), "wait for chan %d %p %d\n", ic,
-				adev->dma_chan[ic], adev->dma_cookies[ic]);
+			dev_dbg(DEVP(adev), "wait for dma_chan[%d] %p %d timeout=%ld\n",
+					ic, adev->dma_chan[ic], adev->dma_cookies[ic],
+					dma_timeout);
 
 			if (wait_event_interruptible_timeout(
 					adev->DMA_READY,
@@ -4080,7 +4110,7 @@ int ai_data_loop(void *data)
 				dev_err(DEVP(adev), "dma_sync_wait nloop:%d chan:%d timeout", nloop, ic);
 				goto quit;
 			}
-			dev_dbg(DEVP(adev), "SUCCESS: SYNC %d done\n", ic);
+			dev_dbg(DEVP(adev), "DMA_SUCCESS: SYNC %d done\n", ic);
 
 			putFull(adev);
 			if ((hbm = getEmpty(adev)) == 0){
@@ -4127,8 +4157,14 @@ quit:
 	}
 
 	adev->task_active = 0;
-	dev_dbg(DEVP(adev), "ai_data_loop() 99");
-	return 0;
+
+	if (!kthread_should_stop()){
+		dev_dbg(DEVP(adev), "ai_data_loop() wait stop 88");
+		do_exit(0);
+	}else{
+		dev_dbg(DEVP(adev), "ai_data_loop() 99");
+		return 0;
+	}
 #undef DMA_ASYNC_MEMCPY
 #undef DMA_ASYNC_MEMCPY_NWFE
 }

@@ -125,6 +125,7 @@ int getFull(struct acq400_dev* adev, struct HBM** first, int wait)
 	} else if (adev->rt.please_stop){
 		return GET_FULL_DONE;
 	} else if (adev->rt.refill_error){
+		dev_err(DEVP(adev), "getFull() return GET_FULL_REFILL_ERR");
 		return GET_FULL_REFILL_ERR;
 	} else {
 		return __getFull(adev, first, wait);
