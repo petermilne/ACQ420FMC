@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.055"
+#define REVID "3.056"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3495,7 +3495,12 @@ int xo_data_loop(void *data)
 #define DMA_ASYNC_ISSUE_PENDING(chan) do { 			\
 		dma_async_issue_pending(chan);			\
 		++adev->stats.xo.dma_buffers_out; } while(0)
-#define DMA_COUNT_IN	++adev->stats.xo.dma_buffers_in
+#define DMA_COUNT_IN \
+	do { 						\
+		++adev->stats.xo.dma_buffers_in;	\
+		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
+	} while(0)
+
 #define LAST_PUSH(adev)	(adev->stats.xo.dma_buffers_out+1 >=shot_buffer_count)
 
 	/* prime the DMAC with buffers 0 and 1 ready to go.
@@ -3508,7 +3513,9 @@ int xo_data_loop(void *data)
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
 	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
 
-	dev_dbg(DEVP(adev), "xo_data_loop() 01");
+	dev_dbg(DEVP(adev), "xo_data_loop() 01 :out:%d in:%d",
+			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
+
 	go_rt(MAX_RT_PRIO-4);
 
 
@@ -3524,18 +3531,26 @@ int xo_data_loop(void *data)
 			dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
 			goto quit;
 		}
-		if (adev->dma_callback_done){
+
+
+		if (kthread_should_stop()){
+			dev_info(DEVP(adev), "kthread_should_stop");
+			goto quit;
+		}else if (adev->dma_callback_done){
 			--adev->dma_callback_done;
 			DMA_COUNT_IN;
+		}else {
+			dev_err(DEVP(adev), "here with no callback int should not happen ..");
 		}
-		if (kthread_should_stop()){
-			goto quit;
-		}
+
+		dev_dbg(DEVP(adev), "calling dma_sync_wait() ..");
+
 		if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
 			dev_err(DEVP(adev), "dma_sync_wait cursor:%d chan:%d timeout",
 					adev->AO_playloop.cursor, ic);
 			goto quit;
 		}
+		dev_dbg(DEVP(adev), "back from dma_sync_wait() ..");
 
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){

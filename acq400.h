@@ -1090,8 +1090,9 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_DI_FIFO_STATUS	0x14
 #define DIO432_DIO_ICR		0x18	/* same as regular ICR */
 
-#define DIO432_DIO_SAMPLE_COUNT 0x40
+#define DIO_CLKDIV		ADC_CLKDIV
 #define DIO432_DIO_CPLD_CTRL	0x44
+#define DIO432_DIO_SAMPLE_COUNT 0x48
 
 #define DIO432_DO_LOTIDE	0x8c
 #define DIO432_DO_FIFO_COUNT	0x90
