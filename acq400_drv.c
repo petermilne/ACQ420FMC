@@ -294,6 +294,8 @@ int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
 int fifo_monitor(void* data);
 
+int fiferr;
+
 void acq420_onStart(struct acq400_dev *adev);
 void acq480_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
@@ -917,10 +919,10 @@ static void acq400_clear_histo(struct acq400_dev *adev)
 int acq420_isFifoError(struct acq400_dev *adev)
 {
 	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
-	int err = (fifsta&FIFERR) != 0;
+	int err = (fifsta&fiferr) != 0;
 	if (err){
-		dev_warn(DEVP(adev), "FIFERR mask:%08x actual:%08x\n",
-				FIFERR, fifsta);
+		dev_warn(DEVP(adev), "FIFERR mask:%08x cmp:%08x actual:%08x\n",
+				FIFERR, fiferr, fifsta);
 	}
 	return err;
 }
@@ -1575,6 +1577,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	if (rc){
 		return rc;
 	}
+	fiferr = FIFERR;
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 	acq2006_aggregator_reset(adev);				/* (1) */
@@ -1794,6 +1797,7 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 
 void acq2006_estop(struct acq400_dev *adev)
 {
+	fiferr = 0;				/* don't care about any errs now */
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
 }
