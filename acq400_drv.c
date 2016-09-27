@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.072"
+#define REVID "3.073"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -441,8 +441,17 @@ u32 get_spadN(struct acq400_dev* adev, int n)
 	}
 }
 
+void set_continuous_reader(struct acq400_dev *adev)
+{
+	adev->continuous_reader = task_pid_nr(current);
+	continuous_reader |= 1 << adev->of_prams.site;
+}
 
-
+void clr_continuous_reader(struct acq400_dev *adev)
+{
+	adev->continuous_reader = 0;
+	continuous_reader &= ~(1 << adev->of_prams.site);
+}
 u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
 /* DOES NOT ACTUALLY WRITE HARDWARE! */
 {
@@ -1690,8 +1699,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	adev->stats.reads++;
 	adev->count = count;
 	adev->this_count = 0;
-	adev->continuous_reader = task_pid_nr(current);
-	continuous_reader |= 1 << adev->of_prams.site;
+	set_continuous_reader(adev);
 
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
@@ -1826,8 +1834,7 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
-	adev->continuous_reader = 0;
-	continuous_reader &= ~(1 << adev->of_prams.site);
+	clr_continuous_reader(adev);
 	_acq420_continuous_stop(ACQ400_DEV(file), 1);
 
 	return acq400_release(inode, file);
@@ -1838,8 +1845,8 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
-	adev->continuous_reader = 0;
-	continuous_reader &= ~(1 << adev->of_prams.site);
+	clr_continuous_reader(adev);
+
 	if (adev->rt.event_count >= acq400_event_count_limit){
 		dev_dbg(DEVP(adev), "acq2006_continuous_stop() restore event..");
 		acq400_enable_event0(adev, 1);
@@ -1983,8 +1990,7 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
-	adev->continuous_reader = task_pid_nr(current);
-	continuous_reader |= 1 << adev->of_prams.site;
+	set_continuous_reader(adev);
 
 	if (wait_event_interruptible(
 			adev->refill_ready,
@@ -2012,8 +2018,7 @@ int acq420_sideported_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 
-	adev->continuous_reader = 0;
-	continuous_reader &= ~(1 << adev->of_prams.site);
+	clr_continuous_reader(adev);
 	_acq420_continuous_stop(adev, 0);
 	return acq400_release(inode, file);
 }
