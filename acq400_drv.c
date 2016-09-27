@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.067"
+#define REVID "3.072"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -77,6 +77,10 @@ MODULE_PARM_DESC(lotide, "lotide value (words)");
 int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
+
+int act_on_fiferr = 1;
+module_param(act_on_fiferr, int, 0644);
+MODULE_PARM_DESC(act_on_fiferr, "0: log, don't act. 1: abort on error");
 
 int debcount;
 module_param(debcount, int, 0644);
@@ -251,6 +255,11 @@ MODULE_PARM_DESC(xo_use_distributor, "use distributor and PRI for XO transfer";)
 int xo_distributor_sample_size = sizeof(unsigned);
 module_param(xo_distributor_sample_size, int, 0644);
 MODULE_PARM_DESC(xo_distributor_sample_size, "sample size in distributor set");
+
+
+int continuous_reader;
+module_param(continuous_reader, int, 0444);
+MODULE_PARM_DESC(continuous_reader, "bitmask shows which sites have a reader");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
@@ -925,14 +934,25 @@ int acq420_isFifoError(struct acq400_dev *adev)
 
 	if (err){
 		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
-		dev_warn(DEVP(adev), "FIFERR mask:%08x cmp:%08x actual:%08x %s\n",
+		adev->stats.fifo_errors++;
+		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
+				acq400_lookupSite(0)->rt.nput,
 				FIFERR, fiferr, fifsta,
 				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
 	}
 
-	return err;
+	return act_on_fiferr? err: 0;
 }
 
+int acq420_convActive(struct acq400_dev *adev)
+{
+	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
+	u32 active = fifsta&ADC_FIFO_STA_ACTIVE;
+
+	dev_dbg(DEVP(adev), "acq420_convActive() %08x %s",
+			fifsta, active? "YES": "no");
+	return active;
+}
 void acqXXX_onStartNOP(struct acq400_dev *adev)
 {
 
@@ -1051,7 +1071,15 @@ void dio432_onStop(struct acq400_dev *adev)
 void acq420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl;
+	u32 status = acq400rd32(adev, ADC_FIFO_STA);
+
 	dev_dbg(DEVP(adev), "acq420_onStart()");
+
+	if ((status&ADC_FIFO_STA_ACTIVE) != 0){
+		dev_err(DEVP(adev), "ERROR: ADC_FIFO_STA_ACTIVE set %08x", status);
+		acq420_disable_fifo(adev);
+	}
+
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	acq420_enable_fifo(adev);
 	ctrl = acq400rd32(adev, ADC_CTRL);
@@ -1663,6 +1691,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	adev->count = count;
 	adev->this_count = 0;
 	adev->continuous_reader = task_pid_nr(current);
+	continuous_reader |= 1 << adev->of_prams.site;
 
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
@@ -1798,6 +1827,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	adev->continuous_reader = 0;
+	continuous_reader &= ~(1 << adev->of_prams.site);
 	_acq420_continuous_stop(ACQ400_DEV(file), 1);
 
 	return acq400_release(inode, file);
@@ -1809,6 +1839,7 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
 	adev->continuous_reader = 0;
+	continuous_reader &= ~(1 << adev->of_prams.site);
 	if (adev->rt.event_count >= acq400_event_count_limit){
 		dev_dbg(DEVP(adev), "acq2006_continuous_stop() restore event..");
 		acq400_enable_event0(adev, 1);
@@ -1953,6 +1984,7 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	int rc;
 	adev->continuous_reader = task_pid_nr(current);
+	continuous_reader |= 1 << adev->of_prams.site;
 
 	if (wait_event_interruptible(
 			adev->refill_ready,
@@ -1981,6 +2013,7 @@ int acq420_sideported_stop(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 
 	adev->continuous_reader = 0;
+	continuous_reader &= ~(1 << adev->of_prams.site);
 	_acq420_continuous_stop(adev, 0);
 	return acq400_release(inode, file);
 }
@@ -3912,9 +3945,11 @@ int fifo_monitor(void* data)
 	histo_clear_all(devs, idev);
 
 	while(!kthread_should_stop()) {
-		histo_add_all(devs, idev, i1);
-		msleep(histo_poll_ms);
-		if (++i1 >= idev) i1 = 0;
+		if (acq420_convActive(devs[idev>1?1:0])){
+			histo_add_all(devs, idev, i1);
+			msleep(histo_poll_ms);
+		}
+//		if (++i1 >= idev) i1 = 0;
 	}
 
 	return 0;

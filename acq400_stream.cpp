@@ -1254,13 +1254,12 @@ static void hold_open(const char* sites)
 				ss+0, ss+1, ss+2, ss+3, ss+4, ss+5);
 
 	if (G::nsites){
+		make_aggsem();
 		pid_t child = fork();
 		if (child != 0){
 			/* original becomes reaper */
 			wait_and_cleanup(child);
 		}else{
-			make_aggsem();
-
 			for (int isite = 0; isite < G::nsites; ++isite ){
 				child = fork();
 
@@ -1282,7 +1281,9 @@ static void hold_open(const char* sites)
 static void kill_the_holders() {
 	std::vector<pid_t>::iterator it;
 	for (it = holders.begin(); it != holders.end(); ++it){
+		int status;
 		kill(*it, SIGTERM);
+		wait(&status);
 		if (verbose) fprintf(stderr, "kill_the_holders %d\n", *it);
 	}
 }
@@ -1361,6 +1362,8 @@ void init_globs(void)
 	}
 }
 
+void checkHolders();
+
 void aggregator_init()
 {
 	if (G::devnum == 0 && G::aggregator_sites == 0){
@@ -1370,6 +1373,7 @@ void aggregator_init()
 		if (verbose) fprintf(stderr, "default sites:%s\n", G::aggregator_sites);
 	}
 	/* else .. defaults to 0 */
+	checkHolders();
 	if (G::aggregator_sites != 0){
 		hold_open(G::aggregator_sites);
 	}
@@ -3260,6 +3264,27 @@ public:
 	}
 };
 
+void checkHolders() {
+	for (int isite = 0; isite < G::nsites; ++isite){
+		unsigned holder_ready = 0;
+		for(int pollcat = 0;; ++pollcat, usleep(10000)){
+			if (getKnob(G::the_sites[isite], "continuous_reader",
+					&holder_ready) != 1){
+				fprintf(stderr, "ERROR: getKnob continuous_reader\n");
+				exit(1);
+			}
+			if (holder_ready){
+				fprintf(stderr, "ERROR:checkHolders: BUSY ALREADY\n");
+				exit(1);
+			}
+
+			if (pollcat > 100){
+				fprintf(stderr, "ERROR:waitHolders: timeout\n");
+				exit(1);
+			}
+		}
+	}
+}
 void waitHolders() {
 	for (int isite = 0; isite < G::nsites; ++isite){
 		unsigned holder_ready = 0;
