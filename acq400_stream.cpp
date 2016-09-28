@@ -76,7 +76,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1007"
+#define VERID	"B1008"
 
 #define NCHAN	4
 
@@ -891,7 +891,8 @@ enum STATE {
 	ST_ARM,
 	ST_RUN_PRE,
 	ST_RUN_POST,
-	ST_POSTPROCESS
+	ST_POSTPROCESS,
+	ST_CLEANUP
 };
 
 #define NSinMS	1000000
@@ -1188,7 +1189,7 @@ static void wait_and_cleanup(pid_t child)
 	}
 
 	fprintf(stderr, "wait_and_cleanup exterminate\n");
-        Progress::instance().setState(ST_STOP);
+        Progress::instance().setState(ST_CLEANUP);
         kill(0, SIGTERM);
         exit(0);
 }
@@ -1792,7 +1793,7 @@ public:
 			}
 			actual.elapsed += samples_buffer;
 		}
-		setState(ST_STOP);
+		setState(ST_CLEANUP);
 	}
 };
 
@@ -1817,7 +1818,7 @@ public:
 			fflush(stdout);
 			actual.elapsed += samples_buffer;
 		}
-		setState(ST_STOP);
+		setState(ST_CLEANUP);
 	}
 	NullStreamHead(Progress& progress) :
 		StreamHeadImpl(progress)
@@ -2340,7 +2341,7 @@ static void wait_and_cleanup_sighandler(int signo)
 	if (!cleanup_done){
 		kill(0, SIGTERM);
 		cleanup_done = true;
-		Progress::instance().setState(ST_STOP);
+		Progress::instance().setState(ST_CLEANUP);
 		if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler progress done\n");
 	}
 	exit(0);
@@ -2856,7 +2857,7 @@ public:
 			}
 			actual.elapsed += samples_buffer;
 		}
-		setState(ST_STOP);
+		setState(ST_CLEANUP);
 
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamEnd();
@@ -3163,7 +3164,7 @@ public:
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamEnd();
 		}
-		setState(ST_STOP);
+		setState(ST_CLEANUP);
 		close();
 	}
 
