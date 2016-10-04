@@ -37,7 +37,7 @@ int ndevices;
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 #undef MAXDEVICES
-#define MAXDEVICES 2
+#define MAXDEVICES 3
 
 char* MODEL = "";
 module_param(MODEL, charp, 0444);
@@ -225,14 +225,20 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
         		snprintf(mdev->devname, 16, "mgt400.%c",
         				mdev->of_prams.sn+'A');
         	}
+        	if (of_property_read_u32(of_node, "physid",
+        	        			&mdev->of_prams.phys) < 0){
+        	}
                 if (of_property_read_u32_array(
                 		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
                 	dev_warn(DEVP(mdev), "failed to find IRQ values");
                 }else{
                 	mdev->of_prams.irq = irqs[OF_IRQ_USEME] + OF_IRQ_MAGIC;
                 }
-                dev_info(DEVP(mdev), "mgt400 \"%s\" site:%d sn:%d",
-                		mdev->devname, mdev->of_prams.site, mdev->of_prams.sn);
+
+                dev_info(DEVP(mdev), "mgt400 \"%s\" site:%d sn:%d phys:%s",
+                		mdev->devname, mdev->of_prams.site,
+				mdev->of_prams.sn,
+				mdev->of_prams.phys? "PCIe": "SFP");
                 return 0;
         }else{
         	return -1;

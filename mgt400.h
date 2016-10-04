@@ -18,6 +18,7 @@ struct mgt400_dev {
 		int site;
 		int irq;
 		int sn;
+		int phys;	/* 0: SFP, 1: PCIe */
 	} of_prams;
 	char devname[16];
 
