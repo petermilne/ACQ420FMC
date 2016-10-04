@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.073"
+#define REVID "3.074"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3507,12 +3507,14 @@ int ao_samples_per_hb(struct acq400_dev *adev)
 int waitXoFifoEmpty(struct acq400_dev *adev)
 {
 	int pollcat = 0;
-	while (adev->xo.getFifoSamples(adev) > 0){
-		msleep(10);
-		if (++pollcat > XO_MAX_POLL){
+	int s1, s0 = 0;
+	while ((s1 = adev->xo.getFifoSamples(adev)) > 0){
+		msleep(20);
+		if (s1 == s0 || ++pollcat > XO_MAX_POLL){
 			dev_err(DEVP(adev), "TIMEOUT waiting for XO FIFO EMPTY");
 			return -1;
 		}
+		s0 = s1;
 	}
 	return 0;
 }
