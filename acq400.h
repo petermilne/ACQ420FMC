@@ -61,9 +61,9 @@
 
 #define ADC_BASE		0x0000
 #define MOD_ID			(ADC_BASE+0x00)
-#define ADC_CTRL		(ADC_BASE+0x04)
-#define DAC_CTRL		ADC_CTRL
 #define MCR			(ADC_BASE+0x04)
+#define ADC_CTRL		MOD_CTRL
+#define DAC_CTRL		MOD_CTRL
 #define TIM_CTRL		(ADC_BASE+0x08)
 #define ADC_HITIDE		(ADC_BASE+0x0C)
 #define DAC_LOTIDE		ADC_HITIDE

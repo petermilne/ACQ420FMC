@@ -19,6 +19,7 @@ obj-m += dmadescfs.o
 obj-m += radcelf.o
 obj-m += ad9854.o
 obj-m += ad9512.o
+#obj-m += acq400-spi-bytebang.o
 
 DC=$(shell date +%y%m%d%H%M%S)
 SEQ=10
