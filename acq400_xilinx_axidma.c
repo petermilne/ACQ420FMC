@@ -546,6 +546,9 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 	xchan->start_transfer = acq400_dma_on_ioc;
 
 	if (!wimp_out){
+		int databursts = adev->bufferlen/0x800;
+		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
+
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}
 	return 0;
