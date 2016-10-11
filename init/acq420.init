@@ -583,17 +583,15 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 	else
 		echo ACQ480 using user preselect buffers $BLEN $NBUF
 	fi
-	/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
-	web_append  $DROOT/acq400_axi_dma/adma1 1
-	echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
-	cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
-	VAP=7
+	VAP=7	
 else
 	VAP=13
 fi
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
+
+
 
 case $MODEL in
 acq2106sfp|kmcu*)
@@ -609,7 +607,13 @@ build_knobs
 set_fans	
 grep acq400\.[0-9] /proc/devices | build_nodes
 
-
+if [ -e  /dev/acq400.0.knobs/has_axi_dma ] && \
+	[ $(cat /dev/acq400.0.knobs/has_axi_dma) -eq 1 ] ; then
+	/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
+	web_append  $DROOT/acq400_axi_dma/adma1 1
+	echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
+	cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+fi
 
 echo ++ Enable analog power..
 
