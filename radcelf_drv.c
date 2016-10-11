@@ -88,7 +88,7 @@ static int radcelf_init_spi(void)
 		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 0,
-		.platform_data = pd, /* No spi_driver specific config */
+		.platform_data = pd, /* spi_driver specific config, set later */
 		.irq = 0,
 	},
 	{
@@ -96,7 +96,7 @@ static int radcelf_init_spi(void)
 		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 1,
-		.platform_data = pd+1, /* No spi_driver specific config */
+		.platform_data = pd+1, /* spi_driver specific config, set later */
 		.irq = 0,
 	},
 	{
@@ -104,7 +104,7 @@ static int radcelf_init_spi(void)
 		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 2,
-		.platform_data = pd+2, /* No spi_driver specific config */
+		.platform_data = pd+2, /* spi_driver specific config, set later */
 		.irq = 0,
 	},
 	{
