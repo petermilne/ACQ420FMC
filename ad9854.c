@@ -26,7 +26,7 @@
 /**
  *
  *
-
+ *
 NB: with the serial interface, addresses are by REGISTER, not by BYTE
 
 SO: Serial offset or register offset
@@ -392,7 +392,7 @@ static int ad9854_spi_write_then_read(
 	}else if (read_cache){
 		return ad9854_spi_read_cache(dev, txbuf, n_tx, rxbuf, n_rx);
 	}else{
-		return dbg_spi_write_then_read(dev, txbuf, n_tx, rxbuf, n_rx);
+		return dbg_spi_write_then_read(to_spi_device(dev), txbuf, n_tx, rxbuf, n_rx);
 	}
 }
 
