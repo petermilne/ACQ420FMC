@@ -112,6 +112,9 @@ module_param(dummy_device, int, 0644);
 int Baadd_mode_strobe_every = 1;
 module_param(Baadd_mode_strobe_every, int, 0644);
 
+int read_cache = 1;
+module_param(read_cache, int, 0644);
+
 int idev;
 static struct proc_dir_entry *ad9854_proc_root;
 
@@ -386,8 +389,10 @@ static int ad9854_spi_write_then_read(
 			external_strobe(dev, GET_APD(dev), 0);
 		}
 		return rc;
-	}else{
+	}else if (read_cache){
 		return ad9854_spi_read_cache(dev, txbuf, n_tx, rxbuf, n_rx);
+	}else{
+		return dbg_spi_write_then_read(dev, txbuf, n_tx, rxbuf, n_rx);
 	}
 }
 
