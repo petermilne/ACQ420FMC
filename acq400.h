@@ -61,9 +61,10 @@
 
 #define ADC_BASE		0x0000
 #define MOD_ID			(ADC_BASE+0x00)
-#define MCR			(ADC_BASE+0x04)
-#define ADC_CTRL		MOD_CTRL
-#define DAC_CTRL		MOD_CTRL
+#define MOD_CON			(ADC_BASE+0x04)
+#define MCR			MOD_CON
+#define ADC_CTRL		MOD_CON
+#define DAC_CTRL		MOD_CON
 #define TIM_CTRL		(ADC_BASE+0x08)
 #define ADC_HITIDE		(ADC_BASE+0x0C)
 #define DAC_LOTIDE		ADC_HITIDE
@@ -825,7 +826,7 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define ACQ2006_EVT_COUNT_MASK	0x0000ffff
 
 /* SC "site 0" registers */
-#define MOD_CON			(0x0004)
+/* #define MOD_CON			(0x0004) */
 #define AGGREGATOR		(0x0008)
 #define AGGSTA			(0x000c)
 #define DATA_ENGINE_0		(0x0010)
