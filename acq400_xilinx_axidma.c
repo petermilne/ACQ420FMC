@@ -530,6 +530,10 @@ extern int wimp_out;
 static void acq400_dma_on_ioc(struct xilinx_dma_chan *chan)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)chan->client_private;
+	/* STOP at end of one-shot?
+	struct dma_chan* dma_chan = &chan->common;
+	dma_chan->device->device_control(dma_chan, DMA_TERMINATE_ALL, 0);
+	*/
 	wake_up_interruptible(&adev->DMA_READY);
 }
 
