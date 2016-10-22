@@ -3971,13 +3971,10 @@ static const struct attribute *acq2006sc_attrs[] = {
 };
 
 
-/* obsoleted */
-//MAKE_BITS(fpctl_acq1014_trg, FPCTL, MAKE_BITS_FROM_MASK, FPCTL_FP_1014_TRG);
 MAKE_BITS(fpctl_acq1014_clk, FPCTL, MAKE_BITS_FROM_MASK, FPCTL_FP_1014_CLK);
 
 
 static const struct attribute *acq1014sc_attrs[] = {
-//	&dev_attr_fpctl_acq1014_trg,
 	&dev_attr_fpctl_acq1014_clk,
 
 /* static const struct attribute *acq1001sc_attrs[] = { */
