@@ -3975,7 +3975,8 @@ MAKE_BITS(fpctl_acq1014_clk, FPCTL, MAKE_BITS_FROM_MASK, FPCTL_FP_1014_CLK);
 
 
 static const struct attribute *acq1014sc_attrs[] = {
-	&dev_attr_fpctl_acq1014_clk,
+	&dev_attr_fpctl_acq1014_clk.attr,
+	&dev_attr_scount_TRG_S6.attr,		/* S6 TRG is TRG2 for second 8 */
 
 /* static const struct attribute *acq1001sc_attrs[] = { */
 	&dev_attr_data_engine_0.attr,
