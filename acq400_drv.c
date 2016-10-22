@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.081"
+#define REVID "3.082"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -537,6 +537,7 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->lotide = lotide;
 	adev->onStart = acq480_onStart;
 	adev->onStop = acq420_disable_fifo;
+	adev->clkdiv_mask = 0x0001;		/* disable clkdiv */
 }
 
 
