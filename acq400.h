@@ -771,6 +771,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_SC(adev) \
 	(IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev)||IS_KMCx_SC(dev))
 
+#define IS_ACQ1014(adev) \
+	(IS_ACQ1001SC(adev) || (GET_MOD_ID_VERSION(adev)&0x4) != 0)
 
 #define IS_BOLO8(adev) \
 	(GET_MOD_ID(adev)==MOD_ID_BOLO8 || GET_MOD_ID(adev)==MOD_ID_BOLO8B)
@@ -1028,6 +1030,8 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define SYNC_CON
 int ao420_physChan(int lchan /* 1..4 */ );
 
+#define FPCTL_FP_1014_TRG (1<<13)
+#define FPCTL_FP_1014_CLK (1<<12)
 
 #define FPCTL_GPIO_SHL	8
 #define FPCTL_SYNC_SHL 	4

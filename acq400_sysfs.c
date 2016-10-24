@@ -3970,7 +3970,15 @@ static const struct attribute *acq2006sc_attrs[] = {
 	NULL
 };
 
-static const struct attribute *acq1001sc_attrs[] = {
+
+MAKE_BITS(fpctl_acq1014_clk, FPCTL, MAKE_BITS_FROM_MASK, FPCTL_FP_1014_CLK);
+
+
+static const struct attribute *acq1014sc_attrs[] = {
+	&dev_attr_fpctl_acq1014_clk.attr,
+	&dev_attr_scount_TRG_S6.attr,		/* S6 TRG is TRG2 for second 8 */
+
+/* static const struct attribute *acq1001sc_attrs[] = { */
 	&dev_attr_data_engine_0.attr,
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_fan.attr,
@@ -3997,6 +4005,8 @@ static const struct attribute *acq1001sc_attrs[] = {
 	&dev_attr_scount_SYN_S2.attr,
 	NULL
 };
+
+#define acq1001sc_attrs (acq1014sc_attrs+2)
 
 static const struct attribute *kmcx_sc_attrs[] = {
 	&dev_attr_data_engine_0.attr,
@@ -4189,7 +4199,12 @@ void acq400_createSysfs(struct device *dev)
 		if (IS_ACQ2X06SC(adev)){
 			specials = acq2006sc_attrs;
 		}else if (IS_ACQ1001SC(adev)){
-			specials = acq1001sc_attrs;
+			if (IS_ACQ1014(adev)){
+				dev_info(dev, "ACQ1014: loading extra knobs");
+				specials = acq1014sc_attrs;
+			}else{
+				specials = acq1001sc_attrs;
+			}
 		}else if (IS_KMCx_SC(adev)){
 			specials = kmcx_sc_attrs;
 		}
