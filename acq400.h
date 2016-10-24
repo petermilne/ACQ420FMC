@@ -573,6 +573,7 @@ struct acq400_dev {
 	void (*onStart)(struct acq400_dev *adev);
 	void (*onStop)(struct acq400_dev *adev);
 	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
+	int (*isFifoError)(struct acq400_dev *adev);
 
 	struct Bolo8 {
 		char* awg_buffer;

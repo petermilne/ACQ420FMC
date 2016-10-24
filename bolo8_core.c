@@ -47,6 +47,8 @@ void bolo8_onStart(struct acq400_dev *adev)
 	if ((scount = acq400rd32(adev, B8_ADC_FIFO_CNT)) > 0){
 		dev_warn(DEVP(adev),
 		"ERROR: reset fifo but it's not empty! :%08x", scount);
+	}else{
+		dev_dbg(DEVP(adev), "FIFO EMPTY");
 	}
 
 	acq400wr32(adev, B8_ADC_CONV_TIME, b8_adc_conv_time);

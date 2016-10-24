@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.084"
+#define REVID "3.085"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -793,6 +793,9 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 			__LINE__, acq400rd32(adev, DAC_CTRL));
 	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
 }
+
+int bolo8_isFifoError(struct acq400_dev *adev);
+
 static void bolo8_init_defaults(struct acq400_dev* adev)
 {
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
@@ -812,6 +815,7 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	acq400wr32(adev, ADC_CLKDIV, 10);
 	adev->onStart = bolo8_onStart;
 	adev->onStop = bolo8_onStop;
+	adev->isFifoError = bolo8_isFifoError;
 
 	adev->bolo8.awg_buffer = kmalloc(4096, GFP_KERNEL);
 	adev->bolo8.awg_buffer_max = 4096;
@@ -945,6 +949,25 @@ int acq420_isFifoError(struct acq400_dev *adev)
 
 	if (err){
 		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
+		adev->stats.fifo_errors++;
+		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
+				acq400_lookupSite(0)->rt.nput,
+				FIFERR, fiferr, fifsta,
+				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
+	}
+
+	return act_on_fiferr? err: 0;
+}
+
+int bolo8_isFifoError(struct acq400_dev *adev)
+{
+	u32 fifsta = acq400rd32(adev, B8_ADC_FIFO_STA);
+	int err = (fifsta&fiferr) != 0;
+
+	acq400wr32(adev, B8_ADC_FIFO_STA, fifsta);
+
+	if (err){
+		u32 fifsta2 = acq400rd32(adev, B8_ADC_FIFO_STA);
 		adev->stats.fifo_errors++;
 		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
 				acq400_lookupSite(0)->rt.nput,
@@ -3773,7 +3796,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 			struct acq400_dev* slave = adev->aggregator_set[islave];
 			if (!slave) break;
 
-			if (acq420_isFifoError(slave)){
+			if (adev->isFifoError(slave)){
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
@@ -3789,7 +3812,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 			}
 		}
 	}else{
-		return acq420_isFifoError(adev);
+		return adev->isFifoError(adev);
 	}
 	return 0;
 fail:
@@ -4574,6 +4597,8 @@ static int acq400_probe(struct platform_device *pdev)
         	goto fail;
         }
 
+        adev->isFifoError = acq420_isFifoError;	/* REMOVE me: better default wanted */
+
         if (IS_SC(adev)){
         	adev->is_sc = true;
         	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
@@ -4634,6 +4659,7 @@ static int acq400_probe(struct platform_device *pdev)
   		goto fail;
   	}
 
+
   	if (IS_ACQ42X(adev)){
   		acq420_init_defaults(adev);
   	}else if (IS_DIO432X(adev)){
@@ -4646,7 +4672,6 @@ static int acq400_probe(struct platform_device *pdev)
   			acq43X_init_defaults(adev);
   			break;
   		case MOD_ID_AO420FMC:
-
   			ao420_init_defaults(adev);
   			break;
   		case MOD_ID_AO424ELF:
