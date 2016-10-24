@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.085"
+#define REVID "3.086"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -969,7 +969,7 @@ int bolo8_isFifoError(struct acq400_dev *adev)
 	if (err){
 		u32 fifsta2 = acq400rd32(adev, B8_ADC_FIFO_STA);
 		adev->stats.fifo_errors++;
-		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
+		dev_warn(DEVP(adev), "BOLO8 FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
 				acq400_lookupSite(0)->rt.nput,
 				FIFERR, fiferr, fifsta,
 				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
@@ -3796,7 +3796,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 			struct acq400_dev* slave = adev->aggregator_set[islave];
 			if (!slave) break;
 
-			if (adev->isFifoError(slave)){
+			if (slave->isFifoError(slave)){
 				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
 				slave->rt.refill_error = true;
 				goto fail;
