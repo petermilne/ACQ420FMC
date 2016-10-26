@@ -759,7 +759,7 @@ static ssize_t show_axi_freq(
 
 	if (clk != 0) clk = clk+1;
 
-	return sprintf(buf, "%u\n", clk*100);
+	return sprintf(buf, "%u\n", clk*100*100/1000000);
 }
 
 static DEVICE_ATTR(axi_freq, S_IRUGO, show_axi_freq, 0);
