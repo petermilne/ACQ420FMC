@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.087"
+#define REVID "3.088"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1868,6 +1868,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 int acq2006_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	fiferr = 0;				/* don't care about any errs now */
 	acq2006_aggregator_disable(adev);
 	_acq420_continuous_dma_stop(adev);
 	clr_continuous_reader(adev);
