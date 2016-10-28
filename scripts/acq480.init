@@ -72,6 +72,19 @@ proc build_50R {site} {
 	close $fp	
 }
 
+proc set_acq400_knob {site knob} {
+	set filename "/dev/acq400.$site.knobs/$knob"
+	set fileId [open $filename "w"]
+	puts $fileId 1
+	close $fileId
+}
+proc clr_acq400_knob {site knob} {
+	set filename "/dev/acq400.$site.knobs/$knob"	
+	set fileId [open $filename "w"]
+	puts $fileId 0
+	close $fileId
+}
+
 proc set_acq480_knob {site knob} {
 	set filename "/dev/acq480/$site/$knob"
 	set fileId [open $filename "w"]
@@ -107,6 +120,12 @@ proc build_jitter_cleaner {site} {
 	set_acq480_knob $site JC/RESETn
 }
 
+proc device_init {site} {
+	set ::env(SITE) $site
+	exec acq480_set_mapping
+	exec acq480_knobs setDataPattern 0x8404
+	set_acq400_knob	$site es_enable
+}
 set SITES ""
 
 if {! [info exists ::env(ACQ480_FIXED_TERM)] } {
@@ -151,6 +170,9 @@ if { $::argc > 0 } {
 			exec ln -s /usr/local/CARE/acq480_init_clk \
 							/etc/acq400/0/
 		}
+	}
+	foreach site $::argv {
+		device_init $site
 	}
 } else {
 	puts "usage acq480.init site1[ site 2...]	

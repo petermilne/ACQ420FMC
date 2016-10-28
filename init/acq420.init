@@ -458,10 +458,6 @@ build_knobs() {
 		esac
 		export MODEL;
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
-		for site in ${ACQ480_SITES}; do
-			(export SITE=$site; 
-			acq480_set_mapping; acq480_knobs setDataPattern 0x8404)			
-		done
 	else
 		case $MODEL in
 		acq1*)
