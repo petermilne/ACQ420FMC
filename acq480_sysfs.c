@@ -408,7 +408,7 @@ static ssize_t show_acq480_fpga_decim(
 	u32 version = GET_MOD_ID_VERSION(acq400_devices[dev->id]);
 	int decim;
 
-	switch(version){
+	switch(version&~MOD_ID_IS_SLAVE){
 	case MOD_ID_TYPE_ACQ480DIV4:
 		decim = 4; break;
 	case MOD_ID_TYPE_ACQ480DIV10:
