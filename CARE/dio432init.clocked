@@ -5,5 +5,5 @@ OUTPUTS=${2:-1,1,0,0}
 set.site $SITE byte_is_output $OUTPUTS
 set.site $SITE mode 2
 
-set.site 0 fpmux=fpclk
+set.site 0 SYS:CLK:FPMUX FPCLK
 
