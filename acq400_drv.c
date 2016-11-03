@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.090"
+#define REVID "3.091"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3864,6 +3864,8 @@ void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 	unsigned po_bytes = poison_offset(adev);
 	unsigned first_word = FIRST_POISON_WORD(po_bytes);
 
+	hbm->poison_data[0] = hbm->va[first_word+0];
+	hbm->poison_data[1] = hbm->va[first_word+1];
 	hbm->va[first_word+0] = POISON0;
 	hbm->va[first_word+1] = POISON1;
 	dma_sync_single_for_device(DEVP(adev),
@@ -3874,6 +3876,7 @@ void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 	}
 }
 
+
 void poison_one_buffer_fastidious(struct acq400_dev *adev, struct HBM* hbm)
 {
 	if (AXI_DEBUG_LOOPBACK_INDEX <= hbm->ix){
@@ -3882,6 +3885,9 @@ void poison_one_buffer_fastidious(struct acq400_dev *adev, struct HBM* hbm)
 		dev_dbg(DEVP(adev), "poison_one_buffer_fastidious() refuse to poison %d", hbm->ix);
 	}
 }
+
+
+
 void null_put_empty(struct acq400_dev *adev, struct HBM* hbm)
 {
 
@@ -3897,12 +3903,21 @@ int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm)
 	       hbm->va[first_word+1] != POISON1;
 }
 
-void poison_all_buffers(struct acq400_dev *adev)
+void clear_poison_from_buffer(struct acq400_dev *adev, struct HBM* hbm)
+{
+	unsigned po_bytes = poison_offset(adev);
+	unsigned first_word = FIRST_POISON_WORD(po_bytes);
+
+	if (!poison_overwritten(adev, hbm)){
+		hbm->va[first_word+0] = hbm->poison_data[0];
+		hbm->va[first_word+1] = hbm->poison_data[1];
+	}
+}
+
+int poison_all_buffers(struct acq400_dev *adev)
 {
 	int ii;
 	int nbuffers = move_list_to_stash(adev, &adev->EMPTIES);
-
-
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
@@ -3914,8 +3929,20 @@ void poison_all_buffers(struct acq400_dev *adev)
 		list_move_tail(&hbm->list, &adev->EMPTIES);
 	}
 	mutex_unlock(&adev->list_mutex);
+	return nbuffers;
 }
 
+void clear_poison_all_buffers(struct acq400_dev *adev, int nbuffers)
+{
+	int ii;
+
+	mutex_lock(&adev->list_mutex);
+	for (ii = 0; ii < nbuffers; ++ii){
+		struct HBM* hbm = adev->axi64_hb[ii];
+		clear_poison_from_buffer(adev, hbm);
+	}
+	mutex_unlock(&adev->list_mutex);
+}
 int check_all_buffers_are_poisoned(struct acq400_dev *adev)
 {
 	struct HBM *cursor;
@@ -3999,11 +4026,12 @@ int axi64_data_loop(void* data)
 	int nloop = 0;
 	struct HBM* hbm;
 	int rc;
+	int nbuffers;
 
 	dev_dbg(DEVP(adev), "ai_data_loop() 01");
 
 	adev->onPutEmpty = poison_one_buffer_fastidious;
-	poison_all_buffers(adev);
+	nbuffers = poison_all_buffers(adev);
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev)) != 0){
@@ -4089,6 +4117,7 @@ int axi64_data_loop(void* data)
 quit:
 	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
 
+	clear_poison_all_buffers(adev, nbuffers);
 	adev->task_active = 0;
 	dev_dbg(DEVP(adev), "ai_data_loop() 99");
 	return 0;

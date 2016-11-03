@@ -36,6 +36,7 @@ struct HBM {				/* Host Buffer Mapping */
 	short ix;
 	enum BSTATE bstate;
 	struct list_head list;
+	unsigned poison_data[2];	/* store data here when poisoning */
 };
 struct HBM* hbm_allocate1(struct device *dev, int len, int ix, enum dma_data_direction dir);
 int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir);
