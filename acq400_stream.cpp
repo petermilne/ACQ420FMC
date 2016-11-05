@@ -2564,6 +2564,11 @@ private:
 	vector<Segment> segments;
 
 	vector<Segment>& _getSegments();
+
+	void getSegmentsLinear();
+	void getSegmentsPrecorner();
+	void getSegmentsPostcorner();
+
 public:
 	int ibuf;
 	char* esp;
@@ -2681,13 +2686,8 @@ public:
 					seg, b0, b1, len, MapBuffer::getBuffer(b0), MapBuffer::getBuffer(b1));
 		}
 	}
-	vector<Segment>& getSegments() {
-		if (segments.size()){
-			return segments;
-		}else{
-			return _getSegments();
-		}
-	}
+	vector<Segment>& getSegments();
+
 	static int shuffle_forwards(char* src, int nbytes, int ito);
 };
 
@@ -2762,52 +2762,81 @@ int  BufferDistribution::shuffle_forwards(char* src, int nbytes, int ito)
 	}
 	return ito*Buffer::bufferlen;
 }
-vector<Segment>& BufferDistribution::_getSegments() {
+
+
+void BufferDistribution::getSegmentsLinear()
+{
+	int prebytes = s2b(G::pre);
+	int postbytes = s2b(G::post);
+
+	if (verbose) fprintf(stderr, "%s()\n", _PFN);
+
+	segments.push_back(Segment(esp-prebytes, prebytes));
+	if (G::show_es){
+		segments.push_back(Segment(esp, sample_size()));
+	}
+	segments.push_back(Segment(esp+sample_size(), postbytes));
+}
+void BufferDistribution::getSegmentsPrecorner()
+{
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
 	int nb;
 
-	if (verbose) fprintf(stderr, "BufferDistribution::_getSegments() mode %s\n", showMode());
-	switch (mode()){
-	case BD_LINEAR:
-		segments.push_back(Segment(esp-prebytes, prebytes));
-		if (G::show_es){
-			segments.push_back(Segment(esp, sample_size()));
-		}
-		segments.push_back(Segment(esp+sample_size(), postbytes));
-		break;
-	case BD_PRECORNER: {
-		nb = s2b(G::pre-tailroom);
-		char* start = ba_hi-nb;
-		segments.push_back(Segment(start, nb));
-		nb = s2b(tailroom);
-		esp += shuffle_forwards(ba_lo, nb+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
+	if (verbose) fprintf(stderr, "%s()\n", _PFN);
 
-		segments.push_back(Segment(esp-nb, nb));
-		if (G::show_es){
-			segments.push_back(Segment(esp, sample_size()));
-		}
-		segments.push_back(Segment(esp+sample_size(), postbytes));
-		break;
-	} case BD_POSTCORNER: {
-		char* start = esp-prebytes;
-		segments.push_back(Segment(start, prebytes));
-		if (G::show_es){
-			segments.push_back(Segment(esp, sample_size()));
-		}
-		nb = s2b(headroom-1);
-		segments.push_back(Segment(esp+sample_size(), nb));
-		char* s3 = ba_lo + shuffle_forwards(ba_lo, postbytes-nb, MapBuffer::getBuffer(start)-1);
-		segments.push_back(Segment(s3, postbytes-nb));
-		break;
-	} default:
-		assert(0);
+	nb = s2b(G::pre-tailroom);
+	char* start = ba_hi-nb;
+	segments.push_back(Segment(start, nb));
+	nb = s2b(tailroom);
+	esp += shuffle_forwards(ba_lo, nb+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
+
+	segments.push_back(Segment(esp-nb, nb));
+	if (G::show_es){
+		segments.push_back(Segment(esp, sample_size()));
 	}
+	segments.push_back(Segment(esp+sample_size(), postbytes));
+}
+void BufferDistribution::getSegmentsPostcorner()
+{
+	int prebytes = s2b(G::pre);
+	int postbytes = s2b(G::post);
+	int nb;
+	char* start = esp-prebytes;
 
-	if (verbose) showSegments();
+	if (verbose) fprintf(stderr, "%s()\n", _PFN);
 
+	segments.push_back(Segment(start, prebytes));
+	if (G::show_es){
+		segments.push_back(Segment(esp, sample_size()));
+	}
+	nb = s2b(headroom-1);
+	segments.push_back(Segment(esp+sample_size(), nb));
+	char* s3 = ba_lo + shuffle_forwards(ba_lo, postbytes-nb, MapBuffer::getBuffer(start)-1);
+	segments.push_back(Segment(s3, postbytes-nb));
+}
+
+vector<Segment>& BufferDistribution::getSegments() {
+	if (segments.size() == 0){
+		switch(mode()){
+		case BD_LINEAR:
+			getSegmentsLinear();
+			break;
+		case BD_PRECORNER:
+			getSegmentsPrecorner();
+			break;
+		case BD_POSTCORNER:
+			getSegmentsPostcorner();
+			break;
+		default:
+			fprintf(stderr, "%s() ERROR BAD MODE\n", _PFN);
+			exit(1);
+		}
+		if (verbose) showSegments();
+	}
 	return segments;
 }
+
 class BLT {
 	const char* base;
 	char* cursor;
