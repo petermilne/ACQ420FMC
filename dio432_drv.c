@@ -139,6 +139,11 @@ void dio432_disable(struct acq400_dev* adev)
 {
 	u32 syscon = _acq400rd32(adev, DIO432_DIO_CTRL);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon &= ~DIO432_CTRL_DIO_EN);
+	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |  DIO432_CTRL_FIFO_RST);
+	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
+
+	_acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
+	_acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
 
 	dev_dbg(DEVP(adev), "dio432_disable() syscon=0x%08x", syscon);
 }
