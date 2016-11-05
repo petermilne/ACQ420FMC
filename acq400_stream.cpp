@@ -88,6 +88,7 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
+#define _PFN	__PRETTY_FUNCTION__
 
 
 using namespace std;
@@ -2148,7 +2149,7 @@ public:
 	}
 	virtual int demux(void *start, int nbytes) = 0;
 	int operator()(void *start, int nsamples){
-		if (verbose) fprintf(stderr, "%s %p %d\n", __FUNCTION__, start, nsamples);
+		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nsamples);
 		return demux(start, nsamples);
 	}
 };
@@ -2190,9 +2191,23 @@ class DemuxerImpl : public Demuxer {
 	int _demux(void* start, int nbytes);
 
 
+	static int _msync (void *__addr, size_t __len, int __flags)
+	{
+		int rc;
+		if (verbose) fprintf(stderr,
+			"DemuxerImpl::_msync() 01 %p %d %08x\n",
+			__addr, __len, __flags);
+
+		rc = msync(__addr, __len, __flags);
+
+
+		if (verbose) fprintf(stderr, "DemuxerImpl::_msync() 99 rc %d\n", rc);
+
+		return rc;
+	}
 public:
 	DemuxerImpl() : dst() {
-		if (verbose) fprintf(stderr, "%s %d\n", __FUNCTION__, dst.channel_buffer_bytes);
+		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 	}
 	virtual ~DemuxerImpl() {
 
@@ -2200,6 +2215,7 @@ public:
 
 	virtual int demux(void *start, int nsamples);
 };
+
 
 
 void Demuxer_report(int buffer);
@@ -2210,17 +2226,28 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	const int cbs = channel_buffer_sam();
 	T* pdst = reinterpret_cast<T*>(dst.cursor);
 	T* psrc = reinterpret_cast<T*>(start);
+	T* psrc0 = psrc;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
 	const int step = G::double_up? 2: 1;
 
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
-			__FUNCTION__, start, nbytes, b1, pdst, psrc, nsam, cbs);
+			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
 
-	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", __FUNCTION__, step, G::double_up, G::nchan);
+	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
-	msync(MapBuffer::ba(b1), Buffer::bufferlen, MS_SYNC);
+	_msync(MapBuffer::ba(b1), Buffer::bufferlen, MS_SYNC);
 
-	for (int sam = 0; sam < nsam; sam += step){
+	for (int sam = 0; sam < nsam; sam += step, psrc += G::nchan*step){
+		if (psrc >= psrc0 + Buffer::bufferlen){
+			int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
+			if (b1 != b2){
+				if (verbose) fprintf(stderr, "%s new buffer %03d -> %03d\n", _PFN, b1, b2);
+				Progress::instance().print(true, b2);
+				_msync(MapBuffer::ba(b2), Buffer::bufferlen, MS_SYNC);
+				b1 = b2;
+				psrc0 = psrc;
+			}
+		}
 		T* psrct = psrc;
 		for (unsigned chan = 0; chan < G::nchan; ++chan){
 #ifdef BUFFER_IDENT
@@ -2234,18 +2261,11 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 				pdst[chan*cbs+sam+1] = *psrct++;
 			}
 		}
-		T* psrc2 = psrc + G::nchan*step;
-
-		int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc2));
-		if (b1 != b2){
-			Progress::instance().print(true, b2);
-			msync(MapBuffer::ba(b2), Buffer::bufferlen, MS_SYNC);
-		}
-		psrc = psrc2;
-		b1 = b2;
 	}
 	pdst += nsam;
 	dst.cursor = reinterpret_cast<char*>(pdst);
+
+	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
 	return nbytes;
 }
 
@@ -2257,14 +2277,14 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 	char* startp = reinterpret_cast<char*>(start);
 	int rc = 0;
 
-	if (verbose) fprintf(stderr, "%s 01 (%p %d)\n", __FUNCTION__, start, nbytes);
+	if (verbose) fprintf(stderr, "%s 01 (%p %d)\n", _PFN, start, nbytes);
 
 	assert(nbytes%sample_size() == 0);
 
 	while(nbytes){
 		int trb = dst.total_remain_bytes();
 
-		if (verbose) fprintf(stderr, "%s 10 nbytes:%d trb:%d\n", __FUNCTION__, nbytes, trb);
+		if (verbose) fprintf(stderr, "%s 10 nbytes:%d trb:%d\n", _PFN, nbytes, trb);
 
 		if (nbytes < trb){
 			rc += _demux(startp, nbytes);
@@ -2276,10 +2296,10 @@ int DemuxerImpl<T>::demux(void* start, int nbytes)
 			nbytes -= trb;
 			startp += nb;
 			rc += nb;
-			if (verbose) fprintf(stderr, "%s 50 rc:%d startp:%p\n", __FUNCTION__, rc, startp);
+			if (verbose) fprintf(stderr, "%s 50 rc:%d startp:%p\n", _PFN, rc, startp);
 		}
 	}
-	if (verbose) fprintf(stderr, "%s 99  rc:%d\n", __FUNCTION__, rc);
+	if (verbose) fprintf(stderr, "%s 99  rc:%d\n", _PFN, rc);
 	return rc;
 }
 
@@ -2566,6 +2586,8 @@ public:
 		bv && (verbose = atoi(bv));
 	}
 	void show() {
+		fprintf(stderr, "%s pre_fits:%d post_fits:%d\n", _PFN, pre_fits, post_fits);
+
 		if (pre_fits&&post_fits){
 			fprintf(stderr, "linear: %p |%p| %p\n",
 				esp - s2b(G::pre), esp, esp + s2b(G::post));
@@ -2599,6 +2621,8 @@ public:
 					ba_hi,
 					ba_lo, ba_lo + s2b(G::post-headroom));
 		}
+		fprintf(stderr, "%s 99\n", _PFN);
+
 	}
 	void report() {
 		FILE *fp = fopen("/dev/shm/estime", "w");
@@ -2647,8 +2671,12 @@ public:
 		int seg = 0;
 		for (SegmentIterator it = getSegments().begin();
 				it != getSegments().end(); ++it, ++seg){
-			fprintf(stderr, "BufferDistribution segments %d %p %d\n",
-					seg, (*it).base, (*it).len);
+			int len = (*it).len;
+			char *b0 = (*it).base;
+			char *b1 = b0+len-1;
+
+			fprintf(stderr, "%s segments %d %p..%p %d buffer:%03d ..%03d\n", _PFN,
+					seg, b0, b1, len, MapBuffer::getBuffer(b0), MapBuffer::getBuffer(b1));
 		}
 	}
 	vector<Segment>& getSegments() {
@@ -2885,7 +2913,7 @@ protected:
 		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%s\n",
 				cooked? 1:0, G::pre+G::post, G::nchan,
 				G::wordsize==2? "SHORT": "LONG");
-		if (verbose) fprintf(stderr, "notify_result() \"%s\"\n", resbuf);
+		if (verbose) fprintf(stderr, "%s \"%s\"\n", _PFN, resbuf);
 		FILE* fp = fopen(NOTIFY_HOOK, "w");
 		if (fp == 0) {
 			perror(NOTIFY_HOOK);
@@ -2897,8 +2925,7 @@ protected:
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
 		if (pre){
-			if (verbose) fprintf(stderr,
-					"StreamHeadPrePost::postProcess() pre\n");
+			if (verbose) fprintf(stderr, "%s pre\n", _PFN);
 			BufferDistribution bd(ibuf, es);
 
 			bd.report();
@@ -2909,8 +2936,7 @@ protected:
 				blt((*it).base, (*it).len);
 			}
 		}else{
-			if (verbose) fprintf(stderr,
-					"StreamHeadPrePost::postProcess() pre==0\n");
+			if (verbose) fprintf(stderr, "%s pre==0\n", _PFN);
 			/* probably redundant. pre==0, no reserve */
 			if (es != 0 && es != MapBuffer::get_ba0()){
 				blt(es, s2b(G::post));
@@ -2919,7 +2945,7 @@ protected:
 	}
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
-		if (verbose>1) fprintf(stderr, "yo: onStreamBufferStart %d\n", ib);
+		if (verbose>1) fprintf(stderr, "%s onStreamBufferStart %d\n", _PFN, ib);
 	}
 	virtual void onStreamEnd() {
 		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
@@ -2934,7 +2960,7 @@ protected:
 			if (findEvent(&ibuf, &es)){
 				postProcess(ibuf, es);
 			}else{
-				fprintf(stderr, "ERROR EVENT NOT FOUND, DATA NOT VALID\n");
+				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
 			}
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
@@ -2952,14 +2978,14 @@ protected:
 		FD_SET(fc, &readfds);
 		FD_SET(f_ev, &readfds);
 
-		if (verbose>1) fprintf(stderr, "fc %d f_ev %d nfds %d\n", fc, f_ev, nfds);
+		if (verbose>1) fprintf(stderr, "%s fc %d f_ev %d nfds %d\n", _PFN, fc, f_ev, nfds);
 
 		for(readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
 			if (verbose>1) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
-				if (verbose>1) fprintf(stderr, "FD_ISSET f_ev %d\n", f_ev);
+				if (verbose>1) fprintf(stderr, "%s FD_ISSET f_ev %d\n", _PFN, f_ev);
 				/* we can only handle ONE EVENT */
 				if (!event_received){
 					rc = read(f_ev, event_info, 80);
@@ -2968,14 +2994,14 @@ protected:
 					}else{
 						event_info[rc] = '\0';
 						chomp(event_info);
-						if (verbose) fprintf(stderr, "fd_ev read \"%s\"\n", event_info);
+						if (verbose) fprintf(stderr, "%s fd_ev read \"%s\"\n", _PFN, event_info);
 						event_received = true;
 						FD_CLR(f_ev, &readfds0);
 					}
 				}
 			}
 			if (FD_ISSET(fc, &readfds)){
-				if (verbose>2) fprintf(stderr, "FD_ISSET fc %d\n", fc);
+				if (verbose>2) fprintf(stderr, "%s FD_ISSET fc %d\n", _PFN, fc);
 				rc = read(fc, buf, 80);
 
 				if (rc > 0){
@@ -2983,7 +3009,7 @@ protected:
 					unsigned ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= Buffer::nbuffers);
-					if (verbose) fprintf(stderr, "getBufferId() ret %d\n", ib);
+					if (verbose) fprintf(stderr, "%s ret %d\n", _PFN, ib);
 					return ib;
 				}else{
 					return -1;
@@ -2992,7 +3018,7 @@ protected:
 		}
 
 		if (rc < 0){
-			syslog(LOG_DEBUG, "select error  %d\n", rc);
+			syslog(LOG_DEBUG, "%s select error  %d\n", _PFN, rc);
 		}
 		return -1;
 	}
@@ -3007,7 +3033,7 @@ protected:
 			blog.update(ib);
 
 			if (verbose > 1) fprintf(stderr,
-					"streamCore 01 ib:%d state:%d pre %d/%d post %d/%d\n",
+					"%s 01 ib:%d state:%d pre %d/%d post %d/%d\n", _PFN,
 					ib, actual.state, actual.pre, pre, actual.post, post);
 
 			switch(actual.state){
@@ -3018,14 +3044,16 @@ protected:
 			}
 
 			for (IT it = peers.begin(); it != peers.end(); ++it){
-				if (verbose > 1) fprintf(stderr, "call peer %p %p\n", *it, this);
+				if (verbose > 1) fprintf(stderr, "%s call peer %p %p\n",
+						_PFN, *it, this);
 				(*it)->onStreamBufferStart(ib);
 			}
 
-			if (verbose > 1) fprintf(stderr, "done with peers\n");
+			if (verbose > 1) fprintf(stderr, "%s done with peers\n", _PFN);
+
 			switch(actual.state){
 			case ST_RUN_PRE:
-				if (verbose>1) fprintf(stderr, "ST_RUN_PRE\n");
+				if (verbose>1) fprintf(stderr, "%s ST_RUN_PRE\n", _PFN);
 				if (actual.pre < pre){
 					if (actual.pre + samples_buffer < pre){
 						actual.pre += samples_buffer;
@@ -3046,7 +3074,7 @@ protected:
 				}
 				break;
 			case ST_RUN_POST:
-				if (verbose>1) fprintf(stderr, "ST_RUN_POST\n");
+				if (verbose>1) fprintf(stderr, "%s ST_RUN_POST\n", _PFN);
 				actual.post += samples_buffer;
 				if (actual.post > post){
 					actual.post = post;
@@ -3060,23 +3088,22 @@ protected:
 						if (timespec_subtract(0, &finish_time, &now)){
 							setState(ST_POSTPROCESS);
 							if (verbose) fprintf(stderr,
-								"streamCore() quits, extra %d\n",
-								post_run_over_one);
+								"%s quits, extra %d\n", _PFN, post_run_over_one);
 							return;
 						}
 					}
 				}
 				break;
 			default:
-				if (verbose) fprintf(stderr, "dodgy default %d\n", actual.state);
+				if (verbose) fprintf(stderr, "%s dodgy default %d\n", _PFN, actual.state);
 			}
 			actual.elapsed += samples_buffer;
 			actual.print(PRINT_WHEN_YOU_CAN);
 
-			if (verbose>1) fprintf(stderr, "streamCore() %d 99\n", ib);
+			if (verbose>1) fprintf(stderr, "%s %d 99\n", _PFN, ib);
 		}
 
-		if (verbose) fprintf(stderr, "streamCore() ERROR bad bufferId %d\n", ib);
+		if (verbose) fprintf(stderr, "%s ERROR bad bufferId %d\n", _PFN, ib);
 	}
 
 
@@ -3106,7 +3133,7 @@ public:
 			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 		}
 		actual.status_fp = stdout;
-		if (verbose) fprintf(stderr, "StreamHeadPrePost()\n");
+		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		setState(ST_STOP);
 		unsigned total_bs = (pre+post)*sample_size() + Buffer::bufferlen;
 		nfds = fc+1;
@@ -3132,11 +3159,9 @@ public:
 		}
 
 		if (verbose){
-			fprintf(stderr, "StreamHeadPrePost pre:%d post:%d\n",
-				pre, post);
-			fprintf(stderr, "StreamHeadPrePost sample_size:%d\n",
-				sample_size());
-			fprintf(stderr, "StreamHeadPrePost total buffer:%d obs:%d nob:%d\n",
+			fprintf(stderr, "%s pre:%d post:%d\n", _PFN, pre, post);
+			fprintf(stderr, "%s sample_size:%d\n", _PFN, sample_size());
+			fprintf(stderr, "%s total buffer:%d obs:%d nob:%d\n", _PFN,
 				total_bs, Buffer::bufferlen, nobufs);
 		}
 		peers.push_back(this);
@@ -3172,13 +3197,13 @@ public:
 
 	static void reserve_block0 () {
 
-		if (verbose) fprintf(stderr, "%s : 01 %s\n", __FUNCTION__, RSV);
+		if (verbose) fprintf(stderr, "%s : 01 %s\n", _PFN, RSV);
 		if (!MapBuffer::hasReserved()){
 			int fd = open(RSV, O_RDONLY);
 			MapBuffer::reserve();
 			/* leak! : open, hold, release on quit */
 
-			if (verbose) fprintf(stderr, "%s : %d\n", __FUNCTION__, fd);
+			if (verbose) fprintf(stderr, "%s : %d\n", _PFN, fd);
 			if (fd < 0){
 				perror(RSV);
 			}
@@ -3214,15 +3239,13 @@ public:
 		for (int ib; (ib = getBufferId()) >= 0; ){
 			if (verbose){
 				fprintf(stderr,
-				  "SubrateStreamHead::stream:[%d] pid:%d\n",
-				ib, getpid());
+				  "%s [%d] pid:%d\n", _PFN, ib, getpid());
 			}
 			fout = createOutfile();
 			Buffer::the_buffers[ib]->writeBuffer(fout, Buffer::BO_NONE);
 			close(fout);
 			if (verbose){
-				fprintf(stderr, "SubrateStreamHead::stream:%d 99\n",
-						ib);
+				fprintf(stderr, "%s:%d 99\n", _PFN, ib);
 			}
 		}
 	}
@@ -3240,27 +3263,32 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 		if (G::pre_demux_script){
 			system(G::pre_demux_script);
 		}
-		if (verbose) fprintf(stderr, "**********************\n");
-		if (verbose) fprintf(stderr, "DemuxingStreamHeadPrePost::postProcess %d %p\n", ibuf, es);
+
+		if (verbose) fprintf(stderr, "%s 01 ibuf %d %p\n", _PFN, ibuf, es);
 		if (pre){
 			BufferDistribution bd(ibuf, es);
 			bd.report();
+			int iseg = 0;
 
 			for (SegmentIterator it = bd.getSegments().begin();
-				it != bd.getSegments().end(); ++it   ){
+				it != bd.getSegments().end(); ++it, ++iseg   ){
+				if (verbose) fprintf(stderr, "%s 33 segment:%d\n", _PFN, iseg);
 				demuxer((*it).base, (*it).len);
 			}
+			if (verbose) fprintf(stderr, "%s 89 %d/%d segments processed\n",
+					_PFN, iseg, bd.getSegments().size());
 		}else{
 			demuxer(es, s2b(G::post));
 		}
 		cooked = true;
+		if (verbose) fprintf(stderr, "%s 99\n", _PFN);
 	}
 
 public:
 	DemuxingStreamHeadPrePost(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(progress, _pre, _post),
 		demuxer(_demuxer) {
-		if (verbose) fprintf(stderr, "%s\n", __FUNCTION__);
+		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		reserve_block0();
 	}
 };
@@ -3403,7 +3431,7 @@ StreamHead* StreamHead::instance() {
 			}
 		}
 		waitHolders();
-		if (verbose) fprintf(stderr, "StreamHead::instance() %p\n", _instance);
+		if (verbose) fprintf(stderr, "%s %p\n", _PFN, _instance);
 	}
 
 	return _instance;
