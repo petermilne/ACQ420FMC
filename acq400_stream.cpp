@@ -2556,6 +2556,8 @@ void dump(T* src, int nwords){
 	fwrite(src, sizeof(T), nwords, pp);
 	pclose(pp);
 }
+
+
 class BufferDistribution {
 
 private:
@@ -2571,7 +2573,7 @@ public:
 	int headroom;
 	bool pre_fits;
 	bool post_fits;
-	int verbose;
+	static int verbose;
 
 	BufferDistribution(int _ibuf, char *_esp) :
 		ibuf(_ibuf), esp(_esp),
@@ -2647,13 +2649,13 @@ public:
 	enum BD_MODE mode() const {
 		if (pre_fits&&post_fits){
 			return BD_LINEAR;
-		}else if (!pre_fits){
-			return BD_PRECORNER;
-		}else if (!post_fits){
-			return BD_POSTCORNER;
-		}else{
-			assert(pre_fits||post_fits);
+		}
+		if (!pre_fits && !post_fits){
 			return BD_ERROR;
+		}else if (!pre_fits){
+			return BD_PRECORNER;   // ESP is AFTER CORNER
+		}else{
+			return BD_POSTCORNER;  // ESP is BEFORE CORNER
 		}
 	}
 
@@ -2686,7 +2688,10 @@ public:
 			return _getSegments();
 		}
 	}
+	static int shuffle_forwards(char* src, int nbytes, int ito);
 };
+
+int BufferDistribution::verbose;
 
 void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 	if (!G::report_es) return;
@@ -2703,7 +2708,7 @@ void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 /*
  * Buffer Memory:
  *
- * BD_LINEAR:
+ * BD_LINEAR: TRIVIAL
  * Before:
  *            R R R R S S S
  * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
@@ -2711,23 +2716,52 @@ void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
  * After:
  *  R R R R S S S
  *
+ *
  * BD_PRECORNER:
  * Before:
  *    R R S S S                                     R
  * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
  * 0-L-----------------------------------------------H1
- * After:
- *  R R R R S S S
- *  That works, but this will fail:
-  * Before:
- *    R R S S S                                   R R
+ *
+ * Shuffle:
+ *                                        R R S S S R
  * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
  * 0-L-----------------------------------------------H1
- * After:
- *  R R R R S S S
- *  Ouch!. OK, doesn't matter if it's slow, because it's an oddball.
+ *
+ * Seg1 demux:
+ *                                        R R S S S x
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ *    R
+ * 0-L----------------------------------------------H1
+ *
+ *
+ * Seg2 demux:
+ *                                        x x S S S x
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ *    R R R
+ * 0-L----------------------------------------------H1
+ *
+ * Seg3 demux:
+ *                                        x x x x x x
+ * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+ *    R R R S S S
+ * 0-L----------------------------------------------H1
+ *
+
  */
 
+int  BufferDistribution::shuffle_forwards(char* src, int nbytes, int ito)
+{
+	if (verbose) fprintf(stderr, "%s() %p, %d -> buffer %d, %p\n",
+			_PFN, src, nbytes, ito, MapBuffer::ba(ito));
+
+	for (; nbytes > 0; nbytes -= Buffer::bufferlen, --ito){
+		int ifrom = MapBuffer::getBuffer(src+nbytes);
+
+		memcpy(MapBuffer::ba(ito), MapBuffer::ba(ifrom), Buffer::bufferlen);
+	}
+	return ito*Buffer::bufferlen;
+}
 vector<Segment>& BufferDistribution::_getSegments() {
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
@@ -2742,26 +2776,31 @@ vector<Segment>& BufferDistribution::_getSegments() {
 		}
 		segments.push_back(Segment(esp+sample_size(), postbytes));
 		break;
-	case BD_PRECORNER:
+	case BD_PRECORNER: {
 		nb = s2b(G::pre-tailroom);
-		segments.push_back(Segment(ba_hi-nb, nb));
+		char* start = ba_hi-nb;
+		segments.push_back(Segment(start, nb));
 		nb = s2b(tailroom);
+		esp += shuffle_forwards(ba_lo, nb+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
+
 		segments.push_back(Segment(esp-nb, nb));
 		if (G::show_es){
 			segments.push_back(Segment(esp, sample_size()));
 		}
 		segments.push_back(Segment(esp+sample_size(), postbytes));
 		break;
-	case BD_POSTCORNER:
-		segments.push_back(Segment(esp-prebytes, prebytes));
+	} case BD_POSTCORNER: {
+		char* start = esp-prebytes;
+		segments.push_back(Segment(start, prebytes));
 		if (G::show_es){
 			segments.push_back(Segment(esp, sample_size()));
 		}
 		nb = s2b(headroom-1);
 		segments.push_back(Segment(esp+sample_size(), nb));
-		segments.push_back(Segment(ba_lo, postbytes-nb));
+		char* s3 = ba_lo + shuffle_forwards(ba_lo, postbytes-nb, MapBuffer::getBuffer(start)-1);
+		segments.push_back(Segment(s3, postbytes-nb));
 		break;
-	default:
+	} default:
 		assert(0);
 	}
 
