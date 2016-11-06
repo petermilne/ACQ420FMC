@@ -2235,18 +2235,13 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
-#ifdef NOGLOBALMSYNC
-	_msync(MapBuffer::ba(b1), Buffer::bufferlen, MS_SYNC);
-#endif
 	for (int sam = 0; sam < nsam; sam += step, psrc += G::nchan*step){
 		if (psrc >= psrc0 + Buffer::bufferlen){
 			int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
 			if (b1 != b2){
+				// @TODO does this ever happen?
 				if (verbose) fprintf(stderr, "%s new buffer %03d -> %03d\n", _PFN, b1, b2);
-				Progress::instance().print(true, b2);
-#ifdef NOGLOBALMSYNC
-				_msync(MapBuffer::ba(b2), Buffer::bufferlen, MS_SYNC);
-#endif
+				Progress::instance().print(true, b1);
 				b1 = b2;
 				psrc0 = psrc;
 			}
@@ -2267,6 +2262,8 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	}
 	pdst += nsam;
 	dst.cursor = reinterpret_cast<char*>(pdst);
+
+	Progress::instance().print(true, b1);
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
 	return nbytes;
