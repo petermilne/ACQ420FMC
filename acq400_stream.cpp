@@ -2565,6 +2565,7 @@ private:
 
 	vector<Segment>& _getSegments();
 
+	void sortToLinearBuffer(char* start, char* finish);
 	void getSegmentsLinear();
 	void getSegmentsPrecorner();
 	void getSegmentsPostcorner();
@@ -2722,30 +2723,10 @@ void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
  * 0-L-----------------------------------------------H1
  *
  * Shuffle:
- *                                        R R S S S R
+ *    R R R S S S
  * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
  * 0-L-----------------------------------------------H1
  *
- * Seg1 demux:
- *                                        R R S S S x
- * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
- *    R
- * 0-L----------------------------------------------H1
- *
- *
- * Seg2 demux:
- *                                        x x S S S x
- * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
- *    R R R
- * 0-L----------------------------------------------H1
- *
- * Seg3 demux:
- *                                        x x x x x x
- * |-|-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
- *    R R R S S S
- * 0-L----------------------------------------------H1
- *
-
  */
 
 
@@ -2849,16 +2830,9 @@ struct BufferSeq {
 
 int BufferSeq::verbose = getenv("BufferSeqVerbose")? atoi(getenv("BufferSeqVerbose")): 0;
 
-void BufferDistribution::getSegmentsPrecorner()
+
+void BufferDistribution::sortToLinearBuffer(char* start, char* finish)
 {
-	if (verbose) fprintf(stderr, "%s\n", _PFN);
-
-	int nb1 = s2b(G::pre-tailroom);
-	char* start = ba_hi-nb1;
-
-	int nb2 = s2b(tailroom);
-	char* finish = ba_lo+nb2+s2b(G::post);
-
 	vector<BufferSeq*> mm;
 	int iseq = 0;
 
@@ -2882,6 +2856,7 @@ void BufferDistribution::getSegmentsPrecorner()
 			mm[ib]->state = BS_PRE;
 		}else if (ib == ib_esp){
 			mm[ib]->state = BS_ES;
+			mm[ib]->esp = esp;
 		}else{					// not pre-corner
 			mm[ib]->state = BS_POST;
 		}
@@ -2929,26 +2904,25 @@ void BufferDistribution::getSegmentsPrecorner()
 	esp = mm[ib_es]->esp;
 
 	return getSegmentsLinear();
+}
+void BufferDistribution::getSegmentsPrecorner()
+{
+	if (verbose) fprintf(stderr, "%s\n", _PFN);
+
+	char* start = ba_hi-s2b(G::pre-tailroom);
+	char* finish = ba_lo+s2b(tailroom)+s2b(G::post);
+
+	return sortToLinearBuffer(start, finish);
 
 }
 void BufferDistribution::getSegmentsPostcorner()
 {
-	int prebytes = s2b(G::pre);
-	int postbytes = s2b(G::post);
-	int nb;
-	char* start = esp-prebytes;
-
 	if (verbose) fprintf(stderr, "%s()\n", _PFN);
-#if 0
-	segments.push_back(Segment(start, prebytes));
-	if (G::show_es){
-		segments.push_back(Segment(esp, sample_size()));
-	}
-	nb = s2b(headroom-1);
-	segments.push_back(Segment(esp+sample_size(), nb));
-	char* s3 = ba_lo + shuffle_forwards(ba_lo, postbytes-nb, MapBuffer::getBuffer(start)-1);
-	segments.push_back(Segment(s3, postbytes-nb));
-#endif
+
+	char* start = esp - s2b(G::pre);
+	char* finish = ba_lo + s2b(G::post-headroom);
+
+	return sortToLinearBuffer(start, finish);
 }
 
 vector<Segment>& BufferDistribution::getSegments() {
