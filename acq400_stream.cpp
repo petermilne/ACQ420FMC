@@ -2152,6 +2152,20 @@ public:
 		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nsamples);
 		return demux(start, nsamples);
 	}
+	static int _msync (void *__addr, size_t __len, int __flags)
+	{
+		int rc;
+		if (verbose) fprintf(stderr,
+			"DemuxerImpl::_msync() 01 %p %d %08x\n",
+			__addr, __len, __flags);
+
+		rc = msync(__addr, __len, __flags);
+
+
+		if (verbose) fprintf(stderr, "DemuxerImpl::_msync() 99 rc %d\n", rc);
+
+		return rc;
+	}
 };
 
 int Demuxer::verbose;
@@ -2189,23 +2203,9 @@ class DemuxerImpl : public Demuxer {
 
 	/* watch out for end of source buffer ! */
 	int _demux(void* start, int nbytes);
-
-
-	static int _msync (void *__addr, size_t __len, int __flags)
-	{
-		int rc;
-		if (verbose) fprintf(stderr,
-			"DemuxerImpl::_msync() 01 %p %d %08x\n",
-			__addr, __len, __flags);
-
-		rc = msync(__addr, __len, __flags);
-
-
-		if (verbose) fprintf(stderr, "DemuxerImpl::_msync() 99 rc %d\n", rc);
-
-		return rc;
-	}
 public:
+
+
 	DemuxerImpl() : dst() {
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 	}
@@ -2235,15 +2235,18 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
+#ifdef NOGLOBALMSYNC
 	_msync(MapBuffer::ba(b1), Buffer::bufferlen, MS_SYNC);
-
+#endif
 	for (int sam = 0; sam < nsam; sam += step, psrc += G::nchan*step){
 		if (psrc >= psrc0 + Buffer::bufferlen){
 			int b2 = MapBuffer::getBuffer(reinterpret_cast<char*>(psrc));
 			if (b1 != b2){
 				if (verbose) fprintf(stderr, "%s new buffer %03d -> %03d\n", _PFN, b1, b2);
 				Progress::instance().print(true, b2);
+#ifdef NOGLOBALMSYNC
 				_msync(MapBuffer::ba(b2), Buffer::bufferlen, MS_SYNC);
+#endif
 				b1 = b2;
 				psrc0 = psrc;
 			}
@@ -2777,25 +2780,53 @@ void BufferDistribution::getSegmentsLinear()
 	}
 	segments.push_back(Segment(esp+sample_size(), postbytes));
 }
+
+struct BufferSeq {
+	enum BS_STATE { BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 0x3 } state;
+	int iseq;
+	char *esp;
+	BufferSeq(int _iseq, char* _esp, BS_STATE _state) :
+		state(_state), iseq(_iseq), esp(_esp)
+	{}
+	BufferSeq() :
+		state(BS_EMPTY), iseq(0), esp(0)
+	{}
+};
+
+
 void BufferDistribution::getSegmentsPrecorner()
 {
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
-	int nb;
 
 	if (verbose) fprintf(stderr, "%s()\n", _PFN);
 
-	nb = s2b(G::pre-tailroom);
-	char* start = ba_hi-nb;
-	segments.push_back(Segment(start, nb));
-	nb = s2b(tailroom);
-	esp += shuffle_forwards(ba_lo, nb+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
+	int nb1 = s2b(G::pre-tailroom);
+	char* start = ba_hi-nb1;
 
-	segments.push_back(Segment(esp-nb, nb));
-	if (G::show_es){
-		segments.push_back(Segment(esp, sample_size()));
+	int nb2 = s2b(tailroom);
+
+	int gap = (MapBuffer::getBuffer(start)-1)*Buffer::bufferlen;
+	if (gap >= nb1){
+		shuffle_forwards(ba_lo, nb2+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
+		esp += gap;
+
+		if (verbose) fprintf(stderr, "%s() progonosis %s\n", _PFN, gap>=nb1? "GOOD": "BAD");
+
+
+		segments.push_back(Segment(start, nb1));
+		segments.push_back(Segment(esp-nb2, nb2));
+		if (G::show_es){
+			segments.push_back(Segment(esp, sample_size()));
+		}
+		segments.push_back(Segment(esp+sample_size(), postbytes));
+		return;
 	}
-	segments.push_back(Segment(esp+sample_size(), postbytes));
+
+	if (verbose) fprintf(stderr, "%s() ABANDON SHIP\n", _PFN);
+	/** WORKTODO */
+	return;
+
 }
 void BufferDistribution::getSegmentsPostcorner()
 {
@@ -3020,7 +3051,8 @@ protected:
 			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
 		}
 		setState(ST_POSTPROCESS); actual.print();
-
+		Demuxer::_msync(MapBuffer::get_ba_lo(),
+				MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
 		if (pre){
 			int ibuf;
 			char* es;
