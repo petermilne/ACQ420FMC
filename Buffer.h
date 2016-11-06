@@ -132,7 +132,7 @@ public:
 
 	MapBuffer(const char* _fname, int _buffer_len);
 	virtual ~MapBuffer();
-	static int getBuffer(char* pb) {
+	static unsigned getBuffer(char* pb) {
 		if (pb < ba0){
 			return -1;
 		}else if (pb > ba1){
