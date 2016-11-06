@@ -1016,6 +1016,8 @@ struct poptOption opt_table[] = {
 			"set verbosity"	    },
 	{ "report-es", 'r', POPT_ARG_INT, &G::report_es, 0,
 			"report es position every find" },
+	{ "show-es", 'E', POPT_ARG_INT, &G::show_es, 0,
+			"leave es in data" },
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -2769,7 +2771,7 @@ enum BS_STATE { BS_UNKNOWN = -1, BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 
 
 struct BufferSeq {
 	static int verbose;
-	const int ibuf;
+	const unsigned ibuf;
 	enum BS_STATE state;
 	int iseq;
 	char *esp;
@@ -2835,15 +2837,23 @@ struct BufferSeq {
 		fprintf(stderr, "%s iseq %d NOT found\n", _PFN, iseq);
 		return -1;
 	}
+	static int findES(vector<BufferSeq*>& mm) {
+		vector<BufferSeq*>::const_iterator it;
+		for (it = mm.begin(); it != mm.end(); ++it){
+			if ((*it)->state == BS_ES){
+				if (verbose > 1) fprintf(stderr, "%s ES found at %03d\n", _PFN, (*it)->ibuf);
+				return (*it)->ibuf;
+			}
+		}
+		fprintf(stderr, "%s ES NOT found\n", _PFN);
+		return -1;
+	}
 };
 
 int BufferSeq::verbose = getenv("BufferSeqVerbose")? atoi(getenv("BufferSeqVerbose")): 0;
 
 void BufferDistribution::getSegmentsPrecorner()
 {
-	int prebytes = s2b(G::pre);
-	int postbytes = s2b(G::post);
-
 	if (verbose) fprintf(stderr, "%s\n", _PFN);
 
 	int nb1 = s2b(G::pre-tailroom);
@@ -2854,7 +2864,7 @@ void BufferDistribution::getSegmentsPrecorner()
 
 	vector<BufferSeq*> mm;
 	int iseq = 0;
-	BS_STATE state = BS_EMPTY;
+
 	unsigned ib_esp = MapBuffer::getBuffer(esp);
 
 	/* force mm to use same indices as MapBuffer */
@@ -2866,11 +2876,9 @@ void BufferDistribution::getSegmentsPrecorner()
 		mm.push_back(new BufferSeq(ib));
 	}
 
-	//if (verbose) fprintf(stderr, "%s print mm initial\n", _PFN);
-	//BufferSeq::print(mm);
+
 
 	for (unsigned ib = MapBuffer::getBuffer(start); ib < MapBuffer::nbuffers; ++ib){
-		//if (verbose) fprintf(stderr, "%s top half %03d\n", _PFN, ib);
 		assert(mm[ib]->ibuf == ib);
 		mm[ib]->iseq = ++iseq;
 		if (ib < ib_esp){
@@ -2880,14 +2888,11 @@ void BufferDistribution::getSegmentsPrecorner()
 		}else{					// not pre-corner
 			mm[ib]->state = BS_POST;
 		}
-		//if (verbose) fprintf(stderr, "%s top half\n", _PFN);
-		//mm[ib]->print();
 	}
 
 	unsigned ib_fin = MapBuffer::getBuffer(finish);
 
 	for (unsigned ib = MapBuffer::getBuffer(ba_lo); ib <= ib_fin; ++ib){
-		//if (verbose) fprintf(stderr, "%s bot half %03d\n", _PFN, ib);
 		mm[ib]->iseq = ++iseq;
 		if (ib_esp < ib_fin && ib < ib_esp){
 			mm[ib]->state = BS_PRE;
@@ -2899,17 +2904,16 @@ void BufferDistribution::getSegmentsPrecorner()
 		}
 	}
 
-	BufferSeq::print(mm);
+	if (verbose) BufferSeq::print(mm);
 
 	if (verbose) fprintf(stderr, "%s Assign tmp\n", _PFN);
 	BufferSeq* tmp = mm[0];
-	tmp->print();
+	if (verbose) tmp->print();
 
 	if (verbose) fprintf(stderr, "%s Now for the swap on sequence length %d\n", _PFN, iseq);
 
 	int iseq99 = iseq;
 	for (iseq = 1; iseq <= iseq99; ++iseq){
-		//if (verbose) fprintf(stderr, "%s %d\n", _PFN, iseq);
 		int ib_from = BufferSeq::findSeq(mm, iseq);
 		assert(ib_from != -1);
 		if (mm[iseq]->state == BS_EMPTY){
@@ -2918,11 +2922,15 @@ void BufferDistribution::getSegmentsPrecorner()
 			BufferSeq::swap(mm[ib_from],mm[iseq], tmp);
 		}
 	}
-	tmp->clr();
+	tmp->clr();		// essential or findES will faind spurious result.
 	if (verbose) fprintf(stderr, "%s print sorted seq\n", _PFN);
-	BufferSeq::print(mm);
-	exit(0);
-	return;
+	if (verbose) BufferSeq::print(mm);
+
+	int ib_es = BufferSeq::findES(mm);
+	assert(ib_es != -1);
+	esp = mm[ib_es]->esp;
+
+	return getSegmentsLinear();
 
 }
 void BufferDistribution::getSegmentsPostcorner()
