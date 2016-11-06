@@ -2860,7 +2860,7 @@ void BufferDistribution::getSegmentsPrecorner()
 	char* start = ba_hi-nb1;
 
 	int nb2 = s2b(tailroom);
-	char* finish = ba_lo+nb2;
+	char* finish = ba_lo+nb2+s2b(G::post);
 
 	vector<BufferSeq*> mm;
 	int iseq = 0;
