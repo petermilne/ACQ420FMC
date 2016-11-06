@@ -2918,6 +2918,7 @@ void BufferDistribution::getSegmentsPrecorner()
 		}else{
 			BufferSeq::swap(mm[ib_from],mm[iseq], tmp);
 		}
+		Progress::instance().print(true, -ib_from);
 	}
 	tmp->clr();		// essential or findES will faind spurious result.
 	if (verbose) fprintf(stderr, "%s print sorted seq\n", _PFN);
