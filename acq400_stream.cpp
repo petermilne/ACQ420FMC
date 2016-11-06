@@ -83,8 +83,6 @@
 #include <semaphore.h>
 #include <syslog.h>
 
-#include <vector>
-
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
@@ -2690,8 +2688,6 @@ public:
 		}
 	}
 	vector<Segment>& getSegments();
-
-	static int shuffle_forwards(char* src, int nbytes, int ito);
 };
 
 int BufferDistribution::verbose;
@@ -2753,18 +2749,6 @@ void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 
  */
 
-int  BufferDistribution::shuffle_forwards(char* src, int nbytes, int ito)
-{
-	if (verbose) fprintf(stderr, "%s() %p, %d -> buffer %d, %p\n",
-			_PFN, src, nbytes, ito, MapBuffer::ba(ito));
-
-	for (; nbytes > 0; nbytes -= Buffer::bufferlen, --ito){
-		int ifrom = MapBuffer::getBuffer(src+nbytes);
-
-		memcpy(MapBuffer::ba(ito), MapBuffer::ba(ifrom), Buffer::bufferlen);
-	}
-	return ito*Buffer::bufferlen;
-}
 
 
 void BufferDistribution::getSegmentsLinear()
@@ -2781,50 +2765,163 @@ void BufferDistribution::getSegmentsLinear()
 	segments.push_back(Segment(esp+sample_size(), postbytes));
 }
 
+enum BS_STATE { BS_UNKNOWN = -1, BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 0x3 };
+
 struct BufferSeq {
-	enum BS_STATE { BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 0x3 } state;
+	static int verbose;
+	const int ibuf;
+	enum BS_STATE state;
 	int iseq;
 	char *esp;
-	BufferSeq(int _iseq, char* _esp, BS_STATE _state) :
-		state(_state), iseq(_iseq), esp(_esp)
+	char* ba() {
+		return MapBuffer::ba(ibuf);
+	}
+	BufferSeq(int _ibuf, int _iseq, char* _esp, BS_STATE _state) :
+		ibuf(_ibuf),
+		state(_state),
+		iseq(_iseq), esp(_esp)
 	{}
-	BufferSeq() :
-		state(BS_EMPTY), iseq(0), esp(0)
+	BufferSeq(int _ibuf):
+		ibuf(_ibuf),
+		state(BS_UNKNOWN), iseq(0), esp(0)
 	{}
+	void copy(BufferSeq* from){
+		memcpy(ba(), from->ba(), Buffer::bufferlen);
+		state = from->state;
+		iseq = from->iseq;
+		if (from->esp){
+			esp = from->esp + (ba() - from->ba());
+		}else{
+			esp = 0;
+		}
+	}
+	void print() {
+		fprintf(stderr, "%s ib:%03d is:%3d state:%d ba:%p esp:%p\n",
+				_PFN, ibuf, iseq, state, ba(), esp);
+	}
+
+	void clr() {
+		iseq = 0;
+		state = BS_EMPTY;
+		esp = 0;
+	}
+	static void mv(BufferSeq* from, BufferSeq* to) {
+		if (verbose) fprintf(stderr, "%s %03d->%03d\n", _PFN, from->ibuf, to->ibuf);
+		to->copy(from);
+		from->clr();
+	}
+	static void swap(BufferSeq* aa, BufferSeq* bb, BufferSeq* tt) {
+		if (verbose) fprintf(stderr, "%s %03d,%03d,%03d\n", _PFN, aa->ibuf, bb->ibuf, tt->ibuf);
+		tt->copy(aa);
+		aa->copy(bb);
+		bb->copy(tt);
+	}
+
+	static void print(vector<BufferSeq*>& mm){
+		vector<BufferSeq*>::const_iterator it;
+
+		for (it = mm.begin(); it != mm.end(); ++it){
+			(*it)->print();
+		}
+	}
+	static int findSeq(vector<BufferSeq*>& mm, int iseq){
+		vector<BufferSeq*>::const_iterator it;
+		for (it = mm.begin(); it != mm.end(); ++it){
+			if ((*it)->iseq == iseq){
+				if (verbose > 1) fprintf(stderr, "%s iseq %d found at %03d\n", _PFN, iseq, (*it)->ibuf);
+				return (*it)->ibuf;
+			}
+		}
+		fprintf(stderr, "%s iseq %d NOT found\n", _PFN, iseq);
+		return -1;
+	}
 };
 
+int BufferSeq::verbose = getenv("BufferSeqVerbose")? atoi(getenv("BufferSeqVerbose")): 0;
 
 void BufferDistribution::getSegmentsPrecorner()
 {
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
 
-	if (verbose) fprintf(stderr, "%s()\n", _PFN);
+	if (verbose) fprintf(stderr, "%s\n", _PFN);
 
 	int nb1 = s2b(G::pre-tailroom);
 	char* start = ba_hi-nb1;
 
 	int nb2 = s2b(tailroom);
+	char* finish = ba_lo+nb2;
 
-	int gap = (MapBuffer::getBuffer(start)-1)*Buffer::bufferlen;
-	if (gap >= nb1){
-		shuffle_forwards(ba_lo, nb2+sample_size()+postbytes, MapBuffer::getBuffer(start)-1);
-		esp += gap;
+	vector<BufferSeq*> mm;
+	int iseq = 0;
+	BS_STATE state = BS_EMPTY;
+	unsigned ib_esp = MapBuffer::getBuffer(esp);
 
-		if (verbose) fprintf(stderr, "%s() progonosis %s\n", _PFN, gap>=nb1? "GOOD": "BAD");
-
-
-		segments.push_back(Segment(start, nb1));
-		segments.push_back(Segment(esp-nb2, nb2));
-		if (G::show_es){
-			segments.push_back(Segment(esp, sample_size()));
-		}
-		segments.push_back(Segment(esp+sample_size(), postbytes));
-		return;
+	/* force mm to use same indices as MapBuffer */
+	for (unsigned ib = 0; ib < MapBuffer::getBuffer(ba_lo); ++ib){
+		mm.push_back(new BufferSeq(ib));
+	}
+	for (unsigned ib = MapBuffer::getBuffer(ba_lo);
+			ib < MapBuffer::nbuffers; ++ib){
+		mm.push_back(new BufferSeq(ib));
 	}
 
-	if (verbose) fprintf(stderr, "%s() ABANDON SHIP\n", _PFN);
-	/** WORKTODO */
+	//if (verbose) fprintf(stderr, "%s print mm initial\n", _PFN);
+	//BufferSeq::print(mm);
+
+	for (unsigned ib = MapBuffer::getBuffer(start); ib < MapBuffer::nbuffers; ++ib){
+		//if (verbose) fprintf(stderr, "%s top half %03d\n", _PFN, ib);
+		assert(mm[ib]->ibuf == ib);
+		mm[ib]->iseq = ++iseq;
+		if (ib < ib_esp){
+			mm[ib]->state = BS_PRE;
+		}else if (ib == ib_esp){
+			mm[ib]->state = BS_ES;
+		}else{					// not pre-corner
+			mm[ib]->state = BS_POST;
+		}
+		//if (verbose) fprintf(stderr, "%s top half\n", _PFN);
+		//mm[ib]->print();
+	}
+
+	unsigned ib_fin = MapBuffer::getBuffer(finish);
+
+	for (unsigned ib = MapBuffer::getBuffer(ba_lo); ib <= ib_fin; ++ib){
+		//if (verbose) fprintf(stderr, "%s bot half %03d\n", _PFN, ib);
+		mm[ib]->iseq = ++iseq;
+		if (ib_esp < ib_fin && ib < ib_esp){
+			mm[ib]->state = BS_PRE;
+		}else if (ib == ib_esp){
+			mm[ib]->state = BS_ES;
+			mm[ib]->esp = esp;
+		}else{
+			mm[ib]->state = BS_POST;
+		}
+	}
+
+	BufferSeq::print(mm);
+
+	if (verbose) fprintf(stderr, "%s Assign tmp\n", _PFN);
+	BufferSeq* tmp = mm[0];
+	tmp->print();
+
+	if (verbose) fprintf(stderr, "%s Now for the swap on sequence length %d\n", _PFN, iseq);
+
+	int iseq99 = iseq;
+	for (iseq = 1; iseq <= iseq99; ++iseq){
+		//if (verbose) fprintf(stderr, "%s %d\n", _PFN, iseq);
+		int ib_from = BufferSeq::findSeq(mm, iseq);
+		assert(ib_from != -1);
+		if (mm[iseq]->state == BS_EMPTY){
+			BufferSeq::mv(mm[ib_from],mm[iseq]);
+		}else{
+			BufferSeq::swap(mm[ib_from],mm[iseq], tmp);
+		}
+	}
+	tmp->clr();
+	if (verbose) fprintf(stderr, "%s print sorted seq\n", _PFN);
+	BufferSeq::print(mm);
+	exit(0);
 	return;
 
 }
@@ -2836,7 +2933,7 @@ void BufferDistribution::getSegmentsPostcorner()
 	char* start = esp-prebytes;
 
 	if (verbose) fprintf(stderr, "%s()\n", _PFN);
-
+#if 0
 	segments.push_back(Segment(start, prebytes));
 	if (G::show_es){
 		segments.push_back(Segment(esp, sample_size()));
@@ -2845,6 +2942,7 @@ void BufferDistribution::getSegmentsPostcorner()
 	segments.push_back(Segment(esp+sample_size(), nb));
 	char* s3 = ba_lo + shuffle_forwards(ba_lo, postbytes-nb, MapBuffer::getBuffer(start)-1);
 	segments.push_back(Segment(s3, postbytes-nb));
+#endif
 }
 
 vector<Segment>& BufferDistribution::getSegments() {
