@@ -1750,12 +1750,13 @@ protected:
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *base = reinterpret_cast<unsigned*>(the_buffer->getBase());
-		int lenw = the_buffer->getLen()/G::wordsize;
+		int len32 = the_buffer->getLen()/sizeof(unsigned);
 		int sample_offset = 0;
 
-		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d\n", base, lenw);
+		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d len32 %d\n",
+				base, the_buffer->getLen()/G::wordsize, len32);
 
-		for (unsigned *cursor = base; cursor - base < lenw; cursor += stride, sample_offset += 1){
+		for (unsigned *cursor = base; cursor - base < len32; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (ev0.isES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
