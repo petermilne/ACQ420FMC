@@ -1665,13 +1665,17 @@ protected:
 		}
 	}
 	bool findEvent(int *ibuf, char** espp) {
-		/*if (verbose) */ fprintf(stderr, "findEvent \"%s\"\n", event_info);
+
 		unsigned long usecs;
 		int b1, b2;
 		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
 
+		if (verbose) fprintf(stderr, "findEvent \"%s\" nscan=%d %s\n",
+				event_info, nscan, (b1 == -1 && b2 == -1)? "FAIL": "finding..");
+
 		assert(nscan == 3);
 		if (b1 == -1 && b2 == -1){
+			if (verbose) fprintf(stderr, "findEvent scan fail \"%s\"\n", event_info);
 			return false;
 		}
 
@@ -3156,14 +3160,14 @@ protected:
 		FD_SET(fc, &readfds);
 		FD_SET(f_ev, &readfds);
 
-		if (verbose>1) fprintf(stderr, "%s fc %d f_ev %d nfds %d\n", _PFN, fc, f_ev, nfds);
+		if (verbose>2) fprintf(stderr, "%s fc %d f_ev %d nfds %d\n", _PFN, fc, f_ev, nfds);
 
 		for(readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
-			if (verbose>1) fprintf(stderr, "select returns  %d\n", rc);
+			if (verbose>2) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
-				if (verbose>1) fprintf(stderr, "%s FD_ISSET f_ev %d\n", _PFN, f_ev);
+				if (verbose>2) fprintf(stderr, "%s FD_ISSET f_ev %d\n", _PFN, f_ev);
 				/* we can only handle ONE EVENT */
 				if (!event_received){
 					rc = read(f_ev, event_info, 80);
@@ -3179,7 +3183,7 @@ protected:
 				}
 			}
 			if (FD_ISSET(fc, &readfds)){
-				if (verbose>2) fprintf(stderr, "%s FD_ISSET fc %d\n", _PFN, fc);
+				if (verbose>3) fprintf(stderr, "%s FD_ISSET fc %d\n", _PFN, fc);
 				rc = read(fc, buf, 80);
 
 				if (rc > 0){
@@ -3187,7 +3191,7 @@ protected:
 					unsigned ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= Buffer::nbuffers);
-					if (verbose) fprintf(stderr, "%s ret %d\n", _PFN, ib);
+					if (verbose >1) fprintf(stderr, "%s ret %d\n", _PFN, ib);
 					return ib;
 				}else{
 					return -1;
