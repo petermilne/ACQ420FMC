@@ -84,7 +84,7 @@ Buffer::Buffer(const char* _fname, int _buffer_len):
 		exit(1);
 	}
 
-	the_buffers.push_back(this);
+
 }
 Buffer::Buffer(Buffer* cpy) :
 	fd(cpy->fd),
@@ -182,7 +182,7 @@ unsigned Buffer::bufferlen;
 unsigned Buffer::nbuffers;
 unsigned Buffer::sample_size = 1;
 
-int Buffer::last_buf;
+unsigned Buffer::last_buf;
 vector<Buffer*> Buffer::the_buffers;
 
 #define MAPBUFFER_BA0     (char*)(0x40000000)

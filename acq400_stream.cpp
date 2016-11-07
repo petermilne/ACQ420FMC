@@ -789,7 +789,7 @@ int ASR(int os)
 	return asr;
 }
 
-Buffer* Buffer::create(const char* root, int _buffer_len)
+int Buffer::create(const char* root, int _buffer_len)
 {
 	char* fname = new char[128];
 	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
@@ -800,14 +800,19 @@ Buffer* Buffer::create(const char* root, int _buffer_len)
 		if (verbose) fprintf(stderr, "Buffer::create() G::buffer_mode: %c\n", G::buffer_mode);
 	}
 
+	Buffer* newbuf;
+
 	switch(G::buffer_mode){
 	case BM_NULL:
-		return new NullBuffer(fname, _buffer_len);
+		newbuf = new NullBuffer(fname, _buffer_len);
 	case BM_TEST:
-		return new ScratchpadTestBuffer(fname, _buffer_len);
+		newbuf = new ScratchpadTestBuffer(fname, _buffer_len);
 	default:
-		return new MapBuffer(fname, _buffer_len);
+		newbuf = new MapBuffer(fname, _buffer_len);
 	}
+	the_buffers.push_back(newbuf);
+	assert(newbuf->ibuf+1 == the_buffers.size());
+	return newbuf->ibuf;
 }
 
 
@@ -1744,14 +1749,13 @@ protected:
 	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
-		unsigned *cursor = reinterpret_cast<unsigned*>(the_buffer->getBase());
-		unsigned *base = cursor;
+		unsigned *base = reinterpret_cast<unsigned*>(the_buffer->getBase());
 		int lenw = the_buffer->getLen()/G::wordsize;
 		int sample_offset = 0;
 
 		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d\n", base, lenw);
 
-		for (; cursor - base < lenw; cursor += stride, sample_offset += 1){
+		for (unsigned *cursor = base; cursor - base < lenw; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (ev0.isES(cursor)){
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);

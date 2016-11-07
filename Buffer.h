@@ -32,10 +32,10 @@ class Buffer {
 protected:
 	int fd;
 	const char* fname;
-	const int ibuf;
+	const unsigned ibuf;
 	unsigned buffer_len;
 
-	static int last_buf;
+	static unsigned last_buf;
 protected:
 	char *pdata;
 public:
@@ -65,7 +65,7 @@ public:
 		close(fd);
 	}
 
-	static Buffer* create(const char* root, int _buffer_len);
+	static int create(const char* root, int _buffer_len);
 	static vector<Buffer*> the_buffers;
 
 	const char* getName() {
@@ -150,7 +150,7 @@ public:
 		return buffer_0_reserved;
 	}
 	virtual int pred() {
-		int first_buf = buffer_0_reserved? 1: 0;
+		unsigned first_buf = buffer_0_reserved? 1: 0;
 		return ibuf == first_buf? last_buf-1: ibuf-1;
 	}
 	virtual int succ() {
