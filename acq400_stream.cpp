@@ -3191,7 +3191,7 @@ protected:
 					unsigned ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= Buffer::nbuffers);
-					if (verbose >1) fprintf(stderr, "%s ret %d\n", _PFN, ib);
+					if (verbose) fprintf(stderr, "%d\n", ib);
 					return ib;
 				}else{
 					return -1;
@@ -3224,13 +3224,11 @@ protected:
 			default:
 				;
 			}
-
 			for (IT it = peers.begin(); it != peers.end(); ++it){
-				if (verbose > 1) fprintf(stderr, "%s call peer %p %p\n",
+				if (verbose > 2) fprintf(stderr, "%s call peer %p %p\n",
 						_PFN, *it, this);
 				(*it)->onStreamBufferStart(ib);
 			}
-
 			if (verbose > 1) fprintf(stderr, "%s done with peers\n", _PFN);
 
 			switch(actual.state){
@@ -3256,7 +3254,7 @@ protected:
 				}
 				break;
 			case ST_RUN_POST:
-				if (verbose>1) fprintf(stderr, "%s ST_RUN_POST\n", _PFN);
+				if (verbose>1) fprintf(stderr, "%s ST_RUN_POST %d\n", _PFN, ib);
 				actual.post += samples_buffer;
 				if (actual.post > post){
 					actual.post = post;
@@ -3264,15 +3262,11 @@ protected:
 					/* always overrun by one buffer to ensure good data
 					 * when ES is adjusted
 					 */
-					if (post_run_over_one++){
-						struct timespec now;
-						clock_gettime(CLOCK_REALTIME, &now);
-						if (timespec_subtract(0, &finish_time, &now)){
-							setState(ST_POSTPROCESS);
-							if (verbose) fprintf(stderr,
-								"%s quits, extra %d\n", _PFN, post_run_over_one);
-							return;
-						}
+					if (post_run_over_one++ > 1){
+						setState(ST_POSTPROCESS);
+						if (verbose) fprintf(stderr,
+							"%s quits, extra %d\n", _PFN, post_run_over_one);
+						return;
 					}
 				}
 				break;
@@ -3288,15 +3282,6 @@ protected:
 		if (verbose) fprintf(stderr, "%s ERROR bad bufferId %d\n", _PFN, ib);
 	}
 
-
-
-
-
-
-	unsigned workbackfrom(unsigned evp) {
-		assert(0);
-		return 0;
-	}
 
 #define RSV	"/dev/acq400.0.rsv"
 
