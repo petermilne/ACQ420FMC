@@ -462,9 +462,9 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 
 	if (to_transfer)
 		chan->start_transfer(chan);
-#ifdef PGMCOMOUT
+
 	tasklet_schedule(&chan->tasklet);
-#endif
+
 	return IRQ_HANDLED;
 }
 

@@ -370,6 +370,10 @@ static struct file_operations acq400_proc_ops_axi_segments = {
 
 extern int AXI_DEBUG_LOOPBACK_INDEX;
 
+static void loop_to_self(struct AxiDescrWrapper *end)
+{
+	end->va->next_desc = end->pa;
+}
 
 static void _finalize_descriptor_chain(struct acq400_dev *adev, int ndescriptors)
 {
@@ -527,16 +531,23 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 
 extern int wimp_out;
 
-static void acq400_dma_on_ioc(struct xilinx_dma_chan *chan)
+void acq400_dma_on_ioc(unsigned long arg)
 {
-	struct acq400_dev *adev = (struct acq400_dev *)chan->client_private;
+	struct xilinx_dma_chan *xchan = (struct xilinx_dma_chan *)arg;
+	struct acq400_dev *adev = (struct acq400_dev *)xchan->client_private;
+	unsigned cursor_pa = dma_read(xchan, XILINX_DMA_CDESC_OFFSET);
 	/* STOP at end of one-shot?
 	struct dma_chan* dma_chan = &chan->common;
 	dma_chan->device->device_control(dma_chan, DMA_TERMINATE_ALL, 0);
 	*/
+	adev->rt.axi64_ints++;
 	wake_up_interruptible(&adev->DMA_READY);
+	dev_dbg(DEVP(adev), "acq400_dma_on_ioc() done pa:%08x\n", cursor_pa);
 }
+void _start_transfer(struct xilinx_dma_chan *chan)
+{
 
+}
 int _axi64_load_dmac(struct acq400_dev *adev)
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
@@ -547,7 +558,8 @@ int _axi64_load_dmac(struct acq400_dev *adev)
 			SHOTID(adev);
 
 	xchan->client_private = adev;
-	xchan->start_transfer = acq400_dma_on_ioc;
+	xchan->start_transfer = _start_transfer;
+	tasklet_init(&xchan->tasklet, acq400_dma_on_ioc, (unsigned long)xchan);
 
 	if (!wimp_out){
 		int databursts = adev->bufferlen/0x800;
@@ -587,6 +599,35 @@ int axi64_load_dmac(struct acq400_dev *adev)
 	return _axi64_load_dmac(adev);
 }
 
+int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers)
+/* close off descriptor +nbuffers to prevent overrun */
+{
+	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[ichan]);
+	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	/* find cursor in set, count ahead nbuffers, tie it off */
+
+	int imax = apool->ndescriptors;
+
+	unsigned cursor_pa = dma_read(xchan, XILINX_DMA_CDESC_OFFSET);
+	int ii = (cursor_pa - apool->wrappers[0].pa)/sizeof(struct xilinx_dma_desc_hw);
+
+	for (ii = 0; ii < imax; ++ii){
+		if (apool->wrappers[ii].pa == cursor_pa){
+			int itie = ii + nbuffers;
+			if (itie > imax){
+				itie -= imax;
+			}
+			loop_to_self(&apool->wrappers[itie]);
+			dev_dbg(DEVP(adev), "axi64_tie_off_dmac() at %d call loop_to_self %d", ii, itie);
+			return 0;
+		}
+	}
+
+	dev_err(DEVP(adev), "FAILED to locate cursor_pa 0x%08x in range 0x%08x..0x%08x",
+			cursor_pa, apool->wrappers[0].pa,
+			apool->wrappers[0].pa+imax*sizeof(struct xilinx_dma_desc_hw));
+	return -1;
+}
 
 int axi64_free_dmac(struct acq400_dev *adev)
 {

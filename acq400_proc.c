@@ -101,10 +101,12 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
         		adev->rt.axi64_firstups, adev->rt.axi64_catchups);
         seq_printf(s, "axi64_wakeups=%u "
                       "axi64_firstups=%u "
-                      "axi64_catchups=%u ",
+                      "axi64_catchups=%u "
+		      "acq64_ints=%u ",
                       adev->rt.axi64_wakeups,
                       adev->rt.axi64_firstups,
-		      adev->rt.axi64_catchups);
+		      adev->rt.axi64_catchups,
+		      adev->rt.axi64_ints);
         seq_printf(s, "refill_error=%d "
         	       "please_stop=%d ",
         		adev->rt.refill_error, adev->rt.please_stop);

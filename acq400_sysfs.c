@@ -387,6 +387,7 @@ static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_fpctl_trg.attr,
 
 	&dev_attr_zclk_sel.attr,
+	NULL
 };
 static ssize_t show_clkdiv(
 	struct device * dev,
@@ -3892,8 +3893,38 @@ static const struct attribute *rgm_attrs[] = {
 	NULL
 };
 
+static ssize_t show_axi_buffers_after_event(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
 
+	return sprintf(buf, "%d\n", adev->axi_buffers_after_event);
+}
 
+static ssize_t store_axi_buffers_after_event(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	if (sscanf(buf, "%u", &adev->axi_buffers_after_event) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(axi_buffers_over, S_IRUGO|S_IWUGO, \
+	show_axi_buffers_after_event, store_axi_buffers_after_event);
+
+static const struct attribute *axi64_attrs[] = {
+	&dev_attr_axi_buffers_over.attr,
+	NULL
+};
 
 
 static const struct attribute *sc_common_attrs[] = {
@@ -4197,6 +4228,11 @@ void acq400_createSysfs(struct device *dev)
 		if (HAS_HDMI_SYNC(adev)){
 			if (sysfs_create_files(&dev->kobj, hdmi_sync_attrs)){
 				dev_err(dev, "failed to create sysfs HDMI");
+			}
+		}
+		if (IS_AXI64(adev)){
+			if (sysfs_create_files(&dev->kobj, axi64_attrs)){
+				dev_err(dev, "failed to create sysfs axi64");
 			}
 		}
 		if (IS_ACQ2X06SC(adev)){

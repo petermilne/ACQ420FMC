@@ -505,6 +505,7 @@ struct acq400_dev {
 	int hitide;
 	int lotide;
 	int sysclkhz;			/* system clock rate */
+	int axi_buffers_after_event;	/* run on this long if set */
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
@@ -537,6 +538,7 @@ struct acq400_dev {
 		u32 samples_at_event;
 		u32 sample_clocks_at_event;
 
+		u32 axi64_ints;
 		u32 axi64_wakeups;		/** work look wake up count */
 		u32 axi64_firstups;		/** number of top of list buffers submitted */
 		u32 axi64_catchups;		/** number of backlog buffers submitted  */
@@ -1273,6 +1275,8 @@ static inline int getSHL(unsigned mask)
 int axi64_init_dmac(struct acq400_dev *adev);
 int axi64_load_dmac(struct acq400_dev *adev);
 int axi64_free_dmac(struct acq400_dev *adev);
+int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers);
+/* close off descriptor +nbuffers to prevent overrun */
 
 int acq400_setDelTrg(struct acq400_dev *adev, int ch, int threshold);
 int acq400_getDelTrg(struct acq400_dev *adev, int ch, int *threshold);

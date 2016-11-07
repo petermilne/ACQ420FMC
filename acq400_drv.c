@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.094"
+#define REVID "3.104"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -131,6 +131,7 @@ MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load lo
 int xo_use_contiguous_pa_if_possible = 0;
 module_param(xo_use_contiguous_pa_if_possible, int, 0644);
 MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into next HB if contiguous");
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -206,7 +207,6 @@ MODULE_PARM_DESC(AXI_CALL_HELPER, "call helper to set up DMA chain else, someone
 int AXI_DMA_HAS_CATCHUP = 1;
 module_param(AXI_DMA_HAS_CATCHUP, int, 0644);
 MODULE_PARM_DESC(AXI_DMA_HAS_CATCHUP, "catchup backlog on same tick");
-
 
 int sync_continuous = 1;
 module_param(sync_continuous, int, 0644);
@@ -2057,25 +2057,28 @@ static unsigned int acq420_sideported_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned int rc;
 
 	if (!list_empty(&adev->REFILLS)){
-		return POLLIN|POLLRDNORM;
+		rc = POLLIN|POLLRDNORM;
 	}else if (adev->rt.refill_error){
-		return POLLERR;
+		rc = POLLERR;
 	}else if (adev->rt.please_stop){
-		return POLLHUP;
+		rc = POLLHUP;
 	}else{
 		poll_wait(file, &adev->refill_ready, poll_table);
 		if (!list_empty(&adev->REFILLS)){
-			return POLLIN|POLLRDNORM;
+			rc = POLLIN|POLLRDNORM;
 		}else if (adev->rt.refill_error){
-			return POLLERR;
+			rc = POLLERR;
 		}else if (adev->rt.please_stop){
-			return POLLHUP;
+			rc = POLLHUP;
 		}else{
-			return 0;
+			rc = 0;
 		}
 	}
+	dev_dbg(DEVP(adev), "acq420_sideported_poll() ret %u\n", rc);
+	return rc;
 }
 int acq420_open_sideported(struct inode *inode, struct file *file)
 {
@@ -2511,18 +2514,22 @@ static unsigned int acq400_event_poll(
 	struct file *file, struct poll_table_struct *poll_table)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned rc;
+
 	if (adev->rt.samples_at_event){
 		init_event_info(&PD(file)->eventInfo);
-		return POLLIN;
+		rc = POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
 		if (adev->rt.samples_at_event){
 			init_event_info(&PD(file)->eventInfo);
-			return POLLIN;
+			rc = POLLIN;
 		}else{
-			return 0;
+			rc = 0;
 		}
 	}
+	dev_dbg(DEVP(adev), "acq400_event_poll() return %u", rc);
+	return rc;
 }
 int acq400_event_release(struct inode *inode, struct file *file)
 {
@@ -4318,12 +4325,22 @@ static void xtd_action(struct acq400_dev *adev)
 	}
 }
 
+/** @@TODO what if two DMA channels busy? */
+
+#define CHANNEL0	0
+
 static void cos_action(struct acq400_dev *adev, u32 status)
 {
+	struct acq400_dev* adev0 = acq400_devices[0];
+
 	if ((status&ADC_INT_CSR_EVENT0) != 0){
 		if (acq400_event_count_limit &&
 				++adev->rt.event_count >= acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
+		}
+		if (adev0->axi_buffers_after_event) {
+			axi64_tie_off_dmac(adev0, CHANNEL0, adev0->axi_buffers_after_event);
+			adev0->axi_buffers_after_event = 0;
 		}
 		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
 		adev->rt.sample_clocks_at_event =
