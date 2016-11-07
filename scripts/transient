@@ -48,7 +48,7 @@ if [ "$(basename $0)" = "transient" ]; then
 		NEWS="$NEWS $key=$val"
 	done
 
-	if [ "xSOFT_TRIGGER" = "x" ]; then
+	if [ "x$SOFT_TRIGGER" = "x" ]; then
 		NEWS="$NEWS SOFT_TRIGGER=1"
 	fi
 
