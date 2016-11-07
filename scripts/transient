@@ -10,6 +10,9 @@ POSTMAX=${POSTMAX:-4000000}
 if [ -e /dev/shm/transient_settings ]; then
 	source /dev/shm/transient_settings
 fi
+
+SOFT_TRIGGER=${SOFT_TRIGGER:-1}
+
 if [ "$(basename $0)" = "transient" ]; then
 
 	if [ "x$1" = "x" ]; then
@@ -31,6 +34,8 @@ if [ "$(basename $0)" = "transient" ]; then
 	}
 	NEWS=""
 
+soft_trigger_change=0
+
 	for pair in $*
 	do
 		key=${pair%=*}
@@ -40,7 +45,8 @@ if [ "$(basename $0)" = "transient" ]; then
 		POST) val=$(validate $val 0 $POSTMAX);;
 		VERBOSE) val=$(validate $val 0 3);;
 		OSAM) val=$(validate $val 0 256);;
-		SOFT_TRIGGER);;
+		SOFT_TRIGGER)
+			soft_trigger_change=1;;
 		*)
 		echo "ERROR: $pair not supported"
 		exit 1;;
@@ -48,8 +54,8 @@ if [ "$(basename $0)" = "transient" ]; then
 		NEWS="$NEWS $key=$val"
 	done
 
-	if [ "x$SOFT_TRIGGER" = "x" ]; then
-		NEWS="$NEWS SOFT_TRIGGER=1"
+	if [ $soft_trigger_change -eq 0 ]; then
+		NEWS="$NEWS SOFT_TRIGGER=$SOFT_TRIGGER"
 	fi
 
 	echo $NEWS > /dev/shm/transient_settings
