@@ -83,9 +83,12 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
 
+	syscon &= ~DIO432_CTRL_DIO_EN;
+
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_MODULE_EN);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon | DIO432_CTRL_RST);
+
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_FIFO_EN);
 	dio432_set_direction(adev, adev->dio432.byte_is_output);
@@ -95,7 +98,9 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 	if (dio432_use_lotide_irq){
 		_acq400wr32(adev, DIO432_DIO_ICR, 1);
 	}
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_DIO_EN);
+	if (immediate){
+		_acq400wr32(adev, DIO432_DIO_CTRL, syscon|DIO432_CTRL_DIO_EN);
+	}
 }
 
 int dio32_immediate_loop(void *data)
