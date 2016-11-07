@@ -1077,7 +1077,7 @@ static void _ao420_onStop(struct acq400_dev *adev)
 
 
 
-static void _dio432_DO_onStart(struct acq400_dev *adev)
+void _dio432_DO_onStart(struct acq400_dev *adev)
 {
 	if (xo_use_distributor){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
@@ -1091,7 +1091,7 @@ static void _dio432_DO_onStart(struct acq400_dev *adev)
 		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 20");
 	}
-	acq400wr32(adev, DAC_CTRL, acq400rd32(adev, DAC_CTRL)|DAC_CTRL_DAC_EN);
+	acq400wr32(adev, DIO432_DIO_CTRL, acq400rd32(adev, DIO432_DIO_CTRL)|DIO432_CTRL_DIO_EN);
 	dev_dbg(DEVP(adev), "_dio432_DO_onStart() 99");
 }
 
