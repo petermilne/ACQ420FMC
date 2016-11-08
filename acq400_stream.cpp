@@ -1748,10 +1748,11 @@ protected:
 		}
 		return escount;
 	}
-	enum FE_STATUS { FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL };
+	enum FE_STATUS { FE_IDLE, FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL };
 
 	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
-		printf("findEvent=%d,%d,%d\n", festa, the_buffer->ib(), buffers_searched);
+		int ib = the_buffer == 0? 0: the_buffer->ib();
+		printf("findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
@@ -1791,6 +1792,7 @@ public:
 			vs && (verbose = atoi(vs));
 
 			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+			reportFindEvent(0, FE_IDLE);
 	}
 	virtual void startStream() {
 		fc = open_feed();
