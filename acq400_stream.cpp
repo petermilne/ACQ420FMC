@@ -1541,7 +1541,7 @@ protected:
 	int nfds;
 	bool event_received;
 	int verbose;
-
+	int buffers_searched;
 
 
 
@@ -1728,6 +1728,7 @@ protected:
 				return true;
 			}
 		}
+		reportFindEvent(buffer1, FE_FAIL);
 		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
 
 		return false;
@@ -1747,23 +1748,34 @@ protected:
 		}
 		return escount;
 	}
+	enum FE_STATUS { FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL };
+
+	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
+		printf("findEvent=%d,%d,%d\n", festa, the_buffer->ib(), buffers_searched);
+	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *base = reinterpret_cast<unsigned*>(the_buffer->getBase());
 		int len32 = the_buffer->getLen()/sizeof(unsigned);
 		int sample_offset = 0;
 
+		++buffers_searched;
+		reportFindEvent(the_buffer, FE_SEARCH);
 		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d len32 %d\n",
 				base, the_buffer->getLen()/G::wordsize, len32);
+
+
 
 		for (unsigned *cursor = base; cursor - base < len32; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (ev0.isES(cursor)){
+				reportFindEvent(the_buffer, FE_FOUND);
 				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
 				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
 		}
+		reportFindEvent(the_buffer, FE_NOTFOUND);
 		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
 		return 0;
 	}
@@ -1772,6 +1784,7 @@ public:
 		actual(progress),
 		samples_buffer(Buffer::bufferlen/sample_size()),
 		f_ev(0), nfds(0), event_received(0), verbose(0),
+		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()) {
 			const char* vs = getenv("StreamHeadImplVerbose");
