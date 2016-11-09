@@ -1,0 +1,32 @@
+<?xml version="1.0" standalone="no" ?>
+<ACQ>
+<!-- BOLO8BLF-defcal.xml
+     add calibration data if available via <Calibrated> fields -->
+<!-- calibration data -->
+<AcqCalibration>
+    <Info>
+        <CalDate>20141225</CalDate>
+        <Version>B1007</Version>
+        <Model>BOLO8BLF</Model>
+	<SerialNum>BE4010000</SerialNum>
+    </Info>
+     <Data AICHAN="8" code_min="-32768" code_max="32767">
+	<Range name="2.5">
+			<Nominal eoff="0" eslo="76.293945e-06" roff="0"/>
+        </Range>
+    </Data>
+</AcqCalibration>
+<ModelSpec>
+        <ChannelBlockMask>
+                <BlockWidth>8</BlockWidth>
+                <BlockSet>"1"</BlockSet>
+        </ChannelBlockMask>
+        <MaxAggregateRate>16 MB/sec</MaxAggregateRate>
+        <MaxDeviceRate>2 MS/sec</MaxDeviceRate>
+        <MinDeviceRate>0.2 MS/sec</MinDeviceRate>
+        <CalClock>2000000</CalClock>
+        <CalMeanN>1024000</CalMeanN>
+</ModelSpec>
+</ACQ>
+
+
