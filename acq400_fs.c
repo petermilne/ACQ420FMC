@@ -318,7 +318,7 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 	int foffset = (int)*offset;			/* we don't have 4GB */
 	int bufferlen = adev0->bufferlen/CAPDAT.nchan;
 	int ibuf = foffset/bufferlen;
-	int buff_offset = foffset - ibuf*bufferlen;
+	int buff_offset = foffset - ibuf*bufferlen;	/* independent of stride */
 	int buf_headroom = bufferlen - buff_offset;
 	int set_headroom = CAPDAT.nsamples*adev0->word_size - foffset;
 	int cursor = buff_offset+pd->buffer_offset;
@@ -362,14 +362,17 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 			}else if (unlikely(count > pd->lbuf_len)){
 				count = pd->lbuf_len;
 			}
-			wcount = count/wsize/pd->stride;
+			count /= pd->stride;
+			wcount = count/wsize;
+			dev_dbg(DEVP(adev0), "stride:%d count:%d wcount:%d", pd->stride, count, wcount);
+
 			for (iw = 0; iw < wcount; ++iw){
 				memcpy(pd->lbuf+iw*wsize, bp+cursor+iw*pd->stride*wsize, wsize);
 			}
 			if (copy_to_user(buf, pd->lbuf, iw*wsize)){
 				return -EFAULT;
 			}
-			*offset += wcount*wsize*pd->stride;
+			*offset += count*pd->stride;
 		}
 
 		return count;
