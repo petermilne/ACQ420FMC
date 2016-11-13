@@ -12,7 +12,7 @@
     </Info>
      <Data AICHAN="8" code_min="-32768" code_max="32767">
 	<Range name="2.5">
-			<Nominal eoff="0" eslo="76.293945e-06" roff="0"/>
+			<Nominal min="-2.5" max="2.5" eoff="0" eslo="76.293945e-06" roff="0"/>
         </Range>
     </Data>
 </AcqCalibration>

@@ -11,8 +11,8 @@
 	<SerialNum>BE4010000</SerialNum>
     </Info>
      <Data AICHAN="8" code_min="-32768" code_max="32767" SW="default">
-	<Range name="2.5" sw="default">
-			<Nominal eoff="0" eslo="76.293945e-06" roff="0"/>
+	<Range name="10" sw="default">
+			<Nominal min="-10" max="10" eoff="0" eslo="76.293945e-06" roff="0"/>
         </Range>
     </Data>
 </AcqCalibration>
