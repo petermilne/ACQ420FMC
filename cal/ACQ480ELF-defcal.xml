@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no" ?>
 <ACQ>
-<!-- acq430-default.xml
+<!-- acq480elf-default.xml
      add calibration data if available via <Calibrated> fields -->
 <!-- calibration data -->
 <AcqCalibration>
