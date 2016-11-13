@@ -10,8 +10,8 @@
         <Model>ACQ424ELF</Model>
 	<SerialNum>E42410000</SerialNum>
     </Info>
-    <Data AICHAN="32" code_min="-32768" code_max="32764" SW="">
-        <Range name="10" sw="0">
+    <Data AICHAN="32" code_min="-32768" code_max="32764" SW="default">
+        <Range name="10" sw="default">
             <Nominal min="-10" max="10" eoff="0" eslo="305.17578e-6" />
         </Range>
     </Data>
