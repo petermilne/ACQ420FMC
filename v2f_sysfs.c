@@ -264,6 +264,7 @@ static ssize_t store_qen_count(							\
 	u32 ctrl = acq400rd32(adev, QEN_CTRL);
 	acq400wr32(adev, QEN_CTRL, ctrl | QEN_CTRL_RESET);
 	acq400wr32(adev, QEN_CTRL, ctrl);
+	return count;
 }
 static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
 
