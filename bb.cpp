@@ -123,12 +123,13 @@ char *getRoot(int devnum)
 	exit(1);
 }
 
-Buffer* Buffer::create(const char* root, int _buffer_len)
+int Buffer::create(const char* root, int _buffer_len)
 {
 	char* fname = new char[128];
 	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
 
-	return new MapBuffer(fname, _buffer_len);
+	new MapBuffer(fname, _buffer_len);
+	return 0;
 }
 
 void init_buffers()
