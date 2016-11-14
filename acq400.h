@@ -158,7 +158,13 @@
 #define MOD_ID_BOLO8B		0x64
 #define MOD_ID_PMODGPS_CELF	0x65
 #define MOD_ID_PMODGPS_FMC	0x66
-#define MOD_ID_V2F		0x67
+
+#define MOD_ID_DIO_BISCUIT	0x67
+/* known Biscuit Variants, switch on MOD_ID_VERSION */
+#define MOD_IDV_V2F		0x0
+#define MOD_IDV_DIO		0x1
+#define MOD_IDV_QEN		0x2
+
 #define MOD_ID_PIG_CELF		0x68
 #define MOD_ID_RAD_CELF		0x69
 
@@ -328,6 +334,18 @@
 
 #define DTD_CTRL_ZN		0x0000000f
 #define DTD_CTRL_CLR		0x00000010
+
+
+#define	QEN_CTRL		0x04
+
+#define QEN_CTRL_EN		(1<<4)
+#define QEN_CTRL_RESET		(1<<3)
+#define QEN_CTRL_FIFO_EN	ADC_CTRL_FIFO_EN
+#define QEN_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
+#define QEN_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
+
+#define QEN_DIR_IMM		0x5c
+#define QEN_ENC_COUNT		0x60
 
 /*
  *  Minor encoding
@@ -704,8 +722,9 @@ int getHeadroom(struct acq400_dev *adev);
 #define NCHAN	4
 #define BYTES_PER_CHANNEL(adev) ((adev)->data32? 4: 2)
 
-#define GET_MOD_ID(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL)
+#define GET_MOD_ID(adev) 	 ((adev)->mod_id>>MOD_ID_TYPE_SHL)
 #define GET_MOD_ID_VERSION(adev) (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0xff)
+#define GET_MOD_IDV(adev) 	 (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0x0f)
 
 #define GET_FPGA_REV(adev)	((adev)->mod_id&0x0000ffff)
 
@@ -795,7 +814,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
-#define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_V2F)
+#define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_V2F)
+#define IS_QEN(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_QEN)
+
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
 #define IS_RAD_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_RAD_CELF)
 

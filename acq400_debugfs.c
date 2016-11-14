@@ -228,6 +228,18 @@ void v2f_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( V2F_FREQ_SLO_4 );
 }
 
+void qen_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(QEN_CTRL);
+	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
+	DBG_REG_CREATE(ADC_FIFO_STA);
+	DBG_REG_CREATE(ADC_INT_CSR);
+	DBG_REG_CREATE(ADC_CLK_CTR);
+	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(QEN_DIR_IMM);
+	DBG_REG_CREATE(QEN_ENC_COUNT);
+}
+
 void pig_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE(ADC_CTRL);
@@ -303,8 +315,14 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_ACQ400T_FMC:
 		case MOD_ID_ACQ400T_ELF:
 			break;
-		case MOD_ID_V2F:
-			v2f_createDebugfs(adev, pcursor);
+		case MOD_ID_DIO_BISCUIT:
+			switch(GET_MOD_IDV(adev)){
+			case MOD_IDV_V2F:
+				return v2f_createDebugfs(adev, pcursor);
+			case MOD_IDV_DIO:
+			case MOD_IDV_QEN:
+				return qen_createDebugfs(adev, pcursor);
+			}
 			break;
 		case MOD_ID_PIG_CELF:
 			pig_celf_createDebugfs(adev, pcursor);

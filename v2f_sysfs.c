@@ -243,3 +243,32 @@ const struct attribute *sysfs_v2f_attrs[] = {
 	&dev_attr_v2f_freq_slo_4.attr,
 	NULL
 };
+
+static ssize_t show_qen_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int count = acq400rd32(adev, QEN_ENC_COUNT);
+	return sprintf(buf, "%d\n", count);
+}
+
+static ssize_t store_qen_count(							\
+	struct device *dev, 								\
+	struct device_attribute *attr,							\
+	const char* buf,								\
+	size_t count)									\
+{											\
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, QEN_CTRL);
+	acq400wr32(adev, QEN_CTRL, ctrl | QEN_CTRL_RESET);
+	acq400wr32(adev, QEN_CTRL, ctrl);
+}
+static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
+
+
+const struct attribute *sysfs_qen_attrs[] = {
+	&dev_attr_qen_count.attr,
+	NULL
+};

@@ -1677,7 +1677,7 @@ static ssize_t show_module_role(
 
 static DEVICE_ATTR(module_role, S_IRUGO, show_module_role, 0);
 
-static const char* _lookup_id(int id)
+static const char* _lookup_id(struct acq400_dev *adev)
 {
 	static struct IDLUT_ENTRY {
 		int key;
@@ -1698,16 +1698,31 @@ static const char* _lookup_id(int id)
 		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
 		{ MOD_ID_AO420FMC,	"ao420fmc"	},
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
-		{ MOD_ID_V2F,		"v2f"		},
 	};
 #define NID	(sizeof(idlut)/sizeof(struct IDLUT_ENTRY))
 	int ii;
+	int id = GET_MOD_ID(adev);
 
-	for (ii = 0; ii < NID; ++ii){
-		if (idlut[ii].key == id){
-			return idlut[ii].name;
+	switch(id){
+	case MOD_ID_DIO_BISCUIT:
+		switch(GET_MOD_IDV(adev)){
+		case MOD_IDV_V2F:
+			return "v2F";
+		case MOD_IDV_DIO:
+			return "dio";
+		case MOD_IDV_QEN:
+			return "qen";
+		default:
+			break;
+		}
+	default:
+		for (ii = 0; ii < NID; ++ii){
+			if (idlut[ii].key == id){
+				return idlut[ii].name;
+			}
 		}
 	}
+
 	return "unknown";
 }
 static ssize_t show_module_name(
@@ -1717,7 +1732,7 @@ static ssize_t show_module_name(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 
-	return sprintf(buf, "%s\n", _lookup_id(adev->mod_id>>MOD_ID_TYPE_SHL));
+	return sprintf(buf, "%s\n", _lookup_id(adev));
 }
 
 
@@ -1895,6 +1910,7 @@ static const struct attribute *acq435_attrs[] = {
 
 
 extern const struct attribute *sysfs_v2f_attrs[];
+extern const struct attribute *sysfs_qen_attrs[];
 extern const struct attribute *acq480_attrs[];
 
 static ssize_t show_dac_headroom(
@@ -4218,6 +4234,8 @@ void acq400_createSysfs(struct device *dev)
 		return;
 	}else if (IS_V2F(adev)){
 		specials = sysfs_v2f_attrs;
+	}else if (IS_QEN(adev)){
+		specials = sysfs_qen_attrs;
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
 		return;

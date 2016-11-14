@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.105"
+#define REVID "3.106"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -565,6 +565,21 @@ static void _v2f_onStart(struct acq400_dev *adev)
 	u32 ctrl = _v2f_init(adev);
 	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_EN);
 }
+
+static void _qen_onStop(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, QEN_CTRL);
+	ctrl &= ~QEN_CTRL_FIFO_EN;
+	acq400wr32(adev, QEN_CTRL, ctrl);
+}
+
+static void _qen_onStart(struct acq400_dev *adev)
+{
+	u32 ctrl = acq400rd32(adev, QEN_CTRL);
+	ctrl |= QEN_CTRL_FIFO_EN;
+	acq400wr32(adev, QEN_CTRL, ctrl|QEN_CTRL_FIFO_RST);
+	acq400wr32(adev, QEN_CTRL, ctrl);
+}
 static void v2f_init_defaults(struct acq400_dev *adev)
 {
 	adev->data32 = 0;
@@ -576,6 +591,15 @@ static void v2f_init_defaults(struct acq400_dev *adev)
 	adev->onStop = _v2f_onStop;
 }
 
+static void qen_init_defaults(struct acq400_dev *adev)
+{
+	adev->data32 = 1;
+	adev->word_size = 4;
+	adev->nchan_enabled = 1;
+	acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN|QEN_CTRL_EN);
+	adev->onStart = _qen_onStart;
+	adev->onStop = _qen_onStop;
+}
 static void pig_celf_init_defaults(struct acq400_dev *adev)
 {
 	adev->data32 = 0;
@@ -4738,8 +4762,16 @@ static int acq400_probe(struct platform_device *pdev)
   		case MOD_ID_ACQ480FMC:
   			acq480_init_defaults(adev);
   			break;
-  		case MOD_ID_V2F:
-  			v2f_init_defaults(adev);
+  		case MOD_ID_DIO_BISCUIT:
+			switch(GET_MOD_IDV(adev)){
+  			case MOD_IDV_V2F:
+  				v2f_init_defaults(adev);
+  				break;
+  			case MOD_IDV_DIO:
+  			case MOD_IDV_QEN:
+  				qen_init_defaults(adev);
+  				break;
+  			}
   			break;
   		case MOD_ID_PIG_CELF:
   			pig_celf_init_defaults(adev);
