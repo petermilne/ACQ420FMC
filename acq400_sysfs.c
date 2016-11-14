@@ -4234,8 +4234,6 @@ void acq400_createSysfs(struct device *dev)
 		return;
 	}else if (IS_V2F(adev)){
 		specials = sysfs_v2f_attrs;
-	}else if (IS_QEN(adev)){
-		specials = sysfs_qen_attrs;
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
 		return;
@@ -4309,6 +4307,8 @@ void acq400_createSysfs(struct device *dev)
 			specials = acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
 			specials = pig_celf_attrs;
+		}else if (IS_QEN(adev)){
+			specials = sysfs_qen_attrs;
 		}else{
 			return;
 		}
