@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.110"
+#define REVID "3.111"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2516,11 +2516,12 @@ ssize_t acq400_event_read(
 		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm1->pa, eventInfo.hbm1->len, eventInfo.hbm1->dir);
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x\n",
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x %d\n",
 			adev->rt.samples_at_event,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
-			adev->atd.event_source);
+			adev->atd.event_source,
+			adev->rt.event_count);
 
 	if (HAS_DTD(adev) && adev->atd.event_source){
 		adev->atd.event_source = 0;
