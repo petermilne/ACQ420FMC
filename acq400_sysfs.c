@@ -1844,6 +1844,36 @@ static ssize_t show_has_axi_dma(
 
 static DEVICE_ATTR(has_axi_dma, S_IRUGO, show_has_axi_dma, 0);
 
+static ssize_t store_RW32_debug(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int RW32_debug;
+
+	if (sscanf(buf, "%d", &RW32_debug) == 1){
+		adev->RW32_debug = RW32_debug;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static ssize_t show_RW32_debug(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->RW32_debug);
+}
+
+static DEVICE_ATTR(RW32_debug,
+		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
+
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_role.attr,
@@ -1855,6 +1885,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
 	&dev_attr_has_axi_dma.attr,
+	&dev_attr_RW32_debug.attr,
 	NULL
 };
 
