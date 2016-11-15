@@ -2061,17 +2061,48 @@ void StreamHeadLivePP::startSampleIntervalWatcher() {
 }
 
 int StreamHeadLivePP::_stream() {
-	int rc;
+	int rc = 0;
 	char* b0 = MapBuffer::get_ba_lo();
 	char* b1 = MapBuffer::get_ba_hi();
 	int bo1 = Buffer::BO_NONE;
-	int bo2 = Buffer::BO_NONE; ;
+	int bo2 = Buffer::BO_NONE;
 
 
 	if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 
+	sigset_t  emptyset;
+
+	fd_set exceptfds;
+	struct timespec pto;
+	fd_set readfds;
+
+#define INIT_SEL do { \
+	sigemptyset(&emptyset); \
+	pto.tv_sec = 1; \
+	FD_ZERO(&exceptfds); \
+	FD_SET(f_ev, &exceptfds); \
+	FD_ZERO(&readfds); \
+	FD_SET(f_ev, &readfds); \
+	} while(0)
+
+
+	INIT_SEL;
 	// 1637099 -1 201    sample_count, hb0 hb1
-	for( getPP(); (rc = read(f_ev, event_info, 80)) > 0; getPP()){
+	for( getPP(); rc >= 0; getPP()){
+
+		INIT_SEL;
+		rc = pselect(f_ev+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
+		if (rc < 0){
+			break;
+		}
+		if (FD_ISSET(f_ev, &exceptfds)){
+			rc = -1; break;
+		}else if (!FD_ISSET(f_ev, &readfds)){
+			continue;
+		}else if ((rc = read(f_ev, event_info, 80)) <= 0){
+			return -1;
+		}
+
 		if (pre){
 			bo1 = Buffer::BO_START;
 		}else{

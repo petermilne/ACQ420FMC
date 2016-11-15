@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.109"
+#define REVID "3.110"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -177,7 +177,8 @@ int ao424_buffer_length = AO424_BUFFERLEN;
 module_param(ao424_buffer_length, int, 0644);
 MODULE_PARM_DESC(ao424_buffer_length, "AWG buffer length");
 
-int event_to = HZ/2;
+//int event_to = HZ/2;
+int event_to = 0x7fffffff;		// ie infinity
 module_param(event_to, int, 0644);
 MODULE_PARM_DESC(event_to, "backstop event time out should be one TBLOCK");
 
