@@ -822,7 +822,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define HAS_AI(adev) \
 	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || \
-	IS_ACQ480(adev) || IS_BOLO8(adev) || IS_PIG_CELF(adev))
+	IS_ACQ480(adev) || IS_BOLO8(adev) || IS_PIG_CELF(adev) || IS_QEN(adev) )
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
