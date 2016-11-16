@@ -1752,7 +1752,7 @@ protected:
 
 	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
 		int ib = the_buffer == 0? 0: the_buffer->ib();
-		printf("findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
+		fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);

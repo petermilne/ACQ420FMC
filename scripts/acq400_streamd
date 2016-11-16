@@ -22,7 +22,9 @@ ACQ400_STREAM=acq400_stream
 echo $ACQ400_STREAM --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE  >>$LOG
 $ACQ400_STREAM --$SSPEC $STREAM_OPTS $SAMPLE_SIZE $OVERSAMPLING $SITE 2>/dev/null
 
-fix_state; cat /dev/shm/state
+fix_state; cat /dev/shm/state 1>&2
+
+
 
 
 
