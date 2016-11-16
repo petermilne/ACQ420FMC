@@ -56,7 +56,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb \
-	fix_state
+	fix_state bpaste
 
 all: modules apps
 	
@@ -157,6 +157,9 @@ lilmac: lilmac.o
 muxdec: muxdec.o acq-util.o
 	$(CXX) -O3 -o muxdec muxdec.o acq-util.o
 
+bpaste: bpaste.o
+	$(CXX) -O3 -o bpaste bpaste.o
+	
 bigmac.x86: bigmac.o
 	$(CXX) -O3 -o $@ $^ -lpopt	
 
