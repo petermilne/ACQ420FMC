@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.111"
+#define REVID "3.112"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -4360,9 +4360,11 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 {
 	struct acq400_dev* adev0 = acq400_devices[0];
 
+	++adev->rt.event_count;
+
 	if ((status&ADC_INT_CSR_EVENT0) != 0){
 		if (acq400_event_count_limit &&
-				++adev->rt.event_count >= acq400_event_count_limit){
+		    adev->rt.event_count >= acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
 		}
 		if (adev0->axi_buffers_after_event) {
