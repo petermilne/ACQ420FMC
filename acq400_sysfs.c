@@ -53,6 +53,8 @@
 #include "acq400.h"
 #include "bolo.h"
 
+#include "acq400_sysfs.h"
+
 #define MODIFY_REG_ACCESS_READ_BEFORE	0x1
 #define MODIFY_REG_ACCESS_READ_AFTER	0x2
 int modify_reg_access;
@@ -73,77 +75,8 @@ int dds_strobe_msec;
 module_param(dds_strobe_msec, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "STROBE HI TIME in msec");
 
-#define DEVICE_CREATE_FILE(dev, attr) 							\
-	do {										\
-		if (device_create_file(dev, attr)){ 					\
-			dev_warn(dev, "%s:%d device_create_file", __FILE__, __LINE__); 	\
-		} 									\
-	} while (0)
 
 
-#define MASKSHR(x, f) (((x)&(f)) >> getSHL(f))
-
-
-static ssize_t show_triplet(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf,
-	unsigned REG,
-	unsigned T1,
-	unsigned T2,
-	unsigned T3)
-{
-	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
-
-	return sprintf(buf, "%d,%d,%d\n",
-		MASKSHR(regval, T1), MASKSHR(regval, T2), MASKSHR(regval, T3));
-}
-
-
-#define SHLMASK(x, f) (((x)<<getSHL(f))&(f))
-
-static ssize_t store_triplet(
-		struct device * dev,
-		struct device_attribute *attr,
-		const char * buf,
-		size_t count,
-		unsigned REG,
-		unsigned T1,
-		unsigned T2,
-		unsigned T3)
-{
-	u32 v1, v2, v3;
-
-	if (sscanf(buf, "%d,%d,%d", &v1, &v2, &v3) == 3){
-		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
-
-		regval &= ~(T1|T2|T3);
-		regval |= SHLMASK(v1, T1) | SHLMASK(v2, T2) | SHLMASK(v3, T3);
-
-		acq400wr32(acq400_devices[dev->id], REG, regval);
-		return count;
-	}else{
-		return -1;
-	}
-}
-
-#define MAKE_TRIPLET(NAME, REG, T1, T2, T3)					\
-static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
-{									\
-	return show_triplet(dev, attr, buf, REG, T1, T2, T3);		\
-}									\
-static ssize_t store_bits##NAME(					\
-	struct device * dev,						\
-	struct device_attribute *attr,					\
-	const char * buf,						\
-	size_t count)							\
-{									\
-	return store_triplet(dev, attr, buf, count, REG, T1, T2, T3);   \
-}									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
 
 MAKE_TRIPLET(fmc_clk, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
 MAKE_TRIPLET(fmc_trg, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
@@ -153,120 +86,8 @@ static const struct attribute *fmc_fp_attrs[] = {
 	&dev_attr_fmc_trg.attr,
 	NULL
 };
-/* generic show_bits, store_bits */
-
-static ssize_t show_bits(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf,
-	unsigned REG,
-	unsigned SHL,
-	unsigned MASK)
-{
-	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
-	u32 field = (regval>>SHL)&MASK;
-
-	return sprintf(buf, "%x\n", field);
-}
-
-static ssize_t show_bitsN(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf,
-	unsigned REG,
-	unsigned SHL,
-	unsigned MASK)
-{
-	u32 regval = acq400rd32(acq400_devices[dev->id], REG);
-	u32 field = (regval>>SHL)&MASK;
-
-	return sprintf(buf, "%x\n", !field);
-}
-
-static ssize_t store_bits(
-		struct device * dev,
-		struct device_attribute *attr,
-		const char * buf,
-		size_t count,
-		unsigned REG,
-		unsigned SHL,
-		unsigned MASK)
-{
-	u32 field;
-	if (sscanf(buf, "%x", &field) == 1){
-		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
-		regval &= ~(MASK << SHL);
-		regval |= (field&MASK) << SHL;
-		acq400wr32(acq400_devices[dev->id], REG, regval);
-		return count;
-	}else{
-		return -1;
-	}
-}
 
 
-
-#define MAKE_BITS_FROM_MASK	0xdeadbeef
-
-
-#define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
-static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
-{									\
-	unsigned shl = getSHL(MASK);					\
-	if (shl){							\
-		return show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
-	}else{								\
-		return show_bits(dev, attr, buf, REG, SHL, MASK);	\
-	}								\
-}									\
-static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
-
-/* active low. Valid for single bit only */
-#define MAKE_BIT_RON(NAME, REG, SHL, MASK)				\
-static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
-{									\
-	unsigned shl = getSHL(MASK);					\
-	if (shl){							\
-		return show_bitsN(dev, attr, buf, REG, shl, (MASK)>>shl);\
-	}else{								\
-		return show_bitsN(dev, attr, buf, REG, SHL, MASK);	\
-	}								\
-}									\
-static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
-
-#define MAKE_BITS(NAME, REG, SHL, MASK)					\
-static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
-{									\
-	unsigned shl = getSHL(MASK);					\
-	if (shl){							\
-		return show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
-	}else{								\
-		return show_bits(dev, attr, buf, REG, SHL, MASK);	\
-	}								\
-}									\
-static ssize_t store_bits##NAME(					\
-	struct device * dev,						\
-	struct device_attribute *attr,					\
-	const char * buf,						\
-	size_t count)							\
-{									\
-	unsigned shl = getSHL(MASK);					\
-	if (shl){							\
-		return store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl);\
-	}else{								\
-		return store_bits(dev, attr, buf, count, REG, SHL, MASK);\
-	}								\
-}									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
 
 MAKE_BITS(gate_sync,    ADC_CTRL,      MAKE_BITS_FROM_MASK,	ADC_CTRL_435_GATE_SYNC);
 MAKE_BITS(sync_in_clk,  HDMI_SYNC_DAT, HDMI_SYNC_IN_CLKb, 	0x1);
@@ -1870,7 +1691,7 @@ static ssize_t show_RW32_debug(
 	return sprintf(buf, "%d\n", adev->RW32_debug);
 }
 
-static DEVICE_ATTR(RW32_debug,
+static DEVICE_ATTR(_RW32_debug,
 		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
 
 
@@ -1885,7 +1706,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
 	&dev_attr_has_axi_dma.attr,
-	&dev_attr_RW32_debug.attr,
+	&dev_attr__RW32_debug.attr,
 	NULL
 };
 
