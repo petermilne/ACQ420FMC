@@ -1,11 +1,3 @@
-/*
- * v2f_sysfs.c
- *
- *  Created on: 12 Apr 2016
- *      Author: pgm
- */
-
-
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2015 Peter Milne, D-TACQ Solutions Ltd                    *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
@@ -25,6 +17,7 @@
 /* ------------------------------------------------------------------------- */
 
 #include "acq400.h"
+#include "acq400_sysfs.h"
 
 static ssize_t show_chan_sel(
 	struct device * dev,
@@ -254,12 +247,12 @@ static ssize_t show_qen_count(
 	return sprintf(buf, "%d\n", count);
 }
 
-static ssize_t store_qen_count(							\
-	struct device *dev, 								\
-	struct device_attribute *attr,							\
-	const char* buf,								\
-	size_t count)									\
-{											\
+static ssize_t store_qen_count(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char* buf,
+	size_t count)
+{
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 ctrl = acq400rd32(adev, QEN_CTRL);
 	acq400wr32(adev, QEN_CTRL, ctrl | QEN_CTRL_RESET);
@@ -268,8 +261,18 @@ static ssize_t store_qen_count(							\
 }
 static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
 
+MAKE_BITS(phaseA_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
+MAKE_BITS(phaseB_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
+MAKE_BITS(zsel,       QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZSEL );
+MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
+MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
 
 const struct attribute *sysfs_qen_attrs[] = {
+	&dev_attr_phaseA_en.attr,
+	&dev_attr_phaseB_en.attr,
+	&dev_attr_zsel.attr,
+	&dev_attr_dio_outputs.attr,
+	&dev_attr_DO4.attr,
 	&dev_attr_qen_count.attr,
 	NULL
 };

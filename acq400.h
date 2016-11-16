@@ -344,8 +344,16 @@
 #define QEN_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
 #define QEN_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
 
-#define QEN_DIR_IMM		0x5c
+#define QEN_DIO_CTRL		0x5c
 #define QEN_ENC_COUNT		0x60
+
+#define QEN_DIO_CTRL_ZSEL	(3<<10)
+#define QEN_DIO_CTRL_PB_EN	(1<<9)
+#define QEN_DIO_CTRL_PA_EN	(1<<8)
+
+#define QEN_DIO_CTRL_DIR_OUT	0x00f0
+#define QEN_DIO_CTRL_DO_IMM	0x000f
+
 
 /*
  *  Minor encoding
