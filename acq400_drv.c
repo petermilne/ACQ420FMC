@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.112"
+#define REVID "3.114"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -630,9 +630,9 @@ static void _qen_onStart(struct acq400_dev *adev)
 
 static void qen_init_defaults(struct acq400_dev *adev)
 {
-	adev->data32 = 1;
-	adev->word_size = 4;
-	adev->nchan_enabled = 1;
+	adev->data32 = 2;
+	adev->word_size = 2;
+	adev->nchan_enabled = 2;
 	acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN);
 	adev->onStart = _qen_onStart;
 	adev->onStop = _qen_onStop;
