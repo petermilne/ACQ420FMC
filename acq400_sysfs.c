@@ -1691,7 +1691,7 @@ static ssize_t show_RW32_debug(
 	return sprintf(buf, "%d\n", adev->RW32_debug);
 }
 
-static DEVICE_ATTR(_RW32_debug,
+static DEVICE_ATTR(RW32_debug,
 		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
 
 
@@ -1706,7 +1706,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
 	&dev_attr_has_axi_dma.attr,
-	&dev_attr__RW32_debug.attr,
+	&dev_attr_RW32_debug.attr,
 	NULL
 };
 
