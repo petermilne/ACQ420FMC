@@ -135,7 +135,7 @@ build_etc_site() {
 	kdir=/dev/acq400.${site}.knobs
 	for src in ${kdir}/*; do
 		case $(basename $src) in
-		driver|subsystem|power|uevent|dacspi|dacreset)
+		driver|subsystem|power|uevent|dacspi|dacreset|RW32_debug)
 			;;
 		*)
 			ln -s ${src} /etc/acq400/${site};;
