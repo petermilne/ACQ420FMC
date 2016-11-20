@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set_master() {
+	echo set_master
+}
+
+set_slave() {
+	echo set_slave
+}
+
+case $1 in
+master)
+	set_master;;
+slave)
+	set_slave;;
+*)
+	echo "USAGE set_acq2106-hdmi-acq42x-routing master\|slave";;
+esac
+
