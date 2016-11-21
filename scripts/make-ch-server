@@ -32,7 +32,7 @@ do
         done
 done
 
-if [ $(get.site 2 module_name) = "qen" ]; then
+if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
 	echo >>/etc/inetd.ch.conf \
 	"53999 stream tcp nowait root bpaste bpaste /dev/acq400/data/2/01 /dev/acq400/data/2/02"	
 fi
