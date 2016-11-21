@@ -128,7 +128,7 @@ int Buffer::create(const char* root, int _buffer_len)
 	char* fname = new char[128];
 	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
 
-	new MapBuffer(fname, _buffer_len);
+	the_buffers.push_back(new MapBuffer(fname, _buffer_len));
 	return 0;
 }
 
