@@ -120,9 +120,6 @@ static ssize_t show_dac_sample_count(
 
 static DEVICE_ATTR(dac_sample_count, S_IRUGO, show_dac_sample_count, 0);
 
-extern struct device_attribute dev_attr_dacspi;
-extern struct device_attribute dev_attr_dacreset;
-
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 MAKE_BITS(bolo_dac_lowlat, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_LL);
@@ -170,8 +167,6 @@ const struct attribute *bolo8_attrs[] = {
 	&dev_attr_bolo_dac_data32.attr,
 	&dev_attr_bolo_dac_reset.attr,
 	&dev_attr_bolo_dac_enable.attr,
-	&dev_attr_dacspi.attr,
-	&dev_attr_dacreset.attr,
 	&dev_attr_offset_dac1.attr,
 	&dev_attr_offset_dac2.attr,
 	&dev_attr_offset_dac3.attr,

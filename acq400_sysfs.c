@@ -28,7 +28,6 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <linux/list.h>
 #include <linux/pci.h>
 #include <linux/time.h>
 #include <linux/init.h>
@@ -2227,7 +2226,7 @@ static ssize_t store_dacspi(
 	}
 }
 
-DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
+static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
 
 static ssize_t show_delay66(
 	struct device * dev,
@@ -2429,6 +2428,11 @@ static DEVICE_ATTR(twos_comp_encoding,
 
 
 
+static const struct attribute* dacspi_attrs[] = {
+	&dev_attr_dacspi.attr,
+	&dev_attr_dacreset.attr,
+	NULL
+};
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -2443,8 +2447,6 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_task_active.attr,
-	&dev_attr_dacspi.attr,
-	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
@@ -3957,7 +3959,8 @@ void sysfs_radcelf_create_files(struct device *dev){
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	const struct attribute **specials = 0;
+	const struct attribute **specials[3];
+	int nspec = 0;
 
 	dev_info(dev, "acq400_createSysfs()");
 	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
@@ -3967,7 +3970,7 @@ void acq400_createSysfs(struct device *dev)
 	if (IS_DUMMY(adev)){
 		return;
 	}else if (IS_V2F(adev)){
-		specials = sysfs_v2f_attrs;
+		specials[nspec++] = sysfs_v2f_attrs;
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
 		return;
@@ -3986,16 +3989,16 @@ void acq400_createSysfs(struct device *dev)
 			}
 		}
 		if (IS_ACQ2X06SC(adev)){
-			specials = acq2006sc_attrs;
+			specials[nspec++] = acq2006sc_attrs;
 		}else if (IS_ACQ1001SC(adev)){
 			if (IS_ACQ1014(adev)){
 				dev_info(dev, "ACQ1014: loading extra knobs");
-				specials = acq1014sc_attrs;
+				specials[nspec++] = acq1014sc_attrs;
 			}else{
-				specials = acq1001sc_attrs;
+				specials[nspec++] = acq1001sc_attrs;
 			}
 		}else if (IS_KMCx_SC(adev)){
-			specials = kmcx_sc_attrs;
+			specials[nspec++] = kmcx_sc_attrs;
 		}
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
@@ -4022,34 +4025,37 @@ void acq400_createSysfs(struct device *dev)
 		}
 
 		if (IS_ACQ424(adev)){
-			specials = acq424_attrs;
+			specials[nspec++] = acq424_attrs;
 		}else if (IS_ACQ42X(adev)){
-			specials = acq420_attrs;
+			specials[nspec++] = acq420_attrs;
 		}else if (IS_ACQ43X(adev)){
-			specials = acq435_attrs;
+			specials[nspec++] = acq435_attrs;
 		}else if (IS_AO420(adev)){
-			specials = ao420_attrs;
+			specials[nspec++] = dacspi_attrs;
+			specials[nspec++] = ao420_attrs;
 		}else if (IS_AO424(adev)){
-			specials = ao424_attrs;
+			specials[nspec++] = ao424_attrs;
 		}else if (IS_BOLO8(adev)){
-			specials = bolo8_attrs;
+			specials[nspec++] = dacspi_attrs;
+			specials[nspec++] = bolo8_attrs;
 		}else if (IS_DIO432X(adev)){
-			specials = dio432_attrs;
+			specials[nspec++] = dio432_attrs;
 		}else if (IS_ACQ400T(adev)){
-			specials = acq400t_attrs;
+			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
-			specials = acq480_attrs;
+			specials[nspec++] = acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
-			specials = pig_celf_attrs;
+			specials[nspec++] = pig_celf_attrs;
 		}else if (IS_QEN(adev)){
-			specials = sysfs_qen_attrs;
+			specials[nspec++] = sysfs_qen_attrs;
 		}else{
 			return;
 		}
 	}
-
-	if (specials != 0 && sysfs_create_files(&dev->kobj, specials)){
-		dev_err(dev, "failed to create sysfs");
+	while(nspec--){
+		if (sysfs_create_files(&dev->kobj, specials[nspec])){
+			dev_err(dev, "failed to create sysfs");
+		}
 	}
 
 	if (IS_ACQ420(adev) || IS_ACQ430(adev)){
