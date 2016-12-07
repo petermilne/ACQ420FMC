@@ -2514,28 +2514,6 @@ static const struct attribute *ao424_attrs[] = {
 };
 
 
-static ssize_t show_adc_sample_count(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_ADC_SAMPLE_CNT);
-	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
-}
-
-DEVICE_ATTR(adc_sample_count, S_IRUGO, show_adc_sample_count, 0);
-
-static ssize_t show_dac_sample_count(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_DAC_SAMPLE_CNT);
-	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
-}
-
-DEVICE_ATTR(dac_sample_count, S_IRUGO, show_dac_sample_count, 0);
-
 extern const struct attribute *bolo8_attrs[];
 
 

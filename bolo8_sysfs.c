@@ -98,18 +98,70 @@ MAKE_OFFSET_DAC(6);
 MAKE_OFFSET_DAC(7);
 MAKE_OFFSET_DAC(8);
 
+static ssize_t show_adc_sample_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_ADC_SAMPLE_CNT);
+	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(adc_sample_count, S_IRUGO, show_adc_sample_count, 0);
+
+static ssize_t show_dac_sample_count(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 count = acq400rd32_upcount(acq400_devices[dev->id], B8_DAC_SAMPLE_CNT);
+	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
+}
+
+static DEVICE_ATTR(dac_sample_count, S_IRUGO, show_dac_sample_count, 0);
+
 extern struct device_attribute dev_attr_dacspi;
 extern struct device_attribute dev_attr_dacreset;
-extern struct device_attribute dev_attr_adc_sample_count;
-extern struct device_attribute dev_attr_dac_sample_count;
 
 MAKE_BITS(current_adc_enable, B8_CAD_CON, MAKE_BITS_FROM_MASK, B8_CAD_CON_ENABLE);
 MAKE_BITS(offset_dac_enable, B8_ODA_CON, MAKE_BITS_FROM_MASK, B8_ODA_CON_ENABLE);
 MAKE_BITS(bolo_dac_lowlat, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_LL);
-MAKE_BITS(bolo_dac_reset, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_RST);
-MAKE_BITS(bolo_dac_enable, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_ENA);
 MAKE_BITS(bolo_dac_data32, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_DS32);
-MAKE_BITS(bolo_dac_control, B8_DAC_CON, 0, 0x1ff);
+
+DEPRECATED_MAKE_BITS(bolo_dac_reset, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_RST);
+DEPRECATED_MAKE_BITS(bolo_dac_enable, B8_DAC_CON, MAKE_BITS_FROM_MASK, B8_DAC_CON_ENA);
+DEPRECATED_MAKE_BITS(bolo_dac_control, B8_DAC_CON, 0, 0x1ff);
+
+#define BOLO_DSP_BITS	(B8_DAC_CON_LL|B8_DAC_CON_DS32|B8_DAC_CON_ENA|DAC_CTRL_FIFO_EN|DAC_CTRL_MODULE_EN)
+#define BOLO_AWG_BITS	(B8_DAC_CON_ENA|DAC_CTRL_MODULE_EN)
+
+static ssize_t show_bolo_dsp_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 bolo_dsp_enable = acq400rd32(acq400_devices[dev->id], B8_DAC_CON);
+	return sprintf(buf, "%u\n", bolo_dsp_enable==BOLO_DSP_BITS);
+}
+
+static ssize_t store_bolo_dsp_enable(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 bolo_dsp_enable;
+
+	if (sscanf(buf, "%u", &bolo_dsp_enable) == 1){
+		acq400wr32(adev, B8_DAC_CON, bolo_dsp_enable? BOLO_DSP_BITS: BOLO_AWG_BITS);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(bolo_dsp_enable, S_IRUGO|S_IWUGO, show_bolo_dsp_enable, store_bolo_dsp_enable);
 
 const struct attribute *bolo8_attrs[] = {
 	&dev_attr_current_adc_enable.attr,
@@ -130,5 +182,7 @@ const struct attribute *bolo8_attrs[] = {
 	&dev_attr_offset_dac8.attr,
 	&dev_attr_adc_sample_count.attr,
 	&dev_attr_dac_sample_count.attr,
+	&dev_attr_bolo_dac_control.attr,
+	&dev_attr_bolo_dsp_enable.attr,
 	NULL
 };

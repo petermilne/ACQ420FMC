@@ -97,7 +97,7 @@ ssize_t acq400_store_bits(
 		size_t count,
 		unsigned REG,
 		unsigned SHL,
-		unsigned MASK);
+		unsigned MASK, unsigned show_warning);
 
 
 #define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
@@ -131,7 +131,7 @@ static ssize_t show_bits##NAME(						\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 
-#define MAKE_BITS(NAME, REG, SHL, MASK)					\
+#define _MAKE_BITS(NAME, REG, SHL, MASK, VERBOSE)			\
 static ssize_t show_bits##NAME(						\
 	struct device *dev,						\
 	struct device_attribute *attr,					\
@@ -152,10 +152,14 @@ static ssize_t store_bits##NAME(					\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl);\
+		return acq400_store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl, VERBOSE);\
 	}else{								\
-		return acq400_store_bits(dev, attr, buf, count, REG, SHL, MASK);\
+		return acq400_store_bits(dev, attr, buf, count, REG, SHL, MASK, VERBOSE);\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
+
+
+#define MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 0)
+#define DEPRECATED_MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 1)
 

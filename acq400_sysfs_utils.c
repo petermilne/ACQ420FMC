@@ -135,13 +135,17 @@ ssize_t acq400_store_bits(
 		size_t count,
 		unsigned REG,
 		unsigned SHL,
-		unsigned MASK)
+		unsigned MASK,
+		unsigned show_warning)
 {
 	u32 field;
 	if (sscanf(buf, "%x", &field) == 1){
 		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
 		regval &= ~(MASK << SHL);
 		regval |= (field&MASK) << SHL;
+		if (show_warning){
+			dev_warn(dev, "deprecated %04x = %08x", REG, regval);
+		}
 		acq400wr32(acq400_devices[dev->id], REG, regval);
 		return count;
 	}else{
