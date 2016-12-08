@@ -1,0 +1,22 @@
+#!/usr/local/bin/expect
+
+set BS 4096
+set COUNT 1
+
+log_user 0
+
+spawn -open [open "/dev/acq400.0.bqf" r]
+
+while { 1 } {
+    expect {
+        -re "^(\[0-9\]*)\n" {
+            set blk $expect_out(1,string)
+#	    puts $blk;flush stdout
+	    exec >@stdout 2>/dev/null \
+		dd if=/dev/acq400.0.hb/$blk bs=$BS count=$COUNT
+        }
+    }
+}
+
+
+
