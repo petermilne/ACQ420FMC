@@ -1,0 +1,10 @@
+#!/bin/sh
+# configure fpclk to drive site 1 direct
+set.site 0 SYS:CLK:FPMUX FPCLK
+set.site 0 SYS:CLK:BYPASS 1
+set.site 0 SYS:CLK:DIST_CLK_SRC Si5326
+set.site 0 SYS:CLK:OE_CLK1_ZYNQ 1
+set.site 0 SIG:SRC:CLK:1 MCLK
+
+set.site 1 clk 1,0,1
+set.site 1 CLKDIV 1
