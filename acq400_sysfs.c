@@ -2059,8 +2059,9 @@ static ssize_t show_playloop_length(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u %s\n",
+	return sprintf(buf, "%u %u %s\n",
 			adev->AO_playloop.length,
+			adev->AO_playloop.one_shot,
 			adev->AO_playloop.one_shot == AO_oneshot? "ONESHOT":
 			adev->AO_playloop.one_shot == AO_oneshot_rearm? "ONESHOT-REARM": "");
 }
