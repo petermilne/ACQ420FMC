@@ -3534,7 +3534,9 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 
-	if (adev->AO_playloop.length){
+	if (xo_use_distributor){
+		dev_warn(PDEV(adev), "bogus interrupt");
+	}else if (adev->AO_playloop.length){
 		u32 start_samples = adev->xo.getFifoSamples(adev);
 		dev_dbg(DEVP(adev), "xo400_dma() start_samples: %u, headroom %d\n",
 					start_samples, ao420_getFifoHeadroom(adev));
