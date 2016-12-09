@@ -1104,7 +1104,7 @@ void _ao420_stop(struct acq400_dev* adev);
 
 static void _ao420_onStop(struct acq400_dev *adev)
 {
-	_ao420_stop(struct acq400_dev* adev)
+	_ao420_stop(adev);
 }
 
 
