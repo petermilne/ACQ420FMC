@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.118"
+#define REVID "3.119"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3772,8 +3772,13 @@ void xo_fix_ll(struct acq400_dev* adev, unsigned playloop_length)
 
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
-	int is_master = (adev->mod_id&MOD_ID_IS_SLAVE) == 0;
+	struct acq400_dev *adev0 = acq400_devices[0];
+	int first_in_set = xo_use_distributor && (adev == adev0->distributor_set[0]);
+	int use_frontside = !xo_use_distributor;
 
+	if (xo_use_distributor && !first_in_set){
+		dev_warn(DEVP(adev), "xo400_reset_playloop() xo_use_distributor but not first_in_set");
+	}
 	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d) => %d",
 					adev->AO_playloop.length, playloop_length);
 
@@ -3787,7 +3792,7 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	}else{
 		_ao420_stop(adev);
 
-		if (xo_use_distributor && is_master){
+		if (first_in_set){
 			xo400_distributor_feeder_control(adev, 0);
 		}
 		mutex_unlock(&adev->awg_mutex);
@@ -3809,23 +3814,30 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 			dev_err(DEVP(adev), "ERROR: FIFO not EMPTY at start fill %d",
 					adev->xo.getFifoSamples(adev));
 		}
-		if (xo_use_distributor){
-			if (is_master){
-				xo400_getDMA(adev);
-				xo400_distributor_feeder_control(adev, 1);
-				while(!adev->task_active){
-					dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
-					msleep(100);
-				}
+
+		if (first_in_set){
+			xo400_getDMA(adev);
+			xo400_distributor_feeder_control(adev, 1);
+			while(!adev->task_active){
+				dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+				msleep(100);
 			}
-		}else{
+		}else if (use_frontside){
 			xo400_getDMA(adev);
 			xo400_fill_fifo(adev);
 			ao420_clear_fifo_flags(adev);
 		}
+		/* else do nothing */
 
 
-		adev->onStart(adev);
+
+
+		if (first_in_set){
+			acq400_visit_set(adev0->distributor_set, adev->onStart);
+		}else if (use_frontside){
+			adev->onStart(adev);
+		}
+		/* else do nothing */
 	}
 
 	return 0;
