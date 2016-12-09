@@ -74,7 +74,6 @@ enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 namespace G {
 	unsigned sample_size = sizeof(unsigned);	// bytes per sample
 	int play_site = 1;
-	const char* play = "/dev/acq400.1.knobs/playloop_length";
 	unsigned offset = 0;
 	int devnum = 0;					// full system.
 	FILE* fp_out = stdout;
