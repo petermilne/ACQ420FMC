@@ -80,6 +80,7 @@ namespace G {
 	FILE* fp_in = stdin;
 
 	int mode = AO_oneshot;
+	int verbose;
 };
 
 #include "Buffer.h"
@@ -189,13 +190,17 @@ RUN_MODE ui(int argc, const char** argv)
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 
+	if (getenv("VERBOSE")){
+		G::verbose = atoi(getenv("VERBOSE"));
+	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
 	if (dist_s1){
 		G::play_site = dist_s1;
-		getKnob(0, "dssb", &G::sample_size);
+		getKnob(0, "/etc/acq400/0/dssb", &G::sample_size);
+		fprintf(stderr, "s1:%d size:%d\n", dist_s1, G::sample_size);
 	}
 	int rc;
 
