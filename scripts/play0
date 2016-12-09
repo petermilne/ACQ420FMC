@@ -28,7 +28,7 @@ echo sitelist: $sitelist
 echo sites: $sites
 
 source get_site_total_size
-echo $SS > /etc/acq400/dssb
+echo $SS > /etc/acq400/0/dssb
 
 set.sys /dev/acq400.0.knobs/distributor 0
 set.sys /dev/acq400.0.knobs/data_engine_1 0
