@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.121"
+#define REVID "3.123"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1100,13 +1100,11 @@ static void _ao420_onStart(struct acq400_dev *adev)
 	acq400wr32(adev, DAC_CTRL, ctrl |= DAC_CTRL_DAC_EN);
 }
 
+void _ao420_stop(struct acq400_dev* adev);
+
 static void _ao420_onStop(struct acq400_dev *adev)
 {
-	/*
-	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_ADC_EN);
-	*/
-	dev_info(DEVP(adev), "_ao420_onStop() stub to avoid stopping too soon");
+	_ao420_stop(struct acq400_dev* adev)
 }
 
 
@@ -3311,7 +3309,7 @@ void _ao420_stop(struct acq400_dev* adev)
 
 	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
-		cr &= ~DAC_CTRL_LL;
+/* 		cr &= ~DAC_CTRL_LL;   @@todo PGM probably a mistake */
 		if (adev->data32){
 			cr |= ADC_CTRL32B_data;
 		}else{
@@ -3828,9 +3826,6 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 			ao420_clear_fifo_flags(adev);
 		}
 		/* else do nothing */
-
-
-
 
 		if (first_in_set){
 			acq400_visit_set(adev0->distributor_set, adev->onStart);

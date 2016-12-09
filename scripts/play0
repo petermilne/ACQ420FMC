@@ -27,6 +27,9 @@ sites="$(echo $sitelist | tr , \ )"
 echo sitelist: $sitelist
 echo sites: $sites
 
+source get_site_total_size
+echo $SS > /etc/acq400/dssb
+
 set.sys /dev/acq400.0.knobs/distributor 0
 set.sys /dev/acq400.0.knobs/data_engine_1 0
 set.sys /dev/acq400.0.knobs/data_engine_1 distributor=1 
