@@ -191,6 +191,9 @@ RUN_MODE ui(int argc, const char** argv)
 
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
+	unsigned dist_s1;
+	getKnob(0, "dist_s1", &dist_s1);
+	if (dist_s1) G::play_site = dist_s1;
 	int rc;
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){

@@ -3483,6 +3483,31 @@ static DEVICE_ATTR(name, 						\
 
 DIST_KNOB(distributor, DISTRIBUTOR, DIST_MSHIFT);
 
+
+static ssize_t show_dist_s1(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	const unsigned offset = DISTRIBUTOR;
+	const unsigned mshift = DIST_MSHIFT;
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 regval = acq400rd32(adev, offset);
+	char mod_group[80];
+	int site;
+	int dsite = 0;
+
+	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
+		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
+			/* @@todo site 3/4 frig */
+			dsite = (IS_ACQ1001SC(adev) && site == 3)? 4: site;
+		}
+	}
+	return sprintf(buf, "%d\n", dsite);
+}
+static DEVICE_ATTR(dist_s1, S_IRUGO, show_dist_s1, 0);
+
+
 static ssize_t show_decimate(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3683,6 +3708,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
 	&dev_attr_aggregator_set.attr,
 	&dev_attr_distributor.attr,
+	&dev_attr_dist_s1.attr,
 	&dev_attr_decimate.attr,
 	&dev_attr_aggsta_fifo_count.attr,
 	&dev_attr_aggsta_fifo_stat.attr,
