@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.124"
+#define REVID "3.126"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -754,7 +754,27 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 
 
 
+static void dac_celf_init_defaults(struct acq400_dev *adev)
+/* dac_celf mounts DAC20, assy known as "ao428elf" */
+{
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	dev_info(DEVP(adev), "AO420 device init");
 
+	adev->data32 = 1;
+	adev->nchan_enabled = 8;
+	adev->word_size = 4;
+	adev->cursor.hb = &adev->hb[0];
+
+	adev->sysclkhz = SYSCLK_M66;
+	adev->onStart = _ao420_onStart;
+	adev->onStop = _ao420_onStop;
+	adev->xo.physchan = ao420_physChan;
+	adev->xo.getFifoSamples = _ao420_getFifoSamples;
+	adev->xo.fsr = DAC_FIFO_STA;
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	measure_ao_fifo(adev);
+}
 static void ao420_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
@@ -3535,7 +3555,7 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 
 	if (xo_use_distributor){
-		dev_warn(PDEV(adev), "bogus interrupt");
+		dev_warn(DEVP(adev), "bogus interrupt");
 	}else if (adev->AO_playloop.length){
 		u32 start_samples = adev->xo.getFifoSamples(adev);
 		dev_dbg(DEVP(adev), "xo400_dma() start_samples: %u, headroom %d\n",
@@ -4799,6 +4819,8 @@ static int acq400_probe(struct platform_device *pdev)
   			pig_celf_init_defaults(adev);
   		case MOD_ID_RAD_CELF:
   			rad_celf_init_defaults(adev);
+  		case MOD_ID_DAC_CELF:
+  			dac_celf_init_defaults(adev);
   			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",

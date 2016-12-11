@@ -282,7 +282,7 @@ build_knobs_device() {
 	8)
 		# space deliberate
 		ACQ480_SITES="${ACQ480_SITES} $site";;	
-	40)		
+	40|6A)		
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
 		CLKDIV=250;;
 	41)	
