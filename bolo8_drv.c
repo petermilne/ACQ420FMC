@@ -42,9 +42,6 @@ module_param_array(bolo8sites, int, &bolo8sites_count, 0644);
 
 struct i2c_adapter *i2c_adap[6];
 
-static const unsigned short pga_addr[] = { 0x22, I2C_CLIENT_END };
-static const unsigned short led_addr[] = { 0x20, I2C_CLIENT_END };
-
 static int nbolo;
 
 #define PGA_TYPE	"tca6424"
