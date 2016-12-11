@@ -1,0 +1,29 @@
+#!/usr/local/bin/expect
+
+log_user 0
+
+if { $argc > 0 } {
+	set wstate [lindex $argv 0]
+} else {
+	set wstate 0
+}
+
+
+spawn acq4xx-transient-console
+
+while { 1 } {
+	expect {
+		-re "\n(\[0-9\]) (.*)\r" {
+#			puts "match $expect_out(1,string)"
+			set trailer [string trim $expect_out(2,string)]
+
+			if { $wstate == 0 && "$trailer" eq "0 0 0 0" } {
+				continue;
+			}
+			if { $expect_out(1,string) == $wstate } {
+				exit 0
+			}			
+		}
+	}
+}
+
