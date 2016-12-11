@@ -19,6 +19,7 @@ obj-m += dmadescfs.o
 obj-m += radcelf.o
 obj-m += ad9854.o
 obj-m += ad9512.o
+obj-m += ao428.o
 #obj-m += acq400-spi-bytebang.o
 
 DC=$(shell date +%y%m%d%H%M%S)
@@ -47,6 +48,8 @@ acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
 pigcelf-objs := pigcelf_drv.o zynq_peripheral_spi_shim.o
 
 radcelf-objs := radcelf_drv.o zynq_peripheral_spi_shim.o
+
+ao428-objs := ao428_drv.o
 
 acq400t-objs := acq400t_drv.o
 

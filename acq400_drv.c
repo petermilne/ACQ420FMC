@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.126"
+#define REVID "3.127"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -131,6 +131,10 @@ MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load lo
 int xo_use_contiguous_pa_if_possible = 0;
 module_param(xo_use_contiguous_pa_if_possible, int, 0644);
 MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into next HB if contiguous");
+
+int measure_ao_fifo_ok = 0;
+module_param(measure_ao_fifo_ok, int, 0644);
+MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on ao428");
 
 /* GLOBALS */
 
@@ -773,7 +777,9 @@ static void dac_celf_init_defaults(struct acq400_dev *adev)
 	adev->xo.fsr = DAC_FIFO_STA;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-	measure_ao_fifo(adev);
+	if (measure_ao_fifo_ok){
+		measure_ao_fifo(adev);
+	}
 }
 static void ao420_init_defaults(struct acq400_dev *adev)
 {

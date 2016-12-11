@@ -2435,6 +2435,18 @@ static const struct attribute* dacspi_attrs[] = {
 	&dev_attr_dacreset.attr,
 	NULL
 };
+
+static const struct attribute *ao428_attrs[] = {
+	&dev_attr_playloop_length.attr,
+	&dev_attr_playloop_cursor.attr,
+	&dev_attr_playloop_repeats.attr,
+	&dev_attr_task_active.attr,
+	&dev_attr_dacreset_device.attr,
+	&dev_attr_dac_headroom.attr,
+	&dev_attr_dac_fifo_samples.attr,
+	&dev_attr_dac_encoding.attr,
+	NULL
+};
 static const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_range_01.attr,
 	&dev_attr_dac_range_02.attr,
@@ -4048,7 +4060,7 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = acq435_attrs;
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
 			specials[nspec++] = dacspi_attrs;
-			specials[nspec++] = ao420_attrs;
+			specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = ao424_attrs;
 		}else if (IS_BOLO8(adev)){
