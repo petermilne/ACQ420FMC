@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.127"
+#define REVID "3.128"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -135,6 +135,10 @@ MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into n
 int measure_ao_fifo_ok = 0;
 module_param(measure_ao_fifo_ok, int, 0644);
 MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on ao428");
+
+int distributor_first_buffer = 0;
+module_param(distributor_first_buffer, int, 0644);
+MODULE_PARM_DESC(distributor_first_buffer, "use in mixed aggregator/distributor systems to avoid buffer overlap");
 
 /* GLOBALS */
 
@@ -3627,7 +3631,7 @@ int xo_data_loop(void *data)
 	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct acq400_dev *adev0 = acq400_devices[0];
-	struct HBM** hbm = adev0->hb;
+	struct HBM** hbm = adev0->hb+distributor_first_buffer;
 	int ic = 0;
 	int ib = 0;
 	long dma_timeout = START_TIMEOUT;

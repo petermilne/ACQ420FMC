@@ -81,6 +81,7 @@ namespace G {
 
 	int mode = AO_oneshot;
 	int verbose;
+	unsigned buffer0;				// index from here
 };
 
 #include "Buffer.h"
@@ -165,7 +166,7 @@ int load() {
 	init_buffers();
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
-	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
+	unsigned nsamples = fread(Buffer::the_buffers[G::buffer0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
 
 	set_playloop_length(nsamples);
@@ -181,7 +182,7 @@ int dump() {
 	unsigned nsamples;
 	getKnob(G::play_site, "playloop_length", &nsamples);
 
-	fwrite(Buffer::the_buffers[0]->getBase(),
+	fwrite(Buffer::the_buffers[G::buffer0]->getBase(),
 			G::sample_size, nsamples, G::fp_out);
 	return 0;
 }
@@ -195,6 +196,7 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
+	getKnob(G::devnum, "/sys/module/acq420fmc/parameters/acq420fmcdistributor_first_buffer", &G::buffer0);
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
 	if (dist_s1){
