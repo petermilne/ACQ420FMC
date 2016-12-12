@@ -196,7 +196,7 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
-	getKnob(G::devnum, "/sys/module/acq420fmc/parameters/acq420fmcdistributor_first_buffer", &G::buffer0);
+	getKnob(G::devnum, "/sys/module/acq420fmc/parameters/distributor_first_buffer", &G::buffer0);
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
 	if (dist_s1){

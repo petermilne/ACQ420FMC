@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.128"
+#define REVID "3.129"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3631,13 +3631,16 @@ int xo_data_loop(void *data)
 	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct acq400_dev *adev0 = acq400_devices[0];
-	struct HBM** hbm = adev0->hb+distributor_first_buffer;
+	struct HBM** hbm0 = adev0->hb;
 	int ic = 0;
-	int ib = 0;
+	int ib = distributor_first_buffer;
 	long dma_timeout = START_TIMEOUT;
 
 	int shot_buffer_count = adev->AO_playloop.length/ao_samples_per_hb(adev);
 
+	if (ib != 0){
+		dev_dbg(DEVP(adev), "xo_data_loop() ib set %d", ib);
+	}
 	if (shot_buffer_count*ao_samples_per_hb(adev) < adev->AO_playloop.length){
 		shot_buffer_count += 1;
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");
@@ -3652,16 +3655,19 @@ int xo_data_loop(void *data)
 			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|wflags[chan]|sflags[chan], \
 			acq400_dma_callback, adev)
+
 #define DMA_ASYNC_PUSH_NWFE(adev, chan, hbm) \
 	dma_async_memcpy_callback(adev->dma_chan[chan], \
 			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|sflags[chan], \
 			acq400_dma_callback, adev)
+
 #define DMA_ASYNC_PUSH_NOSETEV(adev, chan, hbm) \
 	dma_async_memcpy_callback(adev->dma_chan[chan], \
 			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
 			DMA_DS0_FLAGS|wflags[chan], \
 			acq400_dma_callback, adev)
+
 #define DMA_ASYNC_ISSUE_PENDING(chan) do { 			\
 		dma_async_issue_pending(chan);			\
 		++adev->stats.xo.dma_buffers_out; } while(0)
@@ -3676,8 +3682,8 @@ int xo_data_loop(void *data)
 	/* prime the DMAC with buffers 0 and 1 ready to go.
 	 * 0 starts filling right away
 	 * */
-	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm[ib++]);
-	adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm[ib++]);
+	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm0[ib++]);
+	adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++]);
 
 	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
@@ -3725,8 +3731,8 @@ int xo_data_loop(void *data)
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			adev->dma_cookies[ic] = LAST_PUSH(adev)?
-					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm[ib]):
-					DMA_ASYNC_PUSH(adev, ic, hbm[ib]);
+					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm0[ib]):
+					DMA_ASYNC_PUSH(adev, ic, hbm0[ib]);
 			ib++;
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
