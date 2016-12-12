@@ -88,10 +88,10 @@ namespace G {
 
 struct poptOption opt_table[] = {
 	{ "sample-size", 'S', POPT_ARG_INT, &G::sample_size, 0,
-			"bytes per sample"
+			"bytes per sample [deprecated]"
 	},
 	{ "play", 'P', POPT_ARG_INT, &G::play_site, 0,
-			"AWG site"
+			"AWG site [deprecated]"
 	},
 	{ "offset", 'o', POPT_ARG_INT, &G::offset, 0,
 			"offset in buffer (for multi-site ops)"
@@ -148,18 +148,19 @@ void set_playloop_length(int nsamples)
 	system(cmd);
 }
 
-void pad(int nsamples, int npad)
+int pad(int nsamples, int pad_samples)
 {
-	unsigned* base = reinterpret_cast<unsigned*>(Buffer::the_buffers[0]->getBase());
-	base +=  nsamples > 0? nsamples-1: 0;
+	char* base = Buffer::the_buffers[G::buffer0]->getBase();
+	char* end = base + nsamples*G::sample_size;
+	char* last = end - G::sample_size;
 
-	unsigned lastv = base[0];
-
-	for (int ipad = 1; ipad <= npad; ++ipad){
-		base[ipad] = lastv;
+	while(pad_samples--){
+		memcpy(end, last, G::sample_size);
+		end += G::sample_size;
+		nsamples++;
 	}
+	return nsamples;
 }
-#define PAD	2048	// ensure DMAC used throughout
 
 int load() {
 	set_playloop_length(0);
@@ -168,6 +169,11 @@ int load() {
 
 	unsigned nsamples = fread(Buffer::the_buffers[G::buffer0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
+	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
+
+	if (residue){
+		nsamples = pad(nsamples, residue/G::sample_size);
+	}
 
 	set_playloop_length(nsamples);
 
