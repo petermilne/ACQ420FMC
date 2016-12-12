@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.129"
+#define REVID "3.132"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1119,6 +1119,7 @@ static void _ao420_onStart(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 
+	ctrl &= ~DAC_CTRL_LL;
 	if (adev->AO_playloop.one_shot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_ao420_onStart() set lotide:%d", adev->lotide);
@@ -3339,7 +3340,7 @@ void _ao420_stop(struct acq400_dev* adev)
 
 	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
-/* 		cr &= ~DAC_CTRL_LL;   @@todo PGM probably a mistake */
+ 		cr |= DAC_CTRL_LL;
 		if (adev->data32){
 			cr |= ADC_CTRL32B_data;
 		}else{
@@ -3788,23 +3789,6 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 	}
 }
 
-void xo_fix_ll(struct acq400_dev* adev, unsigned playloop_length)
-{
-	unsigned cr = acq400rd32(adev, DAC_CTRL);
-
-	if (playloop_length == 0){
-		if ((cr&DAC_CTRL_LL) == 0){
-			cr |= DAC_CTRL_LL;
-			acq400wr32(adev, DAC_CTRL, cr);
-		}
-	}else{
-		if ((cr&DAC_CTRL_LL) != 0){
-			cr &= ~DAC_CTRL_LL;
-			acq400wr32(adev, DAC_CTRL, cr);
-		}
-
-	}
-}
 
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
@@ -3839,8 +3823,6 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		msleep(100);
 	}
 
-	xo_fix_ll(adev, playloop_length);
-
 	if (playloop_length != 0){
 		if (IS_DIO432X(adev)){
 			dio432_set_mode(adev, DIO432_CLOCKED, 1);
@@ -3871,6 +3853,12 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 			adev->onStart(adev);
 		}
 		/* else do nothing */
+	}else{
+		if (first_in_set){
+			acq400_visit_set(adev0->distributor_set, adev->onStop);
+		}else if (use_frontside){
+			adev->onStop(adev);
+		}
 	}
 
 	return 0;

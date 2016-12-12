@@ -198,7 +198,7 @@
 #define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
 
-#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC  */
+#define DAC_CTRL_LL		(1 << 8)	/* AO420FMC, AO424ELF  */
 #define DAC_CTRL_TWOCMP		(1 << 9)	/* AO424ELF  */
 
 #define ADC_CTRL_ADC_RST	(1 << 3)
