@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.133"
+#define REVID "3.134"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -132,7 +132,7 @@ int xo_use_contiguous_pa_if_possible = 0;
 module_param(xo_use_contiguous_pa_if_possible, int, 0644);
 MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into next HB if contiguous");
 
-int measure_ao_fifo_ok = 0;
+int measure_ao_fifo_ok = 1;
 module_param(measure_ao_fifo_ok, int, 0644);
 MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on ao428");
 
@@ -811,7 +811,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 
 	/* default to +/-10V bipolar. That's what 99% of the people want .. */
-	dev_info(DEVP(adev), "AO424 device initi default SPAN=3");
+	dev_info(DEVP(adev), "AO424 device init default SPAN=3");
 	ao424_setspan_defaults(adev);
 	adev->data32 = 0;
 	adev->nchan_enabled = 32;
@@ -4753,7 +4753,7 @@ static int acq400_probe(struct platform_device *pdev)
         				dev_err(&pdev->dev, "failed to allocate buffers");
         				goto fail;
         			}
-        		}else if (IS_AO420(adev) || IS_DIO432X(adev)){
+        		}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
         			if (allocate_hbm(adev, AO420_NBUFFERS,
         				ao420_buffer_length, DMA_TO_DEVICE)){
         				dev_err(&pdev->dev, "failed to allocate buffers");
