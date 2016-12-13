@@ -2,16 +2,23 @@
 
 SITE=${1:-0}
 KNOBS=/dev/acq400.${SITE}.knobs
+MODEL=$(cat $KNOBS/module_name)
+
 
 echo "dac_range_ALL=dac_range_??" >/etc/acq400/${SITE}/groups	
-echo +++ initializing DACs 
+echo +++ initializing DACs for $MODEL
 echo "file acq400_drv.c +p"   >/sys/kernel/debug/dynamic_debug/control
 echo "file acq400_sysfs.c +p" >/sys/kernel/debug/dynamic_debug/control
 set.sys ${KNOBS}/dacreset 1
 set.sys ${KNOBS}/dacreset 0
 set.sys ${KNOBS}/dacspi 0x300000
 set.sys ${KNOBS}/dacspi 0x400002
-set.sys ${KNOBS}/dacspi 0x200000
+case $MODEL in
+ao428elf)
+	set.sys ${KNOBS}/dacspi 0x200002;;
+*)
+	set.sys ${KNOBS}/dacspi 0x200000;;
+esac
 
 echo "file acq400_drv.c -p"   >/sys/kernel/debug/dynamic_debug/control
 echo "file acq400_sysfs.c -p" >/sys/kernel/debug/dynamic_debug/control
@@ -19,7 +26,7 @@ echo "file acq400_sysfs.c -p" >/sys/kernel/debug/dynamic_debug/control
 ln -s /usr/local/bin/wavegen /etc/acq400/$SITE
 
 for gx in ${KNOBS}/G?; do
-	set.sys $gx 32767
+	[ -e $gx ] && set.sys $gx 32767
 done
 
 cat - >>/etc/acq400/$SITE/groups <<EOF
