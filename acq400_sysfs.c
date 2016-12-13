@@ -1944,7 +1944,7 @@ static void ao420_flushImmediate(struct acq400_dev *adev)
 {
 	unsigned *src = adev->AO_immediate._u.lw;
 	void *fifo = adev->dev_virtaddr + AXI_FIFO;
-	int imax = adev->nchan_enabled/2;
+	int imax = adev->nchan_enabled*adev->word_size/sizeof(long);
 	int ii = 0;
 
 	dev_dbg(DEVP(adev), "ao420_flushImmediate() 01 imax %d", imax);
@@ -1966,12 +1966,16 @@ static ssize_t show_dac_immediate(
 	short chx;
 	int pchan = adev->xo.physchan(chan);
 
-	chx = adev->AO_immediate._u.ch[pchan];
-	if (IS_AO424(adev)){
-		chx = ao424_fixEncoding(adev, pchan, chx);
+	if (adev->word_size == sizeof(long)){
+		 chx = adev->AO_immediate._u.lw[pchan];
+		 return sprintf(buf, "0x%08x %d\n", chx, chx);
+	}else{
+		chx = adev->AO_immediate._u.ch[pchan];
+		if (IS_AO424(adev)){
+			chx = ao424_fixEncoding(adev, pchan, chx);
+		}
+		return sprintf(buf, "0x%04x %d\n", chx, chx);
 	}
-
-	return sprintf(buf, "0x%04x %d\n", chx, chx);
 }
 
 static ssize_t store_dac_immediate(
@@ -1990,7 +1994,11 @@ static ssize_t store_dac_immediate(
 		if (IS_AO424(adev)){
 			chx = ao424_fixEncoding(adev, pchan, chx);
 		}
-		adev->AO_immediate._u.ch[pchan] = chx;
+		if (adev->word_size == sizeof(long)){
+			adev->AO_immediate._u.lw[pchan] = chx;
+		}else{
+			adev->AO_immediate._u.ch[pchan] = chx;
+		}
 		acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
 		ao420_flushImmediate(adev);
 		return count;
@@ -2341,7 +2349,7 @@ static ssize_t show_dac_encoding(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 
 	return sprintf(buf, "%s\n",
-		IS_AO420(adev)? "signed": IS_AO424(adev)? "unsigned": "unknown");
+		IS_AO420(adev)||IS_AO428(adev)? "signed": IS_AO424(adev)? "unsigned": "unknown");
 }
 
 
