@@ -360,6 +360,10 @@ int ao420_physChan(int lchan /* 1..4 */ )
 	BUG();
 }
 
+int ao428_physChan(int lchan /* 1..8 */ )
+{
+	return lchan-1;
+}
 int ao424_physChan(int lchan /* 1..32 */ )
 {
 	return lchan-1;
@@ -762,7 +766,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 
 
 
-static void dac_celf_init_defaults(struct acq400_dev *adev)
+static void ao428_init_defaults(struct acq400_dev *adev)
 /* dac_celf mounts DAC20, assy known as "ao428elf" */
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
@@ -776,7 +780,7 @@ static void dac_celf_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao420_physChan;
+	adev->xo.physchan = ao428_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	adev->xo.fsr = DAC_FIFO_STA;
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
@@ -4824,7 +4828,7 @@ static int acq400_probe(struct platform_device *pdev)
   		case MOD_ID_RAD_CELF:
   			rad_celf_init_defaults(adev);
   		case MOD_ID_DAC_CELF:
-  			dac_celf_init_defaults(adev);
+  			ao428_init_defaults(adev);
   			break;
   		default:
   			dev_warn(DEVP(adev), "no custom init for module type %x",
