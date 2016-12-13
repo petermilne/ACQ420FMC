@@ -2445,6 +2445,14 @@ static const struct attribute *ao428_attrs[] = {
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
+	&dev_attr_AO_01.attr,
+	&dev_attr_AO_02.attr,
+	&dev_attr_AO_03.attr,
+	&dev_attr_AO_04.attr,
+	&dev_attr_AO_05.attr,
+	&dev_attr_AO_06.attr,
+	&dev_attr_AO_07.attr,
+	&dev_attr_AO_08.attr,
 	NULL
 };
 static const struct attribute *ao420_attrs[] = {
