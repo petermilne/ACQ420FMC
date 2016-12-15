@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.138"
+#define REVID "3.140"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3381,7 +3381,7 @@ void _ao420_stop(struct acq400_dev* adev)
 			cr &= ~ADC_CTRL32B_data;
 		}
 	}
-	adev->AO_playloop.length = 0;
+	//adev->AO_playloop.length = 0;
 	adev->AO_playloop.cursor = 0;
 	acq400wr32(adev, DAC_CTRL, cr);
 	release_dma_channels(adev);
@@ -3769,16 +3769,17 @@ int xo_data_loop(void *data)
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
-			if (adev->AO_playloop.one_shot  == 0){
+			if (adev->AO_playloop.one_shot == 0 ||
+					adev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
 				ib = 0;
 				adev->AO_playloop.cursor = 0;
-				adev->AO_playloop.repeats++;
-			}else if (adev->AO_playloop.repeats==0 ||
-					--adev->AO_playloop.repeats==0){
-				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
-				kthread_run(ao_auto_rearm, adev,
-							"%s.awgrearm", devname(adev));
+				/** @@todo dodgy : output or input dep on mode */
+				if (adev->AO_playloop.one_shot == 0){
+					adev->AO_playloop.repeats++;
+				}else{
+					--adev->AO_playloop.repeats;
+				}
 			}
 		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
@@ -3812,6 +3813,9 @@ quit:
 	acq400_visit_set(adev0->distributor_set, adev->onStop);
 
 	adev->task_active = 0;
+	if (adev->AO_playloop.one_shot == 2){
+		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
+	}
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 	return 0;
@@ -3874,11 +3878,12 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		msleep(100);
 	}
 
+	adev->AO_playloop.length = playloop_length;
+
 	if (playloop_length != 0){
 		if (IS_DIO432X(adev)){
 			dio432_set_mode(adev, DIO432_CLOCKED, 1);
 		}
-		adev->AO_playloop.length = playloop_length;
 		if (adev->xo.getFifoSamples(adev) != 0){
 			dev_err(DEVP(adev), "ERROR: FIFO not EMPTY at start fill %d",
 					adev->xo.getFifoSamples(adev));
