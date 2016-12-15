@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.134"
+#define REVID "3.136"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2872,6 +2872,33 @@ ssize_t acq420_reserve_read(
 	wait_event_interruptible(waitq, 0);  /* but it will accept a signal .. */
 	return -EINTR;
 }
+
+int acq420_reserve_dist_open(struct inode *inode, struct file *file)
+/* simply reserve block 0 on open. Can get clever later */
+{
+	static struct file_operations fops = {
+		.open = acq420_reserve_dist_open,
+		.read = acq420_reserve_read,
+		.release = acq420_reserve_release,
+	};
+
+	file->f_op = &fops;
+	if (distributor_first_buffer > 0){
+		int ib;
+		int rc = 0;
+		for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
+			rc = reserve(PD(file), ib);
+			if (rc != 0){
+				dev_err(PDEV(file), "failed to reserve buffer %d", ib);
+				break;
+			}
+		}
+		return rc;
+	}else{
+		return -1;
+	}
+
+}
 int acq420_reserve_open(struct inode *inode, struct file *file)
 /* simply reserve block 0 on open. Can get clever later */
 {
@@ -3130,6 +3157,9 @@ int acq400_open(struct inode *inode, struct file *file)
         		break;
         	case ACQ420_MINOR_RESERVE_BLOCKS:
         		rc = acq420_reserve_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_RSV_DIST:
+        		rc = acq420_reserve_dist_open(inode, file);
         		break;
         	case ACQ400_MINOR_BQ_NOWAIT:
         		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);

@@ -380,6 +380,7 @@
 #define ACQ400_MINOR_BQ_NOWAIT	15
 #define ACQ400_MINOR_ATD	16
 #define ACQ400_MINOR_BQ_FULL	17
+#define ACQ400_MINOR_RSV_DIST	18
 
 #define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
 
@@ -696,6 +697,7 @@ struct acq400_path_descriptor {
 #define PDSZ			(sizeof (struct acq400_path_descriptor))
 #define ACQ400_DEV(filp)	(PD(filp)->dev)
 #define DEVP(adev)		(&(adev)->pdev->dev)
+#define PDEV(filp)		(DEVP(ACQ400_DEV(filp)))
 #define SITE(adev)		((adev).of_prams.site)
 
 #define MIN_DMA_BYTES	256
