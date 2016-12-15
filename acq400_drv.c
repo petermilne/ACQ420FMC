@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.136"
+#define REVID "3.138"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3671,7 +3671,8 @@ int xo_data_loop(void *data)
 	int ib = distributor_first_buffer;
 	long dma_timeout = START_TIMEOUT;
 
-	int shot_buffer_count = adev->AO_playloop.length/ao_samples_per_hb(adev);
+	int shot_buffer_count0 = adev->AO_playloop.length/ao_samples_per_hb(adev);
+	int shot_buffer_count = shot_buffer_count0;
 
 	if (ib != 0){
 		dev_dbg(DEVP(adev), "xo_data_loop() ib set %d", ib);
@@ -3718,9 +3719,11 @@ int xo_data_loop(void *data)
 	 * 0 starts filling right away
 	 * */
 	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm0[ib++]);
-	adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++]);
+	if (shot_buffer_count > 1){
+		adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++]);
+		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
+	}
 
-	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
 	DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
 
@@ -3764,6 +3767,20 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "back from dma_sync_wait() ..");
 
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
+
+		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
+			if (adev->AO_playloop.one_shot  == 0){
+				shot_buffer_count += shot_buffer_count0;
+				ib = 0;
+				adev->AO_playloop.cursor = 0;
+				adev->AO_playloop.repeats++;
+			}else if (adev->AO_playloop.repeats==0 ||
+					--adev->AO_playloop.repeats==0){
+				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
+				kthread_run(ao_auto_rearm, adev,
+							"%s.awgrearm", devname(adev));
+			}
+		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			adev->dma_cookies[ic] = LAST_PUSH(adev)?
 					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm0[ib]):
