@@ -247,7 +247,7 @@ int reserve(struct acq400_path_descriptor* pd, int ibuf)
 	struct acq400_dev *adev = pd->dev;
 	int rc = -1;
 
-	dev_dbg(DEVP(adev), "reserve 01");
+	dev_dbg(DEVP(adev), "reserve 01 %d", ibuf);
 	mutex_lock(&adev->list_mutex);
 	rc = _reserve(pd, ibuf, &adev->STASH);
 	if (rc != 0){

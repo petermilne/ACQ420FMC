@@ -92,10 +92,11 @@ build_nodes() {
 				mknod /dev/${NAME}.gpg	c ${MAJOR}  5
 				mknod /dev/${NAME}.rsv  c ${MAJOR} 11
 				mknod /dev/${NAME}.rsvd c ${MAJOR} 18
-				mknod /dev/${NAME}.bq   c ${MAJOR} 15
+				mknod /dev/${NAME}.bq   c ${MAJOR} 15	
+				mknod /dev/${NAME}.bqf  c ${MAJOR} 17
+			else
 				mknod /dev/${NAME}.ev   c ${MAJOR}  6
 				mknod /dev/${NAME}.atd  c ${MAJOR} 16
-				mknod /dev/${NAME}.bqf  c ${MAJOR} 17
 			fi
 			
 			build_hb ${MAJOR} ${NAME}
