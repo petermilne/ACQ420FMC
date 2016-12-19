@@ -37,7 +37,7 @@ ao428elf)
 	/sbin/insmod adt7410.ko
 	/sbin/insmod ao428.ko)
 	mkdir /dev/hwmon/4
-	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon4/temp
+	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon/4/temp
 	;;
 esac
 
