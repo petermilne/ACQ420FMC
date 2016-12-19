@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.140"
+#define REVID "3.141"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3636,7 +3636,7 @@ void xo400_getDMA(struct acq400_dev* adev)
 int ao_samples_per_hb(struct acq400_dev *adev)
 {
 	// @@todo valid single DIO432 ONLY!
-	return 0x100000 / xo_distributor_sample_size;
+	return bufferlen / xo_distributor_sample_size;
 }
 
 #define XO_MAX_POLL 100
@@ -3671,11 +3671,12 @@ int xo_data_loop(void *data)
 	int ib = distributor_first_buffer;
 	long dma_timeout = START_TIMEOUT;
 
-	int shot_buffer_count0 = adev->AO_playloop.length/ao_samples_per_hb(adev);
+	int shot_buffer_count0 = adev->AO_playloop.length/ao_samples_per_hb(adev0);
 	int shot_buffer_count = shot_buffer_count0;
 
 	if (ib != 0){
-		dev_dbg(DEVP(adev), "xo_data_loop() ib set %d", ib);
+		dev_dbg(DEVP(adev), "xo_data_loop() ib set %d shot_buffer_count:%d",
+				ib, shot_buffer_count);
 	}
 	if (shot_buffer_count*ao_samples_per_hb(adev) < adev->AO_playloop.length){
 		shot_buffer_count += 1;
@@ -3704,9 +3705,11 @@ int xo_data_loop(void *data)
 			DMA_DS0_FLAGS|wflags[chan], \
 			acq400_dma_callback, adev)
 
-#define DMA_ASYNC_ISSUE_PENDING(chan) do { 			\
-		dma_async_issue_pending(chan);			\
-		++adev->stats.xo.dma_buffers_out; } while(0)
+#define DMA_ASYNC_ISSUE_PENDING(chan) do { 		\
+	dev_dbg(DEVP(adev), "xo_data_loop() dma_async_issue_pending %d", chan->chan_id); \
+	dma_async_issue_pending(chan);			\
+	++adev->stats.xo.dma_buffers_out; } while(0)
+
 #define DMA_COUNT_IN \
 	do { 						\
 		++adev->stats.xo.dma_buffers_in;	\
