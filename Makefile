@@ -76,6 +76,7 @@ package: all
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
 	cp *.ko opkg/usr/local/lib/modules
+	cp ../linux-xlnx/drivers/hwmon/adt*ko opkg/usr/local/lib/modules
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* scripts/streamtonowhere opkg/usr/local/CARE

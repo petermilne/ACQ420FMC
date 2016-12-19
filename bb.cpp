@@ -172,7 +172,7 @@ int load() {
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
 
 	if (residue){
-		nsamples = pad(nsamples, residue/G::sample_size);
+		nsamples = pad(nsamples, (Buffer::bufferlen - residue)/G::sample_size);
 	}
 
 	set_playloop_length(nsamples);

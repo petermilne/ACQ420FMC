@@ -32,7 +32,9 @@
 /* ao428 : dac celf + DAC20 : adt7410 at 0x48
  */
 
-#define I2C_SITE2   3
+int I2C_CELF = 4;
+module_param(I2C_CELF, int, 0444);
+
 #define MAX_DEVICES 1
 
 struct i2c_adapter *i2c_adap[1];
@@ -51,13 +53,15 @@ static struct i2c_client* new_device(
 }
 static int __init ao428_init_site(int site)
 {
-	i2c_adap[site] = i2c_get_adapter(I2C_SITE2);
+	i2c_adap[site] = i2c_get_adapter(I2C_CELF);
+
+	printk("Hello i2c_adap[%d] = %p  I2C_CELF=%d\n", site, i2c_adap[site], I2C_CELF);
 
 	if (new_device(i2c_adap[site], "adt7410", 0x48) == 0){
 		printk("ao428_init_site(%d) ADT7410 NOT FOUND\n", site);
 		return -1;
 	}
-
+	printk("Hello all good \n");
 	return 0;
 }
 

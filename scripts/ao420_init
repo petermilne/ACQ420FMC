@@ -29,6 +29,18 @@ for gx in ${KNOBS}/G?; do
 	[ -e $gx ] && set.sys $gx 32767
 done
 
+
+case $MODEL in
+ao428elf)
+	(cd /usr/local/lib/modules/
+	/sbin/insmod adt7x10.ko
+	/sbin/insmod adt7410.ko
+	/sbin/insmod ao428.ko)
+	mkdir /dev/hwmon/4
+	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon4/temp
+	;;
+esac
+
 cat - >>/etc/acq400/$SITE/groups <<EOF
 dac_range_XX=dac_range_[0-9]*
 AO_ALL=AO_[0-9]*
