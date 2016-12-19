@@ -351,7 +351,7 @@ build_site0() {
 	ln -s /usr/local/bin/streamtonowhered ${ek}
 	ln -s /usr/local/bin/set.sync_role ${ek}
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
-	ln -s /sys/module/acq420/parameters/xo_distributor_sample_size ${ek}/dssb
+	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
 	
 	for k in live_post live_pre live_mode; do
 		echo 0 > ${ek}/$k
