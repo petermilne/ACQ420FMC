@@ -1521,7 +1521,7 @@ static const char* _lookup_id(struct acq400_dev *adev)
 	case MOD_ID_DIO_BISCUIT:
 		switch(GET_MOD_IDV(adev)){
 		case MOD_IDV_V2F:
-			return "v2F";
+			return "v2f";
 		case MOD_IDV_DIO:
 			return "dio";
 		case MOD_IDV_QEN:
