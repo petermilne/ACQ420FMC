@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.142"
+#define REVID "3.146"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -531,7 +531,7 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
 }
 
-static void acq420_disable_fifo(struct acq400_dev *adev)
+void acq420_disable_fifo(struct acq400_dev *adev)
 {
 	u32 ctrl = acq400rd32(adev, ADC_CTRL);
 	dev_dbg(DEVP(adev), "acq420_disable_fifo() %08x -> %08x",
@@ -540,6 +540,26 @@ static void acq420_disable_fifo(struct acq400_dev *adev)
 	acq420_reset_fifo(adev);
 }
 
+
+void acq400_enable_trg_if_master(struct acq400_dev *adev)
+{
+	dev_dbg(DEVP(adev), "acq400_enable_trg_if_master %d = %d",
+			adev->of_prams.site, ((adev->mod_id&MOD_ID_IS_SLAVE) == 0));
+
+	if ((adev->mod_id&MOD_ID_IS_SLAVE) == 0){
+		acq400_enable_trg(adev, 1);
+	}
+}
+
+void acq400_enable_trg(struct acq400_dev *adev, int enable){
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	if (enable){
+		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_HW_TRG_EN;
+	}
+	acq400wr32(adev, TIM_CTRL, timcon);
+}
 
 static void acq420_init_defaults(struct acq400_dev *adev)
 {
@@ -1741,7 +1761,12 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() acq400_enable_trg %d",
 			adev->aggregator_set[0]->of_prams.site);
 
-	acq400_enable_trg(adev->aggregator_set[0], 1);		/* (5) */
+	/* (5) */
+	acq400_visit_set(adev->aggregator_set, acq400_enable_trg_if_master);
+/*
+	acq400_visit_set()
+	acq400_enable_trg(adev->aggregator_set[0], 1);
+*/
 	adev->RW32_debug = 0;
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;

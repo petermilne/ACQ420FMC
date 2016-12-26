@@ -1271,15 +1271,8 @@ enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
 void acq2006_estop(struct acq400_dev *adev);
 
-static inline void acq400_enable_trg(struct acq400_dev *adev, int enable){
-	u32 timcon = acq400rd32(adev, TIM_CTRL);
-	if (enable){
-		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
-	}else{
-		timcon &= ~TIM_CTRL_MODE_HW_TRG_EN;
-	}
-	acq400wr32(adev, TIM_CTRL, timcon);
-}
+void acq400_enable_trg(struct acq400_dev *adev, int enable);
+void acq400_enable_trg_if_master(struct acq400_dev *adev);
 
 extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
 
