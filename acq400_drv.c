@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.146"
+#define REVID "3.149"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -869,6 +869,8 @@ int set_debugs(char* on)
 	  return call_usermodehelper( argv[0], argv, envp, UMH_WAIT_PROC );
 }
 
+int dio432_isFifoError(struct acq400_dev *adev);
+
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
@@ -885,7 +887,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 	adev->xo.fsr = DIO432_DO_FIFO_STATUS;
-
+	adev->isFifoError = dio432_isFifoError;
 	if (FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
 	}
@@ -1045,6 +1047,30 @@ int acq420_isFifoError(struct acq400_dev *adev)
 	}
 
 	return act_on_fiferr? err: 0;
+}
+
+int dio432_isFifoError(struct acq400_dev *adev)
+{
+	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
+	int err = (fifsta&fiferr) != 0;
+	int rc = 0;
+
+	acq400wr32(adev, ADC_FIFO_STA, fifsta);
+
+	if (err){
+		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
+		int nbuf = acq400_lookupSite(0)->rt.nput;
+		adev->stats.fifo_errors++;
+		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
+				nbuf, 				FIFERR, fiferr, fifsta,
+				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
+
+		rc = nbuf>1 && act_on_fiferr? err: 0;
+		if (err && !act_on_fiferr && rc == 0){
+			dev_info(DEVP(adev), "initial error ignored");
+		}
+	}
+	return rc;
 }
 
 int bolo8_isFifoError(struct acq400_dev *adev)
