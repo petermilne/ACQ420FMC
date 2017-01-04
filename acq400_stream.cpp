@@ -74,6 +74,8 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <cstdarg>
+
 #include <sched.h>
 
 #define VERID	"B1008"
@@ -1824,11 +1826,17 @@ public:
 
 
 class NullStreamHead: public StreamHeadImpl {
-
+	void _print(const char* fmt, ...){
+		va_list args;
+		va_start(args, fmt);
+		vprintf(fmt, args);
+		fflush(stdout);
+	}
 public:
 	virtual void stream() {
 		int ib;
 		setState(ST_ARM);
+		_print("000 ST_ARM\n");
 		if (G::soft_trigger){
 			schedule_soft_trigger();
 		}
@@ -1839,10 +1847,10 @@ public:
 			default:
 				;
 			}
-			printf("%d\n", ib);
-			fflush(stdout);
+			_print("%d\n", ib);
 			actual.elapsed += samples_buffer;
 		}
+		_print("999 ST_CLEANUP\n");
 		setState(ST_CLEANUP);
 	}
 	NullStreamHead(Progress& progress) :
