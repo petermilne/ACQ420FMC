@@ -78,7 +78,7 @@
 
 #include <sched.h>
 
-#define VERID	"B1008"
+#define VERID	"B1009"
 
 #define NCHAN	4
 
@@ -518,6 +518,7 @@ template<class T> T** DemuxBuffer<T>::dddata;
 template<class T> T** DemuxBuffer<T>::ddcursors;
 bool double_up;
 
+/** output multiple samples per buffer */
 template <class T>
 class OversamplingMapBuffer: public Buffer {
 	const int over, asr;
@@ -571,6 +572,7 @@ public:
 	}
 };
 
+/** output one sample per buffer */
 template <class T>
 class OversamplingMapBufferSingleSample: public Buffer {
 	const int over, asr;
@@ -841,35 +843,39 @@ public:
 };
 
 class OversamplingBufferCloner: public BufferCloner {
-	static Buffer* createOversamplingBuffer(Buffer* cpy)
-	{
-		int os = abs(G::oversampling);
-		bool single = G::oversampling < 0;
-
-		if (G::wordsize == 2){
-			if (single){
-				return new OversamplingMapBufferSingleSample<short>(
-						cpy, os, 0);
-			}else{
-				return new OversamplingMapBuffer<short>(
-						cpy, os, ASR(os));
-			}
-		}else{
-			if (single){
-				return new OversamplingMapBufferSingleSample<int>(
-						cpy, os, ASR(os));
-			}else{
-				return new OversamplingMapBuffer<int> (
-						cpy, os, ASR(os));
-			}
-		}
-	}
+	static Buffer* createOversamplingBuffer(Buffer* cpy);
 public:
 	OversamplingBufferCloner() {}
 	virtual Buffer* operator() (Buffer* cpy) {
 		return createOversamplingBuffer(cpy);
 	}
 };
+
+
+Buffer* OversamplingBufferCloner::createOversamplingBuffer(Buffer* cpy)
+{
+	int os = abs(G::oversampling);
+	bool single = G::oversampling < 0;
+
+	if (G::wordsize == 2){
+		if (single){
+			return new OversamplingMapBufferSingleSample<short>(
+					cpy, os, ASR(os));
+		}else{
+			return new OversamplingMapBuffer<short>(
+					cpy, os, ASR(os));
+		}
+	}else{
+		if (single){
+			return new OversamplingMapBufferSingleSample<int>(
+					cpy, os, ASR(os));
+		}else{
+			return new OversamplingMapBuffer<int> (
+					cpy, os, ASR(os));
+		}
+	}
+}
+
 
 class DemuxBufferCloner: public BufferCloner {
 	static Buffer* createDemuxBuffer(Buffer *cpy)
@@ -1826,17 +1832,18 @@ public:
 
 
 class NullStreamHead: public StreamHeadImpl {
-	void _print(const char* fmt, ...){
+	void _println(const char* fmt, ...){
 		va_list args;
 		va_start(args, fmt);
 		vprintf(fmt, args);
+		printf("\n");
 		fflush(stdout);
 	}
 public:
 	virtual void stream() {
 		int ib;
 		setState(ST_ARM);
-		_print("000 ST_ARM\n");
+		_println("000 ST_ARM");
 		if (G::soft_trigger){
 			schedule_soft_trigger();
 		}
@@ -1847,10 +1854,10 @@ public:
 			default:
 				;
 			}
-			_print("%d\n", ib);
+			_println("%d", ib);
 			actual.elapsed += samples_buffer;
 		}
-		_print("999 ST_CLEANUP\n");
+		_println("999 ST_CLEANUP");
 		setState(ST_CLEANUP);
 	}
 	NullStreamHead(Progress& progress) :
