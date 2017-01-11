@@ -288,8 +288,10 @@ protected:
 		File knob(name, "w");
 		if (knob.fp == NULL){
 			return -snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
+		}else if (fputs(args, knob.fp) < 0){
+			return -snprintf(buf, maxbuf, "ERROR:");
 		}else{
-			return fputs(args, knob.fp) > 0? 0: -snprintf(buf, maxbuf, "ERROR:");
+			return snprintf(buf, maxbuf, "\n");
 		}
 	}
 public:
