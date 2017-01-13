@@ -55,7 +55,7 @@ namespace G {
 	int *channels;				// index from 1
 	int nchan_selected;
 	int shr = 4;				// scale 20 bit to 16 bit. Gain possible ..
-	bool raw = false;
+	int raw = false;
 	const char* job;
 	int runtime;
 	int verbose;
@@ -96,6 +96,12 @@ static const char *chandef;
 static const char *pidname;
 
 struct poptOption opt_table[] = {
+	{ "saveraw", 'r', POPT_ARG_INT, &G::raw, 0,
+			"1: output data raw"
+	},
+	{ "datfmt", 'D', POPT_ARG_STRING, &G::datfmt, 0,
+			"output file date format from strftime()"
+	},
 	{ "runtime", 'R', POPT_ARG_INT, &G::runtime, 'R',
 				"duration of run in seconds" },
 	{ "channel-mask", 'C', POPT_ARG_STRING, &chandef, 'C',
