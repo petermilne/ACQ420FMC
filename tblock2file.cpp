@@ -59,6 +59,7 @@ namespace G {
 	const char* job;
 	int runtime;
 	int verbose;
+	int has_aux = 1;
 };
 
 void init_globs(void)
@@ -98,6 +99,9 @@ static const char *pidname;
 struct poptOption opt_table[] = {
 	{ "saveraw", 'r', POPT_ARG_INT, &G::raw, 0,
 			"1: output data raw"
+	},
+	{ "aux",  'A', POPT_ARG_INT, &G::has_aux, 0,
+			"enable aux processing (pig only)"
 	},
 	{ "datfmt", 'D', POPT_ARG_STRING, &G::datfmt, 0,
 			"output file date format from strftime()"
@@ -324,7 +328,9 @@ public:
 			string _bufn(chomp(bufn));
 
 			process(base + bufn);
-			processAux();
+			if (G::has_aux){
+				processAux();
+			}
 		}
 
 		return 0;
