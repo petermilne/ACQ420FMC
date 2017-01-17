@@ -184,6 +184,8 @@
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
+#define ADC_CTRL_42x_RES_SHL	16
+#define ADC_CTRL_42x_RES_MASK	0x3
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */
 #define ADC_CTRL_RGM_GATE       (7 << 12)       /* 0x00007000 */
 #define ADC_CTRL_RGM_MODE_SHL   (10)

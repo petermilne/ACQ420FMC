@@ -145,7 +145,7 @@ MAKE_BITS(fpctl_sync,		 FPCTL,         FPCTL_SYNC_SHL, FPCTL_MASK);
 MAKE_BITS(fpctl_trg,             FPCTL,         FPCTL_TRG_SHL,  FPCTL_MASK);
 MAKE_BITS(zclk_sel, MOD_CON, MCR_ZCLK_SELECT_SHL, MCR_ZCLK_MASK);
 
-
+MAKE_BITS(adc_nobt, ADC_CTRL, ADC_CTRL_42x_RES_SHL, ADC_CTRL_42x_RES_MASK);
 
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
@@ -1732,6 +1732,7 @@ static const struct attribute *acq424_attrs[] = {
 	NULL
 };
 static const struct attribute *acq420_attrs[] = {
+	&dev_attr_adc_nobt.attr,
 	&dev_attr_adc_18b.attr,
 	&dev_attr_gains.attr,
 	&dev_attr_gain1.attr,
