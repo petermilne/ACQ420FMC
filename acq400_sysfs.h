@@ -131,7 +131,7 @@ static ssize_t show_bits##NAME(						\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 
-#define _MAKE_BITS(NAME, REG, SHL, MASK, VERBOSE)			\
+#define _MAKE_BITS(NAME, REG, SHL, MASK, WARN_DEP)			\
 static ssize_t show_bits##NAME(						\
 	struct device *dev,						\
 	struct device_attribute *attr,					\
@@ -152,9 +152,9 @@ static ssize_t store_bits##NAME(					\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl, VERBOSE);\
+		return acq400_store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl, WARN_DEP);\
 	}else{								\
-		return acq400_store_bits(dev, attr, buf, count, REG, SHL, MASK, VERBOSE);\
+		return acq400_store_bits(dev, attr, buf, count, REG, SHL, MASK, WARN_DEP);\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
