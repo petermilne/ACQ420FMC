@@ -2445,6 +2445,15 @@ static const struct attribute* dacspi_attrs[] = {
 	NULL
 };
 
+MAKE_BITS(offset_01, AO428_OFFSET_1, 0, 0x000fffff);
+MAKE_BITS(offset_02, AO428_OFFSET_2, 0, 0x000fffff);
+MAKE_BITS(offset_03, AO428_OFFSET_3, 0, 0x000fffff);
+MAKE_BITS(offset_04, AO428_OFFSET_4, 0, 0x000fffff);
+MAKE_BITS(offset_05, AO428_OFFSET_5, 0, 0x000fffff);
+MAKE_BITS(offset_06, AO428_OFFSET_6, 0, 0x000fffff);
+MAKE_BITS(offset_07, AO428_OFFSET_7, 0, 0x000fffff);
+MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
+
 static const struct attribute *ao428_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
@@ -2462,6 +2471,14 @@ static const struct attribute *ao428_attrs[] = {
 	&dev_attr_AO_06.attr,
 	&dev_attr_AO_07.attr,
 	&dev_attr_AO_08.attr,
+	&dev_attr_offset_01.attr,
+	&dev_attr_offset_02.attr,
+	&dev_attr_offset_03.attr,
+	&dev_attr_offset_04.attr,
+	&dev_attr_offset_05.attr,
+	&dev_attr_offset_06.attr,
+	&dev_attr_offset_07.attr,
+	&dev_attr_offset_08.attr,
 	NULL
 };
 static const struct attribute *ao420_attrs[] = {
