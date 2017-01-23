@@ -34,29 +34,23 @@ if [ "$(basename $0)" = "transient" ]; then
 	}
 	NEWS=""
 
-soft_trigger_change=0
-
 	for pair in $*
 	do
 		key=${pair%=*}
 		val=${pair#*=}
 		case $key in
-		PRE)  val=$(validate $val 0 $PREMAX);;
-		POST) val=$(validate $val 0 $POSTMAX);;
-		VERBOSE) val=$(validate $val 0 3);;
-		OSAM) val=$(validate $val 0 256);;
+		PRE)	PRE=$(validate $val 0 $PREMAX);;
+		POST)	POST=$(validate $val 0 $POSTMAX);;
+		VERBOSE) VERBOSE=$(validate $val 0 3);;
+		OSAM)	OSAM=$(validate $val 0 256);;
 		SOFT_TRIGGER)
-			soft_trigger_change=1;;
+			SOFT_TRIGGER=$(validate $val 0 1);;
 		*)
-		echo "ERROR: $pair not supported"
-		exit 1;;
+			echo "ERROR: $pair not supported"
+			exit 1;;
 		esac
-		NEWS="$NEWS $key=$val"
 	done
-
-	if [ $soft_trigger_change -eq 0 ]; then
-		NEWS="$NEWS SOFT_TRIGGER=$SOFT_TRIGGER"
-	fi
+	NEWS="PRE=$PRE POST=$POST OSAM=$OSAM SOFT_TRIGGER=$SOFT_TRIGGER"
 
 	echo $NEWS > /dev/shm/transient_settings
 fi	
