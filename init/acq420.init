@@ -190,14 +190,14 @@ customize_acq420()
 			set.sys $knobd/adc_conv_time $ADC_CONV;;
 		3)
 			echo BITS=$field
-			case $BITS in
+			case $field in
 			24|18)
 				set.sys $knobd/data32 1
 				set.sys $knobd/adc_18b 1
 				echo "set data32 $(get.sys $knobd/data32)"
 				echo "set adc_18b $(get.sys $knobd/adc_18b)"
 				if [ -e $knobd/adc_nobt ]; then
-					case $BITS in
+					case $field in
 					24)
 						set.sys $knobd/adc_nobt 3;;
 					*)
