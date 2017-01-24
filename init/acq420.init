@@ -158,6 +158,7 @@ customize_acq420()
 	PN="${FRU_PART_NUM%% *}"
 	old_ifs=$IFS; IFS="-"
 	let ix=0
+	knobd=/dev/acq400.$1.knobs
 	for field in $PN
 	do
 		case $ix in
@@ -186,19 +187,28 @@ customize_acq420()
 				ADC_CONV=150;;
 			esac
 			echo "SPEED:$field set adc_conv_time:$ADC_CONV"
-			set.sys /dev/acq400.$1.knobs/adc_conv_time $ADC_CONV;;
+			set.sys $knobd/adc_conv_time $ADC_CONV;;
 		3)
 			echo BITS=$field
 			case $BITS in
-			18)
-				set.sys /dev/acq400.$1.knobs/data32 1
-				set.sys /dev/acq400.$1.knobs/adc_18b 1
-				get.sys /dev/acq400.$1.knobs/data32
-				get.sys /dev/acq400.$1.knobs/adc_18b
-				;;
+			24|18)
+				set.sys $knobd/data32 1
+				set.sys $knobd/adc_18b 1
+				get.sys $knobd/data32
+				get.sys $knobd/adc_18b
+				if [ -e $knobd/adc_nobt ]; then
+					case $BITS in
+					24)
+						set.sys $knobd/adc_nobt 3;;
+					*)
+						set.sys $knobd/adc_nobt 1;;
+					esac
+				elif [ $BITS -eq 24 ]; then
+					echo WARNING: 24 bit mode NOT supported
+				fi;;
 			*)
-				set.sys /dev/acq400.$1.knobs/data32 0
-				set.sys /dev/acq400.$1.knobs/adc_18b 0;;
+				set.sys $knobd/data32 0
+				set.sys $knobd/adc_18b 0;;
 			esac;;				
 		esac
 		let ix="$ix+1"
