@@ -308,7 +308,7 @@ static int ad9512_remove(struct spi_device *spi)
 	return 0;
 }
 
-static struct spi_driver ad98512_spi_driver = {
+static struct spi_driver ad9512_spi_driver = {
 	.driver = {
 		.name	= "ad9512",
 		.owner	= THIS_MODULE,
@@ -321,7 +321,7 @@ static struct spi_driver ad98512_spi_driver = {
 
 static void __exit ad9512_exit(void)
 {
-	spi_unregister_driver(&ad98512_spi_driver);
+	spi_unregister_driver(&ad9512_spi_driver);
 }
 
 
@@ -331,7 +331,7 @@ static int __init ad9512_init(void)
 
 	printk("D-TACQ AD9512 spi driver %s\n", REVID);
 
-	spi_register_driver(&ad98512_spi_driver);
+	spi_register_driver(&ad9512_spi_driver);
 
         return status;
 }
