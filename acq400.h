@@ -155,6 +155,7 @@
 #define MOD_ID_ACQ425ELF	5
 #define MOD_ID_ACQ425ELF_2000	0xa5
 #define MOD_ID_ACQ437ELF	6
+#define MOD_ID_FMC104		7
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
@@ -782,10 +783,14 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC)
 
+
 #define IS_AO420(adev)  (GET_MOD_ID(adev) == MOD_ID_AO420FMC)
 #define IS_AO428(adev)  (GET_MOD_ID(adev) == MOD_ID_DAC_CELF)
 #define IS_AO424(adev)  (GET_MOD_ID(adev) == MOD_ID_AO424ELF)
 #define IS_AO42X(adev) 	(IS_AO420(adev) || IS_AO424(adev) || IS_AO428(adev))
+
+#define IS_FMC104(adev)	(GET_MOD_IS(adev) == MOD_ID_FMC104)
+
 
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
 #define IS_ACQ2006B(adev) \

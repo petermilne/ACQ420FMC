@@ -1512,6 +1512,7 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_AO420FMC,	"ao420fmc"	},
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
 		{ MOD_ID_DAC_CELF, 	"ao428elf"	},
+		{ MOD_ID_FMC104,        "fmc104"	},
 	};
 #define NID	(sizeof(idlut)/sizeof(struct IDLUT_ENTRY))
 	int ii;
@@ -4105,6 +4106,8 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
+			specials[nspec++] = acq480_attrs;
+		}else if (IS_FMC104(adev)){
 			specials[nspec++] = acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
 			specials[nspec++] = pig_celf_attrs;
