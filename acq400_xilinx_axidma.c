@@ -406,7 +406,7 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescripto
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
-		cursor->va->buf_addr = adev->axi64_hb[ii]->pa;
+		cursor->va->buf_addr = adev->axi64[0].axi64_hb[ii]->pa;
 		cursor->va->control = adev->bufferlen;
 	}
 	_finalize_descriptor_chain(adev, ndescriptors);
@@ -421,7 +421,7 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 	int iseg;
 
 	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d", ndescriptors);
-	apool->dump_pa = adev->axi64_hb[last_buffer]->pa;
+	apool->dump_pa = adev->axi64[0].axi64_hb[last_buffer]->pa;
 
 	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
 		Segment* segment = &apool->segments[iseg];
@@ -438,7 +438,7 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 					dev_info(DEVP(adev), "DONE: out of host buffers");
 					break;
 				}
-				wrapper->va->buf_addr = adev->axi64_hb[ihb++]->pa;
+				wrapper->va->buf_addr = adev->axi64[0].axi64_hb[ihb++]->pa;
 			}else{
 				wrapper->va->buf_addr = apool->dump_pa;
 			}

@@ -438,6 +438,8 @@ inline static const char* dio32mode2str(enum DIO432_MODE mode)
 	}
 }
 
+#define MAX_AXIDMA	2
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -538,7 +540,12 @@ struct acq400_dev {
 	struct list_head STASH;		/* buffers kept out of play */
 
 	struct HBM** hb;
-	struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+
+	struct AXI64_Buffers {
+		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+	}
+		axi64[MAX_AXIDMA];
+
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
 	int hitide;
