@@ -19,6 +19,8 @@ obj-m += dmadescfs.o
 obj-m += radcelf.o
 obj-m += ad9854.o
 obj-m += ad9512.o
+obj-m += ad9510.o
+obj-m += ads62p49.o
 obj-m += ao428.o
 #obj-m += acq400-spi-bytebang.o
 
