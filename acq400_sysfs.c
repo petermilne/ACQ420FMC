@@ -4107,8 +4107,6 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
 			specials[nspec++] = acq480_attrs;
-		}else if (IS_FMC104(adev)){
-			specials[nspec++] = acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
 			specials[nspec++] = pig_celf_attrs;
 		}else if (IS_QEN(adev)){
