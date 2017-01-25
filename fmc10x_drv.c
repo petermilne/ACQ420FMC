@@ -3,9 +3,9 @@
 /* ------------------------------------------------------------------------- */
 /* fmc10x_drv.c  D-TACQ ACQ400 FMC  DRIVER
  * Project: ACQ420_FMC
- * Created: 4 Aug 2016  	/ User: pgm
+ * Created: 25 JAN 2017  	/ User: pgm
  * ------------------------------------------------------------------------- *
- *   Copyright (C) 2016 Peter Milne, D-TACQ Solutions Ltd         *
+ *   Copyright (C) 2017 Peter Milne, D-TACQ Solutions Ltd         *
  *                      <peter dot milne at D hyphen TACQ dot com>           *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or modify     *
