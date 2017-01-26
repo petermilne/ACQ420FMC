@@ -440,6 +440,56 @@ inline static const char* dio32mode2str(enum DIO432_MODE mode)
 
 #define MAX_AXIDMA	2
 
+struct OF_PRAMS {
+	u32 site;
+	u32 dma_channel;
+	u32 fifo_depth;
+	u32 burst_length;
+	u32 irq;
+};
+struct STATS {
+	/* Driver statistics */
+	u32 bytes_written;
+	u32 writes;
+	u32 reads;
+	u32 opens;
+	u32 closes;
+	u32 errors;
+
+	u32 fifo_interrupts;
+	u32 dma_transactions;
+	int shot;
+	int run;
+	int fifo_errors;
+
+	struct XO_STATS {
+		int dma_buffers_out;
+		int dma_buffers_in;
+	} xo;
+};
+
+struct RUN_TIME {			/** stats, cleared onStart */
+	int refill_error;
+	int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
+	int please_stop;
+	unsigned nget;
+	unsigned nput;
+	unsigned hb0_count;
+
+	unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
+	unsigned long hb0_last;
+	struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
+	int event_count;
+
+	u32 samples_at_event;
+	u32 sample_clocks_at_event;
+
+	u32 axi64_ints;
+	u32 axi64_wakeups;		/** work look wake up count */
+	u32 axi64_firstups;		/** number of top of list buffers submitted */
+	u32 axi64_catchups;		/** number of backlog buffers submitted  */
+};
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -454,13 +504,7 @@ struct acq400_dev {
 
 	struct pl330_client_data *client_data;
 
-	struct OF_PRAMS {
-		u32 site;
-		u32 dma_channel;
-		u32 fifo_depth;
-		u32 burst_length;
-		u32 irq;
-	} of_prams;
+	struct OF_PRAMS of_prams;
 
 	wait_queue_head_t DMA_READY;
 	int dma_callback_done;
@@ -495,26 +539,7 @@ struct acq400_dev {
 	/* Driver reference counts */
 	u32 writers;
 
-	struct STATS {
-	/* Driver statistics */
-		u32 bytes_written;
-		u32 writes;
-		u32 reads;
-		u32 opens;
-		u32 closes;
-		u32 errors;
-
-		u32 fifo_interrupts;
-		u32 dma_transactions;
-		int shot;
-		int run;
-		int fifo_errors;
-
-		struct XO_STATS {
-			int dma_buffers_out;
-			int dma_buffers_in;
-		} xo;
-	} stats;
+	struct STATS stats;
 
 	int ramp_en;
 
@@ -568,27 +593,7 @@ struct acq400_dev {
 
 	unsigned *fifo_histo;
 
-	struct RUN_TIME {			/** stats, cleared onStart */
-		int refill_error;
-		int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
-		int please_stop;
-		unsigned nget;
-		unsigned nput;
-		unsigned hb0_count;
-
-		unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
-		unsigned long hb0_last;
-		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
-		int event_count;
-
-		u32 samples_at_event;
-		u32 sample_clocks_at_event;
-
-		u32 axi64_ints;
-		u32 axi64_wakeups;		/** work look wake up count */
-		u32 axi64_firstups;		/** number of top of list buffers submitted */
-		u32 axi64_catchups;		/** number of backlog buffers submitted  */
-	} rt;
+	struct RUN_TIME rt;
 
 	struct XO {
 		unsigned max_fifo_samples;

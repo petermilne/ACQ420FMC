@@ -310,6 +310,7 @@ const char* acq400_devnames[] = {
 
 int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
+int axi64_dual_data_loop(void* data);
 int fifo_monitor(void* data);
 
 int fiferr;
@@ -1562,18 +1563,6 @@ static bool filter_true(struct dma_chan *chan, void *param)
 	return true;
 }
 
-static bool filter_axi(struct dma_chan *chan, void *param)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)param;
-	const char* dname = chan->device->dev->driver->name;
-	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
-
-	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
-		return true;
-	}else{
-		return false;
-	}
-}
 
 static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
@@ -1597,14 +1586,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 int get_dma_channels(struct acq400_dev *adev)
 {
 	if (IS_AXI64(adev)){
-		dma_cap_mask_t mask;
-		dma_cap_zero(mask);
-		dma_cap_set(DMA_SLAVE, mask);
-		adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
-		adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
-		dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
-				adev->dma_chan[0]!=0? 'A':'x',
-				adev->dma_chan[1]!=0? 'B':'x');
+
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
 		if (xo_use_distributor){
@@ -1665,8 +1647,10 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		for(; IS_ERR_OR_NULL(adev->w_task); ++retry){
 			dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
 			adev->w_task = kthread_run(
-				IS_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
-				"%s.ai", devname(adev));
+					IS_AXI64_DUALCHAN(adev)? axi64_dual_data_loop:
+							IS_AXI64(adev)? axi64_data_loop:
+							ai_data_loop,
+					adev, "%s.ai", devname(adev));
 			if (IS_ERR_OR_NULL(adev->w_task)){
 				dev_err(DEVP(adev), "ERROR: failed to start task %p", adev->w_task);
 				if (++retry > 5){
@@ -4109,7 +4093,7 @@ int poison_all_buffers(struct acq400_dev *adev)
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64_hb[ii];
+		struct HBM* hbm = adev->axi64[0].axi64_hb[ii];
 		if (AXI_INIT_BUFFERS){
 			init_one_buffer(adev, hbm);
 		}
@@ -4126,7 +4110,7 @@ void clear_poison_all_buffers(struct acq400_dev *adev, int nbuffers)
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64_hb[ii];
+		struct HBM* hbm = adev->axi64[0].axi64_hb[ii];
 		clear_poison_from_buffer(adev, hbm);
 	}
 	mutex_unlock(&adev->list_mutex);
@@ -4310,6 +4294,112 @@ quit:
 	dev_dbg(DEVP(adev), "ai_data_loop() 99");
 	return 0;
 }
+
+
+int axi64_dual_data_loop(void* data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	/* wait for event from OTHER channel */
+	int nloop = 0;
+	struct HBM* hbm;
+	int rc;
+	int nbuffers;
+
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
+
+	adev->onPutEmpty = poison_one_buffer_fastidious;
+	nbuffers = poison_all_buffers(adev);
+
+	if (AXI_CALL_HELPER){
+		if ((rc = axi64_load_dmac(adev, CMASK0|CMASK1)) != 0){
+			dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
+			return -1;
+		}else{
+			dev_info(DEVP(adev), "axi64_load_dmac() helper done");
+		}
+	}
+
+	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
+		goto quit;
+	}
+
+	hbm = getEmpty(adev);
+	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d", hbm->ix);
+
+	yield();
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
+
+	for(; !kthread_should_stop(); ++nloop){
+		int ddone = 0;
+		if (wait_event_interruptible_timeout(
+			adev->DMA_READY,
+			(ddone = dma_done(adev, hbm)) || kthread_should_stop(),
+			AXI_BUFFER_CHECK_TICKS) <= 0){
+			if (kthread_should_stop()){
+				goto quit;
+			}
+		}
+		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
+		if (!ddone){
+			continue;
+		}
+
+		putFull(adev);
+		adev->rt.axi64_firstups++;
+
+		if (AXI_DMA_HAS_CATCHUP){
+			while((hbm = getEmpty(adev)) != 0){
+				if (poison_overwritten(adev, hbm)){
+					putFull(adev);
+					adev->rt.axi64_catchups++;
+				}else{
+					break;	/* now wait for this hbm to complete */
+				}
+			}
+		}else{
+			hbm = getEmpty(adev);
+		}
+
+		if (check_fifo_statuses(adev)){
+			dev_err(DEVP(adev), "ERROR: quit on fifo status check");
+			goto quit;
+		}
+
+		if (!IS_SC(adev)){
+			//acq420_enable_interrupt(adev);
+		}
+		if (hbm == 0){
+			++adev->stats.errors;
+			move_list_to_empty(adev, &adev->REFILLS);
+			dev_warn(DEVP(adev), "discarded FULL Q\n");
+			++adev->rt.buffers_dropped;
+
+			if (quit_on_buffer_exhaustion){
+				adev->rt.refill_error = 1;
+				wake_up_interruptible_all(&adev->refill_ready);
+				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+				goto quit;
+			}else{
+				hbm = getEmpty(adev);
+				if (hbm == 0){
+					dev_err(DEVP(adev), "STILL NO EMPTIES");
+					goto quit;
+				}else{
+					poison_one_buffer(adev, hbm);
+				}
+			}
+		}
+	}
+quit:
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 98 calling DMA_TERMINATE_ALL");
+
+	clear_poison_all_buffers(adev, nbuffers);
+	adev->task_active = 0;
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 99");
+	return 0;
+}
+
 
 int ai_data_loop(void *data)
 {
@@ -4751,7 +4841,6 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 		adev->bufferlen = bl;
-		adev->axi64_hb = adev->hb+1;
 		return 0;
 	}
 }
@@ -4767,6 +4856,35 @@ struct acq400_dev* acq400_lookupSite(int site)
 	}
 	return 0;
 }
+
+static bool filter_axi(struct dma_chan *chan, void *param)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)param;
+	const char* dname = chan->device->dev->driver->name;
+	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
+
+	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+
+int axi64_claim_dmac_channels(struct acq400_dev *adev)
+{
+	dma_cap_mask_t mask;
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+	adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
+	adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
+	dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
+			adev->dma_chan[0]!=0? 'A':'x',
+			adev->dma_chan[1]!=0? 'B':'x');
+	return 0;
+}
+
+
 static int acq400_probe(struct platform_device *pdev)
 {
         int rc;
@@ -4852,6 +4970,7 @@ static int acq400_probe(struct platform_device *pdev)
           			dev_warn(DEVP(adev),
           				".. not enough buffers limit to %d", nbuffers);
           		}
+          		axi64_claim_dmac_channels(adev);
           		axi64_init_dmac(adev);
           	}
         	return 0;
