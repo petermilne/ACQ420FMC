@@ -4219,7 +4219,7 @@ int axi64_data_loop(void* data)
 	nbuffers = poison_all_buffers(adev);
 
 	if (AXI_CALL_HELPER){
-		if ((rc = axi64_load_dmac(adev)) != 0){
+		if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
 			dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
 			return -1;
 		}else{

@@ -548,13 +548,13 @@ void _start_transfer(struct xilinx_dma_chan *chan)
 {
 
 }
-int _axi64_load_dmac(struct acq400_dev *adev)
+int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 {
-	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[0]);
+	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[ichan]);
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 
-	u32 head_pa = apool->wrappers[0].pa;
-	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-1].pa:
+	u32 head_pa = apool->wrappers[ichan].pa;
+	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-2+ichan].pa:
 			SHOTID(adev);
 
 	xchan->client_private = adev;
@@ -590,13 +590,26 @@ int axi64_init_dmac(struct acq400_dev *adev)
 	return 0;
 }
 
-int axi64_load_dmac(struct acq400_dev *adev)
+int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 {
+	int rc;
+	int ichan;
+
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
 	}
 	init_descriptor_cache(adev);
-	return _axi64_load_dmac(adev);
+
+	for (ichan = 0; cmask != 0; cmask >>=1, ++ichan){
+		if ((cmask&1) != 0){
+			rc = _axi64_load_dmac(adev, ichan);
+		}
+		if (rc != 0){
+			dev_err(DEVP(adev), "_axi64_load_dmac %d returned %d", ichan, rc);
+			return rc;
+		}
+	}
+	return 0;
 }
 
 int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers)
