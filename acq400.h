@@ -1328,6 +1328,7 @@ int axi64_init_dmac(struct acq400_dev *adev);
 #define CMASK1  0x02
 int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask);
 int axi64_free_dmac(struct acq400_dev *adev);
+int axi64_claim_dmac_channels(struct acq400_dev *adev);
 int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers);
 /* close off descriptor +nbuffers to prevent overrun */
 

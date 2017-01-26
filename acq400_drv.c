@@ -4857,33 +4857,6 @@ struct acq400_dev* acq400_lookupSite(int site)
 	return 0;
 }
 
-static bool filter_axi(struct dma_chan *chan, void *param)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)param;
-	const char* dname = chan->device->dev->driver->name;
-	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
-
-	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
-		return true;
-	}else{
-		return false;
-	}
-}
-
-
-int axi64_claim_dmac_channels(struct acq400_dev *adev)
-{
-	dma_cap_mask_t mask;
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE, mask);
-	adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
-	adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
-	dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
-			adev->dma_chan[0]!=0? 'A':'x',
-			adev->dma_chan[1]!=0? 'B':'x');
-	return 0;
-}
-
 
 static int acq400_probe(struct platform_device *pdev)
 {

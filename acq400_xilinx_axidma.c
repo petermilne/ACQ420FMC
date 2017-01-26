@@ -75,6 +75,11 @@ struct ACQ400_AXIPOOL {
 	Segment segments[1];		/* first segment */
 };
 
+struct AxiChannelWrapper {
+	int ichan;
+	struct acq400_dev *adev;
+};
+
 #define GET_ACQ400_AXIPOOL(adev) \
 	((struct ACQ400_AXIPOOL*)(adev)->axi_private)
 #define MAX_SEGMENTS \
@@ -84,7 +89,8 @@ struct ACQ400_AXIPOOL {
 
 static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 {
-	struct acq400_dev *adev = s->private;
+	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
         if (*pos == 0) {
@@ -141,26 +147,6 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
         return 0;
 }
 
-static int _initDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
-{
-	// @@todo hack .. assumes parent is the id .. could do better?
-	const char* dname = file->f_path.dentry->d_parent->d_iname;
-	struct acq400_dev* adev = acq400_lookupSite(dname[0] -'0');
-	if (adev->axi_private == 0){
-		return -ENODEV;
-	}
-	((struct seq_file*)file->private_data)->private = adev;
-	printk("initDevFromProcFile() 99 site:%d adev %p\n", dname[0] -'0', adev);
-	return 0;
-}
-static int initDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
-{
-	printk("initDevFromProcFile() 01 private %p\n", file->private_data);
-	seq_open(file, seq_ops);
-	printk("initDevFromProcFile() 10 private %p\n", file->private_data);
-	return _initDevFromProcFile(file, seq_ops);
-}
-
 static void acq400_proc_seq_stop(struct seq_file *s, void *v)
 {
 }
@@ -177,7 +163,9 @@ static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 	};
 
 	printk("acq400_proc_open_axi_descr() 01 \n");
-	return initDevFromProcFile(file, &acq400_proc_seq_ops_channel_mapping);
+	((struct seq_file*)file->private_data)->private = PDE_DATA(inode);
+	seq_open(file, &acq400_proc_seq_ops_channel_mapping);
+	return 0;
 }
 static struct file_operations acq400_proc_ops_axi_descr = {
         .owner = THIS_MODULE,
@@ -234,7 +222,9 @@ static int acq400_proc_open_axi_segments(struct inode *inode, struct file *file)
 	};
 
 	printk("acq400_proc_open_axi_descr() 01 \n");
-	return initDevFromProcFile(file, &acq400_proc_seq_seg);
+	((struct seq_file*)file->private_data)->private = PDE_DATA(inode);
+		seq_open(file, &acq400_proc_seq_seg);
+	return 0;
 }
 
 int addLoop(struct acq400_dev *adev, int iseg, int loopstart, int loopcount)
@@ -570,7 +560,32 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	return 0;
 }
 
-
+void __axi64_init_procfs(
+	struct acq400_dev *adev, struct proc_dir_entry *root, int ic)
+{
+	const char* fn = ic==0? "AXI.0": "AXI.1";
+	struct AxiChannelWrapper* acw =
+		kzalloc(sizeof(struct AxiChannelWrapper), GFP_KERNEL);
+	acw->adev = adev;
+	acw->ichan = ic;
+	proc_create_data(fn, 0, root, &acq400_proc_ops_axi_descr, acw);
+}
+void _axi64_init_procfs(struct acq400_dev *adev)
+{
+	struct proc_dir_entry *root = proc_mkdir(
+		acq400_names[adev->of_prams.site], adev->proc_entry);
+	int ic;
+	for (ic = 0; ic <= 1; ++ic){
+		__axi64_init_procfs(adev, root, ic);
+	}
+}
+void axi64_init_procfs(struct acq400_dev *adev)
+{
+	proc_create_data(
+		"SEGMENTS", 0, adev->proc_entry,
+		&acq400_proc_ops_axi_segments, adev);
+	_axi64_init_procfs(adev);
+}
 
 int axi64_init_dmac(struct acq400_dev *adev)
 {
@@ -584,8 +599,7 @@ int axi64_init_dmac(struct acq400_dev *adev)
 	BUG_ON(apool->pool == 0);
 	adev->axi_private = apool;
 
-	proc_create("AXIDESCR", 0, adev->proc_entry, &acq400_proc_ops_axi_descr);
-	proc_create("SEGMENTS", 0, adev->proc_entry, &acq400_proc_ops_axi_segments);
+	axi64_init_procfs(adev);
 	dev_dbg(DEVP(adev), "axi64_init_dmac() 99");
 	return 0;
 }
@@ -661,3 +675,32 @@ int axi64_free_dmac(struct acq400_dev *adev)
 	kfree(apool);
 	return 0;
 }
+
+static bool filter_axi(struct dma_chan *chan, void *param)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)param;
+	const char* dname = chan->device->dev->driver->name;
+	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
+
+	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+
+int axi64_claim_dmac_channels(struct acq400_dev *adev)
+{
+	dma_cap_mask_t mask;
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+	adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
+	adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
+	dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
+			adev->dma_chan[0]!=0? 'A':'x',
+			adev->dma_chan[1]!=0? 'B':'x');
+	return 0;
+}
+
+
