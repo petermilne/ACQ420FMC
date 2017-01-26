@@ -1601,7 +1601,10 @@ int get_dma_channels(struct acq400_dev *adev)
 		dma_cap_zero(mask);
 		dma_cap_set(DMA_SLAVE, mask);
 		adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
-		dev_info(DEVP(adev), "axi_dma not using standard driver");
+		adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
+		dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
+				adev->dma_chan[0]!=0? 'A':'x',
+				adev->dma_chan[1]!=0? 'B':'x');
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
 		if (xo_use_distributor){

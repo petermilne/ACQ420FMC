@@ -812,6 +812,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_AXI64(adev) \
 	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
 
+#define IS_AXI64_DUALCHAN(adev) \
+	(IS_AXI64(adev) && adev->dma_chan[1] != 0)
 
 #define IS_SC(adev) \
 	(IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev)||IS_KMCx_SC(dev))
