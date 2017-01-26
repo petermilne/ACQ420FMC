@@ -4106,7 +4106,7 @@ int poison_all_buffers(struct acq400_dev *adev)
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64[0].axi64_hb[ii];
+		struct HBM* hbm = adev->axi64_hb[ii];
 		if (AXI_INIT_BUFFERS){
 			init_one_buffer(adev, hbm);
 		}
@@ -4123,7 +4123,7 @@ void clear_poison_all_buffers(struct acq400_dev *adev, int nbuffers)
 
 	mutex_lock(&adev->list_mutex);
 	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64[0].axi64_hb[ii];
+		struct HBM* hbm = adev->axi64_hb[ii];
 		clear_poison_from_buffer(adev, hbm);
 	}
 	mutex_unlock(&adev->list_mutex);
@@ -4748,7 +4748,7 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 		adev->bufferlen = bl;
-		adev->axi64[0].axi64_hb = adev->hb+1;
+		adev->axi64_hb = adev->hb+1;
 		return 0;
 	}
 }
