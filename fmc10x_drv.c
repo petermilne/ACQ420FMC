@@ -54,9 +54,9 @@
 
 static int fmc10x_init_spi(void)
 {
-	static struct spi_board_info spi_devs [5] = {
+	static struct spi_board_info spi_devs [2] = {
 	{
-		.modalias = "ad9510",
+		.modalias = "ads62p49",
 		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 0,
@@ -64,13 +64,14 @@ static int fmc10x_init_spi(void)
 		.irq = 0,
 	},
 	{
-		.modalias = "ads62p49",
+		.modalias = "ad9510",
 		.max_speed_hz = 10*M1,
 		.bus_num = 1,
 		.chip_select = 1,
 		.platform_data = NULL,
 		.irq = 0,
 	},
+
 	};
 
 	return spi_register_board_info(spi_devs, 2);
