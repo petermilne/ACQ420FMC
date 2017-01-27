@@ -1,22 +1,22 @@
 <?xml version="1.0" standalone="no" ?>
 <ACQ>
-<!-- valid data32=1 only. nb int32 data is prescaled to 24bit ..
+<!-- ACQ420 calibration file, valid data32 mode ONLY
      add calibration data if available via <Calibrated> fields -->
 <!-- calibration data -->
 <AcqCalibration>
     <Info>
-        <CalDate>20141225</CalDate>
+        <CalDate>20170126</CalDate>
         <Version>B1007</Version>
         <Model>ACQ420FMC</Model>
-	<SerialNum>F42010001</SerialNum>
+	<SerialNum>F42010058</SerialNum>
     </Info>
     <Data AICHAN="4" code_min="-8388608" code_max="8388607" SW="gains">
         <Range name="1.25" sw="3">
-            <Nominal min="-1.25" max="1.25" eoff="0" eslo="1.490e-7"/>
+		<Nominal min="-1.25" max="1.25" eoff="0" eslo="1.490e-7"/>
         </Range>
-        <Range name="2.5" sw="2">
-            <Nominal min="-2.5" max="2.5" eoff="0" eslo="2.980e-7" />
-        </Range>
+	<Range name="2.5" sw="2">
+		<Nominal min="-2.5" max="2.5" eoff="0" eslo="2.980e-7" />
+	</Range>
         <Range name="5" sw="1">
             <Nominal min="-5" max="5" eoff="0" eslo="0.596e-6" />
         </Range>
