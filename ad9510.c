@@ -39,7 +39,7 @@
 
 #include <linux/spi/spi.h>
 
-#define REVID	"2"
+#define REVID	"3"
 
 #define SCPC_OFF	0x00
 
@@ -113,12 +113,6 @@
 #define LVDS_CMOS_OUT5_LEN	1
 #define LVDS_CMOS_OUT6_LEN	1
 #define LVDS_CMOS_OUT7_LEN	1
-
-#define DIV0_LEN	2
-#define DIV1_LEN 	2
-#define DIV2_LEN	2
-#define DIV3_LEN	2
-#define DIV4_LEN	2
 
 #define CSPD_LEN	1
 
@@ -226,6 +220,7 @@ static ssize_t store_multibytes(
 	if (get_hex_bytes(buf, data+2, MAX_DATA) == LEN){
 		data[CMD] = LEN==2? AD9510_WX2: AD9510_WX1;
 		data[ADDR] = REG;
+
 
 		dev_info(dev, "data: %02x %02x%02x%02x",
 				data[0],data[1],data[2],data[3]);
