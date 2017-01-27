@@ -68,7 +68,7 @@ struct ACQ400_AXIPOOL {
 	int ndescriptors;
 	char pool_name[16];
 	struct dma_pool *pool;
-	struct AxiDescrWrapper *wrappers;
+	struct AxiDescrWrapper* channelWrappers[2];
 	unsigned dump_pa;
 	int active_descriptors;
 	int segment_cursor;
@@ -98,7 +98,7 @@ static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
         			apool->active_descriptors, apool->ndescriptors);
         }
         if (*pos < apool->active_descriptors){
-        	return &apool->wrappers[*pos];
+        	return &apool->channelWrappers[acw->ichan][*pos];
         }
 
         return NULL;
@@ -107,11 +107,12 @@ static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 
 static void *acq400axi_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
-	struct acq400_dev *adev = s->private;
+	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
 	if (++(*pos) < apool->active_descriptors){
-		return &apool->wrappers[*pos];
+		return &apool->channelWrappers[acw->ichan][*pos];
 	}else{
 		return NULL;
 	}
