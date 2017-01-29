@@ -4301,7 +4301,8 @@ int axi64_dual_data_loop(void* data)
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	/* wait for event from OTHER channel */
 	int nloop = 0;
-	struct HBM* hbm;
+	struct HBM* hbm0;
+	struct HBM* hbm1;
 	int rc;
 	int nbuffers;
 
@@ -4323,8 +4324,10 @@ int axi64_dual_data_loop(void* data)
 		goto quit;
 	}
 
-	hbm = getEmpty(adev);
-	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d", hbm->ix);
+	hbm0 = getEmpty(adev); hbm1 = getEmpty(adev);
+
+	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d,%d",
+			hbm0->ix, hbm1->ix);
 
 	yield();
 	go_rt(MAX_RT_PRIO-4);
@@ -4334,7 +4337,8 @@ int axi64_dual_data_loop(void* data)
 		int ddone = 0;
 		if (wait_event_interruptible_timeout(
 			adev->DMA_READY,
-			(ddone = dma_done(adev, hbm)) || kthread_should_stop(),
+			(ddone = dma_done(adev, hbm0)&&dma_done(adev, hbm1)) ||
+								kthread_should_stop(),
 			AXI_BUFFER_CHECK_TICKS) <= 0){
 			if (kthread_should_stop()){
 				goto quit;
@@ -4345,20 +4349,22 @@ int axi64_dual_data_loop(void* data)
 			continue;
 		}
 
-		putFull(adev);
+		putFull(adev); putFull(adev);
 		adev->rt.axi64_firstups++;
 
 		if (AXI_DMA_HAS_CATCHUP){
-			while((hbm = getEmpty(adev)) != 0){
-				if (poison_overwritten(adev, hbm)){
-					putFull(adev);
+			while(multipleEmptiesWaiting(adev)){
+				hbm0 = getEmpty(adev);
+				hbm1 = getEmpty(adev);
+				if (dma_done(adev, hbm0)&&dma_done(adev, hbm1)){
+					putFull(adev); putFull(adev);
 					adev->rt.axi64_catchups++;
 				}else{
 					break;	/* now wait for this hbm to complete */
 				}
 			}
 		}else{
-			hbm = getEmpty(adev);
+			hbm0 = getEmpty(adev); hbm1 = getEmpty(adev);
 		}
 
 		if (check_fifo_statuses(adev)){
@@ -4369,8 +4375,9 @@ int axi64_dual_data_loop(void* data)
 		if (!IS_SC(adev)){
 			//acq420_enable_interrupt(adev);
 		}
-		if (hbm == 0){
+		if (hbm0 == 0 || hbm1 == 0){
 			++adev->stats.errors;
+			move_list_to_empty(adev, &adev->REFILLS);
 			move_list_to_empty(adev, &adev->REFILLS);
 			dev_warn(DEVP(adev), "discarded FULL Q\n");
 			++adev->rt.buffers_dropped;
@@ -4381,12 +4388,14 @@ int axi64_dual_data_loop(void* data)
 				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
 				goto quit;
 			}else{
-				hbm = getEmpty(adev);
-				if (hbm == 0){
+				hbm0 = getEmpty(adev);
+				hbm1 = getEmpty(adev);
+				if (hbm0 == 0 || hbm1 == 0){
 					dev_err(DEVP(adev), "STILL NO EMPTIES");
 					goto quit;
 				}else{
-					poison_one_buffer(adev, hbm);
+					poison_one_buffer(adev, hbm0);
+					poison_one_buffer(adev, hbm1);
 				}
 			}
 		}
@@ -4845,6 +4854,51 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	}
 }
 
+int init_axi64_hbm1(struct acq400_dev* adev, unsigned cmask)
+{
+	int ic = cmask==CMASK1? 1: 0;
+	int nb = adev->nbuffers;
+	int ib;
+
+	adev->axi64[ic].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+
+	for (ib = 0; ib < nb; ++ib){
+		adev->axi64[ic].axi64_hb[ib] = adev->hb[ib];
+	}
+	return 0;
+}
+int init_axi64_hbm2(struct acq400_dev* adev)
+{
+	int isrc = 0;
+	int nb = adev->nbuffers/2;
+	int ib;
+
+	adev->axi64[0].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+	adev->axi64[1].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+
+	for (ib = 0; ib < nb; ++ib){
+		adev->axi64[0].axi64_hb[ib] = adev->hb[isrc++];
+		adev->axi64[1].axi64_hb[ib] = adev->hb[isrc++];
+	}
+	return 0;
+}
+int init_axi64_hbm(struct acq400_dev* adev)
+{
+	unsigned cmask = (adev->dma_chan[0]!=0? CMASK0: 0) |
+			 (adev->dma_chan[1]!=0? CMASK1: 0);
+	switch(cmask){
+	case CMASK1:
+		dev_info(DEVP(adev), "INFO: selected AXI DMA1 only"); /* fall thru */
+	case CMASK0:
+		return init_axi64_hbm1(adev, cmask);
+	case CMASK1|CMASK0:
+		return init_axi64_hbm2(adev);
+	default:
+		dev_err(DEVP(adev), "ERROR no AXI DMA");
+		return -1;
+	}
+}
+
 struct acq400_dev* acq400_lookupSite(int site)
 {
 	int is;
@@ -4944,6 +4998,7 @@ static int acq400_probe(struct platform_device *pdev)
           				".. not enough buffers limit to %d", nbuffers);
           		}
           		axi64_claim_dmac_channels(adev);
+          		init_axi64_hbm(adev);
           		axi64_init_dmac(adev);
           	}
         	return 0;

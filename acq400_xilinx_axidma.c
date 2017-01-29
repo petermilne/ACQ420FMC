@@ -54,6 +54,7 @@ struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
 	unsigned pa;
 };
+#define xilinx_dma_desc_sz 	sizeof(struct xilinx_dma_desc_hw)
 #define AXI_DESCR_WRAPPER_SZ	sizeof(struct AxiDescrWrapper)
 
 struct SEGMENT {
@@ -93,8 +94,12 @@ static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
+	if (apool->channelWrappers[acw->ichan] == NULL){
+		seq_printf(s, "# AXI DESCRIPTORS[%d] 0/0\n", acw->ichan);
+		return NULL;
+	}
         if (*pos == 0) {
-        	seq_printf(s, "# AXI DESCRIPTORS %d/%d\n",
+        	seq_printf(s, "# AXI DESCRIPTORS[%d] %d/%d\n", acw->ichan,
         			apool->active_descriptors, apool->ndescriptors);
         }
         if (*pos < apool->active_descriptors){
@@ -118,11 +123,12 @@ static void *acq400axi_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 	}
 }
 
-int pa2index(struct ACQ400_AXIPOOL* apool, unsigned pa)
+int pa2index(struct ACQ400_AXIPOOL* apool, int ichan, unsigned pa)
 {
 	int ii;
 	for (ii = 0; ii < apool->active_descriptors; ++ii){
-		struct AxiDescrWrapper * cursor = apool->wrappers+ii;
+		struct AxiDescrWrapper * cursor =
+				apool->channelWrappers[ichan]+ii;
 		if (cursor->pa == pa){
 			return ii;
 		}
@@ -133,14 +139,15 @@ int pa2index(struct ACQ400_AXIPOOL* apool, unsigned pa)
 
 static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
 {
-        struct acq400_dev *adev = s->private;
+	struct AxiChannelWrapper *acw = s->private;
+        struct acq400_dev *adev = acw->adev;
         struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
         struct AxiDescrWrapper * cursor = v;
 
 
         seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x %c\n",
-        		cursor->pa, pa2index(apool, cursor->pa),
-        		cursor->va->next_desc, pa2index(apool, cursor->va->next_desc),
+        		cursor->pa, pa2index(apool, acw->ichan, cursor->pa),
+        		cursor->va->next_desc, pa2index(apool, acw->ichan, cursor->va->next_desc),
         		cursor->va->buf_addr, cursor->va->control,
 			apool->dump_pa==0? ' ':
 				cursor->va->buf_addr==apool->dump_pa? '-': '+');
@@ -178,7 +185,8 @@ static struct file_operations acq400_proc_ops_axi_descr = {
 
 static void *axi_seg_proc_seq_start(struct seq_file *s, loff_t *pos)
 {
-	struct acq400_dev *adev = s->private;
+	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
         if (*pos == 0) {
@@ -192,7 +200,8 @@ static void *axi_seg_proc_seq_start(struct seq_file *s, loff_t *pos)
 
 static void *axi_seg_proc_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
-	struct acq400_dev *adev = s->private;
+	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 	Segment *seg = (Segment*)v;
 
@@ -366,47 +375,48 @@ static void loop_to_self(struct AxiDescrWrapper *end)
 	end->va->next_desc = end->pa;
 }
 
-static void _finalize_descriptor_chain(struct acq400_dev *adev, int ndescriptors)
+static void _finalize_descriptor_chain(struct acq400_dev *adev, int ichan, int ndescriptors)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
+	struct AxiDescrWrapper* base = apool->channelWrappers[ichan];
 	struct AxiDescrWrapper * cursor;
 
+
 	for (ii = 0; ii < ndescriptors-1; ++ii){
-		cursor = apool->wrappers+ii;
+		cursor = base + ii;
 		cursor->va->next_desc = cursor[1].pa;
 	}
 
 	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
 		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
-		apool->wrappers[ii].va->next_desc =
-				apool->wrappers[AXI_DEBUG_LOOPBACK_INDEX].pa;
+		cursor->va->next_desc = base[AXI_DEBUG_LOOPBACK_INDEX].pa;
 	}else{
-		apool->wrappers[ii].va->next_desc = apool->wrappers[0].pa;
+		cursor->va->next_desc = base[0].pa;
 	}
 	apool->active_descriptors = ndescriptors;
 }
-static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ndescriptors)
+static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int ndescriptors)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
-	struct AxiDescrWrapper * cursor;
+	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
 
-	for (ii = 0; ii < ndescriptors; ++ii){
-		cursor = apool->wrappers+ii;
+	for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
-		cursor->va->buf_addr = adev->axi64[0].axi64_hb[ii]->pa;
+		cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 		cursor->va->control = adev->bufferlen;
 	}
-	_finalize_descriptor_chain(adev, ndescriptors);
+	_finalize_descriptor_chain(adev, ichan, ndescriptors);
 }
 
-static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescriptors)
+static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, int ndescriptors)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	struct AxiDescrWrapper * wrapper = apool->wrappers;
+	struct AxiDescrWrapper * base = apool->channelWrappers[ichan];
+	struct AxiDescrWrapper * wrapper = base;
 	int last_buffer = AXI_BUFFER_COUNT-1;
 	int ihb = 0;
 	int iseg;
@@ -436,9 +446,11 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ndescri
 			wrapper->va->control = adev->bufferlen;
 		}
 	}
-	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 88 %d", wrapper-apool->wrappers);
-	_finalize_descriptor_chain(adev, wrapper-apool->wrappers);
+	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 88 %d", wrapper-base);
+	_finalize_descriptor_chain(adev, ichan, wrapper-base);
 }
+
+typedef void (*init_cache_fun)(struct acq400_dev *adev, int ichan, int ndescriptors);
 
 int get_segmented_descriptor_total(struct acq400_dev *adev)
 {
@@ -452,40 +464,66 @@ int get_segmented_descriptor_total(struct acq400_dev *adev)
 	return ndesc;
 }
 
-static void delete_pool(struct ACQ400_AXIPOOL* apool)
+static void _delete_pool(struct ACQ400_AXIPOOL* apool, int ichan)
 {
-	struct AxiDescrWrapper * cursor = apool->wrappers;
+	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
 	int iw = 0;
 	for (; iw < apool->ndescriptors; ++iw, ++cursor){
 		dma_pool_free(apool->pool, cursor->va, cursor->pa);
 	}
-	kfree(apool->wrappers);
+	kfree(apool->channelWrappers[ichan]);
+}
+static void delete_pool(struct ACQ400_AXIPOOL* apool)
+{
+	_delete_pool(apool, 0);
+	_delete_pool(apool, 1);			// @@todo what if no wrappers ichan==1 ?
 	apool->ndescriptors = 0;
 }
-static void init_descriptor_cache(struct acq400_dev *adev)
+static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	int ndescriptors;
+	init_cache_fun init_cache = apool->segment_cursor?
+			init_descriptor_cache_segmented:
+			init_descriptor_cache_nonseg;
+
+	int nchan = cmask == (CMASK0|CMASK1) ? 2: 1;
+	int ndescriptors = AXI_BUFFER_COUNT/nchan;
+	int ic;
+
+	if ((cmask&(CMASK0|CMASK1)) == 0){
+		dev_err(DEVP(adev), "ERROR CMASK not set, no DMAC available");
+		return;
+	}
 
 	if (apool->segment_cursor){
-		ndescriptors = get_segmented_descriptor_total(adev);
-	}else{
-		ndescriptors = AXI_BUFFER_COUNT;
+		int ndrequest = get_segmented_descriptor_total(adev);
+		if (ndrequest > ndescriptors){
+			dev_warn(DEVP(adev),
+			"WARNING: too many descriptors requested, trim from %d to %d",
+			ndrequest, ndescriptors);
+		}
 	}
+
 	if (apool->ndescriptors && apool->ndescriptors < ndescriptors){
 		delete_pool(apool);
 	}
 	if (apool->ndescriptors == 0){
-		apool->wrappers =
-			kzalloc(AXI_DESCR_WRAPPER_SZ*ndescriptors, GFP_KERNEL);
+		// @@todo single ichan only
+		for (ic = 0; ic < 2; ++ic){
+			if ((1<<ic)&cmask){
+				apool->channelWrappers[ic] =
+					kzalloc(AXI_DESCR_WRAPPER_SZ*ndescriptors, GFP_KERNEL);
+			}
+		}
+
 		apool->ndescriptors = ndescriptors;
 	}
-	if (apool->segment_cursor){
-		init_descriptor_cache_segmented(adev, ndescriptors);
-	}else{
-		init_descriptor_cache_nonseg(adev, ndescriptors);
-	}
 
+	for (ic = 0; ic < 2; ++ic){
+		if ((1<<ic)&cmask){
+			init_cache(adev, ic, ndescriptors);
+		}
+	}
 }
 void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tailpa, unsigned oneshot)
 {
@@ -543,10 +581,10 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[ichan]);
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+	struct AxiDescrWrapper* wrappers = apool->channelWrappers[ichan];
 
-	u32 head_pa = apool->wrappers[ichan].pa;
-	u32 tail_pa = AXI_ONESHOT? apool->wrappers[apool->ndescriptors-2+ichan].pa:
-			SHOTID(adev);
+	u32 head_pa = wrappers[0].pa;
+	u32 tail_pa = AXI_ONESHOT? wrappers[apool->ndescriptors-2].pa: SHOTID(adev);
 
 	xchan->client_private = adev;
 	xchan->start_transfer = _start_transfer;
@@ -613,7 +651,7 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
 	}
-	init_descriptor_cache(adev);
+	init_descriptor_cache(adev, cmask);
 
 	for (ichan = 0; cmask != 0; cmask >>=1, ++ichan){
 		if ((cmask&1) != 0){
@@ -629,49 +667,43 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 
 int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers)
 /* close off descriptor +nbuffers to prevent overrun */
+/* find cursor in set, count ahead nbuffers, tie it off */
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[ichan]);
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	/* find cursor in set, count ahead nbuffers, tie it off */
+	struct AxiDescrWrapper* wrappers = apool->channelWrappers[ichan];
+
 
 	int imax = apool->ndescriptors;
 
 	unsigned cursor_pa = dma_read(xchan, XILINX_DMA_CDESC_OFFSET);
-	int ii = (cursor_pa - apool->wrappers[0].pa)/sizeof(struct xilinx_dma_desc_hw);
+	int ii = (cursor_pa - wrappers[0].pa)/xilinx_dma_desc_sz;
 
 	for (ii = 0; ii < imax; ++ii){
-		if (apool->wrappers[ii].pa == cursor_pa){
+		if (wrappers[ii].pa == cursor_pa){
 			int itie = ii + nbuffers;
 			if (itie > imax){
 				itie -= imax;
 			}
-			loop_to_self(&apool->wrappers[itie]);
-			dev_dbg(DEVP(adev), "axi64_tie_off_dmac() at %d call loop_to_self %d", ii, itie);
+			loop_to_self(&wrappers[itie]);
+			dev_dbg(DEVP(adev),
+				"axi64_tie_off_dmac() at %d call loop_to_self %d", ii, itie);
 			return 0;
 		}
 	}
 
-	dev_err(DEVP(adev), "FAILED to locate cursor_pa 0x%08x in range 0x%08x..0x%08x",
-			cursor_pa, apool->wrappers[0].pa,
-			apool->wrappers[0].pa+imax*sizeof(struct xilinx_dma_desc_hw));
+	dev_err(DEVP(adev),
+		"FAILED to locate cursor_pa 0x%08x in range 0x%08x..0x%08x",
+		cursor_pa, wrappers[0].pa, wrappers[0].pa+imax*xilinx_dma_desc_sz);
 	return -1;
 }
 
 int axi64_free_dmac(struct acq400_dev *adev)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	int ii;
-	struct AxiDescrWrapper * cursor;
-
 	adev->axi_private = 0;
 
-	for (ii = 0; ii < apool->ndescriptors; ++ii){
-		cursor = apool->wrappers+ii;
-		if (cursor->va){
-			dma_pool_free(apool->pool, cursor->va, cursor->pa);
-		}
-	}
-	kfree(apool->wrappers);
+	delete_pool(apool);
 	dma_pool_destroy(apool->pool);
 	kfree(apool);
 	return 0;
@@ -692,6 +724,7 @@ static bool filter_axi(struct dma_chan *chan, void *param)
 
 
 int axi64_claim_dmac_channels(struct acq400_dev *adev)
+/* MUST be called first .. */
 {
 	dma_cap_mask_t mask;
 	dma_cap_zero(mask);

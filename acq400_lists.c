@@ -32,7 +32,6 @@ MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)")
 
 struct HBM * getEmpty(struct acq400_dev* adev)
 {
-
 	if (!list_empty(&adev->EMPTIES)){
 		struct HBM *hbm;
 		mutex_lock(&adev->list_mutex);
@@ -48,6 +47,11 @@ struct HBM * getEmpty(struct acq400_dev* adev)
 		dev_warn(DEVP(adev), "get Empty: Q is EMPTY!\n");
 		return 0;
 	}
+}
+
+int multipleEmptiesWaiting(struct acq400_dev* adev)
+{
+	return !list_empty(&adev->EMPTIES) && !list_is_singular(&adev->EMPTIES);
 }
 
 void putFull(struct acq400_dev* adev)
