@@ -94,6 +94,10 @@ static void *acq400axi_proc_seq_start(struct seq_file *s, loff_t *pos)
 	struct acq400_dev *adev = acw->adev;
 	struct ACQ400_AXIPOOL* apool = (struct ACQ400_AXIPOOL*)adev->axi_private;
 
+	if (apool == 0){
+		dev_info(DEVP(adev), "NO POOL, come back later");
+		return NULL;
+	}
 	if (apool->channelWrappers[acw->ichan] == NULL){
 		seq_printf(s, "# AXI DESCRIPTORS[%d] 0/0\n", acw->ichan);
 		return NULL;
@@ -170,9 +174,8 @@ static int acq400_proc_open_axi_descr(struct inode *inode, struct file *file)
 	        .show = acq400axi_proc_seq_show_descr
 	};
 
-	printk("acq400_proc_open_axi_descr() 01 \n");
-	((struct seq_file*)file->private_data)->private = PDE_DATA(inode);
 	seq_open(file, &acq400_proc_seq_ops_channel_mapping);
+	((struct seq_file*)file->private_data)->private = PDE_DATA(inode);
 	return 0;
 }
 static struct file_operations acq400_proc_ops_axi_descr = {
@@ -409,6 +412,7 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 		cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 		cursor->va->control = adev->bufferlen;
 	}
+	adev->axi64[ichan].ndesc = ndescriptors;
 	_finalize_descriptor_chain(adev, ichan, ndescriptors);
 }
 
@@ -417,12 +421,12 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, 
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	struct AxiDescrWrapper * base = apool->channelWrappers[ichan];
 	struct AxiDescrWrapper * wrapper = base;
-	int last_buffer = AXI_BUFFER_COUNT-1;
+	int last_buffer = ndescriptors-1;
 	int ihb = 0;
 	int iseg;
 
 	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d", ndescriptors);
-	apool->dump_pa = adev->axi64[0].axi64_hb[last_buffer]->pa;
+	apool->dump_pa = adev->axi64[ichan].axi64_hb[last_buffer]->pa;
 
 	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
 		Segment* segment = &apool->segments[iseg];
@@ -607,16 +611,13 @@ void __axi64_init_procfs(
 		kzalloc(sizeof(struct AxiChannelWrapper), GFP_KERNEL);
 	acw->adev = adev;
 	acw->ichan = ic;
+	dev_info(DEVP(adev), "__axi64_init_procfs() acw:%p", acw);
 	proc_create_data(fn, 0, root, &acq400_proc_ops_axi_descr, acw);
 }
 void _axi64_init_procfs(struct acq400_dev *adev)
 {
-	struct proc_dir_entry *root = proc_mkdir(
-		acq400_names[adev->of_prams.site], adev->proc_entry);
-	int ic;
-	for (ic = 0; ic <= 1; ++ic){
-		__axi64_init_procfs(adev, root, ic);
-	}
+	__axi64_init_procfs(adev, adev->proc_entry, 0);
+	__axi64_init_procfs(adev, adev->proc_entry, 1);
 }
 void axi64_init_procfs(struct acq400_dev *adev)
 {
@@ -709,11 +710,11 @@ int axi64_free_dmac(struct acq400_dev *adev)
 	return 0;
 }
 
-static bool filter_axi(struct dma_chan *chan, void *param)
+bool filter_axi(struct dma_chan *chan, void *param)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)param;
 	const char* dname = chan->device->dev->driver->name;
-	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
+	dev_info(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
 
 	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
 		return true;

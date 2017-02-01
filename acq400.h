@@ -568,6 +568,7 @@ struct acq400_dev {
 
 	struct AXI64_Buffers {
 		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+		int ndesc;
 	}
 		axi64[MAX_AXIDMA];
 
@@ -1381,5 +1382,5 @@ void acq400_clear_aggregator_set(struct acq400_dev *adev);
 int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
-
+void init_axi_dma(struct acq400_dev* adev);
 #endif /* ACQ420FMC_H_ */
