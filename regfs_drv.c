@@ -113,7 +113,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1004"
+#define REVID "regfs_fs B1005"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -273,12 +273,20 @@ void regfs_remove_fs(struct REGFS_DEV* dev)
 	debugfs_remove_recursive(dev->top);
 }
 
+
+
+static struct file_operations regfs_event_fops;
+
 int regfs_page_open(struct inode *inode, struct file *file)
 /* minor is page # */
 {
 	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->rdev = container_of(inode->i_cdev, struct REGFS_DEV, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
+
+	if (PD(file)->minor == MINOR_EV){
+		file->f_op = &regfs_event_fops;
+	}
 	return 0;
 }
 
@@ -350,6 +358,30 @@ ssize_t regfs_page_read(struct file *file, char __user *buf, size_t count,
 	return count;
 }
 
+ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
+	        loff_t *f_pos)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	int int_count = rdev->ints;
+	int rc = wait_event_interruptible(
+			rdev->w_waitq,
+			rdev->ints != int_count);
+	if (rc < 0){
+		return -EINTR;
+	}else{
+		char lbuf[32];
+		int nbytes = snprintf(lbuf, 64, "%d, 0x%08x\n", rdev->ints, rdev->status);
+		if (nbytes > count){
+			nbytes = count;
+		}
+		rc = copy_to_user(buf, lbuf, nbytes);
+		if (rc != 0){
+			return -1;
+		}else{
+			return nbytes;
+		}
+	}
+}
 int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 {
 	struct REGFS_DEV *rdev = PD(file)->rdev;
@@ -411,6 +443,12 @@ static int init_event(struct REGFS_DEV* rdev)
 
 	return rc;
 }
+
+static struct file_operations regfs_event_fops = {
+	.owner = THIS_MODULE,
+	.release = regfs_page_release,
+	.read = regfs_event_read,
+};
 
 static struct file_operations regfs_page_fops = {
 	.owner = THIS_MODULE,
