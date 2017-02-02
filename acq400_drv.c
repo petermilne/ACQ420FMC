@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.152"
+#define REVID "3.153"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -4764,7 +4764,142 @@ struct acq400_dev* acq400_lookupSite(int site)
 	}
 	return 0;
 }
-static int acq400_probe(struct platform_device *pdev)
+
+int acq400_mod_init_irq(struct acq400_dev* adev)
+{
+	int rc;
+	if (IS_AO42X(adev)||IS_DIO432X(adev)){
+
+		rc = devm_request_threaded_irq(
+				DEVP(adev), adev->of_prams.irq,
+				ao400_isr, xo400_dma,
+				IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+				adev);
+	}else{
+		rc = devm_request_irq(
+				DEVP(adev), adev->of_prams.irq, acq400_isr,
+				IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+				adev);
+	}
+	if (rc){
+		dev_err(DEVP(adev),"unable to get IRQ%d\n",adev->of_prams.irq);
+	}
+	return rc;
+}
+void acq400_mod_init_defaults(struct acq400_dev* adev)
+{
+	if (IS_ACQ42X(adev)){
+		acq420_init_defaults(adev);
+	}else if (IS_DIO432X(adev)){
+		dio432_init_defaults(adev);
+	}else{
+		switch(GET_MOD_ID(adev)){
+		case MOD_ID_ACQ430FMC:
+		case MOD_ID_ACQ435ELF:
+		case MOD_ID_ACQ437ELF:
+			acq43X_init_defaults(adev);
+			break;
+		case MOD_ID_AO420FMC:
+			ao420_init_defaults(adev);
+			break;
+		case MOD_ID_AO424ELF:
+			ao424_init_defaults(adev);
+			break;
+		case MOD_ID_BOLO8:
+		case MOD_ID_BOLO8B:
+			bolo8_init_defaults(adev);
+			break;
+		case MOD_ID_PMODADC1:
+			pmodadc1_init_defaults(adev);
+			break;
+		case MOD_ID_ACQ480FMC:
+			acq480_init_defaults(adev);
+			break;
+		case MOD_ID_DIO_BISCUIT:
+			switch(GET_MOD_IDV(adev)){
+			case MOD_IDV_V2F:
+				v2f_init_defaults(adev);
+				break;
+			case MOD_IDV_DIO:
+			case MOD_IDV_QEN:
+				qen_init_defaults(adev);
+				break;
+			}
+			break;
+		case MOD_ID_PIG_CELF:
+			pig_celf_init_defaults(adev);
+		case MOD_ID_RAD_CELF:
+			rad_celf_init_defaults(adev);
+		case MOD_ID_DAC_CELF:
+			ao428_init_defaults(adev);
+			break;
+		default:
+			dev_warn(DEVP(adev), "no custom init for module type %x",
+						(adev)->mod_id>>MOD_ID_TYPE_SHL);
+		}
+	}
+}
+
+int acq400_modprobe_sc(struct acq400_dev* adev)
+{
+	adev->is_sc = true;
+	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
+		dev_err(DEVP(adev), "failed to allocate buffers");
+		return -1;
+	}
+	adev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
+	adev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+
+	acq400_createSysfs(DEVP(adev));
+	acq400_init_proc(adev);
+	acq2006_createDebugfs(adev);
+	acq400sc_init_defaults(adev);
+	if (IS_AXI64(adev)){
+		if (nbuffers < AXI_BUFFER_COUNT){
+			AXI_BUFFER_COUNT = nbuffers - 1;
+			dev_warn(DEVP(adev),
+					".. not enough buffers limit to %d", nbuffers);
+		}
+		axi64_init_dmac(adev);
+	}
+	return 0;
+}
+int acq400_modprobe(struct acq400_dev* adev)
+{
+	adev->isFifoError = acq420_isFifoError;	/* REMOVE me: better default wanted */
+
+	if (IS_SC(adev)){
+		return acq400_modprobe_sc(adev);
+	}
+	if (IS_XO(adev) && xo_use_bigbuf){
+		adev->hb = acq400_devices[0]->hb;
+		dev_info(DEVP(adev), "site %d using MAIN HB", adev->of_prams.site);
+	}else{
+		if (IS_AO424(adev)){
+			if (allocate_hbm(adev, AO420_NBUFFERS,
+					ao424_buffer_length, DMA_TO_DEVICE)){
+				dev_err(DEVP(adev), "failed to allocate buffers");
+				return -1;
+			}
+		}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
+			if (allocate_hbm(adev, AO420_NBUFFERS,
+					ao420_buffer_length, DMA_TO_DEVICE)){
+				dev_err(DEVP(adev), "failed to allocate buffers");
+				return -1;
+			}
+		}
+	}
+
+	if (acq400_mod_init_irq(adev)){
+		return -1;
+	}
+	acq400_mod_init_defaults(adev);
+	acq400_createSysfs(DEVP(adev));
+	acq400_init_proc(adev);
+	acq400_createDebugfs(adev);
+	return 0;
+}
+int acq400_probe(struct platform_device *pdev)
 {
         int rc;
         struct resource *acq400_resource;
@@ -4819,7 +4954,6 @@ static int acq400_probe(struct platform_device *pdev)
                 dev_err(&pdev->dev, "unable to register chrdev\n");
                 goto fail;
         }
-
         /* Register with the kernel as a character device */
         cdev_init(&adev->cdev, &acq400_fops);
         adev->cdev.owner = THIS_MODULE;
@@ -4827,127 +4961,9 @@ static int acq400_probe(struct platform_device *pdev)
         if (rc < 0){
         	goto fail;
         }
-
-        adev->isFifoError = acq420_isFifoError;	/* REMOVE me: better default wanted */
-
-        if (IS_SC(adev)){
-        	adev->is_sc = true;
-        	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
-        		dev_err(&pdev->dev, "failed to allocate buffers");
-        		goto fail;
-        	}
-        	adev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
-        	adev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
-
-        	acq400_createSysfs(&pdev->dev);
-        	acq400_init_proc(adev);
-        	acq2006_createDebugfs(adev);
-        	acq400sc_init_defaults(adev);
-          	if (IS_AXI64(adev)){
-          		if (nbuffers < AXI_BUFFER_COUNT){
-          			AXI_BUFFER_COUNT = nbuffers - 1;
-          			dev_warn(DEVP(adev),
-          				".. not enough buffers limit to %d", nbuffers);
-          		}
-          		axi64_init_dmac(adev);
-          	}
+        if (acq400_modprobe(adev) == 0){
         	return 0;
-        }else{
-        	if (IS_XO(adev) && xo_use_bigbuf){
-        		adev->hb = acq400_devices[0]->hb;
-        		dev_info(DEVP(adev), "site %d using MAIN HB", adev->of_prams.site);
-        	}else{
-        		if (IS_AO424(adev)){
-        			if (allocate_hbm(adev, AO420_NBUFFERS,
-        					ao424_buffer_length, DMA_TO_DEVICE)){
-        				dev_err(&pdev->dev, "failed to allocate buffers");
-        				goto fail;
-        			}
-        		}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
-        			if (allocate_hbm(adev, AO420_NBUFFERS,
-        				ao420_buffer_length, DMA_TO_DEVICE)){
-        				dev_err(&pdev->dev, "failed to allocate buffers");
-        				goto fail;
-        			}
-        		}
-        	}
         }
-        if (IS_AO42X(adev)||IS_DIO432X(adev)){
-        	rc = devm_request_threaded_irq(
-        	          	DEVP(adev), adev->of_prams.irq,
-        	          	ao400_isr, xo400_dma,
-        	          	IRQF_SHARED, acq400_devnames[adev->of_prams.site],
-        	          	adev);
-        }else{
-        	rc = devm_request_irq(
-        			DEVP(adev), adev->of_prams.irq, acq400_isr,
-        			IRQF_SHARED, acq400_devnames[adev->of_prams.site],
-        			adev);
-        }
-
-  	if (rc){
-  		dev_err(DEVP(adev),"unable to get IRQ%d\n",adev->of_prams.irq);
-  		goto fail;
-  	}
-
-
-  	if (IS_ACQ42X(adev)){
-  		acq420_init_defaults(adev);
-  	}else if (IS_DIO432X(adev)){
-  		dio432_init_defaults(adev);
-  	}else{
-  		switch(GET_MOD_ID(adev)){
-  		case MOD_ID_ACQ430FMC:
-  		case MOD_ID_ACQ435ELF:
-  		case MOD_ID_ACQ437ELF:
-  			acq43X_init_defaults(adev);
-  			break;
-  		case MOD_ID_AO420FMC:
-  			ao420_init_defaults(adev);
-  			break;
-  		case MOD_ID_AO424ELF:
-  			ao424_init_defaults(adev);
-  			break;
-  		case MOD_ID_BOLO8:
-  		case MOD_ID_BOLO8B:
-  			bolo8_init_defaults(adev);
-  			break;
-  		case MOD_ID_PMODADC1:
-  			pmodadc1_init_defaults(adev);
-  			break;
-  		case MOD_ID_ACQ480FMC:
-  			acq480_init_defaults(adev);
-  			break;
-  		case MOD_ID_DIO_BISCUIT:
-			switch(GET_MOD_IDV(adev)){
-  			case MOD_IDV_V2F:
-  				v2f_init_defaults(adev);
-  				break;
-  			case MOD_IDV_DIO:
-  			case MOD_IDV_QEN:
-  				qen_init_defaults(adev);
-  				break;
-  			}
-  			break;
-  		case MOD_ID_PIG_CELF:
-  			pig_celf_init_defaults(adev);
-  		case MOD_ID_RAD_CELF:
-  			rad_celf_init_defaults(adev);
-  		case MOD_ID_DAC_CELF:
-  			ao428_init_defaults(adev);
-  			break;
-  		default:
-  			dev_warn(DEVP(adev), "no custom init for module type %x",
-  		        		(adev)->mod_id>>MOD_ID_TYPE_SHL);
-  		}
-  	}
-
-        acq400_createSysfs(&pdev->dev);
-        acq400_init_proc(adev);
-        acq400_createDebugfs(adev);
-
-        return 0;
-
  fail:
  	--ndevices;
        	dev_err(&pdev->dev, "Bailout!\n");
