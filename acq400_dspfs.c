@@ -39,7 +39,6 @@
 #define REVID	"0.1"
 #define MAXDEV 2
 
-/* include gpgram for test. */
 ulong acq400_dsp_sites[MAXDEV] = { 0x80000000, 0x80040000 };
 int acq400_dsp_sites_count = MAXDEV;
 module_param_array(acq400_dsp_sites, ulong, &acq400_dsp_sites_count, 0644);
