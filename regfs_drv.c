@@ -483,7 +483,7 @@ static int regfs_probe(struct platform_device *pdev)
 		dev_err(DEVP(rdev), "MINOR_EV NOT AVAILABLE\n");
 		minor_max = npages;
 	}
-        rc = alloc_chrdev_region(&devno, 0, minor_max, rdev->mem->name);
+        rc = alloc_chrdev_region(&devno, 0, minor_max+1, rdev->mem->name);
         if (rc < 0) {
         	dev_err(DEVP(rdev), "unable to register chrdev\n");
                 goto fail;
@@ -491,7 +491,7 @@ static int regfs_probe(struct platform_device *pdev)
 
         cdev_init(&rdev->cdev, &regfs_page_fops);
         rdev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&rdev->cdev, devno, minor_max);
+        rc = cdev_add(&rdev->cdev, devno, minor_max+1;
 
         init_event(rdev);
 
