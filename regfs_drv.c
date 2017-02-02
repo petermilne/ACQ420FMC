@@ -70,9 +70,18 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 
 #include <linux/moduleparam.h>
 
+#include <linux/interrupt.h>
+#include <linux/wait.h>
+
 #include "regfs.h"
 
+
+
 #define MAXSTACK 4
+
+#define MINOR_P0	0
+#define MINOR_PMAX	63	/* 64 pages max */
+#define MINOR_EV	64	/* hook event reader here */
 
 struct REGFS_DEV {
 	void* va;
@@ -87,6 +96,10 @@ struct REGFS_DEV {
 
 	struct cdev cdev;
 	struct list_head list;
+	wait_queue_head_t w_waitq;
+
+	unsigned ints;
+	unsigned status;
 };
 
 struct REGFS_PATH_DESCR {
@@ -364,6 +377,41 @@ int regfs_page_release(struct inode *inode, struct file *file)
 	kfree(PD(file));
 	return 0;
 }
+
+#define INT_CSR_OFFSET	0x18
+
+static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
+{
+	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
+
+	/* RORA interrupt */
+	u32 status = ioread32(rdev->va + INT_CSR_OFFSET);
+	iowrite32(status, rdev->va + INT_CSR_OFFSET);
+	rdev->ints++;
+	rdev->status = status;
+
+	wake_up_interruptible(&rdev->w_waitq);
+	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr %08x\n", status);
+	return IRQ_HANDLED;
+}
+
+static int init_event(struct REGFS_DEV* rdev)
+{
+	struct resource* ri = platform_get_resource(rdev->pdev, IORESOURCE_IRQ, 0);
+	int rc = 0;
+	if (ri){
+		rc = devm_request_irq(
+			&rdev->pdev->dev, ri->start, acq400_regfs_hack_isr,
+				IRQF_SHARED, ri->name, rdev);
+		if (rc){
+			dev_err(&rdev->pdev->dev,"unable to get IRQ%d\n",ri->start);
+		}
+		init_waitqueue_head(&rdev->w_waitq);
+	}
+
+	return rc;
+}
+
 static struct file_operations regfs_page_fops = {
 	.owner = THIS_MODULE,
 	.open  = regfs_page_open,
@@ -379,6 +427,7 @@ static int regfs_probe(struct platform_device *pdev)
 	dev_t devno;
 	int npages;
 	int rc;
+	int minor_max = MINOR_EV;
 
 	rdev->pdev = pdev;
 
@@ -392,7 +441,11 @@ static int regfs_probe(struct platform_device *pdev)
 	if (npages == 0){
 		return 0;
 	}
-        rc = alloc_chrdev_region(&devno, 0, npages-1, rdev->mem->name);
+	if (npages > minor_max){
+		dev_err(DEVP(rdev), "MINOR_EV NOT AVAILABLE\n");
+		minor_max = npages;
+	}
+        rc = alloc_chrdev_region(&devno, 0, minor_max, rdev->mem->name);
         if (rc < 0) {
         	dev_err(DEVP(rdev), "unable to register chrdev\n");
                 goto fail;
@@ -400,7 +453,9 @@ static int regfs_probe(struct platform_device *pdev)
 
         cdev_init(&rdev->cdev, &regfs_page_fops);
         rdev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&rdev->cdev, devno, npages);
+        rc = cdev_add(&rdev->cdev, devno, minor_max);
+
+        init_event(rdev);
 
 fail:
 	return rc;

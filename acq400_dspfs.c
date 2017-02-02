@@ -53,6 +53,7 @@ module_param(n_acq400_dsp, int, 0444);
 struct platform_device* devices[MAXDEV];
 
 char* acq400_dsp_names[MAXDEV] = { "dsp1", "dsp2" };
+int acq400_dsp_irq[MAXDEV] = { 62, 61 };
 int n_names = MAXDEV;
 module_param_array(acq400_dsp_names, charp, &n_names, 0644);
 
@@ -60,16 +61,20 @@ void acq400_dsp_init_site(int site)
 {
 	struct platform_device *dev =
 			kzalloc(sizeof(struct platform_device), GFP_KERNEL);
+	struct resource	*res;
 
 	dev->name = MODULE_NAME;
 	dev->id = site;
 	dev->id_auto = 0;
-	dev->num_resources = 1;
-	dev->resource = kzalloc(sizeof(struct resource), GFP_KERNEL);
-	dev->resource->start = acq400_dsp_sites[site];
-	dev->resource->end = acq400_dsp_sites[site]+acq400_dsp_len[site]-1;
-	dev->resource->flags = IORESOURCE_MEM;
-	dev->resource->name = acq400_dsp_names[site];
+	dev->num_resources = 2;
+	dev->resource = res = kzalloc(2*sizeof(struct resource), GFP_KERNEL);
+	res[0].start = acq400_dsp_sites[site];
+	res[0].end = acq400_dsp_sites[site]+acq400_dsp_len[site]-1;
+	res[0].flags = IORESOURCE_MEM;
+	res[0].name = acq400_dsp_names[site];
+	res[1].start = acq400_dsp_irq[site];
+	res[1].flags = IORESOURCE_IRQ;
+	res[1].name = acq400_dsp_names[site];
 
 	platform_device_register(dev);
 	devices[site] = dev;
