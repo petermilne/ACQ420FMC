@@ -491,7 +491,7 @@ static int regfs_probe(struct platform_device *pdev)
 
         cdev_init(&rdev->cdev, &regfs_page_fops);
         rdev->cdev.owner = THIS_MODULE;
-        rc = cdev_add(&rdev->cdev, devno, minor_max+1;
+        rc = cdev_add(&rdev->cdev, devno, minor_max+1);
 
         init_event(rdev);
 
