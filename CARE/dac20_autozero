@@ -4,12 +4,16 @@
 
 log_user 0
 
+
 set HN [exec hostname]
 #puts "hello $HN"
 
+set VERBOSE 0
+if [info exists env(VERBOSE)] {set VERBPSE $env(VERBOSE)}
 
 proc autozero {fp ch } {
 	global HN
+	global VERBOSE
 	set AIPV "$HN:1:AI:CH:0$ch"
 	set AOPV "$HN:2:AO:SLOW_SET:CH:0$ch"
 	set AOFF "$AOPV.AOFF"
@@ -35,7 +39,9 @@ proc autozero {fp ch } {
 	set eslo [exec caget -t $ESLO]
 	set vmean [expr $sum/$nav]
 	set aoff [expr $vmean/$eslo]
-	puts "$AOPV: vmean:$vmean set aoff $aoff"
+	if { $VERBOSE } {
+		puts "$AOPV: vmean:$vmean set aoff $aoff"
+	}
 	puts $fp "caput $AOFF $aoff"
 	exec caput $AOFF $aoff
 }
