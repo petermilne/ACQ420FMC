@@ -36,9 +36,8 @@ ao428elf)
 	/sbin/insmod adt7x10.ko
 	/sbin/insmod adt7410.ko
 	/sbin/insmod ao428.ko)
-	mkdir /dev/hwmon/4
-	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon/4/temp
-	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /etc/acq400/2/temp
+	rm -f /dev/hwmon/2/*	
+	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon/2/temp
 	ln -s /usr/local/CARE/dac20_autozero /etc/acq400/2/dac20_autozero
 	;;
 esac
