@@ -49,7 +49,7 @@ proc autozero {fp ch } {
 set fp [open /mnt/local/autozero_restore "w"]
 puts $fp "#!/bin/sh"
 puts $fp "# autozero created [exec date]"
-puts $fp [exec caget $HN:SYS:2:TEMP]
+puts $fp "# [exec caget $HN:SYS:2:TEMP]"
 foreach ch {1 2 3 4 5 6 7 8} {
 	autozero $fp $ch
 }
