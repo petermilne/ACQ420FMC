@@ -38,7 +38,7 @@ proc autozero {fp ch } {
 	}
 	set eslo [exec caget -t $ESLO]
 	set vmean [expr $sum/$nav]
-	set aoff [expr $vmean/$eslo]
+	set aoff [format %.2f [expr $vmean/$eslo]]
 	if { $VERBOSE } {
 		puts "$AOPV: vmean:$vmean set aoff $aoff"
 	}
