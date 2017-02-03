@@ -1,0 +1,52 @@
+#!/usr/local/bin/expect
+# autozero an AO value by setting AOFF
+# Assumes AO8 in site 2, looped back to AI8 in site 1, capture running
+
+log_user 0
+
+set HN [exec hostname]
+#puts "hello $HN"
+
+
+proc autozero {fp ch } {
+	global HN
+	set AIPV "$HN:1:AI:CH:0$ch"
+	set AOPV "$HN:2:AO:SLOW_SET:CH:0$ch"
+	set AOFF "$AOPV.AOFF"
+	set ESLO "$AOPV.ESLO"
+
+	exec caput $AOPV 0
+	exec caput $AOFF 0
+	
+	#puts "$AIPV"
+	spawn camonitor $AIPV
+	set nav 0
+	set sum 0
+	while { $nav < 16 } {
+		expect "\n" {
+			set args [regexp -all -inline {\S+} $expect_out(buffer)]
+#			puts "args $args"
+			set v [lindex $args 3]
+			set sum [expr $sum + $v]
+#			puts "RX:$v"
+		}
+		incr nav
+	}
+	set eslo [exec caget -t $ESLO]
+	set vmean [expr $sum/$nav]
+	set aoff [expr $vmean/$eslo]
+	puts "$AOPV: vmean:$vmean set aoff $aoff"
+	puts $fp "caput $AOFF $aoff"
+	exec caput $AOFF $aoff
+}
+
+set fp [open /mnt/local/autozero_restore "w"]
+puts $fp "#!/bin/sh"
+puts $fp "# autozero created [exec date]"
+foreach ch {1 2 3 4 5 6 7 8} {
+	autozero $fp $ch
+}
+close $fp
+
+
+
