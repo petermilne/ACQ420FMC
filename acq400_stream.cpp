@@ -572,33 +572,45 @@ public:
 	}
 };
 
+class _OversamplingMapBufferSingleSample: public Buffer {
+public:
+	int* sums;
+	_OversamplingMapBufferSingleSample(Buffer* cpy):
+		Buffer(cpy)
+	{
+		sums = new int[G::nchan];
+	}
+	virtual ~_OversamplingMapBufferSingleSample() {
+		delete [] sums;
+	}
+	static void makeReport(const char* cname, int tsize){
+		static int report;
+		if (!report &&verbose){
+			fprintf(stderr, "%s<%s>()\n", cname, tsize==4? "int": "short");
+			++report;
+		}
+	}
+};
+
 /** output one sample per buffer */
 template <class T>
-class OversamplingMapBufferSingleSample: public Buffer {
+class OversamplingMapBufferSingleSample: public _OversamplingMapBufferSingleSample {
 	const int over, asr;
 	const int asr1;
 	const int nsam;
-	int* sums;
 
 public:
 	OversamplingMapBufferSingleSample(Buffer* cpy,
 			int _oversampling, int _asr) :
-		Buffer(cpy),
+		_OversamplingMapBufferSingleSample(cpy),
 		over(_oversampling),
-		asr(_asr),
-		asr1(sizeof(T)==4?8:0),
+		asr(sizeof(T)==4&&_asr>8 ? 8: _asr),
+		asr1(sizeof(T)==4? (8 + _asr - asr):0),
 		nsam(buffer_len/sizeof(T)/G::nchan)
-		{
-		static int report;
-		if (!report &&verbose){
-			fprintf(stderr, "OversamplingMapBufferSingleSample()\n");
-			++report;
-		}
-		sums = new int[G::nchan];
+	{
+		makeReport("OversamplingMapBufferSingleSample", sizeof(T));
 	}
-	virtual ~OversamplingMapBufferSingleSample() {
-		delete [] sums;
-	}
+
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		T* src = reinterpret_cast<T*>(pdata);
 		int stride = nsam/over;
