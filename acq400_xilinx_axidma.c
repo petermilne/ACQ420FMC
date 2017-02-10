@@ -381,21 +381,18 @@ static void loop_to_self(struct AxiDescrWrapper *end)
 static void _finalize_descriptor_chain(struct acq400_dev *adev, int ichan, int ndescriptors)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	int ii;
 	struct AxiDescrWrapper* base = apool->channelWrappers[ichan];
-	struct AxiDescrWrapper * cursor;
+	int ii;
 
-
-	for (ii = 0; ii < ndescriptors-1; ++ii){
-		cursor = base + ii;
-		cursor->va->next_desc = cursor[1].pa;
+	for (ii = 1; ii < ndescriptors; ++ii){
+		base[ii-1].va->next_desc = base[ii].pa;
 	}
 
 	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
 		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
-		cursor->va->next_desc = base[AXI_DEBUG_LOOPBACK_INDEX].pa;
+		base[ndescriptors-1].va->next_desc = base[AXI_DEBUG_LOOPBACK_INDEX].pa;
 	}else{
-		cursor->va->next_desc = base[0].pa;
+		base[ndescriptors-1].va->next_desc = base[0].pa;
 	}
 	apool->active_descriptors = ndescriptors;
 }
@@ -412,6 +409,8 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 		cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 		cursor->va->control = adev->bufferlen;
 	}
+	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg ichan:%d ndesc:%d", ichan, ndescriptors);
+
 	adev->axi64[ichan].ndesc = ndescriptors;
 	_finalize_descriptor_chain(adev, ichan, ndescriptors);
 }
@@ -590,9 +589,12 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	u32 head_pa = wrappers[0].pa;
 	u32 tail_pa = AXI_ONESHOT? wrappers[apool->ndescriptors-2].pa: SHOTID(adev);
 
+	dev_dbg(DEVP(adev), "_axi64_load_dmac() 01 xchan:%p", xchan);
 	xchan->client_private = adev;
 	xchan->start_transfer = _start_transfer;
 	tasklet_init(&xchan->tasklet, acq400_dma_on_ioc, (unsigned long)xchan);
+
+	dev_dbg(DEVP(adev), "_axi64_load_dmac() 50");
 
 	if (!wimp_out){
 		int databursts = adev->bufferlen/0x800;
@@ -600,6 +602,7 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}
+	dev_dbg(DEVP(adev), "_axi64_load_dmac() 99");
 	return 0;
 }
 
@@ -649,11 +652,15 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 	int rc;
 	int ichan;
 
+	dev_dbg(DEVP(adev), "axi64_load_dmac() 01");
+
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
 	}
+	dev_dbg(DEVP(adev), "axi64_load_dmac() 02");
 	init_descriptor_cache(adev, cmask);
 
+	dev_dbg(DEVP(adev), "axi64_load_dmac() 03");
 	for (ichan = 0; cmask != 0; cmask >>=1, ++ichan){
 		if ((cmask&1) != 0){
 			rc = _axi64_load_dmac(adev, ichan);
@@ -663,6 +670,7 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 			return rc;
 		}
 	}
+	dev_dbg(DEVP(adev), "axi64_load_dmac() 99");
 	return 0;
 }
 

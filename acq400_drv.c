@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.153 DUALAXI"
+#define REVID "3.161 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1610,8 +1610,10 @@ static void _release_dma_chan(struct acq400_dev *adev, int ic)
 }
 void release_dma_channels(struct acq400_dev *adev)
 {
-	_release_dma_chan(adev, 0);
-	_release_dma_chan(adev, 1);
+	if (!IS_AXI64(adev)){
+		_release_dma_chan(adev, 0);
+		_release_dma_chan(adev, 1);
+	}
 }
 
 
@@ -4090,6 +4092,7 @@ int _poison_all_buffers(struct acq400_dev *adev, int ichan)
 {
 	int ii;
 
+	dev_dbg(DEVP(adev), "_poison_all_buffers(%d) : ndesc:%d", ichan, adev->axi64[ichan].ndesc);
 	for (ii = 0; ii < adev->axi64[ichan].ndesc; ++ii){
 		struct HBM* hbm = adev->axi64[ichan].axi64_hb[ii];
 		if (AXI_INIT_BUFFERS){
@@ -4209,7 +4212,7 @@ int axi64_data_loop(void* data)
 	dev_dbg(DEVP(adev), "axi64_data_loop() 01");
 
 	adev->onPutEmpty = poison_one_buffer_fastidious;
-	poison_all_buffers(adev);
+
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
@@ -4220,6 +4223,7 @@ int axi64_data_loop(void* data)
 		}
 	}
 
+	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
 		goto quit;
 	}
@@ -4925,7 +4929,7 @@ void init_axi_dma(struct acq400_dev* adev)
 	if (IS_AXI64(adev) && adev->axi_private == 0){
 		dev_info(DEVP(adev), "init_axi_dma() 10");
           	if (nbuffers < AXI_BUFFER_COUNT){
-          		AXI_BUFFER_COUNT = nbuffers - 1;
+          		AXI_BUFFER_COUNT = nbuffers;
           		dev_warn(DEVP(adev),
           			".. not enough buffers limit to %d", nbuffers);
           	}
