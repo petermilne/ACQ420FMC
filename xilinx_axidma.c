@@ -894,7 +894,9 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 		xdev->common.copy_align = fls(width - 1);
 
 	chan->dev = xdev->dev;
-	xdev->chan[chan->id] = chan;
+	xdev->chan[chan->id] = chan;		/* id==1 is INBOUND ? */
+
+	chan->id = device_id;			/* PGMWASHERE .. unique id for debugfs, really */
 
 	/* Initialize the channel */
 	err = dma_reset(chan);
