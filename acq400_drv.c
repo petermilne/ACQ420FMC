@@ -25,7 +25,7 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.161 DUALAXI"
+#define REVID "3.162 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -4321,7 +4321,6 @@ int axi64_dual_data_loop(void* data)
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
 
 	adev->onPutEmpty = poison_one_buffer_fastidious;
-	poison_all_buffers(adev);
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev, CMASK0|CMASK1)) != 0){
@@ -4331,7 +4330,7 @@ int axi64_dual_data_loop(void* data)
 			dev_info(DEVP(adev), "axi64_load_dmac() helper done");
 		}
 	}
-
+	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
 		goto quit;
 	}
