@@ -31,7 +31,11 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
+#include <linux/moduleparam.h>
 
+int maxdev = 1;
+module_param(maxdev, int, 0444);
+MODULE_PARM_DESC(maxdev, "maximum number of devices");
 
 
 
@@ -832,6 +836,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	struct xilinx_dma_chan *chan;
 	int err;
 	u32 device_id, value, width = 0;
+	char devname[20];
 
 	/* alloc channel */
 	chan = devm_kzalloc(xdev->dev, sizeof(*chan), GFP_KERNEL);
@@ -861,6 +866,10 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	if (err) {
 		dev_err(xdev->dev, "unable to read device id property");
 		return err;
+	}
+	if (device_id >= maxdev){
+		dev_err(xdev->dev, "device_id %d >= maxdev limit %d", device_id, maxdev);
+		return -1;
 	}
 
 	chan->has_sg = (xdev->feature & XILINX_DMA_FTR_HAS_SG) >>
@@ -913,9 +922,9 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 
 	/* find the IRQ line, if it exists in the device tree */
 	chan->irq = irq_of_parse_and_map(node, 0);
+	snprintf(devname, 20, "axi-dma%d", device_id);
 	err = devm_request_irq(xdev->dev, chan->irq, dma_intr_handler,
-			       IRQF_SHARED,
-			       "xilinx-dma-controller", chan);
+			       IRQF_SHARED, devname, chan);
 	if (err) {
 		dev_err(xdev->dev, "unable to request IRQ\n");
 		return err;

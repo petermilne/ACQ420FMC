@@ -822,8 +822,12 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_KMCx_AXI64(adev) \
 	(IS_KMCx_SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
+
 #define IS_AXI64(adev) \
 	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
+
+#define IS_AXI64_DUALCHAN_CAPABLE(adev)	\
+	(IS_ACQ1001_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
 
 #define IS_AXI64_DUALCHAN(adev) \
 	(IS_AXI64(adev) && adev->dma_chan[0] && adev->dma_chan[1])
