@@ -632,6 +632,7 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 		done
 		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
 		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+	fi
 fi
 
 echo ++ Enable analog power..
