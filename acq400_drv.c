@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.163 DUALAXI"
+#define REVID "3.164 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -5013,14 +5013,6 @@ int acq400_modprobe_sc(struct acq400_dev* adev)
 	acq400_init_proc(adev);
 	acq2006_createDebugfs(adev);
 	acq400sc_init_defaults(adev);
-	if (IS_AXI64(adev)){
-		if (nbuffers < AXI_BUFFER_COUNT){
-			AXI_BUFFER_COUNT = nbuffers - 1;
-			dev_warn(DEVP(adev),
-					".. not enough buffers limit to %d", nbuffers);
-		}
-		axi64_init_dmac(adev);
-	}
 	return 0;
 }
 int acq400_modprobe(struct acq400_dev* adev)
@@ -5061,7 +5053,10 @@ int acq400_modprobe(struct acq400_dev* adev)
 
 void init_axi_dma(struct acq400_dev* adev)
 {
-	dev_info(DEVP(adev), "init_axi_dma() 01");
+	dev_info(DEVP(adev), "init_axi_dma() 01 %s %s",
+			IS_AXI64(adev)? "AXI64": "",
+			adev->axi_private == 0? "init now": "already done");
+
 	if (IS_AXI64(adev) && adev->axi_private == 0){
 		dev_info(DEVP(adev), "init_axi_dma() 10");
           	if (nbuffers < AXI_BUFFER_COUNT){
