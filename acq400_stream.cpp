@@ -295,6 +295,9 @@ private:
 
 	AbstractES& evX;
 
+	int lchan(int ichan){
+		return ichan+1;
+	}
 	static void init() {
 		if (ID_MASK) return;
 
@@ -316,7 +319,7 @@ private:
 		char buf[132];
 
 		for (unsigned ic = 0; ic < nchan; ++ic){
-			int len = sprintf(buf, "%s/CH%02d", OUT_ROOT_NEW, ic+1);
+			int len = sprintf(buf, "%s/CH%02d", OUT_ROOT_NEW, lchan(ic));
 			fnames[ic] = new char[len+1];
 			strcpy(fnames[ic], buf);
 		}
@@ -638,6 +641,24 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 	return true;
 }
 
+
+/* we expected buff [ii&~1] to be CH01..CH04 but this seems not to be the case when streaming
+ * odd, because it works for transient
+ * .. */
+
+template<>
+int DemuxBuffer<short, DB_DOUBLE_AXI>::lchan(int ichan){
+	int lc = ichan+1;
+#ifdef WORKSASPLANNED
+	return lc;
+#else
+	if (lc > 4){
+		return lc - 4;
+	}else{
+		return lc + 4;
+	}
+#endif
+}
 
 template <>
 bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len) {
