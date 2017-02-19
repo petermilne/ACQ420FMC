@@ -268,7 +268,7 @@ static int createOutfile(const char* fname) {
 
 
 
-template <class T>
+template <class T, int N>
 class DemuxBuffer: public Buffer {
 private:
 	unsigned* mask;
@@ -440,8 +440,8 @@ public:
 };
 
 
-template <class T>
-bool DemuxBuffer<T>::demux(bool start, int start_off, int len) {
+template <class T, int N>
+bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	T* src1 = reinterpret_cast<T*>(pdata+start_off);
 	T* src = reinterpret_cast<T*>(pdata+start_off);
 	int Tlen = len/sizeof(T);
@@ -517,10 +517,10 @@ bool DemuxBuffer<T>::demux(bool start, int start_off, int len) {
 	/* does not happen */
 	return true;
 }
-template<class T> unsigned DemuxBuffer<T>::ID_MASK;
-template<class T> int DemuxBuffer<T>::startchan;
-template<class T> T** DemuxBuffer<T>::dddata;
-template<class T> T** DemuxBuffer<T>::ddcursors;
+template<class T, int N> unsigned DemuxBuffer<T, N>::ID_MASK;
+template<class T, int N> int DemuxBuffer<T, N>::startchan;
+template<class T, int N> T** DemuxBuffer<T, N>::dddata;
+template<class T, int N> T** DemuxBuffer<T, N>::ddcursors;
 bool double_up;
 
 /** output multiple samples per buffer */
@@ -887,9 +887,9 @@ class DemuxBufferCloner: public BufferCloner {
 	{
 		switch(G::wordsize){
 		case 2:
-			return new DemuxBuffer<short>(cpy, G::mask);
+			return new DemuxBuffer<short, 0>(cpy, G::mask);
 		case 4:
-			return new DemuxBuffer<int>(cpy, G::mask);
+			return new DemuxBuffer<int, 0>(cpy, G::mask);
 		default:
 			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
 			exit(1);
