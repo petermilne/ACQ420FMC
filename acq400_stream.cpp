@@ -266,9 +266,13 @@ static int createOutfile(const char* fname) {
 #define FMT_OUT_ROOT_NEW	"/dev/shm/AI.%d.new"
 #define FMT_OUT_ROOT_OLD	"/dev/shm/AI.%d.old"
 
+enum DemuxBufferType {
+	DB_REGULAR,
+	DB_DOUBLE,		// double sample: acq480-4
+	DB_DOUBLE_AXI		// double sample, double AXI, acq480x80
+};
 
-
-template <class T, int N>
+template <class T, DemuxBufferType N>
 class DemuxBuffer: public Buffer {
 private:
 	unsigned* mask;
@@ -440,13 +444,12 @@ public:
 };
 
 
-template <class T, int N>
+template <class T, DemuxBufferType N>
 bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	T* src1 = reinterpret_cast<T*>(pdata+start_off);
 	T* src = reinterpret_cast<T*>(pdata+start_off);
 	int Tlen = len/sizeof(T);
 	int isam = 0;
-	const bool double_up = G::double_up;
 
 	if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
 			start_off, src);
@@ -495,7 +498,6 @@ bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 		}
 		for (; ichan < nchan; ++ichan){
 			*ddcursors[ichan]++ = (*src++)&mask[ichan];
-			if (double_up) *ddcursors[ichan]++ = (*src++)&mask[ichan];
 
 			if (src-src1 >= Tlen){
 				if (verbose){
@@ -517,11 +519,194 @@ bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	/* does not happen */
 	return true;
 }
-template<class T, int N> unsigned DemuxBuffer<T, N>::ID_MASK;
-template<class T, int N> int DemuxBuffer<T, N>::startchan;
-template<class T, int N> T** DemuxBuffer<T, N>::dddata;
-template<class T, int N> T** DemuxBuffer<T, N>::ddcursors;
-bool double_up;
+template<class T, DemuxBufferType N> unsigned DemuxBuffer<T, N>::ID_MASK;
+template<class T, DemuxBufferType N> int DemuxBuffer<T, N>::startchan;
+template<class T, DemuxBufferType N> T** DemuxBuffer<T, N>::dddata;
+template<class T, DemuxBufferType N> T** DemuxBuffer<T, N>::ddcursors;
+
+
+template <>
+bool DemuxBuffer<short, DB_REGULAR>::demux(bool start, int start_off, int len) {
+	short* src1 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = reinterpret_cast<short*>(pdata+start_off);
+	int shortlen = len/sizeof(short);
+	int isam = 0;
+
+	if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
+			start_off, src);
+
+	if (verbose > 1 && start && ch_id(src[0]) != 0x00){
+		fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
+				src[0], data_fits_buffer);
+	}
+
+	int startoff = 0;
+
+	if (verbose && startchan != 0){
+		fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
+				start, startchan, *src);
+	}
+	unsigned ichan = startchan;
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "can skip ES");
+
+	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		for (; ichan < nchan; ++ichan){
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+
+			if (src-src1 >= shortlen){
+				if (verbose){
+					fprintf(stderr,
+							"demux() END buf ch:%d src:%p len:%d\n",
+							ichan, src,  ddcursors[ichan]-dddata[ichan]);
+				}
+				if (++ichan >= nchan) ichan = 0;
+				startchan = ichan;
+
+				if (verbose && startchan != 0){
+					fprintf(stderr,
+							"demux() END buf startchan:%d\n", startchan);
+				}
+				return false;
+			}
+		}
+	}
+	/* does not happen */
+	return true;
+}
+
+template <>
+bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
+	short* src1 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = reinterpret_cast<short*>(pdata+start_off);
+	int shortlen = len/sizeof(short);
+	int isam = 0;
+
+	if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
+			start_off, src);
+
+	if (verbose > 1 && start && ch_id(src[0]) != 0x00){
+		fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
+				src[0], data_fits_buffer);
+	}
+
+	int startoff = 0;
+
+	if (verbose && startchan != 0){
+		fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
+				start, startchan, *src);
+	}
+	unsigned ichan = startchan;
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "can skip ES");
+
+	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		for (; ichan < nchan; ++ichan){
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+
+			if (src-src1 >= shortlen){
+				if (verbose){
+					fprintf(stderr,
+							"demux() END buf ch:%d src:%p len:%d\n",
+							ichan, src,  ddcursors[ichan]-dddata[ichan]);
+				}
+				if (++ichan >= nchan) ichan = 0;
+				startchan = ichan;
+
+				if (verbose && startchan != 0){
+					fprintf(stderr,
+							"demux() END buf startchan:%d\n", startchan);
+				}
+				return false;
+			}
+		}
+	}
+	/* does not happen */
+	return true;
+}
+
+
+template <>
+bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len) {
+	short* src1 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = reinterpret_cast<short*>(pdata+start_off);
+	int shortlen = len/sizeof(short)/2;
+	int isam = 0;
+	unsigned NC2 = nchan/2;
+	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
+
+	if (verbose > 1) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
+			_PFN, start_off, src, len);
+
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(src));
+	if (b1&1){
+		return true;
+	}
+	if (b1 > 100){
+		if (verbose) fprintf(stderr, "%s no successor buffer skip\n", _PFN);
+		return true;
+	}
+
+	int startoff = 0;
+
+	if (verbose && startchan != 0){
+		fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
+				start, startchan, *src);
+	}
+	unsigned ichan = startchan;
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
+
+	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		short* src0 = src;
+		for (; ichan < NC2; ++ichan){
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+
+			if (src-src1 >= shortlen){
+				if (verbose){
+					fprintf(stderr,
+							"demux() END buf ch:%d src:%p len:%d\n",
+							ichan, src,  ddcursors[ichan]-dddata[ichan]);
+				}
+				if (++ichan >= nchan) ichan = 0;
+				startchan = ichan;
+
+				if (verbose && startchan != 0){
+					fprintf(stderr,
+							"demux() END buf startchan:%d\n", startchan);
+				}
+				return false;
+			}
+		}
+		for (short *src2 = src0+BUFSHORTS; ichan < nchan; ++ichan){
+			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
+			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
+		}
+	}
+	if (verbose) fprintf(stderr, "%s 99 DOES NOT HAPPEN\n", _PFN);
+	/* does not happen */
+	return true;
+}
 
 /** output multiple samples per buffer */
 template <class T>
@@ -886,10 +1071,16 @@ class DemuxBufferCloner: public BufferCloner {
 	static Buffer* createDemuxBuffer(Buffer *cpy)
 	{
 		switch(G::wordsize){
-		case 2:
-			return new DemuxBuffer<short, 0>(cpy, G::mask);
-		case 4:
-			return new DemuxBuffer<int, 0>(cpy, G::mask);
+		case sizeof(short):
+			if (G::dualaxi==2){
+				return new DemuxBuffer<short, DB_DOUBLE_AXI>(cpy, G::mask);
+			}else if (G::double_up){
+				return new DemuxBuffer<short, DB_DOUBLE>(cpy, G::mask);
+			}else{
+				return new DemuxBuffer<short, DB_REGULAR>(cpy, G::mask);
+			}
+		case sizeof(int):
+			return new DemuxBuffer<int, DB_REGULAR>(cpy, G::mask);
 		default:
 			fprintf(stderr, "ERROR: wordsize must be 2 or 4");
 			exit(1);
