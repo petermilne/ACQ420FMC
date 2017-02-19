@@ -1,0 +1,7 @@
+#!/bin/sh
+acq480_train
+set.site 1 acq480_two_lane_mode 1
+set.site 1 acq480_setTwoWireMode 1
+/usr/local/CARE/acq480_map16
+acq480_train
+

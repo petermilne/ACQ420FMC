@@ -1634,6 +1634,7 @@ static ssize_t show_is_triggered(
 	return sprintf(buf, "%u\n", triggered != 0);
 }
 
+
 static DEVICE_ATTR(is_triggered, S_IRUGO, show_is_triggered, 0);
 
 static ssize_t show_continuous_reader(
@@ -1654,10 +1655,23 @@ static ssize_t show_has_axi_dma(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 
-	return sprintf(buf, "%u\n", IS_AXI64(adev));
+	return sprintf(buf, "%u\n", IS_AXI64(adev)? IS_AXI64_DUALCHAN_CAPABLE(adev)? 2: 1: 0);
 }
 
-static DEVICE_ATTR(has_axi_dma, S_IRUGO, show_has_axi_dma, 0);
+static ssize_t store_has_axi_dma(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	init_axi_dma(adev);
+	return count;
+}
+
+
+static DEVICE_ATTR(has_axi_dma, S_IRUGO|S_IWUGO,
+		show_has_axi_dma, store_has_axi_dma);
 
 static ssize_t store_RW32_debug(
 	struct device * dev,

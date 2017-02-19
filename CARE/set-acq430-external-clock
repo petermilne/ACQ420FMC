@@ -1,0 +1,11 @@
+#!/bin/sh
+# assume external clock 12.5MHz, HR mode => 25kHz SR
+(
+/usr/local/epics/scripts/wait_ioc_ready
+set.site 1 ADC_MODE HR_512
+set.site 1 CLKDIV 1
+set.site 1 CLK external
+set.site 1 CLK:DX 2
+) &
+
+

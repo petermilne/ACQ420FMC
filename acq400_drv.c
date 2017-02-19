@@ -25,7 +25,8 @@
 
 #include "dmaengine.h"
 
-#define REVID "3.153"
+
+#define REVID "3.162 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -310,6 +311,7 @@ const char* acq400_devnames[] = {
 
 int ai_data_loop(void *data);
 int axi64_data_loop(void* data);
+int axi64_dual_data_loop(void* data);
 int fifo_monitor(void* data);
 
 int fiferr;
@@ -1562,18 +1564,6 @@ static bool filter_true(struct dma_chan *chan, void *param)
 	return true;
 }
 
-static bool filter_axi(struct dma_chan *chan, void *param)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)param;
-	const char* dname = chan->device->dev->driver->name;
-	dev_dbg(DEVP(adev), "filter_axi: %s\n", chan->device->dev->driver->name);
-
-	if (dname != 0 && strcmp(dname, "xilinx-acq400-dma") == 0){
-		return true;
-	}else{
-		return false;
-	}
-}
 
 static int _get_dma_chan(struct acq400_dev *adev, int ic)
 {
@@ -1597,11 +1587,7 @@ static int _get_dma_chan(struct acq400_dev *adev, int ic)
 int get_dma_channels(struct acq400_dev *adev)
 {
 	if (IS_AXI64(adev)){
-		dma_cap_mask_t mask;
-		dma_cap_zero(mask);
-		dma_cap_set(DMA_SLAVE, mask);
-		adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
-		dev_info(DEVP(adev), "axi_dma not using standard driver");
+
 		return 0;
 	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
 		if (xo_use_distributor){
@@ -1625,8 +1611,10 @@ static void _release_dma_chan(struct acq400_dev *adev, int ic)
 }
 void release_dma_channels(struct acq400_dev *adev)
 {
-	_release_dma_chan(adev, 0);
-	_release_dma_chan(adev, 1);
+	if (!IS_AXI64(adev)){
+		_release_dma_chan(adev, 0);
+		_release_dma_chan(adev, 1);
+	}
 }
 
 
@@ -1662,8 +1650,10 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		for(; IS_ERR_OR_NULL(adev->w_task); ++retry){
 			dev_dbg(DEVP(adev), "acq420_continuous_start() kthread_run()");
 			adev->w_task = kthread_run(
-				IS_AXI64(adev)? axi64_data_loop: ai_data_loop, adev,
-				"%s.ai", devname(adev));
+					IS_AXI64_DUALCHAN(adev)? axi64_dual_data_loop:
+							IS_AXI64(adev)? axi64_data_loop:
+							ai_data_loop,
+					adev, "%s.ai", devname(adev));
 			if (IS_ERR_OR_NULL(adev->w_task)){
 				dev_err(DEVP(adev), "ERROR: failed to start task %p", adev->w_task);
 				if (++retry > 5){
@@ -4099,33 +4089,41 @@ void clear_poison_from_buffer(struct acq400_dev *adev, struct HBM* hbm)
 	}
 }
 
-int poison_all_buffers(struct acq400_dev *adev)
+int _poison_all_buffers(struct acq400_dev *adev, int ichan)
 {
 	int ii;
-	int nbuffers = move_list_to_stash(adev, &adev->EMPTIES);
 
-	mutex_lock(&adev->list_mutex);
-	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64_hb[ii];
+	dev_dbg(DEVP(adev), "_poison_all_buffers(%d) : ndesc:%d", ichan, adev->axi64[ichan].ndesc);
+	for (ii = 0; ii < adev->axi64[ichan].ndesc; ++ii){
+		struct HBM* hbm = adev->axi64[ichan].axi64_hb[ii];
 		if (AXI_INIT_BUFFERS){
 			init_one_buffer(adev, hbm);
 		}
 		poison_one_buffer(adev, hbm);
-		list_move_tail(&hbm->list, &adev->EMPTIES);
 	}
-	mutex_unlock(&adev->list_mutex);
 	return nbuffers;
 }
+void poison_all_buffers(struct acq400_dev *adev)
+{
+	mutex_lock(&adev->list_mutex);
+	_poison_all_buffers(adev, 0);
+	_poison_all_buffers(adev, 1);
+	mutex_unlock(&adev->list_mutex);
+}
 
-void clear_poison_all_buffers(struct acq400_dev *adev, int nbuffers)
+void _clear_poison_all_buffers(struct acq400_dev *adev, int ichan)
 {
 	int ii;
 
-	mutex_lock(&adev->list_mutex);
-	for (ii = 0; ii < nbuffers; ++ii){
-		struct HBM* hbm = adev->axi64_hb[ii];
-		clear_poison_from_buffer(adev, hbm);
+	for (ii = 0; ii < adev->axi64[ichan].ndesc; ++ii){
+		clear_poison_from_buffer(adev, adev->axi64[ichan].axi64_hb[ii]);
 	}
+}
+void clear_poison_all_buffers(struct acq400_dev *adev)
+{
+	mutex_lock(&adev->list_mutex);
+	_clear_poison_all_buffers(adev, 0);
+	_clear_poison_all_buffers(adev, 1);
 	mutex_unlock(&adev->list_mutex);
 }
 int check_all_buffers_are_poisoned(struct acq400_dev *adev)
@@ -4211,15 +4209,14 @@ int axi64_data_loop(void* data)
 	int nloop = 0;
 	struct HBM* hbm;
 	int rc;
-	int nbuffers;
 
-	dev_dbg(DEVP(adev), "ai_data_loop() 01");
+	dev_dbg(DEVP(adev), "axi64_data_loop() 01");
 
 	adev->onPutEmpty = poison_one_buffer_fastidious;
-	nbuffers = poison_all_buffers(adev);
+
 
 	if (AXI_CALL_HELPER){
-		if ((rc = axi64_load_dmac(adev)) != 0){
+		if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
 			dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
 			return -1;
 		}else{
@@ -4227,6 +4224,7 @@ int axi64_data_loop(void* data)
 		}
 	}
 
+	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
 		goto quit;
 	}
@@ -4240,6 +4238,8 @@ int axi64_data_loop(void* data)
 
 	for(; !kthread_should_stop(); ++nloop){
 		int ddone = 0;
+		dev_dbg(DEVP(adev), "axi64_data_loop() 10");
+
 		if (wait_event_interruptible_timeout(
 			adev->DMA_READY,
 			(ddone = dma_done(adev, hbm)) || kthread_should_stop(),
@@ -4250,6 +4250,7 @@ int axi64_data_loop(void* data)
 		}
 		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
 		if (!ddone){
+			dev_dbg(DEVP(adev), "axi64_data_loop() 22 %d", hbm->ix);
 			continue;
 		}
 
@@ -4302,11 +4303,124 @@ int axi64_data_loop(void* data)
 quit:
 	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
 
-	clear_poison_all_buffers(adev, nbuffers);
+	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
 	dev_dbg(DEVP(adev), "ai_data_loop() 99");
 	return 0;
 }
+
+
+int axi64_dual_data_loop(void* data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	/* wait for event from OTHER channel */
+	int nloop = 0;
+	struct HBM* hbm0;
+	struct HBM* hbm1;
+	int rc;
+
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
+
+	adev->onPutEmpty = poison_one_buffer_fastidious;
+
+	if (AXI_CALL_HELPER){
+		if ((rc = axi64_load_dmac(adev, CMASK0|CMASK1)) != 0){
+			dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
+			return -1;
+		}else{
+			dev_info(DEVP(adev), "axi64_load_dmac() helper done");
+		}
+	}
+	poison_all_buffers(adev);
+	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
+		goto quit;
+	}
+
+	hbm0 = getEmpty(adev); hbm1 = getEmpty(adev);
+
+	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d,%d",
+			hbm0->ix, hbm1->ix);
+
+	yield();
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
+
+	for(; !kthread_should_stop(); ++nloop){
+		int ddone = 0;
+		if (wait_event_interruptible_timeout(
+			adev->DMA_READY,
+			(ddone = dma_done(adev, hbm0)&&dma_done(adev, hbm1)) ||
+								kthread_should_stop(),
+			AXI_BUFFER_CHECK_TICKS) <= 0){
+			if (kthread_should_stop()){
+				goto quit;
+			}
+		}
+		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
+		if (!ddone){
+			continue;
+		}
+
+		putFull(adev); putFull(adev);
+		adev->rt.axi64_firstups++;
+
+		if (AXI_DMA_HAS_CATCHUP){
+			while(multipleEmptiesWaiting(adev)){
+				hbm0 = getEmpty(adev);
+				hbm1 = getEmpty(adev);
+				if (dma_done(adev, hbm0)&&dma_done(adev, hbm1)){
+					putFull(adev); putFull(adev);
+					adev->rt.axi64_catchups++;
+				}else{
+					break;	/* now wait for this hbm to complete */
+				}
+			}
+		}else{
+			hbm0 = getEmpty(adev); hbm1 = getEmpty(adev);
+		}
+
+		if (check_fifo_statuses(adev)){
+			dev_err(DEVP(adev), "ERROR: quit on fifo status check");
+			goto quit;
+		}
+
+		if (!IS_SC(adev)){
+			//acq420_enable_interrupt(adev);
+		}
+		if (hbm0 == 0 || hbm1 == 0){
+			++adev->stats.errors;
+			move_list_to_empty(adev, &adev->REFILLS);
+			move_list_to_empty(adev, &adev->REFILLS);
+			dev_warn(DEVP(adev), "discarded FULL Q\n");
+			++adev->rt.buffers_dropped;
+
+			if (quit_on_buffer_exhaustion){
+				adev->rt.refill_error = 1;
+				wake_up_interruptible_all(&adev->refill_ready);
+				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+				goto quit;
+			}else{
+				hbm0 = getEmpty(adev);
+				hbm1 = getEmpty(adev);
+				if (hbm0 == 0 || hbm1 == 0){
+					dev_err(DEVP(adev), "STILL NO EMPTIES");
+					goto quit;
+				}else{
+					poison_one_buffer(adev, hbm0);
+					poison_one_buffer(adev, hbm1);
+				}
+			}
+		}
+	}
+quit:
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 98 calling DMA_TERMINATE_ALL");
+
+	clear_poison_all_buffers(adev);
+	adev->task_active = 0;
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 99");
+	return 0;
+}
+
 
 int ai_data_loop(void *data)
 {
@@ -4748,8 +4862,52 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 		adev->nbuffers = ix;
 		adev->bufferlen = bl;
-		adev->axi64_hb = adev->hb+1;
 		return 0;
+	}
+}
+
+int init_axi64_hbm1(struct acq400_dev* adev, unsigned cmask)
+{
+	int ic = cmask==CMASK1? 1: 0;
+	int nb = adev->nbuffers;
+	int ib;
+
+	adev->axi64[ic].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+
+	for (ib = 0; ib < nb; ++ib){
+		adev->axi64[ic].axi64_hb[ib] = adev->hb[ib];
+	}
+	return 0;
+}
+int init_axi64_hbm2(struct acq400_dev* adev)
+{
+	int isrc = 0;
+	int nb = adev->nbuffers/2;
+	int ib;
+
+	adev->axi64[0].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+	adev->axi64[1].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+
+	for (ib = 0; ib < nb; ++ib){
+		adev->axi64[0].axi64_hb[ib] = adev->hb[isrc++];
+		adev->axi64[1].axi64_hb[ib] = adev->hb[isrc++];
+	}
+	return 0;
+}
+int init_axi64_hbm(struct acq400_dev* adev)
+{
+	unsigned cmask = (adev->dma_chan[0]!=0? CMASK0: 0) |
+			 (adev->dma_chan[1]!=0? CMASK1: 0);
+	switch(cmask){
+	case CMASK1:
+		dev_info(DEVP(adev), "INFO: selected AXI DMA1 only"); /* fall thru */
+	case CMASK0:
+		return init_axi64_hbm1(adev, cmask);
+	case CMASK1|CMASK0:
+		return init_axi64_hbm2(adev);
+	default:
+		dev_err(DEVP(adev), "ERROR no AXI DMA");
+		return -1;
 	}
 }
 
@@ -4764,6 +4922,7 @@ struct acq400_dev* acq400_lookupSite(int site)
 	}
 	return 0;
 }
+
 
 int acq400_mod_init_irq(struct acq400_dev* adev)
 {
@@ -4899,7 +5058,25 @@ int acq400_modprobe(struct acq400_dev* adev)
 	acq400_createDebugfs(adev);
 	return 0;
 }
-int acq400_probe(struct platform_device *pdev)
+
+void init_axi_dma(struct acq400_dev* adev)
+{
+	dev_info(DEVP(adev), "init_axi_dma() 01");
+	if (IS_AXI64(adev) && adev->axi_private == 0){
+		dev_info(DEVP(adev), "init_axi_dma() 10");
+          	if (nbuffers < AXI_BUFFER_COUNT){
+          		AXI_BUFFER_COUNT = nbuffers;
+          		dev_warn(DEVP(adev),
+          			".. not enough buffers limit to %d", nbuffers);
+          	}
+          	axi64_claim_dmac_channels(adev);
+          	init_axi64_hbm(adev);
+          	axi64_init_dmac(adev);
+	}
+	dev_info(DEVP(adev), "init_axi_dma() 99");
+}
+
+static int acq400_probe(struct platform_device *pdev)
 {
         int rc;
         struct resource *acq400_resource;
@@ -4961,6 +5138,7 @@ int acq400_probe(struct platform_device *pdev)
         if (rc < 0){
         	goto fail;
         }
+
         if (acq400_modprobe(adev) == 0){
         	return 0;
         }

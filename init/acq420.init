@@ -625,12 +625,20 @@ build_knobs
 set_fans	
 grep acq400\.[0-9] /proc/devices | build_nodes
 
-if [ -e  /dev/acq400.0.knobs/has_axi_dma ] && \
-	[ $(cat /dev/acq400.0.knobs/has_axi_dma) -eq 1 ] ; then
-	/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko
-	web_append  $DROOT/acq400_axi_dma/adma1 1
-	echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
-	cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
+	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
+	if [ $AXI_COUNT -ge 1 ]; then	 
+		/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko maxdev=$AXI_COUNT
+		echo 1 > /dev/acq400.0.knobs/has_axi_dma
+		for file in $DROOT/acq400_axi_dma/adma?
+		do
+			fn=$(basename $file)
+			bn=${fn#adma*}
+			web_append  $file $bn
+		done
+		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
+		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+	fi
 fi
 
 echo ++ Enable analog power..

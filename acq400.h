@@ -439,6 +439,58 @@ inline static const char* dio32mode2str(enum DIO432_MODE mode)
 	}
 }
 
+#define MAX_AXIDMA	2
+
+struct OF_PRAMS {
+	u32 site;
+	u32 dma_channel;
+	u32 fifo_depth;
+	u32 burst_length;
+	u32 irq;
+};
+struct STATS {
+	/* Driver statistics */
+	u32 bytes_written;
+	u32 writes;
+	u32 reads;
+	u32 opens;
+	u32 closes;
+	u32 errors;
+
+	u32 fifo_interrupts;
+	u32 dma_transactions;
+	int shot;
+	int run;
+	int fifo_errors;
+
+	struct XO_STATS {
+		int dma_buffers_out;
+		int dma_buffers_in;
+	} xo;
+};
+
+struct RUN_TIME {			/** stats, cleared onStart */
+	int refill_error;
+	int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
+	int please_stop;
+	unsigned nget;
+	unsigned nput;
+	unsigned hb0_count;
+
+	unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
+	unsigned long hb0_last;
+	struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
+	int event_count;
+
+	u32 samples_at_event;
+	u32 sample_clocks_at_event;
+
+	u32 axi64_ints;
+	u32 axi64_wakeups;		/** work look wake up count */
+	u32 axi64_firstups;		/** number of top of list buffers submitted */
+	u32 axi64_catchups;		/** number of backlog buffers submitted  */
+};
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -453,13 +505,7 @@ struct acq400_dev {
 
 	struct pl330_client_data *client_data;
 
-	struct OF_PRAMS {
-		u32 site;
-		u32 dma_channel;
-		u32 fifo_depth;
-		u32 burst_length;
-		u32 irq;
-	} of_prams;
+	struct OF_PRAMS of_prams;
 
 	wait_queue_head_t DMA_READY;
 	int dma_callback_done;
@@ -494,26 +540,7 @@ struct acq400_dev {
 	/* Driver reference counts */
 	u32 writers;
 
-	struct STATS {
-	/* Driver statistics */
-		u32 bytes_written;
-		u32 writes;
-		u32 reads;
-		u32 opens;
-		u32 closes;
-		u32 errors;
-
-		u32 fifo_interrupts;
-		u32 dma_transactions;
-		int shot;
-		int run;
-		int fifo_errors;
-
-		struct XO_STATS {
-			int dma_buffers_out;
-			int dma_buffers_in;
-		} xo;
-	} stats;
+	struct STATS stats;
 
 	int ramp_en;
 
@@ -539,7 +566,13 @@ struct acq400_dev {
 	struct list_head STASH;		/* buffers kept out of play */
 
 	struct HBM** hb;
-	struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+
+	struct AXI64_Buffers {
+		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+		int ndesc;
+	}
+		axi64[MAX_AXIDMA];
+
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
 	int hitide;
@@ -562,27 +595,7 @@ struct acq400_dev {
 
 	unsigned *fifo_histo;
 
-	struct RUN_TIME {			/** stats, cleared onStart */
-		int refill_error;
-		int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
-		int please_stop;
-		unsigned nget;
-		unsigned nput;
-		unsigned hb0_count;
-
-		unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
-		unsigned long hb0_last;
-		struct HBM* hbm_m1;		/* previous hbm for hb0 usage */
-		int event_count;
-
-		u32 samples_at_event;
-		u32 sample_clocks_at_event;
-
-		u32 axi64_ints;
-		u32 axi64_wakeups;		/** work look wake up count */
-		u32 axi64_firstups;		/** number of top of list buffers submitted */
-		u32 axi64_catchups;		/** number of backlog buffers submitted  */
-	} rt;
+	struct RUN_TIME rt;
 
 	struct XO {
 		unsigned max_fifo_samples;
@@ -815,9 +828,15 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_KMCx_AXI64(adev) \
 	(IS_KMCx_SC(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 
+
 #define IS_AXI64(adev) \
 	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
 
+#define IS_AXI64_DUALCHAN_CAPABLE(adev)	\
+	(IS_ACQ1001_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
+
+#define IS_AXI64_DUALCHAN(adev) \
+	(IS_AXI64(adev) && adev->dma_chan[0] && adev->dma_chan[1])
 
 #define IS_SC(adev) \
 	(IS_ACQ2X06SC(adev)||IS_ACQ1001SC(adev)||IS_KMCx_SC(dev))
@@ -1316,8 +1335,11 @@ static inline int getSHL(unsigned mask)
 }
 
 int axi64_init_dmac(struct acq400_dev *adev);
-int axi64_load_dmac(struct acq400_dev *adev);
+#define CMASK0	0x01
+#define CMASK1  0x02
+int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask);
 int axi64_free_dmac(struct acq400_dev *adev);
+int axi64_claim_dmac_channels(struct acq400_dev *adev);
 int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers);
 /* close off descriptor +nbuffers to prevent overrun */
 
@@ -1370,5 +1392,5 @@ void acq400_clear_aggregator_set(struct acq400_dev *adev);
 int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
-
+void init_axi_dma(struct acq400_dev* adev);
 #endif /* ACQ420FMC_H_ */
