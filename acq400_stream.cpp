@@ -347,82 +347,8 @@ private:
 		pclose(pp);
 	}
 	/* NB: this is an out-of-place demux, source is unchanged */
-	bool demux(bool start, int start_off, int len) {
-		T* src1 = reinterpret_cast<T*>(pdata+start_off);
-		T* src = reinterpret_cast<T*>(pdata+start_off);
-		int Tlen = len/sizeof(T);
-		int isam = 0;
-		const bool double_up = G::double_up;
+	bool demux(bool start, int start_off, int len);
 
-		if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
-				start_off, src);
-
-		if (verbose > 1 && start && ch_id(src[0]) != 0x00){
-			fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
-					src[0], data_fits_buffer);
-		}
-
-		if (sizeof(T)==4 && start && !data_fits_buffer){
-			/* search for start point - site 1 */
-			for (; !(ch_id(src[0]) == ch_id(0x20) &&
-			         ch_id(src[1]) == ch_id(0x21) &&
-			         ch_id(src[2]) == ch_id(0x22) &&
-			         ch_id(src[3]) == ch_id(0x23)    ); ++src){
-				if (src - src1 > 256){
-					if (verbose > 1){
-						dump(src1, src-src1);
-					}
-					fprintf(stderr, "failed to channel align\n");
-					return true;
-				}
-			}
-		}
-
-		int startoff = (src - src1);
-
-		if (verbose && startoff){
-			fprintf(stderr, "realign: %p -> %p %d %d\n",
-					src1, src, src-src1, startoff);
-		}
-		if (verbose && startchan != 0){
-			fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
-					start, startchan, *src);
-		}
-		unsigned ichan = startchan;
-		/* run to the end of buffer. nsam could be rounded down,
-		 * so do not use it.
-		 */
-		if (verbose) fprintf(stderr, "can skip ES");
-
-		for (isam = startoff/nchan; true; ++isam, ichan = 0){
-			while (evX.isES(reinterpret_cast<unsigned*>(src))){
-				if (verbose) fprintf(stderr, "skip ES\n");
-				src += nchan;
-			}
-			for (; ichan < nchan; ++ichan){
-				*ddcursors[ichan]++ = (*src++)&mask[ichan];
-				if (double_up) *ddcursors[ichan]++ = (*src++)&mask[ichan];
-
-				if (src-src1 >= Tlen){
-					if (verbose){
-						fprintf(stderr,
-						"demux() END buf ch:%d src:%p len:%d\n",
-						ichan, src,  ddcursors[ichan]-dddata[ichan]);
-					}
-					if (++ichan >= nchan) ichan = 0;
-					startchan = ichan;
-
-					if (verbose && startchan != 0){
-						fprintf(stderr,
-						"demux() END buf startchan:%d\n", startchan);
-					}
-					return false;
-				}
-			}
-		}
-		/* does not happen */
-		return true;
-	}
 	bool writeChan(int ic){
 		FILE* fp = fopen(fnames[ic], "w");
 		if (fp ==0){
@@ -513,6 +439,84 @@ public:
 	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
 
+
+template <class T>
+bool DemuxBuffer<T>::demux(bool start, int start_off, int len) {
+	T* src1 = reinterpret_cast<T*>(pdata+start_off);
+	T* src = reinterpret_cast<T*>(pdata+start_off);
+	int Tlen = len/sizeof(T);
+	int isam = 0;
+	const bool double_up = G::double_up;
+
+	if (verbose > 1) fprintf(stderr, "demux() start_off:%08x src:%p\n",
+			start_off, src);
+
+	if (verbose > 1 && start && ch_id(src[0]) != 0x00){
+		fprintf(stderr, "handling misalign at [0] %08x data_fits_buffer:%d\n",
+				src[0], data_fits_buffer);
+	}
+
+	if (sizeof(T)==4 && start && !data_fits_buffer){
+		/* search for start point - site 1 */
+		for (; !(ch_id(src[0]) == ch_id(0x20) &&
+				ch_id(src[1]) == ch_id(0x21) &&
+				ch_id(src[2]) == ch_id(0x22) &&
+				ch_id(src[3]) == ch_id(0x23)    ); ++src){
+			if (src - src1 > 256){
+				if (verbose > 1){
+					dump(src1, src-src1);
+				}
+				fprintf(stderr, "failed to channel align\n");
+				return true;
+			}
+		}
+	}
+
+	int startoff = (src - src1);
+
+	if (verbose && startoff){
+		fprintf(stderr, "realign: %p -> %p %d %d\n",
+				src1, src, src-src1, startoff);
+	}
+	if (verbose && startchan != 0){
+		fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
+				start, startchan, *src);
+	}
+	unsigned ichan = startchan;
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "can skip ES");
+
+	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		for (; ichan < nchan; ++ichan){
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+			if (double_up) *ddcursors[ichan]++ = (*src++)&mask[ichan];
+
+			if (src-src1 >= Tlen){
+				if (verbose){
+					fprintf(stderr,
+							"demux() END buf ch:%d src:%p len:%d\n",
+							ichan, src,  ddcursors[ichan]-dddata[ichan]);
+				}
+				if (++ichan >= nchan) ichan = 0;
+				startchan = ichan;
+
+				if (verbose && startchan != 0){
+					fprintf(stderr,
+							"demux() END buf startchan:%d\n", startchan);
+				}
+				return false;
+			}
+		}
+	}
+	/* does not happen */
+	return true;
+}
 template<class T> unsigned DemuxBuffer<T>::ID_MASK;
 template<class T> int DemuxBuffer<T>::startchan;
 template<class T> T** DemuxBuffer<T>::dddata;
