@@ -79,7 +79,7 @@
 #include <sched.h>
 
 #define BUFFER_IDENT 1
-#define VERID	"B1022"
+#define VERID	"B1024"
 
 #define NCHAN	4
 
@@ -2443,6 +2443,8 @@ class Demuxer {
 protected:
 	static int verbose;
 	const int wordsize;
+	int bufstep;
+
 	struct BufferCursor {
 		const int channel_buffer_bytes;	/* number of bytes per channel per buffer */
 		int ibuf;
@@ -2474,7 +2476,7 @@ protected:
 	virtual int _demux(void* start, int nbytes) = 0;
 
 public:
-	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), dst(_cbb) {
+	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), bufstep(1), dst(_cbb) {
 		const char* vs = getenv("DemuxerVerbose");
 		vs && (verbose = atoi(vs));
 		fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
@@ -2524,6 +2526,7 @@ public:
 	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
 		inst_chan(-1)
 	{
+		bufstep = 2;
 		if (getenv("DualAxiDemuxerInstChan")){
 			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
 		}
@@ -2577,7 +2580,6 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 		}
 	}
 	pdst += nsam;
-	dst.cursor = reinterpret_cast<char*>(pdst);
 
 	Progress::instance().print(true, b1);
 
@@ -2614,32 +2616,35 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 
 	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += NC){
 		if (sambuf == cbs){
-			pdst += nsam*NC;	// step to next destination buffer
+			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
+						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
+			pdst += BUFSHORTS;	// step to next destination buffer
 			sambuf = 0;
 		}
 		unsigned chan = 0;
 		// harvest first half channels from first src buf
 		for (short* psrct = psrc; chan < NC2; ++chan){
-			if (verbose > 1 && interesting(sam, nsam)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sam, psrct-srcbuf);
-			pdst[chan*cbs+sam] = *psrct++;
-			pdst[chan*cbs+sam+1] = *psrct++;
+			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+			pdst[chan*cbs+sambuf] = *psrct++;
+			pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 		// harvest second half channels from second src buf
 		for (short* psrct = psrc + BUFSHORTS; chan < NC; ++chan){
-			if (verbose > 1 && interesting(sam, nsam)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sam, psrct-srcbuf);
-			pdst[chan*cbs+sam] = *psrct++;
-			pdst[chan*cbs+sam+1] = *psrct++;
+			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+			pdst[chan*cbs+sambuf] = *psrct++;
+			pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 #ifdef BUFFER_IDENT
 		if (inst_chan >= 0){
-			pdst[inst_chan*cbs+sam] = ++ramp;
-			pdst[inst_chan*cbs+sam+1] = ++ramp;
+			pdst[inst_chan*cbs+sambuf] = ++ramp;
+			pdst[inst_chan*cbs+sambuf+1] = ++ramp;
 		}
 #endif
 	}
 
-	dst.cursor = reinterpret_cast<char*>(pdst + nsam*NC);
-	if (verbose) fprintf(stderr, "%s set cursor  %p\n", _PFN, dst.cursor);
+
+	if (verbose) fprintf(stderr, "%s set cursor %p + %d => %p\n", _PFN, dst.cursor, nbytes, dst.cursor+nbytes);
+	dst.cursor += nbytes;
 	Progress::instance().print(true, b1);
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
@@ -2669,7 +2674,7 @@ int Demuxer::demux(void* start, int nbytes)
 		}else{
 			int nb = _demux(startp, trb);
 			// assert(nb == trb);
-			dst.init(dst.ibuf+1);
+			dst.init(dst.ibuf+bufstep);
 			nbytes -= trb;
 			startp += nb;
 			rc += nb;
