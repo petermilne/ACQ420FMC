@@ -78,7 +78,8 @@
 
 #include <sched.h>
 
-#define VERID	"B1021"
+#define BUFFER_IDENT 1
+#define VERID	"B1022"
 
 #define NCHAN	4
 
@@ -433,7 +434,7 @@ public:
 		make_names();
 
 		data_fits_buffer = nsam*sizeof(T)*nchan == buffer_len;
-		if (verbose>1){
+		if (verbose>2){
 			fprintf(stderr, "nsam:%d _buffer_len:%d data_fits_buffer? %s\n",
 					nsam, buffer_len, data_fits_buffer? "YES": "NO");
 		}
@@ -2602,7 +2603,6 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 	const unsigned step = 2;
 	const unsigned NC = G::nchan;
 	const unsigned NC2 = G::nchan/2;
-	const int NSAM2	= nsam/2;
 	const int BUFSHORTS = Buffer::bufferlen/sizeof(short);
 
 	memcpy(psrc, start, nsrc*sizeof(short));
@@ -2612,10 +2612,10 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
-	for (int sam = 0; sam < nsam; sam += step, psrc += NC){
-		if (sam == NSAM2){
-			// step to second destination buffer
-			pdst += nsam*NC;
+	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += NC){
+		if (sambuf == cbs){
+			pdst += nsam*NC;	// step to next destination buffer
+			sambuf = 0;
 		}
 		unsigned chan = 0;
 		// harvest first half channels from first src buf
@@ -3459,6 +3459,7 @@ protected:
 	Event0 event0;
 	static int verbose;
 
+	unsigned ib;
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
@@ -3561,10 +3562,14 @@ protected:
 
 				if (rc > 0){
 					buf[rc] = '\0';
-					unsigned ib = atoi(buf);
+					unsigned old_ib = ib;
+					ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= Buffer::nbuffers);
-					if (verbose) fprintf(stderr, "%d\n", ib);
+					if (old_ib+1 < Buffer::nbuffers && ib != old_ib+1){
+						if (verbose) fprintf(stderr, "WARNING: buffer skip %d => %d\n", old_ib, ib);
+					}
+					if (verbose > 1) fprintf(stderr, "%d\n", ib);
 					return ib;
 				}else{
 					return -1;
@@ -3665,7 +3670,7 @@ public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
 		pre(_pre), post(_post),
-		cooked(false)
+		cooked(false), ib(666666)
 		{
 
 		if (getenv("StreamHeadPrePostVerbose")){
