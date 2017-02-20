@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.164 DUALAXI"
+#define REVID "3.165 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -890,7 +890,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 	adev->xo.fsr = DIO432_DO_FIFO_STATUS;
 	adev->isFifoError = dio432_isFifoError;
-	if (FPGA_REV(adev) < 5){
+	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
 	}
 	//set_debugs("on");
