@@ -2583,7 +2583,7 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 			}
 		}
 	}
-	pdst += nsam;
+	dst.cursor = reinterpret_cast<char*>(pdst+nsam);
 
 	Progress::instance().print(true, b1);
 
@@ -2649,6 +2649,7 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 
 	if (verbose) fprintf(stderr, "%s set cursor %p + %d => %p\n", _PFN, dst.cursor, nbytes, dst.cursor+nbytes);
 	dst.cursor += nbytes;
+
 	Progress::instance().print(true, b1);
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
