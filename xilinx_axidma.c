@@ -37,7 +37,9 @@ int maxdev = 1;
 module_param(maxdev, int, 0444);
 MODULE_PARM_DESC(maxdev, "maximum number of devices");
 
-
+int ndevices = 0;
+module_param(ndevices, int, 0444);
+MODULE_PARM_DESC(ndevices, "actual number of instantiated devices");
 
 #if defined(CONFIG_XILINX_DMATEST) || defined(CONFIG_XILINX_DMATEST_MODULE)
 # define TEST_DMA_WITH_LOOPBACK
@@ -868,10 +870,6 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 		dev_err(xdev->dev, "unable to read device id property");
 		return err;
 	}
-	if (device_id >= maxdev){
-		dev_err(xdev->dev, "device_id %d >= maxdev limit %d", device_id, maxdev);
-		return -1;
-	}
 
 	chan->has_sg = (xdev->feature & XILINX_DMA_FTR_HAS_SG) >>
 		       XILINX_DMA_FTR_HAS_SG_SHIFT;
@@ -948,6 +946,11 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 	int ret;
 	u32 value;
 
+	if (ndevices >= maxdev){
+		dev_err(xdev->dev, "device_id %d not instantiated, limit %d already reached", device_id, maxdev);
+		return -1;
+	}
+
 	xdev = devm_kzalloc(&pdev->dev, sizeof(*xdev), GFP_KERNEL);
 	if (!xdev)
 		return -ENOMEM;
@@ -1004,7 +1007,7 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "Probing xilinx axi dma engine...Successful\n");
-
+	++ndevices;
 	return 0;
 
 free_chan_resources:
