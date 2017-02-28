@@ -947,7 +947,7 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 	u32 value;
 
 	if (ndevices >= maxdev){
-		dev_err(xdev->dev, "device_id %d not instantiated, limit %d already reached", device_id, maxdev);
+		dev_warn(&(pdev->dev), "device_id not instantiated, limit %d already reached", maxdev);
 		return -1;
 	}
 
