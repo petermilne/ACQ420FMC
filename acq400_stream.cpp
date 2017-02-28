@@ -1993,7 +1993,7 @@ protected:
 		int ib = the_buffer == 0? 0: the_buffer->ib();
 		fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
-	char* findEvent(Buffer* the_buffer) {
+	virtual char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
 		unsigned *base = reinterpret_cast<unsigned*>(the_buffer->getBase());
 		int len32 = the_buffer->getLen()/sizeof(unsigned);
@@ -2001,7 +2001,7 @@ protected:
 
 		++buffers_searched;
 		reportFindEvent(the_buffer, FE_SEARCH);
-		if (verbose) fprintf(stderr, "findEvent 01 base:%p lenw %d len32 %d\n",
+		if (verbose) fprintf(stderr, "%s 01 base:%p lenw %d len32 %d\n", _PFN,
 				base, the_buffer->getLen()/G::wordsize, len32);
 
 
@@ -2010,7 +2010,11 @@ protected:
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
 			if (ev0.isES(cursor)){
 				reportFindEvent(the_buffer, FE_FOUND);
-				if (verbose) fprintf(stderr, "FOUND: %08x %08x\n", cursor[0], cursor[4]);
+				if (verbose){
+					fprintf(stderr, "FOUND: %d offset %d %08x %08x %08x %08x\n",
+						the_buffer->ib(), (cursor-base)*sizeof(int),
+									cursor[0], cursor[1], cursor[2], cursor[3]);
+				}
 				esDiagnostic(the_buffer, cursor);
 				return reinterpret_cast<char*>(cursor);
 			}
@@ -3529,6 +3533,11 @@ protected:
 		notify_result();
 	}
 
+	virtual int bufferSkip(unsigned &ib) {
+		return 0;
+	}
+	unsigned old_ib;
+
 	virtual int getBufferId() {
 		char buf[80];
 		fd_set readfds;
@@ -3567,14 +3576,18 @@ protected:
 
 				if (rc > 0){
 					buf[rc] = '\0';
-					unsigned old_ib = ib;
 					ib = atoi(buf);
 					assert(ib >= 0);
 					assert(ib <= Buffer::nbuffers);
+
 					if (old_ib+1 < Buffer::nbuffers && ib != old_ib+1){
 						if (verbose) fprintf(stderr, "WARNING: buffer skip %d => %d\n", old_ib, ib);
 					}
+					old_ib = ib;
 					if (verbose > 1) fprintf(stderr, "%d\n", ib);
+					if (bufferSkip(ib)){
+						continue;
+					}
 					return ib;
 				}else{
 					return -1;
@@ -3671,6 +3684,12 @@ protected:
 	void estop() {
 		setKnob(0, "estop", "1");
 	}
+	static void initVerbose() {
+		if (getenv("StreamHeadPrePostVerbose")){
+			verbose = atoi(getenv("StreamHeadPrePostVerbose"));
+			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
+		}
+	}
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
@@ -3678,10 +3697,7 @@ public:
 		cooked(false), ib(666666)
 		{
 
-		if (getenv("StreamHeadPrePostVerbose")){
-			verbose = atoi(getenv("StreamHeadPrePostVerbose"));
-			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
-		}
+
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		setState(ST_STOP);
@@ -3746,7 +3762,7 @@ public:
 
 
 	static void reserve_block0 () {
-
+		initVerbose();
 		if (verbose) fprintf(stderr, "%s : 01 %s\n", _PFN, RSV);
 		if (!MapBuffer::hasReserved()){
 			int fd = open(RSV, O_RDONLY);
@@ -3835,6 +3851,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 	}
 
 public:
+
 	DemuxingStreamHeadPrePost(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(progress, _pre, _post),
 		demuxer(_demuxer) {
@@ -3843,6 +3860,58 @@ public:
 	}
 };
 
+bool first = true;
+
+class DemuxingStreamHeadPrePostDualBuffer: public DemuxingStreamHeadPrePost {
+	virtual char* findEvent(Buffer* the_buffer) {
+		fprintf(stderr, "\n%s override starts here\n", _PFN);
+		if ((the_buffer->ib()&1) != 1){
+			fprintf(stderr, "DISCARD even-number buffer %d\n", the_buffer->ib());
+			return 0;
+		}
+		char* esp = DemuxingStreamHeadPrePost::findEvent(the_buffer);
+
+		if (esp){
+			char* esps = DemuxingStreamHeadPrePost::findEvent(
+				Buffer::the_buffers[the_buffer->succ()]);
+
+			if (esps){
+				fprintf(stderr, "%s %d succ rules\n", _PFN, the_buffer->ib());
+				/*
+				fprintf(stderr, "Bailing out to allow inspection %d %d\n", the_buffer->ib(), the_buffer->succ());
+				exit(1);
+				*/
+				return esp;
+			}else{
+				fprintf(stderr, "%s %d ERROR only half ES found\n", _PFN, the_buffer->ib());
+				return 0;
+			}
+		}else{
+			fprintf(stderr, "%s %d NOT FOUND\n", _PFN, the_buffer->ib());
+			return 0;
+		}
+	}
+public:
+	virtual int bufferSkip(unsigned &ib) {
+		if (first){
+			fprintf(stderr, "%s FIRST buffer %d\n", _PFN, ib);
+			first = false;
+		}
+		/* first buffer is ODD. so we want to wait for the first EVEN buffer, then ref the odd one */
+		if ((ib&1) == 0){
+			assert(ib >= 2);
+			ib -= 1;
+			return 0;
+		}else{
+			return 1;
+		}
+	}
+	DemuxingStreamHeadPrePostDualBuffer(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
+		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post)
+	{
+		fprintf(stderr, "%s\n", _PFN);
+	}
+};
 void checkHolders() {
 	for (int isite = 0; isite < G::nsites; ++isite){
 		unsigned holder_ready = 0;
@@ -3936,6 +4005,7 @@ StreamHead* StreamHead::instance() {
 		}
 
 		ident("acq400_stream_main");
+
 		if (G::stream_mode == SM_TRANSIENT){
 			if (G::buffer_mode == BM_PREPOST && G::demux){
 				Demuxer *demuxer;
@@ -3944,12 +4014,16 @@ StreamHead* StreamHead::instance() {
 				}else{
 					if (G::dualaxi == 2){
 						demuxer = new DualAxiDemuxerImpl;
+						_instance = new DemuxingStreamHeadPrePostDualBuffer(
+									Progress::instance(), *demuxer, G::pre, G::post);
 					}else{
 						demuxer = new DemuxerImpl<short>;
 					}
 				}
-				_instance = new DemuxingStreamHeadPrePost(
+				if (_instance == 0){
+					_instance = new DemuxingStreamHeadPrePost(
 					Progress::instance(), *demuxer, G::pre, G::post);
+				}
 			}else{
 				_instance = new StreamHeadPrePost(
 					Progress::instance(), G::pre, G::post);
@@ -3987,7 +4061,6 @@ StreamHead* StreamHead::instance() {
 		waitHolders();
 		if (verbose) fprintf(stderr, "%s %p\n", _PFN, _instance);
 	}
-
 	return _instance;
 }
 
