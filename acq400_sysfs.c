@@ -75,7 +75,9 @@ module_param(dds_strobe_msec, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "STROBE HI TIME in msec");
 
 
-
+int TIM_CTRL_LOCK;
+module_param(TIM_CTRL_LOCK, int, 0644);
+MODULE_PARM_DESC(dds_strobe_msec, "disable usr access when set");
 
 MAKE_TRIPLET(fmc_clk, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
 MAKE_TRIPLET(fmc_trg, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
@@ -448,6 +450,11 @@ static ssize_t store_signal(
 	int nscan;
 
 	if (not_while_busy && adev->busy){
+		return -EBUSY;
+	}
+
+	if (REG == TIM_CTRL && TIM_CTRL_LOCK){
+		dev_warn(dev, "pid %d attempted to write to TIM_CTRL with LOCK ON: \"%s\"", current->pid, buf);
 		return -EBUSY;
 	}
 	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
