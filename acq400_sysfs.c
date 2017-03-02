@@ -39,6 +39,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/wait.h>
 
 #include <asm/uaccess.h>  /* VERIFY_READ|WRITE */
 
@@ -434,6 +435,20 @@ int store_signal3(struct acq400_dev* adev,
 	return 0;
 
 }
+
+int lock_action(struct device * dev, const char* buf)
+{
+	wait_queue_head_t _waitq;
+
+	dev_warn(dev, "pid %d attempted to write to TIM_CTRL with LOCK ON: \"%s\"", current->pid, buf);
+
+	init_waitqueue_head(&_waitq);
+	if (TIM_CTRL_LOCK > 1){
+		wait_event_interruptible_timeout(_waitq, 0, TIM_CTRL_LOCK);
+		dev_warn(dev, "pid %d return", current->pid);
+	}
+	return -EBUSY;
+}
 static ssize_t store_signal(
 		struct device * dev,
 		struct device_attribute *attr,
@@ -453,9 +468,9 @@ static ssize_t store_signal(
 		return -EBUSY;
 	}
 
-	if (REG == TIM_CTRL && TIM_CTRL_LOCK){
-		dev_warn(dev, "pid %d attempted to write to TIM_CTRL with LOCK ON: \"%s\"", current->pid, buf);
-		return -EBUSY;
+	if (REG == TIM_CTRL && shl == TIM_CTRL_TRIG_SHL && TIM_CTRL_LOCK){
+		return lock_action(dev, buf);
+
 	}
 	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
 	nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);

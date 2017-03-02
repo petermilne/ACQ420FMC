@@ -2319,6 +2319,7 @@ int StreamHeadLivePP::_stream() {
 
 
 	if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
+// @@TODO: why does it DIE HERE?
 
 	sigset_t  emptyset;
 
