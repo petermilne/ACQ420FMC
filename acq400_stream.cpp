@@ -2330,6 +2330,7 @@ int StreamHeadLivePP::_stream() {
 #define INIT_SEL do { \
 	sigemptyset(&emptyset); \
 	pto.tv_sec = 1; \
+	pto.tv_nsec = 0; \
 	FD_ZERO(&exceptfds); \
 	FD_SET(f_ev, &exceptfds); \
 	FD_ZERO(&readfds); \
@@ -2340,12 +2341,15 @@ int StreamHeadLivePP::_stream() {
 	INIT_SEL;
 	// 1637099 -1 201    sample_count, hb0 hb1
 	for( getPP(); rc >= 0; getPP()){
-
 		INIT_SEL;
 		rc = pselect(f_ev+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
 		if (rc < 0){
-			break;
+			if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): pselect error %d\n", errno);
+			fprintf(stderr, "StreamHeadLivePP::stream(): pselect error nfds:%d pto.%d\n", f_ev+1, pto.tv_sec);
+			perror("pselect()");
+			exit(1);
 		}
+
 		if (FD_ISSET(f_ev, &exceptfds)){
 			rc = -1; break;
 		}else if (!FD_ISSET(f_ev, &readfds)){
@@ -2367,7 +2371,7 @@ int StreamHeadLivePP::_stream() {
 
 		event_info[rc] = '\0';
 		chomp(event_info);
-		if (verbose) fprintf(stderr, "fd_ev read \"%s\"\n", event_info);
+
 		event_received = true;
 
 		int ibuf;
@@ -2412,7 +2416,6 @@ int StreamHeadLivePP::_stream() {
 			waitPost();
 			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
 		}
-		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 69\n");
 	}
 
 	return rc;
