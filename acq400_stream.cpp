@@ -2345,7 +2345,7 @@ int StreamHeadLivePP::_stream() {
 		rc = pselect(f_ev+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
 		if (rc < 0){
 			if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): pselect error %d\n", errno);
-			fprintf(stderr, "StreamHeadLivePP::stream(): pselect error nfds:%d pto.%d\n", f_ev+1, pto.tv_sec);
+			fprintf(stderr, "StreamHeadLivePP::stream(): pselect error nfds:%d pto.%lu\n", f_ev+1, pto.tv_sec);
 			perror("pselect()");
 			exit(1);
 		}
