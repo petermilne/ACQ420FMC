@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.168 DUALAXI"
+#define REVID "3.169 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2308,12 +2308,15 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	unsigned* src = (unsigned *)adev->gpg_buffer;
 	int iw;
+	int rc;
 
 	for (iw = 0; iw < adev->gpg_cursor; ++iw){
 		iowrite32(src[iw], adev->gpg_base+iw);
 	}
 	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
-	return set_gpg_top(adev, adev->gpg_cursor);
+	rc = set_gpg_top(adev, adev->gpg_cursor);
+	acq400_release(inode, file);
+	return rc;
 }
 
 int acq420_open_gpgmem(struct inode *inode, struct file *file)
@@ -2478,7 +2481,7 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 	wake_up_interruptible(&adev->w_waitq);
 	move_list_to_empty(adev, &adev->REFILLS);
 	move_list_to_empty(adev, &adev->INFLIGHT);
-	return 0;
+	return acq400_release(inode, file);
 }
 
 
@@ -2655,7 +2658,7 @@ int acq400_event_release(struct inode *inode, struct file *file)
 		}
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
-	return 0;
+	return acq400_release(inode, file);
 }
 
 int acq400_open_event(struct inode *inode, struct file *file)
