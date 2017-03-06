@@ -1,24 +1,23 @@
 #!/bin/sh
 
+export SITE=${1:-1}
+/usr/local/bin/acq480_knobs acq480_map ALL 0
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT1A 1 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT1B 1 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT2A 2 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT2B 2 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT3A 3 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT3B 3 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT4A 4 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH1234_TO_OUT4B 4 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT5A 5 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT5B 5 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT6A 6 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT6B 6 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT7A 7 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT7B 7 2
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT8A 8 
+/usr/local/bin/acq480_knobs acq480_map MAP_CH5678_TO_OUT8B 8 2
 
-set.site ${1:-1} << EOF
-acq480_map ALL 0
-acq480_map MAP_CH1234_TO_OUT1A 1 
-acq480_map MAP_CH1234_TO_OUT1B 1 2
-acq480_map MAP_CH1234_TO_OUT2A 2 
-acq480_map MAP_CH1234_TO_OUT2B 2 2
-acq480_map MAP_CH1234_TO_OUT3A 3 
-acq480_map MAP_CH1234_TO_OUT3B 3 2
-acq480_map MAP_CH1234_TO_OUT4A 4 
-acq480_map MAP_CH1234_TO_OUT4B 4 2
-acq480_map MAP_CH5678_TO_OUT5A 5 
-acq480_map MAP_CH5678_TO_OUT5B 5 2
-acq480_map MAP_CH5678_TO_OUT6A 6 
-acq480_map MAP_CH5678_TO_OUT6B 6 2
-acq480_map MAP_CH5678_TO_OUT7A 7 
-acq480_map MAP_CH5678_TO_OUT7B 7 2
-acq480_map MAP_CH5678_TO_OUT8A 8 
-acq480_map MAP_CH5678_TO_OUT8B 8 2
-EOF
 
 
