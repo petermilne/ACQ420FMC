@@ -1593,7 +1593,7 @@ void do_fill_ramp()
 	exit(0);
 }
 
-static void reserve_block0();
+
 
 void init_globs(void)
 {
@@ -1687,9 +1687,7 @@ void init(int argc, const char** argv) {
 	/* do this early so all descendents get the same pgid .. so we can kill them :-) */
 	setpgid(0, 0);
 
-	if (G::pre || G::demux){
-		reserve_block0();		// MUST get length first ..
-	}
+
 	Buffer::sample_size = sample_size();
 
 	openlog("acq400_stream", LOG_PID, LOG_USER);
@@ -3737,9 +3735,6 @@ public:
 		}
 		peers.push_back(this);
 
-		if (pre != 0){
-			reserve_block0();
-		}
 		startEventWatcher();
 	}
 
@@ -3763,32 +3758,9 @@ public:
 		setState(ST_CLEANUP);
 		close();
 	}
-
-
-
-	static void reserve_block0 () {
-		initVerbose();
-		if (verbose) fprintf(stderr, "%s : 01 %s\n", _PFN, RSV);
-		if (!MapBuffer::hasReserved()){
-			int fd = open(RSV, O_RDONLY);
-			MapBuffer::reserve();
-			/* leak! : open, hold, release on quit */
-
-			if (verbose) fprintf(stderr, "%s : %d\n", _PFN, fd);
-			if (fd < 0){
-				perror(RSV);
-			}
-			assert(fd >= 0);
-		}
-
-	}
 };
 
 int StreamHeadPrePost::verbose;
-
-static void reserve_block0() {
-	StreamHeadPrePost::reserve_block0();
-}
 
 
 class SubrateStreamHead: public StreamHead {
@@ -3861,7 +3833,6 @@ public:
 		StreamHeadPrePost(progress, _pre, _post),
 		demuxer(_demuxer) {
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
-		reserve_block0();
 	}
 };
 
