@@ -50,6 +50,9 @@ int AXI_use_eot_interrupts = 1;
 module_param(AXI_use_eot_interrupts, int, 0644);
 MODULE_PARM_DESC(AXI_use_eot_interrupts, "1: enable interrupts");
 
+int DUAL_AXI_SWITCH_CHAN = 1;
+module_param(DUAL_AXI_SWITCH_CHAN, int, 0444);
+
 struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
 	unsigned pa;
@@ -735,14 +738,32 @@ bool filter_axi(struct dma_chan *chan, void *param)
 int axi64_claim_dmac_channels(struct acq400_dev *adev)
 /* MUST be called first .. */
 {
+	char c0, c1;
 	dma_cap_mask_t mask;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
 	adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
 	adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
-	dev_info(DEVP(adev), "axi_dma not using standard driver using channels %c %c",
-			adev->dma_chan[0]!=0? 'A':'x',
-			adev->dma_chan[1]!=0? 'B':'x');
+	if (adev->dma_chan[0] && adev->dma_chan[1]){
+		if (DUAL_AXI_SWITCH_CHAN){
+			swap(adev->dma_chan[0], adev->dma_chan[1]);
+			dev_info(DEVP(adev), "axi64_claim_dmac_channels switch chan");
+			c0 = 'B'; c1 = 'A';
+		}else{
+			c0 = 'A'; c1 = 'B';
+		}
+	}else if (adev->dma_chan[0]){
+		c0 = 'A'; c1 = 'x';
+	}else if (adev->dma_chan[1]){
+		c0 = 'x'; c1 = 'A';
+	}else{
+		c0 = c1 = 'x';
+		dev_err(DEVP(adev), "axi64_claim_dmac_channels no channels");
+	}
+
+	dev_info(DEVP(adev),
+		"axi_dma not using standard driver using channels %c %c", c0, c1);
+
 	return 0;
 }
 

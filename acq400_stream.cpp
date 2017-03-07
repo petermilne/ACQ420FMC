@@ -78,7 +78,7 @@
 
 #include <sched.h>
 
-//#define BUFFER_IDENT 6
+#define BUFFER_IDENT 6
 #define VERID	"B1024"
 
 #define NCHAN	4
@@ -157,7 +157,7 @@ namespace G {
 	FILE* state_fp;
 	char* pre_demux_script;
 	int show_first_sample;
-	bool es_diagnostic;
+	int es_diagnostic;
 	int report_es;
 	int nsites;
 	int the_sites[6];
@@ -366,9 +366,9 @@ private:
 		int nelems = ddcursors[ic]-dddata[ic];
 		int nwrite = fwrite(dddata[ic], sizeof(T), nelems, fp);
 		fclose(fp);
-		if (nwrite != nelems || (verbose&&ic==0)){
-			fprintf(stderr, "DemuxBuffer::writeChan(%s) %d %d %s\n",
-					fnames[ic], nwrite, nelems, nwrite!=nelems? "ERROR":"");
+		if (nwrite != nelems || (verbose&&ic==0) || verbose>1){
+			fprintf(stderr, "DemuxBuffer::writeChan(%s) ic:%d %d %d %s\n",
+					fnames[ic], ic, nwrite, nelems, nwrite!=nelems? "ERROR":"");
 		}
 		return false;
 	}
@@ -643,23 +643,6 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 }
 
 
-/* we expected buff [ii&~1] to be CH01..CH04 but this seems not to be the case when streaming
- * odd, because it works for transient
- * .. */
-
-template<>
-int DemuxBuffer<short, DB_DOUBLE_AXI>::lchan(int ichan){
-	int lc = ichan+1;
-#ifdef WORKSASPLANNED
-	return lc;
-#else
-	if (lc > 4){
-		return lc - 4;
-	}else{
-		return lc + 4;
-	}
-#endif
-}
 
 template <>
 bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len) {
@@ -670,25 +653,23 @@ bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len
 	unsigned NC2 = nchan/2;
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
 
-	if (verbose > 1) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
+	if (verbose) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
 			_PFN, start_off, src, len);
 
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(src));
 	if (b1&1){
+		if (verbose) fprintf(stderr, "%s ODD buffer skip\n", _PFN);
 		return true;
 	}
+	/*
 	if (b1 > 100){
 		if (verbose) fprintf(stderr, "%s no successor buffer skip\n", _PFN);
 		return true;
 	}
-
+*/
 	int startoff = 0;
 
-	if (verbose && startchan != 0){
-		fprintf(stderr, "start:%d startchan:%d data[0]:%08x\n",
-				start, startchan, *src);
-	}
-	unsigned ichan = startchan;
+	unsigned ichan = 0;
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
@@ -703,26 +684,18 @@ bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len
 		for (; ichan < NC2; ++ichan){
 			*ddcursors[ichan]++ = (*src++)&mask[ichan];
 			*ddcursors[ichan]++ = (*src++)&mask[ichan];
-
-			if (src-src1 >= shortlen){
-				if (verbose){
-					fprintf(stderr,
-							"demux() END buf ch:%d src:%p len:%d\n",
-							ichan, src,  ddcursors[ichan]-dddata[ichan]);
-				}
-				if (++ichan >= nchan) ichan = 0;
-				startchan = ichan;
-
-				if (verbose && startchan != 0){
-					fprintf(stderr,
-							"demux() END buf startchan:%d\n", startchan);
-				}
-				return false;
-			}
 		}
 		for (short *src2 = src0+BUFSHORTS; ichan < nchan; ++ichan){
 			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
 			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
+		}
+		if (src-src1 >= shortlen){
+			if (verbose){
+				fprintf(stderr,
+					"demux() END buf ch:%d src:%p len:%d\n",
+					ichan, src,  ddcursors[ichan]-dddata[ichan]);
+			}
+			return false;
 		}
 	}
 	if (verbose) fprintf(stderr, "%s 99 DOES NOT HAPPEN\n", _PFN);
@@ -1604,6 +1577,7 @@ void init_globs(void)
 
 	if(getenv("ES_DIAGNOSTIC")){
 		G::es_diagnostic = atoi(getenv("ES_DIAGNOSTIC"));
+		fprintf(stderr, "set ES_DIAGNOSTIC:%d\n", G::es_diagnostic);
 	}
 }
 
@@ -1750,7 +1724,10 @@ protected:
 			return rc;
 		}
 	}
-
+	virtual char* findEvent(Buffer* the_buffer) {
+		fprintf(stderr, "%s STUB\n", _PFN);
+		return 0;
+	}
 
 public:
 	virtual void stream() {
@@ -1878,6 +1855,7 @@ protected:
 	{
 		if (G::es_diagnostic == 0) return;
 
+		fprintf(stderr, "%s 01 %d\n", _PFN, G::es_diagnostic);
 		FILE *fp = fopen("/dev/shm/es", "w");
 		if (!fp){
 			perror("/dev/shm/es");
@@ -1894,17 +1872,21 @@ protected:
 		}
 
 		if (G::es_diagnostic > 1){
-			char* buffer = new char[0x100000];
+			fprintf(stderr, "%s heavy\n", _PFN);
+			char fname[80];
+			snprintf(fname, 80, "/tmp/es_buffer.%03d", the_buffer->ib());
+			char* buffer = new char[the_buffer->bufferlen];
 			the_buffer->copyBuffer(buffer);
-			fp = fopen("/tmp/es_buffer", "w");
+			fp = fopen(fname, "w");
 			if (fp){
-				fwrite(buffer, 1, 0x100000, fp);
+				fwrite(buffer, 1, the_buffer->bufferlen, fp);
 				fclose(fp);
 				delete [] buffer;
 			}else{
-				perror("/tmp/es_buffer");
+				perror(fname);
 			}
 		}
+		fprintf(stderr, "%s 99\n", _PFN);
 	}
 	bool findEvent(int *ibuf, char** espp) {
 
@@ -2113,6 +2095,21 @@ public:
        }
 };
 
+void StreamHeadHB0__verbose(unsigned ib[], Buffer* b0, Buffer* b1){
+	int last = b0->getLen()/b0->getSizeofItem() - 1;
+	fprintf(stderr, "b0:%p b1:%p\n", b0, b1);
+	fprintf(stderr,
+		"buffer end %3d %08x %08x %08x %08x init %3d\n",
+		ib[0], 	b0->getItem(last-1), b0->getItem(last),
+		b1->getItem(0),	b1->getItem(1), ib[1]);
+	fprintf(stderr,
+		"buffer end %3d %08x %08x %08x %08x init %3d\n",
+		ib[0],
+		b0->getItem(last-1)&0x0ff,
+		b0->getItem(last)&0x0ff,
+		b1->getItem(0)&0x0ff,
+		b1->getItem(1)&0x0ff, ib[1]);
+}
 void StreamHeadHB0::stream() {
 	char buf[80];
 	int rc;
@@ -2134,20 +2131,7 @@ void StreamHeadHB0::stream() {
 			Buffer* b0 = Buffer::the_buffers[ib[0]];
 			Buffer* b1 = Buffer::the_buffers[ib[1]];
 			if (verbose){
-				fprintf(stderr, "b0:%p b1:%p\n", b0, b1);
-				int last = b0->getLen()/b0->getSizeofItem() - 1;
-
-				fprintf(stderr,
-				"buffer end %3d %08x %08x %08x %08x init %3d\n",
-				ib[0], 	b0->getItem(last-1), b0->getItem(last),
-				b1->getItem(0),	b1->getItem(1), ib[1]);
-				fprintf(stderr,
-				"buffer end %3d %08x %08x %08x %08x init %3d\n",
-				ib[0],
-				b0->getItem(last-1)&0x0ff,
-				b0->getItem(last)&0x0ff,
-				b1->getItem(0)&0x0ff,
-				b1->getItem(1)&0x0ff, ib[1]);
+				StreamHeadHB0__verbose(ib, b0, b1);
 			}
 			if (verbose > 10){
 				fprintf(stderr, "no write\n"); continue;
@@ -2650,7 +2634,7 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 
 
 	if (verbose) fprintf(stderr, "%s set cursor %p + %d => %p\n", _PFN, dst.cursor, nbytes, dst.cursor+nbytes);
-	dst.cursor += nbytes;
+	dst.cursor += nbytes/G::nchan;
 
 	Progress::instance().print(true, b1);
 
@@ -3131,7 +3115,13 @@ void BufferDistribution::getSegmentsLinear()
 	if (G::show_es){
 		segments.push_back(Segment(esp, sample_size()));
 	}
-	segments.push_back(Segment(esp+sample_size(), postbytes));
+	int xx = sample_size();
+	if (getenv("xxxx")) xx = atoi(getenv("xxxx"));
+
+	fprintf(stderr, "%s REMOVEME! %d\n", _PFN, xx);
+	//segments.push_back(Segment(esp+sample_size(), postbytes));
+	segments.push_back(Segment(esp+xx, postbytes)); // @@REMOVEME
+	//segments.push_back(Segment(esp, postbytes));
 }
 
 enum BS_STATE { BS_UNKNOWN = -1, BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 0x3 };
@@ -3491,6 +3481,7 @@ protected:
 	}
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
+		fprintf(stderr, "TODO: copy HB001, HB002 out the way so they don't get clobbered\n");
 		if (pre){
 			if (verbose) fprintf(stderr, "%s pre\n", _PFN);
 			BufferDistribution bd(ibuf, es);
@@ -3839,10 +3830,12 @@ public:
 bool first = true;
 
 class DemuxingStreamHeadPrePostDualBuffer: public DemuxingStreamHeadPrePost {
+	bool bale_out;
+protected:
 	virtual char* findEvent(Buffer* the_buffer) {
 		fprintf(stderr, "\n%s override starts here\n", _PFN);
-		if ((the_buffer->ib()&1) != 1){
-			fprintf(stderr, "DISCARD even-number buffer %d\n", the_buffer->ib());
+		if ((the_buffer->ib()&1) == 1){
+			fprintf(stderr, "DISCARD odd-number buffer %d\n", the_buffer->ib());
 			return 0;
 		}
 		char* esp = DemuxingStreamHeadPrePost::findEvent(the_buffer);
@@ -3853,10 +3846,10 @@ class DemuxingStreamHeadPrePostDualBuffer: public DemuxingStreamHeadPrePost {
 
 			if (esps){
 				fprintf(stderr, "%s %d succ rules\n", _PFN, the_buffer->ib());
-				/*
-				fprintf(stderr, "Bailing out to allow inspection %d %d\n", the_buffer->ib(), the_buffer->succ());
-				exit(1);
-				*/
+				if (bale_out){
+					fprintf(stderr, "Bailing out to allow inspection %d %d\n", the_buffer->ib(), the_buffer->succ());
+					exit(1);
+				}
 				return esp;
 			}else{
 				fprintf(stderr, "%s %d ERROR only half ES found\n", _PFN, the_buffer->ib());
@@ -3873,9 +3866,8 @@ public:
 			fprintf(stderr, "%s FIRST buffer %d\n", _PFN, ib);
 			first = false;
 		}
-		/* first buffer is ODD. so we want to wait for the first EVEN buffer, then ref the odd one */
-		if ((ib&1) == 0){
-			assert(ib >= 2);
+		/* wait for ODD buffer, then report EVEN */
+		if ((ib&1) != 0){
 			ib -= 1;
 			return 0;
 		}else{
@@ -3883,9 +3875,11 @@ public:
 		}
 	}
 	DemuxingStreamHeadPrePostDualBuffer(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
-		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post)
+		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post), bale_out(false)
 	{
-		fprintf(stderr, "%s\n", _PFN);
+		char* bo = getenv("DemuxingStreamHeadPrePostDualBufferBaleOut");
+		if (bo) bale_out = atoi(bo);
+		fprintf(stderr, "%s %s\n", _PFN, bale_out? "bale_out": "");
 	}
 };
 void checkHolders() {
