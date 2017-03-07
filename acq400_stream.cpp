@@ -78,7 +78,7 @@
 
 #include <sched.h>
 
-#define BUFFER_IDENT 6
+//#define BUFFER_IDENT 6
 #define VERID	"B1024"
 
 #define NCHAN	4
@@ -2557,12 +2557,6 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 		}
 		T* psrct = psrc;
 		for (unsigned chan = 0; chan < G::nchan; ++chan){
-#ifdef BUFFER_IDENT
-			if (chan == BUFFER_IDENT){
-				pdst[chan*cbs+sam] = b1;
-				continue;
-			}
-#endif
 			pdst[chan*cbs+sam] = *psrct++;
 			if (step == 2){
 				pdst[chan*cbs+sam+1] = *psrct++;
