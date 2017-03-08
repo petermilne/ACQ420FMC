@@ -279,6 +279,7 @@ DEF_PROC_OPSQ(INFLIGHT);
 DEF_PROC_OPSQ(REFILLS);
 DEF_PROC_OPSQ(OPENS);
 DEF_PROC_OPSQ(STASH);
+DEF_PROC_OPSQ(GRESV);
 
 
 static struct file_operations acq400_proc_ops_channel_mappingc = {
@@ -330,6 +331,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 	proc_create("REFILLS", 0, acq400_dev->proc_entry, &acq400_proc_ops_REFILLS);
 	proc_create("OPENS", 0, acq400_dev->proc_entry, &acq400_proc_ops_OPENS);
 	proc_create("STASH", 0, acq400_dev->proc_entry, &acq400_proc_ops_STASH);
+	proc_create("GRESV", 0, acq400_dev->proc_entry, &acq400_proc_ops_GRESV);
 	proc_create("stats", 0, acq400_dev->proc_entry, &acq400_proc_ops_stats);
 	proc_create("Qstats", 0, acq400_dev->proc_entry, &acq400_proc_ops_qstats);
 }

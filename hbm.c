@@ -84,14 +84,14 @@ void fillpa(struct HBM* hbm)
 		pa += sizeof(unsigned);
 	}
 }
-int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir)
+int hbm_allocate(struct device *dev, int ix, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir)
 {
 	int order = getOrder(len);
-	int ix;
+	int ii;
 
 	len = (1 << order) * PAGE_SIZE;
 
-	for (ix = 0; ix < nbuffers; ++ix){
+	for (ii = 0; ii < nbuffers; ++ii, ++ix){
 		struct HBM* hbm = kzalloc(sizeof(struct HBM), GFP_KERNEL);
 		hbm->va = (void*) __get_free_pages(GFP_KERNEL, order);
 		hbm->pa = dma_map_single(dev, hbm->va, len, dir);
@@ -104,7 +104,7 @@ int hbm_allocate(struct device *dev, int nbuffers, int len, struct list_head *bu
 		fillpa(hbm);
 	}
 
-	return 0;
+	return nbuffers;
 }
 
 int hbm_free(struct device *dev, struct list_head *buffers)

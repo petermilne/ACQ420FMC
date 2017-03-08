@@ -1688,6 +1688,7 @@ void init(int argc, const char** argv) {
 	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 		Buffer::create(root, Buffer::bufferlen);
 	}
+	MapBuffer::reserve();
 	if (shuffle_test){
 		do_shuffle_test(shuffle_test);
 	}

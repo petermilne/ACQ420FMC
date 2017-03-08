@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.172 DUALAXI"
+#define REVID "3.179 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -140,6 +140,10 @@ MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on
 int distributor_first_buffer = 0;
 module_param(distributor_first_buffer, int, 0644);
 MODULE_PARM_DESC(distributor_first_buffer, "use in mixed aggregator/distributor systems to avoid buffer overlap");
+
+int reserve_buffers = 0;
+module_param(reserve_buffers, int, 0444);
+MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
 
 /* GLOBALS */
 
@@ -4828,6 +4832,7 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         INIT_LIST_HEAD(&adev->REFILLS);
         INIT_LIST_HEAD(&adev->OPENS);
         INIT_LIST_HEAD(&adev->STASH);
+        INIT_LIST_HEAD(&adev->GRESV);
         mutex_init(&adev->list_mutex);
         INIT_LIST_HEAD(&adev->bq_clients);
         mutex_init(&adev->bq_clients_mutex);
@@ -4851,26 +4856,37 @@ static int acq400_remove(struct platform_device *pdev);
 
 static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 {
-	if (hbm_allocate(DEVP(adev), nb, bl, &adev->EMPTIES, dir)){
-		return -1;
-	}else{
-		struct HBM* cursor;
-		int ix = 0;
-		adev->hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
-		list_for_each_entry(cursor, &adev->EMPTIES, list){
-			WARN_ON(cursor->ix != ix);
-			adev->hb[cursor->ix] = cursor;
-			ix++;
-		}
-		dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
-		adev->nbuffers = ix;
-		adev->bufferlen = bl;
-		return 0;
+	int ix = 0;
+	struct HBM* cursor;
+
+	if (adev->is_sc){
+	    ix += hbm_allocate(DEVP(adev), ix, reserve_buffers, bl, &adev->GRESV, dir);
 	}
+	ix += hbm_allocate(DEVP(adev), ix, nb-reserve_buffers, bl, &adev->EMPTIES, dir);
+
+	dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
+	ix = 0;
+	adev->hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+	list_for_each_entry(cursor, &adev->GRESV, list){
+		dev_dbg(DEVP(adev), "setting ix G %d %d\n", ix, cursor->ix);
+		adev->hb[ix] = cursor;
+		cursor->bstate = BS_RESERVED;
+		ix++;
+	}
+	list_for_each_entry(cursor, &adev->EMPTIES, list){
+		dev_dbg(DEVP(adev), "setting ix E %d %d\n", ix, cursor->ix);
+		adev->hb[ix] = cursor;
+		ix++;
+	}
+	dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
+	adev->nbuffers = ix;
+	adev->bufferlen = bl;
+	return 0;
 }
 
 int init_axi64_hbm1(struct acq400_dev* adev, unsigned cmask)
 {
+	int isrc = reserve_buffers;
 	int ic = cmask==CMASK1? 1: 0;
 	int nb = adev->nbuffers;
 	int ib;
@@ -4878,13 +4894,13 @@ int init_axi64_hbm1(struct acq400_dev* adev, unsigned cmask)
 	adev->axi64[ic].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
 
 	for (ib = 0; ib < nb; ++ib){
-		adev->axi64[ic].axi64_hb[ib] = adev->hb[ib];
+		adev->axi64[ic].axi64_hb[ib] = adev->hb[isrc++];
 	}
 	return 0;
 }
 int init_axi64_hbm2(struct acq400_dev* adev)
 {
-	int isrc = 0;
+	int isrc = reserve_buffers;
 	int nb = adev->nbuffers/2;
 	int ib;
 
@@ -4894,6 +4910,7 @@ int init_axi64_hbm2(struct acq400_dev* adev)
 	for (ib = 0; ib < nb; ++ib){
 		adev->axi64[0].axi64_hb[ib] = adev->hb[isrc++];
 		adev->axi64[1].axi64_hb[ib] = adev->hb[isrc++];
+		dev_dbg(DEVP(adev), "init_axi64_hbm2() %d %d", ib, isrc);
 	}
 	return 0;
 }
@@ -5062,10 +5079,10 @@ void init_axi_dma(struct acq400_dev* adev)
 
 	if (IS_AXI64(adev) && adev->axi_private == 0){
 		dev_info(DEVP(adev), "init_axi_dma() 10");
-          	if (nbuffers < AXI_BUFFER_COUNT){
-          		AXI_BUFFER_COUNT = nbuffers;
+          	if (nbuffers-reserve_buffers < AXI_BUFFER_COUNT){
+          		AXI_BUFFER_COUNT = nbuffers-reserve_buffers;
           		dev_warn(DEVP(adev),
-          			".. not enough buffers limit to %d", nbuffers);
+          			".. not enough buffers limit to %d", nbuffers-reserve_buffers);
           	}
           	axi64_claim_dmac_channels(adev);
           	init_axi64_hbm(adev);

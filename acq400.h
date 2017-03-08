@@ -565,6 +565,7 @@ struct acq400_dev {
 	struct list_head REFILLS;	/* full buffers waiting app  */
 	struct list_head OPENS;		/* buffers in use by app (1) */
 	struct list_head STASH;		/* buffers kept out of play */
+	struct list_head GRESV;		/* Global Reserve */
 
 	struct HBM** hb;
 

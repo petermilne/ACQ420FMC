@@ -115,7 +115,7 @@ protected:
 	static char* ba1;		/* hi end of mapping */
 	static char* ba_lo;		/* lo end of data set */
 	static char* ba_hi;		/* hi end of data set likely == ba1 */
-	static bool buffer_0_reserved;
+	static int buffer_0_reserved;
 
 public:
 	virtual int writeBuffer(int out_fd, int b_opts, unsigned start_off, unsigned len);
@@ -143,18 +143,18 @@ public:
 	}
 	static const char* listBuffers(char* p0, char* p1, bool show_ba = false);
 	static void reserve() {
-		ba_lo = ba0 + bufferlen;
-		buffer_0_reserved = true;
+		ba_lo = ba0 + 2*bufferlen;
+		buffer_0_reserved = 2;
 	}
-	static bool hasReserved() {
+	static int hasReserved() {
 		return buffer_0_reserved;
 	}
 	virtual int pred() {
-		unsigned first_buf = buffer_0_reserved? 1: 0;
+		unsigned first_buf = buffer_0_reserved;
 		return ibuf == first_buf? last_buf-1: ibuf-1;
 	}
 	virtual int succ() {
-		int first_buf = buffer_0_reserved? 1: 0;
+		int first_buf = buffer_0_reserved;
 		return ibuf >= last_buf-1? first_buf: ibuf+1;
 	}
 

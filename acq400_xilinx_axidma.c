@@ -144,6 +144,19 @@ int pa2index(struct ACQ400_AXIPOOL* apool, int ichan, unsigned pa)
 	return -1;
 }
 
+int pa2buffer_index(struct acq400_dev *adev, unsigned pa)
+{
+	int ii;
+	for (ii = 0; ii != adev->nbuffers; ++ii){
+		struct HBM* pb = adev->hb[ii];
+		if (pb->pa == pa){
+			return pb->ix;
+		}
+	}
+
+	return ~1;
+}
+
 static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
 {
 	struct AxiChannelWrapper *acw = s->private;
@@ -152,10 +165,11 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
         struct AxiDescrWrapper * cursor = v;
 
 
-        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x %c\n",
+        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x g:%03d %c\n",
         		cursor->pa, pa2index(apool, acw->ichan, cursor->pa),
         		cursor->va->next_desc, pa2index(apool, acw->ichan, cursor->va->next_desc),
         		cursor->va->buf_addr, cursor->va->control,
+			pa2buffer_index(adev, cursor->va->buf_addr),
 			apool->dump_pa==0? ' ':
 				cursor->va->buf_addr==apool->dump_pa? '-': '+');
 
@@ -405,12 +419,14 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 	int ii;
 	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
 
+	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d %d", ichan, ndescriptors);
 	for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
 		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 		BUG_ON(cursor->va == 0);
 		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 		cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 		cursor->va->control = adev->bufferlen;
+		dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
 	}
 	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg ichan:%d ndesc:%d", ichan, ndescriptors);
 
