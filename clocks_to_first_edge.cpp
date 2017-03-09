@@ -64,7 +64,7 @@ void count_clocks(void)
 	}
 	for (; fin != FINISHED && readw(&x1) == 1; ++clk){
 		unsigned change = (x1 ^ x0);
-		if (change){
+		if (change & ~fin){
 			for (unsigned ib = 0; ib < NBITS; ++ib){
 				unsigned bit = 1<<ib;
 				if ((fin&bit) == 0 && (change&bit) != 0){
