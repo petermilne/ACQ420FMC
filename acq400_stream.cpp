@@ -3107,10 +3107,30 @@ void BufferDistribution::getSegmentsLinear()
 {
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
+	int esp_decr = prebytes;		/* wind esp back this far */
 
 	if (verbose) fprintf(stderr, "%s bd_scale:%d\n", _PFN, bd_scale);
 
-	segments.push_back(Segment(esp-prebytes/bd_scale, prebytes));
+	if (bd_scale == 2){
+		// we have to do special stuff to comp for E,O buffers
+		//  [E][O][E][O]
+		int ib = MapBuffer::getBuffer(esp);
+		int offbytes = esp - MapBuffer::ba(ib);
+
+		if (prebytes/bd_scale > offbytes){
+			if (verbose) fprintf(stderr, "%s MULTI\n", _PFN);
+			int bbbs = prebytes - offbytes/bd_scale;   /* bytes before buff start */
+			int nb = bbbs / MapBuffer::bufferlen;
+			int residue = bbbs - nb*MapBuffer::bufferlen;
+
+			esp_decr = (nb+2) * MapBuffer::bufferlen;	/* always go back in E,O pairs */
+			esp_decr += MapBuffer::bufferlen - residue/bd_scale;
+		}else{
+			if (verbose) fprintf(stderr, "%s SAME\n", _PFN);
+			esp_decr /= bd_scale;
+		}
+	}
+	segments.push_back(Segment(esp-esp_decr, prebytes));
 	if (G::show_es){
 		segments.push_back(Segment(esp, sample_size()));
 	}
