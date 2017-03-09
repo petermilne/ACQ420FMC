@@ -1895,7 +1895,7 @@ protected:
 		int b1, b2;
 		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
 
-		if (verbose) fprintf(stderr, "findEvent \"%s\" nscan=%d %s\n",
+		if (verbose) fprintf(stderr, "%s \"%s\" nscan=%d %s\n", _PFN,
 				event_info, nscan, (b1 == -1 && b2 == -1)? "FAIL": "finding..");
 
 		assert(nscan == 3);
@@ -1914,6 +1914,7 @@ protected:
 			report("b2", b2, esp);
 			if (ibuf) *ibuf = b2;
 			if (espp) *espp = esp;
+			if (verbose) fprintf(stderr, "%s return b2=%d esp=%p true\n", _PFN, b1, esp);
 			return true;
 		}else{
 			if (verbose) fprintf(stderr, "b2 not found\n");
@@ -1932,6 +1933,7 @@ protected:
 			report("b1", b1, esp);
 			if (ibuf) *ibuf = b1;
 			if (espp) *espp = esp;
+			if (verbose) fprintf(stderr, "%s return b1=%d esp=%p true\n", _PFN, b1, esp);
 			return true;
 		}
 
@@ -2948,15 +2950,17 @@ public:
 	bool pre_fits;
 	bool post_fits;
 	static int verbose;
+	int bd_scale;			/* set 2 for dual-buffer (stride back at half rate) */
 
-	BufferDistribution(int _ibuf, char *_esp) :
+	BufferDistribution(int _ibuf, char *_esp, int _bd_scale = 1) :
 		ibuf(_ibuf), esp(_esp),
 		ba_lo(MapBuffer::get_ba_lo()),
 		ba_hi(MapBuffer::get_ba_hi()),
 		tailroom(b2s(esp - ba_lo)),
 		headroom(b2s(ba_hi - esp)),
 		pre_fits(tailroom >= G::pre),
-		post_fits(headroom >= G::post)
+		post_fits(headroom >= G::post),
+		bd_scale(_bd_scale)
 	{
 		const char* bv = getenv("BufferDistributionVerbose");
 		bv && (verbose = atoi(bv));
@@ -3104,19 +3108,13 @@ void BufferDistribution::getSegmentsLinear()
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
 
-	if (verbose) fprintf(stderr, "%s()\n", _PFN);
+	if (verbose) fprintf(stderr, "%s bd_scale:%d\n", _PFN, bd_scale);
 
-	segments.push_back(Segment(esp-prebytes, prebytes));
+	segments.push_back(Segment(esp-prebytes/bd_scale, prebytes));
 	if (G::show_es){
 		segments.push_back(Segment(esp, sample_size()));
 	}
-	int xx = sample_size();
-	if (getenv("xxxx")) xx = atoi(getenv("xxxx"));
-
-	fprintf(stderr, "%s REMOVEME! %d\n", _PFN, xx);
-	//segments.push_back(Segment(esp+sample_size(), postbytes));
-	segments.push_back(Segment(esp+xx, postbytes)); // @@REMOVEME
-	//segments.push_back(Segment(esp, postbytes));
+	segments.push_back(Segment(esp+sample_size(), postbytes));
 }
 
 enum BS_STATE { BS_UNKNOWN = -1, BS_EMPTY, BS_PRE = 0x1, BS_POST = 0x2, BS_ES = 0x3 };
@@ -3476,7 +3474,6 @@ protected:
 	}
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
-		fprintf(stderr, "TODO: copy HB001, HB002 out the way so they don't get clobbered\n");
 		if (pre){
 			if (verbose) fprintf(stderr, "%s pre\n", _PFN);
 			BufferDistribution bd(ibuf, es);
@@ -3512,6 +3509,7 @@ protected:
 			char* es;
 
 			if (findEvent(&ibuf, &es)){
+				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
 				postProcess(ibuf, es);
 			}else{
 				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
@@ -3686,7 +3684,7 @@ public:
 		cooked(false), ib(666666)
 		{
 
-
+		initVerbose();
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		setState(ST_STOP);
@@ -3788,6 +3786,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 	std::vector <MapBuffer*> outbuffers;
 	Demuxer& demuxer;
 
+
 	virtual void postProcess(int ibuf, char* es) {
 		if (G::pre_demux_script){
 			system(G::pre_demux_script);
@@ -3795,7 +3794,7 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 
 		if (verbose) fprintf(stderr, "%s 01 ibuf %d %p\n", _PFN, ibuf, es);
 		if (pre){
-			BufferDistribution bd(ibuf, es);
+			BufferDistribution bd(ibuf, es, bd_scale);
 			bd.report();
 			int iseg = 0;
 
@@ -3812,12 +3811,13 @@ class DemuxingStreamHeadPrePost: public StreamHeadPrePost  {
 		cooked = true;
 		if (verbose) fprintf(stderr, "%s 99\n", _PFN);
 	}
-
+protected:
+	int bd_scale;
 public:
 
 	DemuxingStreamHeadPrePost(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
 		StreamHeadPrePost(progress, _pre, _post),
-		demuxer(_demuxer) {
+		demuxer(_demuxer), bd_scale(1) {
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
 	}
 };
@@ -3836,11 +3836,12 @@ protected:
 		char* esp = DemuxingStreamHeadPrePost::findEvent(the_buffer);
 
 		if (esp){
+			if (verbose) fprintf(stderr, "%s calling findEvent on succ %d,%d\n", _PFN, the_buffer->ib(), the_buffer->succ());
 			char* esps = DemuxingStreamHeadPrePost::findEvent(
 				Buffer::the_buffers[the_buffer->succ()]);
 
 			if (esps){
-				fprintf(stderr, "%s %d succ rules\n", _PFN, the_buffer->ib());
+				fprintf(stderr, "%s %d succ rules esp:%p\n", _PFN, the_buffer->ib(), esp);
 				if (bale_out){
 					fprintf(stderr, "Bailing out to allow inspection %d %d\n", the_buffer->ib(), the_buffer->succ());
 					exit(1);
@@ -3872,6 +3873,7 @@ public:
 	DemuxingStreamHeadPrePostDualBuffer(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
 		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post), bale_out(false)
 	{
+		bd_scale = 2;
 		char* bo = getenv("DemuxingStreamHeadPrePostDualBufferBaleOut");
 		if (bo) bale_out = atoi(bo);
 		fprintf(stderr, "%s %s\n", _PFN, bale_out? "bale_out": "");
