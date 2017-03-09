@@ -65,7 +65,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb \
-	fix_state bpaste
+	fix_state bpaste clocks_to_first_edge
 
 all: modules apps
 	
