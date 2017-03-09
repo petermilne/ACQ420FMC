@@ -608,7 +608,8 @@ else
 	VAP=13
 fi
 
-echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM	
+echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
+sleep .2 	
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 
 
