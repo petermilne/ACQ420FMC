@@ -109,7 +109,7 @@ build_nodes() {
 				mknod /dev/${NAME}.awgr c ${MAJOR} 14;;
 			60|64)
 				mknod /dev/${NAME}.awg c ${MAJOR} 8;;
-			61|62)
+			61|62|6B)
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
 				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;			
 			2)
@@ -308,6 +308,8 @@ build_knobs_device() {
 		fi		
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
+	61|62|6B)
+		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
 	68|69)
 		return;;
 	*)
