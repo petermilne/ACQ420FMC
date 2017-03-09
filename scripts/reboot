@@ -1,4 +1,7 @@
 #!/bin/sh
 
-[ "x$1" = "x3210" ] && /sbin/reboot
+if [ "x$1" = "x3210" ]; then
+	sync;sync
+	/sbin/reboot
+fi
 
