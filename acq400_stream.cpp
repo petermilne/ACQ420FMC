@@ -3107,27 +3107,42 @@ void BufferDistribution::getSegmentsLinear()
 {
 	int prebytes = s2b(G::pre);
 	int postbytes = s2b(G::post);
-	int esp_decr = prebytes;		/* wind esp back this far */
+	int esp_decr = prebytes;	/* wind esp back this far */
 
 	if (verbose) fprintf(stderr, "%s bd_scale:%d\n", _PFN, bd_scale);
 
 	if (bd_scale == 2){
-		// we have to do special stuff to comp for E,O buffers
-		//  [E][O][E][O]
+	/* This is a little _tricky_ ...
+	 * channels are split over two buffers ..
+	 * we have to do special stuff to comp for E,O buffers
+	 *  [RE][RO][FE][FO][FE][FO][EE][EO]
+	 *  EE, OE : the ESP is here, but the data set spans multiple buffers pre
+	 *  FE, FO : Even, Odd complete buffers: 0..N, MUST be pairs.
+	 *  RR, RO : Start buffer pair with residue pre.
+	 *
+	 *  (1) calc bytes before ES at EE buffer start
+	 *  (2) calc number of full buffers pre
+	 *  (3) calc residue in RE
+	 *  (4) wind back nb+2 to get to the beginning of RE
+	 *  (5) start at END RE less residue
+	 *
+	 *  (6) alternatively, if it all fits in EE, then simply index back/bd_scale
+	 *  .. scale down because half the data is in EO ..
+	 */
 		int ib = MapBuffer::getBuffer(esp);
 		int offbytes = esp - MapBuffer::ba(ib);
 
 		if (prebytes/bd_scale > offbytes){
 			if (verbose) fprintf(stderr, "%s MULTI\n", _PFN);
-			int bbbs = prebytes - offbytes/bd_scale;   /* bytes before buff start */
-			int nb = bbbs / MapBuffer::bufferlen;
-			int residue = bbbs - nb*MapBuffer::bufferlen;
+/* (1) */		int bbbs = prebytes - offbytes/bd_scale;
+/* (2) */		int nb = bbbs / MapBuffer::bufferlen;
+/* (3) */		int residue = bbbs - nb*MapBuffer::bufferlen;
 
-			esp_decr = (nb+2) * MapBuffer::bufferlen;	/* always go back in E,O pairs */
-			esp_decr += MapBuffer::bufferlen - residue/bd_scale;
+/* (4) */		esp_decr = (nb+2) * MapBuffer::bufferlen;
+/* (5) */		esp_decr += MapBuffer::bufferlen - residue/bd_scale;
 		}else{
 			if (verbose) fprintf(stderr, "%s SAME\n", _PFN);
-			esp_decr /= bd_scale;
+/* (6) */		esp_decr /= bd_scale;
 		}
 	}
 	segments.push_back(Segment(esp-esp_decr, prebytes));
