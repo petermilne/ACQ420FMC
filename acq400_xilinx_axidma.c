@@ -53,6 +53,10 @@ MODULE_PARM_DESC(AXI_use_eot_interrupts, "1: enable interrupts");
 int DUAL_AXI_SWITCH_CHAN = 1;
 module_param(DUAL_AXI_SWITCH_CHAN, int, 0444);
 
+int AXI_TASKLET_CHANNEL_MASK = 0x1;
+module_param(AXI_TASKLET_CHANNEL_MASK, int, 0644);
+MODULE_PARM_DESC(AXI_TASKLET_CHANNEL_MASK, "channel enables downstream, 1 is enough");
+
 struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
 	unsigned pa;
@@ -611,7 +615,10 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 01 xchan:%p", xchan);
 	xchan->client_private = adev;
 	xchan->start_transfer = _start_transfer;
-	tasklet_init(&xchan->tasklet, acq400_dma_on_ioc, (unsigned long)xchan);
+	/* DUAL-AXI: multiple wakeups for concurrent event not helpful */
+	if (((1<<ichan)&AXI_TASKLET_CHANNEL_MASK) != 0){
+		tasklet_init(&xchan->tasklet, acq400_dma_on_ioc, (unsigned long)xchan);
+	}
 
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 50");
 

@@ -42,9 +42,14 @@ struct HBM * getEmpty(struct acq400_dev* adev)
 		mutex_unlock(&adev->list_mutex);
 
 		++adev->rt.nget;
+		adev->rt.getEmptyErrors.report_active = 0;
 		return hbm;
 	} else {
-		dev_warn(DEVP(adev), "get Empty: Q is EMPTY!\n");
+		if (!adev->rt.getEmptyErrors.report_active){
+			dev_warn(DEVP(adev), "get Empty: EMPTIES Q is EMPTY!\n");
+			adev->rt.getEmptyErrors.report_active = 1;
+		}
+		++adev->rt.getEmptyErrors.errors;
 		return 0;
 	}
 }
@@ -71,8 +76,13 @@ void putFull(struct acq400_dev* adev)
 		}
 		dev_dbg(DEVP(adev), "putFull() wake refill_ready %p", &adev->refill_ready);
 		wake_up_interruptible(&adev->refill_ready);
+		adev->rt.getPutFullErrors.report_active = 0;
 	}else{
-		dev_warn(DEVP(adev), "putFull: Q is EMPTY!\n");
+		if (!adev->rt.getPutFullErrors.report_active){
+			dev_warn(DEVP(adev), "putFull: INFLIGHT Q is EMPTY!\n");
+			adev->rt.getPutFullErrors.report_active = 1;
+		}
+		++adev->rt.getPutFullErrors.errors;
 	}
 }
 
@@ -87,7 +97,7 @@ struct HBM * getEmptyFromRefills(struct acq400_dev* adev)
 		hbm->bstate = BS_FILLING;
 		mutex_unlock(&adev->list_mutex);
 
-		++adev->rt.nget;
+		++adev->rt.ngetr;
 		return hbm;
 	} else {
 		dev_warn(DEVP(adev), "getEmptyFromRefills: Q is EMPTY!\n");

@@ -470,11 +470,16 @@ struct STATS {
 	} xo;
 };
 
+struct RT_QUEUE_REPORT {
+	int report_active;
+	int errors;
+};
 struct RUN_TIME {			/** stats, cleared onStart */
 	int refill_error;
 	int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
 	int please_stop;
 	unsigned nget;
+	unsigned ngetr;
 	unsigned nput;
 	unsigned hb0_count;
 
@@ -490,6 +495,9 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	u32 axi64_wakeups;		/** work look wake up count */
 	u32 axi64_firstups;		/** number of top of list buffers submitted */
 	u32 axi64_catchups;		/** number of backlog buffers submitted  */
+
+	struct RT_QUEUE_REPORT getEmptyErrors;
+	struct RT_QUEUE_REPORT getPutFullErrors;
 };
 
 struct acq400_dev {
