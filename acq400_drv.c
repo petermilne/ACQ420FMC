@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.180 DUALAXI"
+#define REVID "3.190 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -559,11 +559,16 @@ void acq400_enable_trg_if_master(struct acq400_dev *adev)
 
 void acq400_enable_trg(struct acq400_dev *adev, int enable){
 	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 01", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
 	if (enable){
+		if (timcon&TIM_CTRL_MODE_HW_TRG_EN){
+			dev_dbg(DEVP(adev), "acq400_enable_trg already enabled ..");
+		}
 		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
 	}else{
 		timcon &= ~TIM_CTRL_MODE_HW_TRG_EN;
 	}
+	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 99", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
 
@@ -1765,8 +1770,9 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	fiferr = FIFERR;
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
+
 	acq2006_aggregator_reset(adev);				/* (1) */
-	sc_data_engine_reset_enable(DATA_ENGINE_0);	/* (2) */
+	sc_data_engine_reset_enable(DATA_ENGINE_0);		/* (2) */
 
 	if (agg_reset_dbg) dev_info(DEVP(adev), "start dma");
 	rc =_acq420_continuous_start_dma(adev);			/* (3) */
@@ -1782,11 +1788,8 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 			adev->aggregator_set[0]->of_prams.site);
 
 	/* (5) */
+
 	acq400_visit_set(adev->aggregator_set, acq400_enable_trg_if_master);
-/*
-	acq400_visit_set()
-	acq400_enable_trg(adev->aggregator_set[0], 1);
-*/
 	adev->RW32_debug = 0;
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;
@@ -2120,11 +2123,20 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 int acq420_sideported_start(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	int rc;
+	int tmp = adev->RW32_debug;
+	adev->RW32_debug = agg_reset_dbg;
 	dev_dbg(DEVP(adev), "acq420_sideported_start()");
+
+
 	if (sideport_does_not_touch_trg == 0){
+		adev->onStop(adev);
 		acq400_enable_trg(adev, 0);
 	}
-	return _acq420_continuous_start(adev, 0);
+	rc = _acq420_continuous_start(adev, 0);
+
+	adev->RW32_debug = tmp;
+	return rc;
 }
 
 ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count,
@@ -2161,6 +2173,7 @@ int acq420_sideported_stop(struct inode *inode, struct file *file)
 	struct acq400_dev *adev = ACQ400_DEV(file);
 
 	clr_continuous_reader(adev);
+	acq400_enable_trg(adev, 0);
 	_acq420_continuous_stop(adev, 0);
 	return acq400_release(inode, file);
 }
