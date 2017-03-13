@@ -497,7 +497,7 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	u32 axi64_catchups;		/** number of backlog buffers submitted  */
 
 	struct RT_QUEUE_REPORT getEmptyErrors;
-	struct RT_QUEUE_REPORT getPutFullErrors;
+	struct RT_QUEUE_REPORT putFullErrors;
 };
 
 struct acq400_dev {

@@ -30,21 +30,22 @@ int run_buffers = 0;
 module_param(run_buffers, int, 0644);
 MODULE_PARM_DESC(run_buffers, "#buffers to process in continuous (0: infinity)");
 
-struct HBM * getEmpty(struct acq400_dev* adev)
+struct HBM * _getEmpty(struct acq400_dev* adev)
+/* call ONLY inside mutex */
 {
 	if (!list_empty(&adev->EMPTIES)){
-		struct HBM *hbm;
-		mutex_lock(&adev->list_mutex);
-		hbm = list_first_entry(
+		struct HBM *hbm = list_first_entry(
 				&adev->EMPTIES, struct HBM, list);
-		list_move_tail(&hbm->list, &adev->INFLIGHT);
-		hbm->bstate = BS_FILLING;
-		mutex_unlock(&adev->list_mutex);
-
-		++adev->rt.nget;
-		adev->rt.getEmptyErrors.report_active = 0;
+		if (likely(hbm != 0)){
+			list_move_tail(&hbm->list, &adev->INFLIGHT);
+			hbm->bstate = BS_FILLING;
+			++adev->rt.nget;
+			adev->rt.getEmptyErrors.report_active = 0;
+		}else{
+			dev_err(DEVP(adev), "getEmpty() NULL HBM");
+		}
 		return hbm;
-	} else {
+	}else{
 		if (!adev->rt.getEmptyErrors.report_active){
 			dev_warn(DEVP(adev), "get Empty: EMPTIES Q is EMPTY!\n");
 			adev->rt.getEmptyErrors.report_active = 1;
@@ -54,35 +55,56 @@ struct HBM * getEmpty(struct acq400_dev* adev)
 	}
 }
 
+struct HBM * getEmpty(struct acq400_dev* adev)
+{
+	struct HBM *hbm = 0;
+	mutex_lock(&adev->list_mutex);
+	hbm = _getEmpty(adev);
+	mutex_unlock(&adev->list_mutex);
+	return hbm;
+}
+
 int multipleEmptiesWaiting(struct acq400_dev* adev)
 {
 	return !list_empty(&adev->EMPTIES) && !list_is_singular(&adev->EMPTIES);
 }
 
-void putFull(struct acq400_dev* adev)
+int _putFull(struct acq400_dev* adev)
+/* called with MUTEX locked */
 {
 	if (!list_empty(&adev->INFLIGHT)){
-		struct HBM *hbm;
-		mutex_lock(&adev->list_mutex);
-		hbm = list_first_entry(
+		struct HBM *hbm = list_first_entry(
 				&adev->INFLIGHT, struct HBM, list);
 		hbm->bstate = BS_FULL;
 		list_move_tail(&hbm->list, &adev->REFILLS);
-		mutex_unlock(&adev->list_mutex);
+		return 0;
+	}else{
+		return -1;
+	}
+}
 
+void putFull(struct acq400_dev* adev)
+{
+	int rc;
+	mutex_lock(&adev->list_mutex);
+	rc = _putFull(adev);
+	mutex_unlock(&adev->list_mutex);
+
+	if (rc == 0){
 		++adev->rt.nput;
 		if (run_buffers && adev->rt.nput >= run_buffers){
 			adev->rt.please_stop = 1;
 		}
 		dev_dbg(DEVP(adev), "putFull() wake refill_ready %p", &adev->refill_ready);
 		wake_up_interruptible(&adev->refill_ready);
-		adev->rt.getPutFullErrors.report_active = 0;
+		adev->rt.putFullErrors.report_active = 0;
 	}else{
-		if (!adev->rt.getPutFullErrors.report_active){
+		if (!adev->rt.putFullErrors.report_active){
 			dev_warn(DEVP(adev), "putFull: INFLIGHT Q is EMPTY!\n");
-			adev->rt.getPutFullErrors.report_active = 1;
+			adev->rt.putFullErrors.report_active = 1;
 		}
-		++adev->rt.getPutFullErrors.errors;
+		++adev->rt.putFullErrors.errors;
+		msleep(10);
 	}
 }
 

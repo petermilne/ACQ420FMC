@@ -97,10 +97,10 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
         seq_printf(s, "ngets=%u "
         	      "ngetr=%d "
         	      "nputs=%u\n", adev->rt.nget, adev->rt.ngetr, adev->rt.nput);
-        seq_printf(s, "getEmptyErrors=%u,%u"
-        	      "getPutFullErrors=%u,%u",
+        seq_printf(s, "getEmptyErrors=%u,%u "
+        	      "putFullErrors=%u,%u ",
 		      adev->rt.getEmptyErrors.errors, adev->rt.getEmptyErrors.report_active,
-		      adev->rt.getPutFullErrors.errors, adev->rt.getPutFullErrors.report_active);
+		      adev->rt.putFullErrors.errors, adev->rt.putFullErrors.report_active);
         seq_printf(s, "axi64=%u,%u,%u\n",
         		adev->rt.axi64_wakeups,
         		adev->rt.axi64_firstups, adev->rt.axi64_catchups);
