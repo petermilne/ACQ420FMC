@@ -273,8 +273,27 @@ enum DemuxBufferType {
 	DB_DOUBLE_AXI		// double sample, double AXI, acq480x80
 };
 
+class DemuxBufferCommon: public Buffer {
+
+public:
+	DemuxBufferCommon(Buffer* cpy): Buffer(cpy) {}
+
+	static int demuxBufferVerbose() {
+		char *vfs = getenv("DemuxBufferVerbose");
+		if (vfs){
+			 return atoi(vfs);
+		}else{
+			return 0;
+		}
+	};
+
+	static int verbose;
+};
+
+int DemuxBufferCommon::verbose = DemuxBufferCommon::demuxBufferVerbose();
+
 template <class T, DemuxBufferType N>
-class DemuxBuffer: public Buffer {
+class DemuxBuffer: public DemuxBufferCommon {
 private:
 	unsigned* mask;
 	unsigned nchan;
@@ -373,6 +392,7 @@ private:
 		return false;
 	}
 public:
+
 	virtual int writeBuffer(int out_fd, int b_opts) {
 		if ((b_opts&BO_START) != 0){
 			start();
@@ -413,7 +433,7 @@ public:
 	}
 
 	DemuxBuffer(Buffer* cpy, unsigned _mask) :
-		Buffer(cpy),
+		DemuxBufferCommon(cpy),
 		nchan(G::nchan),
 		evX(*AbstractES::evX_instance())
 	{
@@ -446,6 +466,7 @@ public:
 	}
 	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
+
 
 
 template <class T, DemuxBufferType N>
@@ -3132,16 +3153,21 @@ void BufferDistribution::getSegmentsLinear()
 		int ib = MapBuffer::getBuffer(esp);
 		int offbytes = esp - MapBuffer::ba(ib);
 
+		if (verbose > 1) fprintf(stderr, "%s (0) ib:%d offbytes:%d esp_decr %d\n", _PFN, ib, offbytes, esp_decr);
+
 		if (prebytes/bd_scale > offbytes){
 			if (verbose) fprintf(stderr, "%s MULTI\n", _PFN);
 /* (1) */		int bbbs = prebytes - offbytes/bd_scale;
 /* (2) */		int nb = bbbs / MapBuffer::bufferlen;
 /* (3) */		int residue = bbbs - nb*MapBuffer::bufferlen;
 
-/* (4) */		esp_decr = (nb+2) * MapBuffer::bufferlen;
+			if (verbose > 1) fprintf(stderr, "%s (3) bbs:%d nb:%d residue:%d\n", _PFN, bbbs, nb, residue);
+
+/* (4) */		esp_decr = offbytes + (nb+2)*MapBuffer::bufferlen;
 /* (5) */		esp_decr += MapBuffer::bufferlen - residue/bd_scale;
 		}else{
 			if (verbose) fprintf(stderr, "%s SAME\n", _PFN);
+			if (verbose > 1) fprintf(stderr, "%s (6) offbytes:%d esp_decr %d->%d\n", _PFN, offbytes, esp_decr, esp_decr/bd_scale);
 /* (6) */		esp_decr /= bd_scale;
 		}
 	}
