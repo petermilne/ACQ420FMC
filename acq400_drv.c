@@ -141,7 +141,7 @@ int distributor_first_buffer = 0;
 module_param(distributor_first_buffer, int, 0644);
 MODULE_PARM_DESC(distributor_first_buffer, "use in mixed aggregator/distributor systems to avoid buffer overlap");
 
-int reserve_buffers = 0;
+int reserve_buffers = 2;
 module_param(reserve_buffers, int, 0444);
 MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
 
