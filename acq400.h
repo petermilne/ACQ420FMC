@@ -72,6 +72,7 @@
 #define DAC_FIFO_SAMPLES	ADC_FIFO_SAMPLES
 #define ADC_FIFO_STA		(ADC_BASE+0x14)
 #define DAC_FIFO_STA		ADC_FIFO_STA
+#define DIOUSB_STA		ADC_FIFO_STA
 #define ADC_INT_CSR		(ADC_BASE+0x18)
 #define DAC_INT_CSR		ADC_INT_CSR
 #define ADC_CLK_CTR		(ADC_BASE+0x1C)
@@ -174,6 +175,7 @@
 #define MOD_IDV_V2F		0x0
 #define MOD_IDV_DIO		0x1
 #define MOD_IDV_QEN		0x2
+#define MOD_IDV_ACQ1014		0x14
 
 #define MOD_ID_PIG_CELF		0x68
 #define MOD_ID_RAD_CELF		0x69
@@ -770,7 +772,7 @@ int getHeadroom(struct acq400_dev *adev);
 
 #define GET_MOD_ID(adev) 	 ((adev)->mod_id>>MOD_ID_TYPE_SHL)
 #define GET_MOD_ID_VERSION(adev) (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0xff)
-#define GET_MOD_IDV(adev) 	 (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0x0f)
+#define GET_MOD_IDV(adev) 	 (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0x1f)
 
 #define GET_FPGA_REV(adev)	((adev)->mod_id&0x0000ffff)
 
@@ -875,6 +877,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_V2F)
 #define IS_QEN(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_QEN)
+/* @@todo there's already IS_ACQ1014 tied to sc .. */
+#define IS_ACQ1014_M(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_ACQ1014)
 
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
 #define IS_RAD_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_RAD_CELF)
@@ -1391,6 +1395,23 @@ void acq400_spi_strobe(void *clidata, int cs, int mode);
 #define RAD_DDS_CLK_OEn		(1<<4)
 #define RAD_DDS_OSK		(1<<1)
 #define RAD_DDS_BPSK		(1<<0)
+
+/* ACQ1014: DIO BISCUIT in MASTER */
+#define DIO1014_CR		(0x04)
+#define DIO1014_SR		(0x14)	/* @@todo pending */
+#define DIO1014_SR_RP_CONN	(1<<0)	/* @@todo pending */
+
+#define DIO1014_CR_CLK		(1<<8)
+#define DIO1014_CR_CLK_LO	DIO1014_CR_CLK
+#define DIO1014_CR_TRG		(1<<4)
+#define DIO1014_CR_TRG_SOFT	DIO1014_CR_TRG
+#define DIO1014_MOD_EN		(1<<0)
+
+enum ACQ1014_ROUTE {
+	ACQ1014_FP,
+	ACQ1014_LOC,
+	ACQ1014_RP
+};
 
 int acq400_get_site(struct acq400_dev *adev, char s);
 int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site);

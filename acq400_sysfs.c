@@ -1549,6 +1549,8 @@ static const char* _lookup_id(struct acq400_dev *adev)
 			return "dio";
 		case MOD_IDV_QEN:
 			return "qen";
+		case MOD_IDV_ACQ1014:
+			return "acq1014";
 		default:
 			break;
 		}
@@ -1795,6 +1797,7 @@ static const struct attribute *acq435_attrs[] = {
 extern const struct attribute *sysfs_v2f_attrs[];
 extern const struct attribute *sysfs_qen_attrs[];
 extern const struct attribute *acq480_attrs[];
+extern const struct attribute *sysfs_acq1014_attrs[];
 
 static ssize_t show_dac_headroom(
 	struct device * dev,
@@ -4147,6 +4150,8 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = pig_celf_attrs;
 		}else if (IS_QEN(adev)){
 			specials[nspec++] = sysfs_qen_attrs;
+		}else if (IS_ACQ1014_M(adev)){
+			specials[nspec++] = sysfs_acq1014_attrs;
 		}else{
 			return;
 		}

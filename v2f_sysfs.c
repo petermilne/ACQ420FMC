@@ -276,3 +276,51 @@ const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_qen_count.attr,
 	NULL
 };
+
+
+#define ACQ1014_REG(FUN, fun)							\
+static ssize_t show_acq1014_##fun(						\
+	struct device * dev,							\
+	struct device_attribute *attr,						\
+	char * buf)								\
+{										\
+	struct acq400_dev *adev = acq400_devices[dev->id];			\
+	unsigned cr = acq400rd32(adev, DIO1014_CR);				\
+	unsigned sr = acq400rd32(adev, DIO1014_SR);				\
+										\
+	return sprintf(buf, "%d\n", (sr&DIO1014_SR_RP_CONN)? ACQ1014_RP:	\
+				    (cr&DIO1014_CR_##FUN)? ACQ1014_LOC:		\
+						    ACQ1014_RP);		\
+}										\
+										\
+static ssize_t store_acq1014_##fun(						\
+	struct device *dev,							\
+	struct device_attribute *attr,						\
+	const char* buf,							\
+	size_t count)								\
+{										\
+	struct acq400_dev *adev = acq400_devices[dev->id];			\
+	unsigned cr = acq400rd32(adev, DIO1014_CR);				\
+	int en;									\
+	if (sscanf(buf, "%d", &en) == 1){					\
+		if (en){							\
+			cr |= DIO1014_CR_##FUN;					\
+		}else{								\
+			cr &= ~DIO1014_CR_##FUN;				\
+		}								\
+		acq400wr32(adev, DIO1014_CR, cr);				\
+		return count;							\
+	}									\
+	return -1;								\
+}										\
+static DEVICE_ATTR(acq1014_##fun, S_IRUGO|S_IWUGO, show_acq1014_##fun, store_acq1014_##fun);
+
+ACQ1014_REG(CLK, clk);
+ACQ1014_REG(TRG, trg);
+
+
+const struct attribute *sysfs_acq1014_attrs[] = {
+	&dev_attr_acq1014_clk.attr,
+	&dev_attr_acq1014_trg.attr,
+	NULL
+};

@@ -252,6 +252,12 @@ void qen_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(QEN_ENC_COUNT);
 }
 
+void acq1014_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(DIO1014_CR);
+	DBG_REG_CREATE(DIO1014_SR);
+}
+
 void pig_celf_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE(ADC_CTRL);
@@ -336,6 +342,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			case MOD_IDV_DIO:
 			case MOD_IDV_QEN:
 				return qen_createDebugfs(adev, pcursor);
+			case MOD_IDV_ACQ1014:
+				return acq1014_createDebugfs(adev, pcursor);
 			}
 			break;
 		case MOD_ID_PIG_CELF:

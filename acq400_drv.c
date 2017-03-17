@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.190 DUALAXI"
+#define REVID "3.193 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -411,7 +411,7 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 u32 acq400rd32(struct acq400_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
-	if (adev->RW32_debug){
+	if (adev->RW32_debug > 1){
 		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
 			adev->dev_virtaddr + offset, offset, rc);
 	}else{
@@ -687,6 +687,12 @@ static void qen_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN);
 	adev->onStart = _qen_onStart;
 	adev->onStop = _qen_onStop;
+}
+
+static void acq1014_init_defaults(struct acq400_dev *adev)
+{
+	acq400wr32(adev, DIO1014_CR,
+		DIO1014_CR_CLK_LO|DIO1014_CR_TRG_SOFT|DIO1014_MOD_EN);
 }
 static void pig_celf_init_defaults(struct acq400_dev *adev)
 {
@@ -5015,6 +5021,9 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			case MOD_IDV_DIO:
 			case MOD_IDV_QEN:
 				qen_init_defaults(adev);
+				break;
+			case MOD_IDV_ACQ1014:
+				acq1014_init_defaults(adev);
 				break;
 			}
 			break;

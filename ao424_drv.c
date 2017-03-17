@@ -68,7 +68,7 @@ static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 static u32 _acq400rd32(struct acq400_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
-	if (adev->RW32_debug){
+	if (adev->RW32_debug > 1){
 		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
 			adev->dev_virtaddr + offset, offset, rc);
 	}else{
