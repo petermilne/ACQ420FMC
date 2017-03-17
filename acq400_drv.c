@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.193 DUALAXI"
+#define REVID "3.194 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -557,11 +557,12 @@ void acq400_enable_trg_if_master(struct acq400_dev *adev)
 	}
 }
 
-void acq400_enable_trg(struct acq400_dev *adev, int enable){
+int acq400_enable_trg(struct acq400_dev *adev, int enable){
 	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	int was_enabled = (timcon&TIM_CTRL_MODE_HW_TRG_EN) != 0;
 	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 01", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
 	if (enable){
-		if (timcon&TIM_CTRL_MODE_HW_TRG_EN){
+		if (was_enabled){
 			dev_dbg(DEVP(adev), "acq400_enable_trg already enabled ..");
 		}
 		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
@@ -570,6 +571,7 @@ void acq400_enable_trg(struct acq400_dev *adev, int enable){
 	}
 	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 99", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
 	acq400wr32(adev, TIM_CTRL, timcon);
+	return was_enabled;
 }
 
 static void acq420_init_defaults(struct acq400_dev *adev)
@@ -2177,10 +2179,15 @@ ssize_t acq400_sideported_read(struct file *file, char __user *buf, size_t count
 int acq420_sideported_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	int trg_was_enabled = acq400_enable_trg(adev, 0);
 
 	clr_continuous_reader(adev);
-	acq400_enable_trg(adev, 0);
 	_acq420_continuous_stop(adev, 0);
+
+	if (trg_was_enabled){
+		/* and restore, because otherwise it's too confusing */
+		acq400_enable_trg(adev, 1);
+	}
 	return acq400_release(inode, file);
 }
 

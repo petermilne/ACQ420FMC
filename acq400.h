@@ -1322,7 +1322,8 @@ enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
 void acq2006_estop(struct acq400_dev *adev);
 
-void acq400_enable_trg(struct acq400_dev *adev, int enable);
+int acq400_enable_trg(struct acq400_dev *adev, int enable);
+/* returns TRUE if previously enabled */
 void acq400_enable_trg_if_master(struct acq400_dev *adev);
 
 extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
