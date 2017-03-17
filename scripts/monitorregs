@@ -44,7 +44,8 @@ monitor() {
 	echo monitor $XMLNAME.xml
 	while [ 1 ]
 	do
-		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME.xml -s $C2R20
+		dump_regs | fs2xml -k '' -o /dev/shm/$XMLNAME-new.xml -s $C2R20
+		mv /dev/shm/$XMLNAME-new.xml  /dev/shm/$XMLNAME.xml 
 		sleep 1		
 	done
 }
