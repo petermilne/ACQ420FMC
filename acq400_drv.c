@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.194 DUALAXI"
+#define REVID "3.196 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -922,20 +922,23 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_RST|DIO432_CTRL_DIO_RST);
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_EN);
 
-	dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
-	measure_ao_fifo(adev);
-	dev_info(DEVP(adev), "dio432 max fifo samples %d", adev->xo.max_fifo_samples);
-	if (dio432_rowback){
-		adev->xo.max_fifo_samples -= dio432_rowback;
-		dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
-				adev->xo.max_fifo_samples);
+	if (measure_ao_fifo_ok){
+		dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
+		measure_ao_fifo(adev);
+		dev_info(DEVP(adev), "dio432 max fifo samples %d", adev->xo.max_fifo_samples);
+		if (dio432_rowback){
+			adev->xo.max_fifo_samples -= dio432_rowback;
+			dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
+					adev->xo.max_fifo_samples);
+		}
 	}
+
 	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	//set_debugs("off");
 	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
 			__LINE__, acq400rd32(adev, DAC_CTRL));
-	dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
+	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
 }
 
 int bolo8_isFifoError(struct acq400_dev *adev);
