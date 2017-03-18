@@ -95,15 +95,16 @@ static int acq400_proc_seq_show_stats(struct seq_file *s, void *v)
 
 /* acq400_knobs only shows first line .. */
         seq_printf(s, "ngets=%u "
-        	      "ngetr=%d "
-        	      "nputs=%u\n", adev->rt.nget, adev->rt.ngetr, adev->rt.nput);
+        	      "nputs=%u ", adev->rt.nget, adev->rt.nput);
+        seq_printf(s, "axi64=%u,%u,%u ",
+                		adev->rt.axi64_wakeups,
+                		adev->rt.axi64_firstups, adev->rt.axi64_catchups);
+        seq_printf(s,  "ngetr=%d\n", adev->rt.ngetr);
         seq_printf(s, "getEmptyErrors=%u,%u "
         	      "putFullErrors=%u,%u ",
 		      adev->rt.getEmptyErrors.errors, adev->rt.getEmptyErrors.report_active,
 		      adev->rt.putFullErrors.errors, adev->rt.putFullErrors.report_active);
-        seq_printf(s, "axi64=%u,%u,%u\n",
-        		adev->rt.axi64_wakeups,
-        		adev->rt.axi64_firstups, adev->rt.axi64_catchups);
+
         seq_printf(s, "axi64_wakeups=%u "
                       "axi64_firstups=%u "
                       "axi64_catchups=%u "
