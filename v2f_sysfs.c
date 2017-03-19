@@ -289,8 +289,8 @@ static ssize_t show_acq1014_##fun(						\
 	unsigned sr = acq400rd32(adev, DIO1014_SR);				\
 										\
 	return sprintf(buf, "%d\n", (sr&DIO1014_SR_RP_CONN)? ACQ1014_RP:	\
-				    (cr&DIO1014_CR_##FUN)? ACQ1014_LOC:		\
-						    ACQ1014_RP);		\
+				    (cr&DIO1014_CR_##FUN)?   ACQ1014_LOC:	\
+						    	     ACQ1014_FP);	\
 }										\
 										\
 static ssize_t store_acq1014_##fun(						\
