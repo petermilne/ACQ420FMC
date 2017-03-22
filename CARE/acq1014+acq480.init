@@ -15,7 +15,7 @@ init_mb_clk() {
 	set.site 0 SIG:CLK_MB:FIN=20000000
 	set.site 0 SIG:CLK_MB:SET $1
 	set.site 1 clk=1,1,1
-	set.site 1 trg=1,1,0
+	set.site 1 trg=1,0,0
 }
 
 (init_mb_clk ${1:-50000000}) & 
