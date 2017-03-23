@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.200 DUALAXI"
+#define REVID "3.201 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -5039,8 +5039,10 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			break;
 		case MOD_ID_PIG_CELF:
 			pig_celf_init_defaults(adev);
+			break;
 		case MOD_ID_RAD_CELF:
 			rad_celf_init_defaults(adev);
+			break;
 		case MOD_ID_DAC_CELF:
 			ao428_init_defaults(adev);
 			break;
