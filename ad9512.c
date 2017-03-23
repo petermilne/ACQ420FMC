@@ -39,7 +39,7 @@
 
 #include <linux/spi/spi.h>
 
-#define REVID	"2"
+#define REVID	"3"
 
 #define SCPC_OFF	0x00
 #define DBP4_OFF	0x34
@@ -159,7 +159,13 @@ int get_hex_bytes(const char* buf, char* data, int maxdata)
 	}
 	return id;
 }
-static ssize_t store_multibytes(
+
+#define SWAP(aa,bb,tt)  ( tt = aa, aa = bb, bb = tt )
+
+/* handle bizzare MSB addressing
+ * set addr to the high-address byte, send it first
+ */
+ssize_t store_multibytes(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
@@ -172,10 +178,20 @@ static ssize_t store_multibytes(
 
 	if (get_hex_bytes(buf, data+2, MAX_DATA) == LEN){
 		data[CMD] = LEN==2? AD9512_WX2: AD9512_WX1;
-		data[ADDR] = REG;
+		data[ADDR] = LEN==2? REG+1: REG;
 
-		dev_info(dev, "data: %02x %02x%02x%02x",
-				data[0],data[1],data[2],data[3]);
+		if (LEN==2){
+			char t;
+			SWAP(data[2], data[3], t);
+
+			dev_dbg(dev, "data: %02x%02x %02x%02x  hi-addr-first",
+					data[0],data[1],data[2],data[3]);
+		}else{
+			dev_dbg(dev, "data: %02x%02x %02x",
+					data[0],data[1],data[2]);
+		}
+
+
 		if (ad9512_spi_write_then_read(dev, data, LEN+2, 0, 0) == 0){
 			return count;
 		}else{
@@ -205,7 +221,7 @@ static ssize_t show_multibytes(
 	if (ad9512_spi_write_then_read(dev, cmd, 2, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
-		for (ib = 0; ib < LEN; ++ib){
+		for (ib = LEN; ib--; ){
 			cursor += sprintf(cursor, "%02x", data[ib]);
 		}
 		strcat(cursor, "\n");
