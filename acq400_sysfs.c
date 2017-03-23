@@ -1535,6 +1535,9 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
 		{ MOD_ID_DAC_CELF, 	"ao428elf"	},
 		{ MOD_ID_FMC104,        "fmc104"	},
+		{ MOD_ID_DIO432FMC, 	"dio432"	},
+		{ MOD_ID_DIO432PMOD,	"dio432"	},
+		{ MOD_ID_DIO482FMC,  	"dio432"	},	/* logically same */
 	};
 #define NID	(sizeof(idlut)/sizeof(struct IDLUT_ENTRY))
 	int ii;
@@ -2774,6 +2777,23 @@ static ssize_t store_byte_is_output(
 
 static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUGO, show_byte_is_output, store_byte_is_output);
 
+static ssize_t show_dpg_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned do_count = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
+	unsigned fifsta = acq400rd32(adev, DIO432_DO_FIFO_STATUS);
+	unsigned state =
+		adev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
+		do_count > 0? 2: 1: 0;	/* RUN, ARM, IDLE */
+
+	return sprintf(buf, "%d %d\n", state, do_count);
+}
+
+
+static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUGO, show_dpg_status, 0);
 
 
 static const struct attribute *dio432_attrs[] = {
@@ -2786,6 +2806,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_task_active.attr,
+	&dev_attr_dpg_status.attr,
 	NULL
 };
 
