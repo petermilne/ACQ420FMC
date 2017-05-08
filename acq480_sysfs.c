@@ -26,6 +26,7 @@
 /* ------------------------------------------------------------------------- */
 
 #include "acq400.h"
+#include "acq400_sysfs.h"
 
 /* acq480 training
  * 0: RESET	set CR=0x09, reset
@@ -346,6 +347,7 @@ static ssize_t store_acq480_two_lane_mode(
 static DEVICE_ATTR(acq480_two_lane_mode,
 		S_IRUGO|S_IWUGO, show_acq480_two_lane_mode, store_acq480_two_lane_mode);
 
+
 static ssize_t show_acq480_train_xx_val(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -478,6 +480,7 @@ static ssize_t store_ffir_coeff(
 }
 static DEVICE_ATTR(ffir_coeff, S_IWUGO, 0, store_ffir_coeff);
 
+MAKE_BITS(trg_resync, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_480_TRIG_RESYNC);
 const struct attribute *acq480_attrs[] = {
 	&dev_attr_train.attr,
 	&dev_attr_train_states.attr,
@@ -487,6 +490,7 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_train_lo_val.attr,
 	&dev_attr_acq480_loti.attr,
 	&dev_attr_acq480_two_lane_mode.attr,
+	&dev_attr_trg_resync.attr,
 	&dev_attr_acq480_fpga_decim.attr,
 	&dev_attr_ffir_reset.attr,
 	&dev_attr_ffir_counter.attr,
