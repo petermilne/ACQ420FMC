@@ -190,7 +190,7 @@ char* MapBuffer::ba0   = MAPBUFFER_BA0;		/* const */
 char* MapBuffer::ba1   = MAPBUFFER_BA0;		/* initial value increments to top */
 char* MapBuffer::ba_lo = MAPBUFFER_BA0;		/* initial value, may move by reserve count */
 char* MapBuffer::ba_hi;				/* tracks ba1 @@todo may be redundant */
-bool MapBuffer::buffer_0_reserved;
+int MapBuffer::buffer_0_reserved;
 
 class BufferInitializer {
 public:
