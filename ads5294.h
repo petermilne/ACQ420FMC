@@ -209,6 +209,9 @@ enum FilterCoeffSelect {
 
 #define MAP_EN_BIT	15
 
+#define RA_2_EN_SYNC	(1<<13)
+#define TP_HARD_SYNC	(1<<15)
+
 class Ads5294 {
 	struct PllRange {
 		int fmin, fmax;
@@ -318,6 +321,7 @@ public:
 	int getPLL();
 
 	int setTwoWireMode(bool enable);
+	int setClkHardSync(bool enable);
 };
 
 

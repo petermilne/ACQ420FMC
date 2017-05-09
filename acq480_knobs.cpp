@@ -489,6 +489,25 @@ public:
 		}
 	}
 };
+
+class SetClkHardSync: public Command {
+public:
+	SetClkHardSync() :
+		Command ("setClkHardSync", "0|1")
+	{}
+	int operator() (class Acq480FMC module, int argc, char* argv[]) {
+		bool enable = true;
+		switch(argc){
+		case 2:
+			enable = atoi(argv[1]); // fall thru
+		case 1:
+			return module.chip.setClkHardSync(enable);
+		default:
+			die(help());
+			return -1;		// not gonna happen
+		}
+	}
+};
 void Acq480FMC::init_commands()
 {
 	commands.push_back(new SetInvertCommand);
@@ -506,6 +525,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new SetPatSync);
 	commands.push_back(new SetDataPattern);
 	commands.push_back(new SetTwoWireMode);
+	commands.push_back(new SetClkHardSync);
 	commands.push_back(new MappingCommand);
 	commands.push_back(new PllCommand);
 	commands.push_back(new SetReg);

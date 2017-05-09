@@ -696,4 +696,23 @@ int Ads5294::setTwoWireMode(bool enable)
 	}
 	return 0;
 }
+/*
+EN_SYNC  = Bit 13 in register 02h
+
+TP_HARD_SYNC = Bit 15 in register 25
+*/
+int Ads5294::setClkHardSync(bool enable)
+{
+	Reg& s1 = regs->regs[Ads5294Regs::RA_EN_2];
+	Reg& s2 = regs->regs[Ads5294Regs::RA_TEST25];
+
+	if (enable){
+		s1 |= RA_2_EN_SYNC;
+		s2 |= TP_HARD_SYNC;
+	} else {
+		s1 &= ~RA_2_EN_SYNC;
+		s2 &= ~TP_HARD_SYNC;
+	}
+	return 0;
+}
 
