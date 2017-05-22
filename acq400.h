@@ -189,6 +189,7 @@
 #define MOD_ID_KMCU30		0x84
 
 
+
 #define MOD_ID_MTCA_ADAP	0xfc
 #define MOD_ID_ACQ400T_FMC	0xfd
 #define MOD_ID_ACQ400T_ELF	0xfe
@@ -883,6 +884,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
 #define IS_RAD_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_RAD_CELF)
+
+
 
 #define HAS_AI(adev) \
 	(IS_ACQ42X(adev) || IS_ACQ43X(adev) || \

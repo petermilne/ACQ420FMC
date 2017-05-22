@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.117"
+#define REVID "0.118"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -42,6 +42,7 @@ MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 char* MODEL = "";
 module_param(MODEL, charp, 0444);
 
+int maxdevices = MAXDEVICES;
 
 /* index from 0. There's only one physical MGT400, but may have 2 channels */
 struct mgt400_dev* mgt400_devices[MAXDEVICES+2];
@@ -354,7 +355,7 @@ static int mgt400_probe(struct platform_device *pdev)
         struct mgt400_dev* mdev = mgt400_allocate_dev(pdev);
         dev_info(&pdev->dev, "mgt400_probe()");
 
-        if (ndevices >= MAXDEVICES){
+        if (ndevices >= maxdevices){
         	dev_err(&pdev->dev, "ERROR: MAXDEVICES:%d", MAXDEVICES);
         	rc = -ENODEV;
         	goto remove;
@@ -393,6 +394,10 @@ static int mgt400_probe(struct platform_device *pdev)
                 goto fail;
         }
 
+        mdev->mod_id = mgt400rd32(mdev, MOD_ID);
+        if (IS_MGT_DRAM(mdev)){
+        	maxdevices = 1;
+        }
         cdev_init(&mdev->cdev, &mgt400_fops);
         mdev->cdev.owner = THIS_MODULE;
         rc = cdev_add(&mdev->cdev, devno, MGT_MINOR_COUNT);

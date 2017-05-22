@@ -33,8 +33,9 @@ struct dentry* mgt400_debug_root;
 
 
 
-void mgt400_createDebugfs(struct mgt400_dev* adev)
+void mgt400_createDebugfs(struct mgt400_dev* mdev)
 {
+#define adev	mdev
 	char* pcursor;
 	if (!mgt400_debug_root){
 		mgt400_debug_root = debugfs_create_dir("mgt400", 0);
@@ -47,7 +48,7 @@ void mgt400_createDebugfs(struct mgt400_dev* adev)
 	adev->debug_dir = debugfs_create_dir(
 			adev->devname, mgt400_debug_root);
 
-	if (!adev->debug_dir){
+	if (!mdev->debug_dir){
 		dev_warn(&adev->pdev->dev, "failed create dir %s", adev->devname);
 		return;
 	}
@@ -61,6 +62,11 @@ void mgt400_createDebugfs(struct mgt400_dev* adev)
 	DBG_REG_CREATE(COMMS_TXB_FCR);
 	DBG_REG_CREATE(COMMS_RXB_FSR);
 	DBG_REG_CREATE(COMMS_RXB_FCR);
+	if (IS_MGT_DRAM(mdev)){
+		DBG_REG_CREATE(MGT_DRAM_STA);
+		DBG_REG_CREATE(MGT_DRAM_RX_CNT);
+		DBG_REG_CREATE(MGT_DRAM_TX_CNT);
+	}
 
 	DBG_REG_CREATE(PCIE_CTRL);
 	DBG_REG_CREATE(PCIE_INTR);
@@ -77,6 +83,7 @@ void mgt400_createDebugfs(struct mgt400_dev* adev)
 	DBG_REG_CREATE(DMA_PULL_DESC_SR);
 	DBG_REG_CREATE(DMA_PUSH_COUNT_LW);
 	DBG_REG_CREATE(DMA_PULL_COUNT_LW);
+#undef adev
 }
 void mgt400_removeDebugfs(struct mgt400_dev* adev)
 {

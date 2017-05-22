@@ -21,6 +21,7 @@ struct mgt400_dev {
 		int phys;	/* 0: SFP, 1: PCIe */
 	} of_prams;
 	char devname[16];
+	u32 mod_id;
 
 	struct platform_device *pdev;
 	struct resource *mem;
@@ -77,6 +78,9 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define COMMS_TXB_FSR	(0x0024)
 #define COMMS_RXB_FCR	(0x0040)
 #define COMMS_RXB_FSR   (0x0044)
+#define MGT_DRAM_STA	(0x0080)
+#define MGT_DRAM_RX_CNT	(0x0084)
+#define MGT_DRAM_TX_CNT (0x0088)
 
 
 #define ZDMA_CR_AUTO_PUSH_DMA	(1<<1)
@@ -143,7 +147,14 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MINOR_PULL_DESC_HISTO	3
 #define MINOR_PUSH_DESC_LIST	4
 #define MINOR_PULL_DESC_LIST	5
-#define MGT_MINOR_COUNT		6
+#define MINOR_PUSH_DESC_FIFO	6
+#define MINOR_PULL_DESC_FIFO	7
+#define MGT_MINOR_COUNT		8
 
+
+
+#define MOD_ID_MGT_DRAM		0x95
+
+#define IS_MGT_DRAM(mdev)	(GET_MOD_ID(mdev) == MOD_ID_MGT_DRAM)
 
 #endif /* MGT400_H_ */
