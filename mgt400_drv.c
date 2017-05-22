@@ -65,24 +65,24 @@ void mgt400wr32(struct mgt400_dev *adev, int offset, u32 value)
 {
 	if (adev->RW32_debug){
 		dev_info(DEVP(adev), "mgt400wr32 %p [0x%02x] = %08x\n",
-				adev->dev_virtaddr + offset, offset, value);
+				adev->va + offset, offset, value);
 	}else{
 		dev_dbg(DEVP(adev), "mgt400wr32 %p [0x%02x] = %08x\n",
-				adev->dev_virtaddr + offset, offset, value);
+				adev->va + offset, offset, value);
 	}
 
-	iowrite32(value, adev->dev_virtaddr + offset);
+	iowrite32(value, adev->va + offset);
 }
 
 u32 mgt400rd32(struct mgt400_dev *adev, int offset)
 {
-	u32 rc = ioread32(adev->dev_virtaddr + offset);
+	u32 rc = ioread32(adev->va + offset);
 	if (adev->RW32_debug){
 		dev_info(DEVP(adev), "mgt400rd32 %p [0x%02x] = %08x\n",
-			adev->dev_virtaddr + offset, offset, rc);
+			adev->va + offset, offset, rc);
 	}else{
 		dev_dbg(DEVP(adev), "mgt400rd32 %p [0x%02x] = %08x\n",
-			adev->dev_virtaddr + offset, offset, rc);
+			adev->va + offset, offset, rc);
 	}
 	return rc;
 }
@@ -246,11 +246,141 @@ static int mgt400_device_tree_init(struct mgt400_dev* mdev)
         }
 }
 
+
+#define MAX_DESCR	128	/* conservative, should be 512 */
+
+void mgt400_fifo_reset(struct mgt400_dev* mdev, unsigned shl)
+{
+	u32 cr = mgt400rd32(mdev, DMA_CTRL);
+	cr &= ~((DMA_CTRL_EN|DMA_CTRL_RST)<<shl);
+	mgt400wr32(mdev, DMA_CTRL, cr|(DMA_CTRL_RST<<shl));
+	mgt400wr32(mdev, DMA_CTRL, cr);
+}
+void mgt400_fifo_enable(struct mgt400_dev* mdev, unsigned shl)
+{
+	u32 cr = mgt400rd32(mdev, DMA_CTRL);
+	mgt400wr32(mdev, DMA_CTRL, cr|(DMA_CTRL_EN<<shl));
+}
+
+int mgt400_fifo_count(struct mgt400_dev* mdev, unsigned shl)
+{
+	u32 sr = mgt400rd32(mdev, DESC_FIFO_SR);
+	sr >>= (shl);
+
+	return (sr&DMA_DATA_FIFO_COUNT) >>  DMA_DATA_FIFO_COUNT_SHL;
+}
+
+int mgt400_headroom(struct mgt400_dev* mdev, unsigned shl)
+{
+	u32 count = mgt400_fifo_count(mdev, shl);
+
+	if (count >= MAX_DESCR){
+		return 0;		/* no headroom */
+	}else{
+		return MAX_DESCR - count;
+	}
+}
+
+int _mgt400_dma_descr_open(struct inode *inode, struct file *file)
+{
+	struct mgt400_dev* adev = PD(file)->dev;
+	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
+				DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+	mgt400_fifo_reset(adev, shl);
+	return 0;
+}
+ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct mgt400_dev* mdev = PD(file)->dev;
+	unsigned fifo_offset = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
+			DMA_PUSH_DESC_FIFO: DMA_PULL_DESC_FIFO;
+	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
+			DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+
+	u32* lbuf = PD(file)->buffer;
+	int cw;
+	int rc;
+
+	if (count&3){
+		count = count&~3;	/* truncate to LW */
+	}
+	cw = count / sizeof(u32);
+	if (cw > PDBUF_WORDS){
+		cw = PDBUF_WORDS;
+	}
+
+	rc = copy_from_user(lbuf, buf, cw*sizeof(u32));
+	if (rc){
+		return -1;
+	}else{
+		int iw;
+		for (iw = 0; mgt400_headroom(mdev, shl); ++iw){
+			mgt400wr32(mdev, fifo_offset, lbuf[iw]);
+		}
+		mgt400_fifo_enable(mdev, shl);
+
+		count = iw * sizeof(u32);
+		*f_pos += count;
+		return count;
+	}
+}
+
+int mgt400_release(struct inode *inode, struct file *file)
+{
+	kfree(PD(file));
+	return 0;
+}
+int mgt400_dma_descr_release(struct inode *inode, struct file *file)
+{
+	struct mgt400_dev* adev = PD(file)->dev;
+	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
+				DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+	wait_queue_head_t wq_dummy;
+
+	init_waitqueue_head(&wq_dummy);
+
+	while(mgt400_fifo_count(adev, shl)){
+		int rc = wait_event_interruptible_timeout(
+				wq_dummy,
+				mgt400_fifo_count(adev, shl) == 0, 10);
+		if (rc == 0){
+			continue;	/* timeout and retry */
+		}else if (rc < 0){
+			dev_warn(&adev->pdev->dev, "Quit on signal");
+			goto quit;
+		}else if (rc > 0){
+			break;
+		}
+
+	}
+quit:
+	return mgt400_release(inode, file);
+}
+int mgt400_dma_descr_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations mgt400_dma_descr_fops = {
+		.open = _mgt400_dma_descr_open,
+		.write = mgt400_dma_descr_write,
+		.release = mgt400_dma_descr_release,
+	};
+	file->f_op = &mgt400_dma_descr_fops;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 int mgt400_open(struct inode *inode, struct file *file)
 {
 	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->dev = container_of(inode->i_cdev, struct mgt400_dev, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
+	switch(MINOR(inode->i_rdev)){
+	case MINOR_PUSH_DESC_FIFO:
+	case MINOR_PULL_DESC_FIFO:
+		return mgt400_dma_descr_open(inode, file);
+	}
 	return 0;
 }
 
@@ -331,11 +461,7 @@ ssize_t mgt400_read_histo(
 	return count;
 }
 
-int mgt400_release(struct inode *inode, struct file *file)
-{
-	kfree(PD(file));
-	return 0;
-}
+
 struct file_operations mgt400_fops = {
         .owner = THIS_MODULE,
         .open = mgt400_open,
@@ -385,8 +511,7 @@ static int mgt400_probe(struct platform_device *pdev)
                 rc = -ENODEV;
                 goto fail;
         }
-        mdev->dev_virtaddr =
-               	ioremap(mdev->mem->start, mdev->mem->end-mdev->mem->start+1);
+        mdev->va = ioremap(mdev->mem->start, mdev->mem->end-mdev->mem->start+1);
 
         rc = alloc_chrdev_region(&devno, 0, MGT_MINOR_COUNT, mdev->devname);
         if (rc < 0) {

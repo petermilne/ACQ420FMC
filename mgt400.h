@@ -25,7 +25,7 @@ struct mgt400_dev {
 
 	struct platform_device *pdev;
 	struct resource *mem;
-	void *dev_virtaddr;
+	void *va;
 	struct cdev cdev;
 	char* debug_names;
 	struct dentry* debug_dir;
@@ -43,9 +43,13 @@ struct mgt400_dev {
 	struct hrtimer buffer_counter_timer;
 };
 
+#define dev_virtaddr	va
+#define PDBUF_WORDS	512
+
 struct mgt400_path_descriptor {
 	struct mgt400_dev* dev;
 	int minor;
+	unsigned buffer[PDBUF_WORDS];
 };
 
 #undef PD
@@ -126,8 +130,12 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define DMA_PUSH_DESC_FIFO	(0x2040)
 #define DMA_PULL_DESC_FIFO	(0x2080)
 
+
 #define DMA_DATA_PULL_SHL		16
 #define DMA_DATA_PUSH_SHL		0
+
+#define DMA_CTRL_EN	0x0001
+#define DMA_CTRL_RST	0x0010
 
 #define DMA_DATA_FIFO_COUNT		0xfff0
 #define DMA_DATA_FIFO_COUNT_SHL		4

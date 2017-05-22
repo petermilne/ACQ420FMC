@@ -65,7 +65,8 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb \
-	fix_state bpaste clocks_to_first_edge
+	fix_state bpaste clocks_to_first_edge \
+	mgtdram_descgen
 
 all: modules apps
 	
@@ -172,6 +173,9 @@ bpaste: bpaste.o
 	
 bigmac.x86: bigmac.o
 	$(CXX) -O3 -o $@ $^ -lpopt	
+	
+mgtdram_descgen: 	mgtdram_descgen.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 
 rtpackage:
