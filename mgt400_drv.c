@@ -284,8 +284,7 @@ int mgt400_headroom(struct mgt400_dev* mdev, unsigned shl)
 int _mgt400_dma_descr_open(struct inode *inode, struct file *file)
 {
 	struct mgt400_dev* adev = PD(file)->dev;
-	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
-				DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+	unsigned shl = PD_FIFO_SHL(file);
 	mgt400_fifo_reset(adev, shl);
 	return 0;
 }
@@ -293,10 +292,8 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
         loff_t *f_pos)
 {
 	struct mgt400_dev* mdev = PD(file)->dev;
-	unsigned fifo_offset = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
-			DMA_PUSH_DESC_FIFO: DMA_PULL_DESC_FIFO;
-	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
-			DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+	unsigned fifo_offset = PD_FIFO_OFFSET(file);
+	unsigned shl = PD_FIFO_SHL(file);
 
 	u32* lbuf = PD(file)->buffer;
 	int cw;
@@ -315,7 +312,7 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 		return -1;
 	}else{
 		int iw;
-		for (iw = 0; mgt400_headroom(mdev, shl); ++iw){
+		for (iw = 0; iw < cw && mgt400_headroom(mdev, shl); ++iw){
 			mgt400wr32(mdev, fifo_offset, lbuf[iw]);
 		}
 		mgt400_fifo_enable(mdev, shl);
@@ -334,8 +331,7 @@ int mgt400_release(struct inode *inode, struct file *file)
 int mgt400_dma_descr_release(struct inode *inode, struct file *file)
 {
 	struct mgt400_dev* adev = PD(file)->dev;
-	unsigned shl = PD(file)->minor==MINOR_PUSH_DESC_FIFO?
-				DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL;
+	unsigned shl = PD_FIFO_SHL(file);
 	wait_queue_head_t wq_dummy;
 
 	init_waitqueue_head(&wq_dummy);
@@ -348,6 +344,7 @@ int mgt400_dma_descr_release(struct inode *inode, struct file *file)
 			continue;	/* timeout and retry */
 		}else if (rc < 0){
 			dev_warn(&adev->pdev->dev, "Quit on signal");
+			mgt400_fifo_reset(adev, shl);
 			goto quit;
 		}else if (rc > 0){
 			break;

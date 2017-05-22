@@ -159,7 +159,12 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MINOR_PULL_DESC_FIFO	7
 #define MGT_MINOR_COUNT		8
 
+#define PD_FIFO_SHL(file)	\
+    ( PD(file)->minor==MINOR_PUSH_DESC_FIFO? \
+	DMA_DATA_PUSH_SHL: DMA_DATA_PULL_SHL)
 
+#define PD_FIFO_OFFSET(file) \
+(PD(file)->minor==MINOR_PUSH_DESC_FIFO? DMA_PUSH_DESC_FIFO: DMA_PULL_DESC_FIFO)
 
 #define MOD_ID_MGT_DRAM		0x95
 
