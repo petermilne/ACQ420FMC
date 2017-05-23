@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.118"
+#define REVID "0.119"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -259,7 +259,10 @@ void mgt400_fifo_reset(struct mgt400_dev* mdev, unsigned shl)
 void mgt400_fifo_enable(struct mgt400_dev* mdev, unsigned shl)
 {
 	u32 cr = mgt400rd32(mdev, DMA_CTRL);
-	mgt400wr32(mdev, DMA_CTRL, cr|(DMA_CTRL_EN<<shl));
+	u32 cr_en = cr|(DMA_CTRL_EN<<shl);
+	if (cr != cr_en){
+		mgt400wr32(mdev, DMA_CTRL, cr_en);
+	}
 }
 
 int mgt400_fifo_count(struct mgt400_dev* mdev, unsigned shl)
