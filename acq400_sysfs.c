@@ -52,6 +52,7 @@
 
 #include "acq400.h"
 #include "bolo.h"
+#include "hbm.h"
 
 #include "acq400_sysfs.h"
 
@@ -3800,6 +3801,19 @@ static const struct attribute *axi64_attrs[] = {
 	NULL
 };
 
+static ssize_t show_hb_last(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "%d\n", adev->rt.hbm_m1->ix);
+}
+
+static DEVICE_ATTR(hb_last, S_IRUGO, \
+		show_hb_last, 0);
+
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
@@ -3833,6 +3847,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_estop.attr,
 	&dev_attr_bq_overruns.attr,
 	&dev_attr_bq_max.attr,
+	&dev_attr_hb_last.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
