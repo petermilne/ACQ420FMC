@@ -621,7 +621,7 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	adev->axi64[ichan].tail = itail;
 
 	if (AXI_ONESHOT >=1){
-		dev_info("AXI_ONESHOT %d head %d tail %d", ihead, itail);
+		dev_info(DEVP(adev), "AXI_ONESHOT %d head %d tail %d", ihead, itail);
 	}
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 01 xchan:%p", xchan);
 	xchan->client_private = adev;
