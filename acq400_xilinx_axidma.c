@@ -603,15 +603,26 @@ void _start_transfer(struct xilinx_dma_chan *chan)
 {
 
 }
+
+
 int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 {
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[ichan]);
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	struct AxiDescrWrapper* wrappers = apool->channelWrappers[ichan];
 
-	u32 head_pa = wrappers[0].pa;
-	u32 tail_pa = AXI_ONESHOT? wrappers[apool->ndescriptors-2].pa: SHOTID(adev);
+	int ihead = 0;
+	int itail = -1;
 
+	u32 tail_pa = AXI_ONESHOT? wrappers[itail = apool->ndescriptors-2].pa: SHOTID(adev);
+	u32 head_pa = AXI_ONESHOT>=1? wrappers[ihead = apool->ndescriptors-2-AXI_ONESHOT].pa: wrappers[0].pa;
+
+	adev->axi64[ichan].head = ihead;
+	adev->axi64[ichan].tail = itail;
+
+	if (AXI_ONESHOT >=1){
+		dev_info("AXI_ONESHOT %d head %d tail %d", ihead, itail);
+	}
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 01 xchan:%p", xchan);
 	xchan->client_private = adev;
 	xchan->start_transfer = _start_transfer;

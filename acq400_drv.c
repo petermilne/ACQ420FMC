@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.203 DUALAXI"
+#define REVID "3.204 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -232,13 +232,7 @@ MODULE_PARM_DESC(AXI_INIT_BUFFERS, "initialise buffers before start .. see exact
 
 int AXI_ONESHOT = 0;
 module_param(AXI_ONESHOT, int, 0644);
-MODULE_PARM_DESC(AXI_ONESHOT, "axi DMA once through");
-
-unsigned AXI_HEAD_DESCR_PA = 0;
-module_param(AXI_HEAD_DESCR_PA, uint, 0644);
-
-unsigned AXI_TAIL_DESCR_PA = 0;
-module_param(AXI_TAIL_DESCR_PA, uint, 0644);
+MODULE_PARM_DESC(AXI_ONESHOT, "axi DMA once through, non-zero count is number of buffers");
 
 unsigned AXI_POISON_OFFSET = 0;
 module_param(AXI_POISON_OFFSET, uint, 0644);
@@ -3112,6 +3106,38 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
+int axi64_data_once(struct acq400_dev* adev);
+
+
+int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	char lbuf[32];
+	int bc, rc;
+
+	axi64_data_once(adev);
+	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->axi64[0].head);
+	rc = copy_to_user(buf, lbuf, bc);
+
+	if (rc){
+		return -rc;
+	}else{
+		return bc;
+	}
+}
+int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_axi_once = {
+		.read = acq400_axi_once_read,
+		.release = acq400_release
+	};
+	file->f_op = &acq400_fops_axi_once;
+	return 0;
+}
+
+
 int acq400_mmap_bar_page(struct file* file, struct vm_area_struct* vma)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
@@ -3250,6 +3276,9 @@ int acq400_open(struct inode *inode, struct file *file)
         		break;
         	case ACQ400_MINOR_ATD:
         		rc = acq400_atd_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_AXI_DMA_ONCE:
+        		rc = acq400_axi_dma_once_open(inode, file);
         		break;
         	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
@@ -4238,6 +4267,27 @@ int fifo_monitor(void* data)
 	return 0;
 }
 
+int axi64_data_once(struct acq400_dev *adev)
+{
+	unsigned old_axi_oneshot = AXI_ONESHOT;
+	int int_count = adev->rt.axi64_ints;
+	AXI_ONESHOT = 1;
+	int rc;
+
+	if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
+		dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
+		return -1;
+	}else{
+		dev_info(DEVP(adev), "axi64_load_dmac() helper done");
+	}
+
+	if (wait_event_interruptible(
+		adev->DMA_READY, adev->rt.axi64_ints != int_count) <= 0){
+		dev_err(DEVP(adev), "interrupted");
+	}
+	AXI_ONESHOT = old_axi_oneshot;
+	return 0;
+}
 int axi64_data_loop(void* data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;

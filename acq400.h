@@ -398,6 +398,7 @@
 #define ACQ400_MINOR_ATD	16
 #define ACQ400_MINOR_BQ_FULL	17
 #define ACQ400_MINOR_RSV_DIST	18
+#define ACQ400_MINOR_AXI_DMA_ONCE 19
 
 #define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
 
@@ -584,6 +585,8 @@ struct acq400_dev {
 	struct AXI64_Buffers {
 		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
 		int ndesc;
+		int head;			/* index of head buffer */
+		int tail;			/* index of tail buffer */
 	}
 		axi64[MAX_AXIDMA];
 
