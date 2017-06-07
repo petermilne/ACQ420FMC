@@ -10,8 +10,8 @@ cat - >/dev/dsp1/.create <<EOF
 @MODULE_ID     0x000 0xffffffff r %08x
 @MODULE_ID.MT  0x000 0xff000000 r %02x
 @MODULE_ID.RV  0x000 0x0000ffff r %d
-MGT_CTRL       0x00c 0xffffffff rw %08x
-MGT_CTRL.BUSCOMMS 0x00c 0x00000001 rw %d
+MGT_CTRL       0x004 0xffffffff rw %08x
+MGT_CTRL.BUSCOMMS 0x004 0x00000001 rw %d
 EOF
 
 mkdir /etc/acq400/14/
