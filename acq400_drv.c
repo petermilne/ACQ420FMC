@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.205 DUALAXI"
+#define REVID "3.206 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3118,7 +3118,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 	int bc, rc;
 
 	axi64_data_once(adev);
-	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->axi64[0].head);
+	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->hb[0]->ix);
 	rc = copy_to_user(buf, lbuf, bc);
 
 	if (rc){
@@ -4267,25 +4267,119 @@ int fifo_monitor(void* data)
 	return 0;
 }
 
+/* AXI DMA Example
+*
+* This small example is intended to simply llustate how to use the DMA engine
+* of Linux to take advantage of DMA in the PL. The hardware design is intended
+* to be an AXI DMA without scatter gather and with the transmit channel looped
+* back to the receive channel.
+* https://forums.xilinx.com/t5/Embedded-Linux/AXI-DMA-with-Zynq-Running-Linux/m-p/523105#M10658
+*/
+
+#define WAIT 	1
+#define NO_WAIT 0
+
+static void axidma_sync_callback(void *completion)
+{
+	/* Step 9, indicate the DMA transaction completed to allow the other
+	 * thread of control to finish processing
+	 */
+
+	complete(completion);
+
+}
+
+/* Prepare a DMA buffer to be used in a DMA transaction, submit it to the DMA engine
+ * to queued and return a cookie that can be used to track that status of the
+ * transaction
+ */
+static dma_cookie_t axidma_prep_buffer(struct dma_chan *chan, dma_addr_t buf, size_t len,
+					enum dma_transfer_direction dir, struct completion *cmp)
+{
+	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+	struct dma_async_tx_descriptor *chan_desc;
+	dma_cookie_t cookie;
+
+	/* Step 5, create a buffer (channel)  descriptor for the buffer since only a
+	 * single buffer is being used for this transfer
+	 */
+
+	chan_desc = dmaengine_prep_slave_single(chan, buf, len, dir, flags);
+
+	/* Make sure the operation was completed successfully
+	 */
+	if (!chan_desc) {
+		printk(KERN_ERR "dmaengine_prep_slave_single error\n");
+		cookie = -EBUSY;
+	} else {
+		chan_desc->callback = axidma_sync_callback;
+		chan_desc->callback_param = cmp;
+
+		/* Step 6, submit the transaction to the DMA engine so that it's queued
+		 * up to be processed later and get a cookie to track it's status
+		 */
+
+		cookie = dmaengine_submit(chan_desc);
+
+	}
+	return cookie;
+}
+
+/* Start a DMA transfer that was previously submitted to the DMA engine and then
+ * wait for it complete, timeout or have an error
+ */
+static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
+					dma_cookie_t cookie, int wait)
+{
+	unsigned long timeout = msecs_to_jiffies(3000);
+	enum dma_status status;
+
+	/* Step 7, initialize the completion before using it and then start the
+	 * DMA transaction which was previously queued up in the DMA engine
+	 */
+
+	init_completion(cmp);
+	dma_async_issue_pending(chan);
+
+	if (wait) {
+		printk("Waiting for DMA to complete...\n");
+
+		/* Step 8, wait for the transaction to complete, timeout, or get
+		 * get an error
+		 */
+
+		timeout = wait_for_completion_timeout(cmp, timeout);
+		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
+
+		/* Determine if the transaction completed without a timeout and
+		 * withtout any errors
+		 */
+		if (timeout == 0)  {
+			printk(KERN_ERR "DMA timed out\n");
+		} else if (status != DMA_COMPLETE) {
+			printk(KERN_ERR "DMA returned completion callback status of: %s\n",
+			       status == DMA_ERROR ? "error" : "in progress");
+		}
+	}
+}
+
 int axi64_data_once(struct acq400_dev *adev)
 {
-	unsigned old_axi_oneshot = AXI_ONESHOT;
-	int int_count = adev->rt.axi64_ints;
-	AXI_ONESHOT = 1;
-	int rc;
+	struct dma_chan *rx_chan = adev->dma_chan[0];
+	char *dest_dma_buffer = (char*)adev->hb[0]->va;
+	int dma_length = adev->hb[0]->len;
+	dma_addr_t rx_dma_handle = dma_map_single(rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
+	struct completion rx_cmp;
 
-	if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
-		dev_err(DEVP(adev), "axi64_load_dmac() failed %d", rc);
+	dma_cookie_t rx_cookie = axidma_prep_buffer(rx_chan, rx_dma_handle, dma_length, DMA_DEV_TO_MEM, &rx_cmp);
+	if (dma_submit_error(rx_cookie)) {
+		printk(KERN_ERR "xdma_prep_buffer error\n");
 		return -1;
-	}else{
-		dev_info(DEVP(adev), "axi64_load_dmac() helper done");
 	}
+	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
+	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
-	if (wait_event_interruptible(
-		adev->DMA_READY, adev->rt.axi64_ints != int_count) <= 0){
-		dev_err(DEVP(adev), "interrupted");
-	}
-	AXI_ONESHOT = old_axi_oneshot;
+	dmaengine_terminate_all(adev->dma_chan[0]);
 	return 0;
 }
 int axi64_data_loop(void* data)
@@ -4388,6 +4482,7 @@ int axi64_data_loop(void* data)
 	}
 quit:
 	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
+	dmaengine_terminate_all(adev->dma_chan[0]);
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
@@ -4500,6 +4595,8 @@ int axi64_dual_data_loop(void* data)
 	}
 quit:
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 98 calling DMA_TERMINATE_ALL");
+	dmaengine_terminate_all(adev->dma_chan[0]);
+	dmaengine_terminate_all(adev->dma_chan[1]);
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;

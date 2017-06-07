@@ -585,8 +585,6 @@ struct acq400_dev {
 	struct AXI64_Buffers {
 		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
 		int ndesc;
-		int head;			/* index of head buffer */
-		int tail;			/* index of tail buffer */
 	}
 		axi64[MAX_AXIDMA];
 

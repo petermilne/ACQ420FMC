@@ -617,11 +617,8 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	u32 tail_pa = AXI_ONESHOT? wrappers[itail = apool->ndescriptors-2].pa: SHOTID(adev);
 	u32 head_pa = AXI_ONESHOT>=1? wrappers[ihead = apool->ndescriptors-2-AXI_ONESHOT].pa: wrappers[0].pa;
 
-	adev->axi64[ichan].head = ihead;
-	adev->axi64[ichan].tail = itail;
-
 	if (AXI_ONESHOT >=1){
-		dev_info(DEVP(adev), "AXI_ONESHOT %d head %d tail %d", ihead, itail);
+		dev_info(DEVP(adev), "AXI_ONESHOT %d head %d tail %d", AXI_ONESHOT, ihead, itail);
 	}
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 01 xchan:%p", xchan);
 	xchan->client_private = adev;
