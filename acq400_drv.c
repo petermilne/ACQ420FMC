@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.206 DUALAXI"
+#define REVID "3.209 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -857,6 +857,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
+	adev->onStop = _ao420_onStop;
 	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	adev->xo.fsr = DAC_FIFO_STA;
@@ -3706,7 +3707,7 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 
 	if (xo_use_distributor){
-		dev_warn(DEVP(adev), "bogus interrupt");
+		dev_dbg(DEVP(adev), "xo400_dma() using distributor interrupt");
 	}else if (adev->AO_playloop.length){
 		u32 start_samples = adev->xo.getFifoSamples(adev);
 		dev_dbg(DEVP(adev), "xo400_dma() start_samples: %u, headroom %d\n",

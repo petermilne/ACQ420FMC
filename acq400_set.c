@@ -125,7 +125,6 @@ int acq400_read_set(struct acq400_dev* set[],
 	return cursor;
 }
 
-
 int acq400_add_aggregator_set(struct acq400_dev *adev, int site)
 {
 	return acq400_add_set(adev->aggregator_set, adev, site);
@@ -152,7 +151,8 @@ void acq400_clear_distributor_set(struct acq400_dev *adev)
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev))
 {
 	int site;
-	for (site = 0; site < MAXSITES; ++site){
+
+	for (site = MAXSITES; --site >= 0; ){
 		if (set[site]){
 			dev_dbg(DEVP(set[site]), "visit_set [%d] %p", site, set[site]);
 			action(set[site]);
