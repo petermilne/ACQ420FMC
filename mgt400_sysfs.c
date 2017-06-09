@@ -27,6 +27,41 @@
 #include "acq400.h"
 #include "mgt400.h"
 
+static ssize_t show_module_type(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%X\n", mdev->mod_id>>MOD_ID_TYPE_SHL);
+}
+
+
+static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
+
+static const char* _lookup_id(unsigned mod_id)
+{
+	switch(mod_id){
+	case MOD_ID_MGT_DRAM:
+		return "mgtdram";
+	default:
+		return "mgt482";
+	}
+}
+
+static ssize_t show_module_name(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+
+	return sprintf(buf, "%s\n", _lookup_id(mdev->mod_id>>MOD_ID_TYPE_SHL));
+}
+
+
+static DEVICE_ATTR(module_name, S_IRUGO, show_module_name, 0);
+
 
 #define DMA_STATUS(DIR, REG, SHL) 					\
 static ssize_t show_dma_stat_##DIR(					\
@@ -468,6 +503,8 @@ static DEVICE_ATTR(ident, S_IRUGO|S_IWUGO, show_ident, store_ident);
 
 
 static const struct attribute *sysfs_base_attrs[] = {
+	&dev_attr_module_type.attr,
+	&dev_attr_module_name.attr,
 	&dev_attr_enable.attr,
 	&dev_attr_aurora_enable.attr,
 	&dev_attr_aurora_lane_up.attr,
