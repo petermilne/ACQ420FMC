@@ -28,13 +28,16 @@ do
         	let px=$P0+$cix        
         	echo >>/etc/inetd.ch.conf \
         		"$px stream tcp nowait root cat cat $ch"
+		chl=$(printf "%02d" $cix)
+		echo "acq400_ch$chl $px/tcp	# ch $ch transient data" >>/etc/services
         	let cix=$cix+1
         done
 done
 
 if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
 	echo >>/etc/inetd.ch.conf \
-	"53999 stream tcp nowait root bpaste bpaste /dev/acq400/data/2/01 /dev/acq400/data/2/02"	
+	"53999 stream tcp nowait root bpaste bpaste /dev/acq400/data/2/01 /dev/acq400/data/2/02"
+	echo "acq400_qen	52999/tcp # qen data" >>/etc/services
 fi
 
 inetd /etc/inetd.ch.conf
