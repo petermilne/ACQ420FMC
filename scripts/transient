@@ -6,6 +6,7 @@ fi
 
 PREMAX=${PREMAX:-0}
 POSTMAX=${POSTMAX:-4000000}
+DEMUX=${DEMUX:-1}
 
 if [ -e /dev/shm/transient_settings ]; then
 	source /dev/shm/transient_settings
@@ -43,6 +44,7 @@ if [ "$(basename $0)" = "transient" ]; then
 		POST)	POST=$(validate $val 0 $POSTMAX);;
 		VERBOSE) VERBOSE=$(validate $val 0 3);;
 		OSAM)	OSAM=$(validate $val 0 256);;
+		DEMUX)	DEMUX=$(validate $val 0 1);;
 		SOFT_TRIGGER)
 			SOFT_TRIGGER=$(validate $val 0 1);;
 		*)
@@ -50,7 +52,7 @@ if [ "$(basename $0)" = "transient" ]; then
 			exit 1;;
 		esac
 	done
-	NEWS="PRE=$PRE POST=$POST OSAM=$OSAM SOFT_TRIGGER=$SOFT_TRIGGER"
+	NEWS="PRE=$PRE POST=$POST OSAM=$OSAM DEMUX=$DEMUX SOFT_TRIGGER=$SOFT_TRIGGER"
 
 	echo $NEWS > /dev/shm/transient_settings
 fi	
