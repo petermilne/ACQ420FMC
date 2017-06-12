@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.214 DUALAXI"
+#define REVID "3.215 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3482,7 +3482,10 @@ void _ao420_stop(struct acq400_dev* adev)
 
 	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
- 		cr |= DAC_CTRL_LL;
+		dev_dbg(DEVP(adev), "_ao420_stop() AO_playloop.length %d\n", adev->AO_playloop.length);
+		if (adev->AO_playloop.length == 0){
+			cr |= DAC_CTRL_LL;
+		}
 		if (adev->data32){
 			cr |= ADC_CTRL32B_data;
 		}else{
