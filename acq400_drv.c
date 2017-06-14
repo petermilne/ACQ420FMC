@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.215 DUALAXI"
+#define REVID "3.216 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3135,6 +3135,7 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 		.release = acq400_release
 	};
 	sc_data_engine_reset_enable(DATA_ENGINE_0);
+	acq2006_aggregator_reset(acq400_devices[0]);
 	file->f_op = &acq400_fops_axi_once;
 	return 0;
 }
