@@ -240,6 +240,11 @@ void v2f_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( V2F_FREQ_SLO_4 );
 }
 
+void dio_biscuit_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	DBG_REG_CREATE(DIOUSB_CTRL);
+	DBG_REG_CREATE(DIOUSB_STAT);
+}
 void qen_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE(QEN_CTRL);
@@ -340,6 +345,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			case MOD_IDV_V2F:
 				return v2f_createDebugfs(adev, pcursor);
 			case MOD_IDV_DIO:
+				return dio_biscuit_createDebugfs(adev, pcursor);
 			case MOD_IDV_QEN:
 				return qen_createDebugfs(adev, pcursor);
 			case MOD_IDV_ACQ1014:

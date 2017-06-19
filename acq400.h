@@ -878,10 +878,12 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define HAS_HDMI_SYNC(adev)	(IS_ACQ1001SC(adev)||IS_ACQ2006B(adev)||IS_ACQ2106SC(adev))
 #define IS_DUMMY(adev) 	((adev)->mod_id>>MOD_ID_TYPE_SHL == MOD_ID_DUMMY)
 
-#define IS_V2F(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_V2F)
-#define IS_QEN(adev)		(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_QEN)
+#define IS_DIO_BISCUIT_GENERIC(adev)  (GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT)
+#define IS_DIO_BISCUIT(adev)	(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_DIO)
+#define IS_V2F(adev)		(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_V2F)
+#define IS_QEN(adev)		(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_QEN)
 /* @@todo there's already IS_ACQ1014 tied to sc .. */
-#define IS_ACQ1014_M(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT && GET_MOD_IDV(adev) == MOD_IDV_ACQ1014)
+#define IS_ACQ1014_M(adev)	(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_ACQ1014)
 
 #define IS_PIG_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_PIG_CELF)
 #define IS_RAD_CELF(adev)	(GET_MOD_ID(adev) == MOD_ID_RAD_CELF)
@@ -1232,6 +1234,12 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 #define DIO432_CPLD_CTRL_OUTPUT(byte)		(1<<(byte))
 
+/* DIO BISCUIT */
+#define DIOUSB_CTRL		0x04
+#define DIOUSB_STAT		0x14
+
+/* bus select */
+#define DIOUSB_CTRL_BUS_MASK	(0x7<<6)		/* 000: CLK, TRG, EVT, SYNC, 100 : DSP */
 
 /* V2F */
 

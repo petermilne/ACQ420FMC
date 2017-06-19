@@ -2912,6 +2912,14 @@ static const struct attribute *dtd_attrs[] = {
 	&dev_attr_atd_triggered_display.attr,
 	NULL
 };
+
+MAKE_BITS(diob_src,    DIOUSB_CTRL,      MAKE_BITS_FROM_MASK,	DIOUSB_CTRL_BUS_MASK);
+const struct attribute *sysfs_diobiscuit_attrs[] = {
+	&dev_attr_diob_src.attr,
+	NULL
+};
+
+
 static ssize_t show_ACQ400T_out(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3998,8 +4006,13 @@ void acq400_createSysfs(struct device *dev)
 
 	if (IS_DUMMY(adev)){
 		return;
-	}else if (IS_V2F(adev)){
-		specials[nspec++] = sysfs_v2f_attrs;
+	}else if (IS_DIO_BISCUIT_GENERIC(adev)){
+		if (IS_DIO_BISCUIT(adev)){
+			specials[nspec++] = sysfs_diobiscuit_attrs;
+		}else if (IS_V2F(adev)){
+			specials[nspec++] = sysfs_v2f_attrs;
+		}
+		/* else .. handled elsewhere ? */
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
 		return;
