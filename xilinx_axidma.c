@@ -127,7 +127,9 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 	struct xilinx_dma_desc_sw *desc, *_desc;
 	unsigned long flags;
 
+	dev_dbg(chan->dev, "xilinx_chan_desc_cleanup()");
 	spin_lock_irqsave(&chan->lock, flags);
+
 
 	list_for_each_entry_safe(desc, _desc, &chan->active_list, node) {
 		dma_async_tx_callback callback;
@@ -142,6 +144,8 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		/* Run the link descriptor callback function */
 		callback = desc->async_tx.callback;
 		callback_param = desc->async_tx.callback_param;
+
+		dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() callback:%p pram%p", callback, callback_param);
 		if (callback) {
 			spin_unlock_irqrestore(&chan->lock, flags);
 			callback(callback_param);
@@ -154,6 +158,7 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 	}
 
 	spin_unlock_irqrestore(&chan->lock, flags);
+	dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() 99");
 }
 
 static enum dma_status xilinx_tx_status(struct dma_chan *dchan,
@@ -431,6 +436,8 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 		  reg & ~XILINX_DMA_XR_IRQ_ALL_MASK);
 #endif
 	stat = dma_read(chan, XILINX_DMA_STATUS_OFFSET);
+	dev_dbg(chan->dev, "dma_intr_handler() stat:%08x", stat);
+
 	if (!(stat & XILINX_DMA_XR_IRQ_ALL_MASK))
 		return IRQ_NONE;
 
@@ -469,6 +476,7 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 	if (to_transfer)
 		chan->start_transfer(chan);
 
+	dev_dbg(chan->dev, "dma_intr_handler() tasklet_schedule");
 	tasklet_schedule(&chan->tasklet);
 
 	return IRQ_HANDLED;
@@ -476,9 +484,10 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 
 static void dma_do_tasklet(unsigned long data)
 {
-	//struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
+	struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
+	dev_dbg(chan->dev, "dma_do_tasklet cookie 0x%08x", chan->common.cookie);
 
-	//xilinx_chan_desc_cleanup(chan);
+	xilinx_chan_desc_cleanup(chan);
 }
 
 /* Append the descriptor list to the pending list */
@@ -613,7 +622,9 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 
 	if (chan->direction != direction)
 		return NULL;
+	dev_dbg(chan->dev, "xilinx_dma_prep_slave_sg()");
 
+	tasklet_init(&chan->tasklet, dma_do_tasklet, (unsigned long)chan);
 #ifdef TEST_DMA_WITH_LOOPBACK
 	total_len = 0;
 

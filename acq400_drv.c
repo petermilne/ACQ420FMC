@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.218 DUALAXI"
+#define REVID "3.220 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -144,6 +144,10 @@ MODULE_PARM_DESC(distributor_first_buffer, "use in mixed aggregator/distributor 
 int reserve_buffers = 2;
 module_param(reserve_buffers, int, 0444);
 MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
+
+int AXIDMA_ONCE_TO_MSEC = 1000;
+module_param(AXIDMA_ONCE_TO_MSEC, int, 0644);
+MODULE_PARM_DESC(AXIDMA_ONCE_TO_MSEC, "timout for transferrining 4MB at 800MB/s");
 
 /* GLOBALS */
 
@@ -3120,6 +3124,9 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 	char lbuf[32];
 	int bc, rc;
 
+	if (*f_pos){
+		return 0;
+	}
 	axi64_data_once(adev);
 	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->hb[0]->ix);
 	rc = copy_to_user(buf, lbuf, bc);
@@ -3127,6 +3134,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 	if (rc){
 		return -rc;
 	}else{
+		*f_pos += bc;
 		return bc;
 	}
 }
@@ -4277,7 +4285,7 @@ int fifo_monitor(void* data)
 
 /* AXI DMA Example
 *
-* This small example is intended to simply llustate how to use the DMA engine
+* This small example is intended to simply llustrate how to use the DMA engine
 * of Linux to take advantage of DMA in the PL. The hardware design is intended
 * to be an AXI DMA without scatter gather and with the transmit channel looped
 * back to the receive channel.
@@ -4339,7 +4347,7 @@ static dma_cookie_t axidma_prep_buffer(struct dma_chan *chan, dma_addr_t buf, si
 static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 					dma_cookie_t cookie, int wait)
 {
-	unsigned long timeout = msecs_to_jiffies(3000);
+	unsigned long timeout = msecs_to_jiffies(AXIDMA_ONCE_TO_MSEC);
 	enum dma_status status;
 
 	/* Step 7, initialize the completion before using it and then start the
@@ -4360,7 +4368,7 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
 
 		/* Determine if the transaction completed without a timeout and
-		 * withtout any errors
+		 * without any errors
 		 */
 		if (timeout == 0)  {
 			printk(KERN_ERR "DMA timed out\n");
