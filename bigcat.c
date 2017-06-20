@@ -7,7 +7,7 @@ int BUFLEN=0x10000;
 FILE* FOUT;
 
 
-void cat(const char* fn, char* buf)
+void cat(const char* fn, void* buf)
 {
 	FILE *fp = fopen(fn, "r");
 	int nread;
@@ -20,10 +20,10 @@ void cat(const char* fn, char* buf)
 	}
 }
 
-void mapcat(const char* fn, char* buf)
+void mapcat(const char* fn, void* buf_notused)
 {
         FILE *fp = fopen(fn, "r");
-	char *pv;
+	void *pv;
         if (fp == 0){
                 fprintf(stderr, "ERROR, failed to open \"%s\"\n", fn);
                 exit(1);
@@ -33,9 +33,9 @@ void mapcat(const char* fn, char* buf)
 }
 
 int main(int argc, char* argv[]){
-	char* buf;
+	void* buf;
 	int ii;
-	void (*mycat)(const char*, char*) = cat;
+	void (*mycat)(const char*, void*) = cat;
 
 	if (getenv("BUFLEN")){
 		BUFLEN = strtoul(getenv("BUFLEN"),0,0);
