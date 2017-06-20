@@ -94,7 +94,7 @@ build_nodes() {
 				mknod /dev/${NAME}.rsvd c ${MAJOR} 18
 				mknod /dev/${NAME}.bq   c ${MAJOR} 15	
 				mknod /dev/${NAME}.bqf  c ${MAJOR} 17
-				mknod /dev/${NAME}.axi1 c ${MAJOR} 19
+				mknod /dev/${NAME}.axi0 c ${MAJOR} 19
 			else
 				mknod /dev/${NAME}.ev   c ${MAJOR}  6
 				mknod /dev/${NAME}.atd  c ${MAJOR} 16
@@ -635,8 +635,13 @@ grep acq400\.[0-9] /proc/devices | build_nodes
 
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
+	AXIMOD=/usr/local/lib/modules/xilinx_axidma.ko
+	if [ -e /mnt/local/xilinx_axidma.ko ]; then
+		AXIMOD=/mnt/local/xilinx_axidma.ko
+		echo "using override module $AXIMOD"
+	fi
 	if [ $AXI_COUNT -ge 1 ]; then	 
-		/sbin/insmod /usr/local/lib/modules/xilinx_axidma.ko maxdev=$AXI_COUNT
+		/sbin/insmod $AXIMOD maxdev=$AXI_COUNT
 		echo 1 > /dev/acq400.0.knobs/has_axi_dma
 		for file in $DROOT/acq400_axi_dma/adma?
 		do
