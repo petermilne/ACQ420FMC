@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.217 DUALAXI"
+#define REVID "3.218 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -153,6 +153,8 @@ MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data
 
 /* index from 0, including site 0 */
 struct acq400_dev* acq400_devices[MAXDEVICES+1];
+/* index by site */
+struct acq400_dev* acq400_sites[MAXSITE+1];
 
 #define DMA_NS_MAX     40
 int dma_ns_lines[DMA_NS_MAX];
@@ -5318,6 +5320,7 @@ static int acq400_probe(struct platform_device *pdev)
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         acq400_devices[ndevices++] = adev;
+        acq400_sites[adev->of_prams.site] = adev;
         acq400_getID(adev);
 
         if (IS_DUMMY(adev)){
@@ -5436,6 +5439,8 @@ void acq400_set_peripheral_SPI_CS(unsigned csword)
 
 EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
 EXPORT_SYMBOL_GPL(acq400_devices);
+EXPORT_SYMBOL_GPL(acq400_sites);
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ ACQ400_FMC Driver");
 MODULE_AUTHOR("D-TACQ Solutions.");

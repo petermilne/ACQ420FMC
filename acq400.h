@@ -743,7 +743,9 @@ struct acq400_path_descriptor {
 #define MIN_DMA_BYTES	256
 
 #define MAXDEVICES 6
+#define MAXSITE	   6
 extern struct acq400_dev* acq400_devices[];
+extern struct acq400_dev* acq400_sites[];
 extern const char* acq400_names[];
 
 void acq400_createSysfs(struct device *dev);

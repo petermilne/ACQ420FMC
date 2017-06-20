@@ -127,7 +127,7 @@ static int radcelf_init_spi(void)
 
 	int ii;
 	for (ii = 0; ii < 3; ++ii){
-		pd[ii].dev_private = acq400_devices[2];
+		pd[ii].dev_private = acq400_sites[2];
 		pd[ii].strobe = acq400_spi_strobe;
 		pd[ii].strobe_mode = SPI_STROBE_NONE;
 	}
