@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.220 DUALAXI"
+#define REVID "3.222 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -988,9 +988,17 @@ static u32 acq420_samples2bytes(struct acq400_dev *adev, u32 samples)
 */
 
 
+void acq2106_distributor_reset(struct acq400_dev *adev)
+{
+	u32 dst = acq400rd32(adev, DISTRIBUTOR);
+	acq400wr32(adev, DISTRIBUTOR, dst &= ~(AGG_FIFO_RESET|AGG_ENABLE));
+	acq400wr32(adev, DISTRIBUTOR, dst | AGG_FIFO_RESET);
+	acq400wr32(adev, DISTRIBUTOR, dst);
+	acq400rd32(adev, DISTRIBUTOR);
+}
 
 
-void acq2006_aggregator_reset(struct acq400_dev *adev)
+void acq2106_aggregator_reset(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
@@ -1783,7 +1791,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
 
-	acq2006_aggregator_reset(adev);				/* (1) */
+	acq2106_aggregator_reset(adev);				/* (1) */
 	sc_data_engine_reset_enable(DATA_ENGINE_0);		/* (2) */
 
 	if (agg_reset_dbg) dev_info(DEVP(adev), "start dma");
@@ -3138,14 +3146,25 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 		return bc;
 	}
 }
+
+int acq400_axi_once_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	acq2106_distributor_reset(adev);
+	acq2106_aggregator_reset(adev);
+	return acq400_release(inode, file);
+}
 int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_axi_once = {
 		.read = acq400_axi_once_read,
-		.release = acq400_release
+		.release = acq400_axi_once_release
 	};
+	struct acq400_dev *adev = ACQ400_DEV(file);
+
 	sc_data_engine_reset_enable(DATA_ENGINE_0);
-	acq2006_aggregator_reset(acq400_devices[0]);
+	acq2106_distributor_reset(adev);
+	acq2106_aggregator_reset(adev);
 	file->f_op = &acq400_fops_axi_once;
 	return 0;
 }

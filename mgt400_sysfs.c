@@ -62,6 +62,34 @@ static ssize_t show_module_name(
 
 static DEVICE_ATTR(module_name, S_IRUGO, show_module_name, 0);
 
+static ssize_t store_RW32_debug(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct mgt400_dev *adev = mgt400_devices[dev->id];
+	int RW32_debug;
+
+	if (sscanf(buf, "%d", &RW32_debug) == 1){
+		adev->RW32_debug = RW32_debug;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static ssize_t show_RW32_debug(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *adev = mgt400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->RW32_debug);
+}
+
+static DEVICE_ATTR(RW32_debug,
+		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
 
 #define DMA_STATUS(DIR, REG, SHL) 					\
 static ssize_t show_dma_stat_##DIR(					\
@@ -526,6 +554,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_spad.attr,
 	&dev_attr_auto_dma.attr,
 	&dev_attr_ident.attr,
+	&dev_attr_RW32_debug.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
