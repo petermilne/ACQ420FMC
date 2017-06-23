@@ -582,6 +582,20 @@ static ssize_t store_gpg_top_count(
 
 static DEVICE_ATTR(gpg_top_count, S_IRUGO|S_IWUGO, show_gpg_top_count, store_gpg_top_count);
 
+static ssize_t show_gpg_debug(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 deb = acq400rd32(adev, GPG_DEBUG);
+
+	return sprintf(buf, "%u,%u,%u\n", deb>>29, (deb>>20)&0x1ff, deb&0x0fffff);
+}
+
+static DEVICE_ATTR(gpg_debug, S_IRUGO, show_gpg_debug, 0);
+
+
 static ssize_t show_axi_freq(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3839,6 +3853,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_gpg_sync.attr,
 	&dev_attr_gpg_mode.attr,
 	&dev_attr_gpg_enable.attr,
+	&dev_attr_gpg_debug.attr,
 	&dev_attr_spad.attr,
 	&dev_attr_spad0.attr,
 	&dev_attr_spad1.attr,

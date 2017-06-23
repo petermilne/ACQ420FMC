@@ -943,6 +943,8 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define SYS_CLK			(0x0038)
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
+#define GPG_DEBUG		(0x0048)
+
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
 
