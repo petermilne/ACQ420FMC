@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.222 DUALAXI"
+#define REVID "3.224 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -4377,7 +4377,7 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 	dma_async_issue_pending(chan);
 
 	if (wait) {
-		printk("Waiting for DMA to complete...\n");
+		dev_dbg(&chan->dev->device, "Waiting for DMA to complete...");
 
 		/* Step 8, wait for the transaction to complete, timeout, or get
 		 * get an error
@@ -4390,10 +4390,12 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 		 * without any errors
 		 */
 		if (timeout == 0)  {
-			printk(KERN_ERR "DMA timed out\n");
-		} else if (status != DMA_COMPLETE) {
-			printk(KERN_ERR "DMA returned completion callback status of: %s\n",
+			dev_dbg(&chan->dev->device, "DMA timed out");
+		}else if (status != DMA_COMPLETE) {
+			dev_dbg(&chan->dev->device,  "DMA returned completion callback status of: %s",
 			       status == DMA_ERROR ? "error" : "in progress");
+		}else{
+			dev_dbg(&chan->dev->device, "DMA GOOD");
 		}
 	}
 }
@@ -4403,10 +4405,12 @@ int axi64_data_once(struct acq400_dev *adev)
 	struct dma_chan *rx_chan = adev->dma_chan[0];
 	char *dest_dma_buffer = (char*)adev->hb[0]->va;
 	int dma_length = adev->hb[0]->len;
-	dma_addr_t rx_dma_handle = dma_map_single(rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
+	dma_addr_t rx_dma_handle = dma_map_single(
+			rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
 	struct completion rx_cmp;
 
-	dma_cookie_t rx_cookie = axidma_prep_buffer(rx_chan, rx_dma_handle, dma_length, DMA_DEV_TO_MEM, &rx_cmp);
+	dma_cookie_t rx_cookie = axidma_prep_buffer(
+			rx_chan, rx_dma_handle, dma_length, DMA_DEV_TO_MEM, &rx_cmp);
 	if (dma_submit_error(rx_cookie)) {
 		printk(KERN_ERR "xdma_prep_buffer error\n");
 		return -1;
@@ -4417,6 +4421,14 @@ int axi64_data_once(struct acq400_dev *adev)
 	dmaengine_terminate_all(adev->dma_chan[0]);
 	return 0;
 }
+
+void axi64_terminate(struct dma_chan* dma_chan)
+{
+	dev_dbg(&dma_chan->dev->device, "axi64_terminate()");
+	dma_cookie_init(dma_chan);
+	dmaengine_terminate_all(dma_chan);
+}
+
 int axi64_data_loop(void* data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
@@ -4517,7 +4529,8 @@ int axi64_data_loop(void* data)
 	}
 quit:
 	dev_dbg(DEVP(adev), "ai_data_loop() 98 calling DMA_TERMINATE_ALL");
-	dmaengine_terminate_all(adev->dma_chan[0]);
+	axi64_terminate(adev->dma_chan[0]);
+
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
@@ -4630,8 +4643,8 @@ int axi64_dual_data_loop(void* data)
 	}
 quit:
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 98 calling DMA_TERMINATE_ALL");
-	dmaengine_terminate_all(adev->dma_chan[0]);
-	dmaengine_terminate_all(adev->dma_chan[1]);
+	axi64_terminate(adev->dma_chan[0]);
+	axi64_terminate(adev->dma_chan[1]);
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;

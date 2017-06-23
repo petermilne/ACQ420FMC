@@ -114,12 +114,27 @@ static void xilinx_dma_free_chan_resources(struct dma_chan *dchan)
 	chan->desc_pool = NULL;
 }
 
-static enum dma_status xilinx_dma_desc_status(struct xilinx_dma_chan *chan,
+/* static */
+enum dma_status xilinx_dma_desc_status(struct xilinx_dma_chan *chan,
 					      struct xilinx_dma_desc_sw *desc)
 {
-	return dma_async_is_complete(desc->async_tx.cookie,
+	enum dma_status rc;
+	/** @@todo .. PGM figure this out */
+
+	dev_dbg(chan->dev, "xilinx_dma_desc_status() current: %08x complete: %08x last_used: %08x",
+			desc->async_tx.cookie, chan->completed_cookie, chan->cookie);
+
+
+	rc = dma_async_is_complete(desc->async_tx.cookie,
 				     chan->completed_cookie,
 				     chan->cookie);
+	if (rc == DMA_COMPLETE){
+		return rc;
+	}else{
+		dev_dbg(chan->dev, "xilinx_dma_desc_status() rc=%d papering over", rc);
+		chan->completed_cookie = chan->cookie;
+		return DMA_COMPLETE;
+	}
 }
 
 static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
@@ -135,8 +150,11 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		dma_async_tx_callback callback;
 		void *callback_param;
 
-		if (xilinx_dma_desc_status(chan, desc) == DMA_IN_PROGRESS)
+		if (xilinx_dma_desc_status(chan, desc) == DMA_IN_PROGRESS){
+			dev_warn(chan->dev, "xilinx_chan_desc_cleanup() DMA_IN_PROGRESS");
 			break;
+		}
+
 
 		/* Remove from the list of running transactions */
 		list_del(&desc->node);
