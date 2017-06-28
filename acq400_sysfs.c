@@ -3954,16 +3954,6 @@ static const struct attribute *acq1014sc_attrs[] = {
 	&dev_attr_scount_SYN_MB.attr,
 	&dev_attr_scount_SYN_S1.attr,
 	&dev_attr_scount_SYN_S2.attr,
-
-	/* extra site counters sometimes used by specials eg RADCELF */
-	&dev_attr_scount_CLK_S3.attr,
-	&dev_attr_scount_CLK_S4.attr,
-	&dev_attr_scount_TRG_S3.attr,
-	&dev_attr_scount_TRG_S4.attr,
-	&dev_attr_scount_EVT_S3.attr,
-	&dev_attr_scount_EVT_S4.attr,
-	&dev_attr_scount_SYN_S3.attr,
-	&dev_attr_scount_SYN_S4.attr,
 	NULL
 };
 
@@ -4021,6 +4011,12 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 	&dev_attr_scount_CLK_S4.attr,
 	&dev_attr_scount_CLK_S5.attr,
 	&dev_attr_scount_CLK_S6.attr,
+	&dev_attr_scount_TRG_S3.attr,
+	&dev_attr_scount_TRG_S4.attr,
+	&dev_attr_scount_EVT_S3.attr,
+	&dev_attr_scount_EVT_S4.attr,
+	&dev_attr_scount_SYN_S3.attr,
+	&dev_attr_scount_SYN_S4.attr,
 	NULL
 };
 
