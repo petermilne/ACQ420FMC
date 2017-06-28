@@ -582,15 +582,23 @@ static ssize_t store_gpg_top_count(
 
 static DEVICE_ATTR(gpg_top_count, S_IRUGO|S_IWUGO, show_gpg_top_count, store_gpg_top_count);
 
+
 static ssize_t show_gpg_debug(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
+/* state, addr, ctr, ostate, until */
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 deb = acq400rd32(adev, GPG_DEBUG);
+	u32 state = getField(deb, GPG_DBG_STATE);
+	u32 addr = getField(deb, GPG_DBG_ADDR);
+	u32 ctr = getField(deb, GPG_DBG_CTR);
+	u32 gpd = ((u32*)adev->gpg_buffer)[addr];
+	u32 ostate = gpd&0x000000ff;
 
-	return sprintf(buf, "%u,%u,%u\n", deb>>29, (deb>>20)&0x1ff, deb&0x0fffff);
+	return sprintf(buf, "%u,%u,%u,%u,%x,%u\n",
+			deb, addr, ctr, state, ostate, gpd>>8);
 }
 
 static DEVICE_ATTR(gpg_debug, S_IRUGO, show_gpg_debug, 0);

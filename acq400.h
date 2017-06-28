@@ -1057,6 +1057,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define GPG_CTRL_MODE			0x00000006
 #define GPG_CTRL_ENABLE			0x00000001
 
+#define GPG_DBG_STATE	0xe0000000
+#define GPG_DBG_ADDR	0x1ff00000
+#define GPG_DBG_CTR	0x000fffff
 
 
 #define GPG_MEM_BASE			0xf000
@@ -1365,6 +1368,11 @@ static inline int getSHL(unsigned mask)
 		;
 	}
 	return shl;
+}
+static inline getField(unsigned xx, unsigned mask)
+/* field normalize */
+{
+	return (xx&mask) >> getSHL(mask);
 }
 
 int axi64_init_dmac(struct acq400_dev *adev);
