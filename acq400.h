@@ -1369,7 +1369,7 @@ static inline int getSHL(unsigned mask)
 	}
 	return shl;
 }
-static inline getField(unsigned xx, unsigned mask)
+static inline unsigned getField(unsigned xx, unsigned mask)
 /* field normalize */
 {
 	return (xx&mask) >> getSHL(mask);
