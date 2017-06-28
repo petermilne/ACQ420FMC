@@ -39,7 +39,7 @@
 
 #include <linux/spi/spi.h>
 
-#define REVID	"3"
+#define REVID	"4"
 
 #define SCPC_OFF	0x00
 #define DBP4_OFF	0x34
@@ -221,7 +221,7 @@ static ssize_t show_multibytes(
 	if (ad9512_spi_write_then_read(dev, cmd, 2, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
-		for (ib = LEN; ib--; ){
+		for (ib = 0; ib < LEN; ++ib){
 			cursor += sprintf(cursor, "%02x", data[ib]);
 		}
 		strcat(cursor, "\n");
