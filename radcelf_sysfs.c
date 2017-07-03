@@ -30,12 +30,14 @@
 
 #include <linux/moduleparam.h>
 
-int dds_strobe_msec;
+int dds_strobe_msec = 1;
 module_param(dds_strobe_msec, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "STROBE HI TIME in msec");
 
 
-
+MAKE_BITS(trgA_output, RAD_CTL, 0, RAD_CTL_TRG_A_OUT);
+MAKE_BITS(trgB_output, RAD_CTL, 0, RAD_CTL_TRG_B_OUT);
+MAKE_BITS(clkd_hard_reset, RAD_CTL, 0, RAD_CTL_CLKD_RESET);
 MAKE_BITS(ddsX_hard_reset, RAD_CTL, 0, RAD_CTL_DDS_RESET);
 MAKE_BITS(ddsA_upd_clk_fpga, RAD_DDS_A, 0, RAD_DDS_UPD_CLK_FPGA);
 MAKE_BITS(ddsB_upd_clk_fpga, RAD_DDS_B, 0, RAD_DDS_UPD_CLK_FPGA);
@@ -140,6 +142,9 @@ void acq400_spi_strobe(void *clidata, int cs, int mode)
 EXPORT_SYMBOL_GPL(acq400_spi_strobe);
 
 const struct attribute *sysfs_radcelf_attrs[] = {
+	&dev_attr_trgA_output.attr,
+	&dev_attr_trgB_output.attr,
+	&dev_attr_clkd_hard_reset.attr,
 	&dev_attr_ddsX_hard_reset.attr,
 	&dev_attr_ddsA_upd_clk_fpga.attr,
 	&dev_attr_ddsB_upd_clk_fpga.attr,

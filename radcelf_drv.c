@@ -38,7 +38,7 @@
  * 0x28 : ad7417
  * 0x29 : ad7417
  */
-#define REVID	"1"
+#define REVID	"2"
 
 #include <linux/kernel.h>
 #include <linux/cdev.h>
