@@ -2161,6 +2161,9 @@ static ssize_t store_playloop_length(
 		}
 	case 1:
 		rc = xo400_reset_playloop(adev, playloop_length);
+		if (adev->AO_playloop.one_shot != AO_continuous){
+			adev->AO_playloop.repeats = 0;
+		}
 		if (rc == 0){
 			return count;
 		}else{

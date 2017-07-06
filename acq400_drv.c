@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.230 DUALAXI"
+#define REVID "3.231 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -4004,13 +4004,14 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 					adev->AO_playloop.length, playloop_length);
 
 	if (adev->AO_playloop.length && xo_use_distributor && adev->task_active){
+		if (playloop_length == 0){
+			adev->AO_playloop.length = 0;	/* so it doesn't restart _again_ */
+		}
 		dev_warn(DEVP(adev), "XO AWG is already tee'd up, not possible to abort");
 		return -1;
 	}
 
-	if (adev->AO_playloop.one_shot != AO_continuous){
-		adev->AO_playloop.repeats = 0;
-	}
+
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return -1;
 	}else{
