@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.228 DUALAXI"
+#define REVID "3.229 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3913,7 +3913,7 @@ int xo_data_loop(void *data)
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
-			if (adev->AO_playloop.one_shot == 0 ||
+			if (adev->AO_playloop.one_shot == AO_continuous ||
 					adev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
 				ib = 0;
@@ -3925,6 +3925,8 @@ int xo_data_loop(void *data)
 					--adev->AO_playloop.repeats;
 				}
 			}
+		}else{
+			adev->AO_playloop.repeats++;
 		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			adev->dma_cookies[ic] = LAST_PUSH(adev)?
@@ -4006,6 +4008,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		return -1;
 	}
 
+	if (adev->AO_playloop.one_shot != AO_continuous){
+		adev->AO_playloop.repeats = 0;
+	}
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return -1;
 	}else{
