@@ -1512,6 +1512,18 @@ static ssize_t show_module_type(
 
 static DEVICE_ATTR(module_type, S_IRUGO, show_module_type, 0);
 
+static ssize_t show_fpga_rev(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->mod_id&MOD_ID_REV_MASK);
+}
+
+
+static DEVICE_ATTR(fpga_rev, S_IRUGO, show_fpga_rev, 0);
+
 static ssize_t show_module_role(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1753,6 +1765,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_role.attr,
 	&dev_attr_module_name.attr,
+	&dev_attr_fpga_rev.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
 	&dev_attr_optimise_bufferlen.attr,
