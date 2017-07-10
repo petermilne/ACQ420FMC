@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.231 DUALAXI"
+#define REVID "3.232 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3924,8 +3924,6 @@ int xo_data_loop(void *data)
 				}else{
 					--adev->AO_playloop.repeats;
 				}
-			}else{
-				adev->AO_playloop.repeats++;
 			}
 		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
