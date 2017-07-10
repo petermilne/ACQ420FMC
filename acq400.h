@@ -630,7 +630,7 @@ struct acq400_dev {
 	struct AOPlayloop {
 		unsigned length;
 		unsigned cursor;
-		unsigned one_shot;
+		unsigned oneshot;
 		unsigned repeats;	/* run one-shot more than once */
 	} AO_playloop;
 

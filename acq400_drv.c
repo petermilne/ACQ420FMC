@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.232 DUALAXI"
+#define REVID "3.233 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1201,7 +1201,7 @@ static void _ao420_onStart(struct acq400_dev *adev)
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 
 	ctrl &= ~DAC_CTRL_LL;
-	if (adev->AO_playloop.one_shot == 0 ||
+	if (adev->AO_playloop.oneshot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_ao420_onStart() set lotide:%d", adev->lotide);
 		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
@@ -1226,7 +1226,7 @@ void _dio432_DO_onStart(struct acq400_dev *adev)
 	if (xo_use_distributor){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
-	}else if (adev->AO_playloop.one_shot == 0 ||
+	}else if (adev->AO_playloop.oneshot == 0 ||
 			adev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
@@ -2836,7 +2836,7 @@ int xo400_awg_release(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = ACQ400_DEV(file);
 
 	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
-		adev->AO_playloop.one_shot =
+		adev->AO_playloop.oneshot =
 			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE? AO_oneshot:
 			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE_RETRIG? AO_oneshot_rearm:
 					AO_continuous;
@@ -3642,7 +3642,7 @@ static int ao_auto_rearm(void *clidat)
 	}
 
 	if (adev->AO_playloop.length > 0 &&
-		adev->AO_playloop.one_shot == AO_oneshot_rearm){
+		adev->AO_playloop.oneshot == AO_oneshot_rearm){
 		dev_dbg(DEVP(adev), "ao_auto_rearm() reset %d", adev->AO_playloop.length);
 		xo400_reset_playloop(adev, adev->AO_playloop.length);
 	}
@@ -3710,7 +3710,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 		}
 
 		if (adev->AO_playloop.cursor >= adev->AO_playloop.length){
-			if (adev->AO_playloop.one_shot &&
+			if (adev->AO_playloop.oneshot &&
 				(adev->AO_playloop.repeats==0 || --adev->AO_playloop.repeats==0)){
 				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
@@ -3913,13 +3913,13 @@ int xo_data_loop(void *data)
 		adev->AO_playloop.cursor += ao_samples_per_hb(adev);
 
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
-			if (adev->AO_playloop.one_shot == AO_continuous ||
+			if (adev->AO_playloop.oneshot == AO_continuous ||
 					adev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
 				ib = 0;
 				adev->AO_playloop.cursor = 0;
 				/** @@todo dodgy : output or input dep on mode */
-				if (adev->AO_playloop.one_shot == 0){
+				if (adev->AO_playloop.oneshot == 0){
 					adev->AO_playloop.repeats++;
 				}else{
 					--adev->AO_playloop.repeats;
@@ -3957,7 +3957,7 @@ quit:
 	acq400_visit_set(adev0->distributor_set, adev->onStop);
 
 	adev->task_active = 0;
-	if (adev->AO_playloop.one_shot == 2){
+	if (adev->AO_playloop.oneshot == 2){
 		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
 	}
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
