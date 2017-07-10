@@ -2216,6 +2216,33 @@ static ssize_t store_playloop_oneshot(
 static DEVICE_ATTR(playloop_oneshot,
 		S_IRUGO|S_IWUGO, show_playloop_oneshot, store_playloop_oneshot);
 
+
+static ssize_t show_playloop_maxshot(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->AO_playloop.maxshot);
+}
+
+static ssize_t store_playloop_maxshot(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (sscanf(buf, "%u", &adev->AO_playloop.maxshot) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_maxshot,
+		S_IRUGO|S_IWUGO, show_playloop_maxshot, store_playloop_maxshot);
+
 static ssize_t show_playloop_cursor(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2561,6 +2588,7 @@ MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
 static const struct attribute *ao428_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
+	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_task_active.attr,
@@ -2598,6 +2626,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_04.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
+	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_task_active.attr,
@@ -2648,6 +2677,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_32.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
+	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_task_active.attr,

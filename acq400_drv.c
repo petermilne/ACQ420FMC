@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.233 DUALAXI"
+#define REVID "3.234 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -3957,7 +3957,9 @@ quit:
 	acq400_visit_set(adev0->distributor_set, adev->onStop);
 
 	adev->task_active = 0;
-	if (adev->AO_playloop.oneshot == 2){
+	if (adev->AO_playloop.oneshot == AO_oneshot_rearm &&
+	    (adev->AO_playloop.maxshot==0 || adev->stats.shot < adev->AO_playloop.maxshot)){
+		dev_dbg(DEVP(adev), "xo_data_loop() spawn auto_rearm");
 		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
 	}
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
