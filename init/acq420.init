@@ -311,14 +311,15 @@ build_knobs_device() {
 		CLKDIV=100;; 
 	61|62|6B)
 		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
-	68|69)
+	67|68|69)
 		return;;
 	*)
 		CLKDIV=200;;
 	esac
-	if [ "$CLKDIV" != "noset" ]; then
+	if [ "$CLKDIV" != "noset" ] && [ -e $dk/clkdiv ]; then
 		set.sys $dk/clkdiv $CLKDIV
-		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv $(get.sys $dk/clkdiv)"
+		rb=$(get.sys $dk/clkdiv)
+		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
 	fi
 	if [ -e $dk/gains ]; then
 		set.sys ${dk}/gains 0000		
