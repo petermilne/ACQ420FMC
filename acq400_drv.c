@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.234 DUALAXI"
+#define REVID "3.235 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -586,7 +586,6 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
 	adev->nchan_enabled = IS_ACQ424(adev)? 32: IS_ACQ425(adev)? 16: 4;
 	adev->word_size = adev->data32? 4: 2;
-	adev->sysclkhz = SYSCLK_M100;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
 	adev->onStart = acq420_onStart;
@@ -615,7 +614,6 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
 	adev->nchan_enabled = 8;
 	adev->word_size = 2;
-	adev->sysclkhz = SYSCLK_M100;
 	adev->hitide = hitide;
 	adev->lotide = lotide;
 	adev->onStart = acq480_onStart;
@@ -793,7 +791,6 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	// @@todo ACQ437_BANKSEL ?
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
-	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 16);
 	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
 	adev->onStart = acq43X_onStart;
@@ -902,7 +899,6 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->cursor.hb = &adev->hb[0];
 	adev->hitide = 2048;
 	adev->lotide = 0x1fff;
-	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
@@ -959,7 +955,6 @@ static void bolo8_init_defaults(struct acq400_dev* adev)
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
-	adev->sysclkhz = SYSCLK_M100;
 	acq400wr32(adev, ADC_CLKDIV, 10);
 	adev->onStart = bolo8_onStart;
 	adev->onStop = bolo8_onStop;
@@ -5195,8 +5190,15 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 	}
 	return rc;
 }
+
+void _acq400_mod_init_defaults(struct acq400_dev* adev)
+{
+	adev->sysclkhz = SYSCLK_M100;
+}
 void acq400_mod_init_defaults(struct acq400_dev* adev)
 {
+	_acq400_mod_init_defaults(adev);
+
 	if (IS_ACQ42X(adev)){
 		acq420_init_defaults(adev);
 	}else if (IS_DIO432X(adev)){
