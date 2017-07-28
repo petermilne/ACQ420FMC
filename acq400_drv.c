@@ -26,7 +26,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.235 DUALAXI"
+#define REVID "3.236 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -125,7 +125,7 @@ int default_dma_direction = DMA_FROM_DEVICE;
 module_param(default_dma_direction, int , 0644);
 MODULE_PARM_DESC(default_dma_direction, "set=1 for XO only device");
 
-int xo_use_bigbuf = 0;
+int xo_use_bigbuf = 1;
 module_param(xo_use_bigbuf, int, 0644);
 MODULE_PARM_DESC(xo_use_bigbuf, "set=1 if ONLY XO in box, then use bb to load long AWG");
 
@@ -262,7 +262,7 @@ int histo_poll_ms = 10;
 module_param(histo_poll_ms, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
 
-int xo_use_distributor;
+int xo_use_distributor = 1;
 module_param(xo_use_distributor, int, 0644);
 MODULE_PARM_DESC(xo_use_distributor, "use distributor and PRI for XO transfer";)
 
