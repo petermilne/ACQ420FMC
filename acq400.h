@@ -1463,4 +1463,6 @@ extern int xo400_open_awg(struct inode *inode, struct file *file);
 extern int acq400_open_histo(struct inode *inode, struct file *file);
 extern int acq400_open_hb(struct inode *inode, struct file *file);
 extern int acq400_release(struct inode *inode, struct file *file);
+extern int acq420_open_hb0(struct inode *inode, struct file *file);
+extern int acq420_open_gpgmem(struct inode *inode, struct file *file);
 #endif /* ACQ420FMC_H_ */

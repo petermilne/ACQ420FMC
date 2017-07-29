@@ -328,3 +328,164 @@ int acq400_open_hb(struct inode *inode, struct file *file)
 	}
 }
 
+
+ssize_t acq400_hb0_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	char HB0[16];
+
+	int rc;
+	/* force wait until next .. this is very conservative, we could
+	 * stash the hb0 in DESCR for use between calls.
+	 * But this way is self-regulating. This is for human monitor,
+	 * not an attempt to handle ALL the data
+	 */
+	unsigned hb0_count = adev->rt.hb0_count;
+
+	if (wait_event_interruptible(
+			adev->hb0_marker,
+			adev->rt.hb0_count != hb0_count ||
+			adev->rt.refill_error ||
+			adev->rt.please_stop)){
+		return -EINTR;
+	} else if (adev->rt.please_stop){
+		return -GET_FULL_DONE;
+	} else if (adev->rt.refill_error){
+		return -GET_FULL_REFILL_ERR;
+	}
+	sprintf(HB0, "%d %d\n", adev->rt.hb0_ix[0], adev->rt.hb0_ix[1]);
+	count = min(count, strlen(HB0)+1);
+	rc = copy_to_user(buf, HB0, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
+int acq420_open_hb0(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_hb0 = {
+			.read = acq400_hb0_read,
+			.release = acq400_release
+	};
+	file->f_op = &acq400_fops_hb0;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
+
+
+int acq400_gpgmem_open(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	if (file->f_flags & O_WRONLY) {
+		int iw;
+		for (iw = 0; iw < adev->gpg_cursor; ++iw){
+			iowrite32(0, adev->gpg_base+iw);
+		}
+		adev->gpg_cursor = 0;
+	}
+	return 0;
+}
+ssize_t acq400_gpgmem_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = adev->gpg_cursor*sizeof(u32);
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_to_user(buf, adev->gpg_buffer+bcursor, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
+ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int len = GPG_MEM_ACTUAL;
+	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (bcursor >= len){
+		return 0;
+	}else{
+		int headroom = (len - bcursor);
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user(adev->gpg_buffer+bcursor, buf, count);
+	if (rc){
+		return -1;
+	}
+	*f_pos += count;
+	adev->gpg_cursor += count/sizeof(u32);
+	return count;
+
+}
+
+int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
+{
+	if (gpg_count >= 2){
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
+		u32 gpg_top = gpg_count - 1		// was count, not address
+					 -1;		// GPG_2ND_LAST_ADDR
+		gpg_top <<= GPG_CTRL_TOPADDR_SHL;
+		gpg_top &= GPG_CTRL_TOPADDR;
+		gpg_ctrl &= ~GPG_CTRL_TOPADDR;
+		gpg_ctrl |= gpg_top;
+		acq400wr32(adev, GPG_CTRL, gpg_ctrl);
+		return 0;
+	}else{
+		dev_err(DEVP(adev), "set_gpg_top() ERROR: must have 2 or more entries");
+		return -1;
+	}
+}
+
+int acq400_gpgmem_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	unsigned* src = (unsigned *)adev->gpg_buffer;
+	int iw;
+	int rc;
+
+	for (iw = 0; iw < adev->gpg_cursor; ++iw){
+		iowrite32(src[iw], adev->gpg_base+iw);
+	}
+	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
+	rc = set_gpg_top(adev, adev->gpg_cursor);
+	acq400_release(inode, file);
+	return rc;
+}
+
+int acq420_open_gpgmem(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_gpgmem = {
+			.open = acq400_gpgmem_open,
+			.read = acq400_gpgmem_read,
+			.write = acq400_gpgmem_write,
+			.release = acq400_gpgmem_release
+	};
+	file->f_op = &acq400_fops_gpgmem;
+	return file->f_op->open(inode, file);
+}
