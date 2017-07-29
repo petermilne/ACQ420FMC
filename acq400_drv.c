@@ -3137,8 +3137,20 @@ void acq400sc_init_defaults(struct acq400_dev *adev)
 	}
 }
 
-
+#ifdef CONFIG_OF
+static struct of_device_id acq400_of_match[] /* __devinitdata */ = {
+        { .compatible = "D-TACQ,acq400fmc"  },
+        { .compatible = "D-TACQ,acq2006sc"  },
+        { .compatible = "D-TACQ,acq1001sc"  },
+        { .compatible = "D-TACQ,acq1002sc"  },
+        { .compatible = "D-TACQ,acq400pmod" },
+        { /* end of table */}
+};
+MODULE_DEVICE_TABLE(of, acq400_of_match);
+#else
 #define acq400_of_match NULL
+#endif /* CONFIG_OF */
+
 
 static int _acq400_device_tree_init(
 		struct acq400_dev* adev, struct device_node *of_node)
