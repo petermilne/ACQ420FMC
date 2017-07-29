@@ -30,6 +30,16 @@
 #include "acq400_lists.h"
 #include "acq400_ui.h"
 
+//int event_to = HZ/2;
+int event_to = 0x7fffffff;		// ie infinity
+module_param(event_to, int, 0644);
+MODULE_PARM_DESC(event_to, "backstop event time out should be one TBLOCK");
+
+int acq400_event_count_limit = 1;
+module_param(acq400_event_count_limit, int, 0644);
+MODULE_PARM_DESC(acq400_event_count_limit, "limit number of events per shot 0: no limit");
+
+
 int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
@@ -683,6 +693,349 @@ int acq420_reserve_open(struct inode *inode, struct file *file)
 	return reserve(PD(file), 0);
 }
 
+int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	char lbuf[32];
+	int bc, rc;
+
+	if (*f_pos){
+		return 0;
+	}
+	axi64_data_once(adev);
+	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->hb[0]->ix);
+	rc = copy_to_user(buf, lbuf, bc);
+
+	if (rc){
+		return -rc;
+	}else{
+		*f_pos += bc;
+		return bc;
+	}
+}
+
+int acq400_axi_once_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	acq2106_distributor_reset(adev);
+	acq2106_aggregator_reset(adev);
+	return acq400_release(inode, file);
+}
+int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_axi_once = {
+		.read = acq400_axi_once_read,
+		.release = acq400_axi_once_release
+	};
+	struct acq400_dev *adev = ACQ400_DEV(file);
+
+	sc_data_engine_reset_enable(DATA_ENGINE_0);
+	acq2106_distributor_reset(adev);
+	acq2106_aggregator_reset(adev);
+	file->f_op = &acq400_fops_axi_once;
+	return 0;
+}
+
+void init_event_info(struct EventInfo *eventInfo)
+{
+	struct acq400_dev* adev0 = acq400_lookupSite(0);
+	memset(eventInfo, 0, sizeof(struct EventInfo));
+
+	mutex_lock(&adev0->list_mutex);
+	/* event is somewhere between these two blocks */
+	if (!list_empty(&adev0->REFILLS)){
+		eventInfo->hbm0 = list_last_entry(&adev0->REFILLS, struct HBM, list);
+	}else if (!list_empty(&adev0->OPENS)){
+		eventInfo->hbm0 = list_last_entry(&adev0->OPENS, struct HBM, list);
+	}
+	if (!list_empty(&adev0->INFLIGHT)){
+		eventInfo->hbm1 = list_first_entry(&adev0->INFLIGHT, struct HBM, list);
+	}
+	mutex_unlock(&adev0->list_mutex);
+	eventInfo->pollin = 1;
+}
+
+int acq400_event_open(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	u32 int_csr;
+
+	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+		return -ERESTARTSYS;
+	}else{
+		++adev->event_client_count;
+		mutex_unlock(&adev->bq_clients_mutex);
+	}
+	int_csr = x400_get_interrupt(adev);
+	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN_ALL);
+
+	/* good luck using this in a 64-bit system ... */
+	/*
+	setup_timer( &adev->event_timer, event_isr, (unsigned)adev);
+	mod_timer( &adev->event_timer, jiffies + msecs_to_jiffies(event_isr_msec));
+	*/
+	return 0;
+}
+
+
+
+ssize_t acq400_event_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	char lbuf[40];
+	int nbytes;
+	int rc;
+	struct EventInfo eventInfo = PD(file)->eventInfo;
+	struct acq400_dev* adev0 = acq400_lookupSite(0);
+	u32 old_sample = adev->rt.samples_at_event;
+	int timeout = 0;
+
+	if (eventInfo.pollin){
+		PD(file)->eventInfo.pollin = 0;
+	}
+
+	dev_dbg(DEVP(adev), "acq400_event_read() 01 pollin %d old_sample %d",
+			eventInfo.pollin, old_sample);
+
+	if (eventInfo.pollin == 0){
+		/* force caller to wait fresh event. This is an auto-rate-limit
+		 * it's also re-entrant (supports multiple clients each at own rate)
+		 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
+		 */
+		dev_dbg(DEVP(adev), "acq400_event_read() 10 wait event");
+
+		rc = wait_event_interruptible_timeout(
+				adev->event_waitq,
+				adev->rt.samples_at_event != old_sample,
+				event_to);
+		if (rc < 0){
+			return -EINTR;
+		}else if (rc == 0){
+			return -EAGAIN;
+		}
+		init_event_info(&eventInfo);
+	}
+
+	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
+			eventInfo.hbm0, eventInfo.hbm1,
+			eventInfo.hbm1? "must wait for hbm1 to complete": "ready");
+
+	if (eventInfo.hbm0){
+		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm0->pa, eventInfo.hbm0->len, eventInfo.hbm0->dir);
+	}
+	if (eventInfo.hbm1){
+		int rc = wait_event_interruptible_timeout(
+			adev0->refill_ready,
+			eventInfo.hbm1->bstate != BS_FILLING ||
+				adev0->rt.refill_error ||
+				adev0->rt.please_stop,
+			event_to);
+		if (rc < 0){
+			return -EINTR;
+		}else if (rc == 0){
+			timeout = 1;
+		}
+		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm1->pa, eventInfo.hbm1->len, eventInfo.hbm1->dir);
+	}
+
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x %d\n",
+			adev->rt.samples_at_event,
+			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
+			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
+			adev->atd.event_source,
+			adev->rt.event_count);
+
+	if (HAS_DTD(adev) && adev->atd.event_source){
+		adev->atd.event_source = 0;
+	}
+	rc = copy_to_user(buf, lbuf, nbytes);
+	if (rc != 0){
+		rc = -1;
+	}else{
+		rc = nbytes;
+	}
+	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", lbuf, rc);
+	return rc;
+}
+
+
+static unsigned int acq400_event_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned rc;
+
+	if (adev->rt.samples_at_event){
+		init_event_info(&PD(file)->eventInfo);
+		rc = POLLIN;
+	}else{
+		poll_wait(file, &adev->event_waitq, poll_table);
+		if (adev->rt.samples_at_event){
+			init_event_info(&PD(file)->eventInfo);
+			rc = POLLIN;
+		}else{
+			rc = 0;
+		}
+	}
+	dev_dbg(DEVP(adev), "acq400_event_poll() return %u", rc);
+	return rc;
+}
+int acq400_event_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+
+	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+		return -ERESTARTSYS;
+	}else{
+		if (--adev->event_client_count == 0){
+			u32 int_csr = x400_get_interrupt(adev);
+
+			int_csr &= ~(ADC_INT_CSR_EVENT1_EN|ADC_INT_CSR_EVENT0_EN);
+			x400_set_interrupt(adev, int_csr);
+		}
+		mutex_unlock(&adev->bq_clients_mutex);
+	}
+	return acq400_release(inode, file);
+}
+
+int acq400_open_event(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_event = {
+			.open = acq400_event_open,
+			.read = acq400_event_read,
+			.poll = acq400_event_poll,
+			.release = acq400_event_release
+	};
+	file->f_op = &acq400_fops_event;
+
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
+
+
+ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct BQ* bq = &pdesc->bq;
+	char lbuf[32];
+	int bc;
+	int rc;
+
+	dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
+	if (wait_event_interruptible(
+		pdesc->waitq,
+		CIRC_CNT(bq->head, bq->tail, bq->bq_len))){
+		return -EINTR;
+	}
+
+	bc = snprintf(lbuf, 32, "%03d\n", bq->buf[bq->tail]);
+	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+
+	if (bc > count){
+		return -ENOSPC;
+	}
+	rc = copy_to_user(buf, lbuf, bc);
+	if (rc){
+		return -rc;
+	}else{
+		return bc;
+	}
+}
+
+static unsigned int acq400_bq_poll(
+	struct file *file, struct poll_table_struct *poll_table)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct BQ* bq = &pdesc->bq;
+
+	if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+		return POLLIN|POLLRDNORM;
+	}else{
+		poll_wait(file, &pdesc->waitq, poll_table);
+		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+			return POLLIN|POLLRDNORM;
+		}else{
+			return 0;
+		}
+	}
+}
+
+int acq400_bq_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+	struct acq400_path_descriptor *cur;
+	int nelems = 0;
+
+
+        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+        list_del_init(&pdesc->bq_list);
+        /* diagnostic */
+        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+               	++nelems;
+        }
+        mutex_unlock(&adev->bq_clients_mutex);
+
+        if (nelems){
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }else{
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }
+
+        kfree(pdesc->bq.buf);
+        return acq400_release(inode, file);
+}
+
+int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
+{
+	static struct file_operations acq400_fops_bq = {
+			.read = acq400_bq_read,
+			.release = acq400_bq_release,
+			.poll = acq400_bq_poll
+	};
+
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+	struct acq400_path_descriptor *cur;
+	int nelems = 0;
+
+        file->f_op = &acq400_fops_bq;
+
+        INIT_LIST_HEAD(&pdesc->bq_list);
+        pdesc->bq.bq_len = backlog;
+        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
+
+        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+        list_add_tail(&pdesc->bq_list, &adev->bq_clients);
+        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+        	++nelems;
+        }
+        mutex_unlock(&adev->bq_clients_mutex);
+        if (nelems > 1){
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }else{
+        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
+        }
+	return 0;
+}
+
+
+
+
 int acq400_open_ui(struct inode *inode, struct file *file)
 {
         struct acq400_dev *adev;
@@ -705,6 +1058,15 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		break;
         	case ACQ420_MINOR_HB0:
         		rc = acq420_open_hb0(inode, file);
+        		break;
+        	case ACQ420_MINOR_EVENT:
+        		rc = acq400_open_event(inode, file);
+        		break;
+        	case ACQ400_MINOR_BQ_NOWAIT:
+        		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);
+        		break;
+        	case ACQ400_MINOR_BQ_FULL:
+        		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
         		break;
         	case ACQ420_MINOR_GPGMEM:
         		rc = acq420_open_gpgmem(inode, file);
@@ -729,6 +1091,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		break;
         	case ACQ400_MINOR_ATD:
         		rc = acq400_atd_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_AXI_DMA_ONCE:
+        		rc = acq400_axi_dma_once_open(inode, file);
         		break;
             	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&

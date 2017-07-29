@@ -1493,4 +1493,30 @@ int check_fifo_statuses(struct acq400_dev *adev);
 /* MGT-DRAM-8 */
 int axi64_data_once(struct acq400_dev *adev);
 void axi64_terminate(struct dma_chan* dma_chan);
+
+extern u32 aggregator_get_fifo_samples(struct acq400_dev *adev);
+
+extern void acq2006_aggregator_disable(struct acq400_dev *adev);
+extern void acq2006_aggregator_enable(struct acq400_dev *adev);
+extern void sc_data_engine_reset_enable(unsigned dex);
+extern void acq2106_aggregator_reset(struct acq400_dev *adev);
+extern void acq2106_distributor_reset(struct acq400_dev *adev);
+extern void acq400_enable_trg_if_master(struct acq400_dev *adev);
+extern int acq400_enable_trg(struct acq400_dev *adev, int enable);
+
+extern int fifo_monitor(void* data);
+
+extern void poison_one_buffer_fastidious(struct acq400_dev *adev, struct HBM* hbm);
+extern void poison_all_buffers(struct acq400_dev *adev);
+extern int check_all_buffers_are_poisoned(struct acq400_dev *adev);
+extern int dma_done(struct acq400_dev *adev, struct HBM* hbm);
+extern int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm);
+extern void clear_poison_all_buffers(struct acq400_dev *adev);
+extern void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm);
+
+extern struct acq400_dev* acq400_lookupSite(int site);
+extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
+extern void acq400_timer_init(
+	struct hrtimer* timer,
+	enum hrtimer_restart (*function)(struct hrtimer *));
 #endif /* ACQ420FMC_H_ */

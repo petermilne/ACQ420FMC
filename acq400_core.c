@@ -38,6 +38,9 @@ module_param(modify_spad_access, int, 0644);
 MODULE_PARM_DESC(modify_spad_access,
 "-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
 
+int histo_poll_ms = 10;
+module_param(histo_poll_ms, int, 0644);
+MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
@@ -206,6 +209,11 @@ void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
 	(adev->fifo_histo[samples >> adev->xo.hshift])++;
 }
 
+u32 aggregator_get_fifo_samples(struct acq400_dev *adev)
+{
+	return acq400rd32(adev, AGGSTA);
+}
+
 
 int check_fifo_statuses(struct acq400_dev *adev)
 {
@@ -241,6 +249,173 @@ fail:
 	return 1;
 }
 
+
+void acq2106_distributor_reset(struct acq400_dev *adev)
+{
+	u32 dst = acq400rd32(adev, DISTRIBUTOR);
+	acq400wr32(adev, DISTRIBUTOR, dst &= ~(AGG_FIFO_RESET|AGG_ENABLE));
+	acq400wr32(adev, DISTRIBUTOR, dst | AGG_FIFO_RESET);
+	acq400wr32(adev, DISTRIBUTOR, dst);
+	acq400rd32(adev, DISTRIBUTOR);
+}
+
+void acq2106_aggregator_reset(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
+	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
+	acq400wr32(adev, AGGREGATOR, agg);
+	acq400rd32(adev, AGGREGATOR);
+}
+
+void sc_data_engine_reset_enable(unsigned dex)
+{
+	struct acq400_dev *adev = acq400_devices[0];
+	u32 DEX = acq400rd32(adev, dex);
+	acq400wr32(adev, dex, DEX &= ~(DE_ENABLE));
+	acq400wr32(adev, dex, DEX | DE_ENABLE);
+}
+void acq2006_aggregator_enable(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	agg &= ~AGG_SPAD_ALL_MASK;
+
+	switch(adev->spad.spad_en){
+	default:
+		goto agg99;
+	case SP_EN:
+		agg |= SET_AGG_SPAD_LEN(adev->spad.len);
+		agg |= AGG_SPAD_EN;
+		break;
+	case SP_FRAME:
+		agg |= AGG_SPAD_EN|AGG_SPAD_FRAME;
+		break;
+	}
+	switch(adev->spad.diX){
+	case SD_DI4:
+		agg |= SET_AGG_SNAP_DIx(AGG_SNAP_DI_4); break;
+	case SD_DI32:
+		agg |= SET_AGG_SNAP_DIx(AGG_SNAP_DI_32); break;
+	}
+ agg99:
+	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
+}
+void acq2006_aggregator_disable(struct acq400_dev *adev)
+{
+	u32 agg = acq400rd32(adev, AGGREGATOR);
+	acq400wr32(adev, AGGREGATOR, agg & ~AGG_ENABLE);
+}
+
+void acq400_enable_trg_if_master(struct acq400_dev *adev)
+{
+	dev_dbg(DEVP(adev), "acq400_enable_trg_if_master %d = %d",
+			adev->of_prams.site, ((adev->mod_id&MOD_ID_IS_SLAVE) == 0));
+
+	if ((adev->mod_id&MOD_ID_IS_SLAVE) == 0){
+		acq400_enable_trg(adev, 1);
+	}
+}
+
+int acq400_enable_trg(struct acq400_dev *adev, int enable)
+{
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	int was_enabled = (timcon&TIM_CTRL_MODE_HW_TRG_EN) != 0;
+	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 01", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
+	if (enable){
+		if (was_enabled){
+			dev_dbg(DEVP(adev), "acq400_enable_trg already enabled ..");
+		}
+		timcon |= TIM_CTRL_MODE_HW_TRG_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_HW_TRG_EN;
+	}
+	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 99", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
+	acq400wr32(adev, TIM_CTRL, timcon);
+	return was_enabled;
+}
+
+void histo_clear_all(struct acq400_dev *devs[], int maxdev)
+{
+	int cursor;
+	for (cursor = 0; cursor < maxdev; ++cursor){
+		acq400_clear_histo(devs[cursor]);
+	}
+}
+
+void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
+{
+	int cursor;
+	for (cursor = i1; cursor < maxdev; ++cursor){
+		struct acq400_dev *adev = devs[cursor];
+		add_fifo_histo(adev, adev->get_fifo_samples(adev));
+	}
+	for (cursor = 0; cursor < i1; ++cursor){
+		struct acq400_dev *adev = devs[cursor];
+		add_fifo_histo(adev, adev->get_fifo_samples(adev));
+	}
+}
+
+int fifo_monitor(void* data)
+{
+	struct acq400_dev *devs[MAXSITES+1];
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	int idev = 0;
+	int cursor;
+	int i1 = 0;		/* randomize start time */
+
+	devs[idev++] = adev;
+	adev->get_fifo_samples = aggregator_get_fifo_samples;
+	for (cursor = 0; cursor < MAXSITES; ++cursor){
+		struct acq400_dev* slave = adev->aggregator_set[cursor];
+		if (slave){
+			devs[idev++] = slave;
+			slave->get_fifo_samples = acq420_get_fifo_samples;
+		}
+	}
+	histo_clear_all(devs, idev);
+
+	while(!kthread_should_stop()) {
+		if (acq420_convActive(devs[idev>1?1:0])){
+			histo_add_all(devs, idev, i1);
+			msleep(histo_poll_ms);
+		}
+//		if (++i1 >= idev) i1 = 0;
+	}
+
+	return 0;
+}
+
+struct acq400_dev* acq400_lookupSite(int site)
+{
+	int is;
+	for (is = 0; is < MAXDEVICES+1; ++is){
+		struct acq400_dev* adev = acq400_devices[is];
+		if (adev != 0 && adev->of_prams.site == site){
+			return adev;
+		}
+	}
+	return 0;
+}
+
+void acq400_enable_event0(struct acq400_dev *adev, int enable)
+{
+	u32 timcon = acq400rd32(adev, TIM_CTRL);
+	if (enable){
+		timcon |= TIM_CTRL_MODE_EV0_EN;
+	}else{
+		timcon &= ~TIM_CTRL_MODE_EV0_EN;
+	}
+	dev_dbg(DEVP(adev), "acq400_enable_event0(%d) 0x%08x", enable, timcon);
+	acq400wr32(adev, TIM_CTRL, timcon);
+}
+
+void acq400_timer_init(
+	struct hrtimer* timer,
+	enum hrtimer_restart (*function)(struct hrtimer *))
+{
+	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer->function = function;
+}
 
 void go_rt(int prio)
 {
