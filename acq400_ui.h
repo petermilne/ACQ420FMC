@@ -31,19 +31,8 @@ extern ssize_t acq400_read(
 
 extern ssize_t acq400_write(
 	struct file *file, const char __user *buf, size_t count, loff_t *f_pos);
-
 extern int acq400_mmap_bar(struct file* file, struct vm_area_struct* vma);
-extern int acq400_map_page_open(struct inode* inode, struct file* file);
-extern int acq400_atd_open(struct inode* inode, struct file* file);
-int acq420_sew_fifo_open(struct inode *inode, struct file *file);
-int acq420_reserve_open(struct inode *inode, struct file *file);
-int acq420_reserve_dist_open(struct inode *inode, struct file *file);
-
-extern int xo400_open_awg(struct inode *inode, struct file *file);
-extern int acq400_open_histo(struct inode *inode, struct file *file);
-extern int acq400_open_hb(struct inode *inode, struct file *file);
 extern int acq400_release(struct inode *inode, struct file *file);
-extern int acq420_open_hb0(struct inode *inode, struct file *file);
-extern int acq420_open_gpgmem(struct inode *inode, struct file *file);
 
+extern int acq400_open_ui(struct inode *inode, struct file *file);
 #endif /* ACQ400_UI_H_ */

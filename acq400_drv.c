@@ -1783,95 +1783,55 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 
 int acq400_open(struct inode *inode, struct file *file)
 {
-        struct acq400_dev *adev;
-        int minor;
-        int rc;
+	struct acq400_dev *adev;
+	int minor;
+	int rc;
 
-        acq400_init_descriptor(&file->private_data);
+	acq400_init_descriptor(&file->private_data);
 
 
-        PD(file)->dev = adev = container_of(inode->i_cdev, struct acq400_dev, cdev);
-        PD(file)->minor = minor = MINOR(inode->i_rdev);
-        INIT_LIST_HEAD(&PD(file)->RESERVED);
+	PD(file)->dev = adev = container_of(inode->i_cdev, struct acq400_dev, cdev);
+	PD(file)->minor = minor = MINOR(inode->i_rdev);
+	INIT_LIST_HEAD(&PD(file)->RESERVED);
 
-        dev_dbg(DEVP(adev), "hello: minor:%d\n", minor);
+	dev_dbg(DEVP(adev), "hello: minor:%d\n", minor);
 
-        if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
-        	rc = acq400_open_hb(inode, file);
-        } else if (minor >= ACQ420_MINOR_CHAN && minor <= ACQ420_MINOR_CHAN2){
-        	rc = -ENODEV;  	// @@todo maybe later0
-        } else {
-        	switch(minor){
-        	case ACQ420_MINOR_SIDEPORTED:
-        		rc = acq420_open_sideported(inode, file);
-        		break;
-        	case ACQ420_MINOR_CONTINUOUS:
-        		rc = acq420_open_continuous(inode, file);
-        		break;
-        	case ACQ420_MINOR_HISTO:
-        		rc = acq400_open_histo(inode, file);
-        		break;
-        	case ACQ420_MINOR_HB0:
-        		rc = acq420_open_hb0(inode, file);
-        		break;
-        	case ACQ420_MINOR_GPGMEM:
-        		rc = acq420_open_gpgmem(inode, file);
-        		break;
-        	case ACQ420_MINOR_EVENT:
-        		rc = acq400_open_event(inode, file);
-        		break;
-        	case ACQ420_MINOR_0:
-        		rc = acq400_open_main(inode, file);
-        		break;
-        	case ACQ420_MINOR_STREAMDAC:
-        		rc = acq400_open_streamdac(inode, file);
-        		break;
-        	case ACQ420_MINOR_BOLO_AWG:
-        		rc = bolo_open_awg(inode, file);
-        		break;
-        	case AO420_MINOR_HB0_AWG_ONCE:
-        	case AO420_MINOR_HB0_AWG_LOOP:
-        	case AO420_MINOR_HB0_AWG_ONCE_RETRIG:
-        		rc = xo400_open_awg(inode, file);
-        		break;
-        	case ACQ420_MINOR_RESERVE_BLOCKS:
-        		rc = acq420_reserve_open(inode, file);
-        		break;
-        	case ACQ400_MINOR_RSV_DIST:
-        		rc = acq420_reserve_dist_open(inode, file);
-        		break;
-        	case ACQ400_MINOR_BQ_NOWAIT:
-        		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);
-        		break;
-        	case ACQ400_MINOR_BQ_FULL:
-        		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
-        		break;
-        	case ACQ420_MINOR_SEW1_FIFO:
-        	case ACQ420_MINOR_SEW2_FIFO:
-        		rc = acq420_sew_fifo_open(inode, file);
-        		break;
-        	case ACQ400_MINOR_ATD:
-        		rc = acq400_atd_open(inode, file);
-        		break;
-        	case ACQ400_MINOR_AXI_DMA_ONCE:
-        		rc = acq400_axi_dma_once_open(inode, file);
-        		break;
-        	default:
-        		if (minor >= ACQ400_MINOR_MAP_PAGE &&
-        		    minor < ACQ400_MINOR_MAP_PAGE+16  ){
-        			rc = acq400_map_page_open(inode, file);
-        		}else{
-        			rc = -ENODEV;
-        		}
-        	}
-        }
 
-        if (rc != 0){
-        	dev_err(DEVP(adev), "acq400_open FAIL minor:%d rc:%d", minor, rc);
-        	if (PD(file)) kfree(PD(file));
-        	SETPD(file, 0);
-        }
-        return rc;
+	switch(minor){
+	case ACQ420_MINOR_SIDEPORTED:
+		rc = acq420_open_sideported(inode, file);
+		break;
+	case ACQ420_MINOR_CONTINUOUS:
+		rc = acq420_open_continuous(inode, file);
+		break;
+	case ACQ420_MINOR_EVENT:
+		rc = acq400_open_event(inode, file);
+		break;
+	case ACQ420_MINOR_0:
+		rc = acq400_open_main(inode, file);
+		break;
+	case ACQ420_MINOR_STREAMDAC:
+		rc = acq400_open_streamdac(inode, file);
+		break;
+	case ACQ400_MINOR_BQ_NOWAIT:
+		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);
+		break;
+	case ACQ400_MINOR_BQ_FULL:
+		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
+		break;
+	case ACQ400_MINOR_AXI_DMA_ONCE:
+		rc = acq400_axi_dma_once_open(inode, file);
+		break;
+	default:
+		rc = acq400_open_ui(inode, file);
+	}
+
+	if (rc != 0){
+		dev_err(DEVP(adev), "acq400_open FAIL minor:%d rc:%d", minor, rc);
+		if (PD(file)) kfree(PD(file));
+		SETPD(file, 0);
+	}
+	return rc;
 }
 
 
