@@ -28,6 +28,7 @@
 #include "hbm.h"
 
 #include "acq400_lists.h"
+#include "acq400_ui.h"
 
 int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
@@ -489,3 +490,199 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 	file->f_op = &acq400_fops_gpgmem;
 	return file->f_op->open(inode, file);
 }
+
+ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	return -EINVAL;
+}
+
+ssize_t acq400_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+        return -EINVAL;
+}
+
+int acq400_mmap_bar(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = adev->dev_addrsize;
+	unsigned pfn = adev->dev_physaddr >> PAGE_SHIFT;
+
+	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+
+int acq400_mmap_bar_page(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = 0x1000;
+	unsigned long pa = adev->dev_physaddr + ACQ400_MINOR_MAP_PAGE_OFFSET(PD(file)->minor);
+	unsigned pfn = pa>> PAGE_SHIFT;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	dev_dbg(DEVP(adev), "acq400_mmap_bar_page pa:0x%08lx vsize %lu psize %lu %s",
+		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+int acq400_map_page_open(struct inode* inode, struct file* file)
+{
+	static struct file_operations acq400_map_page_fops = {
+	        .owner = THIS_MODULE,
+	        .release = acq400_release,
+	        .mmap = acq400_mmap_bar_page
+	};
+	file->f_op = &acq400_map_page_fops;
+	return 0;
+}
+
+int acq400_mmap_bar_atd(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = AXI_ATD_LEN;
+	unsigned pfn = (adev->dev_physaddr + AXI_ATD_RAM)>> PAGE_SHIFT;
+
+	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
+		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+int acq400_atd_open(struct inode* inode, struct file* file)
+{
+	static struct file_operations acq400_atd_fops = {
+	        .owner = THIS_MODULE,
+	        .release = acq400_release,
+	        .mmap = acq400_mmap_bar_atd
+	};
+	file->f_op = &acq400_atd_fops;
+	return 0;
+}
+
+ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+
+	int rc = acq400_sew_fifo_write_bytes(adev, ix, buf, count);
+
+	if (rc > 0){
+		*f_pos += rc;
+	}
+	return rc;
+}
+int acq420_sew_fifo_release(struct inode *inode, struct file *file)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	return acq400_sew_fifo_destroy(adev, ix);
+}
+
+int acq420_sew_fifo_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq420_sew_fifo = {
+			.write = acq420_sew_fifo_write,
+			.release = acq420_sew_fifo_release,
+	};
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	int busy;
+
+	if (mutex_lock_interruptible(&adev->awg_mutex)) {
+		return -EINTR;
+	}
+	busy = adev->sewFifo[ix].sf_task != 0;
+	if (!busy){
+		acq400_sew_fifo_init(adev, ix);
+	}
+	mutex_unlock(&adev->awg_mutex);
+	if (busy){
+		return -EBUSY;
+	}
+
+	file->f_op = &acq420_sew_fifo;
+	return 0;
+}
+
+
+
+
+int acq420_reserve_release(struct inode *inode, struct file *file)
+/* if it was a write, commit to memory and set length */
+{
+	replace_all(PD(file));
+	return acq400_release(inode, file);
+}
+
+ssize_t acq420_reserve_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	wait_queue_head_t waitq;	/* no one gonna wake this sucker */
+
+	init_waitqueue_head(&waitq);
+
+	wait_event_interruptible(waitq, 0);  /* but it will accept a signal .. */
+	return -EINTR;
+}
+
+int acq420_reserve_dist_open(struct inode *inode, struct file *file)
+/* simply reserve block 0 on open. Can get clever later */
+{
+	static struct file_operations fops = {
+		.open = acq420_reserve_dist_open,
+		.read = acq420_reserve_read,
+		.release = acq420_reserve_release,
+	};
+
+	file->f_op = &fops;
+	return acq400_reserve_dist_buffers(PD(file));
+}
+int acq420_reserve_open(struct inode *inode, struct file *file)
+/* simply reserve block 0 on open. Can get clever later */
+{
+	static struct file_operations fops = {
+		.open = acq420_reserve_open,
+		.read = acq420_reserve_read,
+		.release = acq420_reserve_release,
+	};
+	file->f_op = &fops;
+	return reserve(PD(file), 0);
+}
+
+
+
+

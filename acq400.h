@@ -1459,10 +1459,26 @@ void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
 void init_axi_dma(struct acq400_dev* adev);
 
-extern int xo400_open_awg(struct inode *inode, struct file *file);
-extern int acq400_open_histo(struct inode *inode, struct file *file);
-extern int acq400_open_hb(struct inode *inode, struct file *file);
-extern int acq400_release(struct inode *inode, struct file *file);
-extern int acq420_open_hb0(struct inode *inode, struct file *file);
-extern int acq420_open_gpgmem(struct inode *inode, struct file *file);
+
+extern void acq400_mod_init_defaults(struct acq400_dev* adev);
+
+
+extern int acq420_isFifoError(struct acq400_dev *adev);	/* REFACTORME */
+extern void release_dma_channels(struct acq400_dev *adev);
+extern void ao420_clear_fifo_flags(struct acq400_dev *adev);
+extern void ao420_reset_fifo(struct acq400_dev *adev);
+extern void acq400_clear_histo(struct acq400_dev *adev);
+
+static inline u32 acq420_get_fifo_samples(struct acq400_dev *adev)
+{
+	return acq400rd32(adev, ADC_FIFO_SAMPLES);
+}
+
+extern int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes);
+
+
+
+extern int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd);
+extern int acq420_convActive(struct acq400_dev *adev);
+extern void acq400_getID(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */

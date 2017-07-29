@@ -2,8 +2,6 @@
 /* acq400_drv.c  D-TACQ ACQ400 FMC  DRIVER		                     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2013 Peter Milne, D-TACQ Solutions Ltd                    *
- *                      <peter dot milne at D hyphen TACQ dot com>           *
- *                                                                           *
  *  This program is free software; you can redistribute it and/or modify     *
  *  it under the terms of Version 2 of the GNU General Public License        *
  *  as published by the Free Software Foundation;                            *
@@ -22,6 +20,7 @@
 #include "hbm.h"
 #include "acq400_debugfs.h"
 #include "acq400_lists.h"
+#include "acq400_ui.h"
 
 #include "dmaengine.h"
 
@@ -40,20 +39,6 @@ int ndevices;
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 
-int adc_18b = 0;
-module_param(adc_18b, int, 0444);
-MODULE_PARM_DESC(adc_18b, "set TRUE on load if 18 bit devices fitted [1]");
-
-int data_32b = 0;
-module_param(data_32b, int, 0444);
-MODULE_PARM_DESC(data_32b, "set TRUE on load if 32 bit data required [0]");
-
-int adc_conv_time = ADC_CONV_TIME_1000;
-module_param(adc_conv_time, int, 0444);
-MODULE_PARM_DESC(adc_conv_time, "hardware tweak, change at load only");
-
-int acq424_adc_conv_time = 0x2d;
-module_param(acq424_adc_conv_time, int, 0444);
 
 int nbuffers = 64;
 module_param(nbuffers, int, 0444);
@@ -66,26 +51,12 @@ MODULE_PARM_DESC(bufferlen, "length of capture buffer");
 int frontside_bufferlen = 0x10000;
 module_param(frontside_bufferlen, int, 0444);
 
-int hitide = HITIDE;
-module_param(hitide, int, 0644);
-MODULE_PARM_DESC(hitide, "hitide value (words)");
-
-int lotide = HITIDE-4;
-module_param(lotide, int, 0644);
-MODULE_PARM_DESC(lotide, "lotide value (words)");
-
 
 int FIFERR = ADC_FIFO_STA_ERR;
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 
-int act_on_fiferr = 1;
-module_param(act_on_fiferr, int, 0644);
-MODULE_PARM_DESC(act_on_fiferr, "0: log, don't act. 1: abort on error");
 
-int debcount;
-module_param(debcount, int, 0644);
-MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 
 int maxdma = MAXDMA;
 module_param(maxdma, int, 0644);
@@ -98,14 +69,6 @@ int quit_on_buffer_exhaustion;
 module_param(quit_on_buffer_exhaustion, int, 0644);
 MODULE_PARM_DESC(quit_on_buffer_exhaustion, "abort capture when out of buffers");
 
-int modify_spad_access;
-module_param(modify_spad_access, int, 0644);
-MODULE_PARM_DESC(modify_spad_access,
-"-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
-
-int dio432_rowback = 256/4;
-module_param(dio432_rowback, int, 0644);
-MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
 
 int AO420_MAX_FILL_BLOCK = 16384;
@@ -133,9 +96,6 @@ int xo_use_contiguous_pa_if_possible = 0;
 module_param(xo_use_contiguous_pa_if_possible, int, 0644);
 MODULE_PARM_DESC(xo_use_contiguous_pa_if_possible, "set=1 to roll forward into next HB if contiguous");
 
-int measure_ao_fifo_ok = 1;
-module_param(measure_ao_fifo_ok, int, 0644);
-MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on ao428");
 
 int distributor_first_buffer = 0;
 module_param(distributor_first_buffer, int, 0644);
@@ -175,10 +135,6 @@ module_param_array(good_sites, int, &good_sites_count, 0444);
 int ao420_dma_threshold = MIN_DMA_BYTES;
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
-
-int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
-int ao420_mapping_count = 4;
-module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
 
 int event_isr_msec = 20;
@@ -320,16 +276,25 @@ int fifo_monitor(void* data);
 
 int fiferr;
 
-void acq420_onStart(struct acq400_dev *adev);
-void acq480_onStart(struct acq400_dev *adev);
-void acq43X_onStart(struct acq400_dev *adev);
-void ao420_onStart(struct acq400_dev *adev);
-static void acq420_disable_fifo(struct acq400_dev *adev);
 
-static void _ao420_onStart(struct acq400_dev *adev);
-static void _ao420_onStop(struct acq400_dev *adev);
-static void _dio432_DO_onStart(struct acq400_dev *adev);
-
+int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
+{
+	if (distributor_first_buffer > 0){
+		int ib;
+		int rc = 0;
+		for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
+			rc = reserve(pd, ib);
+			if (rc != 0){
+				dev_err(&pd->dev->pdev->dev,
+					"failed to reserve buffer %d", ib);
+				return rc;
+			}
+		}
+		return 0;
+	}else{
+		return -1;
+	}
+}
 void go_rt(int prio)
 {
 	struct task_struct *task = current;
@@ -354,26 +319,7 @@ const char* devname(struct acq400_dev *adev)
 {
 	return acq400_devnames[adev->of_prams.site];
 }
-/* correct for FPGA mismatch with front panel connectors */
-int ao420_physChan(int lchan /* 1..4 */ )
-{
-	int ip;
-	for (ip = 0; ip < AO_CHAN; ++ip){
-		if (ao420_mapping[ip] == lchan){
-			return ip;
-		}
-	}
-	BUG();
-}
 
-int ao428_physChan(int lchan /* 1..8 */ )
-{
-	return lchan-1;
-}
-int ao424_physChan(int lchan /* 1..32 */ )
-{
-	return lchan-1;
-}
 
 int isGoodSite(int site)
 {
@@ -395,70 +341,6 @@ int acq400_release(struct inode *inode, struct file *file);
 int acq400_hb_release(struct inode *inode, struct file *file);
 
 
-void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
-{
-	if (adev->RW32_debug){
-		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
-				adev->dev_virtaddr + offset, offset, value);
-	}else{
-		dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
-				adev->dev_virtaddr + offset, offset, value);
-	}
-
-	iowrite32(value, adev->dev_virtaddr + offset);
-}
-
-u32 acq400rd32(struct acq400_dev *adev, int offset)
-{
-	u32 rc = ioread32(adev->dev_virtaddr + offset);
-	if (adev->RW32_debug > 1){
-		dev_info(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
-			adev->dev_virtaddr + offset, offset, rc);
-	}else{
-		dev_dbg(DEVP(adev), "acq400rd32 %p [0x%02x] = %08x\n",
-			adev->dev_virtaddr + offset, offset, rc);
-	}
-	return rc;
-}
-
-u32 acq400rd32_upcount(struct acq400_dev *adev, int offset)
-{
-	u32 c1 = acq400rd32(adev, offset);
-	u32 c2;
-
-	while((c2 = acq400rd32(adev, offset)) < c1){
-		c1 = c2;
-		++debcount;
-	}
-	return c2;
-}
-
-void set_spadN(struct acq400_dev* adev, int n, u32 value)
-{
-	if (modify_spad_access == -1){
-		adev->fake_spad[n] = value;
-	}else{
-		if (modify_spad_access > 0){
-			acq400rd32(adev, SPADN(n));
-		}
-		acq400wr32(adev, SPADN(n), value);
-		if (modify_spad_access > 1){
-			u32 v2 = acq400rd32(adev, SPADN(n));
-			if (v2 != value){
-				dev_warn(DEVP(adev),
-					"spadN fail: w:%08x r:%08x", value, v2);
-			}
-		}
-	}
-}
-u32 get_spadN(struct acq400_dev* adev, int n)
-{
-	if (modify_spad_access){
-		return adev->fake_spad[n];
-	}else{
-		return acq400rd32(adev, SPADN(n));
-	}
-}
 
 void set_continuous_reader(struct acq400_dev *adev)
 {
@@ -470,21 +352,6 @@ void clr_continuous_reader(struct acq400_dev *adev)
 {
 	adev->continuous_reader = 0;
 	continuous_reader &= ~(1 << adev->of_prams.site);
-}
-u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl)
-/* DOES NOT ACTUALLY WRITE HARDWARE! */
-{
-	if (adev->adc_18b){
-		adc_ctrl |= ADC_CTRL_420_18B;
-	}else{
-		adc_ctrl &= ~ADC_CTRL_420_18B;
-	}
-	if (adev->data32){
-		adc_ctrl |= ADC_CTRL32B_data;
-	}else{
-		adc_ctrl &= ~ADC_CTRL32B_data;
-	}
-	return adc_ctrl;
 }
 
 static void acq400sc_init_defaults(struct acq400_dev *adev)
@@ -503,67 +370,7 @@ static void acq400sc_init_defaults(struct acq400_dev *adev)
 }
 
 
-int _ao420_getFifoSamples(struct acq400_dev* adev) {
-	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
-}
 
-int _dio432_DO_getFifoSamples(struct acq400_dev* adev) {
-	return acq400rd32(adev, DIO432_DO_FIFO_COUNT)&DAC_FIFO_SAMPLES_MASK;
-}
-
-int bolo8_isFifoError(struct acq400_dev *adev)
-{
-	u32 fifsta = acq400rd32(adev, B8_ADC_FIFO_STA);
-	int err = (fifsta&fiferr) != 0;
-
-	acq400wr32(adev, B8_ADC_FIFO_STA, fifsta);
-
-	if (err){
-		u32 fifsta2 = acq400rd32(adev, B8_ADC_FIFO_STA);
-		adev->stats.fifo_errors++;
-		dev_warn(DEVP(adev), "BOLO8 FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
-				acq400_lookupSite(0)->rt.nput,
-				FIFERR, fiferr, fifsta,
-				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
-	}
-
-	return act_on_fiferr? err: 0;
-}
-
-static void acq420_reset_fifo(struct acq400_dev *adev)
-/* Raise and Release reset */
-{
-	u32 ctrl = acq400rd32(adev, ADC_CTRL);
-
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl);
-	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
-
-}
-
-static void acq420_enable_fifo(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, ADC_CTRL);
-	if (adev->ramp_en){
-		ctrl |= ADC_CTRL_RAMP_EN;
-	}else{
-		ctrl &= ~ADC_CTRL_RAMP_EN;
-	}
-	if (IS_ACQ42X(adev)){
-		ctrl = acq420_set_fmt(adev, ctrl);
-	}
-	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
-}
-
-void acq420_disable_fifo(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, ADC_CTRL);
-	dev_dbg(DEVP(adev), "acq420_disable_fifo() %08x -> %08x",
-			ctrl, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
-	acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ENABLE_CAPTURE);
-	acq420_reset_fifo(adev);
-}
 
 
 void acq400_enable_trg_if_master(struct acq400_dev *adev)
@@ -593,305 +400,7 @@ int acq400_enable_trg(struct acq400_dev *adev, int enable){
 	return was_enabled;
 }
 
-static void acq420_init_defaults(struct acq400_dev *adev)
-{
-	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
 
-	dev_info(DEVP(adev), "ACQ420 device init");
-	acq400wr32(adev, ADC_CONV_TIME, IS_ACQ424(adev)? acq424_adc_conv_time: adc_conv_time);
-	adev->data32 = data_32b;
-	adev->adc_18b = adc_18b;
-	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
-	adev->nchan_enabled = IS_ACQ424(adev)? 32: IS_ACQ425(adev)? 16: 4;
-	adev->word_size = adev->data32? 4: 2;
-	adev->hitide = hitide;
-	adev->lotide = lotide;
-	adev->onStart = acq420_onStart;
-	adev->onStop = acq420_disable_fifo;
-
-	if (IS_ACQ424(adev)){
-		acq400wr32(adev, ADC_CLKDIV, 66);
-	}
-}
-
-int acq480_train_fail(struct acq400_dev *adev)
-{
-	if ((adev->mod_id&MOD_ID_REV_MASK) >= 0xa){
-		return (acq400rd32(adev, ADC_CTRL)&ADC480_CTRL_TRAIN_OK) == 0;
-	}else{
-		return -1;
-	}
-}
-static void acq480_init_defaults(struct acq400_dev *adev)
-{
-	dev_info(DEVP(adev), "ACQ480 device init: skeleton");
-
-	adev->data32 = 0;
-	adev->adc_18b = 0;
-
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
-	adev->nchan_enabled = 8;
-	adev->word_size = 2;
-	adev->hitide = hitide;
-	adev->lotide = lotide;
-	adev->onStart = acq480_onStart;
-	adev->onStop = acq420_disable_fifo;
-	adev->clkdiv_mask = 0x0001;		/* disable clkdiv */
-}
-
-
-static u32 _v2f_init(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, V2F_CTRL);
-
-	if (adev->data32){
-		ctrl &= ~V2F_CTRL_DATA_PACKED;
-	}else{
-		ctrl |= V2F_CTRL_DATA_PACKED;
-	}
-	acq400wr32(adev, V2F_CTRL, ctrl&=~ V2F_CTRL_EN);
-	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_RST);
-	acq400wr32(adev, V2F_CTRL, ctrl);
-	return ctrl;
-}
-static void _v2f_onStop(struct acq400_dev *adev)
-{
-	_v2f_init(adev);
-}
-
-static void _v2f_onStart(struct acq400_dev *adev)
-{
-	u32 ctrl = _v2f_init(adev);
-	acq400wr32(adev, V2F_CTRL, ctrl|V2F_CTRL_EN);
-}
-
-static void v2f_init_defaults(struct acq400_dev *adev)
-{
-	adev->data32 = 0;
-	adev->word_size = 4;
-	adev->nchan_enabled = 0;
-	acq400wr32(adev, V2F_CHAN_SEL, 0x04030201);
-	acq400wr32(adev, V2F_CTRL, ADC_CTRL_MODULE_EN|V2F_CTRL_EN);
-	adev->onStart = _v2f_onStart;
-	adev->onStop = _v2f_onStop;
-}
-
-static void _qen_onStop(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, QEN_CTRL);
-	ctrl &= ~(QEN_CTRL_FIFO_EN|QEN_CTRL_EN);
-	acq400wr32(adev, QEN_CTRL, ctrl);
-}
-
-static void _qen_onStart(struct acq400_dev *adev)
-{
-	acq420_enable_fifo(adev);
-	acq420_reset_fifo(adev);
-}
-
-static void qen_init_defaults(struct acq400_dev *adev)
-{
-	struct acq400_dev *adev1 = acq400_devices[1];
-	if (adev1 && adev1->data32 == 0){
-		adev->data32 = 0;
-		adev->word_size = 2;
-		adev->nchan_enabled = 2;
-	}else{
-		adev->data32 = 1;
-		adev->word_size = 1;
-		adev->nchan_enabled = 1;
-	}
-
-	acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN);
-	adev->onStart = _qen_onStart;
-	adev->onStop = _qen_onStop;
-}
-
-static void acq1014_init_defaults(struct acq400_dev *adev)
-{
-	acq400wr32(adev, DIO1014_CR,
-		DIO1014_CR_CLK_LO|DIO1014_CR_TRG_SOFT|DIO1014_MOD_EN);
-}
-static void pig_celf_init_defaults(struct acq400_dev *adev)
-{
-	adev->data32 = 0;
-	/* data is 4 x 32 bits, but I+Q surely 16 bit each? */
-	adev->word_size = 2;
-	adev->nchan_enabled = 8;
-	adev->clkdiv_mask = 0;	/* unfortunate alias of clkdiv reg. stub it */
-	dev_info(DEVP(adev), "pig_celf_init_defaults()");
-	acq400wr32(adev, MCR, MCR_MOD_EN);
-	adev->onStart = acq420_onStart;
-	adev->onStop = acq420_disable_fifo;
-	acq400wr32(adev, PC_DDS_DAC_CLKDIV, 	0x5);
-	acq400wr32(adev, PC_ADC_CLKDIV, 	0x14);
-	acq400wr32(adev, PC_DDS_PHASE_INC, 	0x80000);
-}
-
-static void rad_celf_init_defaults(struct acq400_dev *adev)
-{
-	dev_info(DEVP(adev), "rad_celf_init_defaults()");
-	acq400wr32(adev, MCR, MCR_MOD_EN);
-}
-
-static void pmodadc1_init_defaults(struct acq400_dev *adev)
-{
-	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
-
-	dev_info(DEVP(adev), "PMODADC1 device init");
-	if (FPGA_REV(adev) < 5){
-		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
-	}
-	acq400wr32(adev, ADC_CONV_TIME, adc_conv_time);
-	adev->data32 = 0;
-	adev->adc_18b = 0;
-	adc_ctrl |= PMODADC1_CTRL_DIV|PMODADC1_CTRL_EXT_CLK_FROM_SYNC;
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
-	/** nchan_enabled @@todo fudge for use in D32 (acq435 systems) */
-	adev->nchan_enabled = 1;
-	adev->word_size = 4;
-	adev->hitide = hitide;
-	adev->lotide = lotide;
-	adev->onStart = acq420_onStart;
-	adev->onStop = acq420_disable_fifo;
-}
-
-int xtd_watchdog(void *data)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)data;
-	int nzcount;
-	u32 trg_src0 = 0;
-	u32 trg_src;
-
-	while(1) {
-		msleep(10);
-		trg_src = acq400rd32(adev, ATD_TRIGGERED);
-
-		if (trg_src == 0){
-			nzcount = 0;
-			trg_src0 = 0;
-		}else if (trg_src0 != 0 && (trg_src&trg_src0) == trg_src0){
-			if (++nzcount >= 3){
-				dev_info(DEVP(adev), "xtd_watchdog clears %08x", trg_src);
-				acq400_clearDelTrgEvent(adev);
-				acq400wr32(adev, ATD_TRIGGERED, trg_src);
-				trg_src0 = 0;
-			}
-		}else{
-			trg_src0 = trg_src;
-		}
-	}
-}
-
-
-static void start_xtd_watchdog(struct acq400_dev *adev)
-{
-	kthread_run(xtd_watchdog, adev, "%s.xtd", devname(adev));
-}
-static void acq43X_init_defaults(struct acq400_dev *adev)
-{
-	int is_acq430 = IS_ACQ430(adev);
-	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
-
-	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
-	adev->data32 = 1;
-	if (IS_ACQ430(adev)){
-		adev->nchan_enabled = 8;
-	}else if (IS_ACQ437(adev)){
-		adev->nchan_enabled = 16;
-	}else{
-		adev->nchan_enabled = 32;	// 32 are you sure?.
-	}
-	adev->word_size = 4;
-	if (is_acq430){
-		acq400wr32(adev, ACQ435_MODE, ACQ430_BANKSEL);
-	}
-	// @@todo ACQ437_BANKSEL ?
-	adev->hitide = 128;
-	adev->lotide = adev->hitide - 4;
-	acq400wr32(adev, ADC_CLKDIV, 16);
-	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
-	adev->onStart = acq43X_onStart;
-	adev->onStop = acq420_disable_fifo;
-	if (HAS_XTD(adev)){
-		start_xtd_watchdog(adev);
-	}
-}
-
-
-
-static void ao428_init_defaults(struct acq400_dev *adev)
-/* dac_celf mounts DAC20, assy known as "ao428elf" */
-{
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-	dev_info(DEVP(adev), "AO420 device init");
-
-	adev->data32 = 1;
-	adev->nchan_enabled = 8;
-	adev->word_size = 4;
-	adev->cursor.hb = &adev->hb[0];
-
-	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = _ao420_onStart;
-	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao428_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-	if (measure_ao_fifo_ok){
-		measure_ao_fifo(adev);
-	}
-}
-static void ao420_init_defaults(struct acq400_dev *adev)
-{
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-	dev_info(DEVP(adev), "AO420 device init");
-
-	adev->data32 = 0;
-	adev->nchan_enabled = 4;
-	adev->word_size = 2;
-	adev->cursor.hb = &adev->hb[0];
-
-	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = _ao420_onStart;
-	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao420_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-	measure_ao_fifo(adev);
-}
-
-static void ao424_init_defaults(struct acq400_dev *adev)
-{
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-
-	/* default to +/-10V bipolar. That's what 99% of the people want .. */
-	dev_info(DEVP(adev), "AO424 device init default SPAN=3");
-	ao424_setspan_defaults(adev);
-	adev->data32 = 0;
-	adev->nchan_enabled = 32;
-	adev->word_size = 2;
-	adev->cursor.hb = &adev->hb[0];
-
-	adev->sysclkhz = SYSCLK_M66;
-	adev->onStart = _ao420_onStart;
-	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao424_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
-
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	adev->ao424_device_settings.encoded_twocmp = 0;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-	ao424_set_spans(adev);
-	measure_ao_fifo(adev);
-}
-
-static void dio432_onStop(struct acq400_dev *adev);
 
 
 int set_debugs(char* on)
@@ -905,63 +414,8 @@ int set_debugs(char* on)
 	  return call_usermodehelper( argv[0], argv, envp, UMH_WAIT_PROC );
 }
 
-int dio432_isFifoError(struct acq400_dev *adev);
-
-static void dio432_init_defaults(struct acq400_dev *adev)
-{
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-
-	dev_info(DEVP(adev), "dio432_init_defaults() 01");
-	adev->data32 = 1;
-	adev->nchan_enabled = 1;
-	adev->word_size = 4;
-	adev->cursor.hb = &adev->hb[0];
-	adev->hitide = 2048;
-	adev->lotide = 0x1fff;
-	adev->onStart = _dio432_DO_onStart;
-	adev->onStop = dio432_onStop;
-	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
-	adev->xo.fsr = DIO432_DO_FIFO_STATUS;
-	adev->isFifoError = dio432_isFifoError;
-	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
-		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
-	}
-	//set_debugs("on");
-	dac_ctrl |= IS_DIO432PMOD(adev)?
-		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
-	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
-
-	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
-			__LINE__, acq400rd32(adev, DAC_CTRL));
-	//acq400wr32(adev, DAC_INT_CSR, 0);
-	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_RST|DIO432_CTRL_DIO_RST);
-	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_EN);
-
-	if (measure_ao_fifo_ok){
-		dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
-		measure_ao_fifo(adev);
-		dev_info(DEVP(adev), "dio432 max fifo samples %d", adev->xo.max_fifo_samples);
-		if (dio432_rowback){
-			adev->xo.max_fifo_samples -= dio432_rowback;
-			dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
-					adev->xo.max_fifo_samples);
-		}
-	}
-
-	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
-	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
-	//set_debugs("off");
-	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
-			__LINE__, acq400rd32(adev, DAC_CTRL));
-	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
-}
 
 
-static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
-{
-	return acq400rd32(adev, ADC_FIFO_SAMPLES);
-}
 
 static u32 aggregator_get_fifo_samples(struct acq400_dev *adev)
 {
@@ -1044,232 +498,10 @@ static void acq420_enable_interrupt(struct acq400_dev *adev)
 
 
 
-static void acq400_clear_histo(struct acq400_dev *adev)
-{
-	memset(adev->fifo_histo, 0, FIFO_HISTO_SZ*sizeof(u32));
-}
-
-int acq420_isFifoError(struct acq400_dev *adev)
-{
-	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
-	int err = (fifsta&fiferr) != 0;
-
-	acq400wr32(adev, ADC_FIFO_STA, fifsta);
-
-	if (err){
-		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
-		adev->stats.fifo_errors++;
-		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
-				acq400_lookupSite(0)->rt.nput,
-				FIFERR, fiferr, fifsta,
-				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
-	}
-
-	return act_on_fiferr? err: 0;
-}
-
-int dio432_isFifoError(struct acq400_dev *adev)
-{
-	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
-	int err = (fifsta&fiferr) != 0;
-	int rc = 0;
-
-	acq400wr32(adev, ADC_FIFO_STA, fifsta);
-
-	if (err){
-		u32 fifsta2 = acq400rd32(adev, ADC_FIFO_STA);
-		int nbuf = acq400_lookupSite(0)->rt.nput;
-		adev->stats.fifo_errors++;
-		dev_warn(DEVP(adev), "FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
-				nbuf, 				FIFERR, fiferr, fifsta,
-				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
-
-		rc = nbuf>1 && act_on_fiferr? err: 0;
-		if (err && !act_on_fiferr && rc == 0){
-			dev_info(DEVP(adev), "initial error ignored");
-		}
-	}
-	return rc;
-}
+void acqXXX_onStartNOP(struct acq400_dev *adev) {}
+void acqXXX_onStopNOP(struct acq400_dev *adev)  {}
 
 
-int acq420_convActive(struct acq400_dev *adev)
-{
-	u32 fifsta = acq400rd32(adev, ADC_FIFO_STA);
-	u32 active = fifsta&ADC_FIFO_STA_ACTIVE;
-
-	dev_dbg(DEVP(adev), "acq420_convActive() %08x %s",
-			fifsta, active? "YES": "no");
-	return active;
-}
-void acqXXX_onStartNOP(struct acq400_dev *adev)
-{
-
-}
-void acqXXX_onStopNOP(struct acq400_dev *adev)
-{
-
-}
-void acq43X_onStart(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, ADC_CTRL);
-
-	dev_dbg(DEVP(adev), "acq435_onStart() ctrl=%08x", ctrl);
-
-	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
-	ctrl &= ~ADC_CTRL_FIFO_EN|ADC_CTRL_ADC_EN;
-	acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
-
-	if (HAS_DTD(adev)){
-		acq400_clearDelTrgEvent(adev);
-	}
-	if (adev->ramp_en){
-		ctrl |= ADC_CTRL_RAMP_EN;
-	}else{
-		ctrl &= ~ADC_CTRL_RAMP_EN;
-	}
-
-	// set mode (assume done)
-	// set clkdiv (assume done)
-	// set timing bus (assume done)
-	/** clear FIFO flags .. workaround hw bug */
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_ERR);
-
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl);
-	if (acq420_get_fifo_samples(adev)){
-		dev_warn(DEVP(adev), "ERROR: reset fifo but it's not empty!");
-	}
-
-	adev->fifo_isr_done = 0;
-	//acq420_enable_interrupt(adev);
-	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
-	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
-
-	/* next: valid Master, Standalone only. @@todo slave? */
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
-	acq400wr32(adev, ADC_CTRL, ctrl);
-
-	dev_dbg(DEVP(adev), "acq435_onStart() 99");
-}
-
-void ao420_clear_fifo_flags(struct acq400_dev *adev)
-{
-	acq400wr32(adev, ADC_FIFO_STA, ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_ERR);
-}
-void ao420_reset_fifo(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-	acq400wr32(adev, DAC_CTRL, ctrl &= ~ADC_CTRL_FIFO_EN);
-	acq400wr32(adev, DAC_CTRL, ctrl | ADC_CTRL_FIFO_RST);
-	ao420_clear_fifo_flags(adev);
-	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
-}
-
-static void _ao420_onStart(struct acq400_dev *adev)
-{
-	u32 ctrl = acq400rd32(adev, DAC_CTRL);
-
-	ctrl &= ~DAC_CTRL_LL;
-	if (adev->AO_playloop.oneshot == 0 ||
-			adev->AO_playloop.length > adev->lotide){
-		dev_dbg(DEVP(adev), "_ao420_onStart() set lotide:%d", adev->lotide);
-		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
-		x400_enable_interrupt(adev);
-	}else{
-		acq400wr32(adev, DAC_LOTIDE, 0);
-	}
-	acq400wr32(adev, DAC_CTRL, ctrl |= DAC_CTRL_DAC_EN);
-}
-
-void _ao420_stop(struct acq400_dev* adev);
-
-static void _ao420_onStop(struct acq400_dev *adev)
-{
-	_ao420_stop(adev);
-}
-
-
-
-void _dio432_DO_onStart(struct acq400_dev *adev)
-{
-	if (xo_use_distributor){
-		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
-		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
-	}else if (adev->AO_playloop.oneshot == 0 ||
-			adev->AO_playloop.length > adev->lotide){
-		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
-		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
-		x400_enable_interrupt(adev);
-	}else{
-		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
-		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 20");
-	}
-	acq400wr32(adev, DIO432_DIO_CTRL, acq400rd32(adev, DIO432_DIO_CTRL)|DIO432_CTRL_DIO_EN);
-	dev_dbg(DEVP(adev), "_dio432_DO_onStart() 99");
-}
-
-void dio432_onStop(struct acq400_dev *adev)
-{
-	x400_disable_interrupt(adev);
-	dio432_disable(adev);
-	//dio432_init_clocked(adev);
-}
-
-void acq420_onStart(struct acq400_dev *adev)
-{
-	u32 ctrl;
-	u32 status = acq400rd32(adev, ADC_FIFO_STA);
-
-	dev_dbg(DEVP(adev), "acq420_onStart()");
-
-	if ((status&ADC_FIFO_STA_ACTIVE) != 0){
-		dev_err(DEVP(adev), "ERROR: ADC_FIFO_STA_ACTIVE set %08x", status);
-		acq420_disable_fifo(adev);
-	}
-
-	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
-	acq420_enable_fifo(adev);
-	ctrl = acq400rd32(adev, ADC_CTRL);
-	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
-	acq420_reset_fifo(adev);
-	acq400wr32(adev, ADC_CTRL, ctrl);
-	adev->fifo_isr_done = 0;
-	//acq420_enable_interrupt(adev);
-}
-
-void acq480_onStart(struct acq400_dev *adev)
-{
-	dev_dbg(DEVP(adev), "acq480_onStart()");
-	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
-	acq420_enable_fifo(adev);
-
-	acq420_reset_fifo(adev);
-
-	adev->fifo_isr_done = 0;
-	//acq420_enable_interrupt(adev);
-}
-
-
-static void acq400_getID(struct acq400_dev *adev)
-{
-	u32 modid;
-
-	dev_info(DEVP(adev), "About to read MODID from %p\n", adev->dev_virtaddr+MOD_ID);
-
-	modid = acq400rd32(adev, MOD_ID);
-	adev->mod_id = modid;
-
-	dev_info(DEVP(adev), "Device MODID %08x", modid);
-}
-/*
-static void acq420_force_interrupt(int interrupt)
-{
-	u32 status;
-	status = ioread32(acq420_dev->dev_virtaddr + ALG_INT_FORCE);
-	iowrite32((interrupt), acq420_dev->dev_virtaddr + ALG_INT_FORCE);
-}
-*/
 
 unsigned long long t0;
 int ins;
@@ -1578,6 +810,12 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	adev->busy = 1;
 	return rc;
 }
+
+void acq400_clear_histo(struct acq400_dev *adev)
+{
+	memset(adev->fifo_histo, 0, FIFO_HISTO_SZ*sizeof(u32));
+}
+
 
 int _onStart(struct acq400_dev *adev)
 {
@@ -2064,51 +1302,6 @@ int acq420_open_sideported(struct inode *inode, struct file *file)
 }
 
 
-ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t count,
-        loff_t *f_pos)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
-
-	int rc = acq400_sew_fifo_write_bytes(adev, ix, buf, count);
-
-	if (rc > 0){
-		*f_pos += rc;
-	}
-	return rc;
-}
-int acq420_sew_fifo_release(struct inode *inode, struct file *file)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
-	return acq400_sew_fifo_destroy(adev, ix);
-}
-
-int acq420_sew_fifo_open(struct inode *inode, struct file *file)
-{
-	static struct file_operations acq420_sew_fifo = {
-			.write = acq420_sew_fifo_write,
-			.release = acq420_sew_fifo_release,
-	};
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
-	int busy;
-
-	if (mutex_lock_interruptible(&adev->awg_mutex)) {
-		return -EINTR;
-	}
-	busy = adev->sewFifo[ix].sf_task != 0;
-	if (!busy){
-		acq400_sew_fifo_init(adev, ix);
-	}
-	mutex_unlock(&adev->awg_mutex);
-	if (busy){
-		return -EBUSY;
-	}
-
-	file->f_op = &acq420_sew_fifo;
-	return 0;
-}
 
 int streamdac_data_loop(void *data)
 {
@@ -2413,64 +1606,6 @@ int acq400_open_event(struct inode *inode, struct file *file)
 
 
 
-
-
-int acq420_reserve_release(struct inode *inode, struct file *file)
-/* if it was a write, commit to memory and set length */
-{
-	replace_all(PD(file));
-	return acq400_release(inode, file);
-}
-
-ssize_t acq420_reserve_read(
-	struct file *file, char *buf, size_t count, loff_t *f_pos)
-{
-	wait_queue_head_t waitq;	/* no one gonna wake this sucker */
-
-	init_waitqueue_head(&waitq);
-
-	wait_event_interruptible(waitq, 0);  /* but it will accept a signal .. */
-	return -EINTR;
-}
-
-int acq420_reserve_dist_open(struct inode *inode, struct file *file)
-/* simply reserve block 0 on open. Can get clever later */
-{
-	static struct file_operations fops = {
-		.open = acq420_reserve_dist_open,
-		.read = acq420_reserve_read,
-		.release = acq420_reserve_release,
-	};
-
-	file->f_op = &fops;
-	if (distributor_first_buffer > 0){
-		int ib;
-		int rc = 0;
-		for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
-			rc = reserve(PD(file), ib);
-			if (rc != 0){
-				dev_err(PDEV(file), "failed to reserve buffer %d", ib);
-				break;
-			}
-		}
-		return rc;
-	}else{
-		return -1;
-	}
-
-}
-int acq420_reserve_open(struct inode *inode, struct file *file)
-/* simply reserve block 0 on open. Can get clever later */
-{
-	static struct file_operations fops = {
-		.open = acq420_reserve_open,
-		.read = acq420_reserve_read,
-		.release = acq420_reserve_release,
-	};
-	file->f_op = &fops;
-	return reserve(PD(file), 0);
-}
-
 int acq400_init_descriptor(void** pd)
 {
 	struct acq400_path_descriptor* pdesc = kzalloc(PDSZ, GFP_KERNEL);
@@ -2644,72 +1779,7 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 }
 
 
-int acq400_mmap_bar_page(struct file* file, struct vm_area_struct* vma)
-{
-	struct acq400_dev *adev = ACQ400_DEV(file);
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = 0x1000;
-	unsigned long pa = adev->dev_physaddr + ACQ400_MINOR_MAP_PAGE_OFFSET(PD(file)->minor);
-	unsigned pfn = pa>> PAGE_SHIFT;
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	dev_dbg(DEVP(adev), "acq400_mmap_bar_page pa:0x%08lx vsize %lu psize %lu %s",
-		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
-
-	if (vsize > psize){
-		return -EINVAL;                   /* request too big */
-	}
-	if (io_remap_pfn_range(
-		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-		return -EAGAIN;
-	}else{
-		return 0;
-	}
-}
-
-int acq400_map_page_open(struct inode* inode, struct file* file)
-{
-	static struct file_operations acq400_map_page_fops = {
-	        .owner = THIS_MODULE,
-	        .release = acq400_release,
-	        .mmap = acq400_mmap_bar_page
-	};
-	file->f_op = &acq400_map_page_fops;
-	return 0;
-}
-
-int acq400_mmap_bar_atd(struct file* file, struct vm_area_struct* vma)
-{
-	struct acq400_dev *adev = ACQ400_DEV(file);
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = AXI_ATD_LEN;
-	unsigned pfn = (adev->dev_physaddr + AXI_ATD_RAM)>> PAGE_SHIFT;
-
-	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
-		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
-
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	if (vsize > psize){
-		return -EINVAL;                   /* request too big */
-	}
-	if (io_remap_pfn_range(
-		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-		return -EAGAIN;
-	}else{
-		return 0;
-	}
-}
-
-int acq400_atd_open(struct inode* inode, struct file* file)
-{
-	static struct file_operations acq400_atd_fops = {
-	        .owner = THIS_MODULE,
-	        .release = acq400_release,
-	        .mmap = acq400_mmap_bar_atd
-	};
-	file->f_op = &acq400_atd_fops;
-	return 0;
-}
 
 int acq400_open(struct inode *inode, struct file *file)
 {
@@ -2834,38 +1904,6 @@ int acq400_release(struct inode *inode, struct file *file)
 }
 
 
-ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
-        loff_t *f_pos)
-{
-	return -EINVAL;
-}
-
-ssize_t acq400_write(struct file *file, const char __user *buf, size_t count,
-        loff_t *f_pos)
-{
-        return -EINVAL;
-}
-
-int acq400_mmap_bar(struct file* file, struct vm_area_struct* vma)
-{
-	struct acq400_dev *adev = ACQ400_DEV(file);
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = adev->dev_addrsize;
-	unsigned pfn = adev->dev_physaddr >> PAGE_SHIFT;
-
-	dev_dbg(DEVP(adev), "%c vsize %lu psize %lu %s",
-		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
-
-	if (vsize > psize){
-		return -EINVAL;                   /* request too big */
-	}
-	if (io_remap_pfn_range(
-		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-		return -EAGAIN;
-	}else{
-		return 0;
-	}
-}
 
 
 static void add_fifo_histo(struct acq400_dev *adev, u32 status)
@@ -2879,33 +1917,6 @@ static void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
 }
 
 
-void write32(volatile u32* to, volatile u32* from, int nwords)
-{
-	int ii;
-
-	for (ii = 0; ii < nwords; ++ii){
-		iowrite32(from[ii], to);
-	}
-}
-
-int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes)
-{
-	unsigned len = adev->cursor.hb[0]->len;
-	unsigned ib = frombyte/len;
-	unsigned offset = frombyte - ib*len;
-	/* WARNING: assumes NEVER overlaps HB end .. */
-	dev_dbg(DEVP(adev), "write32(%p = %p+%d, %d",
-			adev->dev_virtaddr+AXI_FIFO,
-			adev->cursor.hb[ib]->va,
-			offset/sizeof(u32),
-			bytes/sizeof(u32)
-	);
-
-	write32(adev->dev_virtaddr+AXI_FIFO,
-		adev->cursor.hb[ib]->va+offset/sizeof(u32),
-		bytes/sizeof(u32));
-	return bytes;
-}
 
 /* minimum PL330 size
  * could be a physical limit, but also pragmatic given slow setup time
@@ -2957,91 +1968,8 @@ static int xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes
 }
 
 
-void _ao420_stop(struct acq400_dev* adev)
-{
-	unsigned cr = acq400rd32(adev, DAC_CTRL);
-	x400_disable_interrupt(adev);
-
-	dev_dbg(DEVP(adev), "_ao420_stop() reset FIFO and clear histo\n");
-
-	cr &= ~DAC_CTRL_DAC_EN;
-	if (IS_AO42X(adev)){
-		dev_dbg(DEVP(adev), "_ao420_stop() AO_playloop.length %d\n", adev->AO_playloop.length);
-		if (adev->AO_playloop.length == 0){
-			cr |= DAC_CTRL_LL;
-		}
-		if (adev->data32){
-			cr |= ADC_CTRL32B_data;
-		}else{
-			cr &= ~ADC_CTRL32B_data;
-		}
-	}
-	//adev->AO_playloop.length = 0;
-	adev->AO_playloop.cursor = 0;
-	acq400wr32(adev, DAC_CTRL, cr);
-	release_dma_channels(adev);
-
-	ao420_reset_fifo(adev);
-	acq400_clear_histo(adev);
-}
 
 
-
-void measure_ao_fifo(struct acq400_dev *adev)
-{
-	unsigned osam = 0xffffffff;
-	unsigned sam;
-	int values_per_lw = adev->data32? 1: 2;
-	unsigned cr;
-	int nblocks;
-
-	dev_dbg(DEVP(adev), "measure_ao_fifo() 01");
-
-	cr = acq400rd32(adev, DAC_CTRL);
-	acq400wr32(adev, DAC_CTRL, cr &= ~(DAC_CTRL_LL|DAC_CTRL_DAC_EN));
-
-
-	ao420_reset_fifo(adev);
-	for (nblocks = 0; (sam = adev->xo.getFifoSamples(adev)) != osam;
-			osam = sam, ++nblocks){
-		dev_dbg(DEVP(adev), "xo400_write_fifo(16384)");
-		xo400_write_fifo(adev, 0, 1024);
-	}
-
-	dev_info(DEVP(adev), "measure_ao_fifo() write %d k, measure:%d samples\n",
-			nblocks, sam);
-
-	if (IS_AO42X(adev)){
-		u32 dac_fifo_samples = acq400rd32(adev, DAC_FIFO_SAMPLES);
-		int lwords = (dac_fifo_samples>>16)&DAC_FIFO_SAMPLES_MASK;
-
-	/* MATCH lwords..samples is not exact */
-		if ((lwords - sam*adev->nchan_enabled/values_per_lw) < 32){
-			dev_info(DEVP(adev), "MATCHES: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
-				dac_fifo_samples,
-				lwords, sam, adev->nchan_enabled, values_per_lw);
-		}else{
-			dev_warn(DEVP(adev), "MISMATCH: %08x lwords:%d samples:%d nchan:%d values_per_lw:%d\n",
-				dac_fifo_samples,
-				lwords, sam, adev->nchan_enabled, values_per_lw);
-		}
-	}
-	adev->xo.max_fifo_samples = sam;
-	adev->hitide = sam - 32;
-	if (adev->nchan_enabled > 8){
-		adev->lotide = 9*sam/10;
-	}else{
-		adev->lotide = 8*sam/10;
-	}
-
-	for (adev->xo.hshift = 0;
-		(sam >> adev->xo.hshift) > 256; ++adev->xo.hshift)
-		;
-	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u lotide:%d",
-			sam, adev->xo.hshift, adev->lotide);
-
-	ao420_reset_fifo(adev);
-}
 
 #define DAC_FIFO_STA_ERR (ADC_FIFO_STA_EMPTY|ADC_FIFO_STA_ERR)
 
@@ -3090,7 +2018,7 @@ static int ao_auto_rearm(void *clidat)
 		wait_event_interruptible_timeout(wait, 0, 1);
 	}
 	dio_sc = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
-	_ao420_stop(adev);
+	adev->onStop(adev);
 	if (IS_DIO432X(adev)){
 		dev_info(DEVP(adev), "ao_auto_rearm FIFO drained count %u", dio_sc);
 	}
@@ -3469,7 +2397,7 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return -1;
 	}else{
-		_ao420_stop(adev);
+		adev->onStop(adev);
 
 		if (first_in_set){
 			xo400_distributor_feeder_control(adev, 0);
@@ -4397,6 +3325,17 @@ struct file_operations acq400_fops = {
         .mmap = acq400_mmap_bar
 };
 
+struct acq400_dev* acq400_lookupSite(int site)
+{
+	int is;
+	for (is = 0; is < ndevices; ++is){
+		struct acq400_dev* adev = acq400_devices[is];
+		if (adev->of_prams.site == site){
+			return adev;
+		}
+	}
+	return 0;
+}
 
 
 #ifdef CONFIG_OF
@@ -4615,17 +3554,6 @@ int init_axi64_hbm(struct acq400_dev* adev)
 	}
 }
 
-struct acq400_dev* acq400_lookupSite(int site)
-{
-	int is;
-	for (is = 0; is < ndevices; ++is){
-		struct acq400_dev* adev = acq400_devices[is];
-		if (adev->of_prams.site == site){
-			return adev;
-		}
-	}
-	return 0;
-}
 
 
 int acq400_mod_init_irq(struct acq400_dev* adev)
@@ -4650,70 +3578,6 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 	return rc;
 }
 
-void _acq400_mod_init_defaults(struct acq400_dev* adev)
-{
-	adev->sysclkhz = SYSCLK_M100;
-}
-void acq400_mod_init_defaults(struct acq400_dev* adev)
-{
-	_acq400_mod_init_defaults(adev);
-
-	if (IS_ACQ42X(adev)){
-		acq420_init_defaults(adev);
-	}else if (IS_DIO432X(adev)){
-		dio432_init_defaults(adev);
-	}else{
-		switch(GET_MOD_ID(adev)){
-		case MOD_ID_ACQ430FMC:
-		case MOD_ID_ACQ435ELF:
-		case MOD_ID_ACQ437ELF:
-			acq43X_init_defaults(adev);
-			break;
-		case MOD_ID_AO420FMC:
-			ao420_init_defaults(adev);
-			break;
-		case MOD_ID_AO424ELF:
-			ao424_init_defaults(adev);
-			break;
-		case MOD_ID_BOLO8:
-		case MOD_ID_BOLO8B:
-			bolo8_init_defaults(adev);
-			break;
-		case MOD_ID_PMODADC1:
-			pmodadc1_init_defaults(adev);
-			break;
-		case MOD_ID_ACQ480FMC:
-			acq480_init_defaults(adev);
-			break;
-		case MOD_ID_DIO_BISCUIT:
-			switch(GET_MOD_IDV(adev)){
-			case MOD_IDV_V2F:
-				v2f_init_defaults(adev);
-				break;
-			case MOD_IDV_DIO:
-			case MOD_IDV_QEN:
-				qen_init_defaults(adev);
-				break;
-			case MOD_IDV_ACQ1014:
-				acq1014_init_defaults(adev);
-				break;
-			}
-			break;
-		case MOD_ID_PIG_CELF:
-			pig_celf_init_defaults(adev);
-			break;
-		case MOD_ID_RAD_CELF:
-			rad_celf_init_defaults(adev);
-			break;
-		case MOD_ID_DAC_CELF:
-			ao428_init_defaults(adev);
-			break;
-		default:
-			dev_warn(DEVP(adev), "no custom init for module type %x",
-						(adev)->mod_id>>MOD_ID_TYPE_SHL);
-		}
-	}
-}
 
 int acq400_modprobe_sc(struct acq400_dev* adev)
 {
@@ -4936,15 +3800,7 @@ static int __init acq400_init(void)
 module_init(acq400_init);
 module_exit(acq400_exit);
 
-void acq400_set_peripheral_SPI_CS(unsigned csword)
-{
-	struct acq400_dev* adev = acq400_devices[0];
 
-	dev_dbg(DEVP(adev), "acq400_set_peripheral_SPI_CS() %08x\n", csword);
-	acq400wr32(adev, SPI_PERIPHERAL_CS, csword);
-}
-
-EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
 EXPORT_SYMBOL_GPL(acq400_devices);
 EXPORT_SYMBOL_GPL(acq400_sites);
 
