@@ -3298,24 +3298,8 @@ struct acq400_dev* acq400_lookupSite(int site)
 }
 
 
-#ifdef CONFIG_OF
-static struct of_device_id acq400_of_match[] /* __devinitdata */ = {
-        { .compatible = "D-TACQ,acq400fmc"  },
-        { .compatible = "D-TACQ,acq420fmc"  },
-        { .compatible = "D-TACQ,acq430fmc"  },
-        { .compatible = "D-TACQ,acq435elf"  },
-        { .compatible = "D-TACQ,ao420fmc"   },
-        { .compatible = "D-TACQ,acq2006sc"  },
-        { .compatible = "D-TACQ,acq1001sc"  },
-        { .compatible = "D-TACQ,acq1002sc"  },
-        { .compatible = "D-TACQ,acq400pmod" },
-        { /* end of table */}
-};
-MODULE_DEVICE_TABLE(of, acq400_of_match);
-#else
-#define acq400_of_match NULL
-#endif /* CONFIG_OF */
 
+#define acq400_of_match NULL
 
 static int acq400_device_tree_init(struct acq400_dev* adev)
 {
@@ -3339,38 +3323,6 @@ static int acq400_device_tree_init(struct acq400_dev* adev)
         					adev->of_prams.site);
         		}
         	}
-        	/*
-                if (of_property_read_u32(of_node, "dma-channel",
-                        &adev->of_prams.dma_channel) < 0) {
-                        dev_warn(DEVP(adev),
-                        	"DMA channel unspecified - assuming 0\n");
-                        adev->of_prams.dma_channel = 0;
-                }
-                dev_info(DEVP(adev),
-                        "acq400_device_tree_init() read DMA channel is %d\n",
-                        adev->of_prams.dma_channel);
-
-                if (of_property_read_u32(of_node, "fifo-depth",
-                        &adev->of_prams.fifo_depth) < 0) {
-                        dev_warn(DEVP(adev),
-                                "depth unspecified, assuming 0xffffffff\n");
-                        adev->of_prams.fifo_depth = 0xffffffff;
-                }
-                dev_info(DEVP(adev),
-                	"acq400_device_tree_init() DMA fifo depth is %d\n",
-                	adev->of_prams.fifo_depth);
-
-                if (of_property_read_u32(of_node, "burst-length",
-                        &adev->of_prams.burst_length) < 0) {
-                        dev_warn(DEVP(adev),
-                                "burst length unspecified - assuming 1\n");
-                        adev->of_prams.burst_length = 1;
-                }
-
-                dev_info(DEVP(adev),
-                	"acq400_device_tree_init() DMA burst length is %d\n",
-                        adev->of_prams.burst_length);
-        	 */
                 if (of_property_read_u32_array(
                 		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
                 	dev_warn(DEVP(adev), "failed to find %d IRQ values", OF_IRQ_COUNT);
