@@ -1460,4 +1460,7 @@ void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev
 void init_axi_dma(struct acq400_dev* adev);
 
 extern int xo400_open_awg(struct inode *inode, struct file *file);
+extern int acq400_open_histo(struct inode *inode, struct file *file);
+extern int acq400_open_hb(struct inode *inode, struct file *file);
+extern int acq400_release(struct inode *inode, struct file *file);
 #endif /* ACQ420FMC_H_ */

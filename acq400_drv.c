@@ -1448,113 +1448,6 @@ out:
         return rc;
 }
 
-static int acq420_dma_open(struct inode *inode, struct file *file)
-{
-	return 0;
-}
-
-int acq400_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
-/**
- * mmap the host buffer.
- */
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ibuf = BUFFER(PD(file)->minor);
-	struct HBM *hb = adev->hb[ibuf];
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = hb->len;
-	unsigned pfn = hb->pa >> PAGE_SHIFT;
-
-	if (!IS_BUFFER(PD(file)->minor)){
-		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
-		return -1;
-	}
-	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
-		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
-
-	if (vsize > psize){
-		return -EINVAL;                   /* request too big */
-	}
-	if (remap_pfn_range(
-		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
-		return -EAGAIN;
-	}else{
-		return 0;
-	}
-}
-
-ssize_t acq400_hb_read(
-	struct file *file, char *buf, size_t count, loff_t *f_pos)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ibuf = BUFFER(PD(file)->minor);
-	struct HBM *hb = adev->hb[ibuf];
-	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
-	int rc;
-
-	if (cursor >= hb->len){
-		return 0;
-	}else{
-		int headroom = hb->len - cursor;
-		if (count > headroom){
-			count = headroom;
-		}
-	}
-	rc = copy_to_user(buf, (char*)hb->va + cursor, count);
-	if (rc){
-		return -1;
-	}
-
-	*f_pos += count;
-	return count;
-}
-
-int acq400_open_hb(struct inode *inode, struct file *file)
-{
-	static struct file_operations acq420_fops_dma = {
-		.open = acq420_dma_open,
-		.mmap = acq400_dma_mmap_host,
-		.read = acq400_hb_read,
-		.release = acq400_hb_release,
-		// sendfile method is no more.. it's probably not quite this easy ..
-		// sure enough, it's not !
-		// most likely the HB's have to be on a block device ..
-		.splice_read	= generic_file_splice_read
-	};
-	file->f_op = &acq420_fops_dma;
-	if (file->f_op->open){
-		return file->f_op->open(inode, file);
-	}else{
-		return 0;
-	}
-}
-
-
-
-ssize_t acq400_histo_read(
-	struct file *file, char *buf, size_t count, loff_t *f_pos)
-{
-	unsigned *the_histo = ACQ400_DEV(file)->fifo_histo;
-	int maxentries = FIFO_HISTO_SZ;
-	unsigned cursor = *f_pos;	/* f_pos counts in entries */
-	int rc;
-
-	if (cursor >= maxentries){
-		return 0;
-	}else{
-		int headroom = (maxentries - cursor) * sizeof(unsigned);
-		if (count > headroom){
-			count = headroom;
-		}
-	}
-	rc = copy_to_user(buf, the_histo+cursor, count);
-	if (rc){
-		return -1;
-	}
-
-	*f_pos += count/sizeof(unsigned);
-	return count;
-}
 
 
 
@@ -2063,19 +1956,6 @@ ssize_t acq400_hb0_read(
 }
 
 
-int acq400_open_histo(struct inode *inode, struct file *file)
-{
-	static struct file_operations acq400_fops_histo = {
-			.read = acq400_histo_read,
-			.release = acq400_release
-	};
-	file->f_op = &acq400_fops_histo;
-	if (file->f_op->open){
-		return file->f_op->open(inode, file);
-	}else{
-		return 0;
-	}
-}
 
 
 
@@ -3112,26 +2992,6 @@ int acq400_release(struct inode *inode, struct file *file)
         return 0;
 }
 
-int acq400_hb_release(struct inode *inode, struct file *file)
-{
-        struct acq400_dev *adev = ACQ400_DEV(file);
-        int ibuf = BUFFER(PD(file)->minor);
-        struct HBM *hbm = adev->hb[ibuf];
-
-        /* Manage writes via reference counts */
-        switch (file->f_flags & O_ACCMODE) {
-        case O_WRONLY:
-        case O_RDWR:
-        	dev_dbg(DEVP(adev),
-        	"acq400_hb_release() mode %x, dma_sync_single_for_device: pa:0x%08x len:%d dir:%d",
-		file->f_flags & O_ACCMODE, hbm->pa, hbm->len, hbm->dir);
-        	dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
-        default:
-        	;
-        }
-
-        return acq400_release(inode, file);
-}
 
 ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
