@@ -98,4 +98,8 @@ void bolo8_onStop(struct acq400_dev *adev);
 
 short bolo8_get_offset_dacN(struct acq400_dev *adev, int ix);
 void bolo8_set_offset_dacN(struct acq400_dev *adev, int ix, short offset);
+
+
+extern int bolo_open_awg(struct inode *inode, struct file *file);
+
 #endif /* BOLO_H_ */
