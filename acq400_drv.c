@@ -511,6 +511,25 @@ int _dio432_DO_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DIO432_DO_FIFO_COUNT)&DAC_FIFO_SAMPLES_MASK;
 }
 
+int bolo8_isFifoError(struct acq400_dev *adev)
+{
+	u32 fifsta = acq400rd32(adev, B8_ADC_FIFO_STA);
+	int err = (fifsta&fiferr) != 0;
+
+	acq400wr32(adev, B8_ADC_FIFO_STA, fifsta);
+
+	if (err){
+		u32 fifsta2 = acq400rd32(adev, B8_ADC_FIFO_STA);
+		adev->stats.fifo_errors++;
+		dev_warn(DEVP(adev), "BOLO8 FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
+				acq400_lookupSite(0)->rt.nput,
+				FIFERR, fiferr, fifsta,
+				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
+	}
+
+	return act_on_fiferr? err: 0;
+}
+
 static void acq420_reset_fifo(struct acq400_dev *adev)
 /* Raise and Release reset */
 {
@@ -938,33 +957,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
 }
 
-int bolo8_isFifoError(struct acq400_dev *adev);
 
-static void bolo8_init_defaults(struct acq400_dev* adev)
-{
-	u32 syscon = acq400rd32(adev, B8_SYS_CON);
-	syscon |= ADC_CTRL_MODULE_EN;
-
-	acq400wr32(adev, B8_SYS_CON, syscon);
-	acq400wr32(adev, B8_DAC_CON, B8_DAC_CON_INIT);
-	dev_info(DEVP(adev), "bolo8_init_defaults() B8_DAC_CON set:%x get:%x",
-			B8_DAC_CON_INIT, acq400rd32(adev, B8_DAC_CON));
-
-	adev->data32 = data_32b;
-	adev->nchan_enabled = 8;
-	adev->word_size = adev->data32? 4: 2;
-	adev->hitide = 128;
-	adev->lotide = adev->hitide - 4;
-	acq400wr32(adev, ADC_CLKDIV, 10);
-	adev->onStart = bolo8_onStart;
-	adev->onStop = bolo8_onStop;
-	adev->isFifoError = bolo8_isFifoError;
-
-	adev->bolo8.awg_buffer = kmalloc(4096, GFP_KERNEL);
-	adev->bolo8.awg_buffer_max = 4096;
-	adev->bolo8.awg_buffer_cursor = 0;
-
-}
 static u32 acq420_get_fifo_samples(struct acq400_dev *adev)
 {
 	return acq400rd32(adev, ADC_FIFO_SAMPLES);
@@ -1099,24 +1092,6 @@ int dio432_isFifoError(struct acq400_dev *adev)
 	return rc;
 }
 
-int bolo8_isFifoError(struct acq400_dev *adev)
-{
-	u32 fifsta = acq400rd32(adev, B8_ADC_FIFO_STA);
-	int err = (fifsta&fiferr) != 0;
-
-	acq400wr32(adev, B8_ADC_FIFO_STA, fifsta);
-
-	if (err){
-		u32 fifsta2 = acq400rd32(adev, B8_ADC_FIFO_STA);
-		adev->stats.fifo_errors++;
-		dev_warn(DEVP(adev), "BOLO8 FIFERR after %d buffers, mask:%08x cmp:%08x actual:%08x %s\n",
-				acq400_lookupSite(0)->rt.nput,
-				FIFERR, fiferr, fifsta,
-				(fifsta2&fiferr) != 0? "NOT CLEARED": "clear");
-	}
-
-	return act_on_fiferr? err: 0;
-}
 
 int acq420_convActive(struct acq400_dev *adev)
 {

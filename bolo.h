@@ -92,14 +92,10 @@
 
 #define B8_ADC_CONV_TIME_DEFAULT	0x36
 
-
-void bolo8_onStart(struct acq400_dev *adev);
-void bolo8_onStop(struct acq400_dev *adev);
-
 short bolo8_get_offset_dacN(struct acq400_dev *adev, int ix);
 void bolo8_set_offset_dacN(struct acq400_dev *adev, int ix, short offset);
 
-
+extern int bolo8_isFifoError(struct acq400_dev *adev);
 extern int bolo_open_awg(struct inode *inode, struct file *file);
-
+extern void bolo8_init_defaults(struct acq400_dev* adev);
 #endif /* BOLO_H_ */
