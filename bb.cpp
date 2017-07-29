@@ -103,7 +103,7 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
-enum RUN_MODE { M_LOAD, M_DUMP };
+enum RUN_MODE { M_FILL, M_LOAD, M_DUMP };
 
 char *getRoot(int devnum)
 {
@@ -162,8 +162,7 @@ int pad(int nsamples, int pad_samples)
 	return nsamples;
 }
 
-int load() {
-	set_playloop_length(0);
+int _load() {
 	init_buffers();
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
@@ -175,12 +174,22 @@ int load() {
 		nsamples = pad(nsamples, (Buffer::bufferlen - residue)/G::sample_size);
 	}
 
-	set_playloop_length(nsamples);
-
 	/* this _should_ be automatic. But it's not! */
 	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 		delete Buffer::the_buffers[ii];
 	}
+	return nsamples;
+}
+
+int fill() {
+	_load();
+	return 0;
+}
+int load() {
+	set_playloop_length(0);
+
+	set_playloop_length(_load());
+
 	return 0;
 }
 int dump() {
@@ -220,11 +229,20 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 
 	const char* mode = poptGetArg(opt_context);
-	return mode!= 0 && strcmp(mode, "load") == 0? M_LOAD: M_DUMP;
+	if (mode != 0){
+		if (strcmp(mode, "load") == 0){
+			return M_LOAD;
+		}else if (strcmp(mode, "fill") == 0){
+			return M_FILL;
+		}
+	}
+	return M_DUMP;
 }
 int main(int argc, const char** argv)
 {
 	switch(ui(argc, argv)){
+	case M_FILL:
+		return fill();
 	case M_LOAD:
 		return load();
 	default:
