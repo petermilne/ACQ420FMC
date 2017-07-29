@@ -1488,5 +1488,9 @@ extern void add_fifo_histo(struct acq400_dev *adev, u32 status);
 extern void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples);
 extern void go_rt(int prio);
 
-extern int check_fifo_statuses(struct acq400_dev *adev);
+int check_fifo_statuses(struct acq400_dev *adev);
+
+/* MGT-DRAM-8 */
+int axi64_data_once(struct acq400_dev *adev);
+void axi64_terminate(struct dma_chan* dma_chan);
 #endif /* ACQ420FMC_H_ */
