@@ -1481,4 +1481,12 @@ extern int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes);
 extern int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd);
 extern int acq420_convActive(struct acq400_dev *adev);
 extern void acq400_getID(struct acq400_dev *adev);
+
+extern int get_dma_channels(struct acq400_dev *adev);
+extern void release_dma_channels(struct acq400_dev *adev);
+extern void add_fifo_histo(struct acq400_dev *adev, u32 status);
+extern void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples);
+extern void go_rt(int prio);
+
+extern int check_fifo_statuses(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */

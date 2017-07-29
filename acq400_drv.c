@@ -295,14 +295,6 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 		return -1;
 	}
 }
-void go_rt(int prio)
-{
-	struct task_struct *task = current;
-	struct sched_param param = { };
-
-	param.sched_priority = prio;
-	sched_setscheduler(task, SCHED_FIFO, &param);
-}
 
 void acq400_enable_event0(struct acq400_dev *adev, int enable){
 	u32 timcon = acq400rd32(adev, TIM_CTRL);
@@ -337,10 +329,6 @@ int isGoodSite(int site)
 		return 0;
 	}
 }
-int acq400_release(struct inode *inode, struct file *file);
-int acq400_hb_release(struct inode *inode, struct file *file);
-
-
 
 void set_continuous_reader(struct acq400_dev *adev)
 {
@@ -353,24 +341,6 @@ void clr_continuous_reader(struct acq400_dev *adev)
 	adev->continuous_reader = 0;
 	continuous_reader &= ~(1 << adev->of_prams.site);
 }
-
-static void acq400sc_init_defaults(struct acq400_dev *adev)
-{
-	u32 mcr = acq400rd32(adev, MCR);
-	if (IS_ACQ2006B(adev)||IS_ACQ1001SC(adev)){
-		mcr |= MCR_PSU_SYNC;
-	}
-	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
-
-	if (IS_AXI64(adev)){
-		int databursts = bufferlen/0x800;
-		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
-		sync_continuous = 0;
-	}
-}
-
-
-
 
 
 void acq400_enable_trg_if_master(struct acq400_dev *adev)
@@ -400,34 +370,10 @@ int acq400_enable_trg(struct acq400_dev *adev, int enable){
 	return was_enabled;
 }
 
-
-
-
-int set_debugs(char* on)
-{
-	 char *argv[] = { "/mnt/local/set_debugs", on, NULL };
-	 static char *envp[] = {
-	        "HOME=/",
-	        "TERM=linux",
-	        "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
-
-	  return call_usermodehelper( argv[0], argv, envp, UMH_WAIT_PROC );
-}
-
-
-
-
 static u32 aggregator_get_fifo_samples(struct acq400_dev *adev)
 {
 	return acq400rd32(adev, AGGSTA);
 }
-
-/* @@todo not used
-static u32 acq420_samples2bytes(struct acq400_dev *adev, u32 samples)
-{
-	return samples * adev->nchan_enabled * adev->word_size;
-}
-*/
 
 
 void acq2106_distributor_reset(struct acq400_dev *adev)
@@ -438,7 +384,6 @@ void acq2106_distributor_reset(struct acq400_dev *adev)
 	acq400wr32(adev, DISTRIBUTOR, dst);
 	acq400rd32(adev, DISTRIBUTOR);
 }
-
 
 void acq2106_aggregator_reset(struct acq400_dev *adev)
 {
@@ -486,17 +431,6 @@ void acq2006_aggregator_disable(struct acq400_dev *adev)
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg & ~AGG_ENABLE);
 }
-
-/** @todo not used
-static void acq420_enable_interrupt(struct acq400_dev *adev)
-{
-	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
-	acq400wr32(adev, ADC_INT_CSR,	int_ctrl|0x1);
-}
-*/
-
-
-
 
 void acqXXX_onStartNOP(struct acq400_dev *adev) {}
 void acqXXX_onStopNOP(struct acq400_dev *adev)  {}
@@ -683,63 +617,6 @@ out:
 
 
 
-static bool filter_true(struct dma_chan *chan, void *param)
-{
-	return true;
-}
-
-
-static int _get_dma_chan(struct acq400_dev *adev, int ic)
-{
-	dma_cap_mask_t mask;
-
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_MEMCPY, mask);
-
-	adev->dma_chan[ic] = dma_request_channel(mask, filter_true, NULL);
-	if (adev->dma_chan[ic] == 0){
-		dev_err(DEVP(adev), "%p id:%d dma_find_channel set zero",
-					adev, adev->pdev->dev.id);
-	}else{
-		dev_dbg(DEVP(adev), "dma chan[%d] selected: %d",
-				ic, adev->dma_chan[ic]->chan_id);
-	}
-	return adev->dma_chan[ic] == 0 ? -1: 0;
-}
-
-
-int get_dma_channels(struct acq400_dev *adev)
-{
-	if (IS_AXI64(adev)){
-
-		return 0;
-	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
-		if (xo_use_distributor){
-			int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
-			return rc;
-		}else{
-			return _get_dma_chan(adev, 0);
-		}
-	}else{
-		int rc = _get_dma_chan(adev, 0) || _get_dma_chan(adev, 1);
-		return rc;
-	}
-}
-
-static void _release_dma_chan(struct acq400_dev *adev, int ic)
-{
-	if (adev->dma_chan[ic]){
-		dma_release_channel(adev->dma_chan[ic]);
-		adev->dma_chan[ic] = 0;
-	}
-}
-void release_dma_channels(struct acq400_dev *adev)
-{
-	if (!IS_AXI64(adev)){
-		_release_dma_chan(adev, 0);
-		_release_dma_chan(adev, 1);
-	}
-}
 
 
 int _acq420_continuous_start_dma(struct acq400_dev *adev)
@@ -766,8 +643,6 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 
 	dev_dbg(DEVP(adev), "acq420_continuous_start() %p id:%d : dma_chan: %p",
 			adev, adev->pdev->dev.id, adev->dma_chan);
-
-
 
 	if (adev->w_task == 0){
 		int retry = 0;
@@ -809,11 +684,6 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	}
 	adev->busy = 1;
 	return rc;
-}
-
-void acq400_clear_histo(struct acq400_dev *adev)
-{
-	memset(adev->fifo_histo, 0, FIFO_HISTO_SZ*sizeof(u32));
 }
 
 
@@ -1866,15 +1736,6 @@ int acq400_release(struct inode *inode, struct file *file)
 
 
 
-static void add_fifo_histo(struct acq400_dev *adev, u32 status)
-{
-	adev->fifo_histo[STATUS_TO_HISTO(status)]++;
-}
-
-static void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
-{
-	(adev->fifo_histo[samples >> adev->xo.hshift])++;
-}
 
 
 
@@ -2413,42 +2274,6 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 }
 
 
-
-
-
-int check_fifo_statuses(struct acq400_dev *adev)
-{
-	if (adev->is_sc){
-		int islave = 0;
-		for (islave = 0; islave < MAXSITES; ++islave){
-			struct acq400_dev* slave = adev->aggregator_set[islave];
-			if (!slave) break;
-
-			if (slave->isFifoError(slave)){
-				dev_err(DEVP(adev), "FIFO ERROR slave %d", SITE(*slave));
-				slave->rt.refill_error = true;
-				goto fail;
-			} else if (IS_ACQ480(adev) && adev->rt.nget != 0 && acq480_train_fail(slave) == 1){
-				dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d", SITE(*slave));
-				if (acq480_train_fail(slave) == 1){
-					dev_err(DEVP(adev), "LINK TRAINING ERROR slave %d 2nd strike", SITE(*slave));
-					slave->rt.refill_error = true;
-					goto fail;
-				}
-			} else {
-				continue;
-			}
-		}
-	}else{
-		return adev->isFifoError(adev);
-	}
-	return 0;
-fail:
-	adev->rt.refill_error = true;
-	dev_err(DEVP(adev), "ERROR: quit on FIFERR set refill_error");
-	wake_up_interruptible_all(&adev->refill_ready);
-	return 1;
-}
 
 #define POISON0 0xc0de0000
 #define POISON1 0xc1de0000
@@ -3297,42 +3122,64 @@ struct acq400_dev* acq400_lookupSite(int site)
 	return 0;
 }
 
+void acq400sc_init_defaults(struct acq400_dev *adev)
+{
+	u32 mcr = acq400rd32(adev, MCR);
+	if (IS_ACQ2006B(adev)||IS_ACQ1001SC(adev)){
+		mcr |= MCR_PSU_SYNC;
+	}
+	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
+
+	if (IS_AXI64(adev)){
+		int databursts = bufferlen/0x800;
+		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
+		sync_continuous = 0;
+	}
+}
 
 
 #define acq400_of_match NULL
+
+static int _acq400_device_tree_init(
+		struct acq400_dev* adev, struct device_node *of_node)
+{
+
+	u32 irqs[OF_IRQ_COUNT];
+
+	if (of_property_read_u32(of_node, "site",
+			&adev->of_prams.site) < 0){
+		dev_warn(DEVP(adev), "error: site NOT specified in DT\n");
+		return -1;
+	}else{
+		if (!isGoodSite(adev->of_prams.site)){
+			dev_warn(DEVP(adev),
+					"warning: site %d NOT GOOD\n",
+					adev->of_prams.site);
+			return -1;
+		}else{
+			dev_info(DEVP(adev), "site:%d GOOD\n",
+					adev->of_prams.site);
+		}
+	}
+	if (of_property_read_u32_array(
+			of_node, "interrupts", irqs, OF_IRQ_COUNT)){
+		dev_warn(DEVP(adev), "failed to find %d IRQ values", OF_IRQ_COUNT);
+	}else{
+		adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
+	}
+
+	return 0;
+}
 
 static int acq400_device_tree_init(struct acq400_dev* adev)
 {
 	struct device_node *of_node = adev->pdev->dev.of_node;
 
         if (of_node) {
-        	u32 irqs[OF_IRQ_COUNT];
-
-        	if (of_property_read_u32(of_node, "site",
-        			&adev->of_prams.site) < 0){
-        		dev_warn(DEVP(adev), "error: site NOT specified in DT\n");
-        		return -1;
-        	}else{
-        		if (!isGoodSite(adev->of_prams.site)){
-        			dev_warn(DEVP(adev),
-        					"warning: site %d NOT GOOD\n",
-        					adev->of_prams.site);
-        			return -1;
-        		}else{
-        			dev_info(DEVP(adev), "site:%d GOOD\n",
-        					adev->of_prams.site);
-        		}
-        	}
-                if (of_property_read_u32_array(
-                		of_node, "interrupts", irqs, OF_IRQ_COUNT)){
-                	dev_warn(DEVP(adev), "failed to find %d IRQ values", OF_IRQ_COUNT);
-                }else{
-                	adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
-                }
-
-                return 0;
+        	return _acq400_device_tree_init(adev, of_node);
+        }else{
+        	return -1;
         }
-        return -1;
 }
 
 void acq400_timer_init(
