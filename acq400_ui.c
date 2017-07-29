@@ -242,6 +242,8 @@ ssize_t acq400_hb_read(
 			count = headroom;
 		}
 	}
+	dma_sync_single_for_cpu(DEVP(adev), hb->pa + cursor, count, hb->dir);
+
 	rc = copy_to_user(buf, (char*)hb->va + cursor, count);
 	if (rc){
 		return -1;
@@ -250,6 +252,37 @@ ssize_t acq400_hb_read(
 	*f_pos += count;
 	return count;
 }
+
+ssize_t acq400_hb_write(
+	struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	int ibuf = BUFFER(PD(file)->minor);
+	struct HBM *hb = adev->hb[ibuf];
+	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
+	int rc;
+
+	if (cursor >= hb->len){
+		return 0;
+	}else{
+		int headroom = hb->len - cursor;
+		if (count > headroom){
+			count = headroom;
+		}
+	}
+	rc = copy_from_user((char*)hb->va+cursor, buf, count);
+
+	if (rc){
+		return -1;
+	}
+
+	dma_sync_single_for_device(DEVP(adev),	hb->pa + cursor, count, hb->dir);
+
+	*f_pos += count;
+	return count;
+}
+
 
 int acq400_hb_release(struct inode *inode, struct file *file)
 {
@@ -280,6 +313,7 @@ int acq400_open_hb(struct inode *inode, struct file *file)
 		.open = acq420_dma_open,
 		.mmap = acq400_dma_mmap_host,
 		.read = acq400_hb_read,
+		.write = acq400_hb_write,
 		.release = acq400_hb_release,
 		// sendfile method is no more.. it's probably not quite this easy ..
 		// sure enough, it's not !
