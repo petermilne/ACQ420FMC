@@ -1458,4 +1458,6 @@ int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
 void init_axi_dma(struct acq400_dev* adev);
+
+extern int xo400_open_awg(struct inode *inode, struct file *file);
 #endif /* ACQ420FMC_H_ */
