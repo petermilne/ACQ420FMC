@@ -168,9 +168,3 @@ int axi64_data_once(struct acq400_dev *adev)
 	return 0;
 }
 
-void axi64_terminate(struct dma_chan* dma_chan)
-{
-	dev_dbg(&dma_chan->dev->device, "axi64_terminate()");
-	dma_cookie_init(dma_chan);
-	dmaengine_terminate_all(dma_chan);
-}

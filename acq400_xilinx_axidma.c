@@ -557,8 +557,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 	unsigned halted, not_halted;
 	unsigned rs_check;
 
-	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = XILINX_DMA_CR_RESET_MASK);
-	dma_write(xchan, XILINX_DMA_CONTROL_OFFSET, cr = 0);
+	xilinx_dma_reset(xchan);
 	halted = dma_read(xchan, XILINX_DMA_STATUS_OFFSET);
 	dma_write(xchan, XILINX_DMA_CDESC_OFFSET, headpa);
 	if (!oneshot){
@@ -741,6 +740,15 @@ int axi64_tie_off_dmac(struct acq400_dev *adev, int ichan, int nbuffers)
 	return -1;
 }
 
+
+void axi64_terminate(struct dma_chan* dma_chan)
+{
+	dev_dbg(&dma_chan->dev->device, "axi64_terminate()");
+	dma_cookie_init(dma_chan);
+	dmaengine_terminate_all(dma_chan);
+	xilinx_dma_reset(to_xilinx_chan(dma_chan));
+}
+
 int axi64_free_dmac(struct acq400_dev *adev)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
@@ -796,6 +804,41 @@ int axi64_claim_dmac_channels(struct acq400_dev *adev)
 		"axi_dma not using standard driver using channels %c %c", c0, c1);
 
 	return 0;
+}
+
+static int dma_reset(struct xilinx_dma_chan *chan)
+{
+	int loop = XILINX_DMA_RESET_LOOP;
+	u32 tmp;
+
+	dma_write(chan, XILINX_DMA_CONTROL_OFFSET,
+		 // dma_read(chan, XILINX_DMA_CONTROL_OFFSET) |
+		  XILINX_DMA_CR_RESET_MASK);
+
+	tmp = dma_read(chan, XILINX_DMA_CONTROL_OFFSET) &
+	      XILINX_DMA_CR_RESET_MASK;
+
+	/* Wait for the hardware to finish reset */
+	while (loop && tmp) {
+		tmp = dma_read(chan, XILINX_DMA_CONTROL_OFFSET) &
+		      XILINX_DMA_CR_RESET_MASK;
+		loop -= 1;
+	}
+
+	if (!loop) {
+		dev_err(chan->dev, "reset timeout, cr %x, sr %x\n",
+			dma_read(chan, XILINX_DMA_CONTROL_OFFSET),
+			dma_read(chan, XILINX_DMA_STATUS_OFFSET));
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+int xilinx_dma_reset(struct xilinx_dma_chan *chan)
+{
+	dev_dbg(chan->dev, "xilinx_dma_reset()");
+	return dma_reset(chan);
 }
 
 

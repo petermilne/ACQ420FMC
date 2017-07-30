@@ -440,6 +440,7 @@ static int dma_reset(struct xilinx_dma_chan *chan)
 	return 0;
 }
 
+
 static irqreturn_t dma_intr_handler(int irq, void *data)
 {
 	struct xilinx_dma_chan *chan = data;
