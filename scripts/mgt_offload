@@ -1,0 +1,61 @@
+#!/usr/local/bin/expect
+
+# http://wiki.tcl.tk/10795
+proc sgn x {expr {($x>0) - ($x<0)}}
+
+proc .. {a {b ""} {step 1}} {
+#    if {$b eq ""} {set b $a; set a 0} ;# argument shift
+    if {$b eq ""} {set b $a; } 
+    if {![string is int $a] || ![string is int $b]} {
+        scan $a %c a; scan $b %c b
+        incr b $step ;# let character ranges include the last
+        set mode %c
+    } else {set mode %d}
+
+    incr b
+    set ss [sgn $step]
+    if {[sgn [expr {$b - $a}]] == $ss} {
+        set res [format $mode $a]
+        while {[sgn [expr {$b-$step-$a}]] == $ss} {
+            lappend res [format $mode [incr a $step]]
+        }
+        set res
+    } ;# one-armed if: else return empty list
+ }
+
+proc axi_dma_once_busy {} {
+	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
+	gets -maxchars 1 $fp line
+	return $line == 1
+}
+proc set_mgt_buscomms {en} {
+	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
+	puts $fp $en
+	close $fp
+}
+
+proc set_mgt_pull_desc {mgt_block} {
+	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc	
+}
+
+proc upload_one {mgt_block} {
+	set axidma [open /dev/acq400.0.axi0 r]
+	spawn -open $axidma
+	while {![axi_dma_once_busy]} {
+		after 10
+	}
+	set_mgt_pull_desc $mgt_block
+	expect eof	
+}
+
+proc upload_range {first last} {
+	set_mgt_buscomms 1
+	foreach ii [.. $first $last] {
+		upload_one $ii
+	}
+	set_mgt_buscomms 0
+}
+foreach arg $::argv {
+	lassign [split $arg '-'] first last
+	upload_range $first $last
+}	

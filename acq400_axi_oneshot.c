@@ -38,8 +38,12 @@
 
 int AXIDMA_ONCE_TO_MSEC = 1000;
 module_param(AXIDMA_ONCE_TO_MSEC, int, 0644);
-MODULE_PARM_DESC(AXIDMA_ONCE_TO_MSEC, "timout for transferrining 4MB at 800MB/s");
+MODULE_PARM_DESC(AXIDMA_ONCE_TO_MSEC, "timeout for transferrining 4MB at 800MB/s");
 
+
+int AXIDMA_ONCE_BUSY;
+module_param(AXIDMA_ONCE_BUSY, int, 0044);
+MODULE_PARM_DESC(AXIDMA_ONCE_BUSY, "TRUE when ONCE in progress");
 
 #define WAIT 	1
 #define NO_WAIT 0
@@ -130,7 +134,7 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 	}
 }
 
-int axi64_data_once(struct acq400_dev *adev)
+int _axi64_data_once(struct acq400_dev *adev)
 {
 	struct dma_chan *rx_chan = adev->dma_chan[0];
 	char *dest_dma_buffer = (char*)adev->hb[0]->va;
@@ -149,6 +153,18 @@ int axi64_data_once(struct acq400_dev *adev)
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
 	dmaengine_terminate_all(adev->dma_chan[0]);
+
+	return 0;
+}
+
+/* @@todo .. nasty use of global - what if more than one channel ..
+ * bad Linux, but effective here as it's a singleton */
+int axi64_data_once(struct acq400_dev *adev)
+{
+	int rc;
+	AXIDMA_ONCE_BUSY = 1;
+	rc = _axi64_data_once(adev);
+	AXIDMA_ONCE_BUSY = 0;
 	return 0;
 }
 
