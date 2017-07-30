@@ -1645,7 +1645,7 @@ void init(int argc, const char** argv) {
 			exit(1);
 			break;
 		case 'D':
-			if (G::demux == 0){
+			if (G::demux <= 0){
 				G::buffer_mode = BM_RAW;
 			}
 			break;
@@ -3562,21 +3562,25 @@ protected:
 		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
 			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
 		}
-		setState(ST_POSTPROCESS); actual.print();
-		Demuxer::_msync(MapBuffer::get_ba_lo(),
+		if (G::demux >= 0){
+			setState(ST_POSTPROCESS); actual.print();
+			Demuxer::_msync(MapBuffer::get_ba_lo(),
 				MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
-		if (pre){
-			int ibuf;
-			char* es;
+			if (pre){
+				int ibuf;
+				char* es;
 
-			if (findEvent(&ibuf, &es)){
-				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
-				postProcess(ibuf, es);
+				if (findEvent(&ibuf, &es)){
+					if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
+					postProcess(ibuf, es);
+				}else{
+					fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
+				}
 			}else{
-				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
+				postProcess(0, MapBuffer::get_ba_lo());
 			}
 		}else{
-			postProcess(0, MapBuffer::get_ba_lo());
+			fprintf(stderr, "%s demux<0 skip postProcess\n", _PFN);
 		}
 		notify_result();
 	}
@@ -4035,7 +4039,7 @@ StreamHead* StreamHead::instance() {
 		ident("acq400_stream_main");
 
 		if (G::stream_mode == SM_TRANSIENT){
-			if (G::buffer_mode == BM_PREPOST && G::demux){
+			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
 				Demuxer *demuxer;
 				if (G::wordsize == 4){
 					demuxer = new DemuxerImpl<int>;
