@@ -201,8 +201,24 @@ int acq400_open_histo(struct inode *inode, struct file *file)
 	}
 }
 
-static int acq420_dma_open(struct inode *inode, struct file *file)
+static int acq400_hb_open(struct inode *inode, struct file *file)
 {
+        struct acq400_dev *adev = ACQ400_DEV(file);
+        int ibuf = BUFFER(PD(file)->minor);
+        struct HBM *hbm = adev->hb[ibuf];
+
+	unsigned acc_mode = file->f_flags & O_ACCMODE;
+	switch (acc_mode) {
+	case O_RDONLY:
+	case O_RDWR:
+		dev_dbg(DEVP(adev),
+			"acq400_hb_open() mode %x, dma_sync_single_for_cpu: pa:0x%08x len:%d dir:%d",
+				acc_mode, hbm->pa, hbm->len, hbm->dir);
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, DMA_FROM_DEVICE);
+	default:
+		;
+	}
+
 	return 0;
 }
 
@@ -245,6 +261,8 @@ ssize_t acq400_hb_read(
 	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
+	dev_dbg(DEVP(adev), "acq400_hb_read() cursor:%u len:%u count:%u",
+			cursor, hb->len, count);
 	if (cursor >= hb->len){
 		return 0;
 	}else{
@@ -253,14 +271,17 @@ ssize_t acq400_hb_read(
 			count = headroom;
 		}
 	}
-	dma_sync_single_for_cpu(DEVP(adev), hb->pa + cursor, count, hb->dir);
 
+	dev_dbg(DEVP(adev), "acq400_hb_read() copy_to [%d] %p %d",
+			ibuf, (char*)hb->va+cursor, count);
 	rc = copy_to_user(buf, (char*)hb->va + cursor, count);
 	if (rc){
 		return -1;
 	}
 
 	*f_pos += count;
+
+	dev_dbg(DEVP(adev), "acq400_hb_read() return count:%u", count);
 	return count;
 }
 
@@ -274,23 +295,28 @@ ssize_t acq400_hb_write(
 	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
+	dev_dbg(DEVP(adev), "acq400_hb_write() cursor:%u len:%u count:%u",
+			cursor, hb->len, count);
+
 	if (cursor >= hb->len){
-		return 0;
+		return -ENOSPC;
 	}else{
 		int headroom = hb->len - cursor;
 		if (count > headroom){
 			count = headroom;
 		}
 	}
+	dev_dbg(DEVP(adev), "acq400_hb_write() copy_from [%d] %p %d",
+				ibuf, (char*)hb->va+cursor, count);
 	rc = copy_from_user((char*)hb->va+cursor, buf, count);
 
 	if (rc){
 		return -1;
 	}
 
-	dma_sync_single_for_device(DEVP(adev),	hb->pa + cursor, count, hb->dir);
-
 	*f_pos += count;
+	dev_dbg(DEVP(adev), "acq400_hb_write() return count:%u", count);
+
 	return count;
 }
 
@@ -301,14 +327,15 @@ int acq400_hb_release(struct inode *inode, struct file *file)
         int ibuf = BUFFER(PD(file)->minor);
         struct HBM *hbm = adev->hb[ibuf];
 
-        /* Manage writes via reference counts */
-        switch (file->f_flags & O_ACCMODE) {
+        unsigned acc_mode = file->f_flags & O_ACCMODE;
+
+        switch (acc_mode) {
         case O_WRONLY:
         case O_RDWR:
         	dev_dbg(DEVP(adev),
         	"acq400_hb_release() mode %x, dma_sync_single_for_device: pa:0x%08x len:%d dir:%d",
-		file->f_flags & O_ACCMODE, hbm->pa, hbm->len, hbm->dir);
-        	dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
+		acc_mode, hbm->pa, hbm->len, hbm->dir);
+        	dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
         default:
         	;
         }
@@ -321,7 +348,7 @@ int acq400_hb_release(struct inode *inode, struct file *file)
 int acq400_open_hb(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq420_fops_dma = {
-		.open = acq420_dma_open,
+		.open = acq400_hb_open,
 		.mmap = acq400_dma_mmap_host,
 		.read = acq400_hb_read,
 		.write = acq400_hb_write,
