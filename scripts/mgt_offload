@@ -25,8 +25,13 @@ proc .. {a {b ""} {step 1}} {
 
 proc axi_dma_once_busy {} {
 	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
-	gets -maxchars 1 $fp line
-	return $line == 1
+	gets $fp line
+	close $fp
+	if {[string first 1 $line] == 0} {
+		return 1
+	} else {
+		return 0
+	}	
 }
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
@@ -38,10 +43,9 @@ proc set_mgt_pull_desc {mgt_block} {
 	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc	
 }
 
-proc upload_one {mgt_block} {
-	set axidma [open /dev/acq400.0.axi0 r]
-	spawn -open $axidma
-	while {![axi_dma_once_busy]} {
+proc upload_one {mgt_block} {	
+	spawn cat /dev/acq400.0.axi0
+	while {[axi_dma_once_busy] == 0} {
 		after 10
 	}
 	set_mgt_pull_desc $mgt_block
