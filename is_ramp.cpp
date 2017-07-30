@@ -26,8 +26,13 @@
 
 #include <stdio.h>
 
+#include "popt.h"
 
-int main(int argc, char* argv[])
+namespace G {
+	int step = 1;
+};
+
+int process()
 {
 	unsigned uu;
 	unsigned uu1;
@@ -38,12 +43,38 @@ int main(int argc, char* argv[])
 
 	for (; fread(reinterpret_cast<char*>(&uu), sizeof(uu), 1, stdin) == 1;
 								++ii, uu1 = uu){
-		if (uu != uu1+1){
-			fprintf(stderr, "ERROR at %d %08x + 1 != %08x\n",
-				ii, uu1, uu);
+		if (uu != uu1+G::step){
+			fprintf(stderr, "ERROR at %d %08x + %d != %08x\n",
+				ii, uu1, G::step, uu);
 			++ecount;
 		}
 	}
 
 	return ecount;
+}
+
+struct poptOption opt_table[] = {
+	{ "step", 's', POPT_ARG_INT, &G::step, 0, "step size" },
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
+
+void ui(int argc, const char** argv)
+{
+	poptContext opt_context =
+			poptGetContext(argv[0], argc, argv, opt_table, 0);
+	int rc;
+
+	while ( (rc = poptGetNextOpt(opt_context)) >= 0 ){
+		switch(rc){
+		default:
+			;
+		}
+	}
+}
+
+int main(int argc, const char** argv)
+{
+	ui(argc, argv);
+	return process();
 }
