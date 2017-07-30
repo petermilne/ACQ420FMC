@@ -1,7 +1,19 @@
 #!/usr/local/bin/expect
 
+log_user 0
 # http://wiki.tcl.tk/10795
 proc sgn x {expr {($x>0) - ($x<0)}}
+
+proc default_work {src blocknum} {
+	puts "default_work $src $blocknum"
+}
+
+set work default_work
+
+if {[file exists /mnt/local/mgt_offload_custom]} {
+	# typically, this  will reassign work
+	source /mnt/local/mgt_offload_custom
+}
 
 proc .. {a {b ""} {step 1}} {
 #    if {$b eq ""} {set b $a; set a 0} ;# argument shift
@@ -53,9 +65,12 @@ proc upload_one {mgt_block} {
 }
 
 proc upload_range {first last} {
+	global work
+	
 	set_mgt_buscomms 1
 	foreach ii [.. $first $last] {
 		upload_one $ii
+		$work /dev/acq400.0.hb/000 $ii
 	}
 	set_mgt_buscomms 0
 }

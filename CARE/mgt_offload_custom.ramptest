@@ -1,0 +1,13 @@
+
+proc test_work {src blocknum} {
+	set fp [open |[list is_ramp -f 1 <$src 2>@1] r]
+	gets $fp result
+	puts "mgt_block $blocknum result $result"
+	while {[gets $fp result] >= 0} {
+		puts $result
+	}
+	close $fp
+}
+
+set work test_work
+

@@ -30,6 +30,7 @@
 
 namespace G {
 	int step = 1;
+	int show_first = 0;
 };
 
 int process()
@@ -41,6 +42,9 @@ int process()
 
 	fread(reinterpret_cast<char*>(&uu1), sizeof(uu), 1, stdin);
 
+	if (G::show_first){
+		fprintf(stderr, "start:%08x\n", uu1);
+	}
 	for (; fread(reinterpret_cast<char*>(&uu), sizeof(uu), 1, stdin) == 1;
 								++ii, uu1 = uu){
 		if (uu != uu1+G::step){
@@ -55,6 +59,7 @@ int process()
 
 struct poptOption opt_table[] = {
 	{ "step", 's', POPT_ARG_INT, &G::step, 0, "step size" },
+	{ "show-first", 'f', POPT_ARG_INT, &G::show_first, 0, "step size" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
