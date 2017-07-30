@@ -8,10 +8,11 @@ proc test_work {src blocknum} {
 			puts $result
 		}
 		close $fp
+		return 0
 	} trap CHILDSTATUS {- opts} {
 		puts "exit with error"
-		exit 1
 	}
+	return 1
 }
 
 set work test_work

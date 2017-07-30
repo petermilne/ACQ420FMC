@@ -6,6 +6,7 @@ proc sgn x {expr {($x>0) - ($x<0)}}
 
 proc default_work {src blocknum} {
 	puts "default_work $src $blocknum"
+	return 0
 }
 
 set work default_work
@@ -70,7 +71,10 @@ proc upload_range {first last} {
 	set_mgt_buscomms 1
 	foreach ii [.. $first $last] {
 		upload_one $ii
-		$work /dev/acq400.0.hb/000 $ii
+		if {[$work /dev/acq400.0.hb/000 $ii] != 0 } {
+			puts "Quit on work fail $ii"
+			break;
+		}
 	}
 	set_mgt_buscomms 0
 }
