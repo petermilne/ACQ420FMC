@@ -15,7 +15,10 @@ int descgen1(int dx)
 	unsigned block = DESCLEN >> SCALE;
 	unsigned addr = block * dx;
 	unsigned descr = addr << ID | (dx&ID_MASK);
-	write(fd_out, &descr, sizeof(descr));
+	if (write(fd_out, &descr, sizeof(descr)) != sizeof(descr)){
+		perror("write");
+		exit(1);
+	}
 	return 0;
 }
 int descgen(int d0, int d1)

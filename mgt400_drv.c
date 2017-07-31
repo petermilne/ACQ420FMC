@@ -299,8 +299,12 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 	unsigned shl = PD_FIFO_SHL(file);
 
 	u32* lbuf = PD(file)->buffer;
-	int cw;
+	int cw, iw;
 	int rc;
+	int pollcat = 0;
+	wait_queue_head_t wq_dummy;
+
+	init_waitqueue_head(&wq_dummy);
 
 	dev_dbg(DEVP(mdev), "%s 01 count %d", __FUNCTION__, count);
 	if (count&3){
@@ -314,18 +318,35 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 	rc = copy_from_user(lbuf, buf, cw*sizeof(u32));
 	if (rc){
 		return -1;
-	}else{
-		int iw;
-		for (iw = 0; iw < cw && mgt400_headroom(mdev, shl); ++iw){
-			mgt400wr32(mdev, fifo_offset, lbuf[iw]);
-		}
-		mgt400_fifo_enable(mdev, shl);
-
-		count = iw * sizeof(u32);
-		*f_pos += count;
-		dev_dbg(DEVP(mdev), "%s 99 return %d", __FUNCTION__, count);
-		return count;
 	}
+
+	while(mgt400_headroom(mdev, shl) == 0){
+		if ((++pollcat&0xff) == 0){
+			dev_dbg(DEVP(mdev), "%s polling headroom", __FUNCTION__);
+		}
+		rc = wait_event_interruptible_timeout(
+						wq_dummy,
+						mgt400_headroom(mdev, shl) == 0, 10);
+		if (rc == 0){
+			continue;	/* timeout and retry */
+		}else if (rc < 0){
+			dev_warn(DEVP(mdev), "%s Quit on signal", __FUNCTION__);
+			return -EINTR;
+		}else if (rc > 0){
+			break;
+		}
+	}
+
+
+	for (iw = 0; iw < cw && mgt400_headroom(mdev, shl); ++iw){
+		mgt400wr32(mdev, fifo_offset, lbuf[iw]);
+	}
+	mgt400_fifo_enable(mdev, shl);
+
+	count = iw * sizeof(u32);
+	*f_pos += count;
+	dev_dbg(DEVP(mdev), "%s 99 return %d", __FUNCTION__, count);
+	return count;
 }
 
 int mgt400_release(struct inode *inode, struct file *file)
