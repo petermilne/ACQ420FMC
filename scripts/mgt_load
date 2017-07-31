@@ -25,7 +25,7 @@ load_is_running() {
 }
 load_block() {
 	logger -t mgt_load load_block $MGB1 $MGB2
-	echo $MGB1 $MGB2 > /dev/mgt400.A.push_desc &
+	mgtdram_descgen $MGB1 $MGB2 > /dev/mgt400.A.push_desc &
 	echo $! > $PIDF
 	wait
 	logger -t mgt_load cleanup
