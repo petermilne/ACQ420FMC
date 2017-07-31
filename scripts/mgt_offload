@@ -10,6 +10,7 @@ proc default_work {src blocknum} {
 }
 
 set work default_work
+set HB0	/dev/acq400.0.hb/000
 
 if {[file exists /mnt/local/mgt_offload_custom]} {
 	# typically, this  will reassign work
@@ -58,7 +59,7 @@ proc sigint_handler {} {
 	exit 1
 }
 
-signal trap SIGINT sigint_handler
+trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
@@ -74,17 +75,28 @@ proc upload_one {mgt_block} {
 	expect eof	
 }
 
-proc upload_range {first last} {
-	global work
+set MAX_RETRY 0
+if { [info exists ::env(MAX_RETRY)] } {
+	set MAX_RETRY $::env(MAX_RETRY)
+}
+
+proc _upload_range {first last} {
+	global work MAX_RETRY HB0
 	
-	set_mgt_buscomms 1
 	foreach ii [.. $first $last] {
 		upload_one $ii
-		if {[$work /dev/acq400.0.hb/000 $ii] != 0 } {
-			puts "Quit on work fail $ii"
-			break;
+
+		for { set rty 0 } { [$work $HB0 $ii] != 0 } { incr rty } {
+			if { $rty >= $MAX_RETRY } {
+				puts "ERROR retry exceeded"
+				return
+			}
 		}
-	}
+	}	
+}
+proc upload_range {first last} {
+	set_mgt_buscomms 1
+	_upload_range $first $last
 	set_mgt_buscomms 0
 }
 foreach arg $::argv {
