@@ -732,7 +732,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 		return 0;
 	}
 	axi64_data_once(adev);
-	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%d\n", adev->hb[0]->ix);
+	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%u\n", *(unsigned*)f_pos);
 	rc = copy_to_user(buf, lbuf, bc);
 
 	if (rc){
