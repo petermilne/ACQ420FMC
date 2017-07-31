@@ -31,6 +31,7 @@
 namespace G {
 	int step = 1;
 	int show_first = 0;
+	int emax = 10;
 };
 
 int process()
@@ -51,6 +52,9 @@ int process()
 			fprintf(stderr, "ERROR at %d %08x + %d != %08x\n",
 				ii, uu1, G::step, uu);
 			++ecount;
+			if (ecount > G::emax){
+				return -1;
+			}
 		}
 	}
 
@@ -59,7 +63,8 @@ int process()
 
 struct poptOption opt_table[] = {
 	{ "step", 's', POPT_ARG_INT, &G::step, 0, "step size" },
-	{ "show-first", 'f', POPT_ARG_INT, &G::show_first, 0, "step size" },
+	{ "show-first", 'f', POPT_ARG_INT, &G::show_first, 0, "show first entry" },
+	{ "emax", 'e', POPT_ARG_INT, &G::emax, 0, "max errors to accept before quitting" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
