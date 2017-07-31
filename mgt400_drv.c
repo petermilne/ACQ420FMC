@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.119"
+#define REVID "0.121"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -306,7 +306,8 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 
 	init_waitqueue_head(&wq_dummy);
 
-	dev_dbg(DEVP(mdev), "%s 01 count %d", __FUNCTION__, count);
+	dev_dbg(DEVP(mdev), "%s 01 count %d pos %u",
+			__FUNCTION__, count, *(unsigned *)f_pos);
 	if (count&3){
 		count = count&~3;	/* truncate to LW */
 	}
@@ -321,12 +322,11 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 	}
 
 	while(mgt400_headroom(mdev, shl) == 0){
-		if ((++pollcat&0xff) == 0){
-			dev_dbg(DEVP(mdev), "%s polling headroom", __FUNCTION__);
+		if ((pollcat++&0xff) == 0){
+			dev_dbg(DEVP(mdev), "%s 30 polling headroom", __FUNCTION__);
 		}
 		rc = wait_event_interruptible_timeout(
-						wq_dummy,
-						mgt400_headroom(mdev, shl) == 0, 10);
+			wq_dummy, mgt400_headroom(mdev, shl) != 0, 10);
 		if (rc == 0){
 			continue;	/* timeout and retry */
 		}else if (rc < 0){
@@ -337,6 +337,9 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 		}
 	}
 
+
+	dev_dbg(DEVP(mdev), "%s 55 headroom %d",
+			__FUNCTION__, mgt400_headroom(mdev, shl));
 
 	for (iw = 0; iw < cw && mgt400_headroom(mdev, shl); ++iw){
 		mgt400wr32(mdev, fifo_offset, lbuf[iw]);
@@ -381,6 +384,7 @@ int mgt400_dma_descr_release(struct inode *inode, struct file *file)
 
 	}
 quit:
+	dev_dbg(DEVP(mdev), "%s 99", __FUNCTION__);
 	return mgt400_release(inode, file);
 }
 int mgt400_dma_descr_open(struct inode *inode, struct file *file)
