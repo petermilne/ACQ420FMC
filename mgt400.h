@@ -57,6 +57,7 @@ struct mgt400_path_descriptor {
 #define PD(filp)	((struct mgt400_path_descriptor*)filp->private_data)
 #define SETPD(filp, value)	(filp->private_data = (value))
 #define PDSZ		(sizeof (struct mgt400_path_descriptor))
+#define DEVP(adev)		(&(adev)->pdev->dev)
 
 extern struct mgt400_dev* mgt400_devices[];
 
