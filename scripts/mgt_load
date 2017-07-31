@@ -10,12 +10,19 @@ is_running() {
 	for pid in $(ps | awk '{ print $1 }')
 	do
 		if [ $pid = $1 ]; then
-			echo 1; break
+			echo 1; return
 		fi
 	done
 	echo 0
 }
 
+load_is_running() {
+	if [ -e $PIDF ] && [ $(is_running $(cat $PIDF)) ]; then
+		echo 1
+	else
+		echo 0
+	fi
+}
 load_block() {
 	logger -t mgt_load load_block $MGB1 $MGB2
 	echo $MGB1 $MGB2 > /dev/mgt400.A.push_desc &
@@ -25,7 +32,7 @@ load_block() {
 	rm $PIDF
 }
 load() {
-	if [ -e $PIDF ] && [ is_running $(cat $PIDF) ]; then
+	if [ $(load_is_running) -eq 1 ]; then
 		echo "ERROR: previous process still running, quitting"
 	else
 		set.mgt_direction_inbound 0
@@ -34,15 +41,27 @@ load() {
 }
 
 query() {
-	if [ -e $PIDF ] && [ is_running $(cat $PIDF) ]; then
-		echo BUSY $(cat $PIDF)
+	if [ $(load_is_running) -eq 1 ]; then
+		echo "BUSY pid $(cat $PIDF)"
 	else
 		echo IDLE
 	fi
 }
 
+abort() {
+	if [ $(load_is_running) -eq 1 ]; then
+		kill -9 $(cat $PIDF)
+	fi
+	sleep 1
+	if [ $(load_is_running) -eq 1 ]; then
+		echo ERROR: failed to abort
+	else
+		rm -f $PIDF
+	fi
+}
 
 case $CMD in
 load)	load;;
+abort)  abort;;
 *)	query;;
 esac
