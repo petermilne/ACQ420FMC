@@ -45,6 +45,9 @@ int AXIDMA_ONCE_BUSY;
 module_param(AXIDMA_ONCE_BUSY, int, 0044);
 MODULE_PARM_DESC(AXIDMA_ONCE_BUSY, "TRUE when ONCE in progress");
 
+int AXIDMA_ONCE_RESET_ON_EXIT;
+module_param(AXIDMA_ONCE_RESET_ON_EXIT, int , 0644);
+
 #define WAIT 	1
 #define NO_WAIT 0
 
@@ -134,6 +137,8 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 	}
 }
 
+extern int xilinx_dma_reset_dmachan(struct dma_chan *chan);
+
 int _axi64_data_once(struct acq400_dev *adev)
 {
 	struct dma_chan *rx_chan = adev->dma_chan[0];
@@ -153,7 +158,9 @@ int _axi64_data_once(struct acq400_dev *adev)
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
 	dmaengine_terminate_all(adev->dma_chan[0]);
-
+	if (AXIDMA_ONCE_RESET_ON_EXIT){
+		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
+	}
 	return 0;
 }
 

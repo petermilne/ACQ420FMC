@@ -144,4 +144,5 @@ static inline u32 dma_read(struct xilinx_dma_chan *chan, u32 reg)
 #define XILINX_DMA_HALT_LOOP		1000000
 
 extern int xilinx_dma_reset(struct xilinx_dma_chan *chan);
+
 #endif /* XILINX_AXIDMA_H_ */

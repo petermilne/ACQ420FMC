@@ -841,4 +841,8 @@ int xilinx_dma_reset(struct xilinx_dma_chan *chan)
 	return dma_reset(chan);
 }
 
+int xilinx_dma_reset_dmachan(struct dma_chan *chan)
+{
+	return xilinx_dma_reset(to_xilinx_chan(chan));
+}
 
