@@ -10,7 +10,7 @@ proc test_work {src blocknum} {
 		close $fp
 		return 0
 	} trap CHILDSTATUS {- opts} {
-		puts "exit with error"
+		puts "return with error"
 	}
 	return 1
 }
