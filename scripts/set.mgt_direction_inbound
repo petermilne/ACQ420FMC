@@ -1,0 +1,5 @@
+#!/bin/sh
+in=${1:-1}
+echo $in > /dev/dsp1/MGT_CTRL.BUSCOMMS
+
+

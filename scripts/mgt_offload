@@ -52,6 +52,15 @@ proc set_mgt_buscomms {en} {
 	close $fp
 }
 
+proc sigint_handler {} {
+	set_mg_buscomms 0
+	puts "cleared buscomms"
+	exit 1
+}
+
+signal trap SIGINT sigint_handler
+
+
 proc set_mgt_pull_desc {mgt_block} {
 	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc	
 }
