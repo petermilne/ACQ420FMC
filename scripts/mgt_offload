@@ -62,8 +62,20 @@ proc sigint_handler {} {
 trap sigint_handler SIGINT
 
 
+set PULL [open /dev/mgt400.A.pull_desc w]
+chan configure $PULL -translation binary
+chan configure $PULL -buffering none
+
 proc set_mgt_pull_desc {mgt_block} {
-	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc	
+	global PULL
+
+#	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
+	set fp [open "|mgtdram_descgen $mgt_block" r]	
+	chan configure $fp -translation binary
+	chan configure $fp -buffering none
+	puts -nonewline $PULL [read $fp 4]
+	flush $PULL
+	close $fp	
 }
 
 proc upload_one {mgt_block} {	
