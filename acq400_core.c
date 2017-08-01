@@ -257,6 +257,7 @@ void acq2106_distributor_reset(struct acq400_dev *adev)
 	acq400wr32(adev, DISTRIBUTOR, dst | AGG_FIFO_RESET);
 	acq400wr32(adev, DISTRIBUTOR, dst);
 	acq400rd32(adev, DISTRIBUTOR);
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 }
 
 void acq2106_aggregator_reset(struct acq400_dev *adev)
@@ -266,6 +267,7 @@ void acq2106_aggregator_reset(struct acq400_dev *adev)
 	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
 	acq400wr32(adev, AGGREGATOR, agg);
 	acq400rd32(adev, AGGREGATOR);
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 }
 
 void sc_data_engine_reset_enable(unsigned dex)
