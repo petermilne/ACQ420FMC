@@ -1,0 +1,3 @@
+#!/bin/sh
+SZ=${1:-64}
+grep kmalloc-$SZ /proc/slabinfo | awk '{ printf ("%s %d %d %d %.1f MB\n", $1, $3, $4, $3*$4, $3*$4/1024000); }'

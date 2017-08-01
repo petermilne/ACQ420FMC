@@ -1,0 +1,18 @@
+
+report() {
+	echo $(date) $1  $(grep MemAvailable /proc/meminfo)
+}
+
+report $(get.site 1 shot)
+shot0=0
+
+while [ 1 ]; do
+	shot=$(get.site 1 shot)
+	let shotn=$shot%10
+	[ $shot -ne $shot0 ] && [ $shotn -eq 0 ] && report $shot 
+	shot0=$shot
+	sleep 1
+done
+
+
+
