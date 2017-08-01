@@ -154,13 +154,16 @@ int _axi64_data_once(struct acq400_dev *adev)
 		printk(KERN_ERR "xdma_prep_buffer error\n");
 		return -1;
 	}
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
 	dmaengine_terminate_all(adev->dma_chan[0]);
 	if (AXIDMA_ONCE_RESET_ON_EXIT){
+		dev_dbg(DEVP(adev), "%s 66", __FUNCTION__);
 		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
 	}
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return 0;
 }
 

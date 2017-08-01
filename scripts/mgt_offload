@@ -1,14 +1,46 @@
 #!/usr/local/bin/expect
 
 log_user 0
+
+# server controls axi PUSH to ZDRAM
+proc server {} {	
+	set zaxi [open /dev/acq400.0.axi0 r]
+	
+	while {[gets stdin line] >= 0} {
+		puts "OK"
+		
+		if {[gets $zaxi aline] > 0} {
+			puts "DONE $aline"
+		} else {
+			puts "ERROR"
+		}
+		
+	}
+	close $zaxi
+	exit 0
+}
+
+if { $::argc == 1 } {
+	if {[lindex $::argv 0] == "server" } {
+		server
+	}
+}
+
+# client from here on ..
+
 # http://wiki.tcl.tk/10795
+
 proc sgn x {expr {($x>0) - ($x<0)}}
 
 proc default_work {src blocknum} {
 	puts "default_work $src $blocknum"
 	return 0
 }
-
+set SSTEP 0
+if {[info exists env(SSTEP)]} {
+    # okay, it's there, use it
+    set SSTEP $env(SSTEP)
+}
 set work default_work
 set HB0	/dev/acq400.0.hb/000
 
@@ -64,9 +96,6 @@ proc sigint_handler {} {
 trap sigint_handler SIGINT
 
 
-set PULL [open /dev/mgt400.A.pull_desc w]
-chan configure $PULL -translation binary
-chan configure $PULL -buffering none
 
 
 proc set_mgt_pull_desc {mgt_block} {
@@ -83,26 +112,20 @@ proc set_mgt_pull_desc {mgt_block} {
 	close $fp	
 }
 
-# server controls axi PUSH to ZDRAM
-proc server {} {	
-	set zaxi [open /dev/acq400.0.axi0 r]
-	
-	while {[gets stdin line] >= 0} {
-		puts "OK"
-		
-		if {[gets $zaxi aline] > 0} {
-			puts "DONE $aline"
-		} else {
-			puts "ERROR"
-		}
-		
+
+proc pgm_wait {line} {
+	global SSTEP
+	if { $SSTEP == 1 } {
+		puts -nonewline "pgm_wait:$line>"
+		flush stdout
+		gets stdin gofer
+		puts "pgm_wait:$line> 99"
 	}
-	close $zaxi
-	exit 0
 }
 proc upload_one {mgt_block} {
 	global expect_out
 	puts "upload_one axi_push_zdram"
+	pgm_wait 1
 	send "axi_push_zdram\r"
 	expect OK {
 		puts "axi0 start OK"
@@ -110,6 +133,7 @@ proc upload_one {mgt_block} {
 	while {[axi_dma_once_busy] == 0} {
 		after 10
 	}
+	pgm_wait 2
 	set_mgt_pull_desc $mgt_block
 	expect DONE {
 		puts "axi0 $expect_out(buffer)"
@@ -117,6 +141,7 @@ proc upload_one {mgt_block} {
 		puts ERROR
 		exit 1
 	}
+	pgm_wait 3
 	axi_dma_once_busy
 	puts "upload_one done"
 }
@@ -146,13 +171,12 @@ proc upload_range {first last} {
 	set_mgt_buscomms 0
 }
 
-if { $::argc == 1 } {
-	if {[lindex $::argv 0] == "server" } {
-		server
-	}
-}
 
 spawn mgt_offload server
+
+set PULL [open /dev/mgt400.A.pull_desc w]
+chan configure $PULL -translation binary
+chan configure $PULL -buffering none
 
 foreach arg $::argv {
 	lassign [split $arg '-'] first last

@@ -728,7 +728,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 	char lbuf[32];
 	int bc, rc;
 
-	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
+	dev_dbg(DEVP(adev), "%s 01 pos:%u", __FUNCTION__, *(unsigned*)f_pos));
 
 	axi64_data_once(adev);
 	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%u\n", *(unsigned*)f_pos);
@@ -738,6 +738,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 		return -rc;
 	}else{
 		*f_pos += bc;
+		dev_dbg(DEVP(adev), "%s 99 pos:%u ret:%d", __FUNCTION__, *(unsigned*)f_pos), bc);
 		return bc;
 	}
 }
