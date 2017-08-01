@@ -250,7 +250,7 @@ fail:
 }
 
 
-void acq2106_distributor_reset(struct acq400_dev *adev)
+void acq2106_distributor_reset_enable(struct acq400_dev *adev)
 {
 	u32 dst = acq400rd32(adev, DISTRIBUTOR);
 	acq400wr32(adev, DISTRIBUTOR, dst &= ~(AGG_FIFO_RESET|AGG_ENABLE));
