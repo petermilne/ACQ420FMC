@@ -42,8 +42,10 @@ proc axi_dma_once_busy {} {
 	gets $fp line
 	close $fp
 	if {[string first 1 $line] == 0} {
+		puts "axi_dma_once_busy return 1"
 		return 1
 	} else {
+		puts "axi_dma_once_busy return 0"
 		return 0
 	}	
 }
@@ -66,9 +68,12 @@ set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
 chan configure $PULL -buffering none
 
+
 proc set_mgt_pull_desc {mgt_block} {
 	global PULL
 
+	puts "set_mgt_pull_desc $mgt_block"
+	
 #	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 	set fp [open "|mgtdram_descgen $mgt_block" r]	
 	chan configure $fp -translation binary
@@ -78,13 +83,42 @@ proc set_mgt_pull_desc {mgt_block} {
 	close $fp	
 }
 
-proc upload_one {mgt_block} {	
-	spawn cat /dev/acq400.0.axi0
+# server controls axi PUSH to ZDRAM
+proc server {} {	
+	set zaxi [open /dev/acq400.0.axi0 r]
+	
+	while {[gets stdin line] >= 0} {
+		puts "OK"
+		
+		if {[gets $zaxi aline] > 0} {
+			puts "DONE $aline"
+		} else {
+			puts "ERROR"
+		}
+		
+	}
+	close $zaxi
+	exit 0
+}
+proc upload_one {mgt_block} {
+	global expect_out
+	puts "upload_one hitme"
+	send "HITME\r"
+	expect OK {
+		puts "axi0 start OK"
+	}
 	while {[axi_dma_once_busy] == 0} {
 		after 10
 	}
 	set_mgt_pull_desc $mgt_block
-	expect eof	
+	expect DONE {
+		puts "axi0 $expect_out(buffer)"
+	} ERROR {
+		puts ERROR
+		exit 1
+	}
+	axi_dma_once_busy
+	puts "upload_one done"
 }
 
 set MAX_RETRY 0
@@ -111,6 +145,15 @@ proc upload_range {first last} {
 	_upload_range $first $last
 	set_mgt_buscomms 0
 }
+
+if { $::argc == 1 } {
+	if {[lindex $::argv 0] == "server" } {
+		server
+	}
+}
+
+spawn mgt_offload server
+
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
 	upload_range $first $last

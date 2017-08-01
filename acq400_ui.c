@@ -728,9 +728,8 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 	char lbuf[32];
 	int bc, rc;
 
-	if (*f_pos){
-		return 0;
-	}
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
+
 	axi64_data_once(adev);
 	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%u\n", *(unsigned*)f_pos);
 	rc = copy_to_user(buf, lbuf, bc);
@@ -746,10 +745,14 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 int acq400_axi_once_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
+
 	acq2106_distributor_reset(adev);
 	acq2106_aggregator_reset(adev);
 	return acq400_release(inode, file);
 }
+
 int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_axi_once = {
@@ -757,6 +760,8 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 		.release = acq400_axi_once_release
 	};
 	struct acq400_dev *adev = ACQ400_DEV(file);
+
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 
 	sc_data_engine_reset_enable(DATA_ENGINE_0);
 	acq2106_distributor_reset(adev);
