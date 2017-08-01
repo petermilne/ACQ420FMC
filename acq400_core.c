@@ -255,7 +255,7 @@ void acq2106_distributor_reset(struct acq400_dev *adev)
 	u32 dst = acq400rd32(adev, DISTRIBUTOR);
 	acq400wr32(adev, DISTRIBUTOR, dst &= ~(AGG_FIFO_RESET|AGG_ENABLE));
 	acq400wr32(adev, DISTRIBUTOR, dst | AGG_FIFO_RESET);
-	acq400wr32(adev, DISTRIBUTOR, dst);
+	acq400wr32(adev, DISTRIBUTOR, dst | AGG_ENABLE);
 	acq400rd32(adev, DISTRIBUTOR);
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 }

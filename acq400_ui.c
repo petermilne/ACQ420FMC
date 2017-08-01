@@ -749,7 +749,7 @@ int acq400_axi_once_release(struct inode *inode, struct file *file)
 
 	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 
-	acq2106_distributor_reset(adev);
+	acq2106_distributor_reset_enable(adev);
 	acq2106_aggregator_reset(adev);
 	return acq400_release(inode, file);
 }
@@ -764,9 +764,12 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 
 	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 
-	sc_data_engine_reset_enable(DATA_ENGINE_0);
-	acq2106_distributor_reset(adev);
+
+	acq2106_distributor_reset_enable(adev);
 	acq2106_aggregator_reset(adev);
+	sc_data_engine_reset_enable(DATA_ENGINE_0);
+	acq2006_aggregator_enable(adev);
+
 	file->f_op = &acq400_fops_axi_once;
 	return 0;
 }

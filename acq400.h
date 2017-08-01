@@ -1500,7 +1500,7 @@ extern void acq2006_aggregator_disable(struct acq400_dev *adev);
 extern void acq2006_aggregator_enable(struct acq400_dev *adev);
 extern void sc_data_engine_reset_enable(unsigned dex);
 extern void acq2106_aggregator_reset(struct acq400_dev *adev);
-extern void acq2106_distributor_reset(struct acq400_dev *adev);
+extern void acq2106_distributor_reset_enable(struct acq400_dev *adev);
 extern void acq400_enable_trg_if_master(struct acq400_dev *adev);
 extern int acq400_enable_trg(struct acq400_dev *adev, int enable);
 
