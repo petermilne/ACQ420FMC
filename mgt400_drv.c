@@ -255,6 +255,7 @@ void mgt400_fifo_reset(struct mgt400_dev* mdev, unsigned shl)
 	cr &= ~((DMA_CTRL_EN|DMA_CTRL_RST)<<shl);
 	mgt400wr32(mdev, DMA_CTRL, cr|(DMA_CTRL_RST<<shl));
 	mgt400wr32(mdev, DMA_CTRL, cr);
+	dev_dbg(DEVP(mdev), "%s 99", __FUNCTION__);
 }
 void mgt400_fifo_enable(struct mgt400_dev* mdev, unsigned shl)
 {
@@ -263,6 +264,7 @@ void mgt400_fifo_enable(struct mgt400_dev* mdev, unsigned shl)
 	if (cr != cr_en){
 		mgt400wr32(mdev, DMA_CTRL, cr_en);
 	}
+	dev_dbg(DEVP(mdev), "%s 99", __FUNCTION__);
 }
 
 int mgt400_fifo_count(struct mgt400_dev* mdev, unsigned shl)

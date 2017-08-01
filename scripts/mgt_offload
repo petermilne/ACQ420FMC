@@ -123,9 +123,8 @@ proc pgm_wait {line} {
 	}
 }
 proc upload_one {mgt_block} {
-	global expect_out
-	puts "upload_one axi_push_zdram"
-	pgm_wait 1
+	global expect_out 
+	pgm_wait "upload_one axi_push_zdram"
 	send "axi_push_zdram\r"
 	expect OK {
 		puts "axi0 start OK"
@@ -133,17 +132,17 @@ proc upload_one {mgt_block} {
 	while {[axi_dma_once_busy] == 0} {
 		after 10
 	}
-	pgm_wait 2
+	pgm_wait "set_mgt_pull_desc $mgt_block"
 	set_mgt_pull_desc $mgt_block
-	expect DONE {
-		puts "axi0 $expect_out(buffer)"
+	expect -re "DONE (\[0-9]+)" {
+		puts "axi0 [string trim $expect_out(buffer)]"
 	} ERROR {
 		puts ERROR
 		exit 1
 	}
-	pgm_wait 3
+	
 	axi_dma_once_busy
-	puts "upload_one done"
+	pgm_wait "upload_one done"
 }
 
 set MAX_RETRY 0
