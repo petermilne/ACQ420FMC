@@ -56,7 +56,7 @@ proc set_mgt_buscomms {en} {
 }
 
 proc sigint_handler {} {
-	set_mg_buscomms 0
+	set_mgt_buscomms 0
 	puts "cleared buscomms"
 	exit 1
 }
@@ -102,8 +102,8 @@ proc server {} {
 }
 proc upload_one {mgt_block} {
 	global expect_out
-	puts "upload_one hitme"
-	send "HITME\r"
+	puts "upload_one axi_push_zdram"
+	send "axi_push_zdram\r"
 	expect OK {
 		puts "axi0 start OK"
 	}
