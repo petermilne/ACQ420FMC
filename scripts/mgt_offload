@@ -136,6 +136,8 @@ proc upload_one {mgt_block} {
 	set_mgt_pull_desc $mgt_block
 	expect -re "DONE (\[0-9]+)" {
 		puts "axi0 [string trim $expect_out(buffer)]"
+	} timeout {
+		puts "ERROR, script-side timeout"
 	} ERROR {
 		puts ERROR
 		exit 1
