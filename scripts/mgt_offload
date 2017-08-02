@@ -3,20 +3,18 @@
 log_user 0
 
 # server controls axi PUSH to ZDRAM
-proc server {} {	
-	set zaxi [open /dev/acq400.0.axi0 r]
-	
+proc server {} {		
 	while {[gets stdin line] >= 0} {
 		puts "OK"
-		
+		set zaxi [open /dev/acq400.0.axi0 r]
 		if {[gets $zaxi aline] > 0} {
+			close $zaxi
 			puts "DONE $aline"
 		} else {
 			puts "ERROR"
-		}
-		
+		}		
 	}
-	close $zaxi
+	
 	exit 0
 }
 
