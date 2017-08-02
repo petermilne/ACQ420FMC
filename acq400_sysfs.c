@@ -3897,7 +3897,24 @@ static ssize_t store_axi_buffers_after_event(
 static DEVICE_ATTR(axi_buffers_over, S_IRUGO|S_IWUGO, \
 	show_axi_buffers_after_event, store_axi_buffers_after_event);
 
+
+static ssize_t show_axi_dma_fail(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, DATA_ENGINE_0);
+
+	return sprintf(buf, "%d\n", (ctrl&DE_AXI_DMA_FAIL) != 0);
+}
+
+
+static DEVICE_ATTR(axi_dma_fail, S_IRUGO, show_axi_dma_fail, 0);
+
+
 static const struct attribute *axi64_attrs[] = {
+	&dev_attr_axi_dma_error.attr,
 	&dev_attr_axi_buffers_over.attr,
 	NULL
 };

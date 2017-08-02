@@ -949,7 +949,8 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
 
-#define DATA_ENGINE_SELECT_AGG	(1<<14)
+#define DE_AXI_DMA_FAIL		(1<<16)
+#define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */
 #define DE_ENABLE		(1<<0)
 
 
