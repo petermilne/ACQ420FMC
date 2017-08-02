@@ -3914,7 +3914,7 @@ static DEVICE_ATTR(axi_dma_fail, S_IRUGO, show_axi_dma_fail, 0);
 
 
 static const struct attribute *axi64_attrs[] = {
-	&dev_attr_axi_dma_error.attr,
+	&dev_attr_axi_dma_fail.attr,
 	&dev_attr_axi_buffers_over.attr,
 	NULL
 };
