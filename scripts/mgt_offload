@@ -120,6 +120,16 @@ proc pgm_wait {line} {
 		puts "pgm_wait:$line> 99"
 	}
 }
+
+proc axi_dma_fail {} {
+	set fp [open /dev/acq400.0.knobs/axi_dma_fail r]
+	if {[gets $fp line] > 0} {
+		if {[string trim $line] == "0"} {
+			return 0
+		}
+	}
+	return 1
+}
 proc upload_one {mgt_block} {
 	global expect_out 
 	pgm_wait "upload_one axi_push_zdram"
@@ -142,7 +152,12 @@ proc upload_one {mgt_block} {
 	}
 	
 	axi_dma_once_busy
+	if {[axi_dma_fail] != 0} {
+		puts "ERROR AXI DMA FAIL"
+		exit 1
+	}
 	pgm_wait "upload_one done"
+	
 }
 
 set MAX_RETRY 0
