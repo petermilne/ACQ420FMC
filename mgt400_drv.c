@@ -378,14 +378,13 @@ int mgt400_dma_descr_release(struct inode *inode, struct file *file)
 			continue;	/* timeout and retry */
 		}else if (rc < 0){
 			dev_warn(DEVP(mdev), "Quit on signal");
-			mgt400_fifo_reset(mdev, shl);
 			goto quit;
 		}else if (rc > 0){
 			break;
 		}
-
 	}
 quit:
+	mgt400_fifo_reset(mdev, shl);
 	dev_dbg(DEVP(mdev), "%s 99", __FUNCTION__);
 	return mgt400_release(inode, file);
 }
