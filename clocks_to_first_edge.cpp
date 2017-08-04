@@ -42,9 +42,25 @@ namespace G {
 	unsigned timeout = 0;
 };
 
+
+#define PAGEW (4096/sizeof(unsigned))
+
 int readw(unsigned *xx)
 {
-	return fread(xx, sizeof(xx), 1, G::fp_in);
+	static unsigned buf[PAGEW];
+	static int cursor;
+	static int len;
+
+	if (cursor >= len){
+		len = fread(buf, sizeof(xx), PAGEW, G::fp_in);
+		if (len <= 0){
+			perror("input terminated");
+			exit(1);
+		}
+		cursor = 0;
+	}
+	*xx = buf[cursor++];
+	return 1;
 }
 
 unsigned clocks[NBITS] = {};
@@ -55,19 +71,19 @@ void print_clocks(void) {
 	}
 }
 
+
+unsigned fin = 0;
 unsigned timed_out;
 
 void alarm_handler(int sig)
 {
 	timed_out = 1;
+	fin = FINISHED;
 }
-
 void count_clocks(void)
 {
 	unsigned x0 = 0;
 	unsigned x1 = 0;
-	unsigned fin = 0;
-
 
 	if (readw(&x0) != 1){
 		perror("failed to read first word");
@@ -82,7 +98,7 @@ void count_clocks(void)
 			exit(1);
 		}
 	}
-	for (; !timed_out && fin != FINISHED && readw(&x1) == 1; ++clk){
+	for (; !timed_out && fin != FINISHED && readw(&x1) == 1; ++clk, x0 = x1){
 		unsigned change = (x1 ^ x0);
 		if (change & ~fin){
 			for (unsigned ib = 0; ib < NBITS; ++ib){
@@ -98,45 +114,42 @@ void count_clocks(void)
 
 }
 
+void onChange(unsigned clk, unsigned x0, unsigned x1)
+{
+	unsigned change = (x1 ^ x0);
+	if (change & ~fin){
+		for (unsigned ib = 0; ib < NBITS; ++ib){
+			unsigned bit = 1<<ib;
+			if ((fin&bit) == 0 && (change&bit) != 0){
+				clocks[ib] = clk;
+				fin |= bit;
+			}
+		}
+	}
+}
+
 void count_clocks_live() {
-	unsigned x0 = 0;
-	unsigned x1 = 0;
-	unsigned fin = 0;
-	unsigned clk = 0;
+	unsigned x0;
+	unsigned x1;
 
 	if (readw(&x0) != 1){
 		perror("failed to read first word");
 		exit(1);
 	}
-	clk += 1;
+
 	if (G::timeout){
 		signal(SIGALRM, alarm_handler);
 		alarm(G::timeout);
 	}
 
-	while(readw(&x1) == 1){
-		;
-	}
-/*
-	while (!timed_out && fin != FINISHED){
-		if (readw(&x1) != 1){
-			perror("input terminated");
-			return;
+	for (unsigned clk = 1; fin != FINISHED; ++clk){
+		readw(&x1);
+		if (x1 != x0){
+			onChange(clk, x0, x1);
 		}else{
-			clk += 1;
-			unsigned change = (x1 ^ x0);
-			if (change & ~fin){
-				for (unsigned ib = 0; ib < NBITS; ++ib){
-					unsigned bit = 1<<ib;
-					if ((fin&bit) == 0 && (change&bit) != 0){
-						clocks[ib] = clk;
-						fin |= bit;
-					}
-				}
-			}
+			x0 = x1;
 		}
 	}
-	*/
 }
 
 int ui(int argc, const char** argv)
