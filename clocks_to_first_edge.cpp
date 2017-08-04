@@ -26,6 +26,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 
 #define NBITS	32
 
@@ -36,6 +38,8 @@
 namespace G {
 	FILE *fp_in;
 	unsigned skip;
+	unsigned finished = FINISHED;
+	unsigned timeout = 0;
 };
 
 int readw(unsigned *xx)
@@ -43,17 +47,33 @@ int readw(unsigned *xx)
 	return fread(xx, sizeof(xx), 1, G::fp_in);
 }
 
+unsigned clocks[NBITS] = {};
+
+void print_clocks(void) {
+	for (int ib = 0; ib < NBITS; ++ib){
+		printf("%d%c", clocks[ib], ib+1 == NBITS? '\n': ',');
+	}
+}
+
+unsigned timed_out;
+
+void alarm_handler(int sig)
+{
+	timed_out = 1;
+}
+
 void count_clocks(void)
 {
 	unsigned x0 = 0;
 	unsigned x1 = 0;
 	unsigned fin = 0;
-	unsigned clocks[NBITS] = {};
+
 
 	if (readw(&x0) != 1){
 		perror("failed to read first word");
 		exit(1);
 	}
+
 	unsigned clk = 1;
 
 	for (; clk < G::skip; ++clk){
@@ -62,7 +82,7 @@ void count_clocks(void)
 			exit(1);
 		}
 	}
-	for (; fin != FINISHED && readw(&x1) == 1; ++clk){
+	for (; !timed_out && fin != FINISHED && readw(&x1) == 1; ++clk){
 		unsigned change = (x1 ^ x0);
 		if (change & ~fin){
 			for (unsigned ib = 0; ib < NBITS; ++ib){
@@ -75,11 +95,51 @@ void count_clocks(void)
 		}
 	}
 	fclose(G::fp_in);
-	for (int ib = 0; ib < NBITS; ++ib){
-		printf("%d%c", clocks[ib], ib+1 == NBITS? '\n': ',');
-	}
+
 }
-void ui(void)
+
+void count_clocks_live() {
+	unsigned x0 = 0;
+	unsigned x1 = 0;
+	unsigned fin = 0;
+	unsigned clk = 0;
+
+	if (readw(&x0) != 1){
+		perror("failed to read first word");
+		exit(1);
+	}
+	clk += 1;
+	if (G::timeout){
+		signal(SIGALRM, alarm_handler);
+		alarm(G::timeout);
+	}
+
+	while(readw(&x1) == 1){
+		;
+	}
+/*
+	while (!timed_out && fin != FINISHED){
+		if (readw(&x1) != 1){
+			perror("input terminated");
+			return;
+		}else{
+			clk += 1;
+			unsigned change = (x1 ^ x0);
+			if (change & ~fin){
+				for (unsigned ib = 0; ib < NBITS; ++ib){
+					unsigned bit = 1<<ib;
+					if ((fin&bit) == 0 && (change&bit) != 0){
+						clocks[ib] = clk;
+						fin |= bit;
+					}
+				}
+			}
+		}
+	}
+	*/
+}
+
+int ui(int argc, const char** argv)
 {
 	int site = 1;
 	if (getenv("SITE") != 0){
@@ -88,6 +148,16 @@ void ui(void)
 	if (getenv("SKIP") != 0){
 		G::skip = atoi(getenv("SKIP"));
 	}
+	if (getenv("FINISHED")){
+		G::finished = strtoul(getenv("FINISHED"), 0, 16);
+	}
+	if (getenv("TIMEOUT")){
+		G::timeout = atoi(getenv("TIMEOUT"));
+	}
+	if (argc > 0 && argv[1][0] == '-'){
+		G::fp_in = stdin;
+		return 1;
+	}
 	char fname[80];
 	snprintf(fname, 80, DFMT, site);
 	G::fp_in = fopen(fname, "r");
@@ -95,11 +165,17 @@ void ui(void)
 		perror(fname);
 		exit(1);
 	}
+	return 0;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, const char** argv)
 {
-	ui();
-	count_clocks();
+	if (ui(argc, argv)){
+		count_clocks_live();
+	}else{
+		count_clocks();
+	}
+	print_clocks();
+	return 0;
 }
 
