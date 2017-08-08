@@ -63,11 +63,11 @@ int readw(unsigned *xx)
 	return 1;
 }
 
-unsigned clocks[NBITS] = {};
+unsigned long long clocks[NBITS] = {};
 
 void print_clocks(void) {
 	for (int ib = 0; ib < NBITS; ++ib){
-		printf("%d%c", clocks[ib], ib+1 == NBITS? '\n': ',');
+		printf("%llu%c", clocks[ib], ib+1 == NBITS? '\n': ',');
 	}
 }
 
@@ -114,7 +114,8 @@ void count_clocks(void)
 
 }
 
-void onChange(unsigned clk, unsigned x0, unsigned x1)
+unsigned long long clk;
+void onChange(unsigned x0, unsigned x1)
 {
 	unsigned change = (x1 ^ x0);
 	if (change & ~fin){
@@ -142,10 +143,10 @@ void count_clocks_live() {
 		alarm(G::timeout);
 	}
 
-	for (unsigned clk = 1; fin != FINISHED; ++clk){
+	for (clk = 1; fin != FINISHED; ++clk){
 		readw(&x1);
 		if (x1 != x0){
-			onChange(clk, x0, x1);
+			onChange(x0, x1);
 		}else{
 			x0 = x1;
 		}
