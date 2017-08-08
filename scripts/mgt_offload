@@ -139,7 +139,7 @@ proc upload_one {mgt_block} {
 		puts "axi0 start OK"
 	}
 	while {[axi_dma_once_busy] == 0} {
-		after 10
+		after 50
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
 	set_mgt_pull_desc $mgt_block
