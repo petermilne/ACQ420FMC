@@ -60,8 +60,33 @@ abort() {
 	fi
 }
 
+run() {
+        if [ $(load_is_running) -eq 1 ]; then
+                echo "ERROR: previous process still running, quitting"
+        else
+                set.mgt_direction_inbound 0
+                load_block &
+		sleep 1
+		if [ $(load_is_running) -ne 1 ]; then
+			echo "ERROR: failed to start"
+		else
+			(
+			 logger -t mgt_load "run start"
+			 streamtonowhered start
+			 while [ $(load_is_running) -eq 1 ]; do
+				sleep 1
+			 done
+			 streamtonowhered stop
+			 logger -t mgt_load "run stop"
+			) & 
+			echo "CONTROLLER $! running"
+		fi
+        fi
+}
+
 case $CMD in
 load)	load;;
 abort)  abort;;
+run)    run;;
 *)	query;;
 esac
