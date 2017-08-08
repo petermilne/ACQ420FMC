@@ -4,6 +4,7 @@ log_user 0
 
 # server controls axi PUSH to ZDRAM
 proc server {} {		
+	exec renice -20 -p [getpid]
 	while {[gets stdin line] >= 0} {
 		puts "OK"
 		set zaxi [open /dev/acq400.0.axi0 r]
@@ -187,6 +188,8 @@ proc upload_range {first last} {
 
 
 spawn mgt_offload server
+
+exec renice 20 -p [getpid]
 
 set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
