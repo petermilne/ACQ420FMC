@@ -32,7 +32,7 @@ if { $::argc == 1 } {
 proc sgn x {expr {($x>0) - ($x<0)}}
 
 proc default_work {src blocknum} {
-	puts "default_work $src $blocknum"
+	puts "default_work $blocknum"
 	return 0
 }
 set SSTEP 0
@@ -40,6 +40,12 @@ if {[info exists env(SSTEP)]} {
     # okay, it's there, use it
     set SSTEP $env(SSTEP)
 }
+set VERBOSE 0
+if {[info exists env(VERBOSE)]} {
+    # okay, it's there, use it
+    set VERBOSE $env(VERBOSE)
+}
+
 set work default_work
 set HB0	/dev/acq400.0.hb/000
 
@@ -68,7 +74,7 @@ proc .. {a {b ""} {step 1}} {
     } ;# one-armed if: else return empty list
  }
 
-proc axi_dma_once_busy {} {
+proc _axi_dma_once_busy {} {
 	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
 	gets $fp line
 	close $fp
@@ -80,6 +86,23 @@ proc axi_dma_once_busy {} {
 		return 0
 	}	
 }
+
+# horrible kludge: read AXI CR, check for ENABLED
+# why horrible?. Digging into hardware reg dependency
+# also, assumes it's adma0 (not adma1)
+proc axi_dma_once_busy {} {
+	set CR /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00
+	set fp [open $CR r]
+	gets $fp line
+	close $fp
+	if {[scan $line 0x%x reg] != 1} {
+		puts "ERROR: failed to scan AXI CR"
+		exit 1
+	}
+	return [expr $reg & 1]
+}
+
+
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
 	puts $fp $en
@@ -98,9 +121,11 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	global PULL
+	global PULL VERBOSE
 
-	puts "set_mgt_pull_desc $mgt_block"
+	if {$VERBOSE > 0} {
+		puts "set_mgt_pull_desc $mgt_block"
+	}
 	
 #	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 	set fp [open "|mgtdram_descgen $mgt_block" r]	
@@ -134,19 +159,28 @@ proc axi_dma_fail {} {
 	return $rc
 }
 proc upload_one {mgt_block} {
-	global expect_out 
+	global expect_out  VERBOSE
 	pgm_wait "upload_one axi_push_zdram"
 	send "axi_push_zdram\r"
 	expect OK {
-		puts "axi0 start OK"
+		if {$VERBOSE > 0} {
+			puts "axi0 start OK"
+		}
 	}
+	set pollcat 0
 	while {[axi_dma_once_busy] == 0} {
 		after 50
+		incr pollcat
+	}
+	if {$pollcat > 1} {
+		puts "INFO: axi_dma_pollcount $pollcat"
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
 	set_mgt_pull_desc $mgt_block
 	expect -re "DONE (\[0-9]+)" {
-		puts "axi0 [string trim $expect_out(buffer)]"
+		if {$VERBOSE > 0} {
+			puts "axi0 [string trim $expect_out(buffer)]"
+		}
 	} timeout {
 		puts "ERROR, script-side timeout"
 	} ERROR {
