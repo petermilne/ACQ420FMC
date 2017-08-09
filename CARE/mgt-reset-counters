@@ -1,0 +1,11 @@
+#!/bin/sh
+set.site 13 clear_stats 1
+set.site 13 clear_stats 0
+
+set.site 13 SIG:MGT:PUSH:BUFS:RESET 1
+set.site 13 SIG:MGT:PUSH:BUFS:RESET 0
+
+set.site 13 SIG:MGT:PULL:BUFS:RESET 0
+set.site 13 SIG:MGT:PULL:BUFS:RESET 1
+
+
