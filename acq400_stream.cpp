@@ -1768,6 +1768,8 @@ public:
 };
 
 
+#define TRG_POLL_MS 10
+
 class StreamHeadImpl: public StreamHead {
 
 protected:
@@ -1821,17 +1823,17 @@ protected:
 		return trig;
 	}
 	void soft_trigger_control() {
-		int repeat = 0;
+		int repeat = 1;
 		do_soft_trigger();
 		while (!is_triggered()){
-			if (repeat > 100){
-				fprintf(stderr, "ERROR: failed to trigger\n");
+			if (repeat%100 == 0){
+				fprintf(stderr, "WARNING: failed to trigger in %d ms\n", repeat*TRG_POLL_MS);
 				if (G::exit_on_trigger_fail){
 					system("kill -9 $(cat /var/run/acq400_stream_main.0.pid)");
 					exit(1);
 				}
 			}
-			usleep(10000);
+			usleep(TRG_POLL_MS*1000);
 			++repeat;
 			if (!is_triggered()) {
 				do_soft_trigger();
