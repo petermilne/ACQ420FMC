@@ -623,8 +623,7 @@ load_mgt() {
 		MGTMOD=/mnt/local/mgt400.ko
 		echo "using override module $MGTMOD"
 	fi
-	/sbin/insmod $MGTMOD MODEL=$1;;
-
+	/sbin/insmod $MGTMOD MODEL=$1
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
