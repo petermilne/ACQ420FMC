@@ -56,7 +56,7 @@ static ssize_t show_module_name(
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
 
-	return sprintf(buf, "%s\n", _lookup_id(mdev->mod_id>>MOD_ID_TYPE_SHL));
+	return sprintf(buf, "%s\n", _lookup_id(GET_MOD_ID(mdev)));
 }
 
 
@@ -557,12 +557,33 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_RW32_debug.attr,
 	NULL
 };
+
+static ssize_t show_fpga_temp(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	/* EPICS DS can't handle a full u32 */
+	return sprintf(buf, "%u\n", mgt400rd32(mdev, MGT_DRAM_STA) >> 24);
+}
+static DEVICE_ATTR(fpga_temp, S_IRUGO, show_fpga_temp, 0);
+
+
+static const struct attribute *sysfs_mgtdram_attrs[] = {
+	&dev_attr_fpga_temp.attr,
+	NULL
+};
 void mgt400_createSysfs(struct device *dev)
 {
-	//struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
 
 	dev_info(dev, "mgt400_createSysfs()");
 	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
 		dev_err(dev, "failed to create sysfs");
+	}else if (GET_MOD_ID(mdev) == MOD_ID_MGT_DRAM){
+		if (sysfs_create_files(&dev->kobj, sysfs_mgtdram_attrs)){
+			dev_err(dev, "failed to create sysfs2");
+		}
 	}
 }

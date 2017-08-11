@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.121"
+#define REVID "0.122"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
