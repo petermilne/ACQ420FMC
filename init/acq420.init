@@ -505,10 +505,8 @@ build_knobs() {
 	for dir in ${spd}/*mgt400; do
 		if [ -e ${dir}/site ]; then
 			build_mgt400 ${dir}
-			has_sfp=1		
 		fi
 	done
-	[ $has_sfp -ne 0 ] && web_append sfp none
 }
 
 create_set_fanspeed() {
@@ -690,10 +688,23 @@ if [ "x${BOLO8_SITES}" != "x" ]; then
 	/usr/local/bin/bolo8.init ${BOLO8_SITES}
 fi
 
-if [ -e /etc/acq400/C/MTYPE ] && [ "x$(cat /etc/acq400/C/MTYPE)" = "x95" ]; then
-	echo +++ init MGT-DRAM
-	load.mgt_dram_8
-	nice mgtd_monitor_dsp1 &
+if [ -e /etc/acq400/C/MTYPE ]; then
+	cmt=$(cat /etc/acq400/C/MTYPE)
+	case $cmt in
+	90)
+		echo +++ init MGT482
+		web_append sfp none;;
+	95)
+		load.mgt_dram_8
+		nice mgtd_monitor_dsp1 &
+		echo +++ init MGT-DRAM;;
+	*)
+		if [ "x$cmd" = "x" ]; then
+			echo "WARNING: site C no MTYPE needs FRU\?"
+		else
+			echo "WARNING: site C unsupported MTYPE $cmt"
+		fi;;
+	esac
 fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
