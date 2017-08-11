@@ -617,15 +617,38 @@ sleep .2
 insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 
 
-
-case $MODEL in
-acq2106sfp|kmcu*)
+load_mgt() {
 	MGTMOD=/usr/local/lib/modules/mgt400.ko
 	if [ -e /mnt/local/mgt400.ko ]; then
 		MGTMOD=/mnt/local/mgt400.ko
 		echo "using override module $MGTMOD"
 	fi
-	/sbin/insmod $MGTMOD MODEL=$MODEL;;
+	/sbin/insmod $MGTMOD MODEL=$1;;
+
+}
+
+if [ -e /etc/acq400/C/MTYPE ]; then
+	[ $MODEL = "acq2106" ] && load_mgt
+	cmt=$(cat /etc/acq400/C/MTYPE)
+	case $cmt in
+	90)
+		echo +++ init MGT482
+		web_append sfp none;;
+	95)
+		load.mgt_dram_8
+		nice mgtd_monitor_dsp1 &
+		echo +++ init MGT-DRAM;;
+	*)
+		if [ "x$cmd" = "x" ]; then
+			echo "WARNING: site C no MTYPE needs FRU\?"
+		else
+			echo "WARNING: site C unsupported MTYPE $cmt"
+		fi;;
+	esac
+fi
+case $MODEL in
+acq2106sfp|kmcu*)
+	load_mgt $MODEL;;
 esac
 
 
@@ -688,24 +711,6 @@ if [ "x${BOLO8_SITES}" != "x" ]; then
 	/usr/local/bin/bolo8.init ${BOLO8_SITES}
 fi
 
-if [ -e /etc/acq400/C/MTYPE ]; then
-	cmt=$(cat /etc/acq400/C/MTYPE)
-	case $cmt in
-	90)
-		echo +++ init MGT482
-		web_append sfp none;;
-	95)
-		load.mgt_dram_8
-		nice mgtd_monitor_dsp1 &
-		echo +++ init MGT-DRAM;;
-	*)
-		if [ "x$cmd" = "x" ]; then
-			echo "WARNING: site C no MTYPE needs FRU\?"
-		else
-			echo "WARNING: site C unsupported MTYPE $cmt"
-		fi;;
-	esac
-fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
