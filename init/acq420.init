@@ -690,6 +690,12 @@ if [ "x${BOLO8_SITES}" != "x" ]; then
 	/usr/local/bin/bolo8.init ${BOLO8_SITES}
 fi
 
+if [ -e /etc/acq400/C/MTYPE ] && [ "x$(cat /etc/acq400/C/MTYPE)" = "x95" ]; then
+	echo +++ init MGT-DRAM
+	load.mgt_dram_8
+	nice mgtd_monitor_dsp1 &
+fi
+
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
 
