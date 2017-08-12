@@ -133,24 +133,19 @@ int Buffer::create(const char* root, int _buffer_len)
 	return 0;
 }
 
-void init_buffers()
-{
-	const char* root = getRoot(G::devnum);
-	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
-		Buffer::create(root, Buffer::bufferlen);
-	}
-}
+int G_nsamples;
 
 void set_playloop_length(int nsamples)
 {
 	char cmd[128];
-	sprintf(cmd, "set.site %d playloop_length %d %d", G::play_site, nsamples, G::mode);
+	sprintf(cmd, "set.site %d playloop_length %d %d",
+			G::play_site, G_nsamples = nsamples, G::mode);
 	system(cmd);
 }
 
 int pad(int nsamples, int pad_samples)
 {
-	char* base = Buffer::the_buffers[G::buffer0]->getBase();
+	char* base = Buffer::the_buffers[0]->getBase();
 	char* end = base + nsamples*G::sample_size;
 	char* last = end - G::sample_size;
 
@@ -163,10 +158,9 @@ int pad(int nsamples, int pad_samples)
 }
 
 int _load() {
-	init_buffers();
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
-	unsigned nsamples = fread(Buffer::the_buffers[G::buffer0]->getBase(),
+	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
 
@@ -174,10 +168,6 @@ int _load() {
 		nsamples = pad(nsamples, (Buffer::bufferlen - residue)/G::sample_size);
 	}
 
-	/* this _should_ be automatic. But it's not! */
-	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
-		delete Buffer::the_buffers[ii];
-	}
 	return nsamples;
 }
 
@@ -193,14 +183,15 @@ int load() {
 	return 0;
 }
 int dump() {
-	init_buffers();
 	unsigned nsamples;
 	getKnob(G::play_site, "playloop_length", &nsamples);
 
-	fwrite(Buffer::the_buffers[G::buffer0]->getBase(),
+	fwrite(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, nsamples, G::fp_out);
 	return 0;
 }
+
+#define DFB	"/sys/module/acq420fmc/parameters/distributor_first_buffer"
 RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -211,7 +202,7 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
-	getKnob(G::devnum, "/sys/module/acq420fmc/parameters/distributor_first_buffer", &G::buffer0);
+	getKnob(G::devnum, DFB, &G::buffer0);
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
 	if (dist_s1){
@@ -238,9 +229,37 @@ RUN_MODE ui(int argc, const char** argv)
 	}
 	return M_DUMP;
 }
+
+class BufferManager {
+	void init_buffers()
+	{
+		const char* root = getRoot(G::devnum);
+		Buffer::last_buf = G::buffer0;
+		for (unsigned ii = 0; ii < Buffer::nbuffers-G::buffer0; ++ii){
+			Buffer::create(root, Buffer::bufferlen);
+		}
+	}
+	void delete_buffers()
+	{
+		/* this _should_ be automatic. But it's not! */
+		for (unsigned ii = 0; ii < Buffer::the_buffers.size(); ++ii){
+			delete Buffer::the_buffers[ii];
+		}
+	}
+public:
+	BufferManager() {
+		init_buffers();
+	}
+	~BufferManager() {
+		delete_buffers();
+		printf("DONE %d\n", G_nsamples);
+	}
+};
 int main(int argc, const char** argv)
 {
-	switch(ui(argc, argv)){
+	RUN_MODE rm = ui(argc, argv);
+	BufferManager bm;
+	switch(rm){
 	case M_FILL:
 		return fill();
 	case M_LOAD:

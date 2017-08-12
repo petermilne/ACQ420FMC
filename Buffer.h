@@ -35,10 +35,10 @@ protected:
 	const unsigned ibuf;
 	unsigned buffer_len;
 
-	static unsigned last_buf;
 protected:
 	char *pdata;
 public:
+	static unsigned last_buf;
 	static int verbose;
 	static unsigned bufferlen;
 	static unsigned nbuffers;
