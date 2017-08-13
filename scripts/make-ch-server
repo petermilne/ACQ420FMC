@@ -13,8 +13,16 @@ let P0=53000
 cat - > /etc/inetd.ch.conf <<EOF
 # $NCHAN $(date)
 53000 stream tcp nowait root bigcat bigcat /dev/acq400/data/raw/0
-53999 stream tcp nowait root oneshot oneshot dummy
 EOF
+
+if [ -e /mnt/local/sysconfig/acq400.sh ]; then
+	source /mnt/local/sysconfig/acq400.sh
+	if [ "x$ONESHOT_PORT" != "x" ]; then
+		echo $ONESHOT_PORT stream tcp nowait root oneshot oneshot dummy >> /etc/inetd.ch.conf
+	fi
+fi
+
+
 
 
 let cix=1
