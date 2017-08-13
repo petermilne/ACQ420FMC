@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.244 DUALAXI"
+#define REVID "3.245 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1586,6 +1586,9 @@ int xo_data_loop(void *data)
 
 #define LAST_PUSH(adev)	(adev->stats.xo.dma_buffers_out+1 >=shot_buffer_count)
 
+	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
+
 	/* prime the DMAC with buffers 0 and 1 ready to go.
 	 * 0 starts filling right away
 	 * */
@@ -1601,10 +1604,6 @@ int xo_data_loop(void *data)
 	dev_dbg(DEVP(adev), "xo_data_loop() 01 :out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 
-	go_rt(MAX_RT_PRIO-4);
-
-
-	adev->task_active = 1;
 
 	for(adev->AO_playloop.cursor = 0;
 	    adev->AO_playloop.cursor < adev->AO_playloop.length && !kthread_should_stop();
