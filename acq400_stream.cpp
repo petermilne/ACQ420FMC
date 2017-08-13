@@ -1310,6 +1310,9 @@ struct poptOption opt_table[] = {
 	{ "show-events", 0, POPT_ARG_INT, &G::show_events, 0,
 			"show events in data"
 	},
+	{ "nbuffers", 0, POPT_ARG_INT, &Buffer::nbuffers, 0,
+			"restrict number of buffers in use NB: NOT tested"
+	},
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
 	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
