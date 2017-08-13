@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.245 DUALAXI"
+#define REVID "3.246 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1695,14 +1695,21 @@ quit:
 
 void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 {
+	int pollcat = 0;
 	/* adev is the site (1?) adev. so wtask is dedicated to xo */
 	/* @@todo start stop feeder loop */
 	if (enable){
 		adev->w_task = kthread_run(
 			xo_data_loop, adev,
 			"%s.xo", devname(adev));
+		while(!adev->task_active){
+			msleep(10);
+			if (++pollcat > 100){
+				dev_warn(DEVP(adev), "waiting for task start");
+			}
+		}
 	}else{
-		int pollcat = 0;
+
 		if (adev->task_active && adev->w_task != 0){
 			kthread_stop(adev->w_task);
 		}
