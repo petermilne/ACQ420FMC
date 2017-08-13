@@ -53,7 +53,7 @@ int lotide = HITIDE-4;
 module_param(lotide, int, 0644);
 MODULE_PARM_DESC(lotide, "lotide value (words)");
 
-int measure_ao_fifo_ok = 1;
+int measure_ao_fifo_ok = 0;
 module_param(measure_ao_fifo_ok, int, 0644);
 MODULE_PARM_DESC(measure_ao_fifo_ok, "stubs ao fifo measure, cause of blowout on ao428");
 
