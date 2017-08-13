@@ -12,7 +12,7 @@ let P0=53000
 # 4226 stream tcp nowait root acq400_knobs acq400_knobs 6
 cat - > /etc/inetd.ch.conf <<EOF
 # $NCHAN $(date)
-53000 stream tcp nowait root run.transient.service run.transient.service gash
+53000 stream tcp nowait root bigcat bigcat /dev/acq400/data/raw/0
 EOF
 
 
