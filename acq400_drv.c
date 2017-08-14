@@ -1736,7 +1736,7 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d) => %d",
 					adev->AO_playloop.length, playloop_length);
 
-	if (adev->AO_playloop.length && xo_use_distributor && adev->task_active){
+	if (xo_use_distributor && adev->task_active){
 		dev_warn(DEVP(adev), "XO AWG is already tee'd up, not possible to abort");
 		return -1;
 	}
