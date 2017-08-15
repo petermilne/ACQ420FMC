@@ -65,6 +65,18 @@ int readw(unsigned *xx)
 
 unsigned long long clocks[NBITS] = {};
 
+unsigned long long clk;
+
+unsigned fin = 0;
+unsigned timed_out;
+
+#define SHOW_TIMEOUT	9999999999
+
+void alarm_handler(int sig)
+{
+	timed_out = 1;
+}
+
 void print_clocks(void) {
 	for (int ib = 0; ib < NBITS; ++ib){
 		printf("%llu%c", clocks[ib], ib+1 == NBITS? '\n': ',');
@@ -72,14 +84,7 @@ void print_clocks(void) {
 }
 
 
-unsigned fin = 0;
-unsigned timed_out;
 
-void alarm_handler(int sig)
-{
-	timed_out = 1;
-	fin = FINISHED;
-}
 void count_clocks(void)
 {
 	unsigned x0 = 0;
@@ -98,7 +103,7 @@ void count_clocks(void)
 			exit(1);
 		}
 	}
-	for (; !timed_out && fin != FINISHED && readw(&x1) == 1; ++clk, x0 = x1){
+	for (; !timed_out && fin != G::finished && readw(&x1) == 1; ++clk, x0 = x1){
 		unsigned change = (x1 ^ x0);
 		if (change & ~fin){
 			for (unsigned ib = 0; ib < NBITS; ++ib){
@@ -114,7 +119,7 @@ void count_clocks(void)
 
 }
 
-unsigned long long clk;
+
 void onChange(unsigned x0, unsigned x1)
 {
 	unsigned change = (x1 ^ x0);
@@ -143,7 +148,7 @@ void count_clocks_live() {
 		alarm(G::timeout);
 	}
 
-	for (clk = 1; fin != FINISHED; ++clk){
+	for (clk = 1; !timed_out && fin != G::finished; ++clk){
 		readw(&x1);
 		if (x1 != x0){
 			onChange(x0, x1);
