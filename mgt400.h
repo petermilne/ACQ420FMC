@@ -83,6 +83,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define COMMS_TXB_FSR	(0x0024)
 #define COMMS_RXB_FCR	(0x0040)
 #define COMMS_RXB_FSR   (0x0044)
+#define ASTATS1		(0x0050)
+#define ASTATS2		(0x0054)
 #define MGT_DRAM_STA	(0x0080)
 #define MGT_DRAM_RX_CNT	(0x0084)
 #define MGT_DRAM_TX_CNT (0x0088)
@@ -128,6 +130,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define DMA_PULL_DESC_SR	(0x2014)
 #define DMA_PUSH_COUNT_LW	(0x2018)
 #define DMA_PULL_COUNT_LW	(0x201C) /* speculative */
+#define DMA_PUSH_DESC_LEN	(0x2020)
+#define DMA_PULL_DESC_LEN	(0x2024)
 #define DMA_PUSH_DESC_FIFO	(0x2040)
 #define DMA_PULL_DESC_FIFO	(0x2080)
 

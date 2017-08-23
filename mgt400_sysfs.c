@@ -242,6 +242,33 @@ static ssize_t show_heartbeat(
 }
 static DEVICE_ATTR(heartbeat, S_IRUGO, show_heartbeat, 0);
 
+static ssize_t show_astats1(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 astats1 = mgt400rd32(mdev, ASTATS1);
+	return sprintf(buf, "%08x %u %u %u %u\n",
+			astats1, astats1>>24, (astats1>>16)&0x0ff,
+			(astats1>>8)&0x0ff, astats1&0x0ff);
+}
+static DEVICE_ATTR(astats1, S_IRUGO, show_astats1, 0);
+
+
+static ssize_t show_astats2(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 astats2 = mgt400rd32(mdev, ASTATS2);
+	return sprintf(buf, "%08x %u %u\n",
+			astats2, (astats2>>16)&0x0ffff, astats2&0x0ffff);
+}
+static DEVICE_ATTR(astats2, S_IRUGO, show_astats2, 0);
+
+
 static ssize_t show_name(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -537,6 +564,8 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_aurora_enable.attr,
 	&dev_attr_aurora_lane_up.attr,
 	&dev_attr_aurora_errors.attr,
+	&dev_attr_astats1.attr,
+	&dev_attr_astats2.attr,
 	&dev_attr_heartbeat.attr,
 	&dev_attr_name.attr,
 	&dev_attr_site.attr,
