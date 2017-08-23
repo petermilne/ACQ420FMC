@@ -242,16 +242,24 @@ static ssize_t show_heartbeat(
 }
 static DEVICE_ATTR(heartbeat, S_IRUGO, show_heartbeat, 0);
 
+
+static ssize_t show_astats(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf, u32 reg)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 astats = mgt400rd32(mdev, reg);
+	return sprintf(buf, "%08x %3u %3u %3u %3u\n",
+			astats, astats>>24, (astats>>16)&0x0ff,
+			(astats>>8)&0x0ff, astats&0x0ff);
+}
 static ssize_t show_astats1(
 		struct device * dev,
 		struct device_attribute *attr,
 		char * buf)
 {
-	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	u32 astats1 = mgt400rd32(mdev, ASTATS1);
-	return sprintf(buf, "%08x %u %u %u %u\n",
-			astats1, astats1>>24, (astats1>>16)&0x0ff,
-			(astats1>>8)&0x0ff, astats1&0x0ff);
+	return show_astats(dev, attr, buf, ASTATS1);
 }
 static DEVICE_ATTR(astats1, S_IRUGO, show_astats1, 0);
 
@@ -261,10 +269,7 @@ static ssize_t show_astats2(
 		struct device_attribute *attr,
 		char * buf)
 {
-	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	u32 astats2 = mgt400rd32(mdev, ASTATS2);
-	return sprintf(buf, "%08x %u %u\n",
-			astats2, (astats2>>16)&0x0ffff, astats2&0x0ffff);
+	return show_astats(dev, attr, buf, ASTATS2);
 }
 static DEVICE_ATTR(astats2, S_IRUGO, show_astats2, 0);
 
