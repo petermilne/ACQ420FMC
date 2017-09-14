@@ -279,6 +279,8 @@ build_knobs_device() {
 		ACQ425_SITES="${ACQ425_SITES}$site"
 		create_gx /etc/acq400/$site/
 		customize_acq420 $site;;
+	6C)
+		customize_acq420 $site;;
 	1|A1)			
 		customize_acq420 $site
 		echo 'gain=gain[1234]' > /etc/acq400/$site/groups;;

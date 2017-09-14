@@ -181,6 +181,7 @@
 #define MOD_ID_RAD_CELF		0x69
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
+#define MOD_ID_ACQ427ELF	0x6c
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -789,6 +790,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 	case MOD_ID_ACQ425ELF:
 	case MOD_ID_ACQ425ELF_2000:
 	case MOD_ID_ACQ424ELF:
+	case MOD_ID_ACQ427ELF:
 		return true;
 	default:
 		return false;
@@ -804,6 +806,8 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ424(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ424ELF)
 #define IS_ACQ425(adev)	\
 	(GET_MOD_ID(adev) == MOD_ID_ACQ425ELF || GET_MOD_ID(adev) == MOD_ID_ACQ425ELF_2000)
+
+#define IS_ACQ427(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ427ELF)
 
 #define IS_ACQ42X(adev) _is_acq42x(adev)
 
