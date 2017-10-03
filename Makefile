@@ -145,6 +145,9 @@ acq400_knobs: acq400_knobs.o tcp_server.o
 
 anatrg: anatrg.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+
+multisitecheckramp: multisitecheckramp.cpp
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 	
 acq480_knobs: acq480_knobs.o ads5294.o  
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
