@@ -37,7 +37,7 @@ int dio432_always_immediate;
 module_param(dio432_always_immediate, int, 0644);
 MODULE_PARM_DESC(dio432_always_immediate, "ONLY allow DIO immediate mode.");
 
-static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
+void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 	if (adev->RW32_debug){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
@@ -50,7 +50,7 @@ static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
 
-static u32 _acq400rd32(struct acq400_dev *adev, int offset)
+u32 _acq400rd32(struct acq400_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
 	if (adev->RW32_debug > 1){
@@ -82,7 +82,7 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 {
 	unsigned syscon = immediate||dio432_always_immediate? DIO432_CTRL_LL: 0;
 
-	dev_dbg(DEVP(adev), "dio32_init immediate:%d", immediate||dio432_always_immediate);
+	dev_dbg(DEVP(adev), "dio432_init immediate:%d", immediate||dio432_always_immediate);
 
 	syscon |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
@@ -163,6 +163,10 @@ void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force)
 		return;
 	}
 
+	if (mode == DIO432_CLOCKED && dio432_always_immediate){
+		dev_dbg(DEVP(adev), "dio432_set_mode() overriding clocked, force immediate");
+		mode = DIO432_IMMEDIATE;
+	}
 	dio432_disable(adev);
 
 	adev->dio432.mode = mode;
