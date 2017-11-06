@@ -1,0 +1,22 @@
+
+set HN [exec hostname]
+
+set RDATA "/rdata/$HN"
+exec mkdir -p $RDATA
+
+set ::env(BUFLEN) 0x400000
+#set ::env(MAPCAT) 1
+
+
+proc cp_work {src blocknum} {
+	global RDATA
+	set BF [format %04d $blocknum]
+	puts "cp_work $BF"
+	
+	set ::env(FOUT) $RDATA/$BF
+	exec bigcat $src
+	return 0
+}
+
+set work cp_work
+

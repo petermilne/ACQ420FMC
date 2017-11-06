@@ -32,7 +32,7 @@ if { $::argc == 1 } {
 proc sgn x {expr {($x>0) - ($x<0)}}
 
 proc default_work {src blocknum} {
-	puts "default_work $blocknum"
+	puts "default_work $src $blocknum"
 	return 0
 }
 set SSTEP 0
@@ -40,12 +40,6 @@ if {[info exists env(SSTEP)]} {
     # okay, it's there, use it
     set SSTEP $env(SSTEP)
 }
-set VERBOSE 0
-if {[info exists env(VERBOSE)]} {
-    # okay, it's there, use it
-    set VERBOSE $env(VERBOSE)
-}
-
 set work default_work
 set HB0	/dev/acq400.0.hb/000
 
@@ -74,35 +68,18 @@ proc .. {a {b ""} {step 1}} {
     } ;# one-armed if: else return empty list
  }
 
-proc _axi_dma_once_busy {} {
+proc axi_dma_once_busy {} {
 	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
 	gets $fp line
 	close $fp
 	if {[string first 1 $line] == 0} {
-		puts "axi_dma_once_busy return 1"
+#		puts "axi_dma_once_busy return 1"
 		return 1
 	} else {
-		puts "axi_dma_once_busy return 0"
+#		puts "axi_dma_once_busy return 0"
 		return 0
 	}	
 }
-
-# horrible kludge: read AXI CR, check for ENABLED
-# why horrible?. Digging into hardware reg dependency
-# also, assumes it's adma0 (not adma1)
-proc axi_dma_once_busy {} {
-	set CR /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00
-	set fp [open $CR r]
-	gets $fp line
-	close $fp
-	if {[scan $line 0x%x reg] != 1} {
-		puts "ERROR: failed to scan AXI CR"
-		exit 1
-	}
-	return [expr $reg & 1]
-}
-
-
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
 	puts $fp $en
@@ -121,11 +98,9 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	global PULL VERBOSE
+	global PULL
 
-	if {$VERBOSE > 0} {
-		puts "set_mgt_pull_desc $mgt_block"
-	}
+#	puts "set_mgt_pull_desc $mgt_block"
 	
 #	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 	set fp [open "|mgtdram_descgen $mgt_block" r]	
@@ -146,41 +121,21 @@ proc pgm_wait {line} {
 		puts "pgm_wait:$line> 99"
 	}
 }
-
-proc axi_dma_fail {} {
-	set rc 1
-	set fp [open /dev/acq400.0.knobs/axi_dma_fail r]
-	if {[gets $fp line] > 0} {
-		if {[string trim $line] == "0"} {
-			set rc 0
-		}
-	}
-	close $fp
-	return $rc
-}
 proc upload_one {mgt_block} {
-	global expect_out  VERBOSE
+	global expect_out 
 	pgm_wait "upload_one axi_push_zdram"
 	send "axi_push_zdram\r"
 	expect OK {
-		if {$VERBOSE > 0} {
-			puts "axi0 start OK"
-		}
+		puts -nonewline "axi0 start OK "
+
 	}
-	set pollcat 0
 	while {[axi_dma_once_busy] == 0} {
-		after 50
-		incr pollcat
-	}
-	if {$pollcat > 1} {
-		puts "INFO: axi_dma_pollcount $pollcat"
+		after 10
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
 	set_mgt_pull_desc $mgt_block
 	expect -re "DONE (\[0-9]+)" {
-		if {$VERBOSE > 0} {
-			puts "axi0 [string trim $expect_out(buffer)]"
-		}
+#		puts "axi0 [string trim $expect_out(buffer)]"
 	} timeout {
 		puts "ERROR, script-side timeout"
 	} ERROR {
@@ -189,12 +144,7 @@ proc upload_one {mgt_block} {
 	}
 	
 	axi_dma_once_busy
-	if {[axi_dma_fail] != 0} {
-		puts "ERROR AXI DMA FAIL"
-		exit 1
-	}
 	pgm_wait "upload_one done"
-	
 }
 
 set MAX_RETRY 0
@@ -219,13 +169,11 @@ proc _upload_range {first last} {
 proc upload_range {first last} {
 	set_mgt_buscomms 1
 	_upload_range $first $last
-	set_mgt_buscomms 0
+	puts "STUB set_mgt_buscomms 0"
 }
 
 
 spawn mgt_offload server
-
-exec renice 20 -p [getpid]
 
 set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
