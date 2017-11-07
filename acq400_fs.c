@@ -235,6 +235,11 @@ static int a400fs_open(struct inode *inode, struct file *file)
 	return rc;
 }
 
+static int a400fs_open_raw(struct inode *inode, struct file *file)
+{
+	return a400fs_open(inode, file);
+}
+
 #define TMPSIZE 80
 #if 0
 static ssize_t a400fs_read_file(struct file *file, char *buf,
@@ -425,7 +430,7 @@ static struct file_operations a400fs_chan_file_ops = {
 };
 
 static struct file_operations a400fs_raw_file_ops = {
-	.open	= a400fs_open,
+	.open	= a400fs_open_raw,
 	.read 	= a400fs_read_raw_file,
 	.write  = a400fs_write_file,
 	.release= a400fs_release
