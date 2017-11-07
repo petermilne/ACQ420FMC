@@ -235,9 +235,33 @@ static int a400fs_open(struct inode *inode, struct file *file)
 	return rc;
 }
 
-static int a400fs_open_raw(struct inode *inode, struct file *file)
+int _a400fs_open_raw(struct inode *inode, struct file *file)
 {
-	return a400fs_open(inode, file);
+	struct acq400_dev* adev = FSN.site0->adev;
+	int bufferlen = adev->bufferlen;
+	int setlen = CAPDAT.nsamples*adev->word_size*CAPDAT.nchan;
+	int ibuf;
+
+	for (ibuf = 0; ibuf*bufferlen <= setlen; ++ibuf){
+		struct HBM *hbm = adev->hb[ibuf];
+		dev_dbg(DEVP(adev),
+			"_a400fs_open_raw() dma_sync_single_for_cpu: pa:0x%08x len:%d dir:%d",
+						hbm->pa, hbm->len, hbm->dir);
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, DMA_FROM_DEVICE);
+	}
+
+	return 0;
+}
+int a400fs_open_raw(struct inode *inode, struct file *file)
+{
+	int rc = a400fs_open(inode, file);
+	unsigned acc_mode = file->f_flags & O_ACCMODE;
+
+	if (rc == 0 && (acc_mode==O_RDONLY || acc_mode==O_RDWR)){
+		return _a400fs_open_raw(inode, file);
+	}else{
+		return rc;
+	}
 }
 
 #define TMPSIZE 80
