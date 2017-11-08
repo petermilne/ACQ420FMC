@@ -34,6 +34,10 @@
 
 #include "acq400_fs_ioctl.h"
 
+int dma_cache_invalidate_limit = -1;
+module_param(dma_cache_invalidate_limit, int, 0644);
+MODULE_PARM_DESC(dma_cache_invalidate_limit, "cache invalidate is expensive .. limit it");
+
 #define ACQ400_FS_MAGIC	0xd1ac0400
 
 #define XX	0
@@ -242,6 +246,10 @@ int _a400fs_open_raw(struct inode *inode, struct file *file)
 	int setlen = CAPDAT.nsamples*adev->word_size*CAPDAT.nchan;
 	int ibuf;
 
+	if (dma_cache_invalidate_limit != -1 &&
+			setlen > dma_cache_invalidate_limit){
+		setlen = dma_cache_invalidate_limit;
+	}
 	for (ibuf = 0; ibuf*bufferlen <= setlen; ++ibuf){
 		struct HBM *hbm = adev->hb[ibuf];
 		dev_dbg(DEVP(adev),
@@ -292,7 +300,7 @@ static ssize_t a400fs_read_file(struct file *file, char *buf,
  * offset: offset in bytes
  */
 
-static ssize_t _a400fs_read_raw_file(struct file *file, char *buf,
+ssize_t _a400fs_read_raw_file(struct file *file, char *buf,
 		size_t count, loff_t *offset)
 {
 	struct acq400_dev* adev0 = FSN.site0->adev;
