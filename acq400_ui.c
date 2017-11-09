@@ -721,6 +721,21 @@ int acq420_reserve_open(struct inode *inode, struct file *file)
 }
 
 
+#define AXIMAXLINE	80
+
+#include <linux/ctype.h>
+
+const char* nexti(const char* str)
+{
+        while(isdigit(*str)){
+                ++str;
+        }
+        while(ispunct(*str)){
+                ++str;
+        }
+        return str;
+}
+
 ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
 /* write a list of binary unsigned char ibufs ..
@@ -729,10 +744,25 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	size_t headroom = MAXLBUF - *f_pos;
+	char labuf[AXIMAXLINE+1];
+	const char *ps;
+	int i1 = *f_pos;
+	int ii = 0;
+	int ibuf;
 	size_t rc;
 
-	count = min(count, headroom);
+	if (count > AXIMAXLINE){
+		count = AXIMAXLINE;
+	}
+	rc = copy_from_user(labuf, buf, count);
+	labuf[count] = '\0';
+
+	if (rc != 0){
+		return -1;
+	}
+	for (ps = labuf; sscanf(ps, "%d", &ibuf) == 1; ps = nexti(ps)){
+		pdesc->lbuf[i1 + ii++] = ibuf;
+	}
 	rc = copy_from_user(pdesc->lbuf+*f_pos, buf, count);
 
 	dev_dbg(DEVP(adev), "%s write %d %02x,%02x,%02x,%02x",
@@ -741,10 +771,10 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 			pdesc->lbuf[2], pdesc->lbuf[3]);
 
 	if (rc == 0){
-		*f_pos += count;
+		*f_pos += ii;
 		rc = count;
 	}
-	return rc;
+	return count;
 }
 int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
