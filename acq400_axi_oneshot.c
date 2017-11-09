@@ -139,11 +139,11 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 
 extern int xilinx_dma_reset_dmachan(struct dma_chan *chan);
 
-int _axi64_data_once(struct acq400_dev *adev)
+int _axi64_data_once(struct acq400_dev *adev, unsigned char ib)
 {
 	struct dma_chan *rx_chan = adev->dma_chan[0];
-	char *dest_dma_buffer = (char*)adev->hb[0]->va;
-	int dma_length = adev->hb[0]->len;
+	char *dest_dma_buffer = (char*)adev->hb[ib]->va;
+	int dma_length = adev->hb[ib]->len;
 	dma_addr_t rx_dma_handle = dma_map_single(
 			rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
 	struct completion rx_cmp;
@@ -154,26 +154,32 @@ int _axi64_data_once(struct acq400_dev *adev)
 		printk(KERN_ERR "xdma_prep_buffer error\n");
 		return -1;
 	}
-	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
+	dev_dbg(DEVP(adev), "%s 01 ib %d", __FUNCTION__, ib);
 	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
-	dmaengine_terminate_all(adev->dma_chan[0]);
-	if (AXIDMA_ONCE_RESET_ON_EXIT){
-		dev_dbg(DEVP(adev), "%s 66", __FUNCTION__);
-		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
-	}
+
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return 0;
 }
 
 /* @@todo .. nasty use of global - what if more than one channel ..
  * bad Linux, but effective here as it's a singleton */
-int axi64_data_once(struct acq400_dev *adev)
+int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[] )
 {
+	/* blocks : 0 1 2 3 then 0 terminated.. */
 	int rc;
+	int ii;
 	AXIDMA_ONCE_BUSY = 1;
-	rc = _axi64_data_once(adev);
+
+	for (ii = 0; ii == 0 || blocks[ii] != '\0'; ++ii){
+		rc = _axi64_data_once(adev, blocks[ii]);
+	}
+	dmaengine_terminate_all(adev->dma_chan[0]);
+	if (AXIDMA_ONCE_RESET_ON_EXIT){
+		dev_dbg(DEVP(adev), "%s 66", __FUNCTION__);
+		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
+	}
 	AXIDMA_ONCE_BUSY = 0;
 	return 0;
 }

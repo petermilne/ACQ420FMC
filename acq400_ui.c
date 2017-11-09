@@ -720,6 +720,32 @@ int acq420_reserve_open(struct inode *inode, struct file *file)
 	return reserve(PD(file), 0);
 }
 
+
+ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+/* write a list of binary unsigned char ibufs ..
+ * if there's NO write, then the default is to use the single ibuf=0
+ */
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	size_t headroom = MAXLBUF - *f_pos;
+	size_t rc;
+
+	count = min(count, headroom);
+	rc = copy_from_user(pdesc->lbuf+*f_pos, buf, count);
+
+	dev_dbg(DEVP(adev), "%s write %d %02x,%02x,%02x,%02x",
+			__FUNCTION__, count,
+			pdesc->lbuf[0], pdesc->lbuf[1],
+			pdesc->lbuf[2], pdesc->lbuf[3]);
+
+	if (rc == 0){
+		*f_pos += count;
+		rc = count;
+	}
+	return rc;
+}
 int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
@@ -730,7 +756,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 
 	dev_dbg(DEVP(adev), "%s 01 pos:%u", __FUNCTION__, *(unsigned*)f_pos);
 
-	axi64_data_once(adev);
+	axi64_data_once(adev, (unsigned char*)PD(file)->lbuf);
 	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%u\n", *(unsigned*)f_pos);
 	rc = copy_to_user(buf, lbuf, bc);
 
@@ -757,6 +783,7 @@ int acq400_axi_once_release(struct inode *inode, struct file *file)
 int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_axi_once = {
+		.write = acq400_axi_once_write,
 		.read = acq400_axi_once_read,
 		.release = acq400_axi_once_release
 	};
