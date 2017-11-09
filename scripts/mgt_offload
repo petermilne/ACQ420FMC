@@ -7,7 +7,10 @@ proc server {} {
 	exec renice -20 -p [getpid]
 	while {[gets stdin line] >= 0} {
 		puts "OK"
-		set zaxi [open /dev/acq400.0.axi0 r]
+		set zaxi [open /dev/acq400.0.axi0 r+]
+		if {[info exists env(AXIBUFS)]} {
+			puts $zaxi $env(AXIBUFS)
+		}	
 		if {[gets $zaxi aline] > 0} {
 			close $zaxi
 			puts "DONE $aline"

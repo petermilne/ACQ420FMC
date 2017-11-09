@@ -8,8 +8,11 @@ set ::env(BUFLEN) 0x400000
 #set ::env(MAPCAT) 1
 
 set ctrl [open /dev/acq400/data/.control w]
-puts $ctrl "COOKED=0 NSAMPLES=65536 NCHAN=32 TYPE=SHORT"
-#puts $ctrl "COOKED=0 NSAMPLES=196608 NCHAN=32 TYPE=SHORT"
+if {[info exists ::env(AXIBUFS_NSAMPLES]} {
+	puts $ctrl "COOKED=0 NSAMPLES$::env(AXIBUFS_NSAMPLES) NCHAN=32 TYPE=SHORT"
+} else {
+	puts $ctrl "COOKED=0 NSAMPLES=65536 NCHAN=32 TYPE=SHORT"
+}
 close $ctrl
 
 log_user 0
