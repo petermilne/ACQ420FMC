@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.252 DUALAXI"
+#define REVID "3.253 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1485,7 +1485,7 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 void xo400_getDMA(struct acq400_dev* adev)
 {
 	if (adev->dma_chan[0] == 0 &&
-			ao420_dma_threshold < adev->xo.max_fifo_samples){
+	    (xo_use_distributor || ao420_dma_threshold < adev->xo.max_fifo_samples)){
 		if (get_dma_channels(adev)){
 			dev_err(DEVP(adev), "no dma chan");
 			ao420_dma_threshold = adev->xo.max_fifo_samples;
@@ -1603,7 +1603,6 @@ int xo_data_loop(void *data)
 
 	dev_dbg(DEVP(adev), "xo_data_loop() 01 :out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
-
 
 	for(adev->AO_playloop.cursor = 0;
 	    adev->AO_playloop.cursor < adev->AO_playloop.length && !kthread_should_stop();
