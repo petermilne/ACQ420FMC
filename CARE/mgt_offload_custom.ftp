@@ -9,9 +9,11 @@ set ::env(BUFLEN) 0x400000
 
 set ctrl [open /dev/acq400/data/.control w]
 puts $ctrl "COOKED=0 NSAMPLES=65536 NCHAN=32 TYPE=SHORT"
+#puts $ctrl "COOKED=0 NSAMPLES=196608 NCHAN=32 TYPE=SHORT"
 close $ctrl
 
 log_user 0
+set ::env(LBUFLEN) 0x400000
 spawn ftp brotto
 set FTP $spawn_id
 expect {                          
@@ -47,6 +49,7 @@ proc cp_work {src blocknum} {
 	global FTP
 	set bf [format %04d $blocknum]
 	set sent 0
+	set retry 0
 
 	while {$sent == 0} {
 		send -i $FTP "put /dev/acq400/data/raw/0 $bf\r"
@@ -54,13 +57,18 @@ proc cp_work {src blocknum} {
 			-i $FTP -re "(.*)\nftp>" {
 				puts "$bf OK"
 				# puts "ftp done"
+				set sent [check_put $bf $expect_out(1,string)]
 			}
 			timeout {
-				puts "TIMEOUT: put failed"
-				exit
+				incr retry
+				if {$retry < 3} {
+					puts "TIMEOUT, retry $retry"
+				} else {
+					puts "TIMEOUT: put failed retry $retry"
+					exit
+				}
 			}
 		}
-		set sent [check_put $bf $expect_out(1,string)]
 	}
 	return 0
 }
