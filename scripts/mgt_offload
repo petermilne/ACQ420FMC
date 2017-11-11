@@ -5,6 +5,7 @@ log_user 0
 # server controls axi PUSH to ZDRAM
 proc server {} {		
 	exec renice -20 -p [getpid]
+	
 	while {[gets stdin line] >= 0} {
 		puts "OK"
 		set zaxi [open /dev/acq400.0.axi0 r+]
@@ -103,7 +104,7 @@ trap sigint_handler SIGINT
 proc set_mgt_pull_desc {mgt_block} {
 	global PULL
 
-#	puts "set_mgt_pull_desc $mgt_block"
+	puts "set_mgt_pull_desc $mgt_block"
 	
 #	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 	set fp [open "|mgtdram_descgen $mgt_block" r]	
@@ -196,9 +197,9 @@ proc upload_range {first last} {
 			puts "SORRY, $::env(AXIBUFS) not supported"
 			exit 1
 		}
-        }
-
-	_upload_range $first $last
+        } else {
+		_upload_range $first $last
+	}
 	puts "STUB set_mgt_buscomms 0"
 }
 
