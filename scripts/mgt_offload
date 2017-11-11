@@ -8,8 +8,8 @@ proc server {} {
 	while {[gets stdin line] >= 0} {
 		puts "OK"
 		set zaxi [open /dev/acq400.0.axi0 r+]
-		if {[info exists env(AXIBUFS)]} {
-			puts $zaxi $env(AXIBUFS)
+		if {[info exists ::env(AXIBUFS)]} {
+			puts $zaxi $::env(AXIBUFS)
 		}	
 		if {[gets $zaxi aline] > 0} {
 			close $zaxi
@@ -169,8 +169,35 @@ proc _upload_range {first last} {
 		}
 	}	
 }
+
+proc _upload_range_triplets {first last} {
+        global work MAX_RETRY HB0
+
+        foreach ii [.. $first $last 3] {
+                upload_one "[.. $ii [expr $ii + 2] ]"
+
+                for { set rty 0 } { [$work $HB0 $ii] != 0 } { incr rty } {
+                        if { $rty >= $MAX_RETRY } {
+                                puts "ERROR retry exceeded"
+                                return
+                        }
+                }
+        }	
+}
 proc upload_range {first last} {
 	set_mgt_buscomms 1
+
+	if {[info exists ::env(AXIBUFS)]} {
+		puts "compare [string compare $::env(AXIBUFS) 0,1,2]"
+        	if {[string compare $::env(AXIBUFS) 0,1,2] == 0} {
+			puts "OK, valid combo"
+			_upload_range_triplets $first $last
+		} else {
+			puts "SORRY, $::env(AXIBUFS) not supported"
+			exit 1
+		}
+        }
+
 	_upload_range $first $last
 	puts "STUB set_mgt_buscomms 0"
 }
