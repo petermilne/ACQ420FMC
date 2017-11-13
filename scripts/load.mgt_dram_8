@@ -28,6 +28,7 @@ if [ ! -e $MGTD ]; then
         mkdir $MGTD
         ln -s /usr/local/bin/mgt_run_shot $MGTD
         ln -s /usr/local/bin/mgt_offload $MGTD
+	ln -s /usr/bin/time $MGTD
 	cat - > $MGTD/mgt_offload <<EOF
 #!/bin/sh
 taskset -p 0x1 $iocpid
