@@ -17,5 +17,28 @@ EOF
 mkdir /etc/acq400/14/
 ln -s /dev/dsp1/* /etc/acq400/14/
 
+iocpid() {
+	ps | awk '{ print $4" "$1 }' | 
+	grep ^/usr/local/bin/acq400ioc |
+	awk '{ print $2 }'
+}
+
+MGTD=/dev/shm/mgtdram
+if [ ! -e $MGTD ]; then
+        mkdir $MGTD
+        ln -s /usr/local/bin/mgt_run_shot $MGTD
+        ln -s /usr/local/bin/mgt_offload $MGTD
+	cat - > $MGTD/mgt_offload <<EOF
+#!/bin/sh
+taskset -p 0x1 $iocpid
+cat - > $MGTD/help << EOF
+taskset -p 0x2 /usr/local/bin/mgt_offload $*
+EOF
+	cat - > $MGTD/help << EOF
+#!/bin/sh
+/bin/ls $MGTD
+EOF
+	chmod a+rx $MGTD/help $MGTD/mgt_offload
+fi
 
 

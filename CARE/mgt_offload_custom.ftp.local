@@ -1,0 +1,12 @@
+# TCL include file
+# store at /mnt/local/mgt_offload_custom
+# customize FTPHOST
+
+puts /mnt/local/mgt_offload_custom
+
+if {! [info exists ::env(FTPHOST)]} {
+	set ::env(FTPHOST) brotto
+}
+
+source /usr/local/CARE/mgt_offload_custom.ftp
+

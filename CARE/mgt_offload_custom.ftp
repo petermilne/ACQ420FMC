@@ -17,7 +17,11 @@ close $ctrl
 
 log_user 0
 set ::env(LBUFLEN) 0x400000
-spawn ftp brotto
+if {! [info exists ::env(FTPHOST)]} {
+	puts "ERROR FTPHOST not defined"
+	exit 1
+}
+spawn ftp $::env(FTPHOST)
 set FTP $spawn_id
 expect {                          
 	-i $FTP -re "(.*)\nftp>" {
