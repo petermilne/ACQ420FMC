@@ -1,9 +1,14 @@
-#!/bin/sh
+#!/usr/local/bin/expect
+# runs any command in cwd
+# runs ONLY commands in cwd
 
-PATH=$PWD
-MGTD=/dev/shm/mgtdram
-cd $MGTD
-PS1='mgtsh> '
-export PATH=$MGTD
-exec /bin/sh
+proc prompt {} {
+	puts -nonewline stdout 'mgtsh> '
+}
 
+cd /dev/shm/mgtsh
+prompt
+while {[gets stdin cmd]} {
+	./$cmd
+	prompt
+}
