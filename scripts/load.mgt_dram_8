@@ -37,7 +37,7 @@ taskset -p 0x2 /usr/local/bin/mgt_offload $*
 EOF
 	cat - > $MGTD/help << EOF
 #!/bin/sh
-/bin/ls $MGTD
+/bin/ls -1 $MGTD
 EOF
 	chmod a+rx $MGTD/help $MGTD/mgt_offload
 fi

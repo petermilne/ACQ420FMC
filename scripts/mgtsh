@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PATH=$PWD
+MGTD=/dev/shm/mgtdram
+cd $MGTD
+PS1='mgtsh> '
+export PATH=$MGTD
+exec /bin/sh
+
