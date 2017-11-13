@@ -763,7 +763,6 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 	for (ps = labuf; sscanf(ps, "%d", &ibuf) == 1; ps = nexti(ps)){
 		pdesc->lbuf[i1 + ii++] = ibuf;
 	}
-	rc = copy_from_user(pdesc->lbuf+*f_pos, buf, count);
 
 	dev_dbg(DEVP(adev), "%s write %d %02x,%02x,%02x,%02x",
 			__FUNCTION__, count,

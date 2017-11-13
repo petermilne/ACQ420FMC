@@ -144,21 +144,27 @@ int _axi64_data_once(struct acq400_dev *adev, unsigned char ib)
 	struct dma_chan *rx_chan = adev->dma_chan[0];
 	char *dest_dma_buffer = (char*)adev->hb[ib]->va;
 	int dma_length = adev->hb[ib]->len;
+
+	dev_dbg(DEVP(adev), "%s 01 ib %d va:%p len:%d", __FUNCTION__, ib, dest_dma_buffer, dma_length);
+
+	{
 	dma_addr_t rx_dma_handle = dma_map_single(
 			rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
 	struct completion rx_cmp;
 
 	dma_cookie_t rx_cookie = axidma_prep_buffer(
 			rx_chan, rx_dma_handle, dma_length, DMA_DEV_TO_MEM, &rx_cmp);
+
 	if (dma_submit_error(rx_cookie)) {
 		printk(KERN_ERR "xdma_prep_buffer error\n");
 		return -1;
 	}
-	dev_dbg(DEVP(adev), "%s 01 ib %d", __FUNCTION__, ib);
+	dev_dbg(DEVP(adev), "%s 50 ib %d", __FUNCTION__, ib);
+
 	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
-
+	}
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return 0;
 }
@@ -173,9 +179,11 @@ int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[] )
 	AXIDMA_ONCE_BUSY = 1;
 
 	for (ii = 0; ii == 0 || blocks[ii] != '\0'; ++ii){
+		dev_dbg(DEVP(adev), "axi64_data_once() %d [%d]", ii, blocks[ii]);
 		rc = _axi64_data_once(adev, blocks[ii]);
+		dmaengine_terminate_all(adev->dma_chan[0]);
 	}
-	dmaengine_terminate_all(adev->dma_chan[0]);
+
 	if (AXIDMA_ONCE_RESET_ON_EXIT){
 		dev_dbg(DEVP(adev), "%s 66", __FUNCTION__);
 		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
