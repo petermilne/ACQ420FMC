@@ -603,9 +603,22 @@ static ssize_t show_fpga_temp(
 }
 static DEVICE_ATTR(fpga_temp, S_IRUGO, show_fpga_temp, 0);
 
+static ssize_t show_fpga_rev(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	unsigned rev = (mgt400rd32(mdev, MGT_DRAM_STA) >> 4)&0x0ffff;
+
+	return sprintf(buf, "%u 0x%04x\n", rev, rev);
+}
+static DEVICE_ATTR(fpga_rev, S_IRUGO, show_fpga_rev, 0);
+
 
 static const struct attribute *sysfs_mgtdram_attrs[] = {
 	&dev_attr_fpga_temp.attr,
+	&dev_attr_fpga_rev.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
