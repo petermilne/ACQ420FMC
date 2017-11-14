@@ -9,7 +9,7 @@ if [ -e /dev/shm/mgtd.job ]; then
 		echo "ERROR in /dev/shm/mgt.job CMD not recognized";;
 	esac
 else
-	echo "IDLE: no job";;
+	echo "IDLE: no job"
 fi
 echo END
 

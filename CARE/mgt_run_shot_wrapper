@@ -1,5 +1,5 @@
 #!/bin/sh
 
-echo "CMD=mgt_offload" "ARGS=\"$*\"" >/dev/shm/mgtd.job
+echo "CMD=mgt_run_shot" "ARGS=\"$*\"" >/dev/shm/mgtd.job
 
 
