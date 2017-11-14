@@ -724,7 +724,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->word_size = 4;
 	adev->cursor.hb = &adev->hb[0];
 	adev->hitide = 2048;
-	adev->lotide = 0x1fff;
+	adev->lotide = 0x1998;
 	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
 	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;

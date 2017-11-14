@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.255 DUALAXI"
+#define REVID "3.256 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
