@@ -22,5 +22,10 @@ ln -s /usr/local/CARE/mgt_offload_wrapper $MGTD/mgt_offload
 ln -s /usr/local/CARE/mgt_taskset $MGTD
 ln -s /usr/local/CARE/mgt_reset_counters $MGTD
 
+cat - >/etc/mgtsh.env << EOF
+export HOME=/root
+EOF
+
+
 
 

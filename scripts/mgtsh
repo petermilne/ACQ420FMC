@@ -1,5 +1,7 @@
 #!/bin/sh
 
+[ -e /etc/mgtsh.env ] && source /etc/mgtsh.env
+
 if [ -e /dev/shm/mgtd.job ]; then
 	source /dev/shm/mgtd.job
 	case $CMD in
