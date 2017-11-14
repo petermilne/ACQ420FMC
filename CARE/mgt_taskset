@@ -1,0 +1,19 @@
+#!/bin/sh
+
+iocpid() {
+	ps | awk '{ print $4" "$1 }' | 
+	grep ^/usr/local/bin/acq400ioc |
+	awk '{ print $2 }'
+}
+
+# $1==0 => revert to no mask / all cores
+case $1 in
+0)
+	MASK=0x3;;	
+*)
+	MASK=0x1;;
+esac
+
+taskset -p $MASK $(iocpid)
+
+

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "CMD=mgt_offload" "ARGS=\"$*\"" >/dev/shm/mgtd.job
+
+

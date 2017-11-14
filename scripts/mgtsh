@@ -1,14 +1,15 @@
-#!/usr/local/bin/expect
-# runs any command in cwd
-# runs ONLY commands in cwd
+#!/bin/sh
 
-proc prompt {} {
-	puts -nonewline stdout 'mgtsh> '
-}
+if [ -e /dev/shm/mgtd.job ]; then
+	source /dev/shm/mgtd.job
+	case $CMD in
+	mgt_offload|mgt_run_shot)
+		time taskset 0x2 $CMD $ARGS;;
+	*)
+		echo "ERROR in /dev/shm/mgt.job CMD not recognized";;
+	esac
+else
+	echo "IDLE: no job";;
+fi
+echo END
 
-cd /dev/shm/mgtsh
-prompt
-while {[gets stdin cmd]} {
-	./$cmd
-	prompt
-}
