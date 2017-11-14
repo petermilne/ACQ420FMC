@@ -1,11 +1,12 @@
 #!/bin/sh
 
+set.site 1 SIG:SAMPLE_COUNT:RESET 1
 mgt_load load 0 ${1:-99}
 streamtonowhered start
 
 while [ 1 ]; do
 	STATUS=$(mgt_load)
-	echo $STATUS
+	echo $STATUS $(get.site 1 SIG:SAMPLE_COUNT:COUNT)
 	if [ "$STATUS" = "IDLE" ]; then
 		break
 	else
