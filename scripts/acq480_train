@@ -28,7 +28,7 @@ report_success() {
 }
 
 if [ "$(cat /etc/acq400/0/MODEL)" = "kmcuz30" ]; then
-clk_read() {
+clk_ready() {
 	get.site 0 SIG:CLK_EXT:ACTIVE | awk '{ printf "%d\n", $2 }'
 }
 else
