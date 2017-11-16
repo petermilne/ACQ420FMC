@@ -543,6 +543,8 @@ set_fans() {
 }
 
 
+FANSPEED=10
+
 ######## Execution Starts Here 
 
 if [ ! -e /etc/sites ]; then
@@ -647,6 +649,9 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 		web_append sfp none;;
 	95)
 		load.mgt_dram_8
+		FANSPEED=30
+		echo "set.site 0 distributor comms=2" \
+				>>/tmp/acq420.init-postpowerup-action
 		nice mgtd_monitor_dsp1 &
 		echo +++ init MGT-DRAM;;
 	*)
@@ -664,7 +669,7 @@ esac
 
 
 build_knobs
-set_fans	
+set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
 
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
@@ -705,14 +710,12 @@ else
 EOF
 fi
 
-[ -e /tmp/acq420.init-postpowerup-action ] && 
-	source /tmp/acq420.init-postpowerup-action
-
 if [ "x${ACQ480_SITES}" != "x" ]; then
 	for site in $ACQ480_SITES
 	do
-			web_append acq480.$site nomon
-			[ $AXI_COUNT -gt 1 ] && /usr/local/CARE/acq480_init_two_lane $site
+		web_append acq480.$site nomon
+		[ $AXI_COUNT -gt 1 ] && \
+			/usr/local/CARE/acq480_init_two_lane $site
 	done
 	echo 1 > /etc/acq400/0/acq480_force_training
 fi
@@ -729,6 +732,9 @@ fi
 start_knob_services
 
 ls -l /etc/acq400/0/sync_out_cable_det
+
+[ -e /tmp/acq420.init-postpowerup-action ] && 
+	source /tmp/acq420.init-postpowerup-action
 
 nice daemon $WEB_APPEND_JOB
 
