@@ -655,7 +655,7 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 		FANSPEED=30
 		echo "set.site 0 distributor comms=2" \
 				>>/tmp/acq420.init-postpowerup-action
-		nice (sleep 7; mgtd_monitor_dsp1) &
+		(sleep 7; nice mgtd_monitor_dsp1) &
 		echo +++ init MGT-DRAM;;
 	*)
 		if [ "x$cmd" = "x" ]; then
