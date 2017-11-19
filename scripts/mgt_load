@@ -9,7 +9,7 @@ PIDF=/var/run/mgt_load.pid
 is_running() {
 	for pid in $(ps | awk '{ print $1 }')
 	do
-		if [ $pid = $1 ]; then
+		if [ "x$pid" = "x$1" ]; then
 			echo 1; return
 		fi
 	done
