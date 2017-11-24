@@ -1,0 +1,47 @@
+#!/bin/sh
+
+echo "++ mgtdram_init_dio ..."
+
+source /usr/local/bin/acq400_init_gpio_common.sh
+
+# i2c gpio
+
+get_gpiochip() 
+{
+	echo $(basename $(echo /sys/bus/i2c/devices/$1-$2/gpio/gpiochip*))	
+}
+
+
+
+cd /sys/class/gpio
+
+CHIP=$(get_gpiochip 8 0020)
+let GPIO1=${CHIP#gpiochip*}
+let GPIO2=$GPIO1+7
+
+for pin in $(seq $GPIO1 $GPIO2)
+do
+	export_gpio $pin
+done
+
+mkdir -p /dev/gpio/MGTDRAM/
+let MBX=$GPIO1
+mkln gpio$MBX MGTDRAM/EN_1V8 OUT; 	let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/DONE AL IN; 	let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/P02;		let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/P03;		let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/P04;		let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/P05;		let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/DCRST OUT;	let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/PROG AL OUT;	let MBX=$MBX+1	
+comment_out() {
+mkln gpio$MBX MGTDRAM/d0; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d1; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d2; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d3; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d4; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d5; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d6; let MBX=$MBX+1
+mkln gpio$MBX MGTDRAM/d7; let MBX=$MBX+1
+}
+echo "++ mgtdram_init_dio done"
