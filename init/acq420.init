@@ -28,6 +28,7 @@ fi
 	cp /mnt/local/sysconfig/acq400_streamd.conf /etc/sysconfig
 
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
+	echo "source /mnt/local/sysconfig/acq400.sh"
 	source /mnt/local/sysconfig/acq400.sh
 fi
 ln -s $DROOT/dynamic_debug/control /dev/ddc
@@ -599,6 +600,7 @@ if [ "x$good_sites" != "x" ]; then
 fi
 
 if [ -f /mnt/local/acq420_custom ]; then
+	echo "WARNING: using overrides from /mnt/local/acq420_custom"
 	source /mnt/local/acq420_custom
 else
 	DRVR_CUSTOM=""
