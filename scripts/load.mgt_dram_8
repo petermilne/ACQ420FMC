@@ -14,6 +14,8 @@ MGT_CTRL       0x004 0xffffffff rw %08x
 MGT_CTRL.BUSCOMMS 0x004 0x00000001 rw %d
 EOF
 
+/usr/local/bin/mgtdram_init_gpio
+
 MGTD=/etc/acq400/14/
 mkdir $MGTD
 ln -s /dev/dsp1/* $MGTD
@@ -21,9 +23,13 @@ ln -s /usr/local/CARE/mgt_run_shot_wrapper $MGTD/mgt_run_shot
 ln -s /usr/local/CARE/mgt_offload_wrapper $MGTD/mgt_offload
 ln -s /usr/local/CARE/mgt_taskset $MGTD
 ln -s /usr/local/CARE/mgt_reset_counters $MGTD
+[ -e /dev/gpio/MGTDRAM/DCRST ] && ln -s /dev/gpio/MGTDRAM/DCRST $MGTD
 
 cat - >/etc/mgtsh.env << EOF
 export HOME=/root
 EOF
+
+
+
 
 

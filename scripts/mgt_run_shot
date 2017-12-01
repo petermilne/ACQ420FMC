@@ -1,6 +1,13 @@
 #!/bin/sh
 
 set.site 1 SIG:SAMPLE_COUNT:RESET 1
+
+DCRST=/dev/gpio/MGTDRAM/DCRST
+if [ -e $DCRST ]; then
+	set.sys $DCRST 1
+	echo DRAM CONTROLLER RESET
+	set.sys $DCRST 0
+fi
 mgt_load load 0 ${1:-99}
 streamtonowhered start
 
