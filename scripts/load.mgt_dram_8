@@ -1,4 +1,7 @@
 #!/bin/sh
+
+echo mgt_dram: fans to max
+set.fanspeed 100
 MDIR=/usr/local/lib/modules
 /sbin/insmod $MDIR/debugfs2.ko
 /sbin/insmod $MDIR/regfs.ko
