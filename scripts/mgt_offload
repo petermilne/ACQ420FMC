@@ -122,7 +122,8 @@ proc pgm_wait {line} {
 	}
 }
 proc upload_one {mgt_block} {
-	global expect_out 
+	global expect_out
+	set int0 [exec /mnt/local/get-int-count]
 	pgm_wait "upload_one axi_push_zdram"
 	send "axi_push_zdram\r"
 	expect OK {
@@ -144,6 +145,11 @@ proc upload_one {mgt_block} {
 	}
 	
 	axi_dma_once_busy
+	set int1 [exec /mnt/local/get-int-count]
+	if {[expr $int1 - $int0] != 1} {
+		puts "ERROR no axi-dma interrupt $int0 $int1"
+	}
+
 	pgm_wait "upload_one done"
 }
 
