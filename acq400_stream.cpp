@@ -2527,14 +2527,19 @@ template <class T>
 class DemuxerImpl : public Demuxer {
 
 	virtual int _demux(void* start, int nbytes);
+	AbstractES& evX;
+	FILE* esf;
 public:
 
 
-	DemuxerImpl() : Demuxer(sizeof(T), Buffer::bufferlen/G::nchan){
+	DemuxerImpl() : Demuxer(sizeof(T), Buffer::bufferlen/G::nchan),
+		evX(*AbstractES::evX_instance())
+	{
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
+		esf = fopen("/dev/shm/es.log", "w");
 	}
 	virtual ~DemuxerImpl() {
-
+		fclose(esf);
 	}
 };
 
@@ -2583,6 +2588,15 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 				b1 = b2;
 				psrc0 = psrc;
 			}
+		}
+
+		if (evX.isES(reinterpret_cast<unsigned*>(psrc))){
+			unsigned p1 = reinterpret_cast<unsigned>(psrc);
+			p1 -= reinterpret_cast<unsigned>(MapBuffer::get_ba_lo());
+			fwrite(&p1, sizeof(unsigned), 1, esf);
+			p1 /= G::nchan*sizeof(T);
+			fwrite(&p1, sizeof(unsigned), 1, esf);
+			fwrite(psrc, sizeof(T), G::nchan, esf);
 		}
 		T* psrct = psrc;
 		for (unsigned chan = 0; chan < G::nchan; ++chan){
