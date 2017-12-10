@@ -167,7 +167,7 @@ bigmac: bigmac.o
 	$(CXX) -mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=neon \
 		-DHASNEON \
 		-O3 -o bigmac bigmac.o -L../lib -lpopt
-bigcat: bigcat.c
+bigcat: bigcat.cpp
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
 
 lilmac: lilmac.o
