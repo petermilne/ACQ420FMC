@@ -575,12 +575,15 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->xo.physchan = ao424_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	adev->xo.fsr = DAC_FIFO_STA;
+	adev->lotide = 1024;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	adev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
-	measure_ao_fifo(adev);
+	if (measure_ao_fifo_ok){
+	    measure_ao_fifo(adev);
+	}
 }
 
 
@@ -785,6 +788,10 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	unsigned cr;
 	int nblocks;
 
+	if (measure_ao_fifo_ok == 0){
+		dev_info(DEVP(adev), "measure_ao_fifo() stubbed");
+		return;
+	}
 	dev_dbg(DEVP(adev), "measure_ao_fifo() 01");
 
 	cr = acq400rd32(adev, DAC_CTRL);
