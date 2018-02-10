@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.263 DUALAXI"
+#define REVID "3.264 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -111,7 +111,9 @@ int reserve_buffers = 2;
 module_param(reserve_buffers, int, 0444);
 MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
 
-
+int xo_wait_site_stop = -1;
+module_param(xo_wait_site_stop, int, 0644);
+MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stopped");
 
 /* GLOBALS */
 
@@ -1532,6 +1534,33 @@ int waitXoFifoEmpty(struct acq400_dev *adev)
 					acq400rd32(adev, DAC_SAMPLE_CTR));
 	return 0;
 }
+
+void _waitOtherSiteStop(struct acq400_dev *adev, int site)
+{
+	struct acq400_dev *adev_wait = acq400_sites[site];
+
+	while(adev_wait->stats.run){
+		if (xo_wait_site_stop == -1){
+			dev_warn(DEVP(adev), "_waitOtherSiteStop() external ABORT");
+			break;
+		}else{
+			msleep(10);
+		}
+	}
+
+}
+
+void waitOtherSiteStop(struct acq400_dev *adev)
+{
+	int site;
+	if ((site = xo_wait_site_stop) == -1){
+		return;
+	}else{
+		_waitOtherSiteStop(adev, site);
+		dev_dbg(DEVP(adev), "waitSiteStop() site:%d stopped", site);
+	}
+}
+
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
  * actually associated with the master site
@@ -1687,7 +1716,7 @@ quit:
 		DMA_COUNT_IN;
 	}
 	waitXoFifoEmpty(adev);
-
+	waitOtherSiteStop(adev);
 
 	acq400_visit_set(adev0->distributor_set, adev->onStop);
 
