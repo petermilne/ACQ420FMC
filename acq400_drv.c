@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.261 DUALAXI"
+#define REVID "3.263 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1527,6 +1527,8 @@ int waitXoFifoEmpty(struct acq400_dev *adev)
 		}
 		s0 = s1;
 	}
+	dev_dbg(DEVP(adev), "waitXoFifoEmpty() DAC_SAMPLE_CTR 0x%08x",
+					acq400rd32(adev, DAC_SAMPLE_CTR));
 	return 0;
 }
 int xo_data_loop(void *data)
@@ -1693,7 +1695,7 @@ quit:
 		dev_dbg(DEVP(adev), "xo_data_loop() spawn auto_rearm");
 		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
 	}
-	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
+	dev_info(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 	return 0;
 }
