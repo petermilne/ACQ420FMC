@@ -175,6 +175,7 @@ int _load() {
 		residue += Buffer::bufferlen;
 		padsam += Buffer::bufferlen/G::sample_size;
 	}
+	padsam += 2*Buffer::bufferlen/G::sample_size;  /* must be 4 buffers or more? */
 
 	if (residue){
 		nsamples = pad(nsamples, padsam);
