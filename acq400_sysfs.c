@@ -2054,6 +2054,8 @@ static ssize_t show_dac_immediate(
 	}
 }
 
+extern int no_ao42x_llc_ever;
+
 static ssize_t store_dac_immediate(
 		int chan,
 		struct device * dev,
@@ -2075,8 +2077,12 @@ static ssize_t store_dac_immediate(
 		}else{
 			adev->AO_immediate._u.ch[pchan] = chx;
 		}
-		acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
-		ao420_flushImmediate(adev);
+		if (!no_ao42x_llc_ever){
+			acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
+			ao420_flushImmediate(adev);
+		}else{
+			dev_warn(DEVP(adev), "store_dac_immediate STUB no_ao42x_llc_ever set");
+		}
 		return count;
 	}else{
 		dev_warn(dev, "rejecting input args != 0x%%04x or %%d");

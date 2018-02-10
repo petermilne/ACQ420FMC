@@ -65,7 +65,9 @@ int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
 int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
-
+int no_ao42x_llc_ever = 0;
+module_param(no_ao42x_llc_ever, int, 0644);
+MODULE_PARM_DESC(no_ao42x_llc_ever, "refuse to set LLC mode on exit AWG. Won't work anyway if distributor set");
 
 /* KLUDGE ALERT .. remove me now? */
 int dio432_rowback = 256/4;
@@ -190,7 +192,11 @@ void _ao420_stop(struct acq400_dev* adev)
 	if (IS_AO42X(adev)){
 		dev_dbg(DEVP(adev), "_ao420_stop() AO_playloop.length %d\n", adev->AO_playloop.length);
 		if (adev->AO_playloop.length == 0){
-			cr |= DAC_CTRL_LL;
+			if (!no_ao42x_llc_ever){
+				cr |= DAC_CTRL_LL;
+			}else{
+				dev_dbg(DEVP(adev), "_ao420_stop() STUB setting LL\n");
+			}
 		}
 		if (adev->data32){
 			cr |= ADC_CTRL32B_data;

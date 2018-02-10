@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.258 DUALAXI"
+#define REVID "3.260 DUALAXI"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -36,6 +36,12 @@
 
 
 int ndevices;
+/*
+static char* revid = REVID;
+
+module_param(revid, charp, 0666);
+*/
+
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 
