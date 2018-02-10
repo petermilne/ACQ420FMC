@@ -162,7 +162,13 @@ int _load() {
 
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
+	int playbuffs = (nsamples*G::sample_size)/Buffer::bufferlen;
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
+
+	if (playbuffs&1){
+		/* PRI DMA MUST ping+pong, expandt to even # buffers */
+		residue += Buffer::bufferlen;
+	}
 
 	if (residue){
 		nsamples = pad(nsamples, (Buffer::bufferlen - residue)/G::sample_size);
