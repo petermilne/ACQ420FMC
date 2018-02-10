@@ -112,6 +112,7 @@ module_param(reserve_buffers, int, 0444);
 MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
 
 
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -1560,6 +1561,7 @@ int xo_data_loop(void *data)
 	}
 
 	adev->stats.shot++;
+	adev->stats.run = 1;
 	adev->stats.xo.dma_buffers_out =
 			adev->stats.xo.dma_buffers_in = 0;
 
@@ -1689,6 +1691,7 @@ quit:
 
 	acq400_visit_set(adev0->distributor_set, adev->onStop);
 
+	adev->stats.run = 0;
 	adev->task_active = 0;
 	if (adev->AO_playloop.oneshot == AO_oneshot_rearm &&
 	    (adev->AO_playloop.maxshot==0 || adev->stats.shot < adev->AO_playloop.maxshot)){
