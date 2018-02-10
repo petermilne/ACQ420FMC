@@ -2081,7 +2081,7 @@ static ssize_t store_dac_immediate(
 			acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
 			ao420_flushImmediate(adev);
 		}else{
-			dev_warn(DEVP(adev), "store_dac_immediate STUB no_ao42x_llc_ever set");
+			dev_dbg(DEVP(adev), "store_dac_immediate STUB no_ao42x_llc_ever set");
 		}
 		return count;
 	}else{
