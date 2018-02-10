@@ -175,7 +175,10 @@ int _load() {
 		residue += Buffer::bufferlen;
 		padsam += Buffer::bufferlen/G::sample_size;
 	}
-	padsam += 2*Buffer::bufferlen/G::sample_size;  /* must be 4 buffers or more? */
+	if (playbuffs < 4){
+		/* for reliable operation, must be 4 buffers or more? */
+		padsam += 2*Buffer::bufferlen/G::sample_size;
+	}
 
 	if (residue){
 		nsamples = pad(nsamples, padsam);
