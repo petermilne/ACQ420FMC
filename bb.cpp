@@ -164,17 +164,20 @@ int _load() {
 			G::sample_size, maxbuf, G::fp_in);
 	int playbuffs = (nsamples*G::sample_size)/Buffer::bufferlen;
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
+	int padsam = (Buffer::bufferlen - residue)/G::sample_size;
 
 	if (residue){
 		playbuffs += 1;		/* partly into a buffer, round up */
 	}
+
 	if (playbuffs&1){
 		/* PRI DMA MUST ping+pong, expand to even # buffers */
 		residue += Buffer::bufferlen;
+		padsam += Buffer::bufferlen/G::sample_size;
 	}
 
 	if (residue){
-		nsamples = pad(nsamples, (Buffer::bufferlen - residue)/G::sample_size);
+		nsamples = pad(nsamples, padsam);
 	}
 
 	return nsamples;
