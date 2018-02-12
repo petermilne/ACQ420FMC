@@ -546,8 +546,13 @@ set_fans() {
 	fi
 }
 
+case $MODEL in
+acq21*)
+	FANSPEED=30;;
+*)
+	FANSPEED=10;;
+esac
 
-FANSPEED=10
 
 ######## Execution Starts Here 
 
