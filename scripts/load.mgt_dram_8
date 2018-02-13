@@ -18,8 +18,15 @@ MGT_CTRL.BUSCOMMS 0x004 0x00000001 rw %d
 EOF
 
 DSPFLAVOUR=$(cat /dev/dsp1/@MODULE_ID.MT)
-if [ "x$DSPFLAVOUR" != "x9814"; then
+if [ "x$DSPFLAVOUR" != "x9814" ]; then
 	echo "ERROR MGTDRAM incorrect MODULE TYPE expect 9814 got $DSPFLAVOUR"
+else
+	STA=$(cat /sys/kernel/debug/mgt400/mgt400.A/MGT_DRAM_STA.0x80)
+	MGTVER=$(echo $STA | fold -w 1 | tail -n 2 | head -n 1)
+	if [ $MGTVER -lt 6 ]; then
+		echo "WARNING: MGTVER $MGTVER is out of date"
+	fi
+	echo "MGTDRAM ZYNQ DSPFLAVOUR $DSPFLAVOUR MGTVER $MGTVER"
 fi
 /usr/local/bin/mgtdram_init_gpio
 
