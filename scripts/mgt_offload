@@ -218,7 +218,7 @@ proc _upload_range {first last} {
 proc upload_range {first last} {
 	set_mgt_buscomms 1
 	_upload_range $first $last
-	puts "STUB set_mgt_buscomms 0"
+	set_mgt_buscomms 0
 }
 
 
