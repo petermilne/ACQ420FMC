@@ -17,7 +17,8 @@ set.site 1 simulate 1
 echo mgt_run_shot $BLOCKS fill
 mgt_run_shot $BLOCKS
 echo mgt_offload 0-$BLOCKS validate $MGTOFFLOADCUSTOM
-mgt_offload 0-$BLOCKS
+let BM1="$BLOCKS-1"
+mgt_offload 0-$BM1
 
 echo mgt_dram_test complete
 
