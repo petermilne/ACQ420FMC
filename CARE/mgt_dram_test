@@ -13,9 +13,9 @@ export MGTOFFLOADCUSTOM=/usr/local/CARE/mgt_offload_custom.ramptest
 echo run single site, simulate mode
 run0 1
 set.site 1 simulate 1
-
+let BP1="$BLOCKS+1"
 echo mgt_run_shot $BLOCKS fill
-mgt_run_shot $BLOCKS
+mgt_run_shot $BP1
 echo mgt_offload 0-$BLOCKS validate $MGTOFFLOADCUSTOM
 let BM1="$BLOCKS-1"
 mgt_offload 0-$BM1
