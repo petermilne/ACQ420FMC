@@ -1,9 +1,6 @@
 
 set HN [exec hostname]
 
-set RDATA "/rdata/$HN"
-exec mkdir -p $RDATA
-
 set ::env(BUFLEN) 0x400000
 #set ::env(MAPCAT) 1
 
