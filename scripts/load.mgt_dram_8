@@ -11,12 +11,16 @@ ln -s /sys/kernel/debug/dsp1/ /dev/dsp1
 
 cat - >/dev/dsp1/.create <<EOF
 @MODULE_ID     0x000 0xffffffff r %08x
-@MODULE_ID.MT  0x000 0xff000000 r %02x
+@MODULE_ID.MT  0x000 0xffff0000 r %04x
 @MODULE_ID.RV  0x000 0x0000ffff r %d
 MGT_CTRL       0x004 0xffffffff rw %08x
 MGT_CTRL.BUSCOMMS 0x004 0x00000001 rw %d
 EOF
 
+DSPFLAVOUR=$(cat /dev/dsp1/@MODULE_ID.MT)
+if [ "x$DSPFLAVOUR" != "x9814"; then
+	echo "ERROR MGTDRAM incorrect MODULE TYPE expect 9814 got $DSPFLAVOUR"
+fi
 /usr/local/bin/mgtdram_init_gpio
 
 MGTD=/etc/acq400/14/
