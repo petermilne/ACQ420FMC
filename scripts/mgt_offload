@@ -45,7 +45,7 @@ set HB0	/dev/acq400.0.hb/000
 
 if {$::env(MGTOFFLOADCUSTOM)} {
 	source $::env(MGTOFFLOADCUSTOM)
-}else{
+} else {
 	if {[file exists /mnt/local/mgt_offload_custom]} {
 		# typically, this  will reassign work
 		source /mnt/local/mgt_offload_custom
