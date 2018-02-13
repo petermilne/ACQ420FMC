@@ -42,7 +42,11 @@ load() {
 
 query() {
 	if [ $(load_is_running) -eq 1 ]; then
-		echo "BUSY pid $(cat $PIDF)"
+		if [ -e $PIDF ]; then
+			echo BUSY pid unknown
+		else
+			echo "BUSY pid $(cat $PIDF)"
+		fi
 	else
 		echo IDLE
 	fi
@@ -50,7 +54,7 @@ query() {
 
 abort() {
 	if [ $(load_is_running) -eq 1 ]; then
-		kill -9 $(cat $PIDF)
+		[ -e $PIDF ] && kill -9 $(cat $PIDF)
 	fi
 	sleep 1
 	if [ $(load_is_running) -eq 1 ]; then
