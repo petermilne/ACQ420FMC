@@ -43,7 +43,8 @@ if {[info exists env(SSTEP)]} {
 set work default_work
 set HB0	/dev/acq400.0.hb/000
 
-if {$::env(MGTOFFLOADCUSTOM)} {
+if {[info exists ::env(MGTOFFLOADCUSTOM)]} {
+	puts "customisation: source $::env(MGTOFFLOADCUSTOM)"
 	source $::env(MGTOFFLOADCUSTOM)
 } else {
 	if {[file exists /mnt/local/mgt_offload_custom]} {
