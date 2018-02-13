@@ -33,7 +33,7 @@ else
 	else
 		sta=OK
 	fi
-	echo "MGTDRAM ZYNQ FLAVOUR $DSPFLAVOUR MGT STA $STA MGTVER $MGTVER $STA"
+	echo "MGTDRAM ZYNQ FLAVOUR $DSPFLAVOUR MGT STA $STA MGTVER $MGTVER $sta"
 ) &
 fi
 /usr/local/bin/mgtdram_init_gpio
