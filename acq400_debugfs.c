@@ -147,6 +147,9 @@ void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ADC_SAMPLE_CTR);
 	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
 	DBG_REG_CREATE(ADC_CLKDIV);
+	if (IS_ACQ425(adev)){
+		DBG_REG_CREATE(ACQ425_BANK);
+	}
 	DBG_REG_CREATE(ADC_ACC_DEC);
 }
 
