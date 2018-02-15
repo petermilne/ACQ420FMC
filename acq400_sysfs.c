@@ -1452,7 +1452,7 @@ static ssize_t store_bank_mask(
 		u32 mode = acq400rd32(adev, ACQ435_MODE);
 
 		mode &= ~ACQ435_MODE_BXDIS;
-		adev->nchan_enabled = 8 * nbits(bank_mask);
+		adev->nchan_enabled = CHANNELS_PER_BANK(adev) * nbits(bank_mask);
 		bank_mask = ~bank_mask&ACQ435_MODE_BXDIS;
 		mode |= bank_mask;
 
@@ -1805,7 +1805,8 @@ static const struct attribute *acq424_attrs[] = {
 	&dev_attr_adc_conv_time.attr,
 	NULL
 };
-static const struct attribute *acq420_attrs[] = {
+static const struct attribute *acq425_attrs[] = {
+	&dev_attr_bank_mask.attr,
 	&dev_attr_adc_nobt.attr,
 	&dev_attr_adc_18b.attr,
 	&dev_attr_gains.attr,
@@ -1816,6 +1817,10 @@ static const struct attribute *acq420_attrs[] = {
 	&dev_attr_adc_conv_time.attr,
 	NULL
 };
+
+#define ACQ420_ATTRS	(acq425_attrs+1)
+
+
 static const struct attribute *acq435_attrs[] = {
 	&dev_attr_hi_res_mode.attr,
 	&dev_attr_bank_mask.attr,
@@ -1827,6 +1832,7 @@ static const struct attribute *acq435_attrs[] = {
 
 	NULL
 };
+
 
 
 extern const struct attribute *sysfs_v2f_attrs[];
@@ -4197,7 +4203,8 @@ void acq400_createSysfs(struct device *dev)
 		if (IS_ACQ424(adev)){
 			specials[nspec++] = acq424_attrs;
 		}else if (IS_ACQ42X(adev)){
-			specials[nspec++] = acq420_attrs;
+			specials[nspec++] =
+				IS_ACQ425(adev) ? acq425_attrs: ACQ420_ATTRS;
 		}else if (IS_ACQ43X(adev)){
 			specials[nspec++] = acq435_attrs;
 		}else if (IS_AO420(adev)||IS_AO428(adev)){

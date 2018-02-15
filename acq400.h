@@ -96,6 +96,7 @@
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
+#define ACQ425_BANK		(ADC_BASE+0x44)	/* MUST MATCH ACQ435_MODE in address and meaning! */
 #define AO420_DACSPI		(ADC_BASE+0x48)
 #define AO424_DELAY		(AO420_DACSPI)
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
@@ -323,6 +324,8 @@
 #define ACQ435_MODE_BXDIS	0xf
 #define ACQ430_BANKSEL	\
 	(ACQ435_MODE_B3DIS|ACQ435_MODE_B2DIS|ACQ435_MODE_B1DIS)
+
+#define CHANNELS_PER_BANK(adev)	(IS_ACQ425(adev)? 4: 8)
 
 #define MODULE_NAME             "acq420"
 
