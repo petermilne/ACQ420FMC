@@ -1,0 +1,86 @@
+#!/usr/local/bin/expect
+# acq427 gains
+
+
+set LNAMES1 [ list \
+	ADC_1_A0 ADC_1_A1 ADC_2_A0 ADC_2_A1 \
+	ADC_3_A0 ADC_3_A1 ADC_4_A0 ADC_4_A1 \
+	ADC_5_A0 ADC_5_A1 ADC_6_A0 ADC_6_A1 \
+	ADC_7_A0 ADC_7_A1 ADC_8_A0 ADC_8_A1 ]
+
+set OUTPUTS1 [ list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ]
+
+set LNAMES2 [ list \
+	CLK_DIR TRG_DIR DAC_RIBBON ADC_B_RIBBON \
+	DAC_3_RANGE DAC_4_RANGE DAC_1_RANGE DAC_2_RANGE ]
+
+set OUTPUTS2 [ list  1 1 0 0 1 1 1 1 ]
+
+proc link_gpio {lnames outputs site gpio1} {
+	set len [llength lnames]
+	for {set ix 0} {[$ix <= $len]} {incr ix} {		
+		set name [lindex $lnames $ix]		
+		if { [string length $name] > 0 } {
+			set gpx [expr $gpio1 + $ix]
+#			puts "lname $name pin $pin gpio $gpx"
+			exec set.sys /sys/class/gpio/export $gpx
+			if {[lindex $outputs $ix]} {
+				exec set.sys  /sys/class/gpio/gpio$gpx/direction out
+			}
+			exec ln -s /sys/class/gpio/gpio$gpx/value \
+				/dev/acq425/$site/$name
+		}
+	}
+}
+
+proc get_gpio1 {site addr} {
+	set bus [expr $site + 1]
+	set baddr "$bus-00$addr"
+	set gpath "/sys/bus/i2c/devices/$baddr/gpio/gpiochip"
+	set gpiochip [glob "$gpath*"]
+	set pin1 [string range $gpiochip \
+			[string length $gpath] [string length $gpiochip]]
+	#	puts "get_gpio1 returning $pin1"
+	return $pin1
+}
+
+set SITES ""
+
+if { $::argc > 0 } {
+	set i 1
+	foreach site $::argv {
+		if { [string length $SITES] > 0 } {
+			set SITES "$SITES,"
+		}
+		set SITES "$SITES$site"	
+	} 	
+	exec /sbin/insmod  /usr/local/lib/modules/acq425_drv.ko acq425_sites=$SITES single_pga_script=1
+	
+	foreach site $::argv {
+	    puts "build gain knobs site:$site"
+		exec mkdir -p /dev/acq425/$site
+		set gpio1 [get_gpio1 $site 22]
+		link_gpio $LNAMES1 $site $OUTPUTS1 $gpio1 
+
+		for {set ic 1} {$ic <= 8} {incr ic} {
+			file delete -force /etc/acq400/$site/gain$ic			
+			exec ln -s /usr/local/bin/acq425_set_gain \
+				/etc/acq400/$site/gain$ic
+		}	
+		file delete -force 	/etc/acq400/$site/gains
+		exec ln -s /usr/local/bin/acq425_set_gain \
+				/etc/acq400/$site/gains
+		set fp [open "/etc/acq400/$site/groups" a+]
+		puts $fp {gain=gain[0-9]*}
+		close $fp
+
+		set gpio2 [expr $gpio1 + 16]
+		link_gpio $LNAMES2 $OUTPUTS2 $gpio2
+	} 	
+} else {
+	puts "usage acq427.init site1[ site 2...]	
+}
+
+
+
+

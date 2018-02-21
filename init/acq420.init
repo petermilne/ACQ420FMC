@@ -228,6 +228,7 @@ customize_acq420()
 
 BOLO8_SITES=""
 ACQ425_SITES=""
+ACQ427_SITES=""
 ACQ437_SITES=""
 ACQ400T_SITES=""
 
@@ -236,11 +237,13 @@ start_knob_services()
 	/usr/local/init/acq400_knobs.init start
 }
 
-create_gx() {	
+create_gx() {
+nc=${2:-16}
+chans="$(seq 0 $nc)"
 cat - >$1/gx <<EOF
 #!/bin/sh
 gx=\$(./gain1)
-for g in 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+for g in $chans
 do
 	gx="\$gx\$(./gain\$g)"
 done
@@ -273,12 +276,19 @@ build_knobs_device() {
 	CLKDIV="noset"
 		
 	case $mtype in
+	7|A7)
+		if [ "x$ACQ427_SITES" != "x" ]; then
+			ACQ427_SITES="${ACQ427_SITES} "	
+		fi
+		ACQ427_SITES="${ACQ427_SITES}$site"
+		create_gx /etc/acq400/$site/ 8
+		customize_acq420 $site;;
 	5|A5)
 		if [ "x$ACQ425_SITES" != "x" ]; then
 			ACQ425_SITES="${ACQ425_SITES} "
 		fi		
 		ACQ425_SITES="${ACQ425_SITES}$site"
-		create_gx /etc/acq400/$site/
+		create_gx /etc/acq400/$site/ 16
 		customize_acq420 $site;;
 	6C)
 		customize_acq420 $site;;
@@ -295,7 +305,7 @@ build_knobs_device() {
 	2|3|6)
 		case $mtype in
 		6)
-			create_gx /etc/acq400/$site/
+			create_gx /etc/acq400/$site/ 16
 			if [ "x$ACQ437_SITES" != "x" ]; then
 				ACQ437_SITES="${ACQ437_SITES} "
 			fi		
@@ -370,7 +380,6 @@ build_site0() {
 	ln -s /usr/local/bin/run0 ${ek}
 	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
 	ln -s /usr/local/bin/set.site ${ek}/SS
-	ln -s /usr/local/bin/transient ${ek}
 	ln -s /usr/local/bin/fit_rtm_translen_to_buffer ${ek}
 	ln -s /dev/acq400.0.knobs/bufferlen ${ek}
 	ln -s /usr/local/bin/streamtonowhered ${ek}
@@ -468,6 +477,13 @@ build_knobs() {
 		#		BLEN=4194304
 		#		NBUF=128
 	fi
+	if [ "x${ACQ427_SITES}" != "x" ]; then
+		/usr/local/bin/acq427.init ${ACQ427_SITES}
+		# use /mnt/local/acq420_custom
+		#		BLEN=4194304
+		#		NBUF=128
+	fi
+
 	if [ "x${ACQ437_SITES}" != "x" ]; then
 		/usr/local/bin/acq437.init ${ACQ437_SITES}
 		# use /mnt/local/acq420_custom

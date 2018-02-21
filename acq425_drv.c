@@ -36,6 +36,9 @@ module_param_array(acq425_sites, int, &acq425_sites_count, 0644);
 static int n_acq425;
 module_param(n_acq425, int, 0444);
 
+static int single_pga_script = 0;
+module_param(single_pga_script, int, 0644)
+
 /* adapters indexed by site .. use I2C_ADAPTER() to access */
 struct i2c_adapter *__i2c_adap[6];
 
@@ -66,7 +69,9 @@ static void __init acq425_init_site(int site)
 	if (new_device(I2C_ADAPTER(site), PGA_TYPE, 0x22, -1) == 0){
 		printk("acq425_init_site(%d) PGA1 NOT found\n", site);
 	}
-
+	if (single_pga_script){
+		return;
+	}
 	if (new_device(I2C_ADAPTER(site), PGA_TYPE, 0x23, -1) == 0){
 		printk("acq425_init_site(%d) PGA2 NOT found\n", site);
 	}

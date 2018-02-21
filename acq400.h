@@ -96,7 +96,6 @@
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
-#define ACQ425_BANK		(ADC_BASE+0x44)	/* MUST MATCH ACQ435_MODE in address and meaning! */
 #define AO420_DACSPI		(ADC_BASE+0x48)
 #define AO424_DELAY		(AO420_DACSPI)
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
@@ -182,7 +181,8 @@
 #define MOD_ID_RAD_CELF		0x69
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
-#define MOD_ID_ACQ427ELF	0x6c
+#define MOD_ID_ACQ427ELF	0x07
+#define MOD_ID_ACQ427ELF_2000   0xa7
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -324,8 +324,6 @@
 #define ACQ435_MODE_BXDIS	0xf
 #define ACQ430_BANKSEL	\
 	(ACQ435_MODE_B3DIS|ACQ435_MODE_B2DIS|ACQ435_MODE_B1DIS)
-
-#define CHANNELS_PER_BANK(adev)	(IS_ACQ425(adev)? 4: 8)
 
 #define MODULE_NAME             "acq420"
 
@@ -810,7 +808,9 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ425(adev)	\
 	(GET_MOD_ID(adev) == MOD_ID_ACQ425ELF || GET_MOD_ID(adev) == MOD_ID_ACQ425ELF_2000)
 
-#define IS_ACQ427(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ427ELF)
+#define IS_ACQ427(adev) \
+	(GET_MOD_ID(adev) == MOD_ID_ACQ427ELF ||\
+	 GET_MOD_ID(adev) == MOD_ID_ACQ427ELF_2000)
 
 #define IS_ACQ42X(adev) _is_acq42x(adev)
 
