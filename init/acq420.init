@@ -168,6 +168,7 @@ customize_acq420()
 	old_ifs=$IFS; IFS="-"
 	let ix=0
 	knobd=/dev/acq400.$1.knobs
+	is_acq427=0
 	for field in $PN
 	do
 		case $ix in
@@ -175,12 +176,24 @@ customize_acq420()
 			case $field in
 			ACQ420FMC)	echo ACQ420FMC detected;;
 			ACQ425?LF)	echo $field detected;;
-			ACQ427ELF)	echo ACQ427ELF detected NEW;;
+			ACQ427ELF)	
+						is_acq427=1
+						echo ACQ427ELF detected NEW;;
 			*)
 				echo "ERROR: model $field not recognized";;
 			esac;;
 		1)
-			echo NCHAN=$field;;				
+			if [ $is_acq427 -ne 0 ]; then
+				case $field in
+				01) echo "AI=8";;					
+				03)	echo "AI=8 AO=4";;
+				02)	echo "AI=4 AO=4";;
+				*)
+					echo "unknown type code $field";;
+				esac  
+			else 
+				echo NCHAN=$field
+			fi;;				
 		2)
 			echo SPEED=$field			
 			case $field in
