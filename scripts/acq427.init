@@ -16,7 +16,7 @@ set LNAMES2 [ list \
 
 set OUTPUTS2 [ list  1 1 0 0 1 1 1 1 ]
 
-proc link_gpio {lnames outputs site gpio1} {
+proc link_gpio {site lnames outputs gpio1} {
 	set len [llength $lnames]
 	for {set ix 0} {$ix <= $len} {incr ix} {		
 		set name [lindex $lnames $ix]		
@@ -60,7 +60,7 @@ if { $::argc > 0 } {
 	    puts "build gain knobs site:$site"
 		exec mkdir -p /dev/acq425/$site
 		set gpio1 [get_gpio1 $site 22]
-		link_gpio $LNAMES1 $site $OUTPUTS1 $gpio1 
+		link_gpio $site $LNAMES1 $OUTPUTS1 $gpio1 
 
 		for {set ic 1} {$ic <= 8} {incr ic} {
 			file delete -force /etc/acq400/$site/gain$ic			
@@ -75,7 +75,7 @@ if { $::argc > 0 } {
 		close $fp
 
 		set gpio2 [expr $gpio1 + 16]
-		link_gpio $LNAMES2 $OUTPUTS2 $gpio2
+		link_gpio $site $LNAMES2 $OUTPUTS2 $gpio2
 	} 	
 } else {
 	puts "usage acq427.init site1[ site 2...]	
