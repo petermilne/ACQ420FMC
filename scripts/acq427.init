@@ -18,7 +18,7 @@ set OUTPUTS2 [ list  1 1 0 0 1 1 1 1 ]
 
 proc link_gpio {lnames outputs site gpio1} {
 	set len [llength $lnames]
-	for {set ix 0} {[$ix <= $len]} {incr ix} {		
+	for {set ix 0} {$ix <= $len} {incr ix} {		
 		set name [lindex $lnames $ix]		
 		if { [string length $name] > 0 } {
 			set gpx [expr $gpio1 + $ix]
