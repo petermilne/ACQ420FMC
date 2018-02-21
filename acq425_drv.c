@@ -37,7 +37,7 @@ static int n_acq425;
 module_param(n_acq425, int, 0444);
 
 static int single_pga_script = 0;
-module_param(single_pga_script, int, 0644)
+module_param(single_pga_script, int, 0644);
 
 /* adapters indexed by site .. use I2C_ADAPTER() to access */
 struct i2c_adapter *__i2c_adap[6];
