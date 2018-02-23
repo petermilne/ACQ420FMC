@@ -1,0 +1,19 @@
+
+proc test_work {src blocknum} {
+	try {
+		set fp [open |[list is_ramp -f 1 -F 8 <$src 2>@1] r]
+		gets $fp result
+		puts "mgt_block $blocknum result $result"
+		while {[gets $fp result] >= 0} {
+			puts $result
+		}
+		close $fp
+		return 0
+	} trap CHILDSTATUS {- opts} {
+		puts "return with error"
+	}
+	return 1
+}
+
+set work test_work
+
