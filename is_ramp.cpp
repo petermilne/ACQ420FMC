@@ -30,6 +30,7 @@
 
 namespace G {
 	int step = 1;
+	int flat_for = 0;
 	int show_first = 0;
 	int emax = 10;
 };
@@ -40,6 +41,7 @@ int process()
 	unsigned uu1;
 	int ii = 0;
 	int ecount = 0;
+	int iflat = 0;
 
 	fread(reinterpret_cast<char*>(&uu1), sizeof(uu), 1, stdin);
 
@@ -47,10 +49,15 @@ int process()
 		fprintf(stderr, "start:%08x\n", uu1);
 	}
 	for (; fread(reinterpret_cast<char*>(&uu), sizeof(uu), 1, stdin) == 1;
-								++ii, uu1 = uu){
-		if (uu != uu1+G::step){
+							++ii, uu1 = uu){
+		unsigned step = 0;
+		if (++iflat >= G::flat_for){
+			step = G::step;
+			iflat = 0;
+		}
+		if (uu != uu1+step){
 			fprintf(stderr, "ERROR at %d %08x + %d != %08x\n",
-				ii, uu1, G::step, uu);
+				ii, uu1, step, uu);
 			++ecount;
 			if (ecount > G::emax){
 				return -1;
@@ -63,6 +70,7 @@ int process()
 
 struct poptOption opt_table[] = {
 	{ "step", 's', POPT_ARG_INT, &G::step, 0, "step size" },
+	{ "flat-for", 'F', POPT_ARG_INT, &G::flat_for, 0, "same value repeated" },
 	{ "show-first", 'f', POPT_ARG_INT, &G::show_first, 0, "show first entry" },
 	{ "emax", 'e', POPT_ARG_INT, &G::emax, 0, "max errors to accept before quitting" },
 	POPT_AUTOHELP
