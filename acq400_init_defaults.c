@@ -536,6 +536,8 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 	adev->xo.physchan = ao428_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	adev->xo.fsr = DAC_FIFO_STA;
+	adev->lotide = 1024;
+
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	if (measure_ao_fifo_ok){
@@ -558,6 +560,8 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->xo.physchan = ao420_physChan;
 	adev->xo.getFifoSamples = _ao420_getFifoSamples;
 	adev->xo.fsr = DAC_FIFO_STA;
+	adev->lotide = 16384;
+
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	measure_ao_fifo(adev);
