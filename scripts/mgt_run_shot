@@ -8,6 +8,10 @@ if [ -e $DCRST ]; then
 	echo DRAM CONTROLLER RESET
 	set.sys $DCRST 0
 fi
+# ALWAYS use 4MB buffers
+BL=$(get.sys /sys/module/acq420fmc/parameters/bufferlen)
+set.site 0 bufferlen /sys/module/acq420fmc/parameters/bufferlen
+
 mgt_load load 0 ${1:-99}
 streamtonowhered start
 
