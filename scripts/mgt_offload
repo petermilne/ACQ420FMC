@@ -1,19 +1,21 @@
 #!/usr/local/bin/expect
 
-log_user 0
+log_user 1
 
 # server controls axi PUSH to ZDRAM
 proc server {} {		
 	exec renice -20 -p [getpid]
+	puts stderr "ready to serve"	
 	while {[gets stdin line] >= 0} {
+		puts stderr "go with $line"
 		puts "OK"
-		set zaxi [open /dev/acq400.0.axi0 r]
-		if {[gets $zaxi aline] > 0} {
-			close $zaxi
-			puts "DONE $aline"
-		} else {
-			puts "ERROR"
-		}		
+		set zaxi [open /dev/acq400.0.axi0 w]
+		puts stderr "fconfigure $zaxi [fconfigure $zaxi -buffering]"
+		fconfigure $zaxi -buffering line
+		puts $zaxi $line
+		close $zaxi
+		puts "DONE $line"
+		puts stderr "done"
 	}
 	
 	exit 0
@@ -148,11 +150,32 @@ proc get_axi0_int_count {} {
 	close $fp
 	return [lindex [regexp -all -inline {\S+} $aline]  1 ]
 }
+
+proc get_buffer_max {} {
+	set fp [open /sys/module/acq420fmc/parameters/bufferlen r]
+	gets $fp bl
+	close $fp
+	return $bl
+}
+proc get_buffer_usage {} {
+	set fp [open "|get.site 0 bufferlen" r]
+	gets $fp bl
+	close $fp
+	return $bl
+}
+
+proc set_buffer_usage { bl } {
+	set fp [open "|set.site 0" w]
+	puts $fp bufferlen=$bl
+	close $fp
+}
+
 proc upload_one {mgt_block} {
 	global expect_out PBCLW
 	set int0 [get_axi0_int_count]
 	pgm_wait "upload_one axi_push_zdram"
-	send "axi_push_zdram\r"
+	send "0\r"
+	#send "axi_push_zdram\r"
 	expect OK {
 		puts -nonewline "axi0 start OK "
 
@@ -222,14 +245,20 @@ proc upload_range {first last} {
 }
 
 
-
+puts stderr "spawn server"
 spawn mgt_offload server
 
 set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
 chan configure $PULL -buffering none
 
+set buffer_len_cap [get_buffer_usage]
+set_buffer_usage [get_buffer_max]
+
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
 	upload_range $first $last
-}	
+}
+
+set_buffer_usage $buffer_len_cap
+

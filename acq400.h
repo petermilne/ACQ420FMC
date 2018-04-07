@@ -1502,7 +1502,7 @@ extern void go_rt(int prio);
 int check_fifo_statuses(struct acq400_dev *adev);
 
 /* MGT-DRAM-8 */
-int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[]);
+int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb);
 void axi64_terminate(struct dma_chan* dma_chan);
 
 extern u32 aggregator_get_fifo_samples(struct acq400_dev *adev);

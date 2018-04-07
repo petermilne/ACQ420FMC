@@ -746,7 +746,6 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 	struct acq400_dev* adev = pdesc->dev;
 	char labuf[AXIMAXLINE+1];
 	const char *ps;
-	int i1 = *f_pos;
 	int ii = 0;
 	int ibuf;
 	size_t rc;
@@ -761,7 +760,7 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 		return -1;
 	}
 	for (ps = labuf; sscanf(ps, "%d", &ibuf) == 1; ps = nexti(ps)){
-		pdesc->lbuf[i1 + ii++] = ibuf;
+		pdesc->lbuf[ii++] = ibuf;
 	}
 
 	dev_dbg(DEVP(adev), "%s write %d %02x,%02x,%02x,%02x",
@@ -770,7 +769,8 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 			pdesc->lbuf[2], pdesc->lbuf[3]);
 
 	if (rc == 0){
-		*f_pos += ii;
+		*f_pos = ii;
+		axi64_data_once(adev, (unsigned char*)PD(file)->lbuf, ii);
 		rc = count;
 	}
 	return count;
@@ -785,7 +785,7 @@ int acq400_axi_once_read(struct file *file, char __user *buf, size_t count,
 
 	dev_dbg(DEVP(adev), "%s 01 pos:%u", __FUNCTION__, *(unsigned*)f_pos);
 
-	axi64_data_once(adev, (unsigned char*)PD(file)->lbuf);
+	axi64_data_once(adev, (unsigned char*)PD(file)->lbuf, 1);
 	bc = snprintf(lbuf, min(sizeof(lbuf), count), "%u\n", *(unsigned*)f_pos);
 	rc = copy_to_user(buf, lbuf, bc);
 

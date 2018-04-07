@@ -97,6 +97,38 @@ static dma_cookie_t axidma_prep_buffer(struct dma_chan *chan, dma_addr_t buf, si
 	return cookie;
 }
 
+static dma_cookie_t axidma_prep_buffer_sg(
+		struct dma_chan *chan, struct scatterlist *sgl,	unsigned int sg_len,
+		enum dma_transfer_direction dir, struct completion *cmp)
+{
+	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+	struct dma_async_tx_descriptor *chan_desc;
+	dma_cookie_t cookie;
+
+	/* Step 5, create a buffer (channel)  descriptor for the buffer since only a
+	 * single buffer is being used for this transfer
+	 */
+
+	chan_desc = dmaengine_prep_slave_sg(chan, sgl, sg_len, dir, flags);
+
+	/* Make sure the operation was completed successfully
+	 */
+	if (!chan_desc) {
+		printk(KERN_ERR "dmaengine_prep_slave_single error\n");
+		cookie = -EBUSY;
+	} else {
+		chan_desc->callback = axidma_sync_callback;
+		chan_desc->callback_param = cmp;
+
+		/* Step 6, submit the transaction to the DMA engine so that it's queued
+		 * up to be processed later and get a cookie to track it's status
+		 */
+
+		cookie = dmaengine_submit(chan_desc);
+
+	}
+	return cookie;
+}
 /* Start a DMA transfer that was previously submitted to the DMA engine and then
  * wait for it complete, timeout or have an error
  */
@@ -169,19 +201,70 @@ int _axi64_data_once(struct acq400_dev *adev, unsigned char ib)
 	return 0;
 }
 
+#define MAXSG	4
+
+int _axi64_data_once_sg(struct acq400_dev *adev, unsigned char blocks[], int nb)
+{
+	struct dma_chan *rx_chan = adev->dma_chan[0];
+	struct scatterlist sg[MAXSG];
+	int ii;
+	struct completion rx_cmp;
+	dma_cookie_t rx_cookie;
+
+	BUG_ON(nb < MAXSG);
+	sg_init_table(sg, nb);
+	for (ii = 0; ii < nb; ++ii){
+		int ib = blocks[ii];
+		char *dest_dma_buffer = (char*)adev->hb[ib]->va;
+		int dma_length = adev->hb[ib]->len;
+
+		sg_dma_address(sg+ii) = dma_map_single(
+				rx_chan->device->dev,
+				dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
+		sg_dma_len(sg+ii) = adev->hb[ib]->len;
+
+		dev_dbg(DEVP(adev), "%s 01 ib %d va:%p len:%d",
+				__FUNCTION__, ib, dest_dma_buffer, dma_length);
+	}
+
+
+
+	rx_cookie = axidma_prep_buffer_sg(rx_chan, sg, nb, DMA_DEV_TO_MEM, &rx_cmp);
+
+	if (dma_submit_error(rx_cookie)) {
+		printk(KERN_ERR "xdma_prep_buffer error\n");
+		return -1;
+	}
+	dev_dbg(DEVP(adev), "%s 50 nb %d", __FUNCTION__, nb);
+
+	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
+	for (ii = 0; ii < nb; ++ii){
+		dma_unmap_single(rx_chan->device->dev,
+				sg_dma_address(sg+ii), sg_dma_len(sg+ii), DMA_FROM_DEVICE);
+	}
+
+
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
+	return 0;
+}
 /* @@todo .. nasty use of global - what if more than one channel ..
  * bad Linux, but effective here as it's a singleton */
-int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[] )
+int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb)
 {
 	/* blocks : 0 1 2 3 then 0 terminated.. */
 	int rc;
 	int ii;
 	AXIDMA_ONCE_BUSY = 1;
 
-	for (ii = 0; ii == 0 || blocks[ii] != '\0'; ++ii){
-		dev_dbg(DEVP(adev), "axi64_data_once() %d [%d]", ii, blocks[ii]);
-		rc = _axi64_data_once(adev, blocks[ii]);
-		dmaengine_terminate_all(adev->dma_chan[0]);
+	if (nb == 1){
+		rc = _axi64_data_once(adev, blocks[0]);
+	}else{
+		for (ii = 0; ii < nb; ii += MAXSG){
+			rc = _axi64_data_once_sg(adev, blocks+ii, min(nb, MAXSG));
+			if (rc != 0){
+				break;
+			}
+		}
 	}
 
 	if (AXIDMA_ONCE_RESET_ON_EXIT){
