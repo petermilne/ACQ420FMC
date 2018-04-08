@@ -78,7 +78,7 @@ proc .. {a {b ""} {step 1}} {
 
 proc axi_dma_busy {} {
 	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
-	return [espr TDESC == 0]
+	return [expr $TDESC == 0]
 	
 #	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]	
 #	return [expr $CTRL & 1]
@@ -200,14 +200,14 @@ proc upload_one {mgt_block} {
 	return 0
 }
 
-proc upload_group {group} {
+proc upload_group {group to_group} {
 	global expect_out PBCLW
 	
 	if {[axi_dma_busy]} {
 		puts stderr "ERROR axi_dma_busy from the get-go"
 	}
 	set int0 [get_axi0_int_count]
-	send "$group\r"
+	send "$to_group\r"
 	expect OK {
 		puts -nonewline "axi0 start OK "
 	}
@@ -265,7 +265,11 @@ proc _upload_range {first last} {
 	set PBCLW [get_pbclw]
 	set gc 0
 	set group [list]
+	set to_group [list]
 	
+	for { set ii 0 } { $ii < $NGROUP } { incr ii } {
+		lappend to_group $ii
+	}
 	foreach ii [.. $first $last] {
 		lappend group $ii
 		incr gc
