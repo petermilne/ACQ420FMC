@@ -725,16 +725,6 @@ int acq420_reserve_open(struct inode *inode, struct file *file)
 
 #include <linux/ctype.h>
 
-const char* nexti(const char* str)
-{
-        while(isdigit(*str)){
-                ++str;
-        }
-        while(ispunct(*str)){
-                ++str;
-        }
-        return str;
-}
 
 ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
@@ -749,6 +739,10 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 	int ii = 0;
 	int ibuf;
 	size_t rc;
+	int cursor = 0;
+
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__ );
+
 
 	if (count > AXIMAXLINE){
 		count = AXIMAXLINE;
@@ -756,15 +750,18 @@ ssize_t acq400_axi_once_write(struct file *file, const char __user *buf, size_t 
 	rc = copy_from_user(labuf, buf, count);
 	labuf[count] = '\0';
 
+
+
 	if (rc != 0){
 		return -1;
 	}
-	for (ps = labuf; sscanf(ps, "%d", &ibuf) == 1; ps = nexti(ps)){
+	for (ps = labuf; sscanf(ps, "%d%n", &ibuf, &cursor) > 0; ps += cursor){
+		dev_dbg(DEVP(adev), "%s [%d] %d", __FUNCTION__, ii, ibuf);
 		pdesc->lbuf[ii++] = ibuf;
 	}
 
-	dev_dbg(DEVP(adev), "%s write %d %02x,%02x,%02x,%02x",
-			__FUNCTION__, count,
+	dev_dbg(DEVP(adev), "%s write %d nbuf:%d %02x,%02x,%02x,%02x",
+			__FUNCTION__, count, ii,
 			pdesc->lbuf[0], pdesc->lbuf[1],
 			pdesc->lbuf[2], pdesc->lbuf[3]);
 
