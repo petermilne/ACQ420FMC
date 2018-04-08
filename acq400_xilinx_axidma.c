@@ -837,6 +837,7 @@ static int dma_reset(struct xilinx_dma_chan *chan)
 
 void dma_halt(struct xilinx_dma_chan *chan)
 {
+	dev_dbg(chan->dev, "%s", __FUNCTION__);
 	dma_write(chan, XILINX_DMA_CONTROL_OFFSET,
 		dma_read(chan, XILINX_DMA_CONTROL_OFFSET) & ~XILINX_DMA_CR_RUNSTOP_MASK);
 	dma_write(chan, XILINX_DMA_TDESC_OFFSET, 0);

@@ -213,7 +213,8 @@ proc upload_group {group to_group} {
 		puts -nonewline "axi0 start OK "
 	}
 	while {[axi_dma_busy] == 0} {
-		after 10
+		puts stderr "axi_dma_busy"
+		after 2
 	}
 	set_mgt_pull_desc $group
 	expect -re "DONE (\[0-9]+)" {
