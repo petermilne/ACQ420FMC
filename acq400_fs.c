@@ -313,7 +313,7 @@ ssize_t _a400fs_read_raw_file(struct file *file, char *buf,
 
 	int headroom = min(buf_headroom, set_headroom);
 
-	dev_dbg(DEVP(adev0), "[%d] + %d head:%d count:%d",
+	dev_dbg(DEVP(adev0), "%s [%d] + %d head:%d count:%d", __FUNCTION__,
 			ibuf, buff_offset, headroom, count);
 
 	if (set_headroom <= 0){
