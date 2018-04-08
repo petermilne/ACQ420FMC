@@ -835,6 +835,11 @@ static int dma_reset(struct xilinx_dma_chan *chan)
 	return 0;
 }
 
+void dma_halt(struct xilinx_dma_chan *chan)
+{
+	dma_write(chan, XILINX_DMA_CONTROL_OFFSET,
+		dma_read(chan, XILINX_DMA_CONTROL_OFFSET) & ~XILINX_DMA_CR_RUNSTOP_MASK);
+}
 int xilinx_dma_reset(struct xilinx_dma_chan *chan)
 {
 	dev_dbg(chan->dev, "xilinx_dma_reset()");
@@ -845,4 +850,11 @@ int xilinx_dma_reset_dmachan(struct dma_chan *chan)
 {
 	return xilinx_dma_reset(to_xilinx_chan(chan));
 }
+
+void xilinx_dma_halt(struct dma_chan *chan)
+{
+	dma_halt(to_xilinx_chan(chan));
+}
+
+
 

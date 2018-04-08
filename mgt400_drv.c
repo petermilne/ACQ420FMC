@@ -344,6 +344,9 @@ ssize_t mgt400_dma_descr_write(struct file *file, const char __user *buf, size_t
 			__FUNCTION__, mgt400_headroom(mdev, shl));
 
 	for (iw = 0; iw < cw && mgt400_headroom(mdev, shl); ++iw){
+		dev_dbg(DEVP(mdev), "%s 66 [%d] %04x = 0x%08x",
+					__FUNCTION__, iw, fifo_offset, lbuf[iw]);
+
 		mgt400wr32(mdev, fifo_offset, lbuf[iw]);
 	}
 	mgt400_fifo_enable(mdev, shl);

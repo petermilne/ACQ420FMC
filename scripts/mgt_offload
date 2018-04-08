@@ -75,18 +75,12 @@ proc .. {a {b ""} {step 1}} {
     } ;# one-armed if: else return empty list
  }
 
-proc axi_dma_once_busy {} {
-	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
-	gets $fp line
-	close $fp
-	if {[string first 1 $line] == 0} {
-#		puts "axi_dma_once_busy return 1"
-		return 1
-	} else {
-#		puts "axi_dma_once_busy return 0"
-		return 0
-	}	
+
+proc axi_dma_busy {} {
+	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]
+	return [expr $CTRL & 1]
 }
+
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
 	puts $fp $en
@@ -105,7 +99,7 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	puts "set_mgt_pull_desc $mgt_block llen [llength $mgt_block]"
+	puts "set_mgt_pull_desc \"$mgt_block\" llen [llength $mgt_block]"
 	
 	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 }
@@ -172,7 +166,7 @@ proc upload_one {mgt_block} {
 		puts -nonewline "axi0 start OK "
 
 	}
-	while {[axi_dma_once_busy] == 0} {
+	while {[axi_dma_busy] == 0} {
 		after 10
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
@@ -186,7 +180,6 @@ proc upload_one {mgt_block} {
 		exit 1
 	}
 	
-	axi_dma_once_busy
 	set int1 [get_axi0_int_count]
 	if {[expr $int1 - $int0] != 1} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
@@ -206,12 +199,16 @@ proc upload_one {mgt_block} {
 
 proc upload_group {group} {
 	global expect_out PBCLW
+	
+	if {[axi_dma_busy]} {
+		puts stderr "ERROR axi_dma_busy from the get-go"
+	}
 	set int0 [get_axi0_int_count]
 	send "$group\r"
 	expect OK {
 		puts -nonewline "axi0 start OK "
 	}
-	while {[axi_dma_once_busy] == 0} {
+	while {[axi_dma_busy] == 0} {
 		after 10
 	}
 	set_mgt_pull_desc $group
@@ -223,8 +220,7 @@ proc upload_group {group} {
 		puts ERROR
 		exit 1
 	}
-	
-	axi_dma_once_busy
+		
 	set int1 [get_axi0_int_count]
 	if {[expr $int1 - $int0] != 1} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"

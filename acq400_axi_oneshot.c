@@ -171,9 +171,8 @@ static void axidma_start_transfer(struct dma_chan *chan, struct completion *cmp,
 
 extern int xilinx_dma_reset_dmachan(struct dma_chan *chan);
 
-int _axi64_data_once(struct acq400_dev *adev, unsigned char ib)
+int _axi64_data_once(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned char ib)
 {
-	struct dma_chan *rx_chan = adev->dma_chan[0];
 	char *dest_dma_buffer = (char*)adev->hb[ib]->va;
 	int dma_length = adev->hb[ib]->len;
 
@@ -203,9 +202,8 @@ int _axi64_data_once(struct acq400_dev *adev, unsigned char ib)
 
 #define MAXSG	4
 
-int _axi64_data_once_sg(struct acq400_dev *adev, unsigned char blocks[], int nb)
+int _axi64_data_once_sg(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned char blocks[], int nb)
 {
-	struct dma_chan *rx_chan = adev->dma_chan[0];
 	struct scatterlist sg[MAXSG];
 	int ii;
 	struct completion rx_cmp;
@@ -252,27 +250,30 @@ int _axi64_data_once_sg(struct acq400_dev *adev, unsigned char blocks[], int nb)
  * bad Linux, but effective here as it's a singleton */
 int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb)
 {
+	struct dma_chan *rx_chan = adev->dma_chan[0];
 	/* blocks : 0 1 2 3 then 0 terminated.. */
 	int rc = 0;
 	int ii;
 	AXIDMA_ONCE_BUSY = 1;
 
 	if (nb == 1){
-		rc = _axi64_data_once(adev, blocks[0]);
+		rc = _axi64_data_once(adev, rx_chan, blocks[0]);
 	}else{
 		for (ii = 0; ii < nb; ii += MAXSG){
 			dev_dbg(DEVP(adev), "%s call _axi64_data_once_sg( %p %d)",
 					__FUNCTION__, blocks+ii, min(nb, MAXSG));
-			rc = _axi64_data_once_sg(adev, blocks+ii, min(nb, MAXSG));
+			rc = _axi64_data_once_sg(adev, rx_chan, blocks+ii, min(nb, MAXSG));
 			if (rc != 0){
 				break;
 			}
 		}
 	}
 
+	xilinx_dma_halt(rx_chan);
+
 	if (AXIDMA_ONCE_RESET_ON_EXIT){
 		dev_dbg(DEVP(adev), "%s 66", __FUNCTION__);
-		xilinx_dma_reset_dmachan(adev->dma_chan[0]);
+		xilinx_dma_reset_dmachan(rx_chan);
 	}
 	AXIDMA_ONCE_BUSY = 0;
 	return 0;
