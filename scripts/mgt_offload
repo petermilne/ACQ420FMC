@@ -105,17 +105,9 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	global PULL
-
-#	puts "set_mgt_pull_desc $mgt_block"
+	puts "set_mgt_pull_desc $mgt_block llen [llength $mgt_block]"
 	
-#	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
-	set fp [open "|mgtdram_descgen $mgt_block" r]	
-	chan configure $fp -translation binary
-	chan configure $fp -buffering none
-	puts -nonewline $PULL [read $fp 4]
-	flush $PULL
-	close $fp	
+	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 }
 
 
@@ -212,18 +204,77 @@ proc upload_one {mgt_block} {
 	return 0
 }
 
+proc upload_group {group} {
+	global expect_out PBCLW
+	set int0 [get_axi0_int_count]
+	send "$group\r"
+	expect OK {
+		puts -nonewline "axi0 start OK "
+	}
+	while {[axi_dma_once_busy] == 0} {
+		after 10
+	}
+	set_mgt_pull_desc $group
+	expect -re "DONE (\[0-9]+)" {
+#		puts "axi0 [string trim $expect_out(buffer)]"
+	} timeout {
+		puts "ERROR, script-side timeout"
+	} ERROR {
+		puts ERROR
+		exit 1
+	}
+	
+	axi_dma_once_busy
+	set int1 [get_axi0_int_count]
+	if {[expr $int1 - $int0] != 1} {
+		puts "ERROR no axi-dma interrupt $int0 $int1"
+	}
+	set pbclw [get_pbclw]
+	set delta [expr $pbclw - $PBCLW]
+	if {$delta != 264704} {
+		puts "ERROR:PBCLW: $PBCLW => $pbclw : delta $delta"
+		return 1
+	}
+	set PBCLW $pbclw
+	check_pull_fifo_status
+
+	pgm_wait "upload_one done"	
+}
 set MAX_RETRY 0
 if { [info exists ::env(MAX_RETRY)] } {
 	set MAX_RETRY $::env(MAX_RETRY)
 }
 
+proc calc_ngroup {} {
+	set nc [exec get.site 0 NCHAN]
+	set nc3 [expr $nc/3]
+	set ncx [expr $nc3*3]
+	
+	if { $nc == $ncx } {
+		return 3	
+	} else {
+		return 4
+	}	
+}
+
+
+
 proc _upload_range {first last} {
 	global work MAX_RETRY HB0 PBCLW
 	
+	set NGROUP [calc_ngroup]	
 	set PBCLW [get_pbclw]
-
+	set gc 0
+	set group [list]
+	
 	foreach ii [.. $first $last] {
-		for { set rty 0 } { [upload_one $ii] != 0 } { incr rty } {
+		lappend group $ii
+		incr gc
+		if { $gc < $NGROUP } {
+			continue
+		}
+			
+		for { set rty 0 } { [upload_group $group] != 0 } { incr rty } {
 			if { $rty >= $MAX_RETRY } {
 				puts "ERROR retry exceeded"
 				return
@@ -236,6 +287,8 @@ proc _upload_range {first last} {
 				return
 			}
 		}
+		set group [list]
+		set gc 0
 	}	
 }
 proc upload_range {first last} {
@@ -254,6 +307,7 @@ chan configure $PULL -buffering none
 
 set buffer_len_cap [get_buffer_usage]
 set_buffer_usage [get_buffer_max]
+
 
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
