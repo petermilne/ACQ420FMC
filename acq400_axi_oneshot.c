@@ -211,7 +211,8 @@ int _axi64_data_once_sg(struct acq400_dev *adev, unsigned char blocks[], int nb)
 	struct completion rx_cmp;
 	dma_cookie_t rx_cookie;
 
-	BUG_ON(nb < MAXSG);
+	BUG_ON(nb >= MAXSG);
+
 	sg_init_table(sg, nb);
 	for (ii = 0; ii < nb; ++ii){
 		int ib = blocks[ii];
@@ -252,7 +253,7 @@ int _axi64_data_once_sg(struct acq400_dev *adev, unsigned char blocks[], int nb)
 int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb)
 {
 	/* blocks : 0 1 2 3 then 0 terminated.. */
-	int rc;
+	int rc = 0;
 	int ii;
 	AXIDMA_ONCE_BUSY = 1;
 
@@ -260,6 +261,8 @@ int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb)
 		rc = _axi64_data_once(adev, blocks[0]);
 	}else{
 		for (ii = 0; ii < nb; ii += MAXSG){
+			dev_dbg(DEVP(adev), "%s call _axi64_data_once_sg( %p %d)",
+					__FUNCTION__, blocks+ii, min(nb, MAXSG));
 			rc = _axi64_data_once_sg(adev, blocks+ii, min(nb, MAXSG));
 			if (rc != 0){
 				break;
