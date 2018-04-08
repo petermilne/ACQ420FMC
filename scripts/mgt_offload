@@ -77,8 +77,11 @@ proc .. {a {b ""} {step 1}} {
 
 
 proc axi_dma_busy {} {
-	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]
-	return [expr $CTRL & 1]
+	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
+	return [espr TDESC == 0]
+	
+#	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]	
+#	return [expr $CTRL & 1]
 }
 
 proc set_mgt_buscomms {en} {

@@ -175,13 +175,14 @@ int _axi64_data_once(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned
 {
 	char *dest_dma_buffer = (char*)adev->hb[ib]->va;
 	int dma_length = adev->hb[ib]->len;
+	dma_addr_t rx_dma_handle;
+	struct completion rx_cmp;
 
 	dev_dbg(DEVP(adev), "%s 01 ib %d va:%p len:%d", __FUNCTION__, ib, dest_dma_buffer, dma_length);
 
-	{
-	dma_addr_t rx_dma_handle = dma_map_single(
+
+	rx_dma_handle = dma_map_single(
 			rx_chan->device->dev, dest_dma_buffer, dma_length, DMA_FROM_DEVICE);
-	struct completion rx_cmp;
 
 	dma_cookie_t rx_cookie = axidma_prep_buffer(
 			rx_chan, rx_dma_handle, dma_length, DMA_DEV_TO_MEM, &rx_cmp);
@@ -195,7 +196,7 @@ int _axi64_data_once(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned
 	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, dma_length, DMA_FROM_DEVICE);
 
-	}
+
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return 0;
 }
