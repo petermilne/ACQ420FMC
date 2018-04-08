@@ -32,6 +32,6 @@ int descgen(int d0, int d1)
 int main(int argc, char* argv[])
 {
 	int d0 = argc>1? atoi(argv[1]): 0;
-	int d1 = argc>2? atoi(argv[2]): d0;
+	int d1 = argc>2? atoi(argv[argc-1]): d0;
 	return descgen(d0, d1);
 }
