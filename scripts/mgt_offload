@@ -78,7 +78,7 @@ proc .. {a {b ""} {step 1}} {
 
 proc axi_dma_busy {} {
 	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
-	return [expr $TDESC == 0]
+	return [expr $TDESC != 0]
 	
 #	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]	
 #	return [expr $CTRL & 1]
@@ -170,6 +170,7 @@ proc upload_one {mgt_block} {
 
 	}
 	while {[axi_dma_busy] == 0} {
+		puts stderr "axi_dma_busy"
 		after 10
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
@@ -228,6 +229,7 @@ proc upload_group {group to_group} {
 	if {[expr $int1 - $int0] != 1} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
 	}
+	if { 0 } {
 	set pbclw [get_pbclw]
 	set delta [expr $pbclw - $PBCLW]
 	if {$delta != 264704} {
@@ -235,9 +237,11 @@ proc upload_group {group to_group} {
 		return 1
 	}
 	set PBCLW $pbclw
+	}
 	check_pull_fifo_status
 
-	pgm_wait "upload_one done"	
+	pgm_wait "upload_one done"
+	return 0
 }
 set MAX_RETRY 0
 if { [info exists ::env(MAX_RETRY)] } {
@@ -249,9 +253,9 @@ proc calc_ngroup {} {
 	set nc3 [expr $nc/3]
 	set ncx [expr $nc3*3]
 	
-	if { $nc == $ncx } {
+	if { $nc == $ncx } {		
 		return 3	
-	} else {
+	} else {		
 		return 4
 	}	
 }
@@ -267,6 +271,9 @@ proc _upload_range {first last} {
 	set group [list]
 	set to_group [list]
 	
+	# nominal 32xshorts samples.
+	set ::env(AXIBUFS_NSAMPLES) [expr 65536 * $NGROUP]
+	
 	for { set ii 0 } { $ii < $NGROUP } { incr ii } {
 		lappend to_group $ii
 	}
@@ -277,7 +284,7 @@ proc _upload_range {first last} {
 			continue
 		}
 			
-		for { set rty 0 } { [upload_group $group] != 0 } { incr rty } {
+		for { set rty 0 } { [upload_group $group $to_group] != 0 } { incr rty } {
 			if { $rty >= $MAX_RETRY } {
 				puts "ERROR retry exceeded"
 				return
@@ -304,6 +311,7 @@ proc upload_range {first last} {
 puts stderr "spawn server"
 spawn mgt_offload server
 
+exec set.sys /dev/acq400.0.knobs/optimise_bufferlen 32
 set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
 chan configure $PULL -buffering none

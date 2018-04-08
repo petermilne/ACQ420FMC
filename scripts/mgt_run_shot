@@ -2,6 +2,9 @@
 
 set.site 1 SIG:SAMPLE_COUNT:RESET 1
 
+eval $(get.site 0 aggregator)
+run0 $sites
+
 DCRST=/dev/gpio/MGTDRAM/DCRST
 if [ -e $DCRST ]; then
 	set.sys $DCRST 1
