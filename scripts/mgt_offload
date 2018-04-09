@@ -120,7 +120,7 @@ trap sigint_handler SIGINT
 proc set_mgt_pull_desc {mgt_block} {
 	puts "set_mgt_pull_desc \"$mgt_block\" llen [llength $mgt_block]"
 	
-	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
+	exec mgtdram_descgen --file /dev/mgt400.A.pull_desc [join $mgt_block ,] 
 }
 
 

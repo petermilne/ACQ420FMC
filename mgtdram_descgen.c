@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "popt.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define DESCLEN	0x400000
 #define SCALE	12
@@ -29,9 +33,65 @@ int descgen(int d0, int d1)
 	}
 	return 0;
 }
-int main(int argc, char* argv[])
+
+char* device;
+int G_d0;
+int G_d1;
+
+struct poptOption opt_table[] = {
+	{ "file", 'f', POPT_ARG_STRING, &device, 'f' },
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
+int ui(int argc, const char* argv[])
 {
-	int d0 = argc>1? atoi(argv[1]): 0;
-	int d1 = argc>2? atoi(argv[argc-1]): d0;
-	return descgen(d0, d1);
+	poptContext opt_context = poptGetContext(argv[0], argc, argv, opt_table, 0 );
+	int rc;
+	const char** args;
+	int nargs;
+
+	while ((rc = poptGetNextOpt(opt_context)) > 0){
+		switch(rc){
+		case 'f':
+			fd_out = open(device, O_WRONLY);
+			if (fd_out == -1){
+				perror(device);
+				return(1);
+			}
+		default:
+			;
+		}
+	}
+
+	args = poptGetArgs(opt_context);
+	for (nargs = 0; args[nargs] != NULL; ++nargs){
+		;
+	}
+
+	if (nargs == 2){
+		return descgen(atoi(args[0]), atoi(args[1]));
+	}else{
+		int ii;
+
+		for (ii = 0; ii < nargs; ++ii){
+			int to, from;
+			int x1, x2, x3;
+			int nseq;
+			if (sscanf(args[ii], "%d-%d", &from, &to) == 2 ||
+			    sscanf(args[ii], "%d:%d", &from, &to) == 2){
+				descgen(from, to);
+			}else if ((nseq = sscanf(args[ii], "%d,%d,%d", &x1, &x2, &x3)) > 0){
+				if (nseq > 0) descgen1(x1);
+				if (nseq > 1) descgen1(x2);
+				if (nseq > 2) descgen1(x3);
+			}else{
+				descgen1(atoi(args[ii]));
+			}
+		}
+	}
+	return 0;
+}
+int main(int argc, const char* argv[])
+{
+	return ui(argc, argv);
 }
