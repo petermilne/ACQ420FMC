@@ -37,6 +37,18 @@ proc default_work {src blocknum} {
 	puts "default_work $src $blocknum"
 	return 0
 }
+proc calc_ngroup {} {
+	set nc [exec get.site 0 NCHAN]
+	set nc3 [expr $nc/3]
+	set ncx [expr $nc3*3]
+	
+	if { $nc == $ncx } {		
+		return 3	
+	} else {		
+		return 4
+	}	
+}
+
 set SSTEP 0
 if {[info exists env(SSTEP)]} {
     # okay, it's there, use it
@@ -45,6 +57,10 @@ if {[info exists env(SSTEP)]} {
 set work default_work
 set HB0	/dev/acq400.0.hb/000
 
+set NGROUP [calc_ngroup]	
+# nominal 32xshorts samples.
+set ::env(AXIBUFS_NSAMPLES) [expr 65536 * $NGROUP]
+	
 if {[info exists ::env(MGTOFFLOADCUSTOM)]} {
 	puts "customisation: source $::env(MGTOFFLOADCUSTOM)"
 	source $::env(MGTOFFLOADCUSTOM)
@@ -170,7 +186,7 @@ proc upload_one {mgt_block} {
 
 	}
 	while {[axi_dma_busy] == 0} {
-		puts stderr "axi_dma_busy"
+		puts stderr "waiting axi_dma_busy"
 		after 10
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
@@ -213,7 +229,7 @@ proc upload_group {group to_group} {
 		puts -nonewline "axi0 start OK "
 	}
 	while {[axi_dma_busy] == 0} {
-		puts stderr "axi_dma_busy"
+		puts stderr "waiting axi_dma_busy"
 		after 2
 	}
 	set_mgt_pull_desc $group
@@ -249,31 +265,15 @@ if { [info exists ::env(MAX_RETRY)] } {
 	set MAX_RETRY $::env(MAX_RETRY)
 }
 
-proc calc_ngroup {} {
-	set nc [exec get.site 0 NCHAN]
-	set nc3 [expr $nc/3]
-	set ncx [expr $nc3*3]
-	
-	if { $nc == $ncx } {		
-		return 3	
-	} else {		
-		return 4
-	}	
-}
-
 
 
 proc _upload_range {first last} {
-	global work MAX_RETRY HB0 PBCLW
+	global work MAX_RETRY HB0 PBCLW NGROUP
 	
-	set NGROUP [calc_ngroup]	
 	set PBCLW [get_pbclw]
 	set gc 0
 	set group [list]
 	set to_group [list]
-	
-	# nominal 32xshorts samples.
-	set ::env(AXIBUFS_NSAMPLES) [expr 65536 * $NGROUP]
 	
 	for { set ii 0 } { $ii < $NGROUP } { incr ii } {
 		lappend to_group $ii
