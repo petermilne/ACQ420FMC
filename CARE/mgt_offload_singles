@@ -1,0 +1,235 @@
+#!/usr/local/bin/expect
+
+log_user 0
+
+# server controls axi PUSH to ZDRAM
+proc server {} {		
+	exec renice -20 -p [getpid]
+	while {[gets stdin line] >= 0} {
+		puts "OK"
+		set zaxi [open /dev/acq400.0.axi0 r]
+		if {[gets $zaxi aline] > 0} {
+			close $zaxi
+			puts "DONE $aline"
+		} else {
+			puts "ERROR"
+		}		
+	}
+	
+	exit 0
+}
+
+if { $::argc == 1 } {
+	if {[lindex $::argv 0] == "server" } {
+		server
+	}
+}
+
+# client from here on ..
+
+# http://wiki.tcl.tk/10795
+
+proc sgn x {expr {($x>0) - ($x<0)}}
+
+proc default_work {src blocknum} {
+	puts "default_work $src $blocknum"
+	return 0
+}
+set SSTEP 0
+if {[info exists env(SSTEP)]} {
+    # okay, it's there, use it
+    set SSTEP $env(SSTEP)
+}
+set work default_work
+set HB0	/dev/acq400.0.hb/000
+
+if {[info exists ::env(MGTOFFLOADCUSTOM)]} {
+	puts "customisation: source $::env(MGTOFFLOADCUSTOM)"
+	source $::env(MGTOFFLOADCUSTOM)
+} else {
+	if {[file exists /mnt/local/mgt_offload_custom]} {
+		# typically, this  will reassign work
+		source /mnt/local/mgt_offload_custom
+	}
+}
+
+proc .. {a {b ""} {step 1}} {
+#    if {$b eq ""} {set b $a; set a 0} ;# argument shift
+    if {$b eq ""} {set b $a; } 
+    if {![string is int $a] || ![string is int $b]} {
+        scan $a %c a; scan $b %c b
+        incr b $step ;# let character ranges include the last
+        set mode %c
+    } else {set mode %d}
+
+    incr b
+    set ss [sgn $step]
+    if {[sgn [expr {$b - $a}]] == $ss} {
+        set res [format $mode $a]
+        while {[sgn [expr {$b-$step-$a}]] == $ss} {
+            lappend res [format $mode [incr a $step]]
+        }
+        set res
+    } ;# one-armed if: else return empty list
+ }
+
+proc axi_dma_once_busy {} {
+	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
+	gets $fp line
+	close $fp
+	if {[string first 1 $line] == 0} {
+#		puts "axi_dma_once_busy return 1"
+		return 1
+	} else {
+#		puts "axi_dma_once_busy return 0"
+		return 0
+	}	
+}
+proc set_mgt_buscomms {en} {
+	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
+	puts $fp $en
+	close $fp
+}
+
+proc sigint_handler {} {
+	set_mgt_buscomms 0
+	puts "cleared buscomms"
+	exit 1
+}
+
+trap sigint_handler SIGINT
+
+
+
+
+proc set_mgt_pull_desc {mgt_block} {
+	global PULL
+
+#	puts "set_mgt_pull_desc $mgt_block"
+	
+#	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
+	set fp [open "|mgtdram_descgen $mgt_block" r]	
+	chan configure $fp -translation binary
+	chan configure $fp -buffering none
+	puts -nonewline $PULL [read $fp 4]
+	flush $PULL
+	close $fp	
+}
+
+
+proc pgm_wait {line} {
+	global SSTEP
+	if { $SSTEP == 1 } {
+		puts -nonewline "pgm_wait:$line>"
+		flush stdout
+		gets stdin gofer
+		puts "pgm_wait:$line> 99"
+	}
+}
+
+global PBCLW
+
+proc get_pbclw {} {
+	return [exec get.site 13 pull_buffer_count_lw]
+}
+
+proc check_pull_fifo_status {} {
+	set UNDER_OVER	0x000c0000
+	set sr [exec cat /sys/kernel/debug/mgt400/mgt400.A/DMA_FIFO_SR.0x2008]
+	if {[expr $sr & $UNDER_OVER] != 0} {
+		puts "ERROR:PULL FIFO STATUS ERROR $sr"
+		exit 1
+	}
+}
+
+proc get_axi0_int_count {} {
+	set fp [open "|grep axi-dma0 /proc/interrupts"]
+	gets $fp aline
+	close $fp
+	return [lindex [regexp -all -inline {\S+} $aline]  1 ]
+}
+proc upload_one {mgt_block} {
+	global expect_out PBCLW
+	set int0 [get_axi0_int_count]
+	pgm_wait "upload_one axi_push_zdram"
+	send "axi_push_zdram\r"
+	expect OK {
+		puts -nonewline "axi0 start OK "
+
+	}
+	while {[axi_dma_once_busy] == 0} {
+		after 10
+	}
+	pgm_wait "set_mgt_pull_desc $mgt_block"
+	set_mgt_pull_desc $mgt_block
+	expect -re "DONE (\[0-9]+)" {
+#		puts "axi0 [string trim $expect_out(buffer)]"
+	} timeout {
+		puts "ERROR, script-side timeout"
+	} ERROR {
+		puts ERROR
+		exit 1
+	}
+	
+	axi_dma_once_busy
+	set int1 [get_axi0_int_count]
+	if {[expr $int1 - $int0] != 1} {
+		puts "ERROR no axi-dma interrupt $int0 $int1"
+	}
+	set pbclw [get_pbclw]
+	set delta [expr $pbclw - $PBCLW]
+	if {$delta != 264704} {
+		puts "ERROR:PBCLW: $PBCLW => $pbclw : delta $delta"
+		return 1
+	}
+	set PBCLW $pbclw
+	check_pull_fifo_status
+
+	pgm_wait "upload_one done"
+	return 0
+}
+
+set MAX_RETRY 0
+if { [info exists ::env(MAX_RETRY)] } {
+	set MAX_RETRY $::env(MAX_RETRY)
+}
+
+proc _upload_range {first last} {
+	global work MAX_RETRY HB0 PBCLW
+	
+	set PBCLW [get_pbclw]
+
+	foreach ii [.. $first $last] {
+		for { set rty 0 } { [upload_one $ii] != 0 } { incr rty } {
+			if { $rty >= $MAX_RETRY } {
+				puts "ERROR retry exceeded"
+				return
+			}
+		}
+
+		for { set rty 0 } { [$work $HB0 $ii] != 0 } { incr rty } {
+			if { $rty >= $MAX_RETRY } {
+				puts "ERROR retry exceeded"
+				return
+			}
+		}
+	}	
+}
+proc upload_range {first last} {
+	set_mgt_buscomms 1
+	_upload_range $first $last
+	set_mgt_buscomms 0
+}
+
+
+
+spawn mgt_offload server
+
+set PULL [open /dev/mgt400.A.pull_desc w]
+chan configure $PULL -translation binary
+chan configure $PULL -buffering none
+
+foreach arg $::argv {
+	lassign [split $arg '-'] first last
+	upload_range $first $last
+}	
