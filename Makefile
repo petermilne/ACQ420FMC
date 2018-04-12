@@ -93,6 +93,7 @@ package: all
 	cp map/* opkg/usr/local/map
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
 	cp sysconfig/* opkg/etc/sysconfig
+	ln -s /usr/local/CARE/mgt_offload_singles opkg/usr/local/bin/mgt_offload
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
