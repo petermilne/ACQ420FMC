@@ -1,21 +1,18 @@
 #!/usr/local/bin/expect
 
-log_user 1
+log_user 0
 
 # server controls axi PUSH to ZDRAM
 proc server {} {		
 	exec renice -20 -p [getpid]
 	puts stderr "ready to serve"	
-	while {[gets stdin line] >= 0} {
-		puts stderr "go with $line"
+	while {[gets stdin line] >= 0} {		
 		puts "OK"
-		set zaxi [open /dev/acq400.0.axi0 w]
-		puts stderr "fconfigure $zaxi [fconfigure $zaxi -buffering]"
+		set zaxi [open /dev/acq400.0.axi0 w]		
 		fconfigure $zaxi -buffering line
 		puts $zaxi $line
 		close $zaxi
 		puts "DONE $line"
-		puts stderr "done"
 	}
 	
 	exit 0
@@ -118,7 +115,7 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	puts "set_mgt_pull_desc \"$mgt_block\" llen [llength $mgt_block]"
+#	puts "set_mgt_pull_desc \"$mgt_block\" llen [llength $mgt_block]"
 	
 	exec mgtdram_descgen --file /dev/mgt400.A.pull_desc [join $mgt_block ,] 
 }
@@ -229,8 +226,8 @@ proc upload_group {group to_group} {
 		puts -nonewline "axi0 start OK "
 	}
 	while {[axi_dma_busy] == 0} {
-		puts stderr "waiting axi_dma_busy"
-		after 2
+#		puts stderr "waiting axi_dma_busy"
+		after 4
 	}
 	set_mgt_pull_desc $group
 	expect -re "DONE (\[0-9]+)" {
@@ -257,7 +254,7 @@ proc upload_group {group to_group} {
 	}
 	check_pull_fifo_status
 
-	pgm_wait "upload_one done"
+	pgm_wait "upload_group done"
 	return 0
 }
 set MAX_RETRY 0
