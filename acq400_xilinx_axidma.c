@@ -630,9 +630,7 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 50");
 
 	if (!wimp_out){
-		int databursts = adev->bufferlen/0x800;
-		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
-
+		acq400_set_AXI_DMA_len(adev, adev->bufferlen);
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 99");

@@ -306,10 +306,14 @@ proc upload_range {first last} {
 }
 
 
+proc set_axi_dma_len {} {
+	set BL [exec cat /sys/module/acq420fmc/parameters/bufferlen]
+	echo $BL > /dev/acq400.0.knobs/AXI_DMA_len
+}
+
 puts stderr "spawn server"
 spawn mgt_offload server
-
-exec set.sys /dev/acq400.0.knobs/optimise_bufferlen 32
+set_axi_dma_len
 set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
 chan configure $PULL -buffering none

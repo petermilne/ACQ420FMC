@@ -270,6 +270,24 @@ void acq2106_aggregator_reset(struct acq400_dev *adev)
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 }
 
+
+int acq400_set_AXI_DMA_len(struct acq400_dev *adev, int len)
+{
+	int blocks = len/AXI_DMA_BLOCK;
+
+	dev_dbg(DEVP(adev), "%s len %d blocks %d", __FUNCTION__, len, blocks);
+	if (blocks > AXI_DMA_ENGINE_DATA_MAX_BLOCKS){
+		blocks = AXI_DMA_ENGINE_DATA_MAX_BLOCKS;
+	}
+	if (blocks < 1) blocks = 1;
+	acq400wr32(adev, AXI_DMA_ENGINE_DATA, blocks-1);
+	return blocks*AXI_DMA_BLOCK;
+}
+int acq400_get_AXI_DMA_len(struct acq400_dev *adev)
+{
+	u32 blocks = acq400rd32(adev, AXI_DMA_ENGINE_DATA) + 1;
+	return blocks*AXI_DMA_BLOCK;
+}
 void sc_data_engine_reset_enable(unsigned dex)
 {
 	struct acq400_dev *adev = acq400_devices[0];

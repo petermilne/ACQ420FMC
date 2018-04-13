@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.270"
+#define REVID "3.271"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2360,8 +2360,7 @@ void acq400sc_init_defaults(struct acq400_dev *adev)
 	acq400wr32(adev, MCR, mcr|MCR_MOD_EN);
 
 	if (IS_AXI64(adev)){
-		int databursts = bufferlen/0x800;
-		acq400wr32(adev, AXI_DMA_ENGINE_DATA, databursts-1);
+		acq400_set_AXI_DMA_len(adev, bufferlen);
 		sync_continuous = 0;
 	}
 }

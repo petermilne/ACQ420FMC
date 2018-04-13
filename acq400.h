@@ -1037,6 +1037,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 #define AGGSTA_FIFO_STAT	0x00000f00
 #define AGGSTA_ENGINE_STAT	0x000f0000
 
+#define AXI_DMA_ENGINE_DATA_MAX_BLOCKS	65536
+#define AXI_DMA_BLOCK	0x800
+#define AXI_DMA_ENGINE_DATA_BS		0x800
 
 #define MCR_MOD_EN			(1<<0)
 #define MCR_PSU_SYNC 			(1<<1)
@@ -1531,4 +1534,7 @@ extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
 extern void acq400_timer_init(
 	struct hrtimer* timer,
 	enum hrtimer_restart (*function)(struct hrtimer *));
+
+extern int acq400_set_AXI_DMA_len(struct acq400_dev *adev, int len);
+extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
 #endif /* ACQ420FMC_H_ */

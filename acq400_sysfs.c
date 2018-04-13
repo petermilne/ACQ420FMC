@@ -997,7 +997,7 @@ int lcm(int x, int y)
 
 extern int bufferlen;
 
-#define AXI_DMA_BLOCK	0x800
+
 
 
 /* buffer len MUST be modulo PAGE_SIZE because we're going to mmap it.
@@ -1022,9 +1022,7 @@ static ssize_t _store_optimise_bufferlen(
 	acq400_set_bufferlen(adev, newbl);
 
 	if (IS_ACQ480(acq400_devices[1])){
-		int blocks = newbl/AXI_DMA_BLOCK;
-
-		acq400wr32(adev, AXI_DMA_ENGINE_DATA, blocks-1);
+		acq400_set_AXI_DMA_len(adev, newbl);
 	}
 	return count;
 }
@@ -1077,6 +1075,34 @@ static ssize_t show_bufferlen(
 }
 
 static DEVICE_ATTR(bufferlen, S_IRUGO|S_IWUGO, show_bufferlen, store_bufferlen);
+
+static ssize_t store_AXI_DMA_len(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 dma_len;
+	if (sscanf(buf, "%u", &dma_len) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+
+		if (acq400_set_AXI_DMA_len(adev, dma_len) == dma_len){
+			return count;
+		}
+	}
+
+	return -1;
+}
+static ssize_t show_AXI_DMA_len(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", acq400_get_AXI_DMA_len(adev));
+}
+
+static DEVICE_ATTR(AXI_DMA_len, S_IRUGO|S_IWUGO, show_AXI_DMA_len, store_AXI_DMA_len);
 
 static ssize_t show_hitide(
 	struct device * dev,
@@ -3928,6 +3954,7 @@ static DEVICE_ATTR(axi_dma_fail, S_IRUGO, show_axi_dma_fail, 0);
 static const struct attribute *axi64_attrs[] = {
 	&dev_attr_axi_dma_fail.attr,
 	&dev_attr_axi_buffers_over.attr,
+	&dev_attr_AXI_DMA_len.attr,
 	NULL
 };
 
