@@ -307,9 +307,14 @@ proc upload_range {first last} {
 
 
 proc set_axi_dma_len {} {
-	set BL [exec cat /sys/module/acq420fmc/parameters/bufferlen]
-	echo $BL > /dev/acq400.0.knobs/AXI_DMA_len
+	set fp [open /sys/module/acq420fmc/parameters/bufferlen r]
+	gets $fp bl
+	close $fp
+	set fp [open /dev/acq400.0.knobs/AXI_DMA_len w]
+	puts $fp $bl
+	close $fp
 }
+
 
 puts stderr "spawn server"
 spawn mgt_offload server
