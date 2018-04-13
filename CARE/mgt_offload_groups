@@ -92,9 +92,6 @@ proc .. {a {b ""} {step 1}} {
 proc axi_dma_busy {} {
 	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
 	return [expr $TDESC != 0]
-	
-#	set CTRL [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_CONTROL.0x00]	
-#	return [expr $CTRL & 1]
 }
 
 proc set_mgt_buscomms {en} {
@@ -115,8 +112,6 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-#	puts "set_mgt_pull_desc \"$mgt_block\" llen [llength $mgt_block]"
-	
 	exec mgtdram_descgen --file /dev/mgt400.A.pull_desc [join $mgt_block ,] 
 }
 
@@ -151,25 +146,6 @@ proc get_axi0_int_count {} {
 	gets $fp aline
 	close $fp
 	return [lindex [regexp -all -inline {\S+} $aline]  1 ]
-}
-
-proc get_buffer_max {} {
-	set fp [open /sys/module/acq420fmc/parameters/bufferlen r]
-	gets $fp bl
-	close $fp
-	return $bl
-}
-proc get_buffer_usage {} {
-	set fp [open "|get.site 0 bufferlen" r]
-	gets $fp bl
-	close $fp
-	return $bl
-}
-
-proc set_buffer_usage { bl } {
-	set fp [open "|set.site 0" w]
-	puts $fp bufferlen=$bl
-	close $fp
 }
 
 proc upload_one {mgt_block} {
@@ -316,21 +292,12 @@ proc set_axi_dma_len {} {
 }
 
 
-puts stderr "spawn server"
 spawn mgt_offload server
 set_axi_dma_len
-set PULL [open /dev/mgt400.A.pull_desc w]
-chan configure $PULL -translation binary
-chan configure $PULL -buffering none
-
-set buffer_len_cap [get_buffer_usage]
-set_buffer_usage [get_buffer_max]
-
 
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
 	upload_range $first $last
 }
 
-set_buffer_usage $buffer_len_cap
 
