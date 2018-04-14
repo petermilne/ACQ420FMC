@@ -112,7 +112,14 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	exec mgtdram_descgen --file /dev/mgt400.A.pull_desc [join $mgt_block ,] 
+	global PULL
+
+	set fp [open "|mgtdram_descgen [join $mgt_block ,]" r]	
+	chan configure $fp -translation binary
+	chan configure $fp -buffering none
+	puts -nonewline $PULL [read $fp 4]
+	flush $PULL
+	close $fp	
 }
 
 
@@ -148,47 +155,6 @@ proc get_axi0_int_count {} {
 	return [lindex [regexp -all -inline {\S+} $aline]  1 ]
 }
 
-proc upload_one {mgt_block} {
-	global expect_out PBCLW
-	set int0 [get_axi0_int_count]
-	pgm_wait "upload_one axi_push_zdram"
-	send "0\r"
-	#send "axi_push_zdram\r"
-	expect OK {
-		puts -nonewline "axi0 start OK "
-
-	}
-	while {[axi_dma_busy] == 0} {
-		puts stderr "waiting axi_dma_busy"
-		after 10
-	}
-	pgm_wait "set_mgt_pull_desc $mgt_block"
-	set_mgt_pull_desc $mgt_block
-	expect -re "DONE (\[0-9]+)" {
-#		puts "axi0 [string trim $expect_out(buffer)]"
-	} timeout {
-		puts "ERROR, script-side timeout"
-	} ERROR {
-		puts ERROR
-		exit 1
-	}
-	
-	set int1 [get_axi0_int_count]
-	if {[expr $int1 - $int0] != 1} {
-		puts "ERROR no axi-dma interrupt $int0 $int1"
-	}
-	set pbclw [get_pbclw]
-	set delta [expr $pbclw - $PBCLW]
-	if {$delta != 264704} {
-		puts "ERROR:PBCLW: $PBCLW => $pbclw : delta $delta"
-		return 1
-	}
-	set PBCLW $pbclw
-	check_pull_fifo_status
-
-	pgm_wait "upload_one done"
-	return 0
-}
 
 proc upload_group {group to_group} {
 	global expect_out PBCLW
@@ -214,7 +180,10 @@ proc upload_group {group to_group} {
 		puts ERROR
 		exit 1
 	}
-		
+
+	if {[axi_dma_busy]} {
+		puts "still busy .. [axi_dma_busy]"
+	}
 	set int1 [get_axi0_int_count]
 	if {[expr $int1 - $int0] != 1} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
@@ -283,6 +252,9 @@ proc upload_range {first last} {
 
 
 spawn mgt_offload server
+set PULL [open /dev/mgt400.A.pull_desc w]
+chan configure $PULL -translation binary
+chan configure $PULL -buffering none
 
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
