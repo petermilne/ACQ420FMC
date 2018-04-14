@@ -73,9 +73,17 @@ proc .. {a {b ""} {step 1}} {
     } ;# one-armed if: else return empty list
  }
 
-proc axi_dma_busy {} {
-	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
-	return [expr $TDESC != 0]
+proc axi_dma_once_busy {} {
+	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
+	gets $fp line
+	close $fp
+	if {[string first 1 $line] == 0} {
+#		puts "axi_dma_once_busy return 1"
+		return 1
+	} else {
+#		puts "axi_dma_once_busy return 0"
+		return 0
+	}	
 }
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
@@ -95,7 +103,17 @@ trap sigint_handler SIGINT
 
 
 proc set_mgt_pull_desc {mgt_block} {
-	exec mgtdram_descgen --file /dev/mgt400.A.pull_desc $mgt_block
+	global PULL
+
+#	puts "set_mgt_pull_desc $mgt_block"
+	
+#	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
+	set fp [open "|mgtdram_descgen $mgt_block" r]	
+	chan configure $fp -translation binary
+	chan configure $fp -buffering none
+	puts -nonewline $PULL [read $fp 4]
+	flush $PULL
+	close $fp	
 }
 
 
@@ -139,7 +157,7 @@ proc upload_one {mgt_block} {
 		puts -nonewline "axi0 start OK "
 
 	}
-	while {[axi_dma_busy] == 0} {
+	while {[axi_dma_once_busy] == 0} {
 		after 10
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
@@ -204,17 +222,16 @@ proc upload_range {first last} {
 }
 
 proc set_axi_dma_len {} {
-	set fp [open /sys/module/acq420fmc/parameters/bufferlen r]
-	gets $fp bl
-	close $fp
-	set fp [open /dev/acq400.0.knobs/AXI_DMA_len w]
-	puts $fp $bl
-	close $fp
+	set BL [exec cat /sys/module/acq420fmc/parameters/bufferlen]
+	exec set.sys /dev/acq400.0.knobs/AXI_DMA_len $BL
 }
 
 
 spawn mgt_offload server
 set_axi_dma_len
+set PULL [open /dev/mgt400.A.pull_desc w]
+chan configure $PULL -translation binary
+chan configure $PULL -buffering none
 
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
