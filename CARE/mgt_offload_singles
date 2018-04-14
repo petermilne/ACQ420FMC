@@ -73,23 +73,10 @@ proc .. {a {b ""} {step 1}} {
     } ;# one-armed if: else return empty list
  }
 
-proc axi_dma_once_busy {} {
-	set fp [open /sys/module/acq420fmc/parameters/AXIDMA_ONCE_BUSY]
-	gets $fp line
-	close $fp
-	if {[string first 1 $line] == 0} {
-#		puts "axi_dma_once_busy return 1"
-		return 1
-	} else {
-#		puts "axi_dma_once_busy return 0"
-		return 0
-	}	
-}
 
 proc axi_dma_busy {} {
-        set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
-#        return [expr $TDESC == 0]
-        return [expr $TDESC != 0]
+	set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
+	return [expr $TDESC != 0]
 }
 
 proc set_mgt_buscomms {en} {
@@ -112,9 +99,6 @@ trap sigint_handler SIGINT
 proc set_mgt_pull_desc {mgt_block} {
 	global PULL
 
-#	puts "set_mgt_pull_desc $mgt_block"
-	
-#	exec mgtdram_descgen $mgt_block > /dev/mgt400.A.pull_desc
 	set fp [open "|mgtdram_descgen $mgt_block" r]	
 	chan configure $fp -translation binary
 	chan configure $fp -buffering none
