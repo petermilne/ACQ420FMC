@@ -85,6 +85,13 @@ proc axi_dma_once_busy {} {
 		return 0
 	}	
 }
+
+proc axi_dma_busy {} {
+        set TDESC [exec cat /sys/kernel/debug/acq400_axi_dma/adma0/XILINX_DMA_TDESC.0x10]
+#        return [expr $TDESC == 0]
+        return [expr $TDESC != 0]
+}
+
 proc set_mgt_buscomms {en} {
 	set fp [open /dev/dsp1/MGT_CTRL.BUSCOMMS w]
 	puts $fp $en
@@ -157,8 +164,8 @@ proc upload_one {mgt_block} {
 		puts -nonewline "axi0 start OK "
 
 	}
-	while {[axi_dma_once_busy] == 0} {
-		after 10
+	while {[axi_dma_busy] == 0} {
+		after 5
 	}
 	pgm_wait "set_mgt_pull_desc $mgt_block"
 	set_mgt_pull_desc $mgt_block
@@ -170,8 +177,10 @@ proc upload_one {mgt_block} {
 		puts ERROR
 		exit 1
 	}
-	
-	axi_dma_once_busy
+
+	if {[axi_dma_busy]} {
+		puts "still busy .. [axi_dma_busy]"
+	}
 	set int1 [get_axi0_int_count]
 	if {[expr $int1 - $int0] != 1} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
