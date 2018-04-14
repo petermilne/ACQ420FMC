@@ -48,7 +48,8 @@ set.sys /etc/acq400/0/sites ${sitelist}
 
 echo $SS > /etc/acq400/0/ssb
 
-set.sys /dev/acq400.0.knobs/optimise_bufferlen $SS 
+[ "x$NO_OPTIMISE_BUFFERLEN" = "xy" ] || 
+	set.sys /dev/acq400.0.knobs/optimise_bufferlen $SS 
 
 	
 set.sys /dev/acq400.0.knobs/aggregator 0
