@@ -114,12 +114,17 @@ trap sigint_handler SIGINT
 proc set_mgt_pull_desc {mgt_block} {
 	global PULL
 
+	puts "set_mgt_pull_desc $mgt_block"
+
 	set fp [open "|mgtdram_descgen [join $mgt_block ,]" r]	
 	chan configure $fp -translation binary
 	chan configure $fp -buffering none
-	puts -nonewline $PULL [read $fp 4]
+	
+	puts -nonewline $PULL [read $fp]
 	flush $PULL
 	close $fp	
+
+	puts "set_mgt_pull_desc 99"
 }
 
 
