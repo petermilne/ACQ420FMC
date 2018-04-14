@@ -6,6 +6,7 @@ set.site 1 SIG:SAMPLE_COUNT:RESET 1
 eval $(get.site 0 aggregator)
 BL=$(cat /sys/module/acq420fmc/parameters/bufferlen)
 set.sys /dev/acq400.0.knobs/AXI_DMA_len $BL
+set.sys /dev/acq400.0.knobs/bufferlen $BL
 NO_OPTIMISE_BUFFERLEN=y run0 $sites
 
 DCRST=/dev/gpio/MGTDRAM/DCRST
