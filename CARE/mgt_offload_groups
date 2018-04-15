@@ -185,12 +185,11 @@ proc upload_group {group to_group} {
 		puts ERROR
 		exit 1
 	}
-
 	if {[axi_dma_busy]} {
 		puts "still busy .. [axi_dma_busy]"
 	}
 	set int1 [get_axi0_int_count]
-	if {[expr $int1 - $int0] != 1} {
+	if {[expr $int1 - $int0] == 0} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
 	}
 	if { 0 } {
