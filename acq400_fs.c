@@ -38,6 +38,11 @@ int dma_cache_invalidate_limit = -1;
 module_param(dma_cache_invalidate_limit, int, 0644);
 MODULE_PARM_DESC(dma_cache_invalidate_limit, "cache invalidate is expensive .. limit it");
 
+
+int pcomp;
+module_param(pcomp, int, 0644);
+MODULE_PARM_DESC(pcomp, "compensate phase (bytes)");
+
 #define ACQ400_FS_MAGIC	0xd1ac0400
 
 #define XX	0
@@ -352,16 +357,20 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 {
 	struct A400_FS_PDESC* pd = FS_DESC(file);
 	struct acq400_dev* adev0 = FSN.site0->adev;
-	int foffset = (int)*offset;			/* we don't have 4GB */
+	int _foffset = (int)*offset;			/* we don't have 4GB */
+	int foffset = _foffset == 0? pcomp: _foffset;
 	int bufferlen = adev0->bufferlen/CAPDAT.nchan;
 	int ibuf = foffset/bufferlen;
 	int buff_offset = foffset - ibuf*bufferlen;	/* independent of stride */
 	int buf_headroom = bufferlen - buff_offset;
-	int set_headroom = CAPDAT.nsamples*adev0->word_size - foffset;
+	int set_headroom = CAPDAT.nsamples*adev0->word_size + pcomp - foffset;
 	int cursor = buff_offset+pd->buffer_offset;
 
 	int headroom = min(buf_headroom, set_headroom);
 
+	if (_foffset == 0 && pcomp){
+		*offset += pcomp;
+	}
 	if (pd->map->channel > pd->map->adev->nchan_enabled){
 		return -1;
 	}else if (set_headroom <= 0){
