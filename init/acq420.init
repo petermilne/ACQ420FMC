@@ -755,6 +755,8 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 		web_append acq480.$site nomon
 		[ $AXI_COUNT -gt 1 ] && \
 			/usr/local/CARE/acq480_init_two_lane $site
+		grep -q 482 /etc/acq400/$site/MODEL
+		[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
 	done
 	echo 1 > /etc/acq400/0/acq480_force_training
 fi

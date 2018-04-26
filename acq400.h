@@ -202,6 +202,7 @@
 
 #define ADC_CTRL_480_TRIG_RESYNC (1<<20)
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
+#define ADC_CTRL_482_CMAP	(1<<18)
 #define ADC_CTRL_42x_RES_SHL	16
 #define ADC_CTRL_42x_RES_MASK	0x3
 #define ADC_CTRL_RGM_GATE_HI    (1 << 15)       /* 0x00008000 */

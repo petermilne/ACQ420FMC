@@ -348,6 +348,46 @@ static DEVICE_ATTR(acq480_two_lane_mode,
 		S_IRUGO|S_IWUGO, show_acq480_two_lane_mode, store_acq480_two_lane_mode);
 
 
+static ssize_t show_acq482_cmap(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+
+	return sprintf(buf, "%d\n", (adc_ctrl&ADC_CTRL_482_CMAP) != 0);
+}
+
+
+static ssize_t store_acq482_cmap(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 tc;
+
+	if (sscanf(buf, "%x", &tc) == 1){
+		u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+		if (tc){
+			adc_ctrl |= ADC_CTRL_482_CMAP;
+		} else {
+			adc_ctrl &= ~ADC_CTRL_482_CMAP;
+		}
+		acq400wr32(adev, ADC_CTRL, adc_ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(acq482_cmap,
+		S_IRUGO|S_IWUGO, show_acq482_cmap, store_acq482_cmap);
+
+
+
 static ssize_t show_acq480_train_xx_val(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -490,6 +530,7 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_acq480_train_lo_val.attr,
 	&dev_attr_acq480_loti.attr,
 	&dev_attr_acq480_two_lane_mode.attr,
+	&dev_attr_acq482_cmap.attr,
 	&dev_attr_trg_resync.attr,
 	&dev_attr_acq480_fpga_decim.attr,
 	&dev_attr_ffir_reset.attr,
@@ -497,6 +538,4 @@ const struct attribute *acq480_attrs[] = {
 	&dev_attr_ffir_coeff.attr,
 	NULL
 };
-
-
 
