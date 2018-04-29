@@ -136,6 +136,9 @@ acq400_stream: acq400_stream.o Buffer.o knobs.o
 bb: bb.o Buffer.o knobs.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 
+phased_array: phased_array.o Buffer.o knobs.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
+	
 tblock2file: tblock2file.o knobs.o acq-util.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 
