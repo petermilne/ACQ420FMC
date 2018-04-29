@@ -113,8 +113,6 @@ namespace G {
 
 };
 
-int write_over;
-int write_add;
 
 class PhaseArray {
 public:
@@ -152,7 +150,6 @@ public:
 			short* pb = base + (ic+ic0)*delay*nchan + ic+ic0;
 			for (int sam = 0; sam < ps; ++sam, pb += nchan){
 				*pb = pulse[sam];
-				write_over++;
 			}
 		}
 	}
@@ -167,7 +164,6 @@ public:
 			short* pb = base + (ic+ic0)*delay*nchan + ic+ic0;
 			for (int sam = 0; sam < ps; ++sam, pb += nchan){
 				*pb += pulse[sam];
-				write_add++;
 			}
 		}
 	}
@@ -468,8 +464,6 @@ int main(int argc, const char** argv)
 			pa->fill(pd->pulse, pd->len, pd->staves, pd->delay, 0);
 		}
 	}
-
-	fprintf(stderr, "write_over:%d write_add:%d\n", write_over, write_add);
 	return 0;
 }
 
