@@ -113,6 +113,9 @@ namespace G {
 
 };
 
+int write_over;
+int write_add;
+
 class PhaseArray {
 public:
 	int pulse_ms;
@@ -131,21 +134,24 @@ public:
 		return wf_samples() * nchan * WS;
 	}
 
-	void FillOver(short* pulse, int ps, int nstaves, int delay){
+	void FillOver(short* pulse, int ps, int nstaves, int delay, int ic0){
 	/**< write pulse to raw memory */
 		for (int ic = 0; ic < nstaves; ++ic){
-			short* pb = base + ic*delay + nchan;
+			short* pb = base + (ic+ic0)*delay*nchan + ic+ic0;
 			for (int sam = 0; sam < ps; ++sam, pb += nchan){
 				*pb = pulse[sam];
+				write_over++;
 			}
 		}
 	}
-	void FillAdd(short* pulse, int ps, int nstaves, int delay){
+	void FillAdd(short* pulse, int ps, int nstaves, int delay, int ic0){
 	/**< for overlapping pulse, add to raw memory .. assumed slower .. */
 		for (int ic = 0; ic < nstaves; ++ic){
-			short* pb = base + ic*delay + nchan;
+			short* pb = base + (ic+ic0)*delay*nchan + ic+ic0;
 			for (int sam = 0; sam < ps; ++sam, pb += nchan){
-				*pb += pulse[sam];
+				*pb = pulse[sam];
+				//*pb += pulse[sam];
+				write_add++;
 			}
 		}
 	}
@@ -327,6 +333,8 @@ int dump() {
 typedef vector<PulseDef*> VPD;
 typedef vector<PulseDef*>::iterator VPDI;
 
+int G_threads;
+
 VPD* ui(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -334,6 +342,10 @@ VPD* ui(int argc, const char** argv)
 
 	if (getenv("VERBOSE")){
 		G::verbose = atoi(getenv("VERBOSE"));
+	}
+	if (getenv("PA_THREADS")){
+		G_threads = atoi(getenv("PA_THREADS")) >= 1;
+		fprintf(stderr, "PA_THREADS set %d\n", G_threads);
 	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
@@ -401,24 +413,49 @@ public:
 
 #define MARK fprintf(stderr, "MARK %d\n", __LINE__)
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
+
 int main(int argc, const char** argv)
 {
 	vector<PulseDef*> *pulses = ui(argc, argv);
 	BufferManager bm;
 	PhaseArray pa((short*)Buffer::the_buffers[0]->getBase());
+
+	if (pulses->empty()){
+		fwrite(Buffer::the_buffers[0]->getBase(), 1, pa.wf_bytes(), stdout);
+		return 0;
+	}
+
 	Timer T;
-	bool first_time = true;
 
 
-	for (VPDI it = pulses->begin(); it != pulses->end(); ++it, first_time = false){
+	for (VPDI it = pulses->begin(); it != pulses->end(); ++it){
 		PulseDef *pd = *it;
+		int status;
+		int cpid;
+
 		fprintf(stderr, "fill\n");
-		if (first_time){
-			pa.FillOver(pd->pulse, pd->len, pd->staves, pd->delay);
+
+		if (G_threads > 0){
+			if ((cpid = fork()) == 0){
+				pa.FillAdd(pd->pulse, pd->len, pd->staves/2, pd->delay, 0);
+				exit(0);
+			}else{
+				if (cpid == -1){
+					perror("fork() failed");
+					exit(1);
+				}
+				pa.FillAdd(pd->pulse, pd->len, pd->staves/2, pd->delay, pd->staves/2);
+			}
+			wait(&status);
 		}else{
-			pa.FillAdd(pd->pulse, pd->len, pd->staves, pd->delay);
+			pa.FillAdd(pd->pulse, pd->len, pd->staves, pd->delay, 0);
 		}
 	}
+
+	fprintf(stderr, "write_over:%d write_add:%d\n", write_over, write_add);
 	return 0;
 }
 
