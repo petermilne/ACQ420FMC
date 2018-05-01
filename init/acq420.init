@@ -34,7 +34,9 @@ fi
 ln -s $DROOT/dynamic_debug/control /dev/ddc
 
 source /tmp/u-boot_env
-MODEL=${devicetree_image%*.dtb}; MODEL=${MODEL#*/}
+MODEL=${devicetree_image%*.dtb}; 
+MODEL=${MODEL#*/}
+export MODEL
 
 if [ "x$MODEL" = "x" ]; then
 	HN=$(hostname)
@@ -522,12 +524,17 @@ build_knobs() {
 			echo "ERROR: ACQ480 found, but not compatible with BASE $MODEL"
 			exit 1;;
 		esac
-		export MODEL;
+		
 		m1f=etc/acq400/1/module_type
 		if [ -e $m1f ] && [ $(cat $m1f) -eq 7 ]; then
 			echo FMC104 detected..
 			/usr/local/bin/fmc104.init 1
 		else
+			for site in $ACQ480_SITES
+			do
+				grep -q 482 /etc/acq400/$site/MODEL
+				[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
+			done
 			/usr/local/bin/acq480.init ${ACQ480_SITES}
 		fi
 	else
@@ -754,9 +761,7 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 	do
 		web_append acq480.$site nomon
 		[ $AXI_COUNT -gt 1 ] && \
-			/usr/local/CARE/acq480_init_two_lane $site
-		grep -q 482 /etc/acq400/$site/MODEL
-		[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
+			/usr/local/CARE/acq480_init_two_lane $site		
 	done
 	echo 1 > /etc/acq400/0/acq480_force_training
 fi
