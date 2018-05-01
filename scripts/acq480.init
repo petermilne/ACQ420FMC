@@ -57,14 +57,16 @@ proc is482 {site} {
 }
 proc build_50R {site} {
 	global LNAMES1 DIR1
-	
-	if {[is482 $site]} {
-		puts "build 50R knobs acq482 site:$site"
-		set lnames1 [ lreverse $LNAMES1 ]
-	} else {
-		puts "build 50R knobs acq480 site:$site"
-		set lnames1 $LNAMES1
-	}
+
+# DOES NOT WORK	
+#	if {[is482 $site]} {
+#		puts "build 50R knobs acq482 site:$site"
+#		set lnames1 [ lreverse $LNAMES1 ]
+#	} else {
+#		puts "build 50R knobs acq480 site:$site"
+#		set lnames1 $LNAMES1
+#	}
+	set lnames1 $LNAMES1
 	
 	set gpiox {}
 	
