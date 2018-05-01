@@ -49,9 +49,23 @@ proc get_gpio12 {site addr} {
 	return [list $pin1 $ngpio]
 }
 
+proc is482 {site} {
+	set file [ open /etc/acq400/$site/acq482_cmap ]
+	set _is482 [gets $file]
+	close $file
+	return $_is482
+}
 proc build_50R {site} {
 	global LNAMES1 DIR1
-	puts "build 50R knobs site:$site"
+	
+	if {[is482 $site]} {
+		puts "build 50R knobs acq482 site:$site"
+		set lnames1 [ lreverse $LNAMES1 ]
+	} else {
+		puts "build 50R knobs acq480 site:$site"
+		set lnames1 $LNAMES1
+	}
+	
 	set gpiox {}
 	
 	if { [catch {get_gpio12 $site 20} gpiox] } {
@@ -59,11 +73,11 @@ proc build_50R {site} {
 		return
 	}
 	lassign $gpiox gpio1 ngpio
-	link_gpio $LNAMES1 $DIR1 "/dev/acq480/$site" $gpio1 $ngpio
+	link_gpio $lnames1 $DIR1 "/dev/acq480/$site" $gpio1 $ngpio
 	
 	for {set ic 1} {$ic <= $ngpio} {incr ic} {
 		file delete -force /etc/acq400/$site/T50R_$ic
-		set tname [lindex $LNAMES1 [expr $ic - 1]]			
+		set tname [lindex $lnames1 [expr $ic - 1]]			
 		exec ln -s /dev/acq480/$site/$tname \
 			/etc/acq400/$site/$tname
 	}	
