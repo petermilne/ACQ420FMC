@@ -97,6 +97,7 @@
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define ACQ425_BANK             (ADC_BASE+0x44) /* MUST MATCH ACQ435_MODE in address and meaning! */
+#define ACQ423_BANK		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
 #define AO424_DELAY		(AO420_DACSPI)
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
@@ -105,6 +106,11 @@
 #define ATD_TRIGGERED		(ADC_BASE+0x60)
 #define ATD_MASK_AND		(ADC_BASE+0x64)
 #define ATD_MASK_OR		(ADC_BASE+0x68)
+
+#define ACQ423_SPAN_A		(ADC_BASE+0x60)
+#define ACQ423_SPAN_B		(ADC_BASE+0x64)
+#define ACQ423_SPAN_C		(ADC_BASE+0x68)
+#define ACQ423_SPAN_D		(ADC_BASE+0x6C)
 
 #define DTD_CTRL		(ADC_BASE+0x64)
 
@@ -191,6 +197,7 @@
 #define MOD_ID_KMCU		0x83
 #define MOD_ID_KMCU30		0x84
 
+#define MOD_ID_ACQ423ELF	0x09
 
 
 #define MOD_ID_MTCA_ADAP	0xfc
@@ -796,6 +803,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 	case MOD_ID_ACQ425ELF_2000:
 	case MOD_ID_ACQ424ELF:
 	case MOD_ID_ACQ427ELF:
+	case MOD_ID_ACQ423ELF:
 		return true;
 	default:
 		return false;
@@ -815,6 +823,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 #define IS_ACQ427(adev) \
 	(GET_MOD_ID(adev) == MOD_ID_ACQ427ELF ||\
 	 GET_MOD_ID(adev) == MOD_ID_ACQ427ELF_2000)
+#define IS_ACQ423(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ423ELF)
 
 #define IS_ACQ42X(adev) _is_acq42x(adev)
 
@@ -1201,6 +1210,13 @@ struct acq400_dev* acq400_lookupSite(int site);
 
 #define DAC_424_CGEN_DISABLE_X		(0xf)
 
+/* ACQ423 */
+#define ACQ423_BANK_ODD_CHAN		(1<<4)
+
+#define ACQ423_SPAN_MASK		(0xf)
+#define ACQ423_SPAN_FW			4	/* Field Width    */
+#define ACQ423_SPAN_FPR			8	/* Fields Per Reg */
+#define ACQ423_SPAN_MASK_ODDS		(0xf0f0f0f0f0)
 
 /* DIO432 */
 

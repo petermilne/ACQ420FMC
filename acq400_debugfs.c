@@ -150,6 +150,9 @@ void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	if (IS_ACQ425(adev)){
 		DBG_REG_CREATE(ACQ425_BANK);
 	}
+	if (IS_ACQ423(adev)){
+		DBG_REG_CREATE(ACQ423_BANK);
+	}
 	DBG_REG_CREATE(ADC_ACC_DEC);
 }
 
@@ -158,6 +161,12 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	adc_createDebugfs(adev, pcursor);
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
+	}
+	if (IS_ACQ423(adev)){
+		DBG_REG_CREATE(ACQ423_SPAN_A);
+		DBG_REG_CREATE(ACQ423_SPAN_B);
+		DBG_REG_CREATE(ACQ423_SPAN_C);
+		DBG_REG_CREATE(ACQ423_SPAN_D);
 	}
 	DBG_REG_CREATE(ADC_CONV_TIME);
 }

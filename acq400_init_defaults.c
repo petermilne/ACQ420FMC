@@ -302,7 +302,10 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->adc_18b = adc_18b;
 	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
 	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
-	adev->nchan_enabled = IS_ACQ424(adev)? 32: IS_ACQ425(adev)? 16: IS_ACQ427(adev)? 8: 4;
+	adev->nchan_enabled = IS_ACQ424(adev)? 32:
+			      IS_ACQ423(adev)? 32:
+			      IS_ACQ425(adev)? 16:
+			      IS_ACQ427(adev)? 8: 4;
 	adev->word_size = adev->data32? 4: 2;
 	adev->hitide = hitide;
 	adev->lotide = lotide;

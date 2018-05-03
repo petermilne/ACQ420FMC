@@ -1581,10 +1581,13 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_KMCU,		"kmcu"		},
 		{ MOD_ID_KMCU30,	"kmcu30"	},
 		{ MOD_ID_ACQ420FMC,	"acq420fmc"	},
-		{ MOD_ID_ACQ420FMC_2000, "acq420fmc"	},
+		{ MOD_ID_ACQ420FMC_2000,"acq420fmc"	},
+		{ MOD_ID_ACQ423ELF,     "acq423elf"     },
 		{ MOD_ID_ACQ424ELF,	"acq424elf"	},
 		{ MOD_ID_ACQ425ELF,     "acq425elf"	},
-		{ MOD_ID_ACQ425ELF_2000, "acq425elf"	},
+		{ MOD_ID_ACQ425ELF_2000,"acq425elf"	},
+		{ MOD_ID_ACQ427ELF,	"acq427elf"	},
+		{ MOD_ID_ACQ427ELF_2000,"acq427elf"     },
 		{ MOD_ID_ACQ430FMC,     "acq430fmc"	},
 		{ MOD_ID_ACQ435ELF,	"acq435elf"	},
 		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
@@ -1787,6 +1790,9 @@ static DEVICE_ATTR(RW32_debug,
 		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
 
 
+
+
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_role.attr,
@@ -1826,6 +1832,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_event0_count.attr,
 	NULL,
 };
+
 
 static const struct attribute *acq424_attrs[] = {
 	&dev_attr_adc_conv_time.attr,
@@ -4152,6 +4159,7 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 };
 
 extern void sysfs_radcelf_create_files(struct device *dev);
+extern const struct attribute *acq423_attrs[];
 
 void acq400_createSysfs(struct device *dev)
 {
@@ -4227,7 +4235,9 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 
-		if (IS_ACQ424(adev)){
+		if (IS_ACQ423(adev)){
+			specials[nspec++] = acq423_attrs;
+		}else if (IS_ACQ424(adev)){
 			specials[nspec++] = acq424_attrs;
 		}else if (IS_ACQ42X(adev)){
 			specials[nspec++] =
