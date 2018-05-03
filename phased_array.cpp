@@ -448,8 +448,10 @@ int main(int argc, const char** argv)
 
 		fprintf(stderr, "fill\n");
 
+
 		if (G_threads > 0){
 			if ((cpid = fork()) == 0){
+//				fprintf(stderr, "%d fill %d from %d\n", getpid(), pd->staves/2, 0);
 				pa->fill(pd->pulse, pd->len, pd->staves/2, pd->delay, 0);
 				exit(0);
 			}else{
@@ -457,10 +459,12 @@ int main(int argc, const char** argv)
 					perror("fork() failed");
 					exit(1);
 				}
+//				fprintf(stderr, "%d fill %d from %d\n", getpid(), pd->staves/2, pd->staves/2);
 				pa->fill(pd->pulse, pd->len, pd->staves/2, pd->delay, pd->staves/2);
 			}
 			wait(&status);
 		}else{
+//			fprintf(stderr, "%d fill %d from %d\n", getpid(), pd->staves, 0);
 			pa->fill(pd->pulse, pd->len, pd->staves, pd->delay, 0);
 		}
 	}
