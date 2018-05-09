@@ -86,8 +86,13 @@ static ssize_t store_span(
 	int shl = (ch0%ACQ423_SPAN_FPR) * ACQ423_SPAN_FW;
 
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 span = kstrtoul(buf, 0, 0);
+	u32 span;
 	u32 reg = acq400rd32(adev, ACQ423_SPAN_A+offsetb);
+
+	if (sscanf(buf, "0x%x", &span) == 0 &&
+	    sscanf(buf, "%d", &span) == 0){
+		    return -1;
+	}
 
 	reg &= ~(ACQ423_SPAN_MASK<<shl);
 	reg |= (span&ACQ423_SPAN_MASK) << shl;

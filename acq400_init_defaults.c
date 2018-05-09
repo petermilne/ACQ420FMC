@@ -315,6 +315,9 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	if (IS_ACQ424(adev)){
 		acq400wr32(adev, ADC_CLKDIV, 66);
 	}
+	if (IS_ACQ423(adev)){
+		acq400wr32(adev, ADC_CLKDIV, 500);
+	}
 }
 
 static void acq480_init_defaults(struct acq400_dev *adev)
