@@ -127,16 +127,16 @@ static ssize_t store_span_ch##NAME(				\
 static DEVICE_ATTR(gain##NAME, S_IRUGO|S_IWUGO,		\
 		show_span_ch##NAME, store_span_ch##NAME)
 
-MAKE_ACQ423_SPAN(01, 1);
-MAKE_ACQ423_SPAN(02, 2);
-MAKE_ACQ423_SPAN(03, 3);
-MAKE_ACQ423_SPAN(04, 4);
-MAKE_ACQ423_SPAN(05, 5);
-MAKE_ACQ423_SPAN(06, 6);
-MAKE_ACQ423_SPAN(07, 7);
-MAKE_ACQ423_SPAN(08, 8);
+MAKE_ACQ423_SPAN( 1, 1);
+MAKE_ACQ423_SPAN( 2, 2);
+MAKE_ACQ423_SPAN( 3, 3);
+MAKE_ACQ423_SPAN( 4, 4);
+MAKE_ACQ423_SPAN( 5, 5);
+MAKE_ACQ423_SPAN( 6, 6);
+MAKE_ACQ423_SPAN( 7, 7);
+MAKE_ACQ423_SPAN( 8, 8);
 
-MAKE_ACQ423_SPAN(09, 9);
+MAKE_ACQ423_SPAN( 9, 9);
 MAKE_ACQ423_SPAN(10,10);
 MAKE_ACQ423_SPAN(11,11);
 MAKE_ACQ423_SPAN(12,12);
@@ -207,15 +207,15 @@ static DEVICE_ATTR(odd_channels,
 
 const struct attribute *acq423_attrs[] = {
 	&dev_attr_odd_channels.attr,
-	&dev_attr_gain01.attr,
-	&dev_attr_gain02.attr,
-	&dev_attr_gain03.attr,
-	&dev_attr_gain04.attr,
-	&dev_attr_gain05.attr,
-	&dev_attr_gain06.attr,
-	&dev_attr_gain07.attr,
-	&dev_attr_gain08.attr,
-	&dev_attr_gain09.attr,
+	&dev_attr_gain1.attr,
+	&dev_attr_gain2.attr,
+	&dev_attr_gain3.attr,
+	&dev_attr_gain4.attr,
+	&dev_attr_gain5.attr,
+	&dev_attr_gain6.attr,
+	&dev_attr_gain7.attr,
+	&dev_attr_gain8.attr,
+	&dev_attr_gain9.attr,
 	&dev_attr_gain10.attr,
 	&dev_attr_gain11.attr,
 	&dev_attr_gain12.attr,
