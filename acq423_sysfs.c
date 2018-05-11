@@ -73,7 +73,7 @@ static ssize_t show_span(
 	int shl = (ch0%ACQ423_SPAN_FPR) * ACQ423_SPAN_FW;
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 reg = acq400rd32(adev, ACQ423_SPAN_A+offsetb);
-	return (reg >> shl) &ACQ423_SPAN_MASK;
+	return sprintf(buf, "%d\n", (reg >> shl) &ACQ423_SPAN_MASK);
 }
 
 static ssize_t store_span(
