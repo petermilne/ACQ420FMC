@@ -91,7 +91,11 @@ static ssize_t store_span(
 
 	if (sscanf(buf, "0x%x", &span) == 0 &&
 	    sscanf(buf, "%d", &span) == 0){
-		    return -1;
+		return -1;
+	}else if (span == 0){
+		return -ERANGE;
+	}else if (span > 7){
+		return -ERANGE;
 	}
 
 	reg &= ~(ACQ423_SPAN_MASK<<shl);
