@@ -303,9 +303,14 @@ void acq2006_aggregator_enable(struct acq400_dev *adev)
 	switch(adev->spad.spad_en){
 	default:
 		goto agg99;
-	case SP_EN:
-		agg |= SET_AGG_SPAD_LEN(adev->spad.len);
-		agg |= AGG_SPAD_EN;
+	case SP_EN: {
+			int len = adev->spad.len;
+			if (IS_AXI64(adev)){
+				len /= 2;    /* SPADS double spaced in 64 bit */
+			}
+			agg |= SET_AGG_SPAD_LEN(len);
+			agg |= AGG_SPAD_EN;
+		}
 		break;
 	case SP_FRAME:
 		agg |= AGG_SPAD_EN|AGG_SPAD_FRAME;
