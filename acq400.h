@@ -1241,9 +1241,10 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DIO432_FIFO		0x1000
 
 
-#define DIO432_CTRL_SHIFT_DIV_SHL	(9)
-#define DIO432_CTRL_EXT_CLK_SYNC (1<<7)
+#define DIO432_CTRL_SHIFT_DIV_SHL (9)
+#define DIO432_CTRL_AWG_ABORT	(1<<12)
 #define DIO432_CTRL_LL		(1 << 8)
+#define DIO432_CTRL_EXT_CLK_SYNC (1<< 7)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define DIO432_CTRL_DIO_EN	(1 << 4)
 #define DIO432_CTRL_DIO_RST	(1 << 3)

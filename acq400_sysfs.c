@@ -2873,6 +2873,7 @@ static ssize_t store_ext_clk_from_sync(
 
 static DEVICE_ATTR(ext_clk_from_sync, S_IRUGO|S_IWUGO, show_ext_clk_from_sync, store_ext_clk_from_sync);
 
+MAKE_BITS(dpg_abort,    DIO432_DIO_CTRL,      MAKE_BITS_FROM_MASK,	DIO432_CTRL_AWG_ABORT);
 
 static ssize_t show_byte_is_output(
 	struct device * dev,
@@ -2936,6 +2937,7 @@ static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUGO, show_dpg_status, 0);
 
 
 static const struct attribute *dio432_attrs[] = {
+	&dev_attr_dpg_abort.attr,
 	&dev_attr_DI32.attr,
 	&dev_attr_DO32.attr,
 	&dev_attr_mode.attr,
