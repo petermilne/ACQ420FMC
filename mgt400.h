@@ -37,6 +37,7 @@ struct mgt400_dev {
 		unsigned long data_histo[DATA_HISTOLEN];
 		unsigned long first_descriptors[DESC_HISTOLEN];
 		unsigned last_packet_id;
+		unsigned previous_count;
 		int fd_ix;
 	} push, pull;
 

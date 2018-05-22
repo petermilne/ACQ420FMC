@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.126"
+#define REVID "0.127"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -41,6 +41,11 @@ MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 
 char* MODEL = "";
 module_param(MODEL, charp, 0444);
+
+
+int counter_updates;
+module_param(counter_updates, int, 0444);
+MODULE_PARM_DESC(counter_updates, "monitor count rate");
 
 int maxdevices = MAXDEVICES;
 
@@ -107,22 +112,30 @@ static struct mgt400_dev* mgt400_allocate_dev(struct platform_device *pdev)
 
 #define PD_ID(pkt) ((pkt)&DESCR_ID)
 
-static unsigned _channel_buffer_counter(u32 current_descr, struct DMA_CHANNEL* dma)
+static unsigned _channel_buffer_counter(struct mgt400_dev* mdev, u32 reg, struct DMA_CHANNEL* dma)
 {
+	u32 current_descr = mgt400rd32(mdev, reg);
 	unsigned packet_count = 0;
 
-	for (; PD_ID(dma->last_packet_id) != PD_ID(current_descr); ){
-		++dma->last_packet_id;
-		++packet_count;
+	for (; dma->last_packet_id != PD_ID(current_descr); ++packet_count){
+		dma->last_packet_id = PD_ID(dma->last_packet_id+1);
 	}
+
 	if (packet_count){
 		if (dma->buffer_count == 0){
 			dma->buffer_count = 1;
 		}else{
-			dma->buffer_count += packet_count;
+			if (dma->previous_count){
+				dma->buffer_count += packet_count;
+			}else{
+				/* gives better results SR > buffer_rate */
+				dma->buffer_count += 1;
+			}
+			dma->previous_count = packet_count;
 		}
 		return current_descr;
 	}else{
+		dma->previous_count = 0;
 		return 0;
 	}
 }
@@ -162,9 +175,9 @@ static void _update_histograms(
 static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
 {
 	unsigned push = _channel_buffer_counter(
-		mgt400rd32(mdev, DMA_PUSH_DESC_SR), &mdev->push);
+			mdev, DMA_PUSH_DESC_SR, &mdev->push);
 	unsigned pull = _channel_buffer_counter(
-		mgt400rd32(mdev, DMA_PULL_DESC_SR), &mdev->pull);
+			mdev, DMA_PULL_DESC_SR, &mdev->pull);
 	if (push || pull){
 		_update_histograms(mdev, push, pull);
 	}
@@ -177,6 +190,7 @@ enum hrtimer_restart mgt400_buffer_counter(struct hrtimer* hrt)
 		container_of(hrt, struct mgt400_dev, buffer_counter_timer);
 
 	_mgt400_buffer_counter(mdev);
+	counter_updates++;
 	hrtimer_forward_now(hrt, kt_period);
 	return HRTIMER_RESTART;
 }
