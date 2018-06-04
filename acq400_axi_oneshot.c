@@ -48,6 +48,10 @@ MODULE_PARM_DESC(AXIDMA_ONCE_BUSY, "TRUE when ONCE in progress");
 int AXIDMA_ONCE_RESET_ON_EXIT;
 module_param(AXIDMA_ONCE_RESET_ON_EXIT, int , 0644);
 
+int use_sg_always = 0;
+module_param(use_sg_always, int, 0644);
+MODULE_PARM_DESC(use_sg_always, "test mode for single element, send it through sg path");
+
 #define WAIT 	1
 #define NO_WAIT 0
 
@@ -202,14 +206,16 @@ int _axi64_data_once(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned
 	return 0;
 }
 
-#define MAXSG	4
+#define MAXSG	16
 
 int _axi64_data_once_sg(struct acq400_dev *adev, struct dma_chan *rx_chan, unsigned char blocks[], int nb)
 {
+	//struct scatterlist* sg = kzalloc(sizeof(struct scatterlist)*MAXSG, GFP_KERNEL);
 	struct scatterlist sg[MAXSG];
 	int ii;
 	struct completion rx_cmp;
 	dma_cookie_t rx_cookie;
+	int rc = 0;
 
 	BUG_ON(nb >= MAXSG);
 
@@ -234,19 +240,19 @@ int _axi64_data_once_sg(struct acq400_dev *adev, struct dma_chan *rx_chan, unsig
 
 	if (dma_submit_error(rx_cookie)) {
 		printk(KERN_ERR "xdma_prep_buffer error\n");
-		return -1;
-	}
-	dev_dbg(DEVP(adev), "%s 50 nb %d", __FUNCTION__, nb);
+		rc = -1;
+	}else{
+		dev_dbg(DEVP(adev), "%s 50 nb %d", __FUNCTION__, nb);
 
-	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
-	for (ii = 0; ii < nb; ++ii){
-		dma_unmap_single(rx_chan->device->dev,
+		axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
+		for (ii = 0; ii < nb; ++ii){
+			dma_unmap_single(rx_chan->device->dev,
 				sg_dma_address(sg+ii), sg_dma_len(sg+ii), DMA_FROM_DEVICE);
+		}
 	}
-
-
+	//kfree(sg);
 	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
-	return 0;
+	return rc;
 }
 /* @@todo .. nasty use of global - what if more than one channel ..
  * bad Linux, but effective here as it's a singleton */
@@ -258,7 +264,7 @@ int axi64_data_once(struct acq400_dev *adev, unsigned char blocks[], int nb)
 	int ii;
 	AXIDMA_ONCE_BUSY = 1;
 
-	if (nb == 1){
+	if (nb == 1 && !use_sg_always){
 		rc = _axi64_data_once(adev, rx_chan, blocks[0]);
 	}else{
 		for (ii = 0; ii < nb; ii += MAXSG){

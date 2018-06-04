@@ -41,6 +41,10 @@ int ndevices = 0;
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "actual number of instantiated devices");
 
+int dbg_dump_desc = 0;
+module_param(dbg_dump_desc, int, 0644);
+MODULE_PARM_DESC(dbg_dump_desc, "print descriptor chain before and after");
+
 #if defined(CONFIG_XILINX_DMATEST) || defined(CONFIG_XILINX_DMATEST_MODULE)
 # define TEST_DMA_WITH_LOOPBACK
 #endif
@@ -137,6 +141,14 @@ enum dma_status xilinx_dma_desc_status(struct xilinx_dma_chan *chan,
 	}
 }
 
+static void dump_desc(
+		struct xilinx_dma_chan *chan, struct xilinx_dma_desc_sw *desc,
+		const char* id)
+{
+	dev_info(chan->dev, "%s ->%08x b:%08x c:%08x s:%08x",
+		 id, desc->hw.next_desc, desc->hw.buf_addr,
+		 desc->hw.control, desc->hw.status 		);
+}
 static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 {
 	struct xilinx_dma_desc_sw *desc, *_desc;
@@ -150,6 +162,9 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		dma_async_tx_callback callback;
 		void *callback_param;
 
+		if (dbg_dump_desc){
+			dump_desc(chan, desc, "cleanup");
+		}
 		if (xilinx_dma_desc_status(chan, desc) == DMA_IN_PROGRESS){
 			dev_warn(chan->dev, "xilinx_chan_desc_cleanup() DMA_IN_PROGRESS");
 			break;
@@ -641,7 +656,7 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 
 	if (chan->direction != direction)
 		return NULL;
-	dev_dbg(chan->dev, "xilinx_dma_prep_slave_sg()");
+	dev_dbg(chan->dev, "xilinx_dma_prep_slave_sg() dir:%d len=%d", direction, sg_len);
 
 	tasklet_init(&chan->tasklet, dma_do_tasklet, (unsigned long)chan);
 #ifdef TEST_DMA_WITH_LOOPBACK
@@ -665,7 +680,6 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 					"No free memory for link descriptor\n");
 				goto fail;
 			}
-
 			/*
 			 * Calculate the maximum number of bytes to transfer,
 			 * making sure it is less than the hw limit
@@ -721,6 +735,13 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 	if (!first || !new)
 		return NULL;
 
+	if (dbg_dump_desc){
+		struct xilinx_dma_desc_sw *desc, *_desc;
+		dev_info(chan->dev, "xilinx_dma_prep_slave_sg");
+		list_for_each_entry_safe(desc, _desc, &first->tx_list, node) {
+			dump_desc(chan, desc, "prep_sg");
+		}
+	}
 	new->async_tx.flags = flags;
 	new->async_tx.cookie = -EBUSY;
 
