@@ -40,9 +40,9 @@ proc calc_ngroup {} {
 	set ncx [expr $nc3*3]
 	
 	if { $nc == $ncx } {		
-		return 3	
+		return 24
 	} else {		
-		return 4
+		return 32
 	}	
 }
 
@@ -114,9 +114,9 @@ trap sigint_handler SIGINT
 proc set_mgt_pull_desc {mgt_block} {
 	global PULL
 
-	puts "set_mgt_pull_desc $mgt_block"
+#	puts "set_mgt_pull_desc $mgt_block"
 
-	set fp [open "|mgtdram_descgen [join $mgt_block ,]" r]	
+	set fp [open "|mgtdram_descgen $mgt_block" r]	
 	chan configure $fp -translation binary
 	chan configure $fp -buffering none
 	
@@ -124,7 +124,7 @@ proc set_mgt_pull_desc {mgt_block} {
 	flush $PULL
 	close $fp	
 
-	puts "set_mgt_pull_desc 99"
+#	puts "set_mgt_pull_desc 99"
 }
 
 
@@ -260,9 +260,22 @@ set PULL [open /dev/mgt400.A.pull_desc w]
 chan configure $PULL -translation binary
 chan configure $PULL -buffering none
 
+proc get_irq { irq } {
+        set lin [exec grep $irq /proc/interrupts]
+        set lst [regexp -inline -all -- {\S+} $lin]
+        return [lindex $lst 1]
+}
+
+
+exec /mnt/local/debugson
+exec /mnt/local/markall
+set c0 [ get_irq axi-dma0 ]
 foreach arg $::argv {
 	lassign [split $arg '-'] first last
 	upload_range $first $last
 }
-
-
+set c1 [ get_irq axi-dma0 ]
+exec /mnt/local/debugson -p
+set buffs [expr $last - $first + 1]
+set ints [expr $c1 - $c0]
+puts "buffers: $buffs interrupts: $ints"
