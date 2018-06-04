@@ -45,11 +45,26 @@ int dbg_dump_desc = 0;
 module_param(dbg_dump_desc, int, 0644);
 MODULE_PARM_DESC(dbg_dump_desc, "print descriptor chain before and after");
 
+int th_max = 99;
+module_param(th_max, int, 0644);
+MODULE_PARM_DESC(th_max, "max interrupt threshold");
+
 #if defined(CONFIG_XILINX_DMATEST) || defined(CONFIG_XILINX_DMATEST_MODULE)
 # define TEST_DMA_WITH_LOOPBACK
 #endif
 
 #include "xilinx_axidma.h"
+
+void xilinx_set_irq_threshold(struct xilinx_dma_chan *chan, int sg_len)
+{
+	unsigned cr = dma_read(chan, XILINX_DMA_CONTROL_OFFSET);
+	sg_len = min(sg_len, th_max);
+	cr &= ~XILINX_DMA_XR_COALESCE_MASK;
+	cr |= sg_len << XILINX_DMA_COALESCE_SHIFT;
+	dev_dbg(chan->dev, "xilinx_set_irq_threshold %d 0x%08x",
+			sg_len, cr);
+	dma_write(chan, XILINX_DMA_CONTROL_OFFSET, cr);
+}
 
 static int xilinx_dma_alloc_chan_resources(struct dma_chan *dchan)
 {
@@ -157,6 +172,7 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 	dev_dbg(chan->dev, "xilinx_chan_desc_cleanup()");
 	spin_lock_irqsave(&chan->lock, flags);
 
+	xilinx_set_irq_threshold(chan, 1);
 
 	list_for_each_entry_safe(desc, _desc, &chan->active_list, node) {
 		dma_async_tx_callback callback;
@@ -747,6 +763,8 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 
 	/* Set EOP to the last link descriptor of new list */
 	hw->control |= XILINX_DMA_BD_EOP;
+
+	xilinx_set_irq_threshold(chan, sg_len);
 
 	return &first->async_tx;
 
