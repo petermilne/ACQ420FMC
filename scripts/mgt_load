@@ -6,88 +6,76 @@ MGB2=${3:-0}
 
 PIDF=/var/run/mgt_load.pid
 
+update_pid() {
+	if [ -e $PIDF ]
+	then pid=$(cat $PIDF)
+	else unset pid
+	fi
+	export pid
+}
+
 is_running() {
-	for pid in $(ps | awk '{ print $1 }')
-	do
-		if [ "x$pid" = "x$1" ]; then
-			echo 1; return
-		fi
-	done
-	echo 0
+	kill -0 $1 2>/dev/null
 }
 
 load_is_running() {
-	if [ -e $PIDF ] && [ $(is_running $(cat $PIDF)) ]; then
-		echo 1
-	else
-		echo 0
-	fi
+	test ! -z $pid && is_running $pid
 }
 load_block() {
 	logger -t mgt_load load_block $MGB1 $MGB2
 	mgtdram_descgen $MGB1 $MGB2 > /dev/mgt400.A.push_desc &
 	echo $! > $PIDF
-	wait
+	trap "rm $PIDF" EXIT
+        wait
 	logger -t mgt_load cleanup
 	rm $PIDF
 }
 load() {
-	if [ $(load_is_running) -eq 1 ]; then
+	if load_is_running; then
 		echo "ERROR: previous process still running, quitting"
 	else
 		set.mgt_direction_inbound 0
 		load_block &
-	fi		
+	fi
 }
 
 query() {
-	if [ $(load_is_running) -eq 1 ]; then
-		if [ -e $PIDF ]; then
-			echo "BUSY pid $(cat $PIDF)"			
-		else
-			echo "BUSY pid unknown"
-		fi
+	if load_is_running; then
+		echo "BUSY pid $pid"
 	else
 		echo IDLE
 	fi
 }
 
 abort() {
-	if [ $(load_is_running) -eq 1 ]; then
-		[ -e $PIDF ] && kill -9 $(cat $PIDF)
-	fi
-	sleep 1
-	if [ $(load_is_running) -eq 1 ]; then
-		echo ERROR: failed to abort
-	else
-		rm -f $PIDF
-	fi
+	mgtdram_descgen 0 -1 > /dev/mgt400.A.push_desc
 }
 
 run() {
-        if [ $(load_is_running) -eq 1 ]; then
+        if load_is_running; then
                 echo "ERROR: previous process still running, quitting"
         else
                 set.mgt_direction_inbound 0
                 load_block &
 		sleep 1
-		if [ $(load_is_running) -ne 1 ]; then
-			echo "ERROR: failed to start"
-		else
+		update_pid
+		if load_is_running; then
 			(
 			 logger -t mgt_load "run start"
 			 streamtonowhered start
-			 while [ $(load_is_running) -eq 1 ]; do
+			 while load_is_running; do
 				sleep 1
 			 done
 			 streamtonowhered stop
 			 logger -t mgt_load "run stop"
-			) & 
+			) &
 			echo "CONTROLLER $! running"
+		else
+			echo "ERROR: failed to start"
 		fi
         fi
 }
-
+update_pid
 case $CMD in
 load)	load;;
 abort)  abort;;
