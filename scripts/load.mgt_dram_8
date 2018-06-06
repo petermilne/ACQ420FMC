@@ -45,6 +45,7 @@ ln -s /usr/local/CARE/mgt_run_shot_wrapper $MGTD/mgt_run_shot
 ln -s /usr/local/CARE/mgt_offload_wrapper $MGTD/mgt_offload
 ln -s /usr/local/CARE/mgt_taskset $MGTD
 ln -s /usr/local/CARE/mgt_reset_counters $MGTD
+ln -s /usr/local/bin/mgt_abort $MGTD
 [ -e /dev/gpio/MGTDRAM/DCRST ] && ln -s /dev/gpio/MGTDRAM/DCRST $MGTD
 
 cat - >/etc/mgtsh.env << EOF
