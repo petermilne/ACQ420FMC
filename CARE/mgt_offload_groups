@@ -44,7 +44,7 @@ proc calc_ngroup {} {
 	if { $nc == $ncx } {		
 		return 12
 	} else {		
-		return 8
+		return 16
 	}	
 }
 
