@@ -168,16 +168,14 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 {
 	struct xilinx_dma_desc_sw *desc, *_desc;
 	unsigned long flags;
-
+	dma_async_tx_callback callback = 0;
+	void *callback_param;
 	dev_dbg(chan->dev, "xilinx_chan_desc_cleanup()");
 	spin_lock_irqsave(&chan->lock, flags);
 
 	xilinx_set_irq_threshold(chan, 1);
 
 	list_for_each_entry_safe(desc, _desc, &chan->active_list, node) {
-		dma_async_tx_callback callback;
-		void *callback_param;
-
 		if (dbg_dump_desc){
 			dump_desc(chan, desc, "cleanup");
 		}
@@ -189,15 +187,15 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		/* Remove from the list of running transactions */
 		list_del(&desc->node);
 
-		/* Run the link descriptor callback function */
-		callback = desc->async_tx.callback;
-		callback_param = desc->async_tx.callback_param;
-
-		if (callback) {
-			spin_unlock_irqrestore(&chan->lock, flags);
-			dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() callback:%p pram%p", callback, callback_param);
-			callback(callback_param);
-			spin_lock_irqsave(&chan->lock, flags);
+		if (desc->async_tx.callback){
+			if (callback) {
+				spin_unlock_irqrestore(&chan->lock, flags);
+				dev_warn(chan->dev, "xilinx_chan_desc_cleanup() INLOOP callback:%p pram:%p", callback, callback_param);
+				callback(callback_param);
+				spin_lock_irqsave(&chan->lock, flags);
+			}
+			callback = desc->async_tx.callback;
+			callback_param = desc->async_tx.callback_param;
 		}
 
 		/* Run any dependencies, then free the descriptor */
@@ -206,6 +204,10 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 	}
 
 	spin_unlock_irqrestore(&chan->lock, flags);
+	if (callback) {
+		dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() NORMAL callback:%p pram:%p", callback, callback_param);
+		callback(callback_param);
+	}
 	dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() 99");
 }
 
