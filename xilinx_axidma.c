@@ -186,7 +186,6 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 			break;
 		}
 
-
 		/* Remove from the list of running transactions */
 		list_del(&desc->node);
 
@@ -194,9 +193,9 @@ static void xilinx_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		callback = desc->async_tx.callback;
 		callback_param = desc->async_tx.callback_param;
 
-		dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() callback:%p pram%p", callback, callback_param);
 		if (callback) {
 			spin_unlock_irqrestore(&chan->lock, flags);
+			dev_dbg(chan->dev, "xilinx_chan_desc_cleanup() callback:%p pram%p", callback, callback_param);
 			callback(callback_param);
 			spin_lock_irqsave(&chan->lock, flags);
 		}

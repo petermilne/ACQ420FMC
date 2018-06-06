@@ -271,7 +271,7 @@ foreach arg $::argv {
 	upload_range $first $last
 }
 set c1 [ get_irq axi-dma0 ]
-exec /mnt/local/debugson -p
+#exec /mnt/local/debugson -p
 set buffs [expr $last - $first + 1]
 set ints [expr $c1 - $c0]
 puts "buffers: $buffs interrupts: $ints"
