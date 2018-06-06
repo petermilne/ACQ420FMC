@@ -43,9 +43,9 @@ load() {
 query() {
 	if [ $(load_is_running) -eq 1 ]; then
 		if [ -e $PIDF ]; then
-			echo BUSY pid unknown
+			echo "BUSY pid $(cat $PIDF)"			
 		else
-			echo "BUSY pid $(cat $PIDF)"
+			echo "BUSY pid unknown"
 		fi
 	else
 		echo IDLE
