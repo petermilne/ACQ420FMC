@@ -49,6 +49,10 @@ MODULE_PARM_DESC(counter_updates, "monitor count rate");
 
 int maxdevices = MAXDEVICES;
 
+int mgt_reset_on_close = 0;
+module_param(mgt_reset_on_close, int , 0644);
+MODULE_PARM_DESC(mgt_reset_on_close, "1: close resets FIFO");
+
 /* index from 0. There's only one physical MGT400, but may have 2 channels */
 struct mgt400_dev* mgt400_devices[MAXDEVICES+2];
 
@@ -401,7 +405,9 @@ int mgt400_dma_descr_release(struct inode *inode, struct file *file)
 		}
 	}
 quit:
-	mgt400_fifo_reset(mdev, shl);
+	if (mgt_reset_on_close){
+		mgt400_fifo_reset(mdev, shl);
+	}
 	dev_dbg(DEVP(mdev), "%s 99", __FUNCTION__);
 	return mgt400_release(inode, file);
 }

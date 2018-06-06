@@ -38,11 +38,13 @@ proc calc_ngroup {} {
 	set nc [exec get.site 0 NCHAN]
 	set nc3 [expr $nc/3]
 	set ncx [expr $nc3*3]
+
+
 	
 	if { $nc == $ncx } {		
-		return 24
+		return 12
 	} else {		
-		return 32
+		return 8
 	}	
 }
 
@@ -163,6 +165,10 @@ proc get_axi0_int_count {} {
 
 proc upload_group {group to_group} {
 	global expect_out PBCLW
+	global PULL	
+	set PULL [open /dev/mgt400.A.pull_desc w]
+	chan configure $PULL -translation binary
+	chan configure $PULL -buffering none
 	
 	if {[axi_dma_busy]} {
 		puts stderr "ERROR axi_dma_busy from the get-go"
@@ -192,17 +198,10 @@ proc upload_group {group to_group} {
 	if {[expr $int1 - $int0] == 0} {
 		puts "ERROR no axi-dma interrupt $int0 $int1"
 	}
-	if { 0 } {
-	set pbclw [get_pbclw]
-	set delta [expr $pbclw - $PBCLW]
-	if {$delta != 264704} {
-		puts "ERROR:PBCLW: $PBCLW => $pbclw : delta $delta"
-		return 1
-	}
-	set PBCLW $pbclw
-	}
+
 	check_pull_fifo_status
 
+	close $PULL
 	pgm_wait "upload_group done"
 	return 0
 }
@@ -256,9 +255,6 @@ proc upload_range {first last} {
 
 
 spawn mgt_offload server
-set PULL [open /dev/mgt400.A.pull_desc w]
-chan configure $PULL -translation binary
-chan configure $PULL -buffering none
 
 proc get_irq { irq } {
         set lin [exec grep $irq /proc/interrupts]
@@ -267,8 +263,8 @@ proc get_irq { irq } {
 }
 
 
-exec /mnt/local/debugson
-exec /mnt/local/markall
+#exec /mnt/local/debugson
+#exec /mnt/local/markall
 set c0 [ get_irq axi-dma0 ]
 foreach arg $::argv {
 	lassign [split $arg '-'] first last

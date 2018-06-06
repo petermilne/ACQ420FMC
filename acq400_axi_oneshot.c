@@ -217,7 +217,7 @@ int _axi64_data_once_sg(struct acq400_dev *adev, struct dma_chan *rx_chan, unsig
 	dma_cookie_t rx_cookie;
 	int rc = 0;
 
-	BUG_ON(nb >= MAXSG);
+	BUG_ON(nb > MAXSG);
 
 	sg_init_table(sg, nb);
 	for (ii = 0; ii < nb; ++ii){
