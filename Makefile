@@ -23,6 +23,7 @@ obj-m += fmc10x.o
 obj-m += ad9510.o
 obj-m += ads62p49.o
 obj-m += ao428.o
+obj-m += lp3943_dev.o
 #obj-m += acq400-spi-bytebang.o
 
 DC=$(shell date +%y%m%d%H%M%S)
@@ -94,7 +95,7 @@ package: all
 	cp map/* opkg/usr/local/map
 	cp pl330dbg/* opkg/usr/local/init/pl330dbg
 	cp sysconfig/* opkg/etc/sysconfig
-	rm opkg/usr/local/bin/mgt_offload
+	rm -f opkg/usr/local/bin/mgt_offload
 	ln -s /usr/local/CARE/mgt_offload_groups opkg/usr/local/bin/mgt_offload
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
