@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ -e /dev/shm/is_d37 ]; then
+        echo +++ set d37 mode for sites $*
+	for site in $*
+	do
+		set.sys /dev/acq400.$site.knobs/d37_mode 1
+	done
+fi
+
+
