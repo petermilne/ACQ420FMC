@@ -1211,6 +1211,7 @@ struct acq400_dev* acq400_lookupSite(int site);
 #define DAC_424_CGEN_DISABLE_X		(0xf)
 
 /* ACQ423 */
+#define ACQ423_BANK_D37_MODE		(1<<5)
 #define ACQ423_BANK_ODD_CHAN		(1<<4)
 
 #define ACQ423_SPAN_MASK		(0xf)
