@@ -40,6 +40,7 @@ What does acq400_knobs do?.
 
 
 #include <dirent.h>
+#include <errno.h>
 #include <fnmatch.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -116,7 +117,7 @@ public:
 		fp = fopen(name, mode);
 	}
 	virtual ~File() {
-		fclose(fp);
+		if (fp) fclose(fp);
 	}
 };
 
@@ -268,7 +269,9 @@ public:
 	virtual int get(char* buf, int maxbuf) {
 		File knob(name, "r");
 		if (knob.fp == NULL) {
-			return snprintf(buf, maxbuf, "ERROR: failed to open \"%s\"\n", name);
+			return snprintf(buf, maxbuf,
+				"ERROR: %d \"%s\" failed to open \"%s\"\n",
+				errno, strerror(errno), name);
 		}else{
 			return fgets(buf, maxbuf, knob.fp) != NULL;
 		}
