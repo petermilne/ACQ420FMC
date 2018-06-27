@@ -699,6 +699,16 @@ public:
 	Help2() : Help("help2") {}
 };
 
+class HelpA: public Help {
+protected:
+	virtual int query(Knob* knob, char* buf, int buflen){
+		snprintf(buf, buflen, "%-20s : %s\n",
+				knob->getName(), knob->getAttr());
+		return 1;
+	}
+public:
+	HelpA() : Help("helpA") {}
+};
 
 int filter(const struct dirent *dir)
 {
@@ -753,6 +763,7 @@ int do_scan()
 	KNOBS.push_back(Prompt::instance());
 	KNOBS.push_back(new Help);
 	KNOBS.push_back(new Help2);
+	KNOBS.push_back(new HelpA);
 
 	for (int ii = 0; ii < nn; ++ii){
 		if (strcmp(namelist[ii]->d_name, "groups") == 0){
