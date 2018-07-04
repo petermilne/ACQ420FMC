@@ -726,7 +726,6 @@ esac
 
 
 build_knobs
-echo set_fans $FANSPEED
 set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
 
