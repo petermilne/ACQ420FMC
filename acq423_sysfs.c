@@ -164,6 +164,29 @@ MAKE_ACQ423_SPAN(31,31);
 MAKE_ACQ423_SPAN(32,32);
 
 
+static ssize_t show_gains(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int ch0;
+	unsigned regs[4];
+	int reg;
+
+	for (reg = 0; reg < 4; ++reg){
+		regs[reg] = acq400rd32(adev, ACQ423_SPAN_A+reg*sizeof(int));
+	}
+	for (ch0 = 0; ch0 < 32; ++ch0){
+		int shl = (ch0%ACQ423_SPAN_FPR) * ACQ423_SPAN_FW;
+		reg = ch0/ACQ423_SPAN_FPR;
+		sprintf(buf+ch0, "%x", (regs[reg] >> shl)&ACQ423_SPAN_MASK);
+	}
+	strcat(buf, "\n");
+	return buf;
+}
+static DEVICE_ATTR(gains, S_IRUGO, show_gains, 0);
+
 static ssize_t show_odd_channels(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -241,5 +264,6 @@ const struct attribute *acq423_attrs[] = {
 	&dev_attr_gain30.attr,
 	&dev_attr_gain31.attr,
 	&dev_attr_gain32.attr,
+	&dev_attr_gains.attr,
 	NULL
 };
