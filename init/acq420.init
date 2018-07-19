@@ -395,7 +395,7 @@ build_site0() {
 	web_append acq400.0 0
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel ${ek}
-	ln -s /usr/local/bin/run0 ${ek}
+	ln -s /usr/local/bin/run0 /usr/local/bin/get.xdt ${ek}
 	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
 	ln -s /usr/local/bin/set.site ${ek}/SS
 	ln -s /usr/local/bin/fit_rtm_translen_to_buffer ${ek}

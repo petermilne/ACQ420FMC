@@ -1,0 +1,10 @@
+#!/bin/sh
+
+case "$(get.site 1 MTYPE)" in
+08)
+	get.site 1 ACQ480:OSR | awk '{print 1/$2}';;
+*)
+	get.site 0 SIG:CLK_S1:FREQ | awk '{print 1/$2}';;
+esac
+
+
