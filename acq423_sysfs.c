@@ -183,7 +183,7 @@ static ssize_t show_gains(
 		sprintf(buf+ch0, "%x", (regs[reg] >> shl)&ACQ423_SPAN_MASK);
 	}
 	strcat(buf, "\n");
-	return buf;
+	return strlen(buf);
 }
 static DEVICE_ATTR(gains, S_IRUGO, show_gains, 0);
 
