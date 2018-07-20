@@ -1,0 +1,38 @@
+#!/bin/sh
+
+
+if [ "x$1" = "x" ]; then
+	LEDS=/dev/gpio/LED/*
+else
+	LEDS="$*"
+fi
+
+echo FIRST, disable the IOC
+echo "acq4xx-epics-console, ^T ^X"
+
+prompt_done() {
+    fin=n
+    while [ "x$fin" = "xn" ]; do
+        echo -n "$* Y/n"
+        read fin
+    done
+}
+led_test() {
+        echo 1 > $1
+        prompt_done "TESTING $1 ON"
+        echo 0 > $1
+	prompt_done "TESTING $1 OFF"
+}
+
+for led in $LEDS
+do
+	echo 0 > $led
+done
+prompt_done "ALL OFF"
+
+for led in $LEDS
+do
+    led_test $led
+done
+
+
