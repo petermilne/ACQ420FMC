@@ -127,25 +127,30 @@ int acq400_read_set(struct acq400_dev* set[],
 
 int acq400_add_aggregator_set(struct acq400_dev *adev, int site)
 {
-	return acq400_add_set(adev->aggregator_set, adev, site);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	return acq400_add_set(sc_dev->aggregator_set, adev, site);
 }
 
 int acq400_read_aggregator_set(struct acq400_dev *adev, char *buf, int maxbuf)
 {
-	return acq400_read_set(adev->aggregator_set, adev, buf, maxbuf);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	return acq400_read_set(sc_dev->aggregator_set, adev, buf, maxbuf);
 }
 
 void acq400_clear_aggregator_set(struct acq400_dev *adev)
 {
-	acq400_clear_set(adev->aggregator_set);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	acq400_clear_set(sc_dev->aggregator_set);
 }
 int acq400_add_distributor_set(struct acq400_dev *adev, int site)
 {
-	return acq400_add_set(adev->distributor_set, adev, site);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	return acq400_add_set(sc_dev->distributor_set, adev, site);
 }
 void acq400_clear_distributor_set(struct acq400_dev *adev)
 {
-	acq400_clear_set(adev->distributor_set);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	acq400_clear_set(sc_dev->distributor_set);
 }
 
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev))

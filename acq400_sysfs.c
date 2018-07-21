@@ -3598,8 +3598,9 @@ static ssize_t show_dist_reg(
 void onDistributorEnable(struct acq400_dev *adev, const unsigned offset)
 {
 	unsigned regval = acq400rd32(adev, offset);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 
-	reset_fifo_set(adev, adev->distributor_set, ENABLE);
+	reset_fifo_set(adev, sc_dev->distributor_set, ENABLE);
 
 	regval &= ~(DIST_ENABLEN|DIST_FIFO_RESET);
 	acq400wr32(adev, offset, regval|DIST_FIFO_RESET);
@@ -3608,9 +3609,10 @@ void onDistributorEnable(struct acq400_dev *adev, const unsigned offset)
 
 void onDistributorDisable(struct acq400_dev *adev, const unsigned offset)
 {
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	unsigned regval = acq400rd32(adev, offset);
 
-	reset_fifo_set(adev, adev->distributor_set, !ENABLE);
+	reset_fifo_set(adev, sc_dev->distributor_set, !ENABLE);
 
 	regval &= ~DIST_ENABLEN;
 	acq400wr32(adev, offset, regval);
@@ -3749,7 +3751,8 @@ static ssize_t show_dist_s1(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	struct acq400_dev *ds1 = adev->distributor_set[0];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct acq400_dev *ds1 = sc_dev->distributor_set[0];
 	return sprintf(buf, "%d\n", ds1? ds1->of_prams.site: 0);
 }
 static DEVICE_ATTR(dist_s1, S_IRUGO, show_dist_s1, 0);

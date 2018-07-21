@@ -174,17 +174,19 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 int raw_offset_w(struct InodeMap* map)
 {
 	struct acq400_dev* adev0 = FSN.site0->adev;
+	struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
+
 	int offset;
 	int ia;
 	for (offset = 0, ia = 0; ia < MAXSITES; ++ia){
 		dev_dbg(DEVP(adev0), "compare site %d [%d] ret %d",
 							map->site, ia, offset);
-		if (adev0->aggregator_set[ia] == map->adev){
+		if (sc_dev->aggregator_set[ia] == map->adev){
 			dev_dbg(DEVP(adev0), "found site %d [%d] ret %d",
 					map->site, ia, offset);
 			return offset;
 		}else{
-			offset += adev0->aggregator_set[ia]->nchan_enabled;
+			offset += sc_dev->aggregator_set[ia]->nchan_enabled;
 		}
 	}
 

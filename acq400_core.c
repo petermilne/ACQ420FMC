@@ -196,10 +196,12 @@ u32 aggregator_get_fifo_samples(struct acq400_dev *adev)
 
 int check_fifo_statuses(struct acq400_dev *adev)
 {
-	if (adev->is_sc){
+	if (IS_SC(adev)){
 		int islave = 0;
+		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
 		for (islave = 0; islave < MAXSITES; ++islave){
-			struct acq400_dev* slave = adev->aggregator_set[islave];
+			struct acq400_dev* slave = sc_dev->aggregator_set[islave];
 			if (!slave) break;
 
 			if (slave->isFifoError(slave)){
@@ -363,6 +365,7 @@ int fifo_monitor(void* data)
 {
 	struct acq400_dev *devs[MAXSITES+1];
 	struct acq400_dev *adev = (struct acq400_dev *)data;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int idev = 0;
 	int cursor;
 	int i1 = 0;		/* randomize start time */
@@ -370,7 +373,7 @@ int fifo_monitor(void* data)
 	devs[idev++] = adev;
 	adev->get_fifo_samples = aggregator_get_fifo_samples;
 	for (cursor = 0; cursor < MAXSITES; ++cursor){
-		struct acq400_dev* slave = adev->aggregator_set[cursor];
+		struct acq400_dev* slave = sc_dev->aggregator_set[cursor];
 		if (slave){
 			devs[idev++] = slave;
 			slave->get_fifo_samples = acq420_get_fifo_samples;

@@ -658,12 +658,6 @@ struct acq400_dev {
 	int (*isFifoError)(struct acq400_dev *adev);
 
 
-
-	/* valid sc only */
-	bool is_sc;
-	struct acq400_dev* aggregator_set[MAXSITES];
-	struct acq400_dev* distributor_set[MAXSITES];
-
 	struct DIO432 {
 		enum DIO432_MODE mode;
 		unsigned byte_is_output;	/* 1:byte[0], 2:byte[1] 4:byte[2], 8:byte[3] */
@@ -717,7 +711,8 @@ struct acq400_dev {
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
-	/* handle sc stuff here */
+	struct acq400_dev* aggregator_set[MAXSITES];
+	struct acq400_dev* distributor_set[MAXSITES];
 };
 
 struct acq400_bolo_dev {

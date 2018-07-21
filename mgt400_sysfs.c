@@ -440,13 +440,13 @@ extern int good_sites_count;
 
 int get_site(char s)
 {
-	struct acq400_dev *sc = acq400_devices[0];
+	struct acq400_sc_dev* sc_dev = container_of(acq400_devices[0], struct acq400_sc_dev, adev);
 	int ii;
 	int site = s-'0';
 
 	for(ii = 0; ii < MAXSITES; ++ii){
-		if (sc->aggregator_set[ii] &&
-		    sc->aggregator_set[ii]->of_prams.site == site){
+		if (sc_dev->aggregator_set[ii] &&
+		    sc_dev->aggregator_set[ii]->of_prams.site == site){
 			return site;
 		}
 	}

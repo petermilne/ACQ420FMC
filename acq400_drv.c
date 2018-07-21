@@ -635,6 +635,7 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
  */
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int rc;
 
 	empty_lists(adev);
@@ -661,11 +662,11 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 	acq2006_aggregator_enable(adev);			/* (4) */
 
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() acq400_enable_trg %d",
-			adev->aggregator_set[0]->of_prams.site);
+			sc_dev->aggregator_set[0]->of_prams.site);
 
 	/* (5) */
 
-	acq400_visit_set(adev->aggregator_set, acq400_enable_trg_if_master);
+	acq400_visit_set(sc_dev->aggregator_set, acq400_enable_trg_if_master);
 	adev->RW32_debug = 0;
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 99");
 	return 0;
@@ -1717,7 +1718,11 @@ quit:
 	waitXoFifoEmpty(adev);
 	waitOtherSiteStop(adev);
 
-	acq400_visit_set(adev0->distributor_set, adev->onStop);
+	{
+		struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
+		acq400_visit_set(sc_dev->distributor_set, adev->onStop);
+	}
+
 
 	adev->stats.run = 0;
 	adev->task_active = 0;
@@ -1765,7 +1770,8 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
 	struct acq400_dev *adev0 = acq400_devices[0];
-	int first_in_set = xo_use_distributor && (adev == adev0->distributor_set[0]);
+	struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
+	int first_in_set = xo_use_distributor && (adev == sc_dev->distributor_set[0]);
 	int use_frontside = !xo_use_distributor;
 
 	if (xo_use_distributor && !first_in_set){
@@ -1822,14 +1828,14 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		/* else do nothing */
 
 		if (first_in_set){
-			acq400_visit_set(adev0->distributor_set, adev->onStart);
+			acq400_visit_set(sc_dev->distributor_set, adev->onStart);
 		}else if (use_frontside){
 			adev->onStart(adev);
 		}
 		/* else do nothing */
 	}else{
 		if (first_in_set){
-			acq400_visit_set(adev0->distributor_set, adev->onStop);
+			acq400_visit_set(sc_dev->distributor_set, adev->onStop);
 		}else if (use_frontside){
 			adev->onStop(adev);
 		}
@@ -2510,7 +2516,7 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	int ix = 0;
 	struct HBM* cursor;
 
-	if (adev->is_sc){
+	if (IS_SC(adev)){
 	    ix += hbm_allocate(DEVP(adev), ix, reserve_buffers, bl, &adev->GRESV, dir);
 	}
 	ix += hbm_allocate(DEVP(adev), ix, nb-reserve_buffers, bl, &adev->EMPTIES, dir);
@@ -2608,7 +2614,6 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 
 int acq400_modprobe_sc(struct acq400_dev* adev)
 {
-	adev->is_sc = true;
 	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
 		dev_err(DEVP(adev), "failed to allocate buffers");
 		return -1;
