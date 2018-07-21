@@ -113,6 +113,7 @@ extern int data_32b;
 
 void bolo8_init_defaults(struct acq400_dev* adev)
 {
+	struct acq400_bolo_dev* b8_dev = container_of(adev, struct acq400_bolo_dev, adev);
 	u32 syscon = acq400rd32(adev, B8_SYS_CON);
 	syscon |= ADC_CTRL_MODULE_EN;
 
@@ -131,8 +132,8 @@ void bolo8_init_defaults(struct acq400_dev* adev)
 	adev->onStop = bolo8_onStop;
 	adev->isFifoError = bolo8_isFifoError;
 
-	adev->bolo8.awg_buffer = kmalloc(4096, GFP_KERNEL);
-	adev->bolo8.awg_buffer_max = 4096;
-	adev->bolo8.awg_buffer_cursor = 0;
+	b8_dev->bolo8.awg_buffer = kmalloc(4096, GFP_KERNEL);
+	b8_dev->bolo8.awg_buffer_max = 4096;
+	b8_dev->bolo8.awg_buffer_cursor = 0;
 
 }

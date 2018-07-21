@@ -657,12 +657,7 @@ struct acq400_dev {
 	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
 	int (*isFifoError)(struct acq400_dev *adev);
 
-	struct Bolo8 {
-		char* awg_buffer;
-		int awg_buffer_max;
-		int awg_buffer_cursor;
-		short offset_dacs[8];
-	} bolo8;
+
 
 	/* valid sc only */
 	bool is_sc;
@@ -723,6 +718,17 @@ struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
 	/* handle sc stuff here */
+};
+
+struct acq400_bolo_dev {
+	char id[16];
+	struct acq400_dev adev;
+	struct Bolo8 {
+		char* awg_buffer;
+		int awg_buffer_max;
+		int awg_buffer_cursor;
+		short offset_dacs[8];
+	} bolo8;
 };
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512

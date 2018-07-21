@@ -2488,7 +2488,12 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 		memcpy(&sc_dev->adev, adev, sizeof(struct acq400_dev));
 		kfree(adev);
 		adev = &sc_dev->adev;
-		dev_info(DEVP(adev), "%s adev %p", __FUNCTION__, adev);
+	}else if (IS_BOLO8(adev)){
+		struct acq400_bolo_dev *b8_dev = kzalloc(sizeof(struct acq400_bolo_dev), GFP_KERNEL);
+		strcpy(b8_dev->id, "bolo8");
+		memcpy(&b8_dev->adev, adev, sizeof(struct acq400_dev));
+		kfree(adev);
+		adev = &b8_dev->adev;
 	}
 	_acq400_init_dev(adev);
         acq400_devices[ndevices++] = adev;

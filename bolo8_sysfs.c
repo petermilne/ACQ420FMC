@@ -47,13 +47,14 @@ static ssize_t store_offset_dacN(
 	const int ix)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct acq400_bolo_dev* b8_dev = container_of(adev, struct acq400_bolo_dev, adev);
 	int rc = count;
 	int offset;
 
 	if (sscanf(buf, "++%d", &offset) == 1){
-		offset = adev->bolo8.offset_dacs[ix] + offset;
+		offset = b8_dev->bolo8.offset_dacs[ix] + offset;
 	}else if (sscanf(buf, "--%d", &offset) == 1){
-		offset = adev->bolo8.offset_dacs[ix] - offset;
+		offset = b8_dev->bolo8.offset_dacs[ix] - offset;
 	}else if (sscanf(buf, "0x%x", &offset) == 1){
 		;
 	}else if (sscanf(buf, "%d", &offset) == 1){
@@ -62,7 +63,7 @@ static ssize_t store_offset_dacN(
 		return -1;
 	}
 
-	bolo8_set_offset_dacN(adev, ix, adev->bolo8.offset_dacs[ix] = offset);
+	bolo8_set_offset_dacN(adev, ix, b8_dev->bolo8.offset_dacs[ix] = offset);
 
 	return rc;
 }
