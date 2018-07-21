@@ -926,7 +926,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 
 #define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ480(adev))
 
-#define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_ID_VERSION(adev) != 0)
+#define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_IDV(adev) != 0)
 
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
