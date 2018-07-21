@@ -33,10 +33,6 @@ int debcount;
 module_param(debcount, int, 0644);
 MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 
-int modify_spad_access;
-module_param(modify_spad_access, int, 0644);
-MODULE_PARM_DESC(modify_spad_access,
-"-1: access DRAM instead to trace spad fault, 1: force read before, 2: force read after");
 
 int histo_poll_ms = 10;
 module_param(histo_poll_ms, int, 0644);
@@ -111,29 +107,12 @@ u32 acq400rd32_upcount(struct acq400_dev *adev, int offset)
 
 void set_spadN(struct acq400_dev* adev, int n, u32 value)
 {
-	if (modify_spad_access == -1){
-		adev->fake_spad[n] = value;
-	}else{
-		if (modify_spad_access > 0){
-			acq400rd32(adev, SPADN(n));
-		}
-		acq400wr32(adev, SPADN(n), value);
-		if (modify_spad_access > 1){
-			u32 v2 = acq400rd32(adev, SPADN(n));
-			if (v2 != value){
-				dev_warn(DEVP(adev),
-					"spadN fail: w:%08x r:%08x", value, v2);
-			}
-		}
-	}
+	acq400wr32(adev, SPADN(n), value);
+
 }
 u32 get_spadN(struct acq400_dev* adev, int n)
 {
-	if (modify_spad_access){
-		return adev->fake_spad[n];
-	}else{
-		return acq400rd32(adev, SPADN(n));
-	}
+	return acq400rd32(adev, SPADN(n));
 }
 
 static bool filter_true(struct dma_chan *chan, void *param)
