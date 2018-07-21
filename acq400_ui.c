@@ -422,12 +422,13 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 int acq400_gpgmem_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	if (file->f_flags & O_WRONLY) {
 		int iw;
-		for (iw = 0; iw < adev->gpg_cursor; ++iw){
-			iowrite32(0, adev->gpg_base+iw);
+		for (iw = 0; iw < sc_dev->gpg_cursor; ++iw){
+			iowrite32(0, sc_dev->gpg_base+iw);
 		}
-		adev->gpg_cursor = 0;
+		sc_dev->gpg_cursor = 0;
 	}
 	return 0;
 }
@@ -435,7 +436,8 @@ ssize_t acq400_gpgmem_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int len = adev->gpg_cursor*sizeof(u32);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	int len = sc_dev->gpg_cursor*sizeof(u32);
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
@@ -447,7 +449,7 @@ ssize_t acq400_gpgmem_read(
 			count = headroom;
 		}
 	}
-	rc = copy_to_user(buf, adev->gpg_buffer+bcursor, count);
+	rc = copy_to_user(buf, sc_dev->gpg_buffer+bcursor, count);
 	if (rc){
 		return -1;
 	}
@@ -460,6 +462,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int len = GPG_MEM_ACTUAL;
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
@@ -472,12 +475,12 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 			count = headroom;
 		}
 	}
-	rc = copy_from_user(adev->gpg_buffer+bcursor, buf, count);
+	rc = copy_from_user(sc_dev->gpg_buffer+bcursor, buf, count);
 	if (rc){
 		return -1;
 	}
 	*f_pos += count;
-	adev->gpg_cursor += count/sizeof(u32);
+	sc_dev->gpg_cursor += count/sizeof(u32);
 	return count;
 
 }
@@ -503,15 +506,16 @@ int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	unsigned* src = (unsigned *)adev->gpg_buffer;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	unsigned* src = (unsigned *)sc_dev->gpg_buffer;
 	int iw;
 	int rc;
 
-	for (iw = 0; iw < adev->gpg_cursor; ++iw){
-		iowrite32(src[iw], adev->gpg_base+iw);
+	for (iw = 0; iw < sc_dev->gpg_cursor; ++iw){
+		iowrite32(src[iw], sc_dev->gpg_base+iw);
 	}
 	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
-	rc = set_gpg_top(adev, adev->gpg_cursor);
+	rc = set_gpg_top(adev, sc_dev->gpg_cursor);
 	acq400_release(inode, file);
 	return rc;
 }
@@ -656,13 +660,14 @@ int acq420_sew_fifo_open(struct inode *inode, struct file *file)
 			.release = acq420_sew_fifo_release,
 	};
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
 	int busy;
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return -EINTR;
 	}
-	busy = adev->sewFifo[ix].sf_task != 0;
+	busy = sc_dev->sewFifo[ix].sf_task != 0;
 	if (!busy){
 		acq400_sew_fifo_init(adev, ix);
 	}

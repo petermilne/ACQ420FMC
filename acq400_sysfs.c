@@ -590,11 +590,12 @@ static ssize_t show_gpg_debug(
 /* state, addr, ctr, ostate, until */
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	u32 deb = acq400rd32(adev, GPG_DEBUG);
 	u32 state = getField(deb, GPG_DBG_STATE);
 	u32 addr = getField(deb, GPG_DBG_ADDR);
 	u32 ctr = getField(deb, GPG_DBG_CTR);
-	u32 gpd = ((u32*)adev->gpg_buffer)[addr];
+	u32 gpd = ((u32*)sc_dev->gpg_buffer)[addr];
 	u32 ostate = gpd&0x000000ff;
 
 	return sprintf(buf, "%u,%u,%u,%u,%x,%u\n",
@@ -626,6 +627,7 @@ static ssize_t show_gpg_mode(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
 	u32 gpg_mode = (gpg_ctrl&GPG_CTRL_MODE) >> GPG_CTRL_MODE_SHL;
 	return sprintf(buf, "%u\n", gpg_mode);
@@ -735,10 +737,11 @@ static ssize_t show_spad(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	return sprintf(buf, "%u,%u,%u\n",
-		adev->spad.spad_en,
-		adev->spad.spad_en==SP_EN? adev->spad.len: 0,
-		adev->spad.spad_en!=SP_OFF? adev->spad.diX: 0);
+			sc_dev->spad.spad_en,
+			sc_dev->spad.spad_en==SP_EN? sc_dev->spad.len: 0,
+			sc_dev->spad.spad_en!=SP_OFF? sc_dev->spad.diX: 0);
 }
 
 static ssize_t store_spad(
@@ -748,6 +751,7 @@ static ssize_t store_spad(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	struct Spad spad = { 1, 8, 0 };
 	if (sscanf(buf, "%u,%u,%u", &spad.spad_en, &spad.len, &spad.diX) > 0){
 		if (spad.diX > SD_DI32) spad.diX = SD_SEW;
@@ -765,7 +769,7 @@ static ssize_t store_spad(
 			spad.len = 0;
 			break;
 		}
-		adev->spad = spad;
+		sc_dev->spad = spad;
 		return count;
 	}else{
 		return -1;

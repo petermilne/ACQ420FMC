@@ -278,14 +278,15 @@ void sc_data_engine_reset_enable(unsigned dex)
 }
 void acq2006_aggregator_enable(struct acq400_dev *adev)
 {
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	agg &= ~AGG_SPAD_ALL_MASK;
 
-	switch(adev->spad.spad_en){
+	switch(sc_dev->spad.spad_en){
 	default:
 		goto agg99;
 	case SP_EN: {
-			int len = adev->spad.len;
+			int len = sc_dev->spad.len;
 			if (IS_AXI64(adev)){
 				len /= 2;    /* SPADS double spaced in 64 bit */
 			}
@@ -297,7 +298,7 @@ void acq2006_aggregator_enable(struct acq400_dev *adev)
 		agg |= AGG_SPAD_EN|AGG_SPAD_FRAME;
 		break;
 	}
-	switch(adev->spad.diX){
+	switch(sc_dev->spad.diX){
 	case SD_DI4:
 		agg |= SET_AGG_SNAP_DIx(AGG_SNAP_DI_4); break;
 	case SD_DI32:

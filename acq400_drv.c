@@ -2450,8 +2450,7 @@ static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
 
         mutex_init(&adev->mutex);
         mutex_init(&adev->awg_mutex);
-        mutex_init(&adev->sewFifo[0].sf_mutex);
-        mutex_init(&adev->sewFifo[1].sf_mutex);
+
         adev->fifo_histo = kzalloc(FIFO_HISTO_SZ*sizeof(u32), GFP_KERNEL);
 
         INIT_LIST_HEAD(&adev->EMPTIES);
@@ -2496,11 +2495,13 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 	acq400_getID(adev);
 
 	if (IS_SC(adev)){
-		struct acq400_sc_dev *sc_dev = kzalloc(sizeof(struct acq400_sc_dev), GFP_KERNEL);
-		strcpy(sc_dev->id, "SC");
-		memcpy(&sc_dev->adev, adev, sizeof(struct acq400_dev));
-		kfree(adev);
-		adev = &sc_dev->adev;
+		struct acq400_sc_dev *sc_dev;
+		SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
+		mutex_init(&sc_dev->sewFifo[0].sf_mutex);
+		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
+	}else if (IS_ACQ480(adev)){
+		struct ACQ480_dev *a480_dev;
+		SPECIALIZE(a480_dev, adev, struct ACQ480_dev, "ACQ480");
 	}else if (IS_BOLO8(adev)){
 		struct acq400_bolo_dev *b8_dev = kzalloc(sizeof(struct acq400_bolo_dev), GFP_KERNEL);
 		strcpy(b8_dev->id, "bolo8");
@@ -2627,12 +2628,14 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 
 int acq400_modprobe_sc(struct acq400_dev* adev)
 {
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
 	if (allocate_hbm(adev, nbuffers, bufferlen, default_dma_direction)){
 		dev_err(DEVP(adev), "failed to allocate buffers");
 		return -1;
 	}
-	adev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
-	adev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+	sc_dev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
+	sc_dev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
 
 	acq400_createSysfs(DEVP(adev));
 	acq400_init_proc(adev);
@@ -2775,6 +2778,7 @@ static int acq400_remove(struct platform_device *pdev)
 		return -1;
 	}else{
 		struct acq400_dev* adev = acq400_devices[pdev->id];
+		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 
 		if (adev == 0){
 			return -1;
@@ -2799,8 +2803,8 @@ static int acq400_remove(struct platform_device *pdev)
 		if (adev->client_data) {
 			kfree(adev->client_data);
 		}
-		if (adev->gpg_buffer){
-			kfree(adev->gpg_buffer);
+		if (sc_dev->gpg_buffer){
+			kfree(sc_dev->gpg_buffer);
 		}
 
 		kfree(adev->fifo_histo);

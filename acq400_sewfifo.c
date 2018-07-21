@@ -108,7 +108,8 @@ int acq400_sew_fifo_work(void *data)
 
 void acq400_sew_fifo_init(struct acq400_dev* adev, int ix)
 {
-	struct SewFifo* sf = &adev->sewFifo[ix];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct SewFifo* sf = &sc_dev->sewFifo[ix];
 
 	init_waitqueue_head(&sf->sf_waitq);
 	if (sf->sf_buf.buf == 0){
@@ -122,7 +123,8 @@ void acq400_sew_fifo_init(struct acq400_dev* adev, int ix)
 }
 int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix)
 {
-	struct SewFifo* sf = &adev->sewFifo[ix];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct SewFifo* sf = &sc_dev->sewFifo[ix];
 	kthread_stop(sf->sf_task);
 	sf->sf_task = 0;
 	if (sf->sf_buf.buf != 0){
@@ -134,7 +136,8 @@ int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix)
 int acq400_sew_fifo_write_bytes(
 		struct acq400_dev* adev, int ix, const char __user *buf, size_t count)
 {
-	struct SewFifo* sf = &adev->sewFifo[ix];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct SewFifo* sf = &sc_dev->sewFifo[ix];
 	unsigned char tmp;
 	int iwrite = 0;
 	int rc;

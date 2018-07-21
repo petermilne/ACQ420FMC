@@ -571,13 +571,7 @@ struct acq400_dev {
 
 	int ramp_en;
 
-	enum  { SP_OFF, SP_EN, SP_FRAME } SpadEn;
-	enum  { SD_SEW, SD_DI4, SD_DI32 } SpadDix;
-	struct Spad {
-		unsigned spad_en;	/* 0: off 1: spad 2:frame */
-		unsigned len;		/* 1..8 */
-		unsigned diX;		/* 0 : off 1: di4 2: di32 */
-	} spad;				/** scratchpad enable */
+
 	int data32;
 	int adc_18b;			/* @@todo set on probe() */
 	int nchan_enabled;		/* @@todo crude, assumes 1..N */
@@ -617,9 +611,6 @@ struct acq400_dev {
 	wait_queue_head_t refill_ready;
 	wait_queue_head_t hb0_marker;
 
-	unsigned char *gpg_buffer;
-	unsigned *gpg_base;
-	unsigned gpg_cursor;		/* words .. */
 
 	unsigned *fifo_histo;
 
@@ -676,19 +667,6 @@ struct acq400_dev {
 		int encoded_twocmp;
 	} ao424_device_settings;
 
-	struct ACQ480 {
-		int train;
-	} acq480;
-
-	struct SewFifo {
-		struct mutex sf_mutex;
-		struct circ_buf sf_buf;
-		struct task_struct* sf_task;
-		wait_queue_head_t sf_waitq;
-		struct acq400_dev* adev;
-		int regoff;
-	} sewFifo[2];
-
 	/* bq Buffer Queue support */
 	struct mutex bq_clients_mutex;
 	struct list_head bq_clients;
@@ -707,6 +685,24 @@ struct acq400_sc_dev {
 	struct acq400_dev adev;
 	struct acq400_dev* aggregator_set[MAXSITES];
 	struct acq400_dev* distributor_set[MAXSITES];
+	struct SewFifo {
+		struct mutex sf_mutex;
+		struct circ_buf sf_buf;
+		struct task_struct* sf_task;
+		wait_queue_head_t sf_waitq;
+		struct acq400_dev* adev;
+		int regoff;
+	} sewFifo[2];
+	unsigned char *gpg_buffer;
+	unsigned *gpg_base;
+	unsigned gpg_cursor;		/* words .. */
+	enum  { SP_OFF, SP_EN, SP_FRAME } SpadEn;
+	enum  { SD_SEW, SD_DI4, SD_DI32 } SpadDix;
+	struct Spad {
+		unsigned spad_en;	/* 0: off 1: spad 2:frame */
+		unsigned len;		/* 1..8 */
+		unsigned diX;		/* 0 : off 1: di4 2: di32 */
+	} spad;				/** scratchpad enable */
 };
 
 struct acq400_bolo_dev {
@@ -728,6 +724,14 @@ struct XTD_dev {
 		struct hrtimer timer;
 	} atd, atd_display;
 };
+
+struct ACQ480_dev {
+	char id[16];
+	struct acq400_dev adev;
+
+	int train;
+};
+
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512
 /** acq400_path_descriptor - one per open path */
