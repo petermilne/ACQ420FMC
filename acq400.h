@@ -698,12 +698,6 @@ struct acq400_dev {
 	int bq_max;
 	pid_t continuous_reader;
 
-	struct ATD {
-		u32 event_source;
-		struct hrtimer timer;
-	} atd, atd_display;
-
-
 	unsigned clkdiv_mask;
 	void *axi_private;
 };
@@ -724,6 +718,15 @@ struct acq400_bolo_dev {
 		int awg_buffer_cursor;
 		short offset_dacs[8];
 	} bolo8;
+};
+
+struct XTD_dev {
+	char id[16];
+	struct acq400_dev adev;
+	struct ATD {
+		u32 event_source;
+		struct hrtimer timer;
+	} atd, atd_display;
 };
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512

@@ -881,6 +881,7 @@ ssize_t acq400_event_read(
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	u32 old_sample = adev->rt.samples_at_event;
 	int timeout = 0;
+	int event_source = 0;
 
 	if (eventInfo.pollin){
 		PD(file)->eventInfo.pollin = 0;
@@ -930,16 +931,22 @@ ssize_t acq400_event_read(
 		dma_sync_single_for_cpu(DEVP(adev), eventInfo.hbm1->pa, eventInfo.hbm1->len, eventInfo.hbm1->dir);
 	}
 
+	if (HAS_DTD(adev)){
+		struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
+		if (xtd_dev->atd.event_source){
+			event_source = xtd_dev->atd.event_source;
+			xtd_dev->atd.event_source = 0;
+		}
+	}
+
 	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x %d\n",
 			adev->rt.samples_at_event,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
-			adev->atd.event_source,
+			event_source,
 			adev->rt.event_count);
 
-	if (HAS_DTD(adev) && adev->atd.event_source){
-		adev->atd.event_source = 0;
-	}
+
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
 		rc = -1;

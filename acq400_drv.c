@@ -2224,22 +2224,20 @@ quit:
 static enum hrtimer_restart pulse_stretcher_timer_handler(struct hrtimer
 					  *handle)
 {
-	struct acq400_dev *adev;
-
-	adev = container_of(handle, struct acq400_dev, atd.timer);
+	struct XTD_dev *xtd_dev = container_of(handle, struct XTD_dev, atd.timer);
+	struct acq400_dev *adev = &xtd_dev->adev;
 
 	acq400_clearDelTrgEvent(adev);
-	acq400wr32(adev, ATD_TRIGGERED, adev->atd.event_source);
+	acq400wr32(adev, ATD_TRIGGERED, xtd_dev->atd.event_source);
 	return HRTIMER_NORESTART;
 }
 
 static enum hrtimer_restart pulse_stretcher_display_timer_handler(
 		struct hrtimer *handle)
 {
-	struct acq400_dev *adev;
+	struct XTD_dev *xtd_dev = container_of(handle, struct XTD_dev, atd_display.timer);
 
-	adev = container_of(handle, struct acq400_dev, atd_display.timer);
-	adev->atd_display.event_source = 0;
+	xtd_dev->atd_display.event_source = 0;
 	return HRTIMER_NORESTART;
 }
 
@@ -2251,17 +2249,18 @@ MODULE_PARM_DESC(lotide, "histogram of cos isr");
 
 static void xtd_action(struct acq400_dev *adev)
 {
-	adev->atd.event_source = acq400rd32(adev, ATD_TRIGGERED);
+	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
+	xtd_dev->atd.event_source = acq400rd32(adev, ATD_TRIGGERED);
 
-	if (adev->atd.event_source){
-			adev->atd_display.event_source = adev->atd.event_source;
+	if (xtd_dev->atd.event_source){
+		xtd_dev->atd_display.event_source = xtd_dev->atd.event_source;
 
 		if (HAS_DTD(adev)){
-			hrtimer_start(&adev->atd.timer,	ktime_set(0, dtd_pulse_nsec),
+			hrtimer_start(&xtd_dev->atd.timer, ktime_set(0, dtd_pulse_nsec),
 					HRTIMER_MODE_REL);
 		}
 
-		hrtimer_start(&adev->atd_display.timer,
+		hrtimer_start(&xtd_dev->atd_display.timer,
 			ktime_set(0, dtd_display_pulse_nsec), HRTIMER_MODE_REL);
 	}
 }
@@ -2470,12 +2469,20 @@ static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
         adev->onStop = acqXXX_onStopNOP;
         adev->clkdiv_mask = ADC_CLK_DIV_MASK;
 
-        acq400_timer_init(&adev->atd.timer, pulse_stretcher_timer_handler);
-        acq400_timer_init(&adev->atd_display.timer,
-        		pulse_stretcher_display_timer_handler);
+
 
         return adev;
 }
+
+#define SPECIALIZE(sdev, adev, _type, _id) \
+	do { \
+		sdev = kzalloc(sizeof(_type), GFP_KERNEL); \
+		strcpy(sdev->id, _id); \
+		memcpy(&sdev->adev, adev, sizeof(struct acq400_dev)); \
+		kfree(adev); \
+		adev = &sdev->adev; \
+	} while(0)
+
 static struct acq400_dev*
 acq400_allocate_module_device(struct acq400_dev* adev)
 /* subclass adev for module specific device, where required.
@@ -2500,6 +2507,12 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 		memcpy(&b8_dev->adev, adev, sizeof(struct acq400_dev));
 		kfree(adev);
 		adev = &b8_dev->adev;
+	}else if (HAS_XTD(adev)){
+		struct XTD_dev *xtd_dev;
+		SPECIALIZE(xtd_dev, adev, struct XTD_dev, "XTD");
+	        acq400_timer_init(&xtd_dev->atd.timer, pulse_stretcher_timer_handler);
+	        acq400_timer_init(&xtd_dev->atd_display.timer,
+	        		pulse_stretcher_display_timer_handler);
 	}
 	_acq400_init_dev(adev);
         acq400_devices[ndevices++] = adev;

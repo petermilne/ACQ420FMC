@@ -2965,8 +2965,9 @@ static ssize_t show_atd_triggered_display(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 
-	return sprintf(buf, "0x%08x\n", adev->atd_display.event_source);
+	return sprintf(buf, "0x%08x\n", xtd_dev->atd_display.event_source);
 
 }
 static DEVICE_ATTR(atd_triggered_display, S_IRUGO, show_atd_triggered_display, 0);
