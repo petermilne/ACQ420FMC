@@ -444,6 +444,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define AO424_MAXCHAN		32
 
+#define REG_CACHE_MAP_REGS	4
+
 
 
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
@@ -616,6 +618,17 @@ struct acq400_dev {
 
 	struct RUN_TIME rt;
 
+
+
+	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
+	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
+
+	u32 (*get_fifo_samples)(struct acq400_dev *adev);
+	void (*onStart)(struct acq400_dev *adev);
+	void (*onStop)(struct acq400_dev *adev);
+	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
+	int (*isFifoError)(struct acq400_dev *adev);
+
 	struct XO {
 		unsigned max_fifo_samples;
 		unsigned hshift;		/* scale to histo 256 elems */
@@ -638,16 +651,6 @@ struct acq400_dev {
 		unsigned repeats;	/* run one-shot more than once */
 		unsigned maxshot;	/* max times to run a one-shot */
 	} AO_playloop;
-
-	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
-	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
-
-	u32 (*get_fifo_samples)(struct acq400_dev *adev);
-	void (*onStart)(struct acq400_dev *adev);
-	void (*onStop)(struct acq400_dev *adev);
-	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
-	int (*isFifoError)(struct acq400_dev *adev);
-
 
 	struct DIO432 {
 		enum DIO432_MODE mode;
@@ -678,7 +681,19 @@ struct acq400_dev {
 
 	unsigned clkdiv_mask;
 	void *axi_private;
+
+	struct RegCache {
+		unsigned map[REG_CACHE_MAP_REGS];
+		unsigned *data;
+	} reg_cache;
 };
+
+void acq400_rc_register(struct acq400_dev *adev, int reg_bytes);
+void acq400_rc_init(struct acq400_dev *adev);
+void acq400_rc_update(struct acq400_dev *adev);
+
+#define acq400_rc_read(adev, reg_bytes) \
+	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
 struct acq400_sc_dev {
 	char id[16];
@@ -730,6 +745,12 @@ struct ACQ480_dev {
 	struct acq400_dev adev;
 
 	int train;
+};
+
+struct XO_dev {
+	/* woo-ah - are we using site0 playloop_length or site1 wait for testing..*/
+	char id[16];
+	struct acq400_dev adev;
 };
 
 #define MAXLBUF	  1024

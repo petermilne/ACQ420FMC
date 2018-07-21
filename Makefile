@@ -42,7 +42,7 @@ acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o \
 	acq400_xilinx_axidma.o acq400_deltrg.o \
 	acq400_set.o acq400_sysfs_utils.o  \
 	acq400_axi_chain.o acq400_axi_oneshot.o \
-	radcelf_sysfs.o
+	radcelf_sysfs.o acq400_reg_cache.o
 	
 dmadescfs-objs := dmadescfs_drv.o
 
