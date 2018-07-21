@@ -1870,7 +1870,8 @@ static const struct attribute *acq435_attrs[] = {
 
 extern const struct attribute *sysfs_v2f_attrs[];
 extern const struct attribute *sysfs_qen_attrs[];
-extern const struct attribute *acq480_attrs[];
+extern const struct attribute **acq480_attrs;
+extern const struct attribute *acq480_ffir_attrs[];
 extern const struct attribute *sysfs_acq1014_attrs[];
 
 static ssize_t show_dac_headroom(
@@ -4259,7 +4260,7 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
-			specials[nspec++] = acq480_attrs;
+			specials[nspec++] = HAS_FPGA_FIR(adev)?	acq480_ffir_attrs: acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
 			specials[nspec++] = pig_celf_attrs;
 		}else if (IS_QEN(adev)){
