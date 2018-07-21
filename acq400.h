@@ -722,7 +722,7 @@ struct acq400_dev {
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
-	/* hand sc stuff here */
+	/* handle sc stuff here */
 };
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512

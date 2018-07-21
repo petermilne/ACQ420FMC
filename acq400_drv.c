@@ -5,7 +5,6 @@
  *  This program is free software; you can redistribute it and/or modify     *
  *  it under the terms of Version 2 of the GNU General Public License        *
  *  as published by the Free Software Foundation;                            *
- *                                                                           *
  *  This program is distributed in the hope that it will be useful,          *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
@@ -25,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.292"
+#define REVID "3.293"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2429,13 +2428,21 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
 	struct acq400_dev* adev = kzalloc(sizeof(struct acq400_dev), GFP_KERNEL);
         if (adev == NULL) {
                 return NULL;
+        }else{
+        	adev->pdev = pdev;
+        	return adev;
         }
+        return adev;
+}
+
+static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
+/* Allocate and init a private structure to manage this device */
+{
         init_waitqueue_head(&adev->waitq);
         init_waitqueue_head(&adev->DMA_READY);
         init_waitqueue_head(&adev->refill_ready);
         init_waitqueue_head(&adev->hb0_marker);
 
-        adev->pdev = pdev;
         mutex_init(&adev->mutex);
         mutex_init(&adev->awg_mutex);
         mutex_init(&adev->sewFifo[0].sf_mutex);
@@ -2463,24 +2470,30 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
 
         return adev;
 }
-
 static struct acq400_dev*
 acq400_allocate_module_device(struct acq400_dev* adev)
 /* subclass adev for module specific device, where required.
  * struct acq400_dev has become a huge kitchen sink with all
  * bits for all modules in it. Works, but it's careless.
- * Doest this "subclass by deep clone to embedded object" technique
- * work ..
+ * Does this "subclass by deep clone to embedded object" technique
+ * work .. apparently, it's not foolproof, so keep prior init to the
+ * minimum.
  * */
 {
+	acq400_getID(adev);
+
 	if (IS_SC(adev)){
 		struct acq400_sc_dev *sc_dev = kzalloc(sizeof(struct acq400_sc_dev), GFP_KERNEL);
 		strcpy(sc_dev->id, "SC");
 		memcpy(&sc_dev->adev, adev, sizeof(struct acq400_dev));
 		kfree(adev);
-		return &sc_dev->adev;
+		adev = &sc_dev->adev;
+		dev_info(DEVP(adev), "%s adev %p", __FUNCTION__, adev);
 	}
-	return adev;
+	_acq400_init_dev(adev);
+        acq400_devices[ndevices++] = adev;
+        acq400_sites[adev->of_prams.site] = adev;
+        return adev;
 }
 
 static int acq400_remove(struct platform_device *pdev);
@@ -2684,8 +2697,8 @@ static int acq400_probe(struct platform_device *pdev)
         }
 
         adev->dev_physaddr = acq400_resource->start;
-        adev->dev_addrsize = acq400_resource->end -
-                acq400_resource->start + 1;
+        adev->dev_addrsize = acq400_resource->end - acq400_resource->start + 1;
+
         if (!request_mem_region(adev->dev_physaddr,
                 adev->dev_addrsize, acq400_devnames[adev->of_prams.site])) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
@@ -2699,10 +2712,6 @@ static int acq400_probe(struct platform_device *pdev)
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         adev = acq400_allocate_module_device(adev);
-
-        acq400_devices[ndevices++] = adev;
-        acq400_sites[adev->of_prams.site] = adev;
-        acq400_getID(adev);
 
         if (IS_DUMMY(adev)){
         	acq400_createSysfs(&pdev->dev);

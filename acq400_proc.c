@@ -132,6 +132,7 @@ static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 		const char* dname = file->f_path.dentry->d_parent->d_iname;
 		((struct seq_file*)file->private_data)->private =
 					acq400_lookupSite(dname[0] -'0');
+
 	}
 	return 0;
 }
