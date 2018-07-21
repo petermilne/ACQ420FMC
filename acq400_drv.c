@@ -2503,11 +2503,8 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 		struct ACQ480_dev *a480_dev;
 		SPECIALIZE(a480_dev, adev, struct ACQ480_dev, "ACQ480");
 	}else if (IS_BOLO8(adev)){
-		struct acq400_bolo_dev *b8_dev = kzalloc(sizeof(struct acq400_bolo_dev), GFP_KERNEL);
-		strcpy(b8_dev->id, "bolo8");
-		memcpy(&b8_dev->adev, adev, sizeof(struct acq400_dev));
-		kfree(adev);
-		adev = &b8_dev->adev;
+		struct acq400_bolo_dev *b8_dev;
+		SPECIALIZE(b8_dev, adev, struct acq400_bolo_dev, "bolo8");
 	}else if (HAS_XTD(adev)){
 		struct XTD_dev *xtd_dev;
 		SPECIALIZE(xtd_dev, adev, struct XTD_dev, "XTD");
