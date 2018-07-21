@@ -25,7 +25,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.290"
+#define REVID "3.292"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2464,6 +2464,24 @@ static struct acq400_dev* acq400_allocate_dev(struct platform_device *pdev)
         return adev;
 }
 
+static struct acq400_dev*
+acq400_allocate_module_device(struct acq400_dev* adev)
+/* subclass adev for module specific device, where required.
+ * struct acq400_dev has become a huge kitchen sink with all
+ * bits for all modules in it. Works, but it's careless.
+ * Doest this "subclass by deep clone to embedded object" technique
+ * work ..
+ * */
+{
+	if (IS_SC(adev)){
+		struct acq400_sc_dev *sc_dev = kzalloc(sizeof(struct acq400_sc_dev), GFP_KERNEL);
+		strcpy(sc_dev->id, "SC");
+		memcpy(&sc_dev->adev, adev, sizeof(struct acq400_dev));
+		kfree(adev);
+		return &sc_dev->adev;
+	}
+	return adev;
+}
 
 static int acq400_remove(struct platform_device *pdev);
 
@@ -2592,8 +2610,7 @@ int acq400_modprobe(struct acq400_dev* adev)
 
 	if (IS_SC(adev)){
 		return acq400_modprobe_sc(adev);
-	}
-	if (IS_XO(adev) && xo_use_bigbuf){
+	}else if (IS_XO(adev) && xo_use_bigbuf){
 		adev->hb = acq400_devices[0]->hb;
 		dev_info(DEVP(adev), "site %d using MAIN HB", adev->of_prams.site);
 	}else{
@@ -2680,6 +2697,8 @@ static int acq400_probe(struct platform_device *pdev)
         	ioremap(adev->dev_physaddr, adev->dev_addrsize);
         dev_dbg(DEVP(adev), "acq400: mapped 0x%0x to 0x%0x\n",
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
+
+        adev = acq400_allocate_module_device(adev);
 
         acq400_devices[ndevices++] = adev;
         acq400_sites[adev->of_prams.site] = adev;

@@ -404,7 +404,7 @@
 #define AO420_MINOR_HB0_AWG_ONCE	9
 #define AO420_MINOR_HB0_AWG_LOOP	10
 #define ACQ420_MINOR_RESERVE_BLOCKS	11
-#define ACQ420_MINOR_SEW1_FIFO	12
+#define ACQ420_MINOR_SEW1_FIFO	12		/* Software Embedded Word */
 #define ACQ420_MINOR_SEW2_FIFO	13
 #define AO420_MINOR_HB0_AWG_ONCE_RETRIG	14
 #define ACQ400_MINOR_BQ_NOWAIT	15
@@ -719,6 +719,11 @@ struct acq400_dev {
 	void *axi_private;
 };
 
+struct acq400_sc_dev {
+	char id[16];
+	struct acq400_dev adev;
+	/* hand sc stuff here */
+};
 #define MAXLBUF	  1024
 #define BQ_MAXLEN 512
 /** acq400_path_descriptor - one per open path */
