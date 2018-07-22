@@ -237,8 +237,13 @@ static ssize_t show_heartbeat(
 	char * buf)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+#if 1
 	/* EPICS DS can't handle a full u32 */
 	return sprintf(buf, "%u\n", mgt400rd32(mdev, HEART) >> 1);
+#else
+	return sprintf(buf, "%u\n",
+                       mdev->reg_cache.data[HEART/sizeof(int)] >> 1);
+#endif
 }
 static DEVICE_ATTR(heartbeat, S_IRUGO, show_heartbeat, 0);
 

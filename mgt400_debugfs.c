@@ -46,7 +46,7 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 			return;
 		}
 	}
-#if REG_CACHE_GOOD
+#if 0
 	dev_rc_init(DEVP(adev), &adev->reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
 #endif
@@ -60,7 +60,7 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 	}
 	DBG_REG_CREATE(MOD_ID);
 	DBG_REG_CREATE(ZDMA_CR);
-	DBG_REG_CREATE(HEART);
+	DBG_REG_CREATE_NAME("HEART", HEART);
 	DBG_REG_CREATE(AURORA_CR);
 	DBG_REG_CREATE(AURORA_SR);
 	DBG_REG_CREATE(ZIDENT);
@@ -93,8 +93,7 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 	DBG_REG_CREATE(DMA_PULL_COUNT_LW);
 	DBG_REG_CREATE(DMA_PUSH_DESC_LEN);
 	DBG_REG_CREATE(DMA_PULL_DESC_LEN);
-
-#if REG_CACHE_GOOD
+#if 0
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 #endif
 #undef adev

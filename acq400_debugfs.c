@@ -143,9 +143,9 @@ void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
 	DBG_REG_CREATE_RW(ADC_FIFO_STA);
 	DBG_REG_CREATE(ADC_INT_CSR);
-	DBG_REG_CREATE(ADC_CLK_CTR);
-	DBG_REG_CREATE(ADC_SAMPLE_CTR);
-	DBG_REG_CREATE(ADC_SAMPLE_CLK_CTR);
+	DBG_REG_CREATE_NAME("ADC_CLK_CTR", ADC_CLK_CTR);
+	DBG_REG_CREATE_NAME("ADC_SAMPLE_CTR", ADC_SAMPLE_CTR);
+	DBG_REG_CREATE_NAME("ADC_SAMPLE_CLK_CTR", ADC_SAMPLE_CLK_CTR);
 	DBG_REG_CREATE(ADC_CLKDIV);
 	if (IS_ACQ425(adev)){
 		DBG_REG_CREATE(ACQ425_BANK);
@@ -310,10 +310,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			return;
 		}
 	}
-#if REG_CACHE_GOOD
 	dev_rc_init(DEVP(adev), &adev->reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
-#endif
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
@@ -379,9 +377,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 				GET_MOD_ID(adev));
 		}
 	}
-#if REG_CACHE_GOOD
+
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
-#endif
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)

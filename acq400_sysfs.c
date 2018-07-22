@@ -1317,7 +1317,8 @@ static ssize_t show_clk_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 counter = acq400rd32_upcount(acq400_devices[dev->id], ADC_CLK_CTR);
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 counter = adev->reg_cache.data[ADC_CLK_CTR/sizeof(int)];
 	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -1329,7 +1330,8 @@ static ssize_t show_sample_count(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 count = acq400rd32_upcount(acq400_devices[dev->id], ADC_SAMPLE_CTR);
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 count = adev->reg_cache.data[ADC_SAMPLE_CTR/sizeof(int)];
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 
