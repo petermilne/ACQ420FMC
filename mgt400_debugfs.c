@@ -46,7 +46,8 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 			return;
 		}
 	}
-	dev_rc_init(DEVP(adev), &adev->reg_cache, MOD_REG_MAX);
+	dev_rc_init(DEVP(adev), &adev->reg_cache,
+			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 	adev->debug_dir = debugfs_create_dir(
 			adev->devname, mgt400_debug_root);

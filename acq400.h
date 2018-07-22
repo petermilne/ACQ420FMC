@@ -521,9 +521,13 @@ struct RUN_TIME {			/** stats, cleared onStart */
 };
 
 struct RegCache {
+	int id;
+	struct device *dev;
+	unsigned *va;
 	unsigned max_reg;
 	unsigned map[REG_CACHE_MAP_REGS];
 	unsigned *data;
+	struct hrtimer timer;
 };
 
 struct acq400_dev {
@@ -695,7 +699,9 @@ struct acq400_dev {
 #define MOD_REG_MAX	0x100
 int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_bytes);
 /* returns 0 on success, -1 on fail */
-int dev_rc_init(struct device* dev, struct RegCache* reg_cache, int reg_max_bytes);
+int dev_rc_init(struct device* dev,
+		struct RegCache* reg_cache, void* va,
+		int id, int reg_max_bytes);
 int dev_rc_finalize(struct device* dev, struct RegCache* reg_cache, int id);
 void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va);
 
