@@ -6,7 +6,7 @@ int cache_sites;
 module_param(cache_sites, int, 0444);
 MODULE_PARM_DESC(cache_sites, "number of sites using reg cache");
 
-int cache_sites_mask = 0;
+int cache_sites_mask = 0xffff;
 module_param(cache_sites_mask, int, 0644);
 MODULE_PARM_DESC(cache_sites_mask, "inhibit update on these sites");
 
@@ -58,9 +58,13 @@ void dev_rc_update(struct device *dev, struct RegCache* reg_cache, unsigned* va)
 	int ix, bit;
 
 	for (ix = 0; ix < REG_CACHE_MAP_REGS; ++ix){
-		for (bit = 0; bit < REG_CACHE_BITS; ++bit){
-			unsigned reg = map2reg(ix, bit);
-			reg_cache->data[reg] = ioread32(va + reg);
+		if (reg_cache->map[ix] != 0){
+			for (bit = 0; bit < REG_CACHE_BITS; ++bit){
+				if (reg_cache->map[ix]&(1<<bit)){
+					unsigned reg = map2reg(ix, bit);
+					reg_cache->data[reg] = ioread32(va + reg);
+				}
+			}
 		}
 	}
 }
