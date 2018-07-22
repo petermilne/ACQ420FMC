@@ -520,6 +520,12 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	struct RT_QUEUE_REPORT putFullErrors;
 };
 
+struct RegCache {
+	unsigned max_reg;
+	unsigned map[REG_CACHE_MAP_REGS];
+	unsigned *data;
+};
+
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -682,15 +688,16 @@ struct acq400_dev {
 	unsigned clkdiv_mask;
 	void *axi_private;
 
-	struct RegCache {
-		unsigned map[REG_CACHE_MAP_REGS];
-		unsigned *data;
-	} reg_cache;
+	struct RegCache reg_cache;
 };
 
-void acq400_rc_register(struct acq400_dev *adev, int reg_bytes);
-void acq400_rc_init(struct acq400_dev *adev);
-void acq400_rc_update(struct acq400_dev *adev);
+#define SC_REG_MAX	0x200
+#define MOD_REG_MAX	0x100
+int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_bytes);
+/* returns 0 on success, -1 on fail */
+int dev_rc_init(struct device* dev, struct RegCache* reg_cache, int reg_max_bytes);
+int dev_rc_finalize(struct device* dev, struct RegCache* reg_cache, int id);
+void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va);
 
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
@@ -1588,4 +1595,6 @@ extern void acq400_timer_init(
 
 extern int acq400_set_AXI_DMA_len(struct acq400_dev *adev, int len);
 extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
+
+#define NSEC_PER_MSEC	1000000L
 #endif /* ACQ420FMC_H_ */

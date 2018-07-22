@@ -26,6 +26,8 @@
 
 #include "acq400.h"
 #include "mgt400.h"
+
+/* @@REMOVEME */
 #include "acq400_debugfs_internal.h"
 
 struct dentry* mgt400_debug_root;
@@ -44,6 +46,7 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 			return;
 		}
 	}
+	dev_rc_init(DEVP(adev), &adev->reg_cache, MOD_REG_MAX);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 	adev->debug_dir = debugfs_create_dir(
 			adev->devname, mgt400_debug_root);
@@ -87,6 +90,8 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 	DBG_REG_CREATE(DMA_PULL_COUNT_LW);
 	DBG_REG_CREATE(DMA_PUSH_DESC_LEN);
 	DBG_REG_CREATE(DMA_PULL_DESC_LEN);
+
+	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 #undef adev
 }
 void mgt400_removeDebugfs(struct mgt400_dev* adev)

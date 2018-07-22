@@ -310,6 +310,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			return;
 		}
 	}
+	dev_rc_init(DEVP(adev), &adev->reg_cache, MOD_REG_MAX);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
@@ -375,6 +376,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 				GET_MOD_ID(adev));
 		}
 	}
+	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
@@ -393,6 +395,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		IS_ACQ1001SC(adev)? 4:	/* other counters used in special cases */
 		IS_KMCx_SC(adev)  ? 2: 0;
 
+	dev_rc_init(DEVP(adev), &adev->reg_cache, SC_REG_MAX);
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
 		if (!acq400_debug_root){
@@ -463,7 +466,6 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		sprintf(name, "SYN_%d", site);
 		DBG_REG_CREATE_NAME(name, ACQ2006_SYN_COUNT(SITE2DX(site)));
 	}
-
 	DBG_REG_CREATE_NAME("EVT_EXT", ACQ2006_EVT_COUNT(EXT_DX));
 	DBG_REG_CREATE_NAME("EVT_MB",  ACQ2006_EVT_COUNT(MB_DX));
 	for (site = 1; site <= sites; ++site){
@@ -480,4 +482,5 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			DBG_REG_CREATE_NAME(name, SPADN(ii));
 		}
 	}
+	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 }

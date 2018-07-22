@@ -200,6 +200,7 @@ enum hrtimer_restart mgt400_buffer_counter(struct hrtimer* hrt)
 }
 void mgt400_start_buffer_counter(struct mgt400_dev* mdev)
 {
+	kt_period = ktime_set(0, 10*NSEC_PER_MSEC);
 	hrtimer_init(&mdev->buffer_counter_timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
 	mdev->buffer_counter_timer.function = mgt400_buffer_counter;
 	hrtimer_start(&mdev->buffer_counter_timer, kt_period, HRTIMER_MODE_REL);

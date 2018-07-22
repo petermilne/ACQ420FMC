@@ -40,7 +40,7 @@ struct mgt400_dev {
 		unsigned previous_count;
 		int fd_ix;
 	} push, pull;
-
+	struct RegCache reg_cache;
 	struct hrtimer buffer_counter_timer;
 };
 

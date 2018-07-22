@@ -49,7 +49,8 @@ dmadescfs-objs := dmadescfs_drv.o
 regfs-objs := regfs_drv.o
 	
 
-mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o
+mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o \
+ 		acq400_reg_cache.o
 
 acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
 
