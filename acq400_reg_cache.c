@@ -58,12 +58,11 @@ void dev_rc_update(struct device *dev, struct RegCache* reg_cache, unsigned* va)
 	int ix, bit;
 
 	for (ix = 0; ix < REG_CACHE_MAP_REGS; ++ix){
-		if (reg_cache->map[ix] != 0){
-			for (bit = 0; bit < REG_CACHE_BITS; ++bit){
-				if (reg_cache->map[ix]&(1<<bit)){
-					unsigned reg = map2reg(ix, bit);
-					reg_cache->data[reg] = ioread32(va + reg);
-				}
+		u32 map = reg_cache->map[ix];
+		for (bit = 0; map; ++bit, map >>= 1){
+			if (map&1){
+				unsigned reg = map2reg(ix, bit);
+				reg_cache->data[reg] = ioread32(va + reg);
 			}
 		}
 	}
