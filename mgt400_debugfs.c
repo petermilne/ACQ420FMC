@@ -46,8 +46,10 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 			return;
 		}
 	}
+#if REG_CACHE_GOOD
 	dev_rc_init(DEVP(adev), &adev->reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
+#endif
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 	adev->debug_dir = debugfs_create_dir(
 			adev->devname, mgt400_debug_root);
@@ -92,7 +94,9 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 	DBG_REG_CREATE(DMA_PUSH_DESC_LEN);
 	DBG_REG_CREATE(DMA_PULL_DESC_LEN);
 
+#if REG_CACHE_GOOD
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
+#endif
 #undef adev
 }
 void mgt400_removeDebugfs(struct mgt400_dev* adev)

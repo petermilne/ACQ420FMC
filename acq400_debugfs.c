@@ -310,8 +310,10 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			return;
 		}
 	}
+#if REG_CACHE_GOOD
 	dev_rc_init(DEVP(adev), &adev->reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
+#endif
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
@@ -377,7 +379,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 				GET_MOD_ID(adev));
 		}
 	}
+#if REG_CACHE_GOOD
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
+#endif
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
@@ -481,7 +485,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		int ii;
 		for (ii = 0; ii < SPADMAX; ++ii){
 			snprintf(name, 16, "spad%d", ii);
-			DBG_REG_CREATE_NAME(name, SPADN(ii));
+			DBG_REG_CREATE_NAME_NC(name, SPADN(ii));
 		}
 	}
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
