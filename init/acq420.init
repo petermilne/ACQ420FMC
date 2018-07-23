@@ -750,6 +750,10 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	fi
 fi
 
+echo ++ Enable counter monitors
+CACHE_SITES_MASK=${CACHE_SITES_MASK:-0}
+set.sys /sys/module/acq420fmc/parameters/cache_sites_mask $CACHE_SITES_MASK
+
 echo ++ Enable analog power..
 
 set.sys /dev/gpio/15VA_EN 1
