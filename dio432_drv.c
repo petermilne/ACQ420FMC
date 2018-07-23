@@ -80,6 +80,7 @@ void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output)
 
 void dio432_init(struct acq400_dev *adev, int immediate)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned syscon = immediate||dio432_always_immediate? DIO432_CTRL_LL: 0;
 
 	dev_dbg(DEVP(adev), "dio432_init immediate:%d", immediate||dio432_always_immediate);
@@ -95,7 +96,7 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
 	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_FIFO_EN);
-	dio432_set_direction(adev, adev->dio432.byte_is_output);
+	dio432_set_direction(adev, xo_dev->dio432.byte_is_output);
 
 	_acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	_acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
@@ -110,21 +111,22 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 int dio32_immediate_loop(void *data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	int nloop = 0;
 	int wake_clients;
 
 	dio432_init(adev, 1);
 
 	for(; !kthread_should_stop(); ++nloop){
-		unsigned do32_cache = adev->dio432.DO32;
-		_acq400wr32(adev, DIO432_FIFO, adev->dio432.DO32);
-		adev->dio432.DI32 = _acq400rd32(adev, DIO432_FIFO);
+		unsigned do32_cache = xo_dev->dio432.DO32;
+		_acq400wr32(adev, DIO432_FIFO, xo_dev->dio432.DO32);
+		xo_dev->dio432.DI32 = _acq400rd32(adev, DIO432_FIFO);
 		if (wake_clients){
 			wake_up_interruptible(&adev->DMA_READY);
 		}
 		wake_clients = wait_event_interruptible_timeout(
 			adev->w_waitq,
-			do32_cache != adev->dio432.DO32 || kthread_should_stop(),
+			do32_cache != xo_dev->dio432.DO32 || kthread_should_stop(),
 			dio432_immediate_jiffies);
 	}
 
@@ -159,7 +161,8 @@ void dio432_disable(struct acq400_dev* adev)
 
 void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force)
 {
-	if (!force && adev->dio432.mode == mode){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (!force && xo_dev->dio432.mode == mode){
 		return;
 	}
 
@@ -169,7 +172,7 @@ void dio432_set_mode(struct acq400_dev* adev, enum DIO432_MODE mode, int force)
 	}
 	dio432_disable(adev);
 
-	adev->dio432.mode = mode;
+	xo_dev->dio432.mode = mode;
 
 	switch(mode){
 	case DIO432_IMMEDIATE:

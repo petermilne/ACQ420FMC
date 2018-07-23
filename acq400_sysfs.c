@@ -1900,7 +1900,8 @@ static ssize_t show_dac_fifo_samples(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int fifo_samples = adev->xo.getFifoSamples(adev);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	int fifo_samples = xo_dev->xo.getFifoSamples(adev);
 	return sprintf(buf, "%d samples %d bytes\n",
 			fifo_samples, AOSAMPLES2BYTES(adev, fifo_samples));
 }
@@ -2064,7 +2065,8 @@ MAKE_AO_GO(4);
 
 static void ao420_flushImmediate(struct acq400_dev *adev)
 {
-	unsigned *src = adev->AO_immediate._u.lw;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	unsigned *src = xo_dev->AO_immediate._u.lw;
 	void *fifo = adev->dev_virtaddr + AXI_FIFO;
 	int imax = adev->nchan_enabled*adev->word_size/sizeof(long);
 	int ii = 0;
@@ -2085,14 +2087,15 @@ static ssize_t show_dac_immediate(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	short chx;
-	int pchan = adev->xo.physchan(chan);
+	int pchan = xo_dev->xo.physchan(chan);
 
 	if (adev->word_size == sizeof(long)){
-		 chx = adev->AO_immediate._u.lw[pchan];
+		 chx = xo_dev->AO_immediate._u.lw[pchan];
 		 return sprintf(buf, "0x%08x %d\n", chx, chx);
 	}else{
-		chx = adev->AO_immediate._u.ch[pchan];
+		chx = xo_dev->AO_immediate._u.ch[pchan];
 		if (IS_AO424(adev)){
 			chx = ao424_fixEncoding(adev, pchan, chx);
 		}
@@ -2110,8 +2113,9 @@ static ssize_t store_dac_immediate(
 		size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	int chx;
-	int pchan = adev->xo.physchan(chan);
+	int pchan = xo_dev->xo.physchan(chan);
 
 	if (sscanf(buf, "0x%x", &chx) == 1 || sscanf(buf, "%d", &chx) == 1){
 		unsigned cr = acq400rd32(adev, DAC_CTRL);
@@ -2119,9 +2123,9 @@ static ssize_t store_dac_immediate(
 			chx = ao424_fixEncoding(adev, pchan, chx);
 		}
 		if (adev->word_size == sizeof(long)){
-			adev->AO_immediate._u.lw[pchan] = chx;
+			xo_dev->AO_immediate._u.lw[pchan] = chx;
 		}else{
-			adev->AO_immediate._u.ch[pchan] = chx;
+			xo_dev->AO_immediate._u.ch[pchan] = chx;
 		}
 		if (!no_ao42x_llc_ever){
 			acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
@@ -2196,11 +2200,12 @@ static ssize_t show_playloop_length(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	return sprintf(buf, "%u %u %s\n",
-			adev->AO_playloop.length,
-			adev->AO_playloop.oneshot,
-			adev->AO_playloop.oneshot == AO_oneshot? "ONESHOT":
-			adev->AO_playloop.oneshot == AO_oneshot_rearm? "ONESHOT-REARM": "");
+			xo_dev->AO_playloop.length,
+			xo_dev->AO_playloop.oneshot,
+			xo_dev->AO_playloop.oneshot == AO_oneshot? "ONESHOT":
+				xo_dev->AO_playloop.oneshot == AO_oneshot_rearm? "ONESHOT-REARM": "");
 }
 
 static ssize_t store_playloop_length(
@@ -2210,6 +2215,7 @@ static ssize_t store_playloop_length(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned playloop_length;
 	unsigned one_shot;
 	int rc;
@@ -2222,12 +2228,12 @@ static ssize_t store_playloop_length(
 		case AO_continuous:
 		case AO_oneshot:
 		case AO_oneshot_rearm:
-			adev->AO_playloop.oneshot = one_shot; /* fall thru */
+			xo_dev->AO_playloop.oneshot = one_shot; /* fall thru */
 		}
 	case 1:
 		rc = xo400_reset_playloop(adev, playloop_length);
-		if (adev->AO_playloop.oneshot != AO_continuous){
-			adev->AO_playloop.repeats = 0;
+		if (xo_dev->AO_playloop.oneshot != AO_continuous){
+			xo_dev->AO_playloop.repeats = 0;
 		}
 		if (rc == 0){
 			return count;
@@ -2248,7 +2254,8 @@ static ssize_t show_playloop_oneshot(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.oneshot);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.oneshot);
 }
 
 static ssize_t store_playloop_oneshot(
@@ -2258,7 +2265,8 @@ static ssize_t store_playloop_oneshot(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	if (sscanf(buf, "%u", &adev->AO_playloop.oneshot) == 1){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.oneshot) == 1){
 		return count;
 	}else{
 		return -1;
@@ -2275,7 +2283,8 @@ static ssize_t show_playloop_maxshot(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.maxshot);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.maxshot);
 }
 
 static ssize_t store_playloop_maxshot(
@@ -2285,7 +2294,8 @@ static ssize_t store_playloop_maxshot(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	if (sscanf(buf, "%u", &adev->AO_playloop.maxshot) == 1){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.maxshot) == 1){
 		return count;
 	}else{
 		return -1;
@@ -2301,7 +2311,8 @@ static ssize_t show_playloop_cursor(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.cursor);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.cursor);
 }
 
 static ssize_t store_playloop_cursor(
@@ -2311,7 +2322,8 @@ static ssize_t store_playloop_cursor(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	if (sscanf(buf, "%u", &adev->AO_playloop.cursor) == 1){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.cursor) == 1){
 		return count;
 	}else{
 		return -1;
@@ -2338,7 +2350,8 @@ static ssize_t show_playloop_repeats(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->AO_playloop.repeats);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.repeats);
 }
 
 static ssize_t store_playloop_repeats(
@@ -2348,7 +2361,8 @@ static ssize_t store_playloop_repeats(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	if (sscanf(buf, "%u", &adev->AO_playloop.repeats) == 1){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.repeats) == 1){
 		return count;
 	}else{
 		return -1;
@@ -2588,7 +2602,8 @@ static ssize_t show_twos_comp_encoding(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%d\n",  adev->ao424_device_settings.encoded_twocmp);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%d\n",  xo_dev->ao424_device_settings.encoded_twocmp);
 }
 static ssize_t store_twos_comp_encoding(
 	struct device * dev,
@@ -2598,12 +2613,13 @@ static ssize_t store_twos_comp_encoding(
 /* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	int twocmp;
 
 	if (sscanf(buf, "%d", &twocmp) == 1){
 		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-		adev->ao424_device_settings.encoded_twocmp = twocmp != 0;
-		if (adev->ao424_device_settings.encoded_twocmp){
+		xo_dev->ao424_device_settings.encoded_twocmp = twocmp != 0;
+		if (xo_dev->ao424_device_settings.encoded_twocmp){
 			dac_ctrl |= DAC_CTRL_TWOCMP;
 		}else{
 			dac_ctrl &= ~DAC_CTRL_TWOCMP;
@@ -2762,7 +2778,8 @@ static ssize_t show_DO32(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", adev->dio432.DO32);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "0x%08x\n", xo_dev->dio432.DO32);
 }
 
 static ssize_t store_DO32(
@@ -2772,10 +2789,11 @@ static ssize_t store_DO32(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned DO32 = 0;
 
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
-		adev->dio432.DO32 = DO32;
+		xo_dev->dio432.DO32 = DO32;
 		wake_up_interruptible(&adev->w_waitq);
 		yield();
 		return count;
@@ -2792,7 +2810,8 @@ static ssize_t show_DI32(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", adev->dio432.DI32);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "0x%08x\n", xo_dev->dio432.DI32);
 }
 
 static ssize_t store_DI32(
@@ -2802,10 +2821,11 @@ static ssize_t store_DI32(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned DI32 = 0;
 
 	if (sscanf(buf, "%u", &DI32) == 1){
-		adev->dio432.DI32 = DI32;
+		xo_dev->dio432.DI32 = DI32;
 		return count;
 	}else{
 		return -1;
@@ -2820,8 +2840,9 @@ static ssize_t show_mode(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%d %s\n", adev->dio432.mode,
-			dio32mode2str(adev->dio432.mode));
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%d %s\n", xo_dev->dio432.mode,
+			dio32mode2str(xo_dev->dio432.mode));
 }
 
 static ssize_t store_mode(
@@ -2888,7 +2909,8 @@ static ssize_t show_byte_is_output(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 byte_is_output = adev->dio432.byte_is_output;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	u32 byte_is_output = xo_dev->dio432.byte_is_output;
 
 	return sprintf(buf, "%d,%d,%d,%d\n",
 			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(0),
@@ -2905,6 +2927,7 @@ static ssize_t store_byte_is_output(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	int bytes[4];
 	unsigned byte_is_output = 0;
 
@@ -2915,7 +2938,7 @@ static ssize_t store_byte_is_output(
 				byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
 			}
 		}
-		adev->dio432.byte_is_output = byte_is_output;
+		xo_dev->dio432.byte_is_output = byte_is_output;
 		return count;
 	}else{
 		return -1;
@@ -2930,10 +2953,11 @@ static ssize_t show_dpg_status(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned do_count = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
 	unsigned fifsta = acq400rd32(adev, DIO432_DO_FIFO_STATUS);
 	unsigned state =
-		adev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
+		xo_dev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
 		do_count > 0? 2: 1: 0;	/* RUN, ARM, IDLE */
 
 	return sprintf(buf, "%d %d\n", state, do_count);

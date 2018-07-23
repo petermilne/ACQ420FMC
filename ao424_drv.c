@@ -43,9 +43,10 @@ module_param(allow_spans_in_odds_mode, int, 0644);
 
 short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value)
 {
-	if (IS_UNIPOLAR(adev->ao424_device_settings.u.ch.ao424_spans[pchan])){
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (IS_UNIPOLAR(xo_dev->ao424_device_settings.u.ch.ao424_spans[pchan])){
 		return value;
-	}else if (adev->ao424_device_settings.encoded_twocmp){
+	}else if (xo_dev->ao424_device_settings.encoded_twocmp){
 		return value;
 	}else{
 		return value^0x8000;
@@ -83,7 +84,8 @@ static u32 _acq400rd32(struct acq400_dev *adev, int offset)
 
 void ao424_init_on_setspan(struct acq400_dev* adev)
 {
-	struct AO424 *ao424ch = &adev->ao424_device_settings;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct AO424 *ao424ch = &xo_dev->ao424_device_settings;
 	int ic;
 
 	for (ic = 0; ic < adev->nchan_enabled; ++ic){
@@ -98,6 +100,7 @@ void ao424_init_on_setspan(struct acq400_dev* adev)
 
 int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned stat1;
 	unsigned stat2;
 	unsigned fifo_before;
@@ -124,10 +127,10 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 	acq400wr32(adev, DAC_CTRL, ctrl |  ADC_CTRL_FIFO_RST|DAC_CTRL_DAC_RST);
 	acq400wr32(adev, DAC_CTRL, ctrl |= ADC_CTRL_FIFO_EN);
 
-	fifo_before = adev->xo.getFifoSamples(adev);
+	fifo_before = xo_dev->xo.getFifoSamples(adev);
 	write32(adev->dev_virtaddr+AXI_FIFO,
-			adev->ao424_device_settings.u.lw, adev->nchan_enabled);
-	fifo_during = adev->xo.getFifoSamples(adev);
+			xo_dev->ao424_device_settings.u.lw, adev->nchan_enabled);
+	fifo_during = xo_dev->xo.getFifoSamples(adev);
 
 	dev_dbg(DEVP(adev), "_ao424_set_spans after write %d lw fifo count:%d",
 			adev->nchan_enabled, fifo_during);
@@ -153,20 +156,21 @@ int _ao424_set_spans(struct acq400_dev* adev, unsigned ctrl)
 			stat1, stat2, acq400rd32(adev, DAC_FIFO_STA), pollcat);
 	//acq400wr32(adev, DAC_424_CGEN, cgen);
 	dev_info(DEVP(adev), "fifo samples before:%u during:%u after:%u",
-			fifo_before, fifo_during, adev->xo.getFifoSamples(adev));
+			fifo_before, fifo_during, xo_dev->xo.getFifoSamples(adev));
 	return rc;
 }
 
 int ao424_set_spans(struct acq400_dev* adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned ctrl = acq400rd32(adev, DAC_CTRL);
 	int was_enabled = 0;
 	int rc = 0;
 
 	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
 
-	if (adev->ao424_device_settings.encoded_twocmp == 1){
-		adev->ao424_device_settings.encoded_twocmp = 0;
+	if (xo_dev->ao424_device_settings.encoded_twocmp == 1){
+		xo_dev->ao424_device_settings.encoded_twocmp = 0;
 		ctrl &= ~DAC_CTRL_TWOCMP;
 		acq400wr32(adev, DAC_CTRL, ctrl);
 	}
@@ -176,7 +180,7 @@ int ao424_set_spans(struct acq400_dev* adev)
 		return -1;
 	}
 	if ((ctrl&ADC_CTRL_ADC_EN) != 0){
-		if (adev->AO_playloop.length > 0){
+		if (xo_dev->AO_playloop.length > 0){
 			dev_err(DEVP(adev), "ao424_set_spans ADC_CTRL_ADC_EN AND playloop_length no change");
 			return -1;
 		}else{
@@ -187,7 +191,7 @@ int ao424_set_spans(struct acq400_dev* adev)
 	rc = _ao424_set_spans(adev, ctrl);
 
 	if (rc == 0){
-		struct AO424 *ao424ch = &adev->ao424_device_settings;
+		struct AO424 *ao424ch = &xo_dev->ao424_device_settings;
 		int is_unipolar = 0;
 		int ic;
 		for (ic = 0; ic < adev->nchan_enabled; ++ic){
@@ -200,7 +204,7 @@ int ao424_set_spans(struct acq400_dev* adev)
 				"MIXED unipolar bipolar system: all encoding has to be offset binary");
 		}
 		if (!is_unipolar){
-			adev->ao424_device_settings.encoded_twocmp = 1;
+			xo_dev->ao424_device_settings.encoded_twocmp = 1;
 			ctrl |= DAC_CTRL_TWOCMP;
 		}
 		if (was_enabled){
@@ -214,7 +218,8 @@ int ao424_set_spans(struct acq400_dev* adev)
 /* default to +/-10V */
 void ao424_setspan_defaults(struct acq400_dev* adev)
 {
-	struct AO424 *ao424ch = &adev->ao424_device_settings;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct AO424 *ao424ch = &xo_dev->ao424_device_settings;
 	int ic;
 
 	for (ic = 0; ic < AO424_MAXCHAN; ++ic){

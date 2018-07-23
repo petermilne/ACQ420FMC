@@ -183,6 +183,7 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 
 void _ao420_stop(struct acq400_dev* adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned cr = acq400rd32(adev, DAC_CTRL);
 	x400_disable_interrupt(adev);
 
@@ -190,8 +191,8 @@ void _ao420_stop(struct acq400_dev* adev)
 
 	cr &= ~DAC_CTRL_DAC_EN;
 	if (IS_AO42X(adev)){
-		dev_dbg(DEVP(adev), "_ao420_stop() AO_playloop.length %d\n", adev->AO_playloop.length);
-		if (adev->AO_playloop.length == 0){
+		dev_dbg(DEVP(adev), "_ao420_stop() AO_playloop.length %d\n", xo_dev->AO_playloop.length);
+		if (xo_dev->AO_playloop.length == 0){
 			if (!no_ao42x_llc_ever){
 				cr |= DAC_CTRL_LL;
 			}else{
@@ -205,7 +206,7 @@ void _ao420_stop(struct acq400_dev* adev)
 		}
 	}
 	//adev->AO_playloop.length = 0;
-	adev->AO_playloop.cursor = 0;
+	xo_dev->AO_playloop.cursor = 0;
 	acq400wr32(adev, DAC_CTRL, cr);
 	release_dma_channels(adev);
 
@@ -224,11 +225,12 @@ extern int xo_use_distributor;
 
 void _dio432_DO_onStart(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	if (xo_use_distributor){
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
-	}else if (adev->AO_playloop.oneshot == 0 ||
-			adev->AO_playloop.length > adev->lotide){
+	}else if (xo_dev->AO_playloop.oneshot == 0 ||
+		xo_dev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
@@ -528,6 +530,7 @@ int _dio432_DO_getFifoSamples(struct acq400_dev* adev) {
 static void ao428_init_defaults(struct acq400_dev *adev)
 /* dac_celf mounts DAC20, assy known as "ao428elf" */
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO420 device init");
 
@@ -539,9 +542,9 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao428_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
+	xo_dev->xo.physchan = ao428_physChan;
+	xo_dev->xo.getFifoSamples = _ao420_getFifoSamples;
+	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 1024;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
@@ -552,6 +555,7 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 }
 static void ao420_init_defaults(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO420 device init");
 
@@ -563,9 +567,9 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao420_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
+	xo_dev->xo.physchan = ao420_physChan;
+	xo_dev->xo.getFifoSamples = _ao420_getFifoSamples;
+	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 16384;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
@@ -575,6 +579,7 @@ static void ao420_init_defaults(struct acq400_dev *adev)
 
 static void ao424_init_defaults(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 
 	/* default to +/-10V bipolar. That's what 99% of the people want .. */
@@ -588,13 +593,13 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
-	adev->xo.physchan = ao424_physChan;
-	adev->xo.getFifoSamples = _ao420_getFifoSamples;
-	adev->xo.fsr = DAC_FIFO_STA;
+	xo_dev->xo.physchan = ao424_physChan;
+	xo_dev->xo.getFifoSamples = _ao420_getFifoSamples;
+	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 1024;
 
 	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	adev->ao424_device_settings.encoded_twocmp = 0;
+	xo_dev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
 	if (measure_ao_fifo_ok){
@@ -605,11 +610,12 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 
 static void _ao420_onStart(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 ctrl = acq400rd32(adev, DAC_CTRL);
 
 	ctrl &= ~DAC_CTRL_LL;
-	if (adev->AO_playloop.oneshot == 0 ||
-			adev->AO_playloop.length > adev->lotide){
+	if (xo_dev->AO_playloop.oneshot == 0 ||
+			xo_dev->AO_playloop.length > adev->lotide){
 		dev_dbg(DEVP(adev), "_ao420_onStart() set lotide:%d", adev->lotide);
 		acq400wr32(adev, DAC_LOTIDE, adev->lotide);
 		x400_enable_interrupt(adev);
@@ -735,6 +741,7 @@ void acq43X_onStart(struct acq400_dev *adev)
 
 static void dio432_init_defaults(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 
 	dev_info(DEVP(adev), "dio432_init_defaults() 01");
@@ -746,8 +753,8 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->lotide = 0x1998;
 	adev->onStart = _dio432_DO_onStart;
 	adev->onStop = dio432_onStop;
-	adev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
-	adev->xo.fsr = DIO432_DO_FIFO_STATUS;
+	xo_dev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
+	xo_dev->xo.fsr = DIO432_DO_FIFO_STATUS;
 	adev->isFifoError = dio432_isFifoError;
 	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
@@ -767,11 +774,11 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	if (measure_ao_fifo_ok){
 		dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
 		measure_ao_fifo(adev);
-		dev_info(DEVP(adev), "dio432 max fifo samples %d", adev->xo.max_fifo_samples);
+		dev_info(DEVP(adev), "dio432 max fifo samples %d", xo_dev->xo.max_fifo_samples);
 		if (dio432_rowback){
-			adev->xo.max_fifo_samples -= dio432_rowback;
+			xo_dev->xo.max_fifo_samples -= dio432_rowback;
 			dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
-					adev->xo.max_fifo_samples);
+					xo_dev->xo.max_fifo_samples);
 		}
 	}
 
@@ -798,6 +805,7 @@ int ao420_physChan(int lchan /* 1..4 */ )
 
 void measure_ao_fifo(struct acq400_dev *adev)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned osam = 0xffffffff;
 	unsigned sam;
 	int values_per_lw = adev->data32? 1: 2;
@@ -815,7 +823,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 
 
 	ao420_reset_fifo(adev);
-	for (nblocks = 0; (sam = adev->xo.getFifoSamples(adev)) != osam;
+	for (nblocks = 0; (sam = xo_dev->xo.getFifoSamples(adev)) != osam;
 			osam = sam, ++nblocks){
 		dev_dbg(DEVP(adev), "xo400_write_fifo(16384)");
 		xo400_write_fifo(adev, 0, 1024);
@@ -839,7 +847,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 				lwords, sam, adev->nchan_enabled, values_per_lw);
 		}
 	}
-	adev->xo.max_fifo_samples = sam;
+	xo_dev->xo.max_fifo_samples = sam;
 	adev->hitide = sam - 32;
 	if (adev->nchan_enabled > 8){
 		adev->lotide = 9*sam/10;
@@ -847,11 +855,11 @@ void measure_ao_fifo(struct acq400_dev *adev)
 		adev->lotide = 8*sam/10;
 	}
 
-	for (adev->xo.hshift = 0;
-		(sam >> adev->xo.hshift) > 256; ++adev->xo.hshift)
+	for (xo_dev->xo.hshift = 0;
+		(sam >> xo_dev->xo.hshift) > 256; ++xo_dev->xo.hshift)
 		;
 	dev_info(DEVP(adev), "setting max_fifo_samples:%u hshift:%u lotide:%d",
-			sam, adev->xo.hshift, adev->lotide);
+			sam, xo_dev->xo.hshift, adev->lotide);
 
 	ao420_reset_fifo(adev);
 }

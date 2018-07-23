@@ -185,7 +185,8 @@ void add_fifo_histo(struct acq400_dev *adev, u32 status)
 
 void add_fifo_histo_ao42x(struct acq400_dev *adev, unsigned samples)
 {
-	(adev->fifo_histo[samples >> adev->xo.hshift])++;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	(adev->fifo_histo[samples >> xo_dev->xo.hshift])++;
 }
 
 u32 aggregator_get_fifo_samples(struct acq400_dev *adev)

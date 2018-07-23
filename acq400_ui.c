@@ -44,8 +44,9 @@ int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	if ( (file->f_flags & O_ACCMODE) == O_WRONLY) {
-		xo400_reset_playloop(adev, adev->AO_playloop.length = 0);
+		xo400_reset_playloop(adev, xo_dev->AO_playloop.length = 0);
 	}
 	return 0;
 }
@@ -53,13 +54,14 @@ int xo400_awg_release(struct inode *inode, struct file *file)
 /* if it was a write, commit to memory and set length */
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 
 	if ( (file->f_flags & O_ACCMODE) != O_RDONLY) {
-		adev->AO_playloop.oneshot =
+		xo_dev->AO_playloop.oneshot =
 			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE? AO_oneshot:
 			iminor(inode) == AO420_MINOR_HB0_AWG_ONCE_RETRIG? AO_oneshot_rearm:
 					AO_continuous;
-		xo400_reset_playloop(adev, adev->AO_playloop.length);
+		xo400_reset_playloop(adev, xo_dev->AO_playloop.length);
 	}
 	return 0;
 }
@@ -68,7 +70,8 @@ ssize_t xo400_awg_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int pll = AOSAMPLES2BYTES(adev, adev->AO_playloop.length);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	int pll = AOSAMPLES2BYTES(adev, xo_dev->AO_playloop.length);
 	unsigned len = adev->cursor.hb[0]->len;
 
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
@@ -107,6 +110,7 @@ ssize_t xo400_awg_write(
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned len = adev->cursor.hb[0]->len;
 
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
@@ -126,7 +130,7 @@ ssize_t xo400_awg_write(
 	if (rc){
 		return -1;
 	}
-	if (IS_AO424(adev) && SPAN_IS_BIPOLAR(adev)){
+	if (IS_AO424(adev) && SPAN_IS_BIPOLAR(xo_dev)){
 		flip_x16_sign_bit((unsigned short*)dst, count/sizeof(unsigned short));
 	}
 
@@ -140,7 +144,7 @@ ssize_t xo400_awg_write(
 			adev->cursor.hb[ib]->pa + offset, count, adev->cursor.hb[ib]->dir);
 
 	*f_pos += count;
-	adev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
+	xo_dev->AO_playloop.length += AOBYTES2SAMPLES(adev, count);
 	return count;
 }
 

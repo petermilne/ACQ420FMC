@@ -91,10 +91,11 @@ char * _ao424_create_ch_knobs(
 }
 void ao424_create_spans(struct acq400_dev* adev, char* pcursor)
 {
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	pcursor = _ao424_create_ch_knobs(adev, "spans",
-			adev->ao424_device_settings.u.ch.ao424_spans, pcursor);
+			xo_dev->ao424_device_settings.u.ch.ao424_spans, pcursor);
 	pcursor = _ao424_create_ch_knobs(adev, "init",
-			adev->ao424_device_settings.u.ch.ao424_initvals, pcursor);
+			xo_dev->ao424_device_settings.u.ch.ao424_initvals, pcursor);
 }
 void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {

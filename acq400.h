@@ -639,46 +639,7 @@ struct acq400_dev {
 	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
 	int (*isFifoError)(struct acq400_dev *adev);
 
-	struct XO {
-		unsigned max_fifo_samples;
-		unsigned hshift;		/* scale to histo 256 elems */
-		int (*getFifoSamples)(struct acq400_dev* adev);
-		/* physchan is offset 0..N-1, lchan is faceplate 1..N */
-		int (*physchan)(int lchan);
-		unsigned fsr;
-	} xo;
-	struct AO_Immediate {
-		union {
-			short ch[AO424_MAXCHAN];
-			unsigned lw[AO424_MAXCHAN/2];
-		} _u;
-	} AO_immediate;
 
-	struct AOPlayloop {
-		unsigned length;
-		unsigned cursor;
-		unsigned oneshot;
-		unsigned repeats;	/* run one-shot more than once */
-		unsigned maxshot;	/* max times to run a one-shot */
-	} AO_playloop;
-
-	struct DIO432 {
-		enum DIO432_MODE mode;
-		unsigned byte_is_output;	/* 1:byte[0], 2:byte[1] 4:byte[2], 8:byte[3] */
-		unsigned DI32;
-		unsigned DO32;
-	} dio432;
-
-	struct AO424 {
-		union {
-			volatile u32 lw[AO424_MAXCHAN];
-			struct {
-				u16 ao424_spans[AO424_MAXCHAN];
-				u16 ao424_initvals[AO424_MAXCHAN];
-			} ch;
-		} u;
-		int encoded_twocmp;
-	} ao424_device_settings;
 
 	/* bq Buffer Queue support */
 	struct mutex bq_clients_mutex;
@@ -764,6 +725,47 @@ struct XO_dev {
 	/* woo-ah - are we using site0 playloop_length or site1 wait for testing..*/
 	char id[16];
 	struct acq400_dev adev;
+
+	struct XO {
+		unsigned max_fifo_samples;
+		unsigned hshift;		/* scale to histo 256 elems */
+		int (*getFifoSamples)(struct acq400_dev* adev);
+		/* physchan is offset 0..N-1, lchan is faceplate 1..N */
+		int (*physchan)(int lchan);
+		unsigned fsr;
+	} xo;
+	struct AO_Immediate {
+		union {
+			short ch[AO424_MAXCHAN];
+			unsigned lw[AO424_MAXCHAN/2];
+		} _u;
+	} AO_immediate;
+
+	struct AOPlayloop {
+		unsigned length;
+		unsigned cursor;
+		unsigned oneshot;
+		unsigned repeats;	/* run one-shot more than once */
+		unsigned maxshot;	/* max times to run a one-shot */
+	} AO_playloop;
+
+	struct DIO432 {
+		enum DIO432_MODE mode;
+		unsigned byte_is_output;	/* 1:byte[0], 2:byte[1] 4:byte[2], 8:byte[3] */
+		unsigned DI32;
+		unsigned DO32;
+	} dio432;
+
+	struct AO424 {
+		union {
+			volatile u32 lw[AO424_MAXCHAN];
+			struct {
+				u16 ao424_spans[AO424_MAXCHAN];
+				u16 ao424_initvals[AO424_MAXCHAN];
+			} ch;
+		} u;
+		int encoded_twocmp;
+	} ao424_device_settings;
 };
 
 #define MAXLBUF	  1024
@@ -857,7 +859,7 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 }
 
 /** WARNING: assumes CH01 bipolar, ALL bipolar */
-#define SPAN_IS_BIPOLAR(adev)	((adev)->ao424_device_settings.u.ch.ao424_spans[0] >= 2)
+#define SPAN_IS_BIPOLAR(adev)	((xo_dev)->ao424_device_settings.u.ch.ao424_spans[0] >= 2)
 
 #define IS_ACQ420(adev) \
 	(GET_MOD_ID(adev) == MOD_ID_ACQ420FMC || GET_MOD_ID(adev) == MOD_ID_ACQ420FMC_2000)
@@ -1218,27 +1220,14 @@ int set_gpg_top(struct acq400_dev* adev, u32 gpg_count);
 #define AOBYTES2SAMPLES(adev, xx) ((xx)/AOSS(adev))
 
 
-static inline unsigned xo400_getFillThreshold(struct acq400_dev *adev)
-{
-	return adev->xo.max_fifo_samples/128;
-}
+
 #define MAX_LOTIDE(adev) \
 	(adev->xo.max_fifo_samples - xo400_getFillThreshold(adev)*2)
 
 
 
+int ao420_getFifoHeadroom(struct acq400_dev* adev);
 
-static inline int ao420_getFifoHeadroom(struct acq400_dev* adev) {
-	/* pgm: don't trust it to fill to the top */
-	unsigned samples = adev->xo.getFifoSamples(adev);
-	unsigned maxsam = adev->xo.max_fifo_samples - 8;
-
-	if (samples > maxsam){
-		return 0;
-	}else{
-		return maxsam - samples;
-	}
-}
 
 void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
