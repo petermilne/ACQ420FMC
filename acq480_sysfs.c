@@ -264,6 +264,7 @@ static ssize_t store_dclock_reset(
 		if (ctrl & ADC_CTRL_ENABLE_CAPTURE){
 			dev_err(dev, "resetting DCLK, but ADC_ENABLED: 0x%08x", ctrl);
 			ctrl &= ~ADC_CTRL_ENABLE_CAPTURE;
+			acq400wr32(adev, ADC_CTRL, ctrl);
 		}
 		if (ctrl & ADC_CTRL_480_DCLK_SYNC){
 			dev_err(dev, "resetting DCLK, but it was already set: 0x%08x", ctrl);
