@@ -28,7 +28,7 @@ load_block() {
 	trap "rm $PIDF" EXIT
         wait
 	logger -t mgt_load cleanup
-	rm $PIDF
+	rm -f $PIDF
 }
 load() {
 	if load_is_running; then

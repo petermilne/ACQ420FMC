@@ -1,13 +1,6 @@
 
 set HN [exec hostname]
 
-set ctrl [open /dev/acq400/data/.control w]
-if {[info exists ::env(AXIBUFS_NSAMPLES)]} {
-	puts $ctrl "COOKED=0 NSAMPLES=$::env(AXIBUFS_NSAMPLES) NCHAN=32 TYPE=SHORT"
-} else {
-	puts $ctrl "COOKED=0 NSAMPLES=65536 NCHAN=32 TYPE=SHORT"
-}
-close $ctrl
 
 # hint for ftp
 set ::env(LBUFLEN) 0x400000
