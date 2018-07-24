@@ -25,7 +25,7 @@ load_block() {
 	logger -t mgt_load load_block $MGB1 $MGB2
 	mgtdram_descgen $MGB1 $MGB2 > /dev/mgt400.A.push_desc &
 	echo $! > $PIDF
-	trap "rm $PIDF" EXIT
+	trap "rm -f $PIDF" EXIT
         wait
 	logger -t mgt_load cleanup
 	rm -f $PIDF
