@@ -69,14 +69,19 @@ if {[info exists ::env(NGROUP)]} {
 puts "NGROUP $NGROUP blocks per upload"
 
 # kludge to set length of "landing area DMA RAM -> SRC file length"	
-# nominal 32xshorts samples.
-# REMOVEME ::env retained for compat with old mgt_offload_custom_ftp
+# given NOMINAL 32xshorts samples, must calc NSAMPLES per buffer
 
-set ::env(AXIBUFS_NSAMPLES) [expr 65536 * $NGROUP]
+# buffers fixed size 4MB
+
+set BUFLEN 0x400000
+set NOM_NCHAN 32
+set NOM_SAMPLES_BUF  [expr $BUFLEN / $NOM_NCHAN / 2 ]
+set AXIBUFS_NSAMPLES [expr $NOM_SAMPLES_BUF * $NGROUP]
 set ctrl [open /dev/acq400/data/.control w]
-puts $ctrl "COOKED=0 NSAMPLES=$::env(AXIBUFS_NSAMPLES) NCHAN=32 TYPE=SHORT"
+puts $ctrl "COOKED=0 NSAMPLES=$AXIBUFS_NSAMPLES NCHAN=$NOM_NCHAN TYPE=SHORT"
 close $ctrl
-	
+# REMOVEME ::env retained for compatible with old mgt_offload_custom_ftp
+set ::env(AXIBUFS_NSAMPLES) $AXIBUFS_NSAMPLES	
 
 
 proc .. {a {b ""} {step 1}} {
