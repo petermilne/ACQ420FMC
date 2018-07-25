@@ -62,7 +62,7 @@ if {[info exists ::env(MGTOFFLOADCUSTOM)]} {
 }
 
 if {[info exists ::env(NGROUP)]} {
-	set NGROUP 1
+	set NGROUP $::env(NGROUP)
 } else {
 	set NGROUP [calc_ngroup]
 }
