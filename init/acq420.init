@@ -738,7 +738,7 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	fi
 	if [ $AXI_COUNT -ge 1 ]; then	 
 		/sbin/insmod $AXIMOD maxdev=$AXI_COUNT
-		echo 1 > /dev/acq400.0.knobs/has_axi_dma
+		echo $AXI_COUNT > /dev/acq400.0.knobs/has_axi_dma
 		for file in $DROOT/acq400_axi_dma/adma?
 		do
 			fn=$(basename $file)

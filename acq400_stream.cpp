@@ -195,7 +195,8 @@ unsigned b2s(unsigned bytes) {
 bool ISACQ480() {
 	char mval[80];
 	if (getKnob(0, "/etc/acq400/1/MODEL", mval) >= 0){
-		return(strstr(mval, "ACQ480") != NULL);
+		return strstr(mval, "ACQ480") != NULL ||
+				strstr(mval, "ACQ482") != NULL;
 	}
 	return false;
 }

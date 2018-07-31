@@ -1810,7 +1810,6 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,
 	&dev_attr_continuous_reader.attr,
-	&dev_attr_has_axi_dma.attr,
 	&dev_attr_RW32_debug.attr,
 	NULL
 };
@@ -1836,6 +1835,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_nacc.attr,
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
+	&dev_attr_has_axi_dma.attr,
 	NULL,
 };
 
