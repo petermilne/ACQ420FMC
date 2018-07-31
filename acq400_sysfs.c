@@ -1835,7 +1835,6 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_nacc.attr,
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
-	&dev_attr_has_axi_dma.attr,
 	NULL,
 };
 
@@ -4052,6 +4051,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_bq_overruns.attr,
 	&dev_attr_bq_max.attr,
 	&dev_attr_hb_last.attr,
+	&dev_attr_has_axi_dma.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
