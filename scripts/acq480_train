@@ -7,7 +7,7 @@ STF=/var/run/acq480.$SITE.train
 SUB_PID=/var/run/acq480_train_sub.$SITE.pid
 
 report_success() {
-	a480_clk=SIG:CLK_S$SITE:FREQ
+	a480_clk=SIG:clk_count:FREQ
 	retry=0
 	(
 	echo A480_STATUS=OK
@@ -15,7 +15,7 @@ report_success() {
 	) >$STF 
 	
 	while [ $retry -lt 10 ]; do
-		clk="$(get.site 0 $a480_clk)"
+		clk="$(get.site $SITE $a480_clk)"
 		(
 		[ $retry -eq 0 ] && echo A480_CLK=$a480_clk 
 		echo A480_FREQ=${clk#* }	
