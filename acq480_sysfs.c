@@ -528,7 +528,7 @@ static ssize_t store_ffir_coeff(
 }
 static DEVICE_ATTR(ffir_coeff, S_IWUGO, 0, store_ffir_coeff);
 
-MAKE_BITS(trg_resync, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_480_TRIG_RESYNC);
+
 
 const struct attribute *acq480_ffir_attrs[] = {
 	&dev_attr_ffir_reset.attr,
@@ -544,7 +544,6 @@ const struct attribute *acq480_ffir_attrs[] = {
 	&dev_attr_acq480_loti.attr,
 	&dev_attr_acq480_two_lane_mode.attr,
 	&dev_attr_acq482_cmap.attr,
-	&dev_attr_trg_resync.attr,
 	&dev_attr_acq480_fpga_decim.attr,
 	NULL
 };
