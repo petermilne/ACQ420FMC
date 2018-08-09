@@ -1796,7 +1796,7 @@ static DEVICE_ATTR(RW32_debug,
 		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
 
 
-MAKE_BITS(submaster_trg, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SUBMASTER_TRG);
+MAKE_BIT_N(sync_trg, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
 
 
 static const struct attribute *sysfs_base_attrs[] = {
@@ -1835,7 +1835,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_nacc.attr,
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
-	&dev_attr_submaster_trg.attr,
+	&dev_attr_sync_trg.attr,
 	NULL,
 };
 

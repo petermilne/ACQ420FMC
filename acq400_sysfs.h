@@ -52,21 +52,21 @@ ssize_t acq400_store_triplet(
 		unsigned T2,
 		unsigned T3);
 
-#define MAKE_TRIPLET(NAME, REG, T1, T2, T3)					\
+#define MAKE_TRIPLET(NAME, REG, T1, T2, T3)				\
 static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
 {									\
-	return acq400_show_triplet(dev, attr, buf, REG, T1, T2, T3);		\
+	return acq400_show_triplet(d, a, b, REG, T1, T2, T3);		\
 }									\
 static ssize_t store_bits##NAME(					\
-	struct device * dev,						\
-	struct device_attribute *attr,					\
-	const char * buf,						\
-	size_t count)							\
+	struct device * d,						\
+	struct device_attribute *a,					\
+	const char * b,							\
+	size_t c)							\
 {									\
-	return acq400_store_triplet(dev, attr, buf, count, REG, T1, T2, T3);   \
+	return acq400_store_triplet(d, a, b, c, REG, T1, T2, T3);   	\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
 #define MASKSHR(x, f) (((x)&(f)) >> getSHL(f))
@@ -82,7 +82,7 @@ ssize_t acq400_show_bits(
 	unsigned SHL,
 	unsigned MASK);
 
-ssize_t acq400_show_bitsN(
+ssize_t acq400_show_bitN(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
@@ -99,18 +99,26 @@ ssize_t acq400_store_bits(
 		unsigned SHL,
 		unsigned MASK, unsigned show_warning);
 
+ssize_t acq400_store_bitN(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned SHL,
+		unsigned MASK, unsigned show_warning);
 
 #define MAKE_BITS_RO(NAME, REG, SHL, MASK)				\
 static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+		return acq400_show_bits(d, a, b, REG, shl, (MASK)>>shl);\
 	}else{								\
-		return acq400_show_bits(dev, attr, buf, REG, SHL, MASK);	\
+		return acq400_show_bits(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
@@ -118,43 +126,73 @@ static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 /* active low. Valid for single bit only */
 #define MAKE_BIT_RON(NAME, REG, SHL, MASK)				\
 static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_show_bitsN(dev, attr, buf, REG, shl, (MASK)>>shl);\
+		return acq400_show_bitN(d, a, b, REG, shl, (MASK)>>shl);\
 	}else{								\
-		return acq400_show_bitsN(dev, attr, buf, REG, SHL, MASK);	\
+		return acq400_show_bitN(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO, show_bits##NAME, 0)
 
-#define _MAKE_BITS(NAME, REG, SHL, MASK, WARN_DEP)			\
-static ssize_t show_bits##NAME(						\
-	struct device *dev,						\
-	struct device_attribute *attr,					\
-	char *buf)							\
+/* active low. Valid for single bit only */
+#define MAKE_BIT_N(NAME, REG, SHL, MASK, WD)				\
+static ssize_t store_bitN##NAME(					\
+	struct device * d,						\
+	struct device_attribute *a,					\
+	const char * b,							\
+	size_t c)							\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_show_bits(dev, attr, buf, REG, shl, (MASK)>>shl);\
+		return acq400_store_bitN(d, a, b, c, REG, shl, (MASK)>>shl, WD);\
 	}else{								\
-		return acq400_show_bits(dev, attr, buf, REG, SHL, MASK);	\
+		return acq400_store_bitN(d, a, b, c, REG, SHL, MASK, WD);\
+	}								\
+}									\
+static ssize_t show_bitN##NAME(						\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
+{									\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return acq400_show_bitN(d, a, b, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return acq400_show_bitN(d, a, b, REG, SHL, MASK);	\
+	}								\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO, show_bitN##NAME, store_bitN##NAME)
+
+
+#define _MAKE_BITS(NAME, REG, SHL, MASK, WD)				\
+static ssize_t show_bits##NAME(						\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
+{									\
+	unsigned shl = getSHL(MASK);					\
+	if (shl){							\
+		return acq400_show_bits(d, a, b, REG, shl, (MASK)>>shl);\
+	}else{								\
+		return acq400_show_bits(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
 static ssize_t store_bits##NAME(					\
-	struct device * dev,						\
-	struct device_attribute *attr,					\
-	const char * buf,						\
-	size_t count)							\
+	struct device * d,						\
+	struct device_attribute *a,					\
+	const char * b,							\
+	size_t c)							\
 {									\
 	unsigned shl = getSHL(MASK);					\
 	if (shl){							\
-		return acq400_store_bits(dev, attr, buf, count, REG, shl, (MASK)>>shl, WARN_DEP);\
+		return acq400_store_bits(d, a, b, c, REG, shl, (MASK)>>shl, WD);\
 	}else{								\
-		return acq400_store_bits(dev, attr, buf, count, REG, SHL, MASK, WARN_DEP);\
+		return acq400_store_bits(d, a, b, c, REG, SHL, MASK, WD);\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)

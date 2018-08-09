@@ -114,7 +114,7 @@ ssize_t acq400_show_bits(
 	return sprintf(buf, "%x\n", field);
 }
 
-ssize_t acq400_show_bitsN(
+ssize_t acq400_show_bitN(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
@@ -126,6 +126,31 @@ ssize_t acq400_show_bitsN(
 	u32 field = (regval>>SHL)&MASK;
 
 	return sprintf(buf, "%x\n", !field);
+}
+
+ssize_t acq400_store_bitN(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned SHL,
+		unsigned MASK,
+		unsigned show_warning)
+{
+	u32 field;
+	if (sscanf(buf, "%x", &field) == 1){
+		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+		regval &= ~(MASK << SHL);
+		regval |= ((!field)&MASK) << SHL;
+		if (show_warning){
+			dev_warn(dev, "deprecated %04x = %08x", REG, regval);
+		}
+		acq400wr32(acq400_devices[dev->id], REG, regval);
+		return count;
+	}else{
+		return -1;
+	}
 }
 
 ssize_t acq400_store_bits(
