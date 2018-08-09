@@ -166,7 +166,7 @@ static ssize_t show_bitN##NAME(						\
 		return acq400_show_bitN(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
-static DEVICE_ATTR(NAME, S_IRUGO, show_bitN##NAME, store_bitN##NAME)
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bitN##NAME, store_bitN##NAME)
 
 
 #define _MAKE_BITS(NAME, REG, SHL, MASK, WD)				\
