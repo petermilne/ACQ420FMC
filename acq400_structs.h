@@ -82,6 +82,8 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	struct RT_QUEUE_REPORT putFullErrors;
 };
 
+#define REG_CACHE_MAP_REGS	4
+
 struct RegCache {
 	int id;
 	struct device *dev;
@@ -92,6 +94,7 @@ struct RegCache {
 	struct hrtimer timer;
 };
 
+/** acq400_dev one descriptor per device */
 struct acq400_dev {
 	dev_t devno;
 	struct mutex mutex;
@@ -231,6 +234,9 @@ void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va)
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
+#define MAXSITES	6
+
+
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
@@ -365,8 +371,17 @@ struct acq400_path_descriptor {
 
 #define MIN_DMA_BYTES	256
 
-#define MAXDEVICES 6
-#define MAXSITE	   6
+#define MAXDEVICES 	6
+
+
+
+
+
+
+void event_isr(unsigned long data);
+
+extern int event_isr_msec;
+
 extern struct acq400_dev* acq400_devices[];
 extern struct acq400_dev* acq400_sites[];
 extern const char* acq400_names[];

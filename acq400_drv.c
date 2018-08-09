@@ -123,7 +123,7 @@ MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stoppe
 /* index from 0, including site 0 */
 struct acq400_dev* acq400_devices[MAXDEVICES+1];
 /* index by site */
-struct acq400_dev* acq400_sites[MAXSITE+1];
+struct acq400_dev* acq400_sites[MAXSITES+1];
 
 #define DMA_NS_MAX     40
 int dma_ns_lines[DMA_NS_MAX];

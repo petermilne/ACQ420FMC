@@ -8,47 +8,7 @@
 #ifndef ACQ420FMC_H_
 #define ACQ420FMC_H_
 
-#include <asm/uaccess.h>
-#include <asm/sizes.h>
-
-
-#include <linux/dmaengine.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/sched/rt.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/platform_device.h>
-#include <linux/seq_file.h>
-#include <linux/proc_fs.h>
-#include <linux/err.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/dma-mapping.h>
-#include <linux/dmapool.h>
-#include <linux/mutex.h>
-#include <linux/sched.h>
-#include <linux/wait.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/delay.h>
-#include <linux/spinlock.h>
-
-#include <linux/circ_buf.h>
-#include <linux/debugfs.h>
-#include <linux/poll.h>
-//#include <mach/pl330.h>
-#include <linux/amba/pl330.h>
-#include <linux/of.h>
-
-#include <asm/barrier.h>
-#include <asm/dma.h>
-#include <asm/mach/dma.h>
-#include <asm/io.h>
-
-
+#include "acq400_includes.h"
 
 
 /* Offsets for control registers in the AXI MM2S FIFO */
@@ -149,7 +109,7 @@
 #define FIFO_HISTO_SZ	      	(1<<8)
 #define STATUS_TO_HISTO(stat)	((stat)&ADC_FIFO_SAMPLE_MASK)
 
-
+/* MOD_ID Bitfields */
 #define MOD_ID_TYPE_SHL		24
 #define MOD_ID_IS_SLAVE		(1<<23)
 #define MOD_ID_IS_CLKOUT	(1<<22)		// SITE 0 ONLY
@@ -210,6 +170,7 @@
 #define MOD_ID_TYPE_ACQ480DIV4	0x1
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
+/* ADC_CTRL Bitfields */
 #define ADC_CTRL_SUBMASTER_TRG  (1<<20)
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
 #define ADC_CTRL_482_CMAP	(1<<18)
@@ -370,88 +331,14 @@
 #define DTD_CTRL_CLR		0x00000010
 
 
-#define	QEN_CTRL		0x04
 
-#define QEN_CTRL_EN		(1<<4)
-#define QEN_CTRL_RESET		(1<<3)
-#define QEN_CTRL_FIFO_EN	ADC_CTRL_FIFO_EN
-#define QEN_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
-#define QEN_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
-
-#define QEN_DIO_CTRL		0x5c
-#define QEN_ENC_COUNT		0x60
-
-#define QEN_DIO_CTRL_ZSEL	(3<<10)
-#define QEN_DIO_CTRL_PB_EN	(1<<9)
-#define QEN_DIO_CTRL_PA_EN	(1<<8)
-
-#define QEN_DIO_CTRL_DIR_OUT	0x00f0
-#define QEN_DIO_CTRL_DO_IMM	0x000f
-
-
-/*
- *  Minor encoding
- *  0 : the original device
- *  100..164 : buffers
- *  200..231 : channels when available
- */
-#define ACQ420_MINOR_0	        0
-#define ACQ420_MINOR_CONTINUOUS	1
-#define ACQ420_MINOR_HISTO	2
-#define ACQ420_MINOR_HB0	3	// block on HB0 fill
-#define ACQ420_MINOR_SIDEPORTED 4	// enable, but data flow elsewhere
-#define ACQ420_MINOR_GPGMEM	5	// mmap 4K of this
-#define ACQ420_MINOR_EVENT	6	// blocks on event
-#define ACQ420_MINOR_STREAMDAC	7
-#define ACQ420_MINOR_BOLO_AWG	8
-#define AO420_MINOR_HB0_AWG_ONCE	9
-#define AO420_MINOR_HB0_AWG_LOOP	10
-#define ACQ420_MINOR_RESERVE_BLOCKS	11
-#define ACQ420_MINOR_SEW1_FIFO	12		/* Software Embedded Word */
-#define ACQ420_MINOR_SEW2_FIFO	13
-#define AO420_MINOR_HB0_AWG_ONCE_RETRIG	14
-#define ACQ400_MINOR_BQ_NOWAIT	15
-#define ACQ400_MINOR_ATD	16
-#define ACQ400_MINOR_BQ_FULL	17
-#define ACQ400_MINOR_RSV_DIST	18
-#define ACQ400_MINOR_AXI_DMA_ONCE 19
-
-#define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
-
-#define ACQ400_MINOR_MAP_PAGE_OFFSET(minor) \
-	((minor-ACQ400_MINOR_MAP_PAGE)*PAGE_SIZE)
-#define ACQ420_MINOR_BUF	1000
-#define ACQ420_MINOR_BUF2	2000
-#define ACQ420_MINOR_MAX	ACQ420_MINOR_BUF2
-#define ACQ420_MINOR_CHAN	200
-#define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
-
-
-#define BQ_MIN_BACKLOG		2
-#define BQ_MAX_BACKLOG		512
-
-#define IS_BUFFER(minor) \
-	((minor) >= ACQ420_MINOR_BUF && (minor) <= ACQ420_MINOR_BUF2)
-#define BUFFER(minor) 		((minor) - ACQ420_MINOR_BUF)
-
-#define AO_CHAN	4
-/** acq400_dev one descriptor per device */
-
-void event_isr(unsigned long data);
-
-extern int event_isr_msec;
-
-#define MAXSITES 	6
 
 enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
+
+#define AO_CHAN	4
+
 #define AO424_MAXCHAN		32
-
-#define REG_CACHE_MAP_REGS	4
-
-
-
-
 
 #define GET_MOD_ID(adev) 	 ((adev)->mod_id>>MOD_ID_TYPE_SHL)
 #define GET_MOD_ID_VERSION(adev) (((adev)->mod_id>>MOD_ID_VERSION_SHL)&0xff)
@@ -960,8 +847,6 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define RAD_CTL_CLKD_RESET	(1<<4)
 #define RAD_CTL_DDS_RESET	(1<<3)
 
-
-
 #define RAD_DDS_UPD_CLK_FPGA	(1<<9)
 #define RAD_DDS_UPD_CLK		(1<<8)
 #define RAD_DDS_CLK_OEn		(1<<4)
@@ -978,6 +863,25 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define DIO1014_CR_TRG		(1<<4)
 #define DIO1014_CR_TRG_SOFT	DIO1014_CR_TRG
 #define DIO1014_MOD_EN		(1<<0)
+
+/* QEN : Quadrature ENcoder */
+#define	QEN_CTRL		0x04
+
+#define QEN_CTRL_EN		(1<<4)
+#define QEN_CTRL_RESET		(1<<3)
+#define QEN_CTRL_FIFO_EN	ADC_CTRL_FIFO_EN
+#define QEN_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
+#define QEN_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
+
+#define QEN_DIO_CTRL		0x5c
+#define QEN_ENC_COUNT		0x60
+
+#define QEN_DIO_CTRL_ZSEL	(3<<10)
+#define QEN_DIO_CTRL_PB_EN	(1<<9)
+#define QEN_DIO_CTRL_PA_EN	(1<<8)
+
+#define QEN_DIO_CTRL_DIR_OUT	0x00f0
+#define QEN_DIO_CTRL_DO_IMM	0x000f
 
 #include "acq400_structs.h"
 
