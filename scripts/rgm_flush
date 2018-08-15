@@ -1,0 +1,20 @@
+#!/bin/sh
+# RGM on d0. Force it to completion by reassigning the d0 source and tying it hi
+
+flush() {
+set.site 1 rgm=2,1,1
+set.sys /dev/acq400.0.knobs/soft_trig 1
+}
+clear() {
+set.sys /dev/acq400.0.knobs/soft_trig 0
+set.site 1 rgm=2,0,1
+}
+
+case $1 in
+on|1)
+    flush;;
+*)
+    clear;;
+esac
+
+
