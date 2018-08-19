@@ -842,21 +842,25 @@ void cli(int argc, const char** argv)
 }
 
 
-int interpret_phrase(char* buf_in, char* buf_out, FILE* fout)
+int interpret_phrase(char* phrase, char* buf_out, FILE* fout)
 {
 	char *args = 0;
 	char *key = 0;
 	bool is_query = false;
 	bool found = false;
 
-	unsigned isep = strcspn(buf_in, "= ");
-	if (isep != strlen(buf_in)){
-		args = buf_in + isep + strspn(buf_in+isep, "= ");
-		buf_in[isep] = '\0';
+	chomp(phrase);
+	if (strlen(phrase) == 0){
+		return 0;
+	}
+	unsigned isep = strcspn(phrase, "= ");
+	if (isep != strlen(phrase)){
+		args = phrase + isep + strspn(phrase+isep, "= ");
+		phrase[isep] = '\0';
 	}else{
 		is_query = true;
 	}
-	key = buf_in;
+	key = phrase;
 
 
 	for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
@@ -907,14 +911,16 @@ int interpreter(FILE* fin, FILE* fout)
 	char* buf_out = new char[MAXOUTBUF];
 
 	for (; fgets(buf_in, 4096, fin); Prompt::instance()->prompt(fout)){
+		char* phrase = buf_in;
+		char* phrase99;
 
-		chomp(buf_in);
-		int len = strlen(buf_in);
-		if (len == 0){
-			continue;
-		}else{
-			interpret_phrase(buf_in, buf_out, fout);
+		while ((phrase99 = strchr(phrase, ';'))){
+			*phrase99 = '\0';
+			interpret_phrase(phrase, buf_out, fout);
+			phrase = phrase99 + 1;
 		}
+
+		interpret_phrase(phrase, buf_out, fout);
 	}
 	return 0;
 }
