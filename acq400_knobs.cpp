@@ -915,9 +915,10 @@ int interpreter(FILE* fin, FILE* fout)
 		char* phrase99;
 
 		while ((phrase99 = strchr(phrase, ';'))){
+			char* phrase2 = phrase99 + strspn(phrase99, ": \t");
 			*phrase99 = '\0';
 			interpret_phrase(phrase, buf_out, fout);
-			phrase = phrase99 + strspn(phrase99, "; \t");
+			phrase = phrase2;
 		}
 
 		interpret_phrase(phrase, buf_out, fout);
