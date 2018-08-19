@@ -71,7 +71,7 @@ char* port = 0;
 
 int site;
 
-int verbose;
+int verbose = 0;
 
 #define MAXOUTBUF	16384
 
@@ -853,6 +853,7 @@ int interpret_phrase(char* phrase, char* buf_out, FILE* fout)
 	if (strlen(phrase) == 0){
 		return 0;
 	}
+
 	unsigned isep = strcspn(phrase, "= ");
 	if (isep != strlen(phrase)){
 		args = phrase + isep + strspn(phrase+isep, "= ");
@@ -915,7 +916,7 @@ int interpreter(FILE* fin, FILE* fout)
 		char* phrase99;
 
 		while ((phrase99 = strchr(phrase, ';'))){
-			char* phrase2 = phrase99 + strspn(phrase99, ": \t");
+			char* phrase2 = phrase99 + strspn(phrase99, "; \t");
 			*phrase99 = '\0';
 			interpret_phrase(phrase, buf_out, fout);
 			phrase = phrase2;
