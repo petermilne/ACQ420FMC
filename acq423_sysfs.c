@@ -185,7 +185,7 @@ static ssize_t show_gains(
 	strcat(buf, "\n");
 	return strlen(buf);
 }
-static DEVICE_ATTR(gains, S_IRUGO, show_gains, 0);
+static DEVICE_ATTR(gains, S_IRUGO|S_IWUGO, show_gains, 0);
 
 static ssize_t show_odd_channels(
 	struct device * dev,
