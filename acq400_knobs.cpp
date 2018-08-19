@@ -841,72 +841,79 @@ void cli(int argc, const char** argv)
 	}
 }
 
+
+int interpret_phrase(char* buf_in, char* buf_out, FILE* fout)
+{
+	char *args = 0;
+	char *key = 0;
+	bool is_query = false;
+	bool found = false;
+
+	unsigned isep = strcspn(buf_in, "= ");
+	if (isep != strlen(buf_in)){
+		args = buf_in + isep + strspn(buf_in+isep, "= ");
+		buf_in[isep] = '\0';
+	}else{
+		is_query = true;
+	}
+	key = buf_in;
+
+
+	for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
+		Knob* knob = *it;
+		err = false;
+		int rc;
+		bool is_glob = true;
+		buf_out[0] = '\0';
+		switch(Knob::match(knob->getName(), key)){
+		case 0:
+			continue;
+		case 1:
+			is_glob = false;
+			it = KNOBS.end() - 1; // fall thru, drop out
+		case -1:
+			if (is_query){
+				rc = knob->get(buf_out, 4096);
+				if (is_glob){
+					if (dynamic_cast<Helper*>(knob) != 0){
+						/* don't query Helper */
+						continue;
+					}
+					if (!strstr(buf_out, knob->getName())){
+						fprintf(fout, "%s ", knob->getName());
+					}
+				}
+			}else{
+				rc = knob->set(buf_out, 4096, args);
+			}
+			if (rc){
+				fprintf(fout, "%s\n", chomp(buf_out));
+				fflush(fout);
+			}
+
+			err = rc < 0;
+			found = true;
+		}
+	}
+
+	if (!found){
+		fprintf(fout, "ERROR:\%s\" not found\n", key);
+	}
+	return 0;
+}
 int interpreter(FILE* fin, FILE* fout)
 {
 	char* buf_in = new char[4096];
 	char* buf_out = new char[MAXOUTBUF];
 
 	for (; fgets(buf_in, 4096, fin); Prompt::instance()->prompt(fout)){
-		char *args = 0;
-		char *key = 0;
-		bool is_query = false;
 
 		chomp(buf_in);
-
 		int len = strlen(buf_in);
 		if (len == 0){
 			continue;
 		}else{
-			unsigned isep = strcspn(buf_in, "= ");
-			if (isep != strlen(buf_in)){
-				args = buf_in + isep + strspn(buf_in+isep, "= ");
-				buf_in[isep] = '\0';
-			}else{
-				is_query = true;
-			}
-			key = buf_in;
-		}
-
-		bool found = false;
-		for (VKI it = KNOBS.begin(); it != KNOBS.end(); ++it){
-			Knob* knob = *it;
-			err = false;
-			int rc;
-			bool is_glob = true;
-			buf_out[0] = '\0';
-			switch(Knob::match(knob->getName(), key)){
-			case 0:
-				continue;
-			case 1:
-				is_glob = false;
-				it = KNOBS.end() - 1; // fall thru, drop out
-			case -1:
-				if (is_query){
-					rc = knob->get(buf_out, 4096);
-					if (is_glob){
-						if (dynamic_cast<Helper*>(knob) != 0){
-							/* don't query Helper */
-							continue;
-						}
-						if (!strstr(buf_out, knob->getName())){
-							fprintf(fout, "%s ", knob->getName());
-						}
-					}
-				}else{
-					rc = knob->set(buf_out, 4096, args);
-				}
-				if (rc){
-					fprintf(fout, "%s\n", chomp(buf_out));
-					fflush(fout);
-				}
-
-				err = rc < 0;
-				found = true;
-			}
-		}
-
-		if (!found){
-			fprintf(fout, "ERROR:\%s\" not found\n", key);
+			interpret_phrase(buf_in, buf_out, fout);
 		}
 	}
 	return 0;
