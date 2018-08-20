@@ -310,6 +310,7 @@ build_knobs_device() {
 		customize_acq420 $site;;
 	1|A1)			
 		customize_acq420 $site
+		set.sys ${dk}/gains 0000
 		echo 'gain=gain[1234]' > /etc/acq400/$site/groups;;
 	FE|FD)
 		if [ "x$ACQ400T_SITES" != "x" ]; then
@@ -359,9 +360,6 @@ build_knobs_device() {
 		set.sys $dk/clkdiv $CLKDIV
 		rb=$(get.sys $dk/clkdiv)
 		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
-	fi
-	if [ -w $dk/gains ]; then
-		set.sys ${dk}/gains 0000		
 	fi
 }
 
