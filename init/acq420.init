@@ -360,7 +360,7 @@ build_knobs_device() {
 		rb=$(get.sys $dk/clkdiv)
 		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
 	fi
-	if [ -e $dk/gains ]; then
+	if [ -w $dk/gains ]; then
 		set.sys ${dk}/gains 0000		
 	fi
 }
