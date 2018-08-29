@@ -3563,7 +3563,7 @@ static ssize_t show_aggregator_set(
 }
 static DEVICE_ATTR(aggregator_set, S_IRUGO, show_aggregator_set, 0);
 enum DistComms {
-	DC_A9 = 0, DC_COMMS_B = 1, DC_COMMS_A = 2
+	DC_A9 = '9', DC_COMMS_B = 'B', DC_COMMS_A = 'A', DC_A9_ALT = '0', DC_COMMS_B_ALT = '1', DC_COMMS_A_ALT = '2'
 };
 static enum DistComms fromDistCommsFudge(u32 reg)
 {
@@ -3580,11 +3580,14 @@ static u32 toDistCommsFudge(enum DistComms dc)
 {
 	switch(dc){
 	case DC_A9:
+	case DC_A9_ALT:
 	default:
 		return 0;
 	case DC_COMMS_B:
+	case DC_COMMS_B_ALT:
 		return DIST_COMMS_B;
 	case DC_COMMS_A:
+	case DC_COMMS_A_ALT:
 		return DIST_COMMS_A;
 	}
 }
@@ -3616,8 +3619,7 @@ static ssize_t show_dist_reg(
 	if (strlen(mod_group) == 0){
 		sprintf(mod_group, "sites=none");
 	}
-	sprintf(mod_group+strlen(mod_group), " comms=%d",
-				fromDistCommsFudge(regval));
+	sprintf(mod_group+strlen(mod_group), " comms=%c", fromDistCommsFudge(regval));
 
 	if ((regval&AGG_SPAD_EN) != 0){
 		int pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
@@ -3712,9 +3714,9 @@ static ssize_t store_dist_reg(
 	}
 	if ((match = strstr(buf, "comms")) != 0){
 		int en;
-		if (sscanf(match, "comms=%d", &en) == 1){
+		if (sscanf(match, "comms=%c", &en) == 1 ){
 			regval &= ~DIST_COMMS_MASK;
-			dev_dbg(DEVP(adev), "comms=%d set 0x%08x", en, toDistCommsFudge(en));
+			dev_dbg(DEVP(adev), "comms=%c set 0x%08x", en, toDistCommsFudge(en));
 			regval |= toDistCommsFudge(en);
 			pass = 1;
 		}else{
