@@ -79,6 +79,8 @@ struct dentry* acq400_debug_root;
 	pcursor += strlen(pcursor) + 1; 				\
 	} while(0)
 
+#define DBG_REG_CREATE_NAME_N(name) DBG_REG_CREATE_NAME(#name, name)
+
 #define DBG_REG_CREATE_NAME_NC(name, reg) do {				\
 	void* va = adev->dev_virtaddr; 					\
 	sprintf(pcursor, "%s.0x%02x", name, reg);			\
