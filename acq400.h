@@ -55,14 +55,19 @@
 /* obsolete R3
 #define ADC_FORMAT 		(ADC_BASE+0x48)
 */
-#define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
+
 
 #define ACQ435_MODE		(ADC_BASE+0x44)
 #define AO420_RANGE		(ADC_BASE+0x44)
 #define ACQ425_BANK             (ADC_BASE+0x44) /* MUST MATCH ACQ435_MODE in address and meaning! */
 #define ACQ423_BANK		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
+
 #define AO424_DELAY		(AO420_DACSPI)
+
+#define DAC_424_SNOOP		(ADC_BASE+0x4C)
+#define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
+
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 
@@ -812,6 +817,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define AO424_DAC_CTRL_SPAN	(1<<5)
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
+#define AO424_DAC_CTRL_SNOOPSEL_SHL	16
+#define AO424_DAC_CTRL_SNOOPSEL_MSK	0x0f
 
 
 #define ACQ400T_DOA	0x10
