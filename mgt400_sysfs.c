@@ -274,7 +274,10 @@ static ssize_t show_astats2(
 		struct device_attribute *attr,
 		char * buf)
 {
-	return show_astats(dev, attr, buf, ASTATS2);
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 astats = mgt400rd32(mdev, reg);
+	return sprintf(buf, "%08x %u %u\n",
+				astats, (astats>>16)&0x0ffff, astats&0x0ffff);
 }
 static DEVICE_ATTR(astats2, S_IRUGO, show_astats2, 0);
 
