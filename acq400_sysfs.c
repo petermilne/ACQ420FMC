@@ -3605,6 +3605,7 @@ static ssize_t show_dist_reg(
 	u32 regval = acq400rd32(adev, offset);
 	char mod_group[80];
 	int site;
+	int pad = 0;
 
 	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
 		if ((regval & AGG_MOD_EN(site, mshift)) != 0){
@@ -3625,9 +3626,9 @@ static ssize_t show_dist_reg(
 	sprintf(mod_group+strlen(mod_group), " comms=%c", fromDistCommsFudge(regval));
 
 	if ((regval&AGG_SPAD_EN) != 0){
-		int pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
-		sprintf(mod_group+strlen(mod_group), " pad=%d", pad);
+		pad = ((regval>>AGG_SPAD_LEN_SHL)&DIST_TRASH_LEN_MASK) + 1;
 	}
+	sprintf(mod_group+strlen(mod_group), " pad=%d", pad);
 
 	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s\n", regval, mod_group,
 			regval&DATA_MOVER_EN? "on": "off");
@@ -3716,7 +3717,7 @@ static ssize_t store_dist_reg(
 		}
 	}
 	if ((match = strstr(buf, "comms")) != 0){
-		int en;
+		char en;
 		if (sscanf(match, "comms=%c", &en) == 1 ){
 			regval &= ~DIST_COMMS_MASK;
 			dev_dbg(DEVP(adev), "comms=%c set 0x%08x", en, toDistCommsFudge(en));
