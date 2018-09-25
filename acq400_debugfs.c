@@ -195,6 +195,8 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 	switch(GET_MOD_ID(adev)){
 	case MOD_ID_ACQ435ELF:
+	case MOD_ID_ACQ436ELF:
+	case MOD_ID_ACQ437ELF:
 		DBG_REG_CREATE(ACQ435_SW_EMB_WORD1);
 		DBG_REG_CREATE(ACQ435_SW_EMB_WORD2);
 		break;

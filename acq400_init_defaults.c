@@ -881,6 +881,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_ACQ430FMC:
 		case MOD_ID_ACQ435ELF:
+		case MOD_ID_ACQ436ELF:
 		case MOD_ID_ACQ437ELF:
 			acq43X_init_defaults(adev);
 			break;

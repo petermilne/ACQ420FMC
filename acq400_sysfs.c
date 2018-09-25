@@ -1596,6 +1596,8 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_ACQ427ELF_2000,"acq427elf"     },
 		{ MOD_ID_ACQ430FMC,     "acq430fmc"	},
 		{ MOD_ID_ACQ435ELF,	"acq435elf"	},
+		{ MOD_ID_ACQ436ELF,	"acq436elf"	},
+		{ MOD_ID_ACQ437ELF,	"acq437elf"	},
 		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
 		{ MOD_ID_AO420FMC,	"ao420fmc"	},
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
