@@ -553,15 +553,15 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 		measure_ao_fifo(adev);
 	}
 }
-static void ao420_init_defaults(struct acq400_dev *adev)
+static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dev_info(DEVP(adev), "AO420 device init");
 
-	adev->data32 = 0;
+	adev->data32 = data32;
 	adev->nchan_enabled = 4;
-	adev->word_size = 2;
+	adev->word_size = data32? 4: 2;
 	adev->cursor.hb = &adev->hb[0];
 
 	adev->sysclkhz = SYSCLK_M66;
@@ -887,7 +887,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			break;
 		case MOD_ID_AO420FMC:
 		case MOD_ID_AO420FMC_CS2:
-			ao420_init_defaults(adev);
+			ao420_init_defaults(adev, GET_MOD_ID(adev)==MOD_ID_AO420FMC_CS2);
 			break;
 		case MOD_ID_AO424ELF:
 			ao424_init_defaults(adev);
