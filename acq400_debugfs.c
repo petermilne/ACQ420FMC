@@ -339,6 +339,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			bolo8_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_AO420FMC:
+		case MOD_ID_AO420FMC_CS2:
 		case MOD_ID_AO424ELF:
 		case MOD_ID_DAC_CELF:
 			ao420_createDebugfs(adev, pcursor);
