@@ -1608,6 +1608,11 @@ void init_globs(void)
 
 void checkHolders();
 
+void reserveBuffers(void)
+/* open and hold until death */
+{
+	open("/dev/acq400.0.rsvd", O_RDONLY);
+}
 void aggregator_init()
 {
 	if (G::devnum == 0 && G::aggregator_sites == 0){
@@ -1616,6 +1621,7 @@ void aggregator_init()
 		G::aggregator_sites = _sites;
 		if (verbose) fprintf(stderr, "default sites:%s\n", G::aggregator_sites);
 	}
+	reserveBuffers();
 	/* else .. defaults to 0 */
 	checkHolders();
 	if (G::aggregator_sites != 0){
