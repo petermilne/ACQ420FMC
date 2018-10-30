@@ -4,6 +4,7 @@
 
 # nb: channel names are REVERSED in grps of 4 vs schematic
 # P01..P07, P10..P17
+# {A1,A0} : 0: G=1, 1: G=2, 2: G=4, 3: G=8
 set LNAMES1 [ list \
 	ADC_4_A0 ADC_4_A1 ADC_3_A0 ADC_3_A1 \
 	ADC_2_A0 ADC_2_A1 ADC_1_A0 ADC_1_A1 \
