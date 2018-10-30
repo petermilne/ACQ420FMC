@@ -1,7 +1,9 @@
 #!/usr/local/bin/expect
-# acq427 gains
+# acq427 gains. 
+# GPIO chip is a TCA6424 at address 0x22
 
 # nb: channel names are REVERSED in grps of 4 vs schematic
+# P01..P07, P10..P17
 set LNAMES1 [ list \
 	ADC_4_A0 ADC_4_A1 ADC_3_A0 ADC_3_A1 \
 	ADC_2_A0 ADC_2_A1 ADC_1_A0 ADC_1_A1 \
@@ -10,6 +12,7 @@ set LNAMES1 [ list \
 
 set OUTPUTS1 [ list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ]
 
+# P20..P27
 set LNAMES2 [ list \
 	CLK_DIR TRG_DIR DAC_RIBBON ADC_B_RIBBON \
 	DAC_3_RANGE DAC_4_RANGE DAC_1_RANGE DAC_2_RANGE ]
