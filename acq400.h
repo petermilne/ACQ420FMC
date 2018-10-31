@@ -179,7 +179,7 @@
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 /* ADC_CTRL Bitfields */
-#define ADC_CTRL_SYNC_TRG_N  (1<<20)
+#define ADC_CTRL_SYNC_TRG_N  	(1<<20)
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
 #define ADC_CTRL_482_CMAP	(1<<18)
 #define ADC_CTRL_42x_RES_SHL	16
