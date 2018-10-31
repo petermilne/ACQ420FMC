@@ -890,6 +890,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_DIO_CTRL		0x5c
 #define QEN_ENC_COUNT		0x60
 
+#define QEN_DIO_CTRL_ZCOUNT	(1<<12)		// Include Z input as a separate counter
 #define QEN_DIO_CTRL_ZSEL	(3<<10)
 #define QEN_DIO_CTRL_PB_EN	(1<<9)
 #define QEN_DIO_CTRL_PA_EN	(1<<8)

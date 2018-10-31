@@ -265,6 +265,7 @@ static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
 
 MAKE_BITS(phaseA_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
 MAKE_BITS(phaseB_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
+MAKE_BITS(Zcount_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZCOUNT);
 MAKE_BITS(zsel,       QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZSEL );
 MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
 MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
@@ -272,6 +273,7 @@ MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
 const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_phaseA_en.attr,
 	&dev_attr_phaseB_en.attr,
+	&dev_attr_Zcount_en.attr,
 	&dev_attr_zsel.attr,
 	&dev_attr_dio_outputs.attr,
 	&dev_attr_DO4.attr,
