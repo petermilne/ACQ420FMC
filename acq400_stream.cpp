@@ -2929,17 +2929,23 @@ template <class T>
 class SubsetStreamHeadClientImpl: public SubsetStreamHeadClient {
 	T* buf;
 	int nbuf;
+	int totchan;
 public:
 	SubsetStreamHeadClientImpl<T>(const char* def) : SubsetStreamHeadClient(def)
 	{
 		nbuf = Buffer::bufferlen/sample_size()*len;
 		buf = new T [nbuf];
+		totchan = G::nchan;
+		if (G::double_up){
+			totchan *= 2;
+			start *= 2;
+			len *= 2;
+		}
 	}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
 		T* data = reinterpret_cast<T*>(buffer->getBase());
 		T* end = reinterpret_cast<T*>(buffer->getEnd());
-		int totchan = G::nchan;
 
 		for (int isam = 0; data < end; data += totchan, ++isam){
 			memcpy(buf+isam*len, data+start, len*sizeof(T));
