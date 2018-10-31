@@ -91,6 +91,7 @@
 
 #define _PFN	__PRETTY_FUNCTION__
 
+#define STDOUT	1
 
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
@@ -2930,27 +2931,41 @@ class SubsetStreamHeadClientImpl: public SubsetStreamHeadClient {
 	T* buf;
 	int nbuf;
 	int totchan;
+	AbstractES& evX;
+	int es_log;
 public:
-	SubsetStreamHeadClientImpl<T>(const char* def) : SubsetStreamHeadClient(def)
+	SubsetStreamHeadClientImpl<T>(const char* def) :
+		SubsetStreamHeadClient(def),
+		evX(*AbstractES::evX_instance())
 	{
 		nbuf = Buffer::bufferlen/sample_size()*len;
 		buf = new T [nbuf];
+
 		totchan = G::nchan;
 		if (G::double_up){
 			totchan *= 2;
 			start *= 2;
 			len *= 2;
+			fprintf(stderr, "%s totchan %d start %d len %d\n",
+					_PFN, totchan, start, len);
 		}
 	}
 	virtual void onStreamBufferStart(int ib) {
 		Buffer* buffer = Buffer::the_buffers[ib];
 		T* data = reinterpret_cast<T*>(buffer->getBase());
 		T* end = reinterpret_cast<T*>(buffer->getEnd());
+		T* pb = buf;
 
-		for (int isam = 0; data < end; data += totchan, ++isam){
-			memcpy(buf+isam*len, data+start, len*sizeof(T));
+		for (int isam = 0; data < end; data += totchan, ++isam, pb += len){
+			if (evX.isES(reinterpret_cast<unsigned*>(data))){
+				write(STDOUT, buf, (pb-buf)*sizeof(T));
+				write(STDOUT, data, totchan*sizeof(T));
+				pb = buf;
+			}else{
+				memcpy(pb, data+start, len*sizeof(T));
+			}
 		}
-		write(1, buf, nbuf*sizeof(T));
+		write(STDOUT, buf, (pb-buf)*sizeof(T));
 	}
 };
 
