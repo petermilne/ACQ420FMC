@@ -164,13 +164,15 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
 	}
+
+	DBG_REG_CREATE(ADC_CONV_TIME);
+	DBG_REG_CREATE(ADC_TRANSLEN);
 	if (IS_ACQ423(adev)){
 		DBG_REG_CREATE(ACQ423_SPAN_A);
 		DBG_REG_CREATE(ACQ423_SPAN_B);
 		DBG_REG_CREATE(ACQ423_SPAN_C);
 		DBG_REG_CREATE(ACQ423_SPAN_D);
 	}
-	DBG_REG_CREATE(ADC_CONV_TIME);
 }
 
 void acq480_createDebugfs(struct acq400_dev* adev, char* pcursor)
