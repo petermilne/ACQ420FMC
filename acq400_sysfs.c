@@ -4230,6 +4230,9 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = sysfs_v2f_attrs;
 		}else if (IS_ACQ1014_M(adev)){
 			specials[nspec++] = sysfs_acq1014_attrs;
+		}else if (IS_QEN(adev)){
+			dev_info(dev, "IS_QEN");
+			specials[nspec++] = sysfs_qen_attrs;
 		}
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
@@ -4309,8 +4312,6 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = HAS_FPGA_FIR(adev)?	acq480_ffir_attrs: acq480_attrs;
 		}else if (IS_PIG_CELF(adev)){
 			specials[nspec++] = pig_celf_attrs;
-		}else if (IS_QEN(adev)){
-			specials[nspec++] = sysfs_qen_attrs;
 		}else{
 			return;
 		}
