@@ -864,6 +864,9 @@ MAKE_SPAD(5);
 MAKE_SPAD(6);
 MAKE_SPAD(7);
 
+
+MAKE_SIGNAL(spad1_us,    USEC_CCR, USEC_CCR_SRC_SHL,   USEC_CCR_EN, ENA, DIS,	1);
+
 static ssize_t show_reg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -4058,6 +4061,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_spad6.attr,
 	&dev_attr_spad7.attr,
 	&dev_attr_estop.attr,
+	&dev_attr_spad1_us.attr,
 	&dev_attr_bq_overruns.attr,
 	&dev_attr_bq_max.attr,
 	&dev_attr_hb_last.attr,
