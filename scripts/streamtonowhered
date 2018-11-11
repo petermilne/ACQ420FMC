@@ -16,6 +16,8 @@ stop() {
         	echo 1 > /dev/acq400.0.knobs/estop
                 kill -s TERM $(cat ${PIDF})
                 rm ${PIDF}
+		sleep 1
+		set.site 0 state 0
         fi
 }
 
