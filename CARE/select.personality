@@ -1,0 +1,50 @@
+#!/bin/sh
+
+MODEL=$(get.site 0 MODEL | tr [a-z] [A-Z])
+ADC=$(get.site 1 MTYPE)
+
+
+if [ "$ADC" != "08" ]; then
+    echo "script not valid for this ADC type $ADC"
+    exit 1
+fi
+
+case $MODEL in
+ACQ1014|ACQ1001)
+	;;
+*)
+	echo "script not valid for this Carrier type $MODEL"
+	exit 1;;
+esac
+
+CURRENT=$(head -n 1 /tmp/fpga_status | awk '{ print $3 }')
+
+echo "carrier $MODEL"
+echo "current $CURRENT"
+
+echo
+echo "Available personalities"
+
+PFX=${MODEL}_TOP_08
+let idx=0
+for file in /mnt/fpga.d/$PFX*
+do
+        let idx=$idx+1
+	echo "[ $idx ] $(basename $file)"
+done
+
+echo select 1..$idx 0 to quit; read idy
+echo you selected $idy
+let idx=0
+for file in /mnt/fpga.d/$PFX*
+do
+        let idx=$idx+1
+        if [ $idx -eq $idy ]; then
+		echo "Promoting $(basename $file)"
+		rm -f /mnt/$PFX*
+		cp $file /mnt
+		echo "Rebooting.."
+		sync;sync;
+		reboot
+	fi
+done
