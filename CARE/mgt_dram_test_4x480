@@ -1,0 +1,28 @@
+#!/bin/sh
+
+BLOCKS=${1:-2000}
+
+echo mgt_dram_test over $BLOCKS BLOCKS
+if [ -e /mnt/local/mgt_offload_custom ]; then
+	echo "WARNING: /mnt/local/mgt_offload_custom please move it out the way"
+	exit 1
+fi
+
+export MGTOFFLOADCUSTOM=/usr/local/CARE/mgt_offload_custom.4x480_ramptest
+
+echo run four sites, simulate mode, 15MSPS for full load
+run0 1,2,3,4
+set.site 1 simulate 1
+set.site 2 simulate 1
+set.site 3 simulate 1
+set.site 4 simulate 1
+let BP1="$BLOCKS+1"
+echo mgt_run_shot $BLOCKS fill
+mgt_run_shot $BP1
+echo mgt_offload 0-$BLOCKS validate $MGTOFFLOADCUSTOM
+let BM1="$BLOCKS-1"
+mgt_offload 0-$BM1
+
+echo mgt_dram_test complete
+
+
