@@ -4152,6 +4152,7 @@ static const struct attribute *acq1014sc_attrs[] = {
 
 static const struct attribute *kmcx_sc_attrs[] = {
 	&dev_attr_data_engine_0.attr,
+	&dev_attr_data_engine_1.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
