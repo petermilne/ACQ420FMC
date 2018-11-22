@@ -1,0 +1,27 @@
+!/bin/sh
+# custom_ftp.init
+# to customise, copy the else stanza to /mnt/local/sysconfig/custom_ftp.init
+# to create your own customized .netrc
+HN=$(hostname)
+FTPHOST=brotto
+
+(
+echo export HOME=/root
+echo export FTPHOST=$FTPHOST
+echo export MGTOFFLOADCUSTOM=/usr/local/CARE/mgt_offload_custom.ftp
+# uncomment to throttle back to single block transfers
+# recommend: default 16/12 block selection, 2x faster..
+#echo export NGROUP=1
+) > /etc/mgtsh.env
+
+cat - >/root/.netrc <<EOF
+machine $FTPHOST
+login dt100
+password mypassword
+
+macdef init
+cd /data/$HN
+
+EOF
+chmod 600 /root/.netrc
+
