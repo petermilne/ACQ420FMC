@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.317"
+#define REVID "3.318"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1586,6 +1586,12 @@ void waitOtherSiteStop(struct acq400_dev *adev)
 		dev_dbg(DEVP(adev), "waitSiteStop() site:%d stopped", site);
 	}
 }
+int _dma_async_issue_pending(struct acq400_dev *adev, struct dma_chan *chan, int line)
+{
+	dev_dbg(DEVP(adev), "xo_data_loop()#%d dma_async_issue_pending %d", line, chan->chan_id);
+	dma_async_issue_pending(chan);			\
+	++adev->stats.xo.dma_buffers_out;
+}
 
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
@@ -1639,10 +1645,7 @@ int xo_data_loop(void *data)
 			DMA_DS0_FLAGS|wflags[chan], \
 			acq400_dma_callback, adev)
 
-#define DMA_ASYNC_ISSUE_PENDING(chan) do { 		\
-	dev_dbg(DEVP(adev), "xo_data_loop() dma_async_issue_pending %d", chan->chan_id); \
-	dma_async_issue_pending(chan);			\
-	++adev->stats.xo.dma_buffers_out; } while(0)
+#define DMA_ASYNC_ISSUE_PENDING(chan) _dma_async_issue_pending(adev, chan, __LINE__)
 
 #define DMA_COUNT_IN \
 	do { 						\
@@ -1758,7 +1761,7 @@ quit:
 		dev_dbg(DEVP(adev), "xo_data_loop() spawn auto_rearm");
 		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
 	}
-	dev_info(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
+	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
 	return 0;
 }

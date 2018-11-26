@@ -2336,6 +2336,9 @@ static ssize_t store_playloop_cursor(
 	}
 }
 
+
+
+
 static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
 
@@ -2377,6 +2380,18 @@ static ssize_t store_playloop_repeats(
 
 static DEVICE_ATTR(playloop_repeats,
 		S_IRUGO|S_IWUGO, show_playloop_repeats, store_playloop_repeats);
+
+
+static ssize_t show_xo_buffers(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u %u\n", adev->stats.xo.dma_buffers_out,
+						adev->stats.xo.dma_buffers_in);
+}
+static DEVICE_ATTR(xo_buffers, S_IRUGO, show_xo_buffers, 0);
 
 
 #define TIMEOUT 1000
@@ -2662,6 +2677,7 @@ MAKE_BITS(offset_07, AO428_OFFSET_7, 0, 0x000fffff);
 MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
 
 static const struct attribute *ao428_attrs[] = {
+	&dev_attr_xo_buffers.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
 	&dev_attr_playloop_maxshot.attr,
@@ -2700,6 +2716,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_02.attr,
 	&dev_attr_AO_03.attr,
 	&dev_attr_AO_04.attr,
+	&dev_attr_xo_buffers.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
 	&dev_attr_playloop_maxshot.attr,
@@ -2751,6 +2768,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_30.attr,
 	&dev_attr_AO_31.attr,
 	&dev_attr_AO_32.attr,
+	&dev_attr_xo_buffers.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
 	&dev_attr_playloop_maxshot.attr,
@@ -2983,6 +3001,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
 	&dev_attr_ext_clk_from_sync.attr,
+	&dev_attr_xo_buffers.attr,
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
