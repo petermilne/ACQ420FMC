@@ -169,10 +169,11 @@ int _load() {
 			G::sample_size, maxbuf, G::fp_in);
 	int playbuffs = (nsamples*G::sample_size)/Buffer::bufferlen;
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
-	int padsam = (Buffer::bufferlen - residue)/G::sample_size;
+	int padsam = 0;
 
 	MARK;
 	if (residue){
+		padsam = (Buffer::bufferlen - residue)/G::sample_size;
 		playbuffs += 1;		/* partly into a buffer, round up */
 		MARK;
 	}
