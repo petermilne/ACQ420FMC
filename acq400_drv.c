@@ -1613,10 +1613,9 @@ int xo_data_loop(void *data)
 	int shot_buffer_count0 = xo_dev->AO_playloop.length/ao_samples_per_hb(adev0);
 	int shot_buffer_count = shot_buffer_count0;
 
-	if (ib != 0){
-		dev_dbg(DEVP(adev), "xo_data_loop() ib set %d shot_buffer_count:%d",
-				ib, shot_buffer_count);
-	}
+	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",
+				ib, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
+
 	if (shot_buffer_count*ao_samples_per_hb(adev) < xo_dev->AO_playloop.length){
 		shot_buffer_count += 1;
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");

@@ -158,6 +158,11 @@ int pad(int nsamples, int pad_samples)
 }
 
 int _load() {
+#define MARK \
+	if (G::verbose){\
+		fprintf(stderr, "%d playbuffs %d residue %d padsam %d\n", __LINE__, playbuffs, residue, padsam);\
+	}
+
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
@@ -166,23 +171,32 @@ int _load() {
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
 	int padsam = (Buffer::bufferlen - residue)/G::sample_size;
 
+	MARK;
 	if (residue){
 		playbuffs += 1;		/* partly into a buffer, round up */
+		MARK;
 	}
 
 	if (playbuffs&1){
 		/* PRI DMA MUST ping+pong, expand to even # buffers */
-		residue += Buffer::bufferlen;
+		playbuffs += 1;
 		padsam += Buffer::bufferlen/G::sample_size;
+		MARK;
 	}
+#if 0
 	if (playbuffs < 4){
+		int padbuffs = 4 - playbuffs;
+		playbuffs += padbuffs;
 		/* for reliable operation, must be 4 buffers or more? */
-		padsam += 2*Buffer::bufferlen/G::sample_size;
+		padsam += padbuffs*Buffer::bufferlen/G::sample_size;
+		MARK;
 	}
+#endif
 
-	if (residue){
+	if (padsam){
 		nsamples = pad(nsamples, padsam);
 	}
+	if (G::verbose) fprintf(stderr, "return nsamples %d\n", nsamples);
 
 	return nsamples;
 }
