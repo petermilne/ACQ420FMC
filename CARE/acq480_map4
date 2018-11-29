@@ -1,6 +1,7 @@
 #!/bin/sh
 
-SITE=${1:-${SITE:-1}}
+for SITE in ${*:-${SITE:-1}}
+do
 
 set.site ${SITE} << EOF
 acq480_map ALL 0
@@ -16,5 +17,9 @@ acq480_setTwoWireMode 1
 acq480_two_lane_mode 1
 active_chan 4
 EOF
+
+dibe
+
+
 
 
