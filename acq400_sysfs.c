@@ -1772,6 +1772,20 @@ static ssize_t store_has_axi_dma(
 static DEVICE_ATTR(has_axi_dma, S_IRUGO|S_IWUGO,
 		show_has_axi_dma, store_has_axi_dma);
 
+
+
+static ssize_t show_has_axi_dma_stack(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "%u\n", IS_ACQ2106_STACK(adev));
+}
+
+static DEVICE_ATTR(has_axi_dma_stack, S_IRUGO, show_has_axi_dma_stack, 0);
+
 static ssize_t store_RW32_debug(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -4085,6 +4099,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_bq_max.attr,
 	&dev_attr_hb_last.attr,
 	&dev_attr_has_axi_dma.attr,
+	&dev_attr_has_axi_dma_stack.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
@@ -4275,6 +4290,7 @@ void acq400_createSysfs(struct device *dev)
 				dev_err(dev, "failed to create sysfs axi64");
 			}
 		}
+
 		if (IS_ACQ2X06SC(adev)){
 			specials[nspec++] = acq2006sc_attrs;
 		}else if (IS_ACQ1001SC(adev)){

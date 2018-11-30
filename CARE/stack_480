@@ -1,0 +1,34 @@
+#!/bin/sh
+# stack_480, configure channel map and count for STACK FPGA
+# nb: in STACK, ALL channels go to MGTDRAM, but only HALF go to ZDRAM.
+
+STACK_MODE=/dev/shm/stack_mode
+
+set_stack_mode() 
+{
+	for s in $(echo $3 | tr , ' '); do
+		/usr/local/CARE/acq480_$2 $s
+	done
+	run0 $3
+	set.site 0 NCHAN $1
+}
+
+case $1 in
+2x4)
+	set_stack_mode  4 map4 1,2;;
+2x8)
+	set_stack_mode  8 map8 1,2;;
+4x8)
+	set_stack_mode 16 map8 1,2,3,4;;
+6x8)
+    set_stack_mode 24 map8 1,2,3,4,5,6;;
+help)
+    echo "stack_480 2x4\|2x8\|4x8\|6x8"
+    exit 0;;
+*)
+	cat $STACK_MODE
+	exit 0;;
+esac
+
+echo $1 > $STACK_MODE
+exit 0
