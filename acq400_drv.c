@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.318"
+#define REVID "3.320"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1586,7 +1586,7 @@ void waitOtherSiteStop(struct acq400_dev *adev)
 		dev_dbg(DEVP(adev), "waitSiteStop() site:%d stopped", site);
 	}
 }
-int _dma_async_issue_pending(struct acq400_dev *adev, struct dma_chan *chan, int line)
+void _dma_async_issue_pending(struct acq400_dev *adev, struct dma_chan *chan, int line)
 {
 	dev_dbg(DEVP(adev), "xo_data_loop()#%d dma_async_issue_pending %d", line, chan->chan_id);
 	dma_async_issue_pending(chan);			\
@@ -1600,8 +1600,10 @@ int xo_data_loop(void *data)
  * hence: adev: master site, adev0: distributor access.
  */
 {
+	static const unsigned nflags[2] = { 0, 0 };
 	static const unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
 	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
+	static const unsigned xflags[2] = { DMA_WAIT_EV0|DMA_SET_EV1,  DMA_WAIT_EV1|DMA_SET_EV0  };
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	struct acq400_dev *adev0 = acq400_devices[0];
@@ -1626,28 +1628,20 @@ int xo_data_loop(void *data)
 	adev->stats.xo.dma_buffers_out =
 			adev->stats.xo.dma_buffers_in = 0;
 
-#define DMA_ASYNC_PUSH(adev, chan, hbm) \
-	dma_async_memcpy_callback(adev->dma_chan[chan], \
-			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
-			DMA_DS0_FLAGS|wflags[chan]|sflags[chan], \
-			acq400_dma_callback, adev)
+#define NOFL nflags
+#define WFEV wflags		/* Wait For EV 	*/
+#define STEV sflags 		/* Set EV 	*/
+#define WFST xflags		/* Wait For EV, Set EV */
 
-#define DMA_ASYNC_PUSH_NWFE(adev, chan, hbm) \
-	dma_async_memcpy_callback(adev->dma_chan[chan], \
-			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
-			DMA_DS0_FLAGS|sflags[chan], \
-			acq400_dma_callback, adev)
-
-#define DMA_ASYNC_PUSH_NOSETEV(adev, chan, hbm) \
-	dma_async_memcpy_callback(adev->dma_chan[chan], \
-			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, \
-			DMA_DS0_FLAGS|wflags[chan], \
+#define DMA_ASYNC_PUSH(adev, chan, hbm, flags)				\
+	dma_async_memcpy_callback(adev->dma_chan[chan], 		\
+			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, 	\
+			DMA_DS0_FLAGS|(flags[chan]), 			\
 			acq400_dma_callback, adev)
 
 #define DMA_ASYNC_ISSUE_PENDING(chan) _dma_async_issue_pending(adev, chan, __LINE__)
 
-#define DMA_COUNT_IN \
-	do { 						\
+#define DMA_COUNT_IN do { 				\
 		++adev->stats.xo.dma_buffers_in;	\
 		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
 	} while(0)
@@ -1660,10 +1654,13 @@ int xo_data_loop(void *data)
 	/* prime the DMAC with buffers 0 and 1 ready to go.
 	 * 0 starts filling right away
 	 * */
-	adev->dma_cookies[0] = DMA_ASYNC_PUSH_NWFE(adev, 0, hbm0[ib++]);
 	if (shot_buffer_count > 1){
-		adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++]);
+		adev->dma_cookies[0] = DMA_ASYNC_PUSH(adev, 0, hbm0[ib++], STEV);
+		adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++], WFST);
 		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
+	}else{
+		dev_warn(DEVP(adev), "Single buffer won't work");
+		adev->dma_cookies[0] = DMA_ASYNC_PUSH(adev, 0, hbm0[ib++], STEV);
 	}
 
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
@@ -1720,9 +1717,13 @@ int xo_data_loop(void *data)
 			}
 		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
-			adev->dma_cookies[ic] = LAST_PUSH(adev)?
-					DMA_ASYNC_PUSH_NOSETEV(adev, ic, hbm0[ib]):
-					DMA_ASYNC_PUSH(adev, ic, hbm0[ib]);
+			int cc;
+			if (LAST_PUSH(adev)){
+				cc = DMA_ASYNC_PUSH(adev, ic, hbm0[ib], WFEV);
+			}else{
+				cc = DMA_ASYNC_PUSH(adev, ic, hbm0[ib], WFST);
+			}
+			adev->dma_cookies[ic] = cc;
 			ib++;
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
