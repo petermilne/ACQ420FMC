@@ -1781,7 +1781,7 @@ static ssize_t show_has_axi_dma_stack(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 
-	return sprintf(buf, "%u\n", IS_ACQ2106_STACK(adev));
+	return sprintf(buf, "%u\n", IS_ACQ2106_STAGGER(adev)+IS_ACQ2106_STACK(adev));
 }
 
 static DEVICE_ATTR(has_axi_dma_stack, S_IRUGO, show_has_axi_dma_stack, 0);

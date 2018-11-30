@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.321"
+#define REVID "3.322"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2398,6 +2398,10 @@ void acq400sc_init_defaults(struct acq400_dev *adev)
 	if (IS_AXI64(adev)){
 		acq400_set_AXI_DMA_len(adev, bufferlen);
 		sync_continuous = 0;
+	}
+	if (IS_ACQ2106_STACK(adev)){
+		dev_info(DEVP(adev), "acq2106 STACK%s",
+				IS_ACQ2106_STAGGER(adev)? " and STAGGER": "");
 	}
 }
 
