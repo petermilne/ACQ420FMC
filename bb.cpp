@@ -177,13 +177,14 @@ int _load() {
 		playbuffs += 1;		/* partly into a buffer, round up */
 		MARK;
 	}
-
+#if 1
 	if (playbuffs&1){
 		/* PRI DMA MUST ping+pong, expand to even # buffers */
 		playbuffs += 1;
 		padsam += Buffer::bufferlen/G::sample_size;
 		MARK;
 	}
+#endif
 #if 0
 	if (playbuffs < 4){
 		int padbuffs = 4 - playbuffs;
