@@ -23,10 +23,10 @@ case $1 in
 6x8)
     set_stack_mode 24 map8 1,2,3,4,5,6;;
 help)
-    echo "stack_480 2x4\|2x8\|4x8\|6x8"
+    echo "stack_480 2x4|2x8|4x8|6x8"
     exit 0;;
 *)
-	cat $STACK_MODE
+	[ -e $STACK_MODE ] && cat $STACK_MODE
 	exit 0;;
 esac
 
