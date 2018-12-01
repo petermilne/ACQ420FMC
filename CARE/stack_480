@@ -40,7 +40,11 @@ help)
     echo "stack_480 2x4|2x8|4x8|6x8"
     exit 0;;
 *)
-	[ -e $STACK_MODE ] && cat $STACK_MODE
+	if [ -e $STACK_MODE ]; then
+	    cat $STACK_MODE
+    else
+        echo none
+    fi	
 	exit 0;;
 esac
 
