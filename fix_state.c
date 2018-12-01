@@ -6,20 +6,27 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SF	"/dev/shm/state"
 
+#define MAXLEN 128
+#define DEFSTR "0 0 0 0 0"
 
 int main(int argc, char* argv[])
 {
 	FILE *fp = fopen(SF, "r+");
-	char data[128];
+	char data[MAXLEN];
 	if (!fp){
 		perror(SF);
 		return 1;
 	}
-	fgets(data, 128, fp);
-	data[0] = '0';
+	fgets(data, MAXLEN, fp);
+	if (strlen(data) >= strlen(DEFSTR)){
+		data[0] = '0';
+	}else{
+		strcpy(data, DEFSTR);
+	}
 	rewind(fp);
 	fputs(data, fp);
 	fclose(fp);
