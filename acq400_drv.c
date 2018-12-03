@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.322"
+#define REVID "3.323"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -841,6 +841,7 @@ void _acq420_continuous_stop(struct acq400_dev *adev, int dma_stop)
 	}else{
 		adev->stats.run = 0;
 	}
+	adev->stats.completed_shot = adev->stats.shot;
 	if (acq400_event_count_limit &&
 		adev->rt.event_count >= acq400_event_count_limit){
 		acq400_enable_event0(adev, 1);
@@ -1754,6 +1755,7 @@ quit:
 	}
 
 
+	adev->stats.completed_shot = adev->stats.shot;
 	adev->stats.run = 0;
 	adev->task_active = 0;
 	if (xo_dev->AO_playloop.oneshot == AO_oneshot_rearm &&

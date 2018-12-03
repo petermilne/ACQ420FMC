@@ -43,6 +43,7 @@ struct STATS {
 	u32 fifo_interrupts;
 	u32 dma_transactions;
 	int shot;
+	int completed_shot;
 	int run;
 	int fifo_errors;
 
