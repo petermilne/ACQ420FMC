@@ -82,6 +82,7 @@ namespace G {
 	int mode = AO_oneshot;
 	int verbose;
 	unsigned buffer0;				// index from here
+	int concurrent;
 };
 
 #include "Buffer.h"
@@ -89,6 +90,9 @@ namespace G {
 struct poptOption opt_table[] = {
 	{ "sample-size", 'S', POPT_ARG_INT, &G::sample_size, 0,
 			"bytes per sample [deprecated]"
+	},
+	{ "concurrent", 'c', POPT_ARG_INT, &G::concurrent, 0,
+			"allow concurrent update"
 	},
 	{ "play", 'P', POPT_ARG_INT, &G::play_site, 0,
 			"AWG site [deprecated]"
@@ -157,6 +161,21 @@ int pad(int nsamples, int pad_samples)
 	return nsamples;
 }
 
+void _load_concurrent() {
+	int playloop_length = 0;
+	int totsamples = 0;
+	int bls = Buffer::bufferlen/G::sample_size;
+	unsigned nsamples;
+
+	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, 4*bls, G::fp_in)) > 0){
+		totsamples += nsamples;
+
+		if (totsamples >= playloop_length + 2*bls){
+			set_playloop_length(playloop_length = totsamples);
+		}
+	}
+}
 int _load() {
 #define MARK \
 	if (G::verbose){\
@@ -185,15 +204,6 @@ int _load() {
 		MARK;
 	}
 #endif
-#if 0
-	if (playbuffs < 4){
-		int padbuffs = 4 - playbuffs;
-		playbuffs += padbuffs;
-		/* for reliable operation, must be 4 buffers or more? */
-		padsam += padbuffs*Buffer::bufferlen/G::sample_size;
-		MARK;
-	}
-#endif
 
 	if (padsam){
 		nsamples = pad(nsamples, padsam);
@@ -210,7 +220,11 @@ int fill() {
 int load() {
 	set_playloop_length(0);
 
-	set_playloop_length(_load());
+	if (G::concurrent){
+		_load_concurrent();
+	}else{
+		set_playloop_length(_load());
+	}
 
 	return 0;
 }
