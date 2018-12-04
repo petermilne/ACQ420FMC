@@ -2162,7 +2162,7 @@ static ssize_t store_dac_immediate(
 			xo_dev->AO_immediate._u.ch[pchan] = chx;
 		}
 		if (!no_ao42x_llc_ever){
-			acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|ADC_CTRL_ENABLE_ALL);
+			acq400wr32(adev, DAC_CTRL, cr|DAC_CTRL_LL|DAC_CTRL_ENABLE_ALL);
 			ao420_flushImmediate(adev);
 		}else{
 			dev_dbg(DEVP(adev), "store_dac_immediate STUB no_ao42x_llc_ever set");

@@ -177,7 +177,7 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 	if (IS_ACQ42X(adev)){
 		ctrl = acq420_set_fmt(adev, ctrl);
 	}
-	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_ALL);
+	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_FIFO);
 }
 
 
@@ -628,6 +628,11 @@ static void _ao420_onStart(struct acq400_dev *adev)
 void _ao420_stop(struct acq400_dev* adev);
 
 
+void acq400_enable_adc(struct acq400_dev *adev){
+	u32 ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
+}
+
 extern int fiferr;		/* FIXME */
 extern int FIFERR;
 
@@ -728,7 +733,7 @@ void acq43X_onStart(struct acq400_dev *adev)
 
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
-	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_ADC_EN);
+
 	acq400wr32(adev, ADC_CTRL, ctrl  |= ADC_CTRL_FIFO_EN);
 
 	/* next: valid Master, Standalone only. @@todo slave? */
@@ -789,6 +794,8 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 			__LINE__, acq400rd32(adev, DAC_CTRL));
 	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
 }
+
+
 
 /* correct for FPGA mismatch with front panel connectors */
 int ao420_physChan(int lchan /* 1..4 */ )

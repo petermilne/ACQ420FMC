@@ -322,6 +322,7 @@ void acq400_enable_trg_if_master(struct acq400_dev *adev)
 	if ((adev->mod_id&MOD_ID_IS_SLAVE) == 0){
 		acq400_enable_trg(adev, 1);
 	}
+	acq400_enable_adc(adev);
 }
 
 int acq400_enable_trg(struct acq400_dev *adev, int enable)
