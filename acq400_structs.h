@@ -316,6 +316,7 @@ struct XO_dev {
 		unsigned oneshot;
 		unsigned repeats;	/* run one-shot more than once */
 		unsigned maxshot;	/* max times to run a one-shot */
+		unsigned maxlen;	/* max buffer (for concurrent update */
 	} AO_playloop;
 
 	struct DIO432 {

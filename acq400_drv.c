@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.325"
+#define REVID "3.326"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1612,8 +1612,8 @@ int xo_data_loop(void *data)
 	int ic = 0;
 	int ib = distributor_first_buffer;
 	long dma_timeout = START_TIMEOUT;
-
-	int shot_buffer_count0 = xo_dev->AO_playloop.length/ao_samples_per_hb(adev0);
+	int maxlen = max(xo_dev->AO_playloop.maxlen, xo_dev->AO_playloop.length);
+	int shot_buffer_count0 = maxlen/ao_samples_per_hb(adev0);
 	int shot_buffer_count = shot_buffer_count0;
 
 	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",

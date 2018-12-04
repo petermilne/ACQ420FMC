@@ -2316,6 +2316,34 @@ static DEVICE_ATTR(playloop_oneshot,
 		S_IRUGO|S_IWUGO, show_playloop_oneshot, store_playloop_oneshot);
 
 
+static ssize_t show_playloop_maxlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.maxlen);
+}
+
+static ssize_t store_playloop_maxlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.maxlen) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_maxlen,
+		S_IRUGO|S_IWUGO, show_playloop_maxlen, store_playloop_maxlen);
+
 static ssize_t show_playloop_maxshot(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2716,6 +2744,7 @@ static const struct attribute *ao428_attrs[] = {
 	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_playloop_maxlen.attr,
 	&dev_attr_task_active.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -2755,6 +2784,7 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_playloop_maxlen.attr,
 	&dev_attr_task_active.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -2807,6 +2837,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
+	&dev_attr_playloop_maxlen.attr,
 	&dev_attr_task_active.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
