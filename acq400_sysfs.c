@@ -2265,7 +2265,12 @@ static ssize_t store_playloop_length(
 			xo_dev->AO_playloop.oneshot = one_shot; /* fall thru */
 		}
 	case 1:
-		rc = xo400_reset_playloop(adev, playloop_length);
+		if (xo_dev->AO_playloop.length == 0 || playloop_length < xo_dev->AO_playloop.length){
+			rc = xo400_reset_playloop(adev, playloop_length);
+		}else{
+			/* append in shot possible */
+			xo_dev->AO_playloop.length = playloop_length;
+		}
 		if (xo_dev->AO_playloop.oneshot != AO_continuous){
 			xo_dev->AO_playloop.repeats = 0;
 		}
