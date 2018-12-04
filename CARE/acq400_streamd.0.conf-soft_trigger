@@ -9,7 +9,7 @@ log_engine
 TRG=$(get.site 1 trg | awk '{ print $1 }')
 if [ "$TRG" = "trg=1,1,1" ]; then
 	if [ -e /dev/shm/transient_settings ]; then
-		source /dev/shm/transient
+		source /dev/shm/transient_settings
 		[ "x$SOFT_TRIGGER" = "x1" ] && export ACQ400D_TRIG="soft_trigger"
 	else
 		export ACQ400D_TRIG="soft_trigger"
