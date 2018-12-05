@@ -161,18 +161,36 @@ int pad(int nsamples, int pad_samples)
 	return nsamples;
 }
 
+void do_soft_trigger() {
+	setKnob(0, "soft_trig", "0");
+	setKnob(0, "soft_trig", "1");
+	setKnob(0, "soft_trig", "0");
+}
+
 void _load_concurrent() {
 	int playloop_length = 0;
 	int totsamples = 0;
 	int bls = Buffer::bufferlen/G::sample_size;
 	unsigned nsamples;
+	enum TRIGGER_REQ {
+		TR_first_time,
+		TR_requested,
+		TR_done
+	} tr = TR_first_time;
 
 	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, 4*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 
+		if (tr == TR_requested){
+			do_soft_trigger();
+			tr = TR_done;
+		}
 		if (totsamples >= playloop_length + 2*bls){
 			set_playloop_length(playloop_length = totsamples);
+			if (tr == TR_first_time){
+				tr = TR_requested;
+			}
 		}
 	}
 }
