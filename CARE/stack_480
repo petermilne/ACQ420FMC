@@ -3,6 +3,7 @@
 # nb: in STACK, ALL channels go to MGTDRAM, but only HALF go to ZDRAM.
 
 STACK_MODE=/dev/shm/stack_mode
+STAGGER=0
 
 set_stack_mode() 
 { 
@@ -15,11 +16,19 @@ set_stack_mode()
 ) 1>&2
 }
 
+
+# special indicator
+show_leds()
+{
+    set.sys /dev/gpio/LED/FMC2_G $1
+    set.sys /dev/gpio/LED/FMC4_G $1
+}
+
 dk=/dev/acq400.0.knobs
 
 if [ -e ${dk}/has_axi_dma_stack ]; then
     case $(cat ${dk}/has_axi_dma_stack) in
-    2) SITES=1,3;;
+    2) SITES=1,3; STAGGER=1;;
     1) SITES=1,2;;
     0)
         echo "ERROR no stack"; exit 1;;
@@ -29,9 +38,13 @@ else
 fi
 case $1 in
 2x4)
-	set_stack_mode  4 map4 $SITES;;
+	set_stack_mode  4 map4 $SITES
+	[ $STAGGER -eq 1 ] && show_leds 0
+	;;
 2x8)
-	set_stack_mode  8 map8 $SITES;;
+	set_stack_mode  8 map8 $SITES
+	[ $STAGGER -eq 1 ] && show_leds 1
+	;;
 4x8)
 	set_stack_mode 16 map8 1,2,3,4;;
 6x8)
