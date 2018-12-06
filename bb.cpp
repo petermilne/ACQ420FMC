@@ -177,15 +177,17 @@ void _load_concurrent() {
 		TR_requested,
 		TR_done
 	} tr = TR_first_time;
+	int play_load_blocks = 2;
 
 	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
-			G::sample_size, 2*bls, G::fp_in)) > 0){
+			G::sample_size, play_load_blocks*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 
-		if (totsamples >= playloop_length + 2*bls){
+		if (totsamples >= playloop_length + play_load_blocks*bls){
 			set_playloop_length(playloop_length = totsamples);
 			switch(tr){
 			case TR_first_time:
+				play_load_blocks = 1;
 				tr = TR_requested;
 				break;
 			case TR_requested:
