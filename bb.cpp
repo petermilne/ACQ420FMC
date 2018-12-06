@@ -179,17 +179,20 @@ void _load_concurrent() {
 	} tr = TR_first_time;
 
 	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
-			G::sample_size, 4*bls, G::fp_in)) > 0){
+			G::sample_size, 2*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 
-		if (tr == TR_requested){
-			do_soft_trigger();
-			tr = TR_done;
-		}
 		if (totsamples >= playloop_length + 2*bls){
 			set_playloop_length(playloop_length = totsamples);
-			if (tr == TR_first_time){
+			switch(tr){
+			case TR_first_time:
 				tr = TR_requested;
+				break;
+			case TR_requested:
+				do_soft_trigger();
+				tr = TR_done;
+			default:
+				;
 			}
 		}
 	}
