@@ -198,6 +198,10 @@ void _load_concurrent() {
 			}
 		}
 	}
+
+	if (tr == TR_first_time){
+		set_playloop_length(playloop_length = totsamples);
+	}
 }
 int _load() {
 #define MARK \
