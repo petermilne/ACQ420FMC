@@ -167,52 +167,13 @@ void do_soft_trigger() {
 	setKnob(0, "soft_trig", "0");
 }
 
-void _load_concurrent() {
-	int playloop_length = 0;
-	int totsamples = 0;
-	int bls = Buffer::bufferlen/G::sample_size;
-	unsigned nsamples;
-	enum TRIGGER_REQ {
-		TR_first_time,
-		TR_requested,
-		TR_done
-	} tr = TR_first_time;
-	int play_load_blocks = 2;
 
-	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
-			G::sample_size, play_load_blocks*bls, G::fp_in)) > 0){
-		totsamples += nsamples;
-
-		if (totsamples >= playloop_length + play_load_blocks*bls){
-			set_playloop_length(playloop_length = totsamples);
-			switch(tr){
-			case TR_first_time:
-				play_load_blocks = 1;
-				tr = TR_requested;
-				break;
-			case TR_requested:
-				do_soft_trigger();
-				tr = TR_done;
-			default:
-				;
-			}
-		}
-	}
-
-	if (tr == TR_first_time){
-		set_playloop_length(playloop_length = totsamples);
-	}
-}
-int _load() {
+int _load_pad(int nsamples)
+{
 #define MARK \
 	if (G::verbose){\
 		fprintf(stderr, "%d playbuffs %d residue %d padsam %d\n", __LINE__, playbuffs, residue, padsam);\
 	}
-
-	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
-
-	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
-			G::sample_size, maxbuf, G::fp_in);
 	int playbuffs = (nsamples*G::sample_size)/Buffer::bufferlen;
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
 	int padsam = 0;
@@ -238,6 +199,56 @@ int _load() {
 	if (G::verbose) fprintf(stderr, "return nsamples %d\n", nsamples);
 
 	return nsamples;
+}
+void _load_concurrent() {
+	int playloop_length = 0;
+	int totsamples = 0;
+	int bls = Buffer::bufferlen/G::sample_size;
+	unsigned nsamples;
+	enum TRIGGER_REQ {
+		TR_first_time,
+		TR_requested,
+		TR_done,
+		TR_done_update_length_pending
+	} tr = TR_first_time;
+	int play_load_blocks = 2;
+
+	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, play_load_blocks*bls, G::fp_in)) > 0){
+		totsamples += nsamples;
+		if (tr == TR_done){
+			tr = TR_done_update_length_pending;
+		}
+		if (totsamples >= playloop_length + play_load_blocks*bls){
+			set_playloop_length(playloop_length = totsamples);
+			switch(tr){
+			case TR_first_time:
+				play_load_blocks = 1;
+				tr = TR_requested;
+				break;
+			case TR_requested:
+				do_soft_trigger(); // fall thru
+			default:
+				tr = TR_done;
+			}
+		}
+	}
+
+	if (tr != TR_done){
+		set_playloop_length(_load_pad(totsamples));
+		if (tr < TR_done){
+			do_soft_trigger();
+		}
+	}
+}
+int _load() {
+
+
+	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
+
+	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, maxbuf, G::fp_in);
+	return _load_pad(nsamples);
 }
 
 int fill() {
