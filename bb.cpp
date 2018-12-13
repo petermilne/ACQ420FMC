@@ -292,7 +292,7 @@ RUN_MODE ui(int argc, const char** argv)
 	if (dist_s1){
 		G::play_site = dist_s1;
 		getKnob(0, "/etc/acq400/0/dssb", &G::sample_size);
-		fprintf(stderr, "s1:%d size:%d\n", dist_s1, G::sample_size);
+		//fprintf(stderr, "s1:%d size:%d\n", dist_s1, G::sample_size);
 	}
 	int rc;
 
@@ -336,7 +336,7 @@ public:
 	}
 	~BufferManager() {
 		delete_buffers();
-		printf("DONE %d\n", G_nsamples);
+		//printf("DONE %d\n", G_nsamples);
 	}
 };
 int main(int argc, const char** argv)
