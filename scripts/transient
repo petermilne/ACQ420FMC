@@ -8,9 +8,10 @@ PREMAX=${PREMAX:-0}
 POSTMAX=${POSTMAX:-4000000}
 DEMUX=${DEMUX:-1}
 
-if [ -e /dev/shm/transient_settings ]; then
-	source /dev/shm/transient_settings
+if [ ! -e /dev/shm/transient_settings ]; then
+	echo "PRE=0 POST=2000 OSAM=1 DEMUX=1 SOFT_TRIGGER=1" > /dev/shm/transient_settings
 fi
+source /dev/shm/transient_settings
 
 SOFT_TRIGGER=${SOFT_TRIGGER:-1}
 
