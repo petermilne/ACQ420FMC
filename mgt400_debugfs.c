@@ -70,6 +70,10 @@ void mgt400_createDebugfs(struct mgt400_dev* mdev)
 	DBG_REG_CREATE(COMMS_RXB_FCR);
 	DBG_REG_CREATE(ASTATS1);
 	DBG_REG_CREATE(ASTATS2);
+/* read clear, best not debug
+	DBG_REG_CREATE(ALAT_AVG);
+	DBG_REG_CREATE(ALAT_MIN_MAX);
+*/
 	if (IS_MGT_DRAM(mdev)){
 		DBG_REG_CREATE(MGT_DRAM_STA);
 		DBG_REG_CREATE(MGT_DRAM_RX_CNT);

@@ -86,6 +86,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define COMMS_RXB_FSR   (0x0044)
 #define ASTATS1		(0x0050)
 #define ASTATS2		(0x0054)
+#define ALAT_AVG	(0x0058)
+#define ALAT_MIN_MAX	(0x005c)
 #define MGT_DRAM_STA	(0x0080)
 #define MGT_DRAM_RX_CNT	(0x0084)
 #define MGT_DRAM_TX_CNT (0x0088)
