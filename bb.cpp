@@ -201,9 +201,12 @@ int _load_pad(int nsamples)
 	return nsamples;
 }
 void _load_concurrent() {
+	const int bls = Buffer::bufferlen/G::sample_size;
+	char* const bp = Buffer::the_buffers[0]->getBase();
+	const int gss = G::sample_size;
+
 	int playloop_length = 0;
 	int totsamples = 0;
-	int bls = Buffer::bufferlen/G::sample_size;
 	unsigned nsamples;
 	enum TRIGGER_REQ {
 		TR_first_time,
@@ -212,10 +215,9 @@ void _load_concurrent() {
 		TR_done_update_length_pending
 	} tr = TR_first_time;
 	int play_load_blocks = 2;
-	char* bp = Buffer::the_buffers[0]->getBase();
 
-	while((nsamples = fread(bp + totsamples*G::sample_size,
-			G::sample_size, play_load_blocks*bls, G::fp_in)) > 0){
+	while((nsamples = fread(bp + totsamples*gss, gss,
+					play_load_blocks*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 		if (tr == TR_done){
 			tr = TR_done_update_length_pending;
