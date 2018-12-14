@@ -242,8 +242,9 @@ int acq400_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
 		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
 		return -1;
 	}
-	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
-		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
+	dev_dbg(&adev->pdev->dev, "%c [%d] 0x%08x vsize %lu psize %lu %s",
+		'D', hb->ix,hb->pa,
+		vsize, psize, vsize>psize? "EINVAL": "OK");
 
 	if (vsize > psize){
 		return -EINVAL;                   /* request too big */

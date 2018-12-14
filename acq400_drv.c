@@ -1594,6 +1594,21 @@ void _dma_async_issue_pending(struct acq400_dev *adev, struct dma_chan *chan, in
 	++adev->stats.xo.dma_buffers_out;
 }
 
+static char* flags2str(unsigned flags)
+{
+	static char str[128];
+	sprintf(str, "%s %s %s %s",
+			flags&DMA_WAIT_EV0? "DMA_WAIT_EV0":"",
+			flags&DMA_WAIT_EV1? "DMA_WAIT_EV1":"",
+			flags&DMA_SET_EV0? "DMA_SET_EV0":"",
+			flags&DMA_SET_EV1? "DMA_SET_EV1":""
+	);
+	return str;
+}
+
+
+
+
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
  * actually associated with the master site
@@ -1634,11 +1649,14 @@ int xo_data_loop(void *data)
 #define STEV sflags 		/* Set EV 	*/
 #define WFST xflags		/* Wait For EV, Set EV */
 
-#define DMA_ASYNC_PUSH(adev, chan, hbm, flags)				\
-	dma_async_memcpy_callback(adev->dma_chan[chan], 		\
+#define DMA_ASYNC_PUSH(lvar, adev, chan, hbm, flags)	do {		\
+	unsigned _flags = DMA_DS0_FLAGS|(flags[chan]);			\
+	lvar = dma_async_memcpy_callback(adev->dma_chan[chan], 		\
 			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, 	\
-			DMA_DS0_FLAGS|(flags[chan]), 			\
-			acq400_dma_callback, adev)
+			_flags, acq400_dma_callback, adev);		\
+	dev_dbg(DEVP(adev), "DMA_ASYNC_PUSH #%d [%d] ix:%d pa:0x%08x %s",\
+		__LINE__, chan, hbm->ix, hbm->pa, flags2str(_flags)); 	\
+	} while(0)
 
 #define DMA_ASYNC_ISSUE_PENDING(chan) _dma_async_issue_pending(adev, chan, __LINE__)
 
@@ -1656,12 +1674,15 @@ int xo_data_loop(void *data)
 	 * 0 starts filling right away
 	 * */
 	if (shot_buffer_count > 1){
-		adev->dma_cookies[0] = DMA_ASYNC_PUSH(adev, 0, hbm0[ib++], STEV);
-		adev->dma_cookies[1] = DMA_ASYNC_PUSH(adev, 1, hbm0[ib++], WFST);
+		DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[ib+1], WFST);
+		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[ib+0], STEV);
+		ib += 2;
+
 		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
 	}else{
 		dev_warn(DEVP(adev), "Single buffer won't work");
-		adev->dma_cookies[0] = DMA_ASYNC_PUSH(adev, 0, hbm0[ib++], STEV);
+		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[ib], STEV);
+		ib += 1;
 	}
 
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
@@ -1720,9 +1741,9 @@ int xo_data_loop(void *data)
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			int cc;
 			if (LAST_PUSH(adev)){
-				cc = DMA_ASYNC_PUSH(adev, ic, hbm0[ib], WFEV);
+				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFEV);
 			}else{
-				cc = DMA_ASYNC_PUSH(adev, ic, hbm0[ib], WFST);
+				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFST);
 			}
 			adev->dma_cookies[ic] = cc;
 			ib++;

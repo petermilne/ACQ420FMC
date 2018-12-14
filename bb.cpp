@@ -212,8 +212,9 @@ void _load_concurrent() {
 		TR_done_update_length_pending
 	} tr = TR_first_time;
 	int play_load_blocks = 2;
+	char* bp = Buffer::the_buffers[0]->getBase();
 
-	while((nsamples = fread(Buffer::the_buffers[0]->getBase(),
+	while((nsamples = fread(bp + totsamples*G::sample_size,
 			G::sample_size, play_load_blocks*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 		if (tr == TR_done){
