@@ -145,6 +145,23 @@ void set_playloop_length(int nsamples)
 	sprintf(cmd, "set.site %d playloop_length %d %d",
 			G::play_site, G_nsamples = nsamples, G::mode);
 	system(cmd);
+
+	if (nsamples == 0){
+		unsigned task_active = 1;
+		unsigned timeout = 20;
+		while (task_active){
+			if (getKnob(G::play_site, "task_active", &task_active) != 1){
+				fprintf(stderr, "ERROR: failed to read knob task_active");
+				exit(1);
+			}else if (task_active){
+				if (--timeout == 0){
+					fprintf(stderr, "ERROR: timeout waiting task_active to go idle");
+					exit(1);
+				}
+				usleep(50000);
+			}
+		}
+	}
 }
 
 int pad(int nsamples, int pad_samples)
@@ -202,8 +219,8 @@ int _load_pad(int nsamples)
 }
 void _load_concurrent() {
 	const int bls = Buffer::bufferlen/G::sample_size;
-	char* const bp = Buffer::the_buffers[0]->getBase();
 	const int gss = G::sample_size;
+	char* bp = Buffer::the_buffers[0]->getBase();
 
 	int playloop_length = 0;
 	int totsamples = 0;
@@ -216,8 +233,7 @@ void _load_concurrent() {
 	} tr = TR_first_time;
 	int play_load_blocks = 2;
 
-	while((nsamples = fread(bp + totsamples*gss, gss,
-					play_load_blocks*bls, G::fp_in)) > 0){
+	while((nsamples = fread(bp, play_load_blocks*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
 		if (tr == TR_done){
 			tr = TR_done_update_length_pending;
@@ -235,6 +251,7 @@ void _load_concurrent() {
 				tr = TR_done;
 			}
 		}
+		bp += nsamples*gss;
 	}
 
 	if (tr != TR_done){
