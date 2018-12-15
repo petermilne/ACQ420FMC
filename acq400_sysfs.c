@@ -1302,6 +1302,23 @@ static ssize_t store_shot(
 
 static DEVICE_ATTR(shot, S_IRUGO|S_IWUGO, show_shot, store_shot);
 
+
+static ssize_t store_completed_shot(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 set;
+
+	if (sscanf(buf, "%u", &set) == 1){
+		adev->stats.completed_shot = set;
+		return count;
+	}else{
+		return -1;
+	}
+}
 static ssize_t show_completed_shot(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1313,7 +1330,7 @@ static ssize_t show_completed_shot(
 
 
 
-static DEVICE_ATTR(completed_shot, S_IRUGO, show_completed_shot, 0);
+static DEVICE_ATTR(completed_shot, S_IRUGO|S_IWUGO, show_completed_shot, store_completed_shot);
 
 static ssize_t show_run(
 	struct device * dev,
