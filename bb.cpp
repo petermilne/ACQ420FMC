@@ -83,6 +83,7 @@ namespace G {
 	int verbose;
 	unsigned buffer0;				// index from here
 	int concurrent;
+	int minbufs = 4;
 };
 
 #include "Buffer.h"
@@ -102,6 +103,9 @@ struct poptOption opt_table[] = {
 	},
 	{ "mode",  'm', POPT_ARG_INT, &G::mode, 0,
 			"play mode 0: continuous, 1:oneshot 2:oneshot_rearm"
+	},
+	{ "minbufs", 'b', POPT_ARG_INT, &G::minbufs, 0,
+			"minimum buffers : 4 is safe with large buffers, 2 possible for small shots"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -201,20 +205,16 @@ int _load_pad(int nsamples)
 		playbuffs += 1;		/* partly into a buffer, round up */
 		MARK;
 	}
-#if 1
 	if (playbuffs&1){
 		/* PRI DMA MUST ping+pong, expand to even # buffers */
 		playbuffs += 1;
 		padsam += Buffer::bufferlen/G::sample_size;
 		MARK;
 	}
-#endif
-#if 1
-	if (playbuffs == 2){
+	if (G::minbufs == 4 && playbuffs == 2){
 		playbuffs += 2;
 		padsam += 2 * Buffer::bufferlen/G::sample_size;
 	}
-#endif
 
 	if (padsam){
 		nsamples = pad(nsamples, padsam);
