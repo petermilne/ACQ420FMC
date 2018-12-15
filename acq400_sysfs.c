@@ -2271,6 +2271,8 @@ static ssize_t store_playloop_length(
 	unsigned one_shot;
 	int rc;
 
+	dev_dbg(DEVP(adev), "store_playloop_length \"%s\"", buf);
+
 	switch(sscanf(buf, "%u %u", &playloop_length, &one_shot)){
 	case 2:
 		switch(one_shot){
