@@ -51,6 +51,8 @@
 
 #include <sched.h>
 
+#include <syslog.h>
+
 #define VERID	"B1007"
 
 #define NCHAN	4
@@ -228,6 +230,8 @@ void _load_concurrent() {
 	const int gss = G::sample_size;
 	char* bp = Buffer::the_buffers[0]->getBase();
 
+
+
 	int playloop_length = 0;
 	int totsamples = 0;
 	unsigned nsamples;
@@ -259,6 +263,9 @@ void _load_concurrent() {
 		}
 		bp += nsamples*gss;
 	}
+	if (nsamples <= 0){
+		syslog(LOG_DEBUG, "bb fread returned %d at totsamples:%d feof:%d ferror:%d", nsamples, totsamples, feof(G::fp_in), ferror(G::fp_in));
+	}
 
 	if (tr != TR_done){
 		if (tr == TR_first_time){
@@ -271,12 +278,14 @@ void _load_concurrent() {
 	}
 }
 int _load() {
-
-
 	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 
 	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
 			G::sample_size, maxbuf, G::fp_in);
+
+	syslog(LOG_DEBUG, "bb fread returned %d feof:%d ferror:%d errno:%d",
+			nsamples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
+
 	return _load_pad(nsamples);
 }
 
@@ -285,6 +294,7 @@ int fill() {
 	return 0;
 }
 int load() {
+	openlog("bb", LOG_PID, LOG_USER);
 	set_playloop_length(0);
 
 	if (G::concurrent){
