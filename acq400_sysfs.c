@@ -259,6 +259,16 @@ static ssize_t store_adc_conv_time(
 
 static DEVICE_ATTR(adc_conv_time, S_IRUGO|S_IWUGO, show_adc_conv_time, store_adc_conv_time);
 
+static ssize_t show_clk_min_max(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	u32 cmm = acq400rd32(acq400_devices[dev->id], ACQ424_CLK_MIN_MAX);
+	return sprintf(buf, "%u %u\n", cmm>>16, cmm&0x0ffff);
+}
+
+static DEVICE_ATTR(clk_min_max, S_IRUGO, show_clk_min_max, 0);
 
 
 unsigned get_gain(u32 gains, int chan)
@@ -1892,6 +1902,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 
 
 static const struct attribute *acq424_attrs[] = {
+	&dev_attr_clk_min_max.attr,
 	&dev_attr_adc_conv_time.attr,
 	NULL
 };

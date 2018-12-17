@@ -172,6 +172,9 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(ACQ423_SPAN_B);
 		DBG_REG_CREATE(ACQ423_SPAN_C);
 		DBG_REG_CREATE(ACQ423_SPAN_D);
+	}else if (IS_ACQ424(adev)){
+		DBG_REG_CREATE(ACQ424_SHOT_LENGTH);
+		DBG_REG_CREATE(ACQ424_CLK_MIN_MAX);
 	}
 }
 
