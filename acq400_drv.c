@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.327"
+#define REVID "3.329"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1716,8 +1716,8 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "calling dma_sync_wait() ..");
 
 		if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
-			dev_err(DEVP(adev), "dma_sync_wait cursor:%d chan:%d timeout",
-					xo_dev->AO_playloop.cursor, ic);
+			dev_err(DEVP(adev), "dma_sync_wait TIMEOUT cursor:%d chan:%d timeout:%d",
+					xo_dev->AO_playloop.cursor, ic, dma_timeout);
 			goto quit;
 		}
 		dev_dbg(DEVP(adev), "back from dma_sync_wait() ..");
