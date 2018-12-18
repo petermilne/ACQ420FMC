@@ -1,0 +1,1 @@
+inotifywait -m -e MODIFY --timefmt "%y%m%d%H%M%S" --format "%T %w" /sys/bus/i2c/devices/1-0068/si5326_reg /dev/gpio/CLK/*
