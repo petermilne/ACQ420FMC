@@ -285,7 +285,10 @@ int _load() {
 
 	syslog(LOG_DEBUG, "bb fread returned %d feof:%d ferror:%d errno:%d",
 			nsamples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
-
+	if (ferror(G::fp_in)){
+		syslog(LOG_DEBUG, "bb fread ERROR exit");
+		exit(1);
+	}
 	return _load_pad(nsamples);
 }
 
