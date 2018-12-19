@@ -86,6 +86,9 @@ namespace G {
 	unsigned buffer0;				// index from here
 	int concurrent;
 	int minbufs = 4;
+	int max_samples;
+	int TO = 1;					// Timeout, seconds
+	int load_threshold = 2;
 };
 
 #include "Buffer.h"
@@ -241,7 +244,7 @@ void _load_concurrent() {
 		TR_done,
 		TR_done_update_length_pending
 	} tr = TR_first_time;
-	int play_load_blocks = 2;
+	int play_load_blocks = G::load_threshold;
 
 	while((nsamples = fread(bp, gss, play_load_blocks*bls, G::fp_in)) > 0){
 		totsamples += nsamples;
@@ -277,14 +280,69 @@ void _load_concurrent() {
 		}
 	}
 }
-int _load() {
-	int maxbuf = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
+#include <sys/select.h>
 
-	unsigned nsamples = fread(Buffer::the_buffers[0]->getBase(),
-			G::sample_size, maxbuf, G::fp_in);
+int _fread(void* buffer, size_t size, size_t nelems, FILE *fp)
+{
+	char* bp0 = (char*)buffer;
+	char* bp = bp0;
+	int fd = fileno(fp);
+	int fd1 = fd+1;
+	struct timespec pto;
+	int nread = 0;
+	int rc;
+	int maxbytes = nelems*size;
+	sigset_t  emptyset;
+	fd_set exceptfds;
+	fd_set readfds;
+
+#define INIT_SEL do { 		\
+	sigemptyset(&emptyset); \
+	pto.tv_sec = G::TO; 	\
+	pto.tv_nsec = 0;	\
+	FD_ZERO(&exceptfds);	\
+	FD_SET(fd, &exceptfds);	\
+	FD_ZERO(&readfds);	\
+	FD_SET(fd, &readfds);	\
+	} while(0)
+
+	for( ; bp - bp0 < maxbytes; bp += nread){
+		INIT_SEL;
+		rc = pselect(fd1, &readfds, NULL, &exceptfds, &pto, &emptyset);
+
+		if (rc < 0){
+			syslog(LOG_ERR, "ERROR: pselect() fail %d\n", errno);
+			exit(1);
+		}
+		if (FD_ISSET(fd, &readfds)){
+			nread = read(fd, bp, maxbytes - (bp-bp0));
+			if (nread < 0){
+				syslog(LOG_WARNING, "ERROR: read() fail %d at %u\n", errno, bp-bp0);
+				exit(1);
+			}
+		}
+		if (FD_ISSET(fd, &exceptfds)){
+			syslog(LOG_WARNING, "WARNING: exception on fd");
+		}
+		if (rc == 0){
+			if (bp - bp0 == 0){
+				continue;
+			}else{
+				syslog(LOG_WARNING, "TIMEOUT");
+				break;
+			}
+		}
+	}
+	nelems = (bp - bp0)/size;
+	syslog(LOG_DEBUG, "_fread returns %d\n", nelems);
+	return nelems;
+}
+int _load() {
+	unsigned nsamples = _fread(Buffer::the_buffers[0]->getBase(),
+			G::sample_size, G::max_samples, G::fp_in);
 
 	syslog(LOG_DEBUG, "bb fread returned %d feof:%d ferror:%d errno:%d",
-			nsamples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
+			G::max_samples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
 	if (ferror(G::fp_in)){
 		syslog(LOG_DEBUG, "bb fread ERROR exit");
 		exit(1);
@@ -322,19 +380,36 @@ RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
+	const char* evar;
 
-	if (getenv("VERBOSE")){
-		G::verbose = atoi(getenv("VERBOSE"));
+	if ((evar = getenv("VERBOSE"))){
+		G::verbose = atoi(evar);
+	}
+	if ((evar = getenv("BB_LOAD_THRESHOLD"))){
+		G::load_threshold = atoi(evar);
 	}
 	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
 	getKnob(G::devnum, DFB, &G::buffer0);
+
+
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
 	if (dist_s1){
+		unsigned playloop_maxlen;
 		G::play_site = dist_s1;
 		getKnob(0, "/etc/acq400/0/dssb", &G::sample_size);
 		//fprintf(stderr, "s1:%d size:%d\n", dist_s1, G::sample_size);
+		getKnob(dist_s1, "playloop_maxlen", &playloop_maxlen);
+		if (playloop_maxlen){
+			unsigned playloop_maxbytes = playloop_maxlen*G::sample_size;
+			if (playloop_maxbytes < Buffer::nbuffers*Buffer::bufferlen){
+				G::max_samples = playloop_maxlen;
+			}
+		}
+	}
+	if (G::max_samples == 0){
+		G::max_samples = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 	}
 	int rc;
 
