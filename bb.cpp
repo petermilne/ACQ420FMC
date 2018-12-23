@@ -352,6 +352,7 @@ int _load() {
 
 int fill() {
 	_load();
+	printf("DONE %d\n", G_nsamples);
 	return 0;
 }
 int load() {
@@ -453,7 +454,6 @@ public:
 	}
 	~BufferManager() {
 		delete_buffers();
-		//printf("DONE %d\n", G_nsamples);
 	}
 };
 int main(int argc, const char** argv)
