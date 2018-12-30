@@ -86,7 +86,7 @@ static ssize_t store_offset_dac##IX(					\
 {									\
 	return store_offset_dacN(dev, attr, buf, count, IX-1);		\
 }									\
-static DEVICE_ATTR(offset_dac##IX, S_IRUGO|S_IWUGO, 			\
+static DEVICE_ATTR(offset_dac##IX, S_IRUGO|S_IWUSR, 			\
 		show_offset_dac##IX, store_offset_dac##IX)
 
 
@@ -159,7 +159,7 @@ static ssize_t store_bolo_dsp_enable(
 	}
 }
 
-static DEVICE_ATTR(bolo_dsp_enable, S_IRUGO|S_IWUGO, show_bolo_dsp_enable, store_bolo_dsp_enable);
+static DEVICE_ATTR(bolo_dsp_enable, S_IRUGO|S_IWUSR, show_bolo_dsp_enable, store_bolo_dsp_enable);
 
 const struct attribute *bolo8_attrs[] = {
 	&dev_attr_current_adc_enable.attr,

@@ -229,7 +229,7 @@ static ssize_t store_clkdiv(
 	}
 }
 
-static DEVICE_ATTR(clkdiv, S_IRUGO|S_IWUGO, show_clkdiv, store_clkdiv);
+static DEVICE_ATTR(clkdiv, S_IRUGO|S_IWUSR, show_clkdiv, store_clkdiv);
 
 static ssize_t show_adc_conv_time(
 	struct device * dev,
@@ -257,7 +257,7 @@ static ssize_t store_adc_conv_time(
 	}
 }
 
-static DEVICE_ATTR(adc_conv_time, S_IRUGO|S_IWUGO, show_adc_conv_time, store_adc_conv_time);
+static DEVICE_ATTR(adc_conv_time, S_IRUGO|S_IWUSR, show_adc_conv_time, store_adc_conv_time);
 
 static ssize_t show_clk_min_max(
 	struct device * dev,
@@ -328,7 +328,7 @@ static ssize_t store_gains(
 	}
 }
 
-static DEVICE_ATTR(gains, S_IRUGO|S_IWUGO, show_gains, store_gains);
+static DEVICE_ATTR(gains, S_IRUGO|S_IWUSR, show_gains, store_gains);
 
 
 static ssize_t show_gain(
@@ -392,7 +392,7 @@ static ssize_t store_gain##CH(						\
 {									\
 	return store_gain(CH - 1, dev, attr, buf, count);		\
 }									\
-static DEVICE_ATTR(gain##CH, S_IRUGO|S_IWUGO, show_gain##CH, store_gain##CH)
+static DEVICE_ATTR(gain##CH, S_IRUGO|S_IWUSR, show_gain##CH, store_gain##CH)
 
 MAKE_GAIN(1);
 MAKE_GAIN(2);
@@ -538,7 +538,7 @@ static ssize_t store_##SIGNAME(						\
 {									\
 	return store_signal(dev, attr, buf, count, REG, shl, mbit, HI, LO, NWB);\
 }									\
-static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUGO, 				\
+static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUSR, 				\
 		show_##SIGNAME, store_##SIGNAME)
 
 #define ENA	"enable"
@@ -590,7 +590,7 @@ static ssize_t store_gpg_top_count(
 	}
 }
 
-static DEVICE_ATTR(gpg_top_count, S_IRUGO|S_IWUGO, show_gpg_top_count, store_gpg_top_count);
+static DEVICE_ATTR(gpg_top_count, S_IRUGO|S_IWUSR, show_gpg_top_count, store_gpg_top_count);
 
 
 static ssize_t show_gpg_debug(
@@ -666,7 +666,7 @@ static ssize_t store_gpg_mode(
 	}
 }
 
-static DEVICE_ATTR(gpg_mode, S_IRUGO|S_IWUGO, show_gpg_mode, store_gpg_mode);
+static DEVICE_ATTR(gpg_mode, S_IRUGO|S_IWUSR, show_gpg_mode, store_gpg_mode);
 
 static ssize_t show_gpg_enable(
 	struct device * dev,
@@ -701,7 +701,7 @@ static ssize_t store_gpg_enable(
 	}
 }
 
-static DEVICE_ATTR(gpg_enable, S_IRUGO|S_IWUGO, show_gpg_enable, store_gpg_enable);
+static DEVICE_ATTR(gpg_enable, S_IRUGO|S_IWUSR, show_gpg_enable, store_gpg_enable);
 
 static ssize_t show_simulate(
 	struct device * dev,
@@ -727,7 +727,7 @@ static ssize_t store_simulate(
 	}
 }
 
-static DEVICE_ATTR(simulate, S_IRUGO|S_IWUGO, show_simulate, store_simulate);
+static DEVICE_ATTR(simulate, S_IRUGO|S_IWUSR, show_simulate, store_simulate);
 
 
 static ssize_t show_event0_count(
@@ -786,7 +786,7 @@ static ssize_t store_spad(
 	}
 }
 
-static DEVICE_ATTR(spad, S_IRUGO|S_IWUGO, show_spad, store_spad);
+static DEVICE_ATTR(spad, S_IRUGO|S_IWUSR, show_spad, store_spad);
 
 static ssize_t show_spadN(
 	struct device * dev,
@@ -862,7 +862,7 @@ static ssize_t store_spad##IX(						\
 {									\
 	return store_spadN(dev, attr, buf, count, IX);			\
 }									\
-static DEVICE_ATTR(spad##IX, S_IRUGO|S_IWUGO, 				\
+static DEVICE_ATTR(spad##IX, S_IRUGO|S_IWUSR, 				\
 		show_spad##IX, store_spad##IX)
 
 MAKE_SPAD(0);
@@ -953,7 +953,7 @@ static ssize_t store_reg_##REG(						\
 {									\
 	return store_reg(dev, attr, buf, count, REG, 0);	\
 }									\
-static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##REG, store_reg_##REG)
+static DEVICE_ATTR(kname, S_IRUGO|S_IWUSR, show_reg_##REG, store_reg_##REG)
 
 MAKE_REG_RW(sw_emb_word1, ACQ435_SW_EMB_WORD1, "0x%08x\n");
 MAKE_REG_RW(sw_emb_word2, ACQ435_SW_EMB_WORD2, "0x%08x\n");
@@ -981,7 +981,7 @@ static ssize_t store_reg_rtm_translen(
 
 	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, ff);
 }
-static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUGO,
+static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUSR,
 		show_reg_rtm_translen, store_reg_rtm_translen);
 
 
@@ -1064,7 +1064,7 @@ static ssize_t store_optimise_bufferlen(
 	return -1;
 }
 
-static DEVICE_ATTR(optimise_bufferlen, S_IWUGO, 0, store_optimise_bufferlen);
+static DEVICE_ATTR(optimise_bufferlen, S_IWUSR, 0, store_optimise_bufferlen);
 static ssize_t store_bufferlen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1091,7 +1091,7 @@ static ssize_t show_bufferlen(
 	return sprintf(buf, "%u\n", adev->bufferlen);
 }
 
-static DEVICE_ATTR(bufferlen, S_IRUGO|S_IWUGO, show_bufferlen, store_bufferlen);
+static DEVICE_ATTR(bufferlen, S_IRUGO|S_IWUSR, show_bufferlen, store_bufferlen);
 
 static ssize_t store_AXI_DMA_len(
 	struct device * dev,
@@ -1119,7 +1119,7 @@ static ssize_t show_AXI_DMA_len(
 	return sprintf(buf, "%u\n", acq400_get_AXI_DMA_len(adev));
 }
 
-static DEVICE_ATTR(AXI_DMA_len, S_IRUGO|S_IWUGO, show_AXI_DMA_len, store_AXI_DMA_len);
+static DEVICE_ATTR(AXI_DMA_len, S_IRUGO|S_IWUSR, show_AXI_DMA_len, store_AXI_DMA_len);
 
 static ssize_t show_hitide(
 	struct device * dev,
@@ -1158,7 +1158,7 @@ static ssize_t store_lotide(
 		return -1;
 	}
 }
-static DEVICE_ATTR(lotide, S_IRUGO|S_IWUGO, show_lotide, store_lotide);
+static DEVICE_ATTR(lotide, S_IRUGO|S_IWUSR, show_lotide, store_lotide);
 
 
 static ssize_t show_adc_18b(
@@ -1187,7 +1187,7 @@ static ssize_t store_adc_18b(
 	}
 }
 
-static DEVICE_ATTR(adc_18b, S_IRUGO|S_IWUGO, show_adc_18b, store_adc_18b);
+static DEVICE_ATTR(adc_18b, S_IRUGO|S_IWUSR, show_adc_18b, store_adc_18b);
 
 static ssize_t show_data32(
 	struct device * dev,
@@ -1215,7 +1215,7 @@ static ssize_t store_data32(
 	}
 }
 
-static DEVICE_ATTR(data32, S_IRUGO|S_IWUGO, show_data32, store_data32);
+static DEVICE_ATTR(data32, S_IRUGO|S_IWUSR, show_data32, store_data32);
 
 static ssize_t show_bitslice_frame(
 	struct device * dev,
@@ -1249,7 +1249,7 @@ static ssize_t store_bitslice_frame(
 	}
 }
 
-static DEVICE_ATTR(bitslice_frame, S_IRUGO|S_IWUGO, show_bitslice_frame, store_bitslice_frame);
+static DEVICE_ATTR(bitslice_frame, S_IRUGO|S_IWUSR, show_bitslice_frame, store_bitslice_frame);
 
 
 static ssize_t show_stats(
@@ -1282,7 +1282,7 @@ static ssize_t store_stats(
 	}
 }
 
-static DEVICE_ATTR(stats, S_IRUGO|S_IWUGO, show_stats, store_stats);
+static DEVICE_ATTR(stats, S_IRUGO|S_IWUSR, show_stats, store_stats);
 
 static ssize_t show_shot(
 	struct device * dev,
@@ -1310,7 +1310,7 @@ static ssize_t store_shot(
 	}
 }
 
-static DEVICE_ATTR(shot, S_IRUGO|S_IWUGO, show_shot, store_shot);
+static DEVICE_ATTR(shot, S_IRUGO|S_IWUSR, show_shot, store_shot);
 
 
 static ssize_t store_completed_shot(
@@ -1340,7 +1340,7 @@ static ssize_t show_completed_shot(
 
 
 
-static DEVICE_ATTR(completed_shot, S_IRUGO|S_IWUGO, show_completed_shot, store_completed_shot);
+static DEVICE_ATTR(completed_shot, S_IRUGO|S_IWUSR, show_completed_shot, store_completed_shot);
 
 static ssize_t show_run(
 	struct device * dev,
@@ -1409,7 +1409,7 @@ static ssize_t store_clk_counter_src(
 }
 
 static DEVICE_ATTR(clk_counter_src,
-		S_IRUGO|S_IWUGO, show_clk_counter_src, store_clk_counter_src);
+		S_IRUGO|S_IWUSR, show_clk_counter_src, store_clk_counter_src);
 
 
 static ssize_t show_hi_res_mode(
@@ -1448,7 +1448,7 @@ static ssize_t store_hi_res_mode(
 }
 
 static DEVICE_ATTR(hi_res_mode,
-		S_IRUGO|S_IWUGO, show_hi_res_mode, store_hi_res_mode);
+		S_IRUGO|S_IWUSR, show_hi_res_mode, store_hi_res_mode);
 
 /** NB inverted to 1: enabled */
 
@@ -1542,7 +1542,7 @@ static ssize_t store_bank_mask(
 }
 
 static DEVICE_ATTR(bank_mask,
-		S_IRUGO|S_IWUGO, show_bank_mask, store_bank_mask);
+		S_IRUGO|S_IWUSR, show_bank_mask, store_bank_mask);
 
 static ssize_t store_active_chan(
 	struct device * dev,
@@ -1573,7 +1573,7 @@ static ssize_t show_active_chan(
 }
 
 static DEVICE_ATTR(active_chan,
-		S_IRUGO|S_IWUGO, show_active_chan, store_active_chan);
+		S_IRUGO|S_IWUSR, show_active_chan, store_active_chan);
 
 static ssize_t show_module_type(
 	struct device * dev,
@@ -1760,7 +1760,7 @@ static ssize_t store_nacc(
 	}
 }
 
-static DEVICE_ATTR(nacc, S_IRUGO|S_IWUGO, show_nacc, store_nacc);
+static DEVICE_ATTR(nacc, S_IRUGO|S_IWUSR, show_nacc, store_nacc);
 
 static ssize_t show_is_triggered(
 	struct device * dev,
@@ -1809,7 +1809,7 @@ static ssize_t store_has_axi_dma(
 }
 
 
-static DEVICE_ATTR(has_axi_dma, S_IRUGO|S_IWUGO,
+static DEVICE_ATTR(has_axi_dma, S_IRUGO|S_IWUSR,
 		show_has_axi_dma, store_has_axi_dma);
 
 
@@ -1853,7 +1853,7 @@ static ssize_t show_RW32_debug(
 }
 
 static DEVICE_ATTR(RW32_debug,
-		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
+		S_IRUGO|S_IWUSR, show_RW32_debug, store_RW32_debug);
 
 
 MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
@@ -2025,7 +2025,7 @@ static ssize_t store_dac_range##NAME(					\
 {									\
 	return store_dac_range(SHL, dev, attr, buf, count);		\
 }									\
-static DEVICE_ATTR(dac_range_##NAME, S_IRUGO|S_IWUGO, 			\
+static DEVICE_ATTR(dac_range_##NAME, S_IRUGO|S_IWUSR, 			\
 		show_dac_range##NAME, store_dac_range##NAME)
 
 MAKE_DAC_RANGE(01,  ao420_physChan(1));
@@ -2111,7 +2111,7 @@ static ssize_t store_ao_GO##NAME(					\
 {									\
 	return store_ao_GO(CHAN, SHL, dev, attr, buf, count);		\
 }									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, 			        \
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, 			        \
 		show_ao_GO##NAME, store_ao_GO##NAME)
 
 #define MAKE_AO_GO(CHAN) \
@@ -2219,7 +2219,7 @@ static ssize_t store_dac_immediate_##NAME(				\
 {									\
 	return store_dac_immediate(CH, dev, attr, buf, count);		\
 }									\
-static DEVICE_ATTR(AO_##NAME, S_IRUGO|S_IWUGO, 			\
+static DEVICE_ATTR(AO_##NAME, S_IRUGO|S_IWUSR, 			\
 		show_dac_immediate_##NAME, store_dac_immediate_##NAME)
 
 MAKE_DAC_IMMEDIATE(01, 1);
@@ -2315,7 +2315,7 @@ static ssize_t store_playloop_length(
 }
 
 static DEVICE_ATTR(playloop_length,
-		S_IRUGO|S_IWUGO, show_playloop_length, store_playloop_length);
+		S_IRUGO|S_IWUSR, show_playloop_length, store_playloop_length);
 
 static ssize_t show_playloop_oneshot(
 	struct device * dev,
@@ -2343,7 +2343,7 @@ static ssize_t store_playloop_oneshot(
 }
 
 static DEVICE_ATTR(playloop_oneshot,
-		S_IRUGO|S_IWUGO, show_playloop_oneshot, store_playloop_oneshot);
+		S_IRUGO|S_IWUSR, show_playloop_oneshot, store_playloop_oneshot);
 
 
 static ssize_t show_playloop_maxlen(
@@ -2372,7 +2372,7 @@ static ssize_t store_playloop_maxlen(
 }
 
 static DEVICE_ATTR(playloop_maxlen,
-		S_IRUGO|S_IWUGO, show_playloop_maxlen, store_playloop_maxlen);
+		S_IRUGO|S_IWUSR, show_playloop_maxlen, store_playloop_maxlen);
 
 static ssize_t show_playloop_maxshot(
 	struct device * dev,
@@ -2400,7 +2400,7 @@ static ssize_t store_playloop_maxshot(
 }
 
 static DEVICE_ATTR(playloop_maxshot,
-		S_IRUGO|S_IWUGO, show_playloop_maxshot, store_playloop_maxshot);
+		S_IRUGO|S_IWUSR, show_playloop_maxshot, store_playloop_maxshot);
 
 static ssize_t show_playloop_cursor(
 	struct device * dev,
@@ -2431,7 +2431,7 @@ static ssize_t store_playloop_cursor(
 
 
 static DEVICE_ATTR(playloop_cursor,
-		S_IRUGO|S_IWUGO, show_playloop_cursor, store_playloop_cursor);
+		S_IRUGO|S_IWUSR, show_playloop_cursor, store_playloop_cursor);
 
 static ssize_t show_task_active(
 	struct device * dev,
@@ -2470,7 +2470,7 @@ static ssize_t store_playloop_repeats(
 }
 
 static DEVICE_ATTR(playloop_repeats,
-		S_IRUGO|S_IWUGO, show_playloop_repeats, store_playloop_repeats);
+		S_IRUGO|S_IWUSR, show_playloop_repeats, store_playloop_repeats);
 
 
 static ssize_t show_xo_buffers(
@@ -2546,7 +2546,7 @@ static ssize_t store_dacspi(
 	}
 }
 
-static DEVICE_ATTR(dacspi, S_IWUGO, show_dacspi, store_dacspi);
+static DEVICE_ATTR(dacspi, S_IWUSR, show_dacspi, store_dacspi);
 
 static ssize_t show_delay66(
 	struct device * dev,
@@ -2576,7 +2576,7 @@ static ssize_t store_delay66(
 	}
 }
 
-static DEVICE_ATTR(delay66, S_IWUGO|S_IRUGO, show_delay66, store_delay66);
+static DEVICE_ATTR(delay66, S_IWUSR|S_IRUGO, show_delay66, store_delay66);
 
 MAKE_BITS(snoopsel, DAC_CTRL, AO424_DAC_CTRL_SNOOPSEL_SHL, AO424_DAC_CTRL_SNOOPSEL_MSK);
 
@@ -2618,7 +2618,7 @@ static ssize_t store_dacreset(
 	}
 }
 
-static DEVICE_ATTR(dacreset, S_IWUGO|S_IRUGO, show_dacreset, store_dacreset);
+static DEVICE_ATTR(dacreset, S_IWUSR|S_IRUGO, show_dacreset, store_dacreset);
 
 static ssize_t show_dacreset_device(
 	struct device * dev,
@@ -2651,7 +2651,7 @@ static ssize_t store_dacreset_device(
 	}
 }
 
-static DEVICE_ATTR(dacreset_device, S_IWUGO, show_dacreset_device, store_dacreset_device);
+static DEVICE_ATTR(dacreset_device, S_IWUSR, show_dacreset_device, store_dacreset_device);
 
 static ssize_t show_dac_encoding(
 	struct device * dev,
@@ -2708,7 +2708,7 @@ static ssize_t store_odd_channels(
 }
 
 static DEVICE_ATTR(odd_channels,
-		S_IRUGO|S_IWUGO, show_odd_channels, store_odd_channels);
+		S_IRUGO|S_IWUSR, show_odd_channels, store_odd_channels);
 
 static ssize_t show_twos_comp_encoding(
 	struct device * dev,
@@ -2747,7 +2747,7 @@ static ssize_t store_twos_comp_encoding(
 }
 
 static DEVICE_ATTR(twos_comp_encoding,
-		S_IRUGO|S_IWUGO, show_twos_comp_encoding, store_twos_comp_encoding);
+		S_IRUGO|S_IWUSR, show_twos_comp_encoding, store_twos_comp_encoding);
 
 
 
@@ -2923,7 +2923,7 @@ static ssize_t store_DO32(
 	}
 }
 
-static DEVICE_ATTR(DO32, S_IRUGO|S_IWUGO, show_DO32, store_DO32);
+static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
 
 static ssize_t show_DI32(
 	struct device * dev,
@@ -2953,7 +2953,7 @@ static ssize_t store_DI32(
 	}
 }
 
-static DEVICE_ATTR(DI32, S_IRUGO|S_IWUGO, show_DI32, store_DI32);
+static DEVICE_ATTR(DI32, S_IRUGO|S_IWUSR, show_DI32, store_DI32);
 
 static ssize_t show_mode(
 	struct device * dev,
@@ -2983,7 +2983,7 @@ static ssize_t store_mode(
 	}
 }
 
-static DEVICE_ATTR(mode, S_IRUGO|S_IWUGO, show_mode, store_mode);
+static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR, show_mode, store_mode);
 
 static ssize_t show_ext_clk_from_sync(
 	struct device * dev,
@@ -3020,7 +3020,7 @@ static ssize_t store_ext_clk_from_sync(
 	}
 }
 
-static DEVICE_ATTR(ext_clk_from_sync, S_IRUGO|S_IWUGO, show_ext_clk_from_sync, store_ext_clk_from_sync);
+static DEVICE_ATTR(ext_clk_from_sync, S_IRUGO|S_IWUSR, show_ext_clk_from_sync, store_ext_clk_from_sync);
 
 MAKE_BITS(dpg_abort,    DIO432_DIO_CTRL,      MAKE_BITS_FROM_MASK,	DIO432_CTRL_AWG_ABORT);
 
@@ -3066,7 +3066,7 @@ static ssize_t store_byte_is_output(
 	}
 }
 
-static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUGO, show_byte_is_output, store_byte_is_output);
+static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUSR, show_byte_is_output, store_byte_is_output);
 
 static ssize_t show_dpg_status(
 	struct device * dev,
@@ -3085,7 +3085,7 @@ static ssize_t show_dpg_status(
 }
 
 
-static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUGO, show_dpg_status, 0);
+static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUSR, show_dpg_status, 0);
 
 
 static const struct attribute *dio432_attrs[] = {
@@ -3181,7 +3181,7 @@ static ssize_t store_DELTRG##IXO(					\
 {									\
 	return store_DELTRGN(dev, attr, buf, count, IX-1);		\
 }									\
-static DEVICE_ATTR(deltrg_##IXO, S_IRUGO|S_IWUGO, 			\
+static DEVICE_ATTR(deltrg_##IXO, S_IRUGO|S_IWUSR, 			\
 		show_DELTRG##IXO, store_DELTRG##IXO)
 
 
@@ -3264,7 +3264,7 @@ static ssize_t store_ACQ400T_out(
 	}
 }
 
-static DEVICE_ATTR(ACQ400T_out, S_IRUGO|S_IWUGO, show_ACQ400T_out, store_ACQ400T_out);
+static DEVICE_ATTR(ACQ400T_out, S_IRUGO|S_IWUSR, show_ACQ400T_out, store_ACQ400T_out);
 
 static ssize_t show_ACQ400T_in(
 	struct device * dev,
@@ -3390,7 +3390,7 @@ static ssize_t store_fan_percent(
 	}
 }
 
-static DEVICE_ATTR(fan_percent, S_IWUGO|S_IRUGO, show_fan_percent, store_fan_percent);
+static DEVICE_ATTR(fan_percent, S_IWUSR|S_IRUGO, show_fan_percent, store_fan_percent);
 
 static ssize_t show_acq0000_mod_con(
 	struct device * dev,
@@ -3446,7 +3446,7 @@ static ssize_t store_##name(						\
 {									\
 	return store_acq0000_mod_con(dev, attr, buf, count, mask);	\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name)
+static DEVICE_ATTR(name, S_IRUGO|S_IWUSR, show_##name, store_##name)
 
 MODCON_KNOB(mod_en, 	MCR_MOD_EN);
 MODCON_KNOB(psu_sync, 	MCR_PSU_SYNC);
@@ -3667,7 +3667,7 @@ static ssize_t store_reg_##name(					\
 	return store_agg_reg(dev, attr, buf, count,  offset, mshift);	\
 }									\
 static DEVICE_ATTR(name, 						\
-	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
+	S_IRUGO|S_IWUSR, show_reg_##name, store_reg_##name)
 
 REG_KNOB(aggregator, AGGREGATOR,	AGGREGATOR_MSHIFT);
 REG_KNOB(data_engine_0, DATA_ENGINE(0), DATA_ENGINE_MSHIFT);
@@ -3898,7 +3898,7 @@ static ssize_t store_reg_##name(					\
 	return store_dist_reg(dev, attr, buf, count,  offset, mshift);	\
 }									\
 static DEVICE_ATTR(name, 						\
-	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
+	S_IRUGO|S_IWUSR, show_reg_##name, store_reg_##name)
 
 DIST_KNOB(distributor, DISTRIBUTOR, DIST_MSHIFT);
 
@@ -3949,7 +3949,7 @@ static ssize_t store_decimate(
 	}
 }
 
-static DEVICE_ATTR(decimate, S_IRUGO|S_IWUGO, show_decimate, store_decimate);
+static DEVICE_ATTR(decimate, S_IRUGO|S_IWUSR, show_decimate, store_decimate);
 
 
 static ssize_t show_aggsta(
@@ -4003,7 +4003,7 @@ static ssize_t store_estop(
 	}
 }
 
-static DEVICE_ATTR(estop, S_IWUGO, 0, store_estop);
+static DEVICE_ATTR(estop, S_IWUSR, 0, store_estop);
 
 static ssize_t show_bq_overruns(
 	struct device * dev,
@@ -4069,7 +4069,7 @@ static ssize_t store_es_enable(
 	}
 }
 
-static DEVICE_ATTR(es_enable, S_IRUGO|S_IWUGO, show_es_enable, store_es_enable);
+static DEVICE_ATTR(es_enable, S_IRUGO|S_IWUSR, show_es_enable, store_es_enable);
 
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
@@ -4103,7 +4103,7 @@ static ssize_t store_axi_buffers_after_event(
 	}
 }
 
-static DEVICE_ATTR(axi_buffers_over, S_IRUGO|S_IWUGO, \
+static DEVICE_ATTR(axi_buffers_over, S_IRUGO|S_IWUSR, \
 	show_axi_buffers_after_event, store_axi_buffers_after_event);
 
 

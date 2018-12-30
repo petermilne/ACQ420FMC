@@ -124,7 +124,7 @@ static ssize_t store_span_ch##NAME(				\
 {								\
 	return store_span(CH, dev, attr, buf, count);		\
 }								\
-static DEVICE_ATTR(gain##NAME, S_IRUGO|S_IWUGO,		\
+static DEVICE_ATTR(gain##NAME, S_IRUGO|S_IWUSR,		\
 		show_span_ch##NAME, store_span_ch##NAME)
 
 MAKE_ACQ423_SPAN( 1, 1);
@@ -225,7 +225,7 @@ static ssize_t store_odd_channels(
 }
 
 static DEVICE_ATTR(odd_channels,
-		S_IRUGO|S_IWUGO, show_odd_channels, store_odd_channels);
+		S_IRUGO|S_IWUSR, show_odd_channels, store_odd_channels);
 
 MAKE_BITS(d37_mode,  ACQ423_BANK, MAKE_BITS_FROM_MASK, ACQ423_BANK_D37_MODE);
 

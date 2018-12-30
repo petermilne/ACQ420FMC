@@ -51,7 +51,7 @@ static ssize_t store_chan_sel(
 }
 
 static DEVICE_ATTR(chan_sel,
-		S_IRUGO|S_IWUGO, show_chan_sel, store_chan_sel);
+		S_IRUGO|S_IWUSR, show_chan_sel, store_chan_sel);
 
 static ssize_t show_hf(
 	struct device * dev,
@@ -84,7 +84,7 @@ static ssize_t store_hf(
 	}
 }
 
-static DEVICE_ATTR(hf, S_IRUGO|S_IWUGO, show_hf, store_hf);
+static DEVICE_ATTR(hf, S_IRUGO|S_IWUSR, show_hf, store_hf);
 
 /*
 #define V2F_OFFSET_PACKED_1M 	3277
@@ -124,7 +124,7 @@ static ssize_t store_freq_offset(
 }
 
 static DEVICE_ATTR(freq_offset,
-		S_IRUGO|S_IWUGO, show_freq_offset, store_freq_offset);
+		S_IRUGO|S_IWUSR, show_freq_offset, store_freq_offset);
 */
 static ssize_t show_freq_offset_raw(
 	struct device * dev,
@@ -157,7 +157,7 @@ static ssize_t store_freq_offset_raw(
 }
 
 static DEVICE_ATTR(freq_offset_raw,
-		S_IRUGO|S_IWUGO, show_freq_offset_raw, store_freq_offset_raw);
+		S_IRUGO|S_IWUSR, show_freq_offset_raw, store_freq_offset_raw);
 
 
 static ssize_t show_reg(
@@ -206,7 +206,7 @@ static ssize_t store_reg_##kname(							\
 {											\
 	return store_reg(dev, attr, buf, count, REG, MAX);				\
 }											\
-static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##kname, store_reg_##kname)
+static DEVICE_ATTR(kname, S_IRUGO|S_IWUSR, show_reg_##kname, store_reg_##kname)
 
 
 MAKE_REG_CAL(v2f_freq_off_1, V2F_FREQ_OFF+0x0, V2F_FREQ_OFF_MAX);
@@ -261,7 +261,7 @@ static ssize_t store_qen_count(
 	acq400wr32(adev, QEN_CTRL, ctrl);
 	return count;
 }
-static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
+static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUSR, show_qen_count, store_qen_count);
 
 MAKE_BITS(phaseA_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
 MAKE_BITS(phaseB_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
@@ -317,7 +317,7 @@ static ssize_t store_acq1014_##fun(						\
 	}									\
 	return -1;								\
 }										\
-static DEVICE_ATTR(acq1014_##fun, S_IRUGO|S_IWUGO, show_acq1014_##fun, store_acq1014_##fun);
+static DEVICE_ATTR(acq1014_##fun, S_IRUGO|S_IWUSR, show_acq1014_##fun, store_acq1014_##fun);
 
 ACQ1014_REG(CLK, clk);
 ACQ1014_REG(TRG, trg);

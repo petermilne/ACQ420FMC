@@ -169,7 +169,7 @@ static ssize_t store_##name(						\
 {									\
 	return store_multibytes(dev, attr, buf, count, name##_OFF);	\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name);
+static DEVICE_ATTR(name, S_IRUGO|S_IWUSR, show_##name, store_##name);
 
 ADS62P49_REG(R00);
 ADS62P49_REG(R20);

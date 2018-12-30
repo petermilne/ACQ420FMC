@@ -296,7 +296,7 @@ static ssize_t store_##name(						\
 {									\
 	return store_multibytes(dev, attr, buf, count, name##_OFF, name##_LEN);\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name);	\
+static DEVICE_ATTR(name, S_IRUGO|S_IWUSR, show_##name, store_##name);	\
 static DEVICE_ATTR(_##name, S_IRUGO, show_##name##_help, 0);
 
 

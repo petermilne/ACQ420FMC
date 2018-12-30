@@ -103,7 +103,7 @@ static ssize_t store_strobe##DDS(					\
 {									\
 	return store_strobe(dev, attr, buf, count, RAD_DDS_##DDS);	\
 }									\
-static DEVICE_ATTR(strobe##DDS, S_IWUGO, 0, store_strobe##DDS)
+static DEVICE_ATTR(strobe##DDS, S_IWUSR, 0, store_strobe##DDS)
 
 MAKE_DDS_STROBE(A);
 MAKE_DDS_STROBE(B);

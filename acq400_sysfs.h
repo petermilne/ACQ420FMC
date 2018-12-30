@@ -68,7 +68,7 @@ static ssize_t store_bits##NAME(					\
 {									\
 	return acq400_store_triplet(d, a, b, c, REG, T1, T2, T3);   	\
 }									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
 #define MASKSHR(x, f) (((x)&(f)) >> getSHL(f))
 
 #define MAKE_BITS_FROM_MASK	0xdeadbeef
@@ -166,7 +166,7 @@ static ssize_t show_bitN##NAME(						\
 		return acq400_show_bitN(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bitN##NAME, store_bitN##NAME)
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bitN##NAME, store_bitN##NAME)
 
 
 #define _MAKE_BITS(NAME, REG, SHL, MASK, WD)				\
@@ -195,7 +195,7 @@ static ssize_t store_bits##NAME(					\
 		return acq400_store_bits(d, a, b, c, REG, SHL, MASK, WD);\
 	}								\
 }									\
-static DEVICE_ATTR(NAME, S_IRUGO|S_IWUGO, show_bits##NAME, store_bits##NAME)
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
 
 
 #define MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 0)

@@ -247,7 +247,7 @@ static ssize_t store_train(
 	}
 }
 
-static DEVICE_ATTR(train, S_IRUGO|S_IWUGO, show_train, store_train);
+static DEVICE_ATTR(train, S_IRUGO|S_IWUSR, show_train, store_train);
 
 
 static ssize_t store_dclock_reset(
@@ -282,7 +282,7 @@ static ssize_t store_dclock_reset(
 }
 
 
-static DEVICE_ATTR(dclock_reset, S_IWUGO, 0, store_dclock_reset);
+static DEVICE_ATTR(dclock_reset, S_IWUSR, 0, store_dclock_reset);
 
 static ssize_t show_acq480_train_ctrl(
 	struct device * dev,
@@ -315,7 +315,7 @@ static ssize_t store_acq480_train_ctrl(
 }
 
 static DEVICE_ATTR(acq480_train_ctrl,
-		S_IRUGO|S_IWUGO, show_acq480_train_ctrl, store_acq480_train_ctrl);
+		S_IRUGO|S_IWUSR, show_acq480_train_ctrl, store_acq480_train_ctrl);
 
 static ssize_t show_acq480_two_lane_mode(
 	struct device * dev,
@@ -353,7 +353,7 @@ static ssize_t store_acq480_two_lane_mode(
 }
 
 static DEVICE_ATTR(acq480_two_lane_mode,
-		S_IRUGO|S_IWUGO, show_acq480_two_lane_mode, store_acq480_two_lane_mode);
+		S_IRUGO|S_IWUSR, show_acq480_two_lane_mode, store_acq480_two_lane_mode);
 
 
 static ssize_t show_acq482_cmap(
@@ -392,7 +392,7 @@ static ssize_t store_acq482_cmap(
 }
 
 static DEVICE_ATTR(acq482_cmap,
-		S_IRUGO|S_IWUGO, show_acq482_cmap, store_acq482_cmap);
+		S_IRUGO|S_IWUSR, show_acq482_cmap, store_acq482_cmap);
 
 
 
@@ -495,7 +495,7 @@ static ssize_t store_ffir_reset(
 		return -1;
 	}
 }
-static DEVICE_ATTR(ffir_reset, S_IWUGO, 0, store_ffir_reset);
+static DEVICE_ATTR(ffir_reset, S_IWUSR, 0, store_ffir_reset);
 
 static ssize_t show_ffir_counter(
 	struct device * dev,
@@ -526,7 +526,7 @@ static ssize_t store_ffir_coeff(
 		return -1;
 	}
 }
-static DEVICE_ATTR(ffir_coeff, S_IWUGO, 0, store_ffir_coeff);
+static DEVICE_ATTR(ffir_coeff, S_IWUSR, 0, store_ffir_coeff);
 
 
 
