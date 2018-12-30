@@ -4,7 +4,7 @@ obj-m += dmaengine.o
 obj-m += pl330.o
 obj-m += xilinx_axidma.o
 obj-m += acq420fmc.o
-obj-m += dmatest_pgm.o
+#obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
 
@@ -26,7 +26,6 @@ obj-m += fmc10x.o
 obj-m += ad9510.o
 obj-m += ads62p49.o
 obj-m += ao428.o
-obj-m += lp3943_dev.o
 #obj-m += acq400-spi-bytebang.o
 
 DC=$(shell date +%y%m%d%H%M%S)
