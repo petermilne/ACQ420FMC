@@ -619,6 +619,9 @@ if [ $notloaded -eq 0 ]; then
 	exit 1
 fi
 
+MODLIB=/lib/modules/$(uname -r)
+
+/sbin/insmod ${MODLIB}/dmaengine314.ko
 
 if [ -x /mnt/local/init.pl330.ko ]; then
 	/mnt/local/init.pl330.ko
@@ -626,7 +629,7 @@ else
 	if [ -f /mnt/local/pl330.ko ]; then
 		MOD=/mnt/local/pl330.ko
 	else
-		MOD=/lib/modules/$(uname -r)/pl330.ko
+		MOD=${MODLIB}/pl330.ko
 	fi
 	/sbin/insmod $MOD
 fi
@@ -634,8 +637,8 @@ fi
 if [ -f /mnt/local/acq420fmc.ko ]; then
 	MOD=/mnt/local/acq420fmc.ko
 	echo "WARNING using override driver $MOD"
-elif [ -f /lib/modules/$(uname -r)/acq420fmc.ko ]; then
-	MOD=/lib/modules/$(uname -r)/acq420fmc.ko
+elif [ -f ${MODLIB}/acq420fmc.ko ]; then
+	MOD=${MODLIB}/acq420fmc.ko
 else
 	echo "ERROR, module acq420fmc.ko not found" 
 		exit 1
@@ -734,7 +737,7 @@ grep acq400\.[0-9] /proc/devices | build_nodes
 
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
-	AXIMOD=/lib/modules/$(uname -r)/xilinx_axidma.ko
+	AXIMOD=${MODLIB}/xilinx_axidma.ko
 	if [ -e /mnt/local/xilinx_axidma.ko ]; then
 		AXIMOD=/mnt/local/xilinx_axidma.ko
 		echo "using override module $AXIMOD"
