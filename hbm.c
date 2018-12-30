@@ -29,7 +29,7 @@
 #include <linux/kthread.h>
 #include <linux/list.h>
 
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 
 #define CONFIG_PCI 1
 #include <linux/pci.h>

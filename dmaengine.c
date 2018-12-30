@@ -48,11 +48,16 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/dma-mapping.h>
-#include <linux/init.h>
+
+#ifndef EXPORT_SYMTAB
+#define EXPORT_SYMTAB
+#include <linux/module.h>
+#endif
+
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/device.h>
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 #include <linux/hardirq.h>
 #include <linux/spinlock.h>
 #include <linux/percpu.h>
@@ -336,7 +341,7 @@ static int __init dma_channel_table_init(void)
 
 	return err;
 }
-arch_initcall(dma_channel_table_init);
+//arch_initcall(dma_channel_table_init);
 
 /**
  * dma_find_channel - find a channel to carry out the operation
@@ -1265,8 +1270,15 @@ static int __init dma_bus_init(void)
 
 	if (err)
 		return err;
+	dma_channel_table_init();
 	return class_register(&dma_devclass);
 }
-arch_initcall(dma_bus_init);
+//arch_initcall(dma_bus_init);
+
+module_init(dma_bus_init);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Peter.Milne@d-tacq.com");
+MODULE_DESCRIPTION("dmaengine oldstyle 3.14");
+
 
 

@@ -30,7 +30,7 @@
 #include <asm/sizes.h>
 
 
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/sched/rt.h>
@@ -58,7 +58,7 @@
 #include <linux/debugfs.h>
 #include <linux/poll.h>
 //#include <mach/pl330.h>
-#include <linux/amba/pl330.h>
+#include "include/linux/amba/pl330.h"
 #include <linux/of.h>
 
 #include <asm/barrier.h>

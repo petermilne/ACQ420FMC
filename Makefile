@@ -1,10 +1,13 @@
 # Cross compiler makefile for FIFO DMA example
 KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
+obj-m += dmaengine.o
+obj-m += pl330.o
+obj-m += xilinx_axidma.o
 obj-m += acq420fmc.o
 obj-m += dmatest_pgm.o
 obj-m += debugfs2.o
 obj-m += pl330_fs.o
-obj-m += pl330.o
+
 obj-m += bolo8_drv.o
 obj-m += acq425_drv.o
 obj-m += acq480.o
@@ -13,7 +16,7 @@ obj-m += acq400t.o
 obj-m += mgt400.o
 obj-m += regfs.o
 obj-m += acq400_dspfs.o
-obj-m += xilinx_axidma.o
+
 obj-m += pigcelf.o
 obj-m += dmadescfs.o
 obj-m += radcelf.o

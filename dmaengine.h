@@ -6,7 +6,7 @@
 #define DMAENGINE_H
 
 #include <linux/bug.h>
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 
 #warning DT CUSTOM ALERT
 

@@ -17,7 +17,8 @@
  * (at your option) any later version.
  */
 
-#include <linux/amba/xilinx_dma.h>
+#include "include/linux/dmaengine.h"
+#include "include/linux/amba/xilinx_dma.h"
 #include <linux/dmapool.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>

@@ -23,9 +23,9 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 #include <linux/amba/bus.h>
-#include <linux/amba/pl330.h>
+#include "include/linux/amba/pl330.h"
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
