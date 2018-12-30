@@ -30,7 +30,6 @@ DC0=${PKGF#$PKGNAME-*}
 DC=${DC0%.tgz}
 PKO=release/packageko*${DC}.img
 ls -l $PKO
-exit 1
 if [ -e $PKO ]; then
 	echo PKO $PKO exists
 	ssh ${ACT} rm -f /mnt/ko/packageko*
