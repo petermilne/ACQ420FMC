@@ -8,8 +8,6 @@
 #include <linux/bug.h>
 #include "include/linux/dmaengine.h"
 
-#warning DT CUSTOM ALERT
-
 #define DMA_SUCCESS	DMA_COMPLETE
 /* D-TACQ Customisation */
 
