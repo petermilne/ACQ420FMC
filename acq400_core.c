@@ -23,6 +23,9 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
+#include <uapi/linux/sched/types.h>
+#include <linux/sched/rt.h>
+
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"

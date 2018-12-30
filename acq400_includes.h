@@ -33,7 +33,6 @@
 #include "include/linux/dmaengine.h"
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <linux/sched/rt.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
