@@ -1,0 +1,42 @@
+#!/bin/bash
+
+
+UUT=$1
+PKG=$2
+ROOT=${3:-/mnt/packages}
+
+if [ "x$UUT" = "x" -o "x$PKG" = "x" ]; then
+	echo usage deploy.package UUT package
+	exit 1
+fi
+if [ "x${UUT%@*}" = "x${UUT}" ]; then
+	ACT=root@${UUT}
+else
+	ACT=${UUT}
+fi
+
+if [ ! -e $PKG ]; then
+	echo ERROR: $PKG does not exist
+	echo usage deploy.package UUT package
+	exit 1
+fi
+
+echo deploy.package $UUT $PKG
+
+PKGF=$(basename $PKG)
+PKGNAME=${PKGF%-*}
+echo PKGNAME $PKGNAME
+DC0=${PKGF#$PKGNAME-*}
+DC=${DC0%.tgz}
+PKO=release/packageko*${DC}.img
+ls -l $PKO
+exit 1
+if [ -e $PKO ]; then
+	echo PKO $PKO exists
+	ssh ${ACT} rm -f /mnt/ko/packageko*
+	scp $PKO ${ACT}:/mnt/ko
+fi
+ssh ${ACT} rm -f ${ROOT}/$PKGNAME\*
+scp ${PKG} ${ACT}:${ROOT}
+ssh ${ACT} ls -l ${ROOT}
+
