@@ -1,6 +1,7 @@
 # Cross compiler makefile for FIFO DMA example
 KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
-obj-m += dmaengine.o
+obj-m += xilinx_devcfg.o
+obj-m += dmaengine314.o
 obj-m += pl330.o
 obj-m += xilinx_axidma.o
 obj-m += acq420fmc.o
@@ -50,6 +51,7 @@ dmadescfs-objs := dmadescfs_drv.o
 
 regfs-objs := regfs_drv.o
 	
+dmaengine314-objs := dmaengine.o of-dma.o
 
 mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o \
  		acq400_reg_cache.o
@@ -100,6 +102,7 @@ package: all
 	cp sysconfig/* opkg/etc/sysconfig
 	rm -f opkg/usr/local/bin/mgt_offload
 	ln -s /usr/local/CARE/mgt_offload_groups opkg/usr/local/bin/mgt_offload
+	mkdir -p release
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
