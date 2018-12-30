@@ -308,8 +308,8 @@ private:
 	char OUT_ROOT[128];
 	char OUT_ROOT_NEW[128];
 	char OUT_ROOT_OLD[128];
-	char CLEAN_COMMAND[128];
-	char FIN_COMMAND[128];
+	char CLEAN_COMMAND[160];
+	char FIN_COMMAND[160];
 
 	static u32 ID_MASK;
 
@@ -338,7 +338,7 @@ private:
 		sprintf(FIN_COMMAND,   "date >%s.fin", OUT_ROOT);
 
 		fnames = new char* [nchan];
-		char buf[132];
+		char buf[160];
 
 		for (unsigned ic = 0; ic < nchan; ++ic){
 			int len = sprintf(buf, "%s/CH%02d", OUT_ROOT_NEW, lchan(ic));
@@ -1977,7 +1977,7 @@ protected:
 			++backtrack){
 			esp = findEvent(buffer1);
 			if (esp){
-				char bn[8]; sprintf(bn, "bt%d", backtrack);
+				char bn[16]; sprintf(bn, "bt%d", backtrack);
 				report(bn, buffer1->ib(), esp);
 				if (ibuf) *ibuf = b1;
 				if (espp) *espp = esp;
@@ -3461,7 +3461,7 @@ class Event0 {
 	int verbose;
 
 	void setEvent0(const char* triplet){
-		char cmd[80];
+		char cmd[132];
 		sprintf(cmd, "set.site 1 event0=%s;get.site 1 event0\n", triplet);
 		if (verbose) fprintf(stderr, cmd);
 		FILE *pp = popen(cmd, "r");

@@ -188,9 +188,9 @@ int main(int argc, char* argv[])
 
 	/* DataFormatter uses strstr(), overrides from the beginning of str */
 	char cmd[256];
-	fgets(cmd, 256, stdin);
-	strncat(cmd, " ", 256);
-	strncat(cmd, defaults, 256);
+	fgets(cmd, 255, stdin);
+	strncat(cmd, " ", 255);
+	strncat(cmd, defaults, 255);
 	DataFormatter& df =  DataFormatter::create(cmd);
 	// strcat augment defaults ?
 	//syslog(LOG_DEBUG, "muxdec 44\n");
