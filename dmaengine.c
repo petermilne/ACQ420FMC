@@ -45,6 +45,8 @@
  * See Documentation/dmaengine.txt for more details
  */
 
+#define CONFIG_DMA_ENGINE
+
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/dma-mapping.h>
