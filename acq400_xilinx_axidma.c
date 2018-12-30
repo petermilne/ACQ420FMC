@@ -32,7 +32,7 @@
 #include "acq400_lists.h"
 
 #include "dmaengine.h"
-#include <linux/amba/xilinx_dma.h>
+#include "include/linux/amba/xilinx_dma.h"
 #include "xilinx_axidma.h"
 
 #include <linux/dmapool.h>
