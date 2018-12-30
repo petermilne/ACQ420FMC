@@ -135,15 +135,16 @@ static unsigned update_inode_stats(struct inode *inode)
 	}
 }
 
-static int ai_getattr(struct vfsmount *mnt, struct dentry *d, struct kstat *k)
+static int ai_getattr(const struct path *path, struct kstat *stat,
+		 u32 request_mask, unsigned int query_flags)
 {
-	struct inode *inode = d->d_inode;
+	struct inode *inode = d_inode(path->dentry);
 	int was;
 
-	generic_fillattr(inode, k);
-	was = k->size;
-	k->size = update_inode_stats(inode);
-	k->mtime = inode->i_mtime;
+	generic_fillattr(inode, stat);
+	was = stat->size;
+	stat->size = update_inode_stats(inode);
+	stat->mtime = inode->i_mtime;
 
 	return 0;
 }
@@ -162,7 +163,7 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 		inode->i_uid = KUIDT_INIT(0);
 		inode->i_gid = KGIDT_INIT(0);
 		inode->i_blocks = 0;
-		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 		// PGM: desperate
 		set_nlink(inode, 1);
 		inode->i_op = &inops;
@@ -531,7 +532,7 @@ static struct dentry *a400fs_create_dir (struct super_block *sb,
 
 	qname.name = name;
 	qname.len = strlen (name);
-	qname.hash = full_name_hash(name, qname.len);
+	qname.hash = full_name_hash(NULL, name, qname.len);
 	dentry = d_alloc(parent, &qname);
 	if (! dentry)
 		goto out;
@@ -675,7 +676,7 @@ static ssize_t a400fs_ctrl_write_file(struct file *file, const char *buf,
 			&capdat.is_cooked, &capdat.nsamples,
 			&capdat.nchan, capdat.typ) == 4){
 		CAPDAT = capdat;
-		FSN.mtime = CURRENT_TIME;
+		FSN.mtime = current_time(FSN.root);
 		return count;
 	}else{
 		return -EINVAL;
@@ -697,7 +698,7 @@ static void a400fs_create_files (struct super_block *sb, struct dentry *root)
 	FSN.sb = sb;
 
 	FSN.rawdir = a400fs_create_dir(sb, root, "raw");
-	FSN.mtime = CURRENT_TIME;
+	FSN.mtime = current_time(FSN.root);
 	a400fs_create_file(sb, root, ".control", &a400fs_control_ops, 0);
 
 	for (dev = 0; dev <= MAXDEVICES; ++dev){
@@ -741,8 +742,8 @@ static int a400fs_fill_super (struct super_block *sb, void *data, int silent)
 /*
  * Basic parameters.
  */
-	sb->s_blocksize = PAGE_CACHE_SIZE;
-	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
+	sb->s_blocksize = PAGE_SIZE;
+	sb->s_blocksize_bits = PAGE_SHIFT;
 	sb->s_magic = ACQ400_FS_MAGIC;
 	sb->s_op = &a400fs_s_ops;
 /*
