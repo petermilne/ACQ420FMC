@@ -2679,7 +2679,8 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 				adev);
 	}
 	if (rc){
-		dev_err(DEVP(adev),"unable to get IRQ%d\n",adev->of_prams.irq);
+		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n",adev->of_prams.irq);
+		return 0;
 	}
 	return rc;
 }
