@@ -410,7 +410,7 @@ static void __init acq480_init_site(int site)
 			.platform_data	= 0,
 			.irq		= -1,
 			.max_speed_hz	= 20000000,
-			.bus_num	= 1,
+			.bus_num	= 0,
 			.chip_select	= 0,
 	};
 	struct platform_device* pdev =
