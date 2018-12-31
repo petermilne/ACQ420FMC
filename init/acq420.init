@@ -391,7 +391,7 @@ build_site0() {
 	ek=/etc/acq400/0/
 	ln -s $1 ${dk}
 	web_append acq400.0 0
-    fix-state
+    fix_state
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel ${ek}
 	ln -s /usr/local/bin/run0 /usr/local/bin/get.xdt ${ek}
