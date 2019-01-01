@@ -146,6 +146,7 @@ static int ai_getattr(const struct path *path, struct kstat *stat,
 	stat->size = update_inode_stats(inode);
 	stat->mtime = inode->i_mtime;
 
+	dev_dbg(0, "%s 99 inode:%lu was:%d size:%lld", __FUNCTION__, inode->i_ino,  was, stat->size);
 	return 0;
 }
 
@@ -153,9 +154,7 @@ static int ai_getattr(const struct path *path, struct kstat *stat,
 static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 {
 	struct inode *inode = new_inode(sb);
-	static struct inode_operations inops = {
-		.getattr = ai_getattr
-	};
+
 
 	if (inode) {
 		inode->i_ino = get_next_ino();
@@ -164,10 +163,8 @@ static struct inode *a400fs_make_inode(struct super_block *sb, int mode)
 		inode->i_gid = KGIDT_INIT(0);
 		inode->i_blocks = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
-		// PGM: desperate
-		set_nlink(inode, 1);
-		inode->i_op = &inops;
 	}
+	dev_dbg(0, "%s return inode %lu", __FUNCTION__, inode->i_ino);
 	return inode;
 }
 
@@ -487,6 +484,9 @@ static struct inode *a400fs_create_file (struct super_block *sb,
 		struct file_operations* fops,
 		struct InodeMap* inodeMap)
 {
+	static struct inode_operations inops = {
+		.getattr = ai_getattr
+	};
 	struct dentry *dentry;
 	struct inode *inode;
 /*
@@ -500,6 +500,7 @@ static struct inode *a400fs_create_file (struct super_block *sb,
 	if (! inode)
 		goto out_dput;
 	inode->i_fop = fops;
+	inode->i_op = &inops;
 	if (inodeMap) {
 		inodeMap->ino = inode->i_ino;
 	}
@@ -507,6 +508,7 @@ static struct inode *a400fs_create_file (struct super_block *sb,
  * Put it all into the dentry cache and we're done.
  */
 	d_add(dentry, inode);
+	dev_dbg(0, "%s 98 SUCCESS \"%s\"", __FUNCTION__, name);
 	return inode;
 /*
  * Then again, maybe it didn't work.
@@ -514,8 +516,10 @@ static struct inode *a400fs_create_file (struct super_block *sb,
   out_dput:
 	dput(dentry);
   out:
+  	dev_warn(0, "%s 99 FAILED to create \"%s\"", __FUNCTION__, name);
 	return 0;
 }
+
 
 
 /*
@@ -528,28 +532,25 @@ static struct dentry *a400fs_create_dir (struct super_block *sb,
 {
 	struct dentry *dentry;
 	struct inode *inode;
-	struct qstr qname;
 
-	qname.name = name;
-	qname.len = strlen (name);
-	qname.hash = full_name_hash(NULL, name, qname.len);
-	dentry = d_alloc(parent, &qname);
-	if (! dentry)
-		goto out;
+	dentry = d_alloc_name(parent, name);
+	if (! dentry){
+		return NULL;
+	}
 
 	inode = a400fs_make_inode(sb, S_IFDIR | 0644);
-	if (! inode)
-		goto out_dput;
+	if (!inode) {
+		dev_warn(0, "%s 99 FAILED to create \"%s\"", __FUNCTION__, name);
+		dput(dentry);
+		return NULL;
+	}
+
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
-
 	d_add(dentry, inode);
+	dev_dbg(0, "%s 98 SUCCESS \"%s\"", __FUNCTION__, name);
 	return dentry;
 
-  out_dput:
-	dput(dentry);
-  out:
-	return 0;
 }
 
 #define a400fs_create_raw_file a400fs_create_file
@@ -607,7 +608,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 		fsn->sb, fsn->rawdir, sites[site],
 		&a400fs_raw_file_ops, build_mapping(fsn, adev, site, XX));
 
-	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
+	dev_info(DEVP(adev), "a400fs_add_site() 19 site:%d", site);
 
 	fsn->chandata[site] =
 		a400fs_create_dir(fsn->sb, fsn->root_dentry, sites[site]);
