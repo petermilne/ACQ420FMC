@@ -78,7 +78,8 @@ APPS := mmap acq400_stream permute acq435_decode \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int
 
-all: modules apps
+
+all: modules apps libs
 	
 date:
 	echo $(DC)
@@ -93,10 +94,11 @@ package: all packageko
 	mkdir -p opkg/usr/local/bin \
 		opkg/usr/share opkg/usr/local/CARE opkg/usr/local/map \
 		opkg/usr/local/init/pl330dbg opkg/usr/local/cal \
-		opkg/etc/profile.d opkg/etc/sysconfig opkg/etc/acq400
+		opkg/etc/profile.d opkg/etc/sysconfig opkg/etc/acq400 \
+		opkg/usr/local/lib
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
-
+	cp -a libacq.so opkg/usr/local/lib
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* scripts/streamtonowhere opkg/usr/local/CARE
@@ -112,6 +114,7 @@ package: all packageko
 	rm -f ../PACKAGES/$(SEQ)-acq420*
 	git tag -a -m $(SEQ)-acq420-$(DC).tgz r$(DC) 
 	cp release/$(SEQ)-acq420-$(DC).tgz ../PACKAGES/
+	
 
 tarball:
 	echo Please make sure directory is clean first ..
@@ -136,8 +139,8 @@ dsp_coprocessor: dsp_coprocessor.o
 mmaptest: mmaptest.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 
-acq400_sls: acq400_sls.o acq-util.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt	
+acq400_sls: acq400_sls.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt	-lacq
 		
 udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
@@ -151,8 +154,8 @@ bb: bb.o Buffer.o knobs.o
 phased_array: phased_array.o Buffer.o knobs.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
 	
-tblock2file: tblock2file.o knobs.o acq-util.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
+tblock2file: tblock2file.o knobs.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq -lpthread -lrt
 
 is_ramp: is_ramp.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
@@ -168,8 +171,8 @@ multisitecheckramp: multisitecheckramp.cpp
 	
 acq480_knobs: acq480_knobs.o ads5294.o  
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
-wavegen: wavegen.o acq-util.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lm
+wavegen: wavegen.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq -lm
 	
 acq435_decode: acq435_decode.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread
@@ -190,8 +193,8 @@ bigcat: bigcat.cpp
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
 
-muxdec: muxdec.o acq-util.o
-	$(CXX) -O3 -o muxdec muxdec.o acq-util.o
+muxdec: muxdec.o
+	$(CXX) -O3 -o muxdec muxdec.o -L../lib -lacq
 
 bpaste: bpaste.o
 	$(CXX) -O3 -o bpaste bpaste.o
@@ -202,10 +205,14 @@ bigmac.x86: bigmac.o
 mgtdram_descgen: 	mgtdram_descgen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
-
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
+libacq.so: acq-util.c
+	$(CC) -shared -Wl,-soname,libacq -fPIC -o $@ $^
+	cp libacq.so ../lib
+
+libs: libacq.so
 		
 zynq:
 	./make.zynq

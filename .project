@@ -3,8 +3,7 @@
 	<name>ACQ420_FMC</name>
 	<comment></comment>
 	<projects>
-		<project>acq4xx_kernel</project>
-		<project>linux-xlnx</project>
+		<project>linux-xlnx-414</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
