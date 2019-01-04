@@ -608,7 +608,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 		fsn->sb, fsn->rawdir, sites[site],
 		&a400fs_raw_file_ops, build_mapping(fsn, adev, site, XX));
 
-	dev_info(DEVP(adev), "a400fs_add_site() 19 site:%d", site);
+	dev_dbg(DEVP(adev), "a400fs_add_site() 19 site:%d", site);
 
 	fsn->chandata[site] =
 		a400fs_create_dir(fsn->sb, fsn->root_dentry, sites[site]);
@@ -628,7 +628,7 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 			dev_err(DEVP(adev), "ERROR failed to create channel file");
 		}
 	}
-	dev_info(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
+	dev_dbg(DEVP(adev), "a400fs_add_site() 99 site:%d", site);
 }
 
 
