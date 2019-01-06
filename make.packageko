@@ -8,6 +8,8 @@ mkdir -p modules_output
 cp $(find ../linux-xlnx -name \*.ko) modules_output
 cp *.ko modules_output
 mksquashfs modules_output/* release/$PKO 2>&1 >squashfs.log
+rm packageko*img
+cp release/$PKO .
 if [ $? -ne 0 ]; then
 	echo ERROR: check squashfs.log
 	exit 1

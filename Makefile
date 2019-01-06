@@ -79,7 +79,12 @@ APPS := mmap acq400_stream permute acq435_decode \
 	mgtdram_descgen bigcat egu2int
 
 
-all: modules apps libs
+LIBACQSO = libacq.so
+LIBACQSONAME = libacq.so.1
+
+LIBS = $(LIBACQSONAME)
+
+all: modules  $(LIBS) apps
 	
 date:
 	echo $(DC)
@@ -98,7 +103,7 @@ package: all packageko
 		opkg/usr/local/lib
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
-	cp -a libacq.so opkg/usr/local/lib
+	cp -a *.so* opkg/usr/local/lib
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
 	cp acq435_decode CARE/* scripts/streamtonowhere opkg/usr/local/CARE
@@ -127,7 +132,7 @@ modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
 	
 clean:
-	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(APPS) \
+	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(LIBS) $(APPS) \
 		Module.symvers modules.order
 	
 mmap: mmap.o
@@ -208,11 +213,10 @@ mgtdram_descgen: 	mgtdram_descgen.o
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
-libacq.so: acq-util.c
-	$(CC) -shared -Wl,-soname,libacq -fPIC -o $@ $^
-	cp libacq.so ../lib
-
-libs: libacq.so
+$(LIBACQSONAME): acq-util.c
+	$(CC) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
+	ln -s $(LIBACQSONAME) $(LIBACQSO)
+	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib
 		
 zynq:
 	./make.zynq
