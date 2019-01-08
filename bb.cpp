@@ -319,6 +319,8 @@ int _fread(void* buffer, size_t size, size_t nelems, FILE *fp)
 			if (nread < 0){
 				syslog(LOG_WARNING, "ERROR: read() fail %d at %u\n", errno, bp-bp0);
 				exit(1);
+			}else if (nread == 0){
+				break;
 			}
 		}
 		if (FD_ISSET(fd, &exceptfds)){
