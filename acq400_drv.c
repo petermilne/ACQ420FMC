@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.329"
+#define REVID "3.330"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1665,7 +1665,9 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
 	} while(0)
 
-#define LAST_PUSH(adev)	(adev->stats.xo.dma_buffers_out+1 >=shot_buffer_count)
+#define AO_CONTINUOUS	(xo_dev->AO_playloop.oneshot == AO_continuous)
+#define LAST_PUSH \
+	(!AO_CONTINUOUS && adev->stats.xo.dma_buffers_out+1 >= shot_buffer_count)
 
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
@@ -1698,7 +1700,7 @@ int xo_data_loop(void *data)
 				adev->DMA_READY,
 				adev->dma_callback_done || kthread_should_stop(),
 				dma_timeout) <= 0){
-			dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
+			dev_err(DEVP(adev), "TIMEOUT waiting for DMA %d\n", __LINE__);
 			goto quit;
 		}
 
@@ -1725,13 +1727,12 @@ int xo_data_loop(void *data)
 		xo_dev->AO_playloop.cursor += ao_samples_per_hb(adev);
 
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
-			if (xo_dev->AO_playloop.oneshot == AO_continuous ||
-					xo_dev->AO_playloop.repeats > 0){
+			if (AO_CONTINUOUS || xo_dev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
 				ib = 0;
 				xo_dev->AO_playloop.cursor = 0;
 				/** @@todo dodgy : output or input dep on mode */
-				if (xo_dev->AO_playloop.oneshot == 0){
+				if (AO_CONTINUOUS){
 					xo_dev->AO_playloop.repeats++;
 				}else{
 					--xo_dev->AO_playloop.repeats;
@@ -1740,7 +1741,7 @@ int xo_data_loop(void *data)
 		}
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			int cc;
-			if (LAST_PUSH(adev)){
+			if (LAST_PUSH){
 				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFEV);
 			}else{
 				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFST);
@@ -1760,7 +1761,7 @@ quit:
 		if (wait_event_interruptible_timeout(
 			adev->DMA_READY,
 			adev->dma_callback_done, dma_timeout) <= 0){
-			dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
+			dev_err(DEVP(adev), "TIMEOUT waiting for DMA %d\n", __LINE__);
 		}
 	}
 	if (adev->dma_callback_done){
