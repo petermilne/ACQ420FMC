@@ -2317,6 +2317,9 @@ static ssize_t store_playloop_length(
 static DEVICE_ATTR(playloop_length,
 		S_IRUGO|S_IWUGO, show_playloop_length, store_playloop_length);
 
+
+
+
 static ssize_t show_playloop_oneshot(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2443,6 +2446,47 @@ static ssize_t show_task_active(
 }
 
 static DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
+
+static ssize_t show_pull_buf(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.pull_buf);
+}
+
+static DEVICE_ATTR(playloop_pull_buf, S_IRUGO, show_pull_buf, 0);
+
+
+static ssize_t show_push_buf(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.push_buf);
+}
+
+static ssize_t store_push_buf(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (sscanf(buf, "%u", &xo_dev->AO_playloop.push_buf) == 1){
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(playloop_push_buf,
+		S_IRUGO|S_IWUGO, show_push_buf, store_push_buf);
 
 static ssize_t show_playloop_repeats(
 	struct device * dev,
@@ -2767,15 +2811,22 @@ MAKE_BITS(offset_06, AO428_OFFSET_6, 0, 0x000fffff);
 MAKE_BITS(offset_07, AO428_OFFSET_7, 0, 0x000fffff);
 MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
 
-static const struct attribute *ao428_attrs[] = {
-	&dev_attr_xo_buffers.attr,
+
+
+static const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
 	&dev_attr_playloop_maxshot.attr,
 	&dev_attr_playloop_cursor.attr,
 	&dev_attr_playloop_repeats.attr,
 	&dev_attr_playloop_maxlen.attr,
+	&dev_attr_playloop_push_buf.attr,
+	&dev_attr_playloop_pull_buf.attr,
+	&dev_attr_xo_buffers.attr,
 	&dev_attr_task_active.attr,
+	NULL
+};
+static const struct attribute *ao428_attrs[] = {
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
@@ -2808,14 +2859,6 @@ static const struct attribute *ao420_attrs[] = {
 	&dev_attr_AO_02.attr,
 	&dev_attr_AO_03.attr,
 	&dev_attr_AO_04.attr,
-	&dev_attr_xo_buffers.attr,
-	&dev_attr_playloop_length.attr,
-	&dev_attr_playloop_oneshot.attr,
-	&dev_attr_playloop_maxshot.attr,
-	&dev_attr_playloop_cursor.attr,
-	&dev_attr_playloop_repeats.attr,
-	&dev_attr_playloop_maxlen.attr,
-	&dev_attr_task_active.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
@@ -2861,14 +2904,6 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_30.attr,
 	&dev_attr_AO_31.attr,
 	&dev_attr_AO_32.attr,
-	&dev_attr_xo_buffers.attr,
-	&dev_attr_playloop_length.attr,
-	&dev_attr_playloop_oneshot.attr,
-	&dev_attr_playloop_maxshot.attr,
-	&dev_attr_playloop_cursor.attr,
-	&dev_attr_playloop_repeats.attr,
-	&dev_attr_playloop_maxlen.attr,
-	&dev_attr_task_active.attr,
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -3095,11 +3130,6 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
 	&dev_attr_ext_clk_from_sync.attr,
-	&dev_attr_xo_buffers.attr,
-	&dev_attr_playloop_length.attr,
-	&dev_attr_playloop_cursor.attr,
-	&dev_attr_playloop_repeats.attr,
-	&dev_attr_task_active.attr,
 	&dev_attr_dpg_status.attr,
 	NULL
 };
@@ -4332,7 +4362,7 @@ extern const struct attribute *acq423_attrs[];
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	const struct attribute **specials[3];
+	const struct attribute **specials[4];
 	int nspec = 0;
 
 	dev_info(dev, "acq400_createSysfs()");
@@ -4417,14 +4447,17 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_ACQ43X(adev)){
 			specials[nspec++] = acq435_attrs;
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
+			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;
 			specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
 		}else if (IS_AO424(adev)){
+			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = ao424_attrs;
 		}else if (IS_BOLO8(adev)){
 			specials[nspec++] = dacspi_attrs;
 			specials[nspec++] = bolo8_attrs;
 		}else if (IS_DIO432X(adev)){
+			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dio432_attrs;
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
