@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.330"
+#define REVID "3.331"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1607,7 +1607,13 @@ static char* flags2str(unsigned flags)
 }
 
 
-
+void incr_push(struct acq400_dev *adev, struct XO_dev* xo_dev)
+{
+	xo_dev->AO_playloop.pull_buf += 1;
+	if (xo_dev->AO_playloop.pull_buf == xo_dev->AO_playloop.push_buf){
+		dev_err(DEVP(adev), "pull == push : buffer overrun");
+	}
+}
 
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
@@ -1616,7 +1622,7 @@ int xo_data_loop(void *data)
  * hence: adev: master site, adev0: distributor access.
  */
 {
-	//static const unsigned nflags[2] = { 0, 0 };
+//	static const unsigned nflags[2] = { 0, 0 };
 	static const unsigned wflags[2] = { DMA_WAIT_EV0, DMA_WAIT_EV1 };
 	static const unsigned sflags[2] = { DMA_SET_EV1,  DMA_SET_EV0  };
 	static const unsigned xflags[2] = { DMA_WAIT_EV0|DMA_SET_EV1,  DMA_WAIT_EV1|DMA_SET_EV0  };
@@ -1625,20 +1631,22 @@ int xo_data_loop(void *data)
 	struct acq400_dev *adev0 = acq400_devices[0];
 	struct HBM** hbm0 = adev0->hb;
 	int ic = 0;
-	int ib = distributor_first_buffer;
+#define IB 	(xo_dev->AO_playloop.pull_buf)
+#define IBINCR	incr_push(adev, xo_dev)
+
 	long dma_timeout = START_TIMEOUT;
 	int maxlen = max(xo_dev->AO_playloop.maxlen, xo_dev->AO_playloop.length);
 	int shot_buffer_count0 = maxlen/ao_samples_per_hb(adev0);
 	int shot_buffer_count = shot_buffer_count0;
 
 	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",
-				ib, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
+				IB, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
 
 	if (shot_buffer_count*ao_samples_per_hb(adev) < xo_dev->AO_playloop.length){
 		shot_buffer_count += 1;
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");
 	}
-
+	IB = distributor_first_buffer;
 	adev->stats.shot++;
 	adev->stats.run = 1;
 	adev->stats.xo.dma_buffers_out =
@@ -1676,15 +1684,16 @@ int xo_data_loop(void *data)
 	 * 0 starts filling right away
 	 * */
 	if (shot_buffer_count > 1){
-		DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[ib+1], WFST);
-		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[ib+0], STEV);
-		ib += 2;
+		DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[IB+1], WFST);
+		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[IB+0], STEV);
+		IBINCR;
+		IBINCR;
 
 		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
 	}else{
 		dev_warn(DEVP(adev), "Single buffer won't work");
-		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[ib], STEV);
-		ib += 1;
+		DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[IB], STEV);
+		IBINCR;
 	}
 
 	sc_data_engine_reset_enable(DATA_ENGINE_1);
@@ -1729,7 +1738,7 @@ int xo_data_loop(void *data)
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
 			if (AO_CONTINUOUS || xo_dev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
-				ib = 0;
+				IB = 0;
 				xo_dev->AO_playloop.cursor = 0;
 				/** @@todo dodgy : output or input dep on mode */
 				if (AO_CONTINUOUS){
@@ -1742,12 +1751,12 @@ int xo_data_loop(void *data)
 		if (adev->stats.xo.dma_buffers_out < shot_buffer_count){
 			int cc;
 			if (LAST_PUSH){
-				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFEV);
+				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[IB], WFEV);
 			}else{
-				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[ib], WFST);
+				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[IB], WFST);
 			}
 			adev->dma_cookies[ic] = cc;
-			ib++;
+			IBINCR;
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
 		yield();
