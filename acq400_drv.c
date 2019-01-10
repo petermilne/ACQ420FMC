@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.331"
+#define REVID "3.334"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1639,8 +1639,14 @@ int xo_data_loop(void *data)
 	int shot_buffer_count0 = maxlen/ao_samples_per_hb(adev0);
 	int shot_buffer_count = shot_buffer_count0;
 
+#define AO_CONTINUOUS	(xo_dev->AO_playloop.oneshot == AO_continuous)
+#define LAST_PUSH \
+	(!AO_CONTINUOUS && adev->stats.xo.dma_buffers_out+1 >= shot_buffer_count)
 	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",
 				IB, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
+
+	int continuous_at_start = AO_CONTINUOUS;
+	int last_push_done = 0;
 
 	if (shot_buffer_count*ao_samples_per_hb(adev) < xo_dev->AO_playloop.length){
 		shot_buffer_count += 1;
@@ -1673,9 +1679,7 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
 	} while(0)
 
-#define AO_CONTINUOUS	(xo_dev->AO_playloop.oneshot == AO_continuous)
-#define LAST_PUSH \
-	(!AO_CONTINUOUS && adev->stats.xo.dma_buffers_out+1 >= shot_buffer_count)
+
 
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
@@ -1735,6 +1739,10 @@ int xo_data_loop(void *data)
 
 		xo_dev->AO_playloop.cursor += ao_samples_per_hb(adev);
 
+		if (last_push_done && continuous_at_start){
+			dev_dbg(DEVP(adev), "continuous going down ..");
+			goto quit;
+		}
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
 			if (AO_CONTINUOUS || xo_dev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
@@ -1752,6 +1760,7 @@ int xo_data_loop(void *data)
 			int cc;
 			if (LAST_PUSH){
 				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[IB], WFEV);
+				last_push_done = 1;
 			}else{
 				DMA_ASYNC_PUSH(cc, adev, ic, hbm0[IB], WFST);
 			}
