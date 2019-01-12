@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.334"
+#define REVID "3.336"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -1633,6 +1633,7 @@ int xo_data_loop(void *data)
 	int ic = 0;
 #define IB 	(xo_dev->AO_playloop.pull_buf)
 #define IBINCR	incr_push(adev, xo_dev)
+#define IBRESET do { IB = distributor_first_buffer; } while(0)
 
 	long dma_timeout = START_TIMEOUT;
 	int maxlen = max(xo_dev->AO_playloop.maxlen, xo_dev->AO_playloop.length);
@@ -1652,7 +1653,7 @@ int xo_data_loop(void *data)
 		shot_buffer_count += 1;
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");
 	}
-	IB = distributor_first_buffer;
+	IBRESET;
 	adev->stats.shot++;
 	adev->stats.run = 1;
 	adev->stats.xo.dma_buffers_out =
@@ -1746,7 +1747,7 @@ int xo_data_loop(void *data)
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
 			if (AO_CONTINUOUS || xo_dev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
-				IB = 0;
+				IBRESET;
 				xo_dev->AO_playloop.cursor = 0;
 				/** @@todo dodgy : output or input dep on mode */
 				if (AO_CONTINUOUS){
@@ -1805,6 +1806,10 @@ quit:
 	}
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
+	if (adev->stats.xo.dma_buffers_out != adev->stats.xo.dma_buffers_in){
+		dev_err(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
+				adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
+	}
 	return 0;
 }
 
