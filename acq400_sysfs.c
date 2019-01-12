@@ -1093,6 +1093,35 @@ static ssize_t show_bufferlen(
 
 static DEVICE_ATTR(bufferlen, S_IRUGO|S_IWUSR, show_bufferlen, store_bufferlen);
 
+
+static ssize_t store_dist_bufferlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 _bufferlen;
+	if (sscanf(buf, "%u", &_bufferlen) == 1){
+		struct acq400_dev *adev = acq400_devices[dev->id];
+
+		if (acq400_set_dist_bufferlen(adev, _bufferlen) == _bufferlen){
+			return count;
+		}
+	}
+
+	return -1;
+}
+static ssize_t show_dist_bufferlen(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", acq400_get_dist_bufferlen(adev));
+}
+
+static DEVICE_ATTR(dist_bufferlen, S_IRUGO|S_IWUGO, show_dist_bufferlen, store_dist_bufferlen);
+
 static ssize_t store_AXI_DMA_len(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1866,6 +1895,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_fpga_rev.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
+	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_optimise_bufferlen.attr,
 	&dev_attr_site.attr,
 	&dev_attr_data32.attr,

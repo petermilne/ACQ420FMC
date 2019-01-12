@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.336"
+#define REVID "3.337"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -624,6 +624,25 @@ int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen)
 	}
 
 	return adev->bufferlen;
+}
+
+extern int acq400_set_dist_bufferlen(struct acq400_dev *adev, int _bufferlen)
+{
+	int dbl;
+	int ib;
+	if (_bufferlen){
+		dbl = min(bufferlen, _bufferlen);
+	}else{
+		dbl = bufferlen;
+	}
+	for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
+		adev->hb[ib]->len = dbl;
+	}
+	return dbl;
+}
+extern int acq400_get_dist_bufferlen(struct acq400_dev *adev)
+{
+	return adev->hb[distributor_first_buffer]->len;
 }
 int acq2006_continuous_start(struct inode *inode, struct file *file)
 /* this sequence CRITICAL for a clean start
@@ -1538,7 +1557,6 @@ void xo400_getDMA(struct acq400_dev* adev)
 
 int ao_samples_per_hb(struct acq400_dev *adev)
 {
-	// @@todo valid single DIO432 ONLY!
 	return bufferlen / xo_distributor_sample_size;
 }
 
@@ -1667,7 +1685,7 @@ int xo_data_loop(void *data)
 #define DMA_ASYNC_PUSH(lvar, adev, chan, hbm, flags)	do {		\
 	unsigned _flags = DMA_DS0_FLAGS|(flags[chan]);			\
 	lvar = dma_async_memcpy_callback(adev->dma_chan[chan], 		\
-			FIFO_PA(adev0), hbm->pa, adev0->bufferlen, 	\
+			FIFO_PA(adev0), hbm->pa, hbm->len, 	\
 			_flags, acq400_dma_callback, adev);		\
 	dev_dbg(DEVP(adev), "DMA_ASYNC_PUSH #%d [%d] ix:%d pa:0x%08x %s",\
 		__LINE__, chan, hbm->ix, hbm->pa, flags2str(_flags)); 	\
