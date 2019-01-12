@@ -5,6 +5,12 @@ PKO="packageko-$REL-$1.img"
 echo Building $PKO
 rm -Rf modules_output
 mkdir -p modules_output
+
+(cd ../DRIVERS/ISL22313; ./make.zynq)
+(cd ../DRIVERS/SI5326; ./make.zynq)
+cp ../DRIVERS/ISL22313/isl22313.ko modules_output
+cp ../DRIVERS/SI5326/si5326.ko modules_output
+
 cp $(find ../linux-xlnx -name \*.ko) modules_output
 cp *.ko modules_output
 mksquashfs modules_output/* release/$PKO 2>&1 >squashfs.log
