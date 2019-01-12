@@ -522,6 +522,9 @@ short ao424_fixEncoding(struct acq400_dev *adev, int pchan, short value);
 
 extern int acq400_set_bufferlen(struct acq400_dev *adev, int _bufferlen);
 
+extern int acq400_set_dist_bufferlen(struct acq400_dev *adev, int _bufferlen);
+extern int acq400_get_dist_bufferlen(struct acq400_dev *adev);
+
 enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
 
 void acq2006_estop(struct acq400_dev *adev);
