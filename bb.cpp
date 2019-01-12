@@ -112,6 +112,9 @@ struct poptOption opt_table[] = {
 	{ "minbufs", 'b', POPT_ARG_INT, &G::minbufs, 0,
 			"minimum buffers : 4 is safe with large buffers, 2 possible for small shots"
 	},
+	{
+	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -204,6 +207,12 @@ int _load_pad(int nsamples)
 	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
 	int padsam = 0;
 
+	if (G::verbose){
+		fprintf(stderr, "nsamples:%d G::sample_size:%d BL:%d\n",
+				nsamples, G::sample_size, Buffer::bufferlen);
+		fprintf(stderr, "nsamples:0x%x G::sample_size:0x%x BL:0x%x\n",
+						nsamples, G::sample_size, Buffer::bufferlen);
+	}
 	MARK;
 	if (residue){
 		padsam = (Buffer::bufferlen - residue)/G::sample_size;
@@ -344,7 +353,7 @@ int _load() {
 			G::sample_size, G::max_samples, G::fp_in);
 
 	syslog(LOG_DEBUG, "bb fread returned %d feof:%d ferror:%d errno:%d",
-			G::max_samples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
+			nsamples, feof(G::fp_in), ferror(G::fp_in), ferror(G::fp_in)? errno: 0);
 	if (ferror(G::fp_in)){
 		syslog(LOG_DEBUG, "bb fread ERROR exit");
 		exit(1);
@@ -378,7 +387,10 @@ int dump() {
 	return 0;
 }
 
-#define DFB	"/sys/module/acq420fmc/parameters/distributor_first_buffer"
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define DFB	 MODPRAMS "distributor_first_buffer"
+#define BUFLEN	 MODPRAMS "bufferlen"
+#define NBUF	 MODPRAMS "nbuffers"
 RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -391,10 +403,11 @@ RUN_MODE ui(int argc, const char** argv)
 	if ((evar = getenv("BB_LOAD_THRESHOLD"))){
 		G::load_threshold = atoi(evar);
 	}
-	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
-	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
-	getKnob(G::devnum, DFB, &G::buffer0);
+	getKnob(-1, NBUF,  &Buffer::nbuffers);
+	getKnob(-1, BUFLEN, &Buffer::bufferlen);
+	getKnob(-1, DFB, 	&G::buffer0);
 
+	Buffer::nbuffers -= G::buffer0;
 
 	unsigned dist_s1;
 	getKnob(0, "dist_s1", &dist_s1);
@@ -439,7 +452,7 @@ class BufferManager {
 	{
 		const char* root = getRoot(G::devnum);
 		Buffer::last_buf = G::buffer0;
-		for (unsigned ii = 0; ii < Buffer::nbuffers-G::buffer0; ++ii){
+		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 			Buffer::create(root, Buffer::bufferlen);
 		}
 	}
