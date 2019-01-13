@@ -1120,7 +1120,7 @@ static ssize_t show_dist_bufferlen(
 	return sprintf(buf, "%u\n", acq400_get_dist_bufferlen(adev));
 }
 
-static DEVICE_ATTR(dist_bufferlen, S_IRUGO|S_IWUGO, show_dist_bufferlen, store_dist_bufferlen);
+static DEVICE_ATTR(dist_bufferlen, S_IRUGO|S_IWUSR, show_dist_bufferlen, store_dist_bufferlen);
 
 static ssize_t store_AXI_DMA_len(
 	struct device * dev,
@@ -2516,7 +2516,7 @@ static ssize_t store_push_buf(
 }
 
 static DEVICE_ATTR(playloop_push_buf,
-		S_IRUGO|S_IWUGO, show_push_buf, store_push_buf);
+		S_IRUGO|S_IWUSR, show_push_buf, store_push_buf);
 
 static ssize_t show_playloop_repeats(
 	struct device * dev,
