@@ -38,7 +38,7 @@
  * 0x28 : ad7417
  * 0x29 : ad7417
  */
-#define REVID	"2"
+#define REVID	"1.1.0"
 
 #include <linux/kernel.h>
 #include <linux/cdev.h>
@@ -67,6 +67,9 @@ module_param(radcelf_gpio_base, int, 0644);
 
 int goslow_usec_kludge;
 module_param(goslow_usec_kludge, int, 0644);
+
+int spi_bus_num = 0;
+module_param(spi_bus_num, int, 0644);
 
 struct radcelf_dev {
 	struct platform_device *pdev;
@@ -130,6 +133,9 @@ static int radcelf_init_spi(void)
 		pd[ii].dev_private = acq400_sites[2];
 		pd[ii].strobe = acq400_spi_strobe;
 		pd[ii].strobe_mode = SPI_STROBE_NONE;
+	}
+	for (ii = 0; ii < 5; ++ii){
+		spi_devs[ii].bus_num = spi_bus_num;
 	}
 
 	return spi_register_board_info(spi_devs, 5);
