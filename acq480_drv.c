@@ -58,6 +58,8 @@ module_param_array(acq480_sites, int, &acq480_sites_count, 0644);
 static int n_acq480;
 module_param(n_acq480, int, 0444);
 
+static int spi_bus_num = 1;
+module_param(spi_bus_num, int, 0444);
 
 #define I2C_CHAN(site) 	((site)+1)
 #define NGPIO_CHIP	8
@@ -417,6 +419,8 @@ static void __init acq480_init_site(int site)
 			kzalloc(sizeof(struct platform_device), GFP_KERNEL);
 	pdev->name = MODULE_NAME;
 	pdev->id = site;
+
+	ads5294spi_spi_slave_info.bus_num = spi_bus_num;
 	platform_device_register(pdev);
 
 	ads5294spi_spi_slave_info.chip_select = site - 1;
