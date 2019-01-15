@@ -68,7 +68,7 @@ module_param(radcelf_gpio_base, int, 0644);
 int goslow_usec_kludge;
 module_param(goslow_usec_kludge, int, 0644);
 
-int spi_bus_num = 0;
+int spi_bus_num = 1;
 module_param(spi_bus_num, int, 0644);
 
 struct radcelf_dev {
