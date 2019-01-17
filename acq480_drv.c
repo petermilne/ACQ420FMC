@@ -48,7 +48,7 @@
 
 #include "acq480_ioctl.h"
 
-#define REVID 		"1"
+#define REVID 		"1.1.0"
 #define MODULE_NAME	"acq480"
 
 int acq480_sites[6] = { 0,  };
