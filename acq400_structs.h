@@ -377,7 +377,7 @@ struct acq400_path_descriptor {
 
 #define MIN_DMA_BYTES	256
 
-#define MAXDEVICES 	6
+#define MAXDEVICES 	12
 
 
 
