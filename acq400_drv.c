@@ -219,10 +219,7 @@ MODULE_PARM_DESC(continuous_reader, "bitmask shows which sites have a reader");
 
 // @@todo pgm: crude: index by site, index from 0
 const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
-const char* acq400_devnames[] = {
-	"acq400.0", "acq400.1", "acq400.2",
-	"acq400.3", "acq400.4", "acq400.5", "acq400.6"
-};
+
 
 #define AO420_NBUFFERS 	2
 
@@ -285,6 +282,10 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 
 const char* devname(struct acq400_dev *adev)
 {
+	static const char* acq400_devnames[] = {
+		"acq400.0", "acq400.1", "acq400.2",
+		"acq400.3", "acq400.4", "acq400.5", "acq400.6"
+	};
 	return acq400_devnames[adev->of_prams.site];
 }
 
@@ -2712,12 +2713,12 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 		rc = devm_request_threaded_irq(
 				DEVP(adev), adev->of_prams.irq,
 				ao400_isr, xo400_dma,
-				IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+				IRQF_SHARED, devname(adev),
 				adev);
 	}else{
 		rc = devm_request_irq(
 				DEVP(adev), adev->of_prams.irq, acq400_isr,
-				IRQF_SHARED, acq400_devnames[adev->of_prams.site],
+				IRQF_SHARED, devname(adev),
 				adev);
 	}
 	if (rc){
@@ -2827,8 +2828,7 @@ static int acq400_probe(struct platform_device *pdev)
         adev->dev_physaddr = acq400_resource->start;
         adev->dev_addrsize = acq400_resource->end - acq400_resource->start + 1;
 
-        if (!request_mem_region(adev->dev_physaddr,
-                adev->dev_addrsize, acq400_devnames[adev->of_prams.site])) {
+        if (!request_mem_region(adev->dev_physaddr, adev->dev_addrsize, devname(adev))) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
                         adev->dev_physaddr);
                 rc = -ENODEV;
@@ -2847,8 +2847,7 @@ static int acq400_probe(struct platform_device *pdev)
         	return 0;
         }
 
-        rc = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0,
-        		ACQ420_MINOR_MAX, acq400_devnames[adev->of_prams.site]);
+        rc = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0, ACQ420_MINOR_MAX, devname(adev));
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (rc < 0) {
                 dev_err(&pdev->dev, "unable to register chrdev\n");
