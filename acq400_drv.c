@@ -282,11 +282,7 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 
 const char* devname(struct acq400_dev *adev)
 {
-	static const char* acq400_devnames[] = {
-		"acq400.0", "acq400.1", "acq400.2",
-		"acq400.3", "acq400.4", "acq400.5", "acq400.6"
-	};
-	return acq400_devnames[adev->of_prams.site];
+	return adev->dev_name;
 }
 
 
@@ -2824,7 +2820,8 @@ static int acq400_probe(struct platform_device *pdev)
         	rc = -ENODEV;
         	goto remove;
         }
-
+        snprintf(adev->site_no, 4, "%d", adev->of_prams.site);
+        snprintf(adev->dev_name, 16, "acq400.%d", adev->of_prams.site);
         adev->dev_physaddr = acq400_resource->start;
         adev->dev_addrsize = acq400_resource->end - acq400_resource->start + 1;
 

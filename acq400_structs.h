@@ -105,6 +105,8 @@ struct acq400_dev {
 	struct dentry* debug_dir;
 	char *debug_names;
 
+	char site_no[4];		/* string, %d 3 chars, \0 */
+	char dev_name[16];		/* string, acq400.%d many chars \0 */
 	u32 mod_id;
 	wait_queue_head_t waitq;
 

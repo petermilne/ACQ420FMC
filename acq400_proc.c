@@ -328,8 +328,7 @@ static struct file_operations acq400_proc_ops_stats = {
 void acq400_init_proc(struct acq400_dev* acq400_dev)
 /* create unique stats entry under /proc/acq420/ */
 {
-	acq400_dev->proc_entry = proc_mkdir(
-		acq400_names[acq400_dev->of_prams.site], acq400_proc_root);
+	acq400_dev->proc_entry = proc_mkdir(acq400_dev->site_no, acq400_proc_root);
 
 	proc_create("channel_mapping", 0, acq400_dev->proc_entry, &acq400_proc_ops_channel_mappingc);
 	proc_create("buffers", 0, acq400_dev->proc_entry, &acq400_proc_ops_buffers);
@@ -345,7 +344,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 
 void acq400_del_proc(struct acq400_dev* adev)
 {
-	remove_proc_entry(acq400_names[adev->pdev->id], acq400_proc_root);
+	remove_proc_entry(adev->site_no, acq400_proc_root);
 }
 
 void acq400_module_init_proc(void)
