@@ -377,7 +377,8 @@ struct acq400_path_descriptor {
 
 #define MIN_DMA_BYTES	256
 
-#define MAXDEVICES 	12
+#define MAX_PHYSICAL_SITES	 6
+#define MAXDEVICES 		12	/* includes virtual devices 101..106 */
 
 
 

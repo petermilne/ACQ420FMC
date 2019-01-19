@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.337"
+#define REVID "3.338"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -290,7 +290,7 @@ int isGoodSite(int site)
 {
 	if (site == 0){
 		return 1;
-	}else if (site < 0 || site > MAXDEVICES){
+	}else if (site < 0 || site%100 > MAX_PHYSICAL_SITES ){
 		return 0;
 	}else{
 		int ii;

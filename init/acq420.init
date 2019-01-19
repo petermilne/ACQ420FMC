@@ -674,9 +674,25 @@ if [ "$acq2106_sn" != "$dtsn" ]; then
 		DRVR_CUSTOM="$DRVR_CUSTOM is_acq2106B=1"
 	fi
 fi		
-	
-	
-if [ "x$(get_mtype 1)" = "x08" ]; then
+
+has_acq48x=0
+vsites=
+
+for s in $(echo $good_sites | tr , \  ); do
+	case $(get_mtype $s) in
+	08)
+		echo "+++ has_acq48x"
+		
+		has_acq48x=1;;
+	6D)
+		vs=$(($s+100))
+		echo "+++ has acq436 in site $s, create virtual site $vs"		
+		cp -a /dev/sites/$s /dev/sites/$vs
+		vsites="${vsites},vs";;
+	esac
+done
+
+if [ $has_acq48x -ne 0 ]; then	
 # larger buffers for ACQ480
 	if [ "x$ACQ480_CUSTOM_BUF" != "xy" ]; then
 		BLEN=0x400000
@@ -688,6 +704,8 @@ if [ "x$(get_mtype 1)" = "x08" ]; then
 else
 	VAP=13
 fi
+
+GS="${GS}${vsites}"
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 sleep .2 	
