@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.340"
+#define REVID "3.343"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2697,23 +2697,24 @@ int init_axi64_hbm(struct acq400_dev* adev)
 	}
 }
 
-
+#define IRQ_REQUEST_OFFSET	0		/* arg to platform get irq is OFFSET from region. Linux knows best! */
 
 int acq400_mod_init_irq(struct acq400_dev* adev)
 {
 	int rc;
+	int irq;
 	if (adev->of_prams.irq == 0){
 		return 0;
 	}
+	irq = platform_get_irq(adev->pdev, IRQ_REQUEST_OFFSET);
+	dev_info(DEVP(adev), "acq400_mod_init_irq %d -> %d", adev->of_prams.irq, irq);
 	if (IS_AO42X(adev)||IS_DIO432X(adev)){
 		rc = devm_request_threaded_irq(
-				DEVP(adev), adev->of_prams.irq,
-				ao400_isr, xo400_dma, IRQF_SHARED, adev->dev_name,
-				adev);
+				DEVP(adev), irq, ao400_isr, xo400_dma, IRQF_SHARED,
+				adev->dev_name,	adev);
 	}else{
 		rc = devm_request_irq(
-				DEVP(adev), adev->of_prams.irq,
-				acq400_isr, IRQF_SHARED, adev->dev_name, adev);
+				DEVP(adev), irq, acq400_isr, IRQF_SHARED, adev->dev_name, adev);
 	}
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n",adev->of_prams.irq);
@@ -2822,6 +2823,8 @@ static int acq400_probe(struct platform_device *pdev)
         snprintf(adev->dev_name, 16, "acq400.%d", adev->of_prams.site);
         adev->dev_physaddr = acq400_resource->start;
         adev->dev_addrsize = acq400_resource->end - acq400_resource->start + 1;
+
+        dev_info(DEVP(adev), "request_mem_region(%x %x %s)", adev->dev_physaddr, adev->dev_addrsize, adev->dev_name);
 
         if (!request_mem_region(adev->dev_physaddr, adev->dev_addrsize, adev->dev_name)) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
