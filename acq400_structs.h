@@ -478,7 +478,6 @@ void dio432_disable(struct acq400_dev* adev);
 
 extern int a400fs_init(void);
 extern void a400fs_exit(void);
-extern const char* devname(struct acq400_dev *adev);
 
 void ao424_setspan_defaults(struct acq400_dev* adev);
 int ao424_set_spans(struct acq400_dev* adev);

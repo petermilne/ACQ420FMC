@@ -324,7 +324,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
-	adev->debug_dir = debugfs_create_dir(devname(adev), acq400_debug_root);
+	adev->debug_dir = debugfs_create_dir(adev->dev_name, acq400_debug_root);
 
 	if (!adev->debug_dir){
 		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");
@@ -419,7 +419,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
-	adev->debug_dir = debugfs_create_dir(devname(adev), acq400_debug_root);
+	adev->debug_dir = debugfs_create_dir(adev->dev_name, acq400_debug_root);
 
 	if (!adev->debug_dir){
 		dev_warn(&adev->pdev->dev, "failed create dir acq400.x");

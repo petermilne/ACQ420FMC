@@ -135,8 +135,8 @@ int dio32_immediate_loop(void *data)
 
 void dio432_init_immediate(struct acq400_dev* adev)
 {
-	adev->w_task = kthread_run(dio32_immediate_loop, adev,
-					"%s.dio32i", devname(adev));
+	adev->w_task = kthread_run(
+			dio32_immediate_loop, adev, "%s.dio32i", adev->dev_name);
 }
 
 void dio432_init_clocked(struct acq400_dev* adev)

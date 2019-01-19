@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.338"
+#define REVID "3.340"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -279,26 +279,26 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 	}
 }
 
-
-const char* devname(struct acq400_dev *adev)
-{
-	return adev->dev_name;
-}
-
-
+#define GS_DBG(...)
+//#define GS_DBG dev_info
 int isGoodSite(int site)
 {
+	GS_DBG(0, "%s %d site %d", __FUNCTION__, __LINE__, site);
 	if (site == 0){
+		GS_DBG(0, "%s %d site %d", __FUNCTION__, __LINE__, site);
 		return 1;
 	}else if (site < 0 || site%100 > MAX_PHYSICAL_SITES ){
+		GS_DBG(0, "%s %d site %d", __FUNCTION__, __LINE__, site);
 		return 0;
 	}else{
 		int ii;
 		for (ii = 0; ii < good_sites_count; ++ii){
 			if (good_sites[ii] == site){
+				GS_DBG(0, "%s %d site %d", __FUNCTION__, __LINE__, site);
 				return 1;
 			}
 		}
+		GS_DBG(0, "%s %d site %d", __FUNCTION__, __LINE__, site);
 		return 0;
 	}
 }
@@ -534,7 +534,7 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 					IS_AXI64_DUALCHAN(adev)? axi64_dual_data_loop:
 							IS_AXI64(adev)? axi64_data_loop:
 							ai_data_loop,
-					adev, "%s.ai", devname(adev));
+					adev, "%s.ai", adev->dev_name);
 			if (IS_ERR_OR_NULL(adev->w_task)){
 				dev_err(DEVP(adev), "ERROR: failed to start task %p", adev->w_task);
 				if (++retry > 5){
@@ -551,7 +551,7 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 	}
 
 	if (adev->h_task == 0){
-		adev->h_task = kthread_run(fifo_monitor, adev, "%s.fm", devname(adev));
+		adev->h_task = kthread_run(fifo_monitor, adev, "%s.fm", adev->dev_name);
 	}
 	while(!adev->task_active){
 		yield();
@@ -1121,7 +1121,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	adev->stream_dac_consumer.hb = 0;
 	adev->stream_dac_consumer.offset = 0;
 	adev->w_task = kthread_run(
-		streamdac_data_loop, adev, "%s.dac", devname(adev));
+		streamdac_data_loop, adev, "%s.dac", adev->dev_name);
 	return 0;
 }
 
@@ -1491,8 +1491,7 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 				dev_dbg(DEVP(adev), "ao420 oneshot done disable interrupt");
 				x400_disable_interrupt(adev);
 				rc = 0;
-				kthread_run(ao_auto_rearm, adev,
-							"%s.awgrearm", devname(adev));
+				kthread_run(ao_auto_rearm, adev, "%s.awgrearm", adev->dev_name);
 				goto done_no_check;
 			}else{
 				xo_dev->AO_playloop.cursor = 0;
@@ -1817,7 +1816,7 @@ quit:
 	if (xo_dev->AO_playloop.oneshot == AO_oneshot_rearm &&
 	    (xo_dev->AO_playloop.maxshot==0 || adev->stats.shot < xo_dev->AO_playloop.maxshot)){
 		dev_dbg(DEVP(adev), "xo_data_loop() spawn auto_rearm");
-		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", devname(adev));
+		kthread_run(ao_auto_rearm, adev, "%s.awgrearm", adev->dev_name);
 	}
 	dev_dbg(DEVP(adev), "xo_data_loop() 99 out:%d in:%d",
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
@@ -1836,7 +1835,7 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 	if (enable){
 		adev->w_task = kthread_run(
 			xo_data_loop, adev,
-			"%s.xo", devname(adev));
+			"%s.xo", adev->dev_name);
 		while(!adev->task_active){
 			msleep(10);
 			if (++pollcat > 100){
@@ -2487,20 +2486,18 @@ static int _acq400_device_tree_init(
 {
 
 	u32 irqs[OF_IRQ_COUNT];
+	u32 site;
 
-	if (of_property_read_u32(of_node, "site",
-			&adev->of_prams.site) < 0){
+	if (of_property_read_u32(of_node, "site", &site) < 0){
 		dev_warn(DEVP(adev), "error: site NOT specified in DT\n");
 		return -1;
 	}else{
-		if (!isGoodSite(adev->of_prams.site)){
-			dev_warn(DEVP(adev),
-					"warning: site %d NOT GOOD\n",
-					adev->of_prams.site);
+		if (!isGoodSite(site)){
+			dev_warn(DEVP(adev), "warning: site %d NOT GOOD\n", site);
 			return -1;
 		}else{
-			dev_info(DEVP(adev), "site:%d GOOD\n",
-					adev->of_prams.site);
+			adev->of_prams.site = site;
+			dev_info(DEVP(adev), "site:%d GOOD\n", site);
 		}
 	}
 	if (of_property_read_u32_array(
@@ -2705,17 +2702,18 @@ int init_axi64_hbm(struct acq400_dev* adev)
 int acq400_mod_init_irq(struct acq400_dev* adev)
 {
 	int rc;
+	if (adev->of_prams.irq == 0){
+		return 0;
+	}
 	if (IS_AO42X(adev)||IS_DIO432X(adev)){
 		rc = devm_request_threaded_irq(
 				DEVP(adev), adev->of_prams.irq,
-				ao400_isr, xo400_dma,
-				IRQF_SHARED, devname(adev),
+				ao400_isr, xo400_dma, IRQF_SHARED, adev->dev_name,
 				adev);
 	}else{
 		rc = devm_request_irq(
-				DEVP(adev), adev->of_prams.irq, acq400_isr,
-				IRQF_SHARED, devname(adev),
-				adev);
+				DEVP(adev), adev->of_prams.irq,
+				acq400_isr, IRQF_SHARED, adev->dev_name, adev);
 	}
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n",adev->of_prams.irq);
@@ -2825,15 +2823,15 @@ static int acq400_probe(struct platform_device *pdev)
         adev->dev_physaddr = acq400_resource->start;
         adev->dev_addrsize = acq400_resource->end - acq400_resource->start + 1;
 
-        if (!request_mem_region(adev->dev_physaddr, adev->dev_addrsize, devname(adev))) {
+        if (!request_mem_region(adev->dev_physaddr, adev->dev_addrsize, adev->dev_name)) {
                 dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
                         adev->dev_physaddr);
                 rc = -ENODEV;
                 goto fail;
         }
-        adev->dev_virtaddr =
-        	ioremap(adev->dev_physaddr, adev->dev_addrsize);
-        dev_dbg(DEVP(adev), "acq400: mapped 0x%0x to 0x%0x\n",
+        adev->dev_virtaddr = ioremap(adev->dev_physaddr, adev->dev_addrsize);
+        dev_info(DEVP(adev), "acq400: site_no:%s dev_name:%s mapped 0x%0x to 0x%0x\n",
+        	adev->site_no, adev->dev_name,
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
 
         adev = acq400_allocate_module_device(adev);
@@ -2844,7 +2842,7 @@ static int acq400_probe(struct platform_device *pdev)
         	return 0;
         }
 
-        rc = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0, ACQ420_MINOR_MAX, devname(adev));
+        rc = alloc_chrdev_region(&adev->devno, ACQ420_MINOR_0, ACQ420_MINOR_MAX, adev->dev_name);
         //status = register_chrdev_region(acq420_dev->devno, 1, MODULE_NAME);
         if (rc < 0) {
                 dev_err(&pdev->dev, "unable to register chrdev\n");

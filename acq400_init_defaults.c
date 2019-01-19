@@ -486,7 +486,7 @@ int xtd_watchdog(void *data)
 
 static void start_xtd_watchdog(struct acq400_dev *adev)
 {
-	kthread_run(xtd_watchdog, adev, "%s.xtd", devname(adev));
+	kthread_run(xtd_watchdog, adev, "%s.xtd", adev->dev_name);
 }
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
