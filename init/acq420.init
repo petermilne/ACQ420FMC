@@ -688,7 +688,7 @@ for s in $(echo $good_sites | tr , \  ); do
 		vs=$(($s+100))
 		echo "+++ has acq436 in site $s, create virtual site $vs"		
 		cp -a /dev/sites/$s /dev/sites/$vs
-		vsites="${vsites},vs";;
+		vsites="${vsites},$vs";;
 	esac
 done
 
