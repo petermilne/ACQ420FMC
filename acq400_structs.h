@@ -29,7 +29,6 @@ struct OF_PRAMS {
 	u32 dma_channel;
 	u32 fifo_depth;
 	u32 burst_length;
-	u32 irq;
 };
 struct STATS {
 	/* Driver statistics */

@@ -1657,11 +1657,12 @@ int xo_data_loop(void *data)
 #define AO_CONTINUOUS	(xo_dev->AO_playloop.oneshot == AO_continuous)
 #define LAST_PUSH \
 	(!AO_CONTINUOUS && adev->stats.xo.dma_buffers_out+1 >= shot_buffer_count)
-	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",
-				IB, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
 
 	int continuous_at_start = AO_CONTINUOUS;
 	int last_push_done = 0;
+
+	dev_dbg(DEVP(adev), "xo_data_loop() ib set %d playloop:%d hbs:%d shot_buffer_count:%d",
+				IB, xo_dev->AO_playloop.length, ao_samples_per_hb(adev), shot_buffer_count);
 
 	if (shot_buffer_count*ao_samples_per_hb(adev) < xo_dev->AO_playloop.length){
 		shot_buffer_count += 1;
@@ -2484,8 +2485,6 @@ MODULE_DEVICE_TABLE(of, acq400_of_match);
 static int _acq400_device_tree_init(
 		struct acq400_dev* adev, struct device_node *of_node)
 {
-
-	u32 irqs[OF_IRQ_COUNT];
 	u32 site;
 
 	if (of_property_read_u32(of_node, "site", &site) < 0){
@@ -2499,12 +2498,6 @@ static int _acq400_device_tree_init(
 			adev->of_prams.site = site;
 			dev_info(DEVP(adev), "site:%d GOOD\n", site);
 		}
-	}
-	if (of_property_read_u32_array(
-			of_node, "interrupts", irqs, OF_IRQ_COUNT)){
-		dev_warn(DEVP(adev), "failed to find %d IRQ values", OF_IRQ_COUNT);
-	}else{
-		adev->of_prams.irq = irqs[OF_IRQ_HITIDE] + OF_IRQ_MAGIC;
 	}
 
 	return 0;
@@ -2702,12 +2695,11 @@ int init_axi64_hbm(struct acq400_dev* adev)
 int acq400_mod_init_irq(struct acq400_dev* adev)
 {
 	int rc;
-	int irq;
-	if (adev->of_prams.irq == 0){
+	int irq = platform_get_irq(adev->pdev, IRQ_REQUEST_OFFSET);
+	if (irq <= 0){
 		return 0;
 	}
-	irq = platform_get_irq(adev->pdev, IRQ_REQUEST_OFFSET);
-	dev_info(DEVP(adev), "acq400_mod_init_irq %d -> %d", adev->of_prams.irq, irq);
+	dev_info(DEVP(adev), "acq400_mod_init_irq %d", irq);
 	if (IS_AO42X(adev)||IS_DIO432X(adev)){
 		rc = devm_request_threaded_irq(
 				DEVP(adev), irq, ao400_isr, xo400_dma, IRQF_SHARED,
@@ -2717,7 +2709,7 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 				DEVP(adev), irq, acq400_isr, IRQF_SHARED, adev->dev_name, adev);
 	}
 	if (rc){
-		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n",adev->of_prams.irq);
+		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
 		return 0;
 	}
 	return rc;
