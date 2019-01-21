@@ -2841,6 +2841,7 @@ MAKE_BITS(offset_06, AO428_OFFSET_6, 0, 0x000fffff);
 MAKE_BITS(offset_07, AO428_OFFSET_7, 0, 0x000fffff);
 MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
 
+MAKE_BITS(dac_mux, DAC_MUX, 0,0xffffffff);
 
 
 static const struct attribute *playloop_attrs[] = {
@@ -2954,7 +2955,10 @@ static const struct attribute *ao424_attrs[] = {
 	NULL
 };
 
-
+static const struct attribute *acq436_upper_half_attrs[] = {
+	&dev_attr_dac_mux.attr,
+	NULL
+};
 extern const struct attribute *bolo8_attrs[];
 
 
@@ -4479,6 +4483,9 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;
+			if (adev->of_prams.site > 100){
+				specials[nspec++] = acq436_upper_half_attrs;
+			}
 			specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = playloop_attrs;

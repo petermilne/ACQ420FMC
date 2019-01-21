@@ -117,7 +117,9 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(DAC_GAIN_OFF(2));
 		DBG_REG_CREATE(DAC_GAIN_OFF(3));
 		DBG_REG_CREATE(DAC_GAIN_OFF(4));
-		DBG_REG_CREATE(DAC_GAIN_OFF(32));
+		if (adev->of_prams.site > 100){
+			DBG_REG_CREATE(DAC_MUX);
+		}
 	}
 	if (IS_AO428(adev)){
 		DBG_REG_CREATE(AO428_OFFSET_1);

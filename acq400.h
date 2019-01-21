@@ -104,6 +104,8 @@
 #define DAC_MATH_BASE		(ADC_BASE+0x80)
 #define DAC_GAIN_OFF(n)		(DAC_MATH_BASE+(n-1)*sizeof(u32))
 
+#define DAC_MUX			(ADC_BASE+0x90)			/* ACQ436 upper half only */
+
 #define ACQ480_FIRCO_LOAD	(ADC_BASE+0x80)
 #define ACQ480_FIRCO_CSR	(ADC_BASE+0x84)
 
