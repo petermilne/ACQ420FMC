@@ -582,7 +582,7 @@ enum ACQ1014_ROUTE {
 	ACQ1014_RP
 };
 
-int acq400_get_site(struct acq400_dev *adev, char s);
+int acq400_get_site(struct acq400_dev *adev, char* s);
 int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site);
 void acq400_clear_set(struct acq400_dev* set[]);
 int acq400_read_set(struct acq400_dev* set[],

@@ -918,6 +918,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_DIO_CTRL_DIR_OUT	0x00f0
 #define QEN_DIO_CTRL_DO_IMM	0x000f
 
+#define HALF_SITE		100		/* MFD, half sites at 100+ overlay 0+ */
+
 #include "acq400_structs.h"
 
 #endif /* ACQ420FMC_H_ */

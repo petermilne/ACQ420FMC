@@ -56,11 +56,14 @@ extern int good_sites[];
 extern int good_sites_count;
 
 
-int acq400_get_site(struct acq400_dev *adev, char s)
+int acq400_get_site(struct acq400_dev *adev, char* s)
 {
 	int ii;
-	int site = s-'0';
+	int site;
 
+	if (sscanf(s, "%d", &site) != 1){
+		return -1;
+	}
 	for(ii = 0; ii < good_sites_count; ++ii){
 		if (site == good_sites[ii]){
 			if (IS_ACQ1001SC(adev) && site == 4){

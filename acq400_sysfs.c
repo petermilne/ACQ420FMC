@@ -3635,7 +3635,7 @@ static ssize_t store_agg_reg(
 				case ' ':	continue;
 				case '\n':  	break;
 				default:
-					site = acq400_get_site(adev, *cursor);
+					site = acq400_get_site(adev, cursor);
 					if (site > 0){
 						regval |= AGG_MOD_EN(site, mshift);
 						acq400_add_aggregator_set(adev, site);
@@ -3869,9 +3869,9 @@ static ssize_t store_dist_reg(
 				case ' ':	continue;
 				case '\n':  	break;
 				default:
-					site = acq400_get_site(adev, *cursor);
+					site = acq400_get_site(adev, cursor);
 					if (site > 0){
-						regval |= AGG_MOD_EN(site, mshift);
+						regval |= AGG_MOD_EN(site%HALF_SITE, mshift);
 						acq400_add_distributor_set(adev, site);
 						break;
 					}else{
