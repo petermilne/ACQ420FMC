@@ -131,7 +131,7 @@ int doRegsTest(volatile unsigned* regs, unsigned* offsets, int nregs)
 					wanted = 0;
 				}
 				if (wanted != got){
-					err("regs[%d] wanted 0x%08x got 0x%08x",
+					dbg(1, "regs[%d] wanted 0x%08x got 0x%08x",
 					    offsets[irr], wanted, got);
 					++fail;
 				}else{
@@ -183,7 +183,7 @@ int regsTest(void* pmem, const char* argv[])
 			G_pass++;
 		}
 		if ((++iter&0x01ff) == 0 || alarm_set||please_quit){
-			info("FAIL:%10d PASS:%10d %s",
+			dbg(2, "FAIL:%10d PASS:%10d %s",
 				G_fail, G_pass,
 				G_fail==0? "*** NO ERRORS ***": ":-( :-( :-(");
 			alarm_set = 0;
