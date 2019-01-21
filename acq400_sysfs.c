@@ -4483,7 +4483,7 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;
-			if (adev->of_prams.site > 100){
+			if (IS_AO420_HALF436(adev)){
 				specials[nspec++] = acq436_upper_half_attrs;
 			}
 			specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;

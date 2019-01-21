@@ -556,14 +556,11 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-	dev_info(DEVP(adev), "AO420 device init");
 
 	adev->data32 = data32;
-	adev->nchan_enabled = 4;
+	adev->nchan_enabled = IS_AO420_HALF436(adev)? 2: 4;
 	adev->word_size = data32? 4: 2;
 	adev->cursor.hb = &adev->hb[0];
-
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
@@ -572,8 +569,12 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 16384;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	dev_info(DEVP(adev), "AO420 device init NCHAN %d", adev->nchan_enabled);
+	{
+		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+		dac_ctrl |= ADC_CTRL_MODULE_EN;
+		acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	}
 	measure_ao_fifo(adev);
 }
 
