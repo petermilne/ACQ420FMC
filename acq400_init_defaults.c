@@ -490,23 +490,33 @@ static void start_xtd_watchdog(struct acq400_dev *adev)
 }
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
-	int is_acq430 = IS_ACQ430(adev);
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+	u32 banksel = 0;
+	const char* devname;
 
-	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
-	adev->data32 = 1;
+
+
 	if (IS_ACQ430(adev)){
 		adev->nchan_enabled = 8;
+		banksel = ACQ430_BANKSEL;
+		devname = "ACQ430";
 	}else if (IS_ACQ437(adev)){
 		adev->nchan_enabled = 16;
+		banksel = ACQ437_BANKSEL;
+		devname = "ACQ437";
+	}else if (IS_ACQ436(adev)){
+		adev->nchan_enabled = 24;
+		banksel = ACQ436_BANKSEL;
+		devname = "ACQ436";
 	}else{
 		adev->nchan_enabled = 32;	// 32 are you sure?.
+		devname = "ACQ435";
 	}
+	dev_info(DEVP(adev), "%s device init", devname);
+
+	acq400wr32(adev, ACQ435_MODE, banksel);
+	adev->data32 = 1;
 	adev->word_size = 4;
-	if (is_acq430){
-		acq400wr32(adev, ACQ435_MODE, ACQ430_BANKSEL);
-	}
-	// @@todo ACQ437_BANKSEL ?
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	acq400wr32(adev, ADC_CLKDIV, 16);
