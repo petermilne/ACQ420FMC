@@ -558,9 +558,6 @@ static struct dentry *a400fs_create_dir (struct super_block *sb,
 
 
 
-static const char* sites[] = {
-	"0", "1", "2", "3", "4", "5", "6"
-};
 static const char* channels[] = {
 	"00error",
 	"01", "02", "03", "04", "05", "06", "07", "08",
@@ -605,13 +602,13 @@ void a400fs_add_site(int site, struct acq400_dev *adev, struct FS_NODES *fsn)
 			site, fsn->sb);
 
 	inode = a400fs_create_raw_file(
-		fsn->sb, fsn->rawdir, sites[site],
+		fsn->sb, fsn->rawdir, adev->site_no,
 		&a400fs_raw_file_ops, build_mapping(fsn, adev, site, XX));
 
 	dev_dbg(DEVP(adev), "a400fs_add_site() 19 site:%d", site);
 
 	fsn->chandata[site] =
-		a400fs_create_dir(fsn->sb, fsn->root_dentry, sites[site]);
+		a400fs_create_dir(fsn->sb, fsn->root_dentry, adev->site_no);
 
 	if(fsn->chandata[site] == 0){
 		dev_warn(DEVP(adev), "site:%d failed to create_dir", site);
