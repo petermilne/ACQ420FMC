@@ -204,7 +204,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 		int islave = 0;
 		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 
-		for (islave = 0; islave < MAXSITES; ++islave){
+		for (islave = 0; islave < MAXDEVICES; ++islave){
 			struct acq400_dev* slave = sc_dev->aggregator_set[islave];
 			if (!slave) break;
 
@@ -369,7 +369,7 @@ void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
 
 int fifo_monitor(void* data)
 {
-	struct acq400_dev *devs[MAXSITES+1];
+	struct acq400_dev *devs[MAXDEVICES+1];
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int idev = 0;
@@ -378,7 +378,7 @@ int fifo_monitor(void* data)
 
 	devs[idev++] = adev;
 	adev->get_fifo_samples = aggregator_get_fifo_samples;
-	for (cursor = 0; cursor < MAXSITES; ++cursor){
+	for (cursor = 0; cursor < MAXDEVICES; ++cursor){
 		struct acq400_dev* slave = sc_dev->aggregator_set[cursor];
 		if (slave){
 			devs[idev++] = slave;

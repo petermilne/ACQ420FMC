@@ -82,7 +82,7 @@ int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site)
 {
 	int ia = 0;
 	struct acq400_dev *slave = acq400_lookupSite(site);
-	for (ia = 0; ia < MAXSITES; ++ia){
+	for (ia = 0; ia < MAXDEVICES; ++ia){
 		dev_dbg(DEVP(adev), "add_set [%d]=%p site:%d %p",
 				ia, set[ia], site, slave);
 		if (set[ia] == slave){
@@ -99,7 +99,7 @@ int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site)
 void acq400_clear_set(struct acq400_dev* set[])
 {
 	int ia = 0;
-	for (ia = 0; ia < MAXSITES; ++ia){
+	for (ia = 0; ia < MAXDEVICES; ++ia){
 		set[ia] = 0;
 	}
 }
@@ -110,7 +110,7 @@ int acq400_read_set(struct acq400_dev* set[],
 	int ia = 0;
 	int cursor = 0;
 
-	for (ia = 0; ia < MAXSITES; ++ia){
+	for (ia = 0; ia < MAXDEVICES; ++ia){
 		if (set[ia] != 0){
 			int site = set[ia]->of_prams.site;
 			if (cursor){
@@ -160,10 +160,11 @@ void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev
 {
 	int site;
 
-	for (site = MAXSITES; --site >= 0; ){
-		if (set[site]){
-			dev_dbg(DEVP(set[site]), "visit_set [%d] %p", site, set[site]);
-			action(set[site]);
+	for (site = MAXDEVICES; --site >= 0; ){
+		struct acq400_dev *adev = set[site];
+		if (adev){
+			dev_dbg(DEVP(adev), "visit_set [%d] %p of_site:%d", site, adev, adev->of_prams.site);
+			action(adev);
 		}
 	}
 }

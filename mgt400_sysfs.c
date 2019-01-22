@@ -456,7 +456,7 @@ int get_site(char s)
 	int ii;
 	int site = s-'0';
 
-	for(ii = 0; ii < MAXSITES; ++ii){
+	for(ii = 0; ii < MAXDEVICES; ++ii){
 		if (sc_dev->aggregator_set[ii] &&
 		    sc_dev->aggregator_set[ii]->of_prams.site == site){
 			return site;

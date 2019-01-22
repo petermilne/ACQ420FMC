@@ -8,6 +8,9 @@
 #ifndef ACQ400_STRUCTS_H_
 #define ACQ400_STRUCTS_H_
 
+#define MAX_PHYSICAL_SITES	 6
+#define MAXDEVICES 		12	/* includes virtual devices 101..106 */
+
 
 
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
@@ -236,14 +239,11 @@ void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va)
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
-#define MAXSITES	6
-
-
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
-	struct acq400_dev* aggregator_set[MAXSITES];
-	struct acq400_dev* distributor_set[MAXSITES];
+	struct acq400_dev* aggregator_set[MAXDEVICES];
+	struct acq400_dev* distributor_set[MAXDEVICES];
 	struct SewFifo {
 		struct mutex sf_mutex;
 		struct circ_buf sf_buf;
@@ -375,9 +375,6 @@ struct acq400_path_descriptor {
 #define SITE(adev)		((adev).of_prams.site)
 
 #define MIN_DMA_BYTES	256
-
-#define MAX_PHYSICAL_SITES	 6
-#define MAXDEVICES 		12	/* includes virtual devices 101..106 */
 
 
 

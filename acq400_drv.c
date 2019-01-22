@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.347"
+#define REVID "3.348"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -123,7 +123,7 @@ MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stoppe
 /* index from 0, including site 0 */
 struct acq400_dev* acq400_devices[MAXDEVICES+1];
 /* index by site */
-struct acq400_dev* acq400_sites[MAXSITES+1];
+struct acq400_dev* acq400_sites[MAXDEVICES+1];
 
 #define DMA_NS_MAX     40
 int dma_ns_lines[DMA_NS_MAX];
@@ -216,10 +216,6 @@ MODULE_PARM_DESC(xo_distributor_sample_size, "sample size in distributor set");
 int continuous_reader;
 module_param(continuous_reader, int, 0444);
 MODULE_PARM_DESC(continuous_reader, "bitmask shows which sites have a reader");
-
-// @@todo pgm: crude: index by site, index from 0
-const char* acq400_names[] = { "0", "1", "2", "3", "4", "5", "6" };
-
 
 #define AO420_NBUFFERS 	2
 

@@ -176,7 +176,7 @@ int raw_offset_w(struct InodeMap* map)
 
 	int offset;
 	int ia;
-	for (offset = 0, ia = 0; ia < MAXSITES; ++ia){
+	for (offset = 0, ia = 0; ia < MAXDEVICES; ++ia){
 		dev_dbg(DEVP(adev0), "compare site %d [%d] ret %d",
 							map->site, ia, offset);
 		if (sc_dev->aggregator_set[ia] == map->adev){
