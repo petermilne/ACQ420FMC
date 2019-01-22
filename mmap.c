@@ -235,7 +235,7 @@ int main( int argc, const char** argv)
 		{ "help",   'h', POPT_ARG_NONE,         0, 'h' },
 		{ "read",   'r', POPT_ARG_NONE,         0, 'r' },
 		{ "write",  'w', POPT_ARG_NONE,         0, 'w' },
-		{ "writel", 'W', POPT_ARG_NONE,         0, 'W', "write longs" },
+		{ "writel", 'W', POPT_ARG_NONE,         0, 'W', "write longs default: same reg, to increment, set fill_incr" },
 		{ "nop",    'n', POPT_ARG_NONE,         0, 'n' },
 		{ "fill",   'b', POPT_ARG_NONE,         0, 'f' },
 		{ "fill_incr", 'I', POPT_ARG_INT, &fill_incr, 'i' },
@@ -357,7 +357,7 @@ int main( int argc, const char** argv)
 		while(fread(&wl, sizeof(unsigned), 1, stdin) == 1){
 			dbg(2, "plong %p := 0x%08x\n",
 				plong+iwrite, wl);
-			plong[iwrite++] = wl;
+			plong[iwrite += fill_incr] = wl;
 		}
 		break;
 	}
