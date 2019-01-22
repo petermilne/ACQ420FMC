@@ -2814,13 +2814,12 @@ static int acq400_probe(struct platform_device *pdev)
 
         dev_info(DEVP(adev), "request_mem_region(%x %x %s)", adev->dev_physaddr, adev->dev_addrsize, adev->dev_name);
 
-        if (!request_mem_region(adev->dev_physaddr, adev->dev_addrsize, adev->dev_name)) {
-                dev_err(&pdev->dev, "can't reserve i/o memory at 0x%08X\n",
-                        adev->dev_physaddr);
-                rc = -ENODEV;
-                goto fail;
+        adev->dev_virtaddr = devm_ioremap_resource(&pdev->dev, acq400_resource);
+        if (IS_ERR(adev->dev_virtaddr)){
+        	dev_err(DEVP(adev), "failed to ioremap resource for %s", adev->dev_name);
+        	rc = -ENODEV;
+        	goto fail;
         }
-        adev->dev_virtaddr = ioremap(adev->dev_physaddr, adev->dev_addrsize);
         dev_info(DEVP(adev), "acq400: site_no:%s dev_name:%s mapped 0x%0x to 0x%0x\n",
         	adev->site_no, adev->dev_name,
         	adev->dev_physaddr, (unsigned int)adev->dev_virtaddr);
