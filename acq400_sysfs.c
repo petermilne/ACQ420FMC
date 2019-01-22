@@ -21,25 +21,7 @@
 
 /** @file rtm-t-sysfs.c D-TACQ PCIe RTM_T driver, sysfs (knobs) */
 
-
-
-#include <linux/device.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/pci.h>
-#include <linux/time.h>
-#include <linux/init.h>
-#include <linux/timex.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-#include <linux/moduleparam.h>
-#include <linux/mutex.h>
-
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-#include <linux/wait.h>
+#include <linux/ctype.h>
 
 #include <asm/uaccess.h>  /* VERIFY_READ|WRITE */
 
@@ -47,7 +29,6 @@
 
 
 #include <linux/device.h>
-#include <linux/module.h>
 #include <linux/user.h>
 
 #include "acq400.h"
@@ -3873,6 +3854,10 @@ static ssize_t store_dist_reg(
 					if (site > 0){
 						regval |= AGG_MOD_EN(site%HALF_SITE, mshift);
 						acq400_add_distributor_set(adev, site);
+						/* for multi-digit numbers eg 101, cursor past the rest of the number */
+						while (isdigit(cursor[1])){
+							++cursor;
+						}
 						break;
 					}else{
 						dev_err(dev, "bad site designator: %c", *cursor);
