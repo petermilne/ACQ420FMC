@@ -28,28 +28,7 @@
 
 #include <stdarg.h>
 
-class FileClosure {
 
-public:
-	FILE *fp;
-	FileClosure(const char* fname, const char* mode) {
-		fp = fopen(fname, mode);
-		if (fp == 0){
-			perror(fname);
-			exit(1);
-		}
-	}
-	~FileClosure() {
-		fclose(fp);
-	}
-	int printf(const char* fmt, ...){
-		va_list argp;
-		va_start(argp, fmt);
-		int rc = vfprintf(fp, fmt, argp);
-		va_end(argp);
-		return rc;
-	}
-};
 /** singleton .. */
 class Scratchpad {
 	char *root;
@@ -62,16 +41,16 @@ class Scratchpad {
 	virtual void set(int idx, const char* fmt, u32 value){
 		char knob[80];
 		snprintf(knob, 80, "%s/spad%d", root, idx);
-		FileClosure fc(knob, "w");
+		File fc(knob, "w");
 		fc.printf(fmt, value);
 	}
 	virtual int get(int idx, const char* fmt, u32* value) {
 		char knob[80];
 		snprintf(knob, 80, "%s/spad%d", root, idx);
 
-		FileClosure fc(knob, "r");
+		File fc(knob, "r");
 
-		return fscanf(fc.fp, fmt, value) == 1? 0: -1;
+		return fscanf(fc(), fmt, value) == 1? 0: -1;
 	}
 public:
 	enum SP_INDEX {

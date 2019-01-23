@@ -58,7 +58,7 @@ using namespace std;
 
 typedef unsigned int u32;
 
-
+#include "File.h"
 #include "ScratchPad.h"
 
 #define MAXCHAN	2
@@ -175,7 +175,7 @@ void DawgEntry::print()
 
 DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 {
-	static int _abstime;
+	static unsigned _abstime;
 	unsigned  _ch01, _ch02;
 	int nscan;
 
@@ -301,7 +301,7 @@ bool please_stop;		/* could be set by signal */
 
 void waitUntil(unsigned deadline)
 {
-	static int deadline0;
+	static unsigned deadline0;
 	unsigned ddt;
 
 	if (deadline > deadline0){

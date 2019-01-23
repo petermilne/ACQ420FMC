@@ -31,7 +31,7 @@
 #include <sys/mman.h>
 
 #include <string>
-
+#include <stdarg.h>
 
 class File {
 	FILE *_fp;
@@ -68,6 +68,13 @@ public:
 	}
 	FILE* operator() () {
 		return _fp;
+	}
+	int printf(const char* fmt, ...){
+		va_list argp;
+		va_start(argp, fmt);
+		int rc = vfprintf(_fp, fmt, argp);
+		va_end(argp);
+		return rc;
 	}
 };
 
