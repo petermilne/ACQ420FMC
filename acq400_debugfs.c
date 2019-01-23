@@ -115,12 +115,14 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	if (IS_AO420(adev)){
 		DBG_REG_CREATE(DAC_GAIN_OFF(1));
 		DBG_REG_CREATE(DAC_GAIN_OFF(2));
-		DBG_REG_CREATE(DAC_GAIN_OFF(3));
-		DBG_REG_CREATE(DAC_GAIN_OFF(4));
-		if (adev->of_prams.site > 100){
+		if (!IS_AO420_HALF436(adev)){
+			DBG_REG_CREATE(DAC_GAIN_OFF(3));
+			DBG_REG_CREATE(DAC_GAIN_OFF(4));
+		}else{
 			DBG_REG_CREATE(DAC_MUX);
 		}
 	}
+
 	if (IS_AO428(adev)){
 		DBG_REG_CREATE(AO428_OFFSET_1);
 		DBG_REG_CREATE(AO428_OFFSET_2);

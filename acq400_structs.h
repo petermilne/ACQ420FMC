@@ -590,6 +590,7 @@ void acq400_clear_aggregator_set(struct acq400_dev *adev);
 int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
+void acq400_visit_set_arg(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev, void* arg), void*arg);
 void init_axi_dma(struct acq400_dev* adev);
 
 

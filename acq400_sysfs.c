@@ -2822,7 +2822,46 @@ MAKE_BITS(offset_06, AO428_OFFSET_6, 0, 0x000fffff);
 MAKE_BITS(offset_07, AO428_OFFSET_7, 0, 0x000fffff);
 MAKE_BITS(offset_08, AO428_OFFSET_8, 0, 0x000fffff);
 
-MAKE_BITS(dac_mux, DAC_MUX, 0,0xffffffff);
+MAKE_BITS(dac_mux, DAC_MUX, 0,0x00000fff);
+
+static ssize_t show_dac_mux_master(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%03x\n",  acq400rd32(adev, DAC_MUX));
+}
+
+static void set_mux_action(struct acq400_dev *adev, void* arg)
+{
+	dev_dbg(DEVP(adev), "set_mux_action() %s %x",
+			IS_AO420(adev) && IS_AO420_HALF436(adev)? "ACT": "---", (unsigned)arg);
+	if (IS_AO420(adev) && IS_AO420_HALF436(adev)){
+		acq400wr32(adev, DAC_MUX, (unsigned)arg);
+	}
+}
+static ssize_t store_dac_mux_master(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+/* user mask: 1=enabled. Compute nchan_enabled BEFORE inverting MASK */
+{
+	struct acq400_sc_dev* sc_dev = container_of(acq400_devices[0], struct acq400_sc_dev, adev);
+	unsigned mux;
+
+	if (sscanf(buf, "%x", &mux) == 1){
+		acq400_visit_set_arg(sc_dev->distributor_set, set_mux_action, (void*)mux);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dac_mux_master,
+		S_IRUGO|S_IWUSR, show_dac_mux_master, store_dac_mux_master);
+
 
 
 static const struct attribute *playloop_attrs[] = {
@@ -2862,25 +2901,23 @@ static const struct attribute *ao428_attrs[] = {
 	NULL
 };
 static const struct attribute *ao420_attrs[] = {
-	&dev_attr_dac_range_01.attr,
-	&dev_attr_dac_range_02.attr,
-	&dev_attr_dac_range_03.attr,
-	&dev_attr_dac_range_04.attr,
+	&dev_attr_G3.attr, &dev_attr_D3.attr, &dev_attr_AO_03.attr, &dev_attr_dac_range_03.attr,
+	&dev_attr_G4.attr, &dev_attr_D4.attr, &dev_attr_AO_04.attr, &dev_attr_dac_range_04.attr,
+
+/* subset 2 channels only .. */
+	&dev_attr_G1.attr, &dev_attr_D1.attr, &dev_attr_AO_01.attr, &dev_attr_dac_range_01.attr,
+	&dev_attr_G2.attr, &dev_attr_D2.attr, &dev_attr_AO_02.attr, &dev_attr_dac_range_02.attr,
+
 	&dev_attr_dac_range_REF.attr,
-	&dev_attr_AO_01.attr,
-	&dev_attr_AO_02.attr,
-	&dev_attr_AO_03.attr,
-	&dev_attr_AO_04.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
-	&dev_attr_G1.attr, &dev_attr_D1.attr,
-	&dev_attr_G2.attr, &dev_attr_D2.attr,
-	&dev_attr_G3.attr, &dev_attr_D3.attr,
-	&dev_attr_G4.attr, &dev_attr_D4.attr,
 	NULL
 };
+
+#define ao420_half_436_attrs &ao420_attrs[8]
+
 
 
 static const struct attribute *ao424_attrs[] = {
@@ -2936,12 +2973,14 @@ static const struct attribute *ao424_attrs[] = {
 	NULL
 };
 
-static const struct attribute *acq436_upper_half_attrs[] = {
+static const struct attribute *acq436_upper_half_attrs_master[] = {
+	&dev_attr_dac_mux_master.attr,
 	&dev_attr_dac_mux.attr,
 	NULL
 };
 extern const struct attribute *bolo8_attrs[];
 
+#define acq436_upper_half_attrs &acq436_upper_half_attrs_master[1]
 
 static ssize_t show_DO32(
 	struct device * dev,
@@ -4378,10 +4417,12 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 extern void sysfs_radcelf_create_files(struct device *dev);
 extern const struct attribute *acq423_attrs[];
 
+#define MAXSPEC	8	/* groups of special attrs */
+
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	const struct attribute **specials[4];
+	const struct attribute **specials[MAXSPEC];
 	int nspec = 0;
 
 	dev_info(dev, "acq400_createSysfs()");
@@ -4469,9 +4510,13 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;
 			if (IS_AO420_HALF436(adev)){
-				specials[nspec++] = acq436_upper_half_attrs;
+				specials[nspec++] = ((adev->mod_id&MOD_ID_IS_SLAVE) == 0)?
+						acq436_upper_half_attrs_master:
+						acq436_upper_half_attrs;
+				specials[nspec++] = ao420_half_436_attrs;
+			}else{
+				specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
 			}
-			specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = ao424_attrs;
@@ -4491,9 +4536,11 @@ void acq400_createSysfs(struct device *dev)
 			return;
 		}
 	}
+
+	BUG_ON(nspec >= MAXSPEC);
 	while(nspec--){
 		if (sysfs_create_files(&dev->kobj, specials[nspec])){
-			dev_err(dev, "failed to create sysfs");
+			dev_err(dev, "failed to create sysfs %d", nspec);
 		}
 	}
 
