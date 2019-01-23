@@ -395,11 +395,9 @@ void Sequence::build(void)
 	if (UI::verbose){
 		printf( "\n\nbuild ----------------\n");
 	}
-	FILE* fp = fopen(UI::fname, "r");
-	if (fp == 0){
-		perror(UI::fname);
-		exit(1);
-	}
+	File file(UI::fname, "r");		/* self closing */
+	FILE* fp = file();
+
 	char* seq_line = new char[256];
 	char* first_entry_def = 0;
 	DawgEntry *prev = 0;
@@ -446,7 +444,7 @@ void Sequence::build(void)
 			}
 		}
 	}
-	fclose(fp);
+
 	last_in_loop = prev;
 	loop_first2 = DawgEntry::create(strcat(first_entry_def, " loop_first2"), *loop_first, prev);
 
@@ -478,7 +476,9 @@ void Sequence::run(void)
 	(*it)->exec();
 	DEI start = ++it;
 
-	for (int iter = 0; ++iter <= UI::repeat_count; (*start) = loop_first2){
+
+	for (int iter = 0; ++iter <= UI::repeat_count || UI::repeat_count == -1;
+			(*start) = loop_first2){
 		if (UI::verbose){
 			printf( "\n\nloop: %d\n", iter);
 		}
@@ -512,7 +512,7 @@ struct poptOption opt_table[] = {
 			"sequence definition file" 		},
 	{ "print",    'p', POPT_ARG_NONE, 0, 'p'		},
 	{ "repeat",   'r', POPT_ARG_INT,  &UI::repeat_count, 0,
-			"repeat count [1]"			},
+			"repeat count [1] -1=FOREVER"			},
 	{ "slow",       0, POPT_ARG_INT,  &UI::timescaler, 0,
 			"slow down by factor N [1]"		},
 	{ "site",        'S', POPT_ARG_INT, &UI::site, 0,
