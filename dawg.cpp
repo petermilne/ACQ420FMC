@@ -94,11 +94,6 @@ class DawgEntry {
 
 	char* def;
 
-	list<const char*> disable_list;
-	list<const char*> enable_list;
-
-	static void setSwitches(list<const char*> &the_list, bool make);
-
 protected:
 	u32 chx[MAXCHAN];	/* should be const, but hard to init */
 
@@ -112,22 +107,11 @@ public:
 	const u32 abstime;
 	DawgEntry* prev;
 
-	const list<const char*>& get_disables() {
-		return disable_list;
-	}
-	const list<const char*>& get_enables() {
-		return enable_list;
-	}
-	void finalize();
 	void print();
 
 	static DawgEntry *create(const char* _def, DawgEntry* _prev);
 	static DawgEntry *create(const char* _def, const DawgEntry* clone, DawgEntry* _prev);
 	static DawgEntry *createAllOpen(DawgEntry *prev);
-
-	static void buildList(
-		list<const char*> &the_list, u32 amask[], u32 bmask[]);
-	static void printList(list<const char*> &the_list, const char* label);
 
 	virtual void exec();
 	/* never create an instance of DawgEntry */
@@ -167,59 +151,7 @@ DawgEntry::DawgEntry(const char* _def, const u32 _abstime,
 	}
 }
 
-void DawgEntry::buildList(
-	list<const char*> &the_list, u32 amask[], u32 bmask[])
-{
-	for (int ic = 0; ic < MAXCHAN; ++ic){
-		// select the bits in amask not present in bmask
-		u32 active_bits = amask[ic] ^ (amask[ic]&bmask[ic]);
 
-		for (int sw = 0; sw < MAXSW; ++sw){
-			if (active_bits & (1<<sw)){
-				char *elt = new char[16];
-				snprintf(elt, 8, "CH%02d.%02d", ic+1, sw+1);
-				the_list.push_back(elt);
-			}
-		}
-	}
-}
-void DawgEntry::finalize() {
-	u32 prev_chx[2] = {};
-	if (prev){
-		prev_chx[0] = prev->chx[0];
-		prev_chx[1] = prev->chx[1];
-	}
-	buildList(disable_list, prev_chx, chx);
-	buildList(enable_list, chx, prev_chx);
-}
-
-void DawgEntry::printList(list<const char*> &the_list, const char* label)
-{
-	char* buf = new char[1024];
-
-	sprintf(buf, "	%10s :", label);
-	list<const char*>::iterator it;
-	for (it = the_list.begin(); it != the_list.end(); ++it){
-		strcat(buf, *it);
-		strcat(buf, " ");
-	}
-	printf("%s\n", buf);
-	delete [] buf;
-}
-
-void DawgEntry::setSwitches(list<const char*> &the_list, bool make)
-{
-	list<const char*>::iterator it;
-	for (it = the_list.begin(); it != the_list.end(); ++it){
-		FILE* fp = fopen(*it, "w");
-		if (!fp){
-			perror(*it);
-			exit(1);
-		}
-		fprintf(fp, "%d", make);
-		fclose(fp);
-	}
-}
 
 void DawgEntry::exec()
 {
@@ -229,17 +161,14 @@ void DawgEntry::exec()
 			return;
 		}
 	}
-	setSwitches(disable_list, 0);
-	setSwitches(enable_list, 1);
+
 }
 
 
 void DawgEntry::print()
 {
-	printf("DawgEntry [%d]: abstime:%d \"%s\"  prev:[%d]\n",
-			serial, abstime, def, prev? prev->serial: 0);
-	printList(disable_list, "disable");
-	printList(enable_list, "enable");
+	printf("DawgEntry [%d]: abstime:%d \"%s\"  prev:[%d] ch01:%02x ch02:%02x\n",
+			serial, abstime, def, prev? prev->serial: 0, chx[0], chx[1]);
 }
 
 
@@ -289,7 +218,6 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	DawgEntry* entry = new ScratchpadReportingDawgEntry(
 				_def, _abstime, _ch01, _ch02, _prev);
 
-	entry->finalize();
 	if (UI::verbose > 1){
 		entry->print();
 	}
@@ -301,7 +229,6 @@ DawgEntry* DawgEntry::create(const char* _def, const DawgEntry* clone, DawgEntry
 	DawgEntry* entry = new ScratchpadReportingDawgEntry(
 		_def, clone->abstime, clone->chx[0], clone->chx[1], _prev);
 
-	entry->finalize();
 	if (UI::verbose > 1){
 		entry->print();
 	}
@@ -318,7 +245,6 @@ DawgEntry *DawgEntry::createAllOpen(DawgEntry * prev)
 	}
 	DawgEntry *allOpen = new ScratchpadReportingDawgEntry(
 		"all open",   0, 0, 0, prev);
-	allOpen->finalize();
 	return allOpen;
 }
 
