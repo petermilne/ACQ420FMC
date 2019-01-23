@@ -68,8 +68,8 @@ int acqMakeChannelRange(int channels[], int cmax, const char* definition)
  *  returns number of selected channels
  */
 {
-	char* dbuf = calloc(strlen(definition)+1, 1);
-	char* tbuf = calloc(strlen(definition)+1, 1);
+	char* dbuf = (char*)calloc(strlen(definition)+1, 1);
+	char* tbuf = (char*)calloc(strlen(definition)+1, 1);
 	char* rbuf = tbuf;
 	char* ptok;
 

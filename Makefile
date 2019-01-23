@@ -76,7 +76,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb \
 	fix_state bpaste clocks_to_first_edge \
-	mgtdram_descgen bigcat egu2int
+	mgtdram_descgen bigcat egu2int dawg
 
 
 LIBACQSO = libacq.so
@@ -150,17 +150,20 @@ acq400_sls: acq400_sls.o
 udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 	
-acq400_stream: acq400_stream.o Buffer.o knobs.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
+acq400_stream: acq400_stream.o Buffer.o 
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-bb: bb.o Buffer.o knobs.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
+bb: bb.o Buffer.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-phased_array: phased_array.o Buffer.o knobs.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lpthread -lrt
+phased_array: phased_array.o Buffer.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 	
-tblock2file: tblock2file.o knobs.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq -lpthread -lrt
+dawg: dawg.o
+	$(CXX) -O3 -o dawg dawg.o -L../lib -lacq -lpopt -lrt	
+	
+tblock2file: tblock2file.o 
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lacq -lpthread -lrt
 
 is_ramp: is_ramp.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
@@ -213,9 +216,9 @@ mgtdram_descgen: 	mgtdram_descgen.o
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
-$(LIBACQSONAME): acq-util.c
-	$(CC) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
-	ln -s $(LIBACQSONAME) $(LIBACQSO)
+$(LIBACQSONAME): acq-util.c knobs.cpp
+	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
+	-ln -s $(LIBACQSONAME) $(LIBACQSO)
 	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib
 		
 zynq:

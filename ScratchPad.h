@@ -45,8 +45,9 @@ public:
 	int printf(const char* fmt, ...){
 		va_list argp;
 		va_start(argp, fmt);
-		vfprintf(fp, fmt, argp);
+		int rc = vfprintf(fp, fmt, argp);
 		va_end(argp);
+		return rc;
 	}
 };
 /** singleton .. */

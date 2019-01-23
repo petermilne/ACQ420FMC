@@ -71,6 +71,7 @@ public:
 	}
 };
 
+#ifndef NOMAPPING
 
 template <class T>
 class Mapping {
@@ -96,5 +97,6 @@ public:
 	}
 };
 
+#endif
 
 #endif /* FILE_H_ */

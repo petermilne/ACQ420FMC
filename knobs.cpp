@@ -28,7 +28,56 @@
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
+#include "Knob.h"
 
+#define NOMAPPING
+#include "File.h"
+
+Knob::Knob(const char* abs_path)
+{
+	kpath = new char [strlen(abs_path)+1];
+	strcpy(kpath, abs_path);
+}
+
+Knob::Knob(int site, const char* knob)
+{
+	const char* fmt = "/dev/acq400.%d.knobs/%s";
+	int maxlen = strlen(fmt) + 3 + strlen(knob) + 1;
+	kpath = new char [maxlen];
+	snprintf(kpath, maxlen, fmt, site);
+}
+
+Knob::~Knob()
+{
+	delete [] kpath;
+}
+
+int Knob::get(unsigned *value)
+{
+	File file(kpath, "r");
+	return fscanf(file(), "%u", value);
+}
+int Knob::get(char *value)
+{
+	File file(kpath, "r");
+	return fscanf(file(), "%s", value);
+}
+
+int Knob::set(int value)
+{
+	File file(kpath, "w");
+	return fprintf(file(), "%d\n", value);
+}
+int Knob::set(const char* value)
+{
+	File file(kpath, "w");
+	return fprintf(file(), "%s\n", value);
+}
+int Knob::setX(unsigned value)
+{
+	File file(kpath, "w");
+	return fprintf(file(), "%x\n", value);
+}
 
 int getKnob(int idev, const char* knob, unsigned* value)
 {
