@@ -59,6 +59,7 @@ using namespace std;
 typedef unsigned int u32;
 
 #include "File.h"
+#include "Knob.h"
 #include "ScratchPad.h"
 
 #define MAXCHAN	2
@@ -103,7 +104,7 @@ protected:
 
 
 public:
-	static char* knobs;
+	static char* the_knob;
 	const u32 abstime;
 	DawgEntry* prev;
 
@@ -133,7 +134,7 @@ public:
 
 
 int DawgEntry::last_serial;
-char* DawgEntry::knobs;
+char* DawgEntry::the_knob;
 
 DawgEntry::DawgEntry(const char* _def, const u32 _abstime,
 		const u32 _ch01, const u32 _ch02, DawgEntry* _prev) :
@@ -145,9 +146,9 @@ DawgEntry::DawgEntry(const char* _def, const u32 _abstime,
 	chx[0] = _ch01;
 	chx[1] = _ch02;
 
-	if (!knobs){
-		knobs = new char[32];
-		snprintf(knobs, 32, "/dev/acq400.%d.knobs", UI::site);
+	if (!the_knob){
+		the_knob = new char[128];
+		snprintf(the_knob, 128, "/dev/acq400.%d.knobs/dac_mux_master", UI::site);
 	}
 }
 
@@ -162,6 +163,8 @@ void DawgEntry::exec()
 		}
 	}
 
+	Knob knob(the_knob);
+	knob.setX(chx[1]<<6 | chx[0]);
 }
 
 
@@ -459,7 +462,7 @@ void Sequence::run(void)
 	if (UI::verbose){
 		printf( "\n\nrun ----------------\n");
 	}
-	chdir(DawgEntry::knobs);
+
 	DEI it = instructions.begin();
 
 	(*it)->exec();
