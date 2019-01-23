@@ -29,6 +29,7 @@ sites="$(echo $sitelist | tr , \ )"
 echo sitelist: $sitelist
 echo sites: $sites
 
+nspad=$pad
 source get_site_total_size
 echo $SS > /etc/acq400/0/dssb
 
