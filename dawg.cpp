@@ -174,12 +174,21 @@ void DawgEntry::print()
 			serial, abstime, def, prev? prev->serial: 0, chx[0], chx[1]);
 }
 
-
+unsigned _strtoul(const char* nums)
+/* pick hex or binary conversion */
+{
+	if (strstr(nums, "0x") != 0){
+		return strtoul(nums, 0, 0);
+	}else{
+		return strtoul(nums, 0, 2);
+	}
+}
 
 DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 {
 	static unsigned _abstime;
-	unsigned  _ch01, _ch02;
+	const char* _ch01;
+	const char* _ch02;
 	int nscan;
 
 	char f1[80];
@@ -203,8 +212,8 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 		_abstime = atoi(tdef);
 
 	}
-	_ch01 	= strtoul(UI::mode == UNTIL_STATE? f2: f1, 0, 0);
-	_ch02 	= strtoul(UI::mode == UNTIL_STATE? f3: f2, 0, 0);
+	_ch01 = UI::mode == UNTIL_STATE? f2: f1;
+	_ch02 = UI::mode == UNTIL_STATE? f3: f2;
 
 	if (_prev == 0){
 		if (_abstime != 0){
@@ -219,7 +228,8 @@ DawgEntry* DawgEntry::create(const char* _def, DawgEntry* _prev)
 	}
 
 	DawgEntry* entry = new ScratchpadReportingDawgEntry(
-				_def, _abstime, _ch01, _ch02, _prev);
+				_def, _abstime,
+				_strtoul(_ch01), _strtoul(_ch02), _prev);
 
 	if (UI::verbose > 1){
 		entry->print();
