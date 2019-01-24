@@ -2082,6 +2082,7 @@ static ssize_t store_ao_GO(
 		const char * buf,
 		size_t count)
 {
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	int gx;
 
 	if (sscanf(buf, "%d", &gx) == 1 || sscanf(buf, "0x%x", &gx) == 1){
@@ -2093,9 +2094,9 @@ static ssize_t store_ao_GO(
 		go &= ~(0x0000ffff << SHL);
 		go |= (gx&0x0000ffff) << SHL;
 
-		acq400wr32(acq400_devices[dev->id], DAC_GAIN_OFF(CH), go);
+		acq400wr32(adev, DAC_GAIN_OFF(CH), go);
 
-		if (hook_dac_gx_to_spad){
+		if (abs(hook_dac_gx_to_spad) == adev->of_prams.site){
 			set_spad_gx(acq400_devices[0], CH-1, go);
 		}
 		return count;
