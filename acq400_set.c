@@ -171,15 +171,15 @@ void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev
 
 void acq400_visit_set_arg(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev, void* arg), void*arg)
 {
-	int site;
+	struct acq400_dev *adev;
+	int mod;
+
 	dev_dbg(0, "acq400_visit_set_arg arg %p", arg);
 
-	for (site = MAXDEVICES; --site >= 0; ){
-		struct acq400_dev *adev = set[site];
-		if (adev){
-			dev_dbg(DEVP(adev), "acq400_visit_set_arg [%d] %p of_site:%d", site, adev, adev->of_prams.site);
-			action(adev, arg);
-		}
+	/* first zero entry ends set */
+	for (mod = 0; (adev = set[mod]) && mod < MAXDEVICES; ++mod){
+		dev_dbg(DEVP(adev), "acq400_visit_set_arg [%d] %p of_site:%d", mod, adev, adev->of_prams.site);
+		action(adev, arg);
 	}
 }
 
