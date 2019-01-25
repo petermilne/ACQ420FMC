@@ -710,7 +710,7 @@ fi
 
 GS="${GS}${vsites}"
 
-echo "vg_sites=$GS" >>/etc/sites
+echo "vg_sites=${good_sites}${vsites}" >>/etc/sites
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 sleep .2 	
