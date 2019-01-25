@@ -1629,6 +1629,10 @@ void aggregator_init()
 		hold_open(G::aggregator_sites);
 	}
 }
+
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define DFB	 MODPRAMS "distributor_first_buffer"
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1642,7 +1646,10 @@ void init(int argc, const char** argv) {
 	int rc;
 	bool fill_ramp = false;
 
-	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
+	getKnob(-1, DFB,   &Buffer::nbuffers);
+	if (Buffer::nbuffers == 0){
+		getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
+	}
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
 	getKnob(G::devnum, "has_axi_dma", &G::dualaxi);
 
