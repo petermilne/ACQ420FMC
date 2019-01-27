@@ -214,8 +214,22 @@ void ui(int argc, const char** argv)
 	}
 }
 
+void send(int ib)
+{
+
+}
 int run(void)
 {
+	File bq("/dev/acq400.0.bq", "r");
+	char bufnum[32];
+
+	while(fgets(bufnum, 32, bq())){
+		unsigned ib = strtoul(bufnum, 0, 10);
+		if (G::verbose){
+			fprintf(stderr, "%u\n", ib);
+		}
+		send(ib);
+	}
 	return 0;
 }
 int main(int argc, const char** argv)
