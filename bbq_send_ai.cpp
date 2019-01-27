@@ -74,13 +74,10 @@
 using namespace std;
 #include "Buffer.h"
 
+#include "Socket.h"
 
 #define SAMPLE_FOREVER	0
 
-class Socket {
-public:
-	virtual int send(const char* data, int len) = 0;
-};
 
 namespace G {
 	int samples_per_packet  = 1;
@@ -165,50 +162,6 @@ public:
 	}
 };
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <netdb.h>
-
-
-class TcpSocket : public Socket {
-public:
-	TcpSocket(const char *host, const char* port) {
-		fprintf(stderr, "TcpSocket NOT implemented\n");
-		exit(1);
-	}
-	virtual int send(const char* data, int len) {
-		return -1;
-	}
-};
-
-class UdpSocket : public Socket {
-	int sockfd;
-	struct sockaddr_in     servaddr;
-public:
-	UdpSocket(const char *host, const char* port) {
-		if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
-		        perror("socket creation failed");
-		        exit(EXIT_FAILURE);
-		}
-		memset(&servaddr, 0, sizeof(servaddr));
-
-		servaddr.sin_family = AF_INET;
-		servaddr.sin_port = htons(strtoul(port, 0, 10));
-		servaddr.sin_addr.s_addr = INADDR_ANY;
-		struct hostent *hp;
-		hp = gethostbyname(host);
-		if (!hp) {
-			fprintf(stderr, "could not obtain address of %s\n", host);
-			exit(EXIT_FAILURE);
-		}
-		memcpy((void *)&servaddr.sin_addr, hp->h_addr_list[0], hp->h_length);
-	}
-	virtual int send(const char* data, int len) {
-		return sendto(sockfd, data, len,  0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-	}
-};
 
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"
 #define DFB	 MODPRAMS "distributor_first_buffer"
@@ -263,11 +216,7 @@ void ui(int argc, const char** argv)
 		fprintf(stderr, "usage bbq_send_ai [opts] HOST PORT\n");
 		exit(1);
 	}
-	if (G::use_udp){
-		G::sender = new UdpSocket(G::rhost, G::rport);
-	}else{
-		G::sender = new TcpSocket(G::rhost, G::rport);
-	}
+	G::sender = Socket::createIpSocket(G::use_udp? "udp": "tcp", G::rhost, G::rport);
 }
 
 void send(int ib)

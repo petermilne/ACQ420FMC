@@ -157,7 +157,7 @@ acq400_stream: acq400_stream.o Buffer.o
 bb: bb.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-bbq_send_ai: bbq_send_ai.o Buffer.o
+bbq_send_ai: bbq_send_ai.o Socket.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 phased_array: phased_array.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
