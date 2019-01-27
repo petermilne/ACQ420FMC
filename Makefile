@@ -74,7 +74,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
-	muxdec dmadescfs_test tblock2file acq400_sls bb \
+	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg
 
@@ -157,6 +157,8 @@ acq400_stream: acq400_stream.o Buffer.o
 bb: bb.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
+bbq_send_ai: bbq_send_ai.o Buffer.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 phased_array: phased_array.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 	

@@ -60,7 +60,6 @@
 #include <semaphore.h>
 #include <syslog.h>
 
-#include <vector>
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
@@ -451,7 +450,7 @@ class BufferManager {
 	void init_buffers()
 	{
 		const char* root = getRoot(G::devnum);
-		Buffer::last_buf = G::buffer0;
+
 		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 			Buffer::create(root, Buffer::bufferlen);
 		}
@@ -464,7 +463,8 @@ class BufferManager {
 		}
 	}
 public:
-	BufferManager() {
+	BufferManager(unsigned start_buf = 0) {
+		Buffer::last_buf = start_buf;
 		init_buffers();
 	}
 	~BufferManager() {
@@ -474,7 +474,7 @@ public:
 int main(int argc, const char** argv)
 {
 	RUN_MODE rm = ui(argc, argv);
-	BufferManager bm;
+	BufferManager bm(G::buffer0);
 	switch(rm){
 	case M_FILL:
 		return fill();
