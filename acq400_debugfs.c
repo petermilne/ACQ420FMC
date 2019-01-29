@@ -462,7 +462,8 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 
 	DBG_REG_CREATE_NAME("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
 	DBG_REG_CREATE_NAME("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
-	for (site = 1; site <= sites; ++site){
+
+	for (site = 1; site <= sites + IS_ACQ1001SC(adev); ++site){
 		char name[20];
 		sprintf(name, "CLK_%d", site);
 		DBG_REG_CREATE_NAME(name, ACQ2006_CLK_COUNT(SITE2DX(site)));
