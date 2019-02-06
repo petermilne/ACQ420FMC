@@ -3161,6 +3161,7 @@ static const struct attribute *dio432_attrs[] = {
 	&dev_attr_byte_is_output.attr,
 	&dev_attr_ext_clk_from_sync.attr,
 	&dev_attr_dpg_status.attr,
+	&dev_attr_dacreset.attr,
 	NULL
 };
 
