@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.357"
+#define REVID "3.358"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -275,6 +275,33 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 	}
 }
 
+int acq400_free_buffers(struct acq400_dev *adev, int free_from)
+{
+	struct acq400_path_descriptor* ppd;
+	struct list_head rlist;
+	int freemax = nbuffers;
+	int ib;
+	int rc = 0;
+
+	acq400_init_descriptor(&ppd);
+	INIT_LIST_HEAD(&rlist);
+	if (distributor_first_buffer > 0){
+		freemax = distributor_first_buffer;
+	}
+
+	for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
+		rc = remove(ppd, ib, &rlist);
+		if (rc != 0){
+			dev_err(DEVP(adev), "failed to reserve buffer %d", ib);
+			return rc;
+		}else{
+			dev_info(DEVP(adev), "removing buffer %d", ib);
+		}
+	}
+	hbm_free(DEVP(adev), &rlist);
+	kfree(ppd);
+	return 0;
+}
 #define GS_DBG(...)
 //#define GS_DBG dev_info
 int isGoodSite(int site)
@@ -1195,7 +1222,7 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 }
 
 
-int acq400_init_descriptor(void** pd)
+int acq400_init_descriptor(struct acq400_path_descriptor** pd)
 {
 	struct acq400_path_descriptor* pdesc = kzalloc(PDSZ, GFP_KERNEL);
 	INIT_LIST_HEAD(&pdesc->bq_list);
@@ -1215,7 +1242,7 @@ int acq400_open(struct inode *inode, struct file *file)
 	int minor;
 	int rc;
 
-	acq400_init_descriptor(&file->private_data);
+	acq400_init_descriptor((struct acq400_path_descriptor**)&file->private_data);
 
 
 	PD(file)->dev = adev = container_of(inode->i_cdev, struct acq400_dev, cdev);

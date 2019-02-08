@@ -462,8 +462,7 @@ u32 get_spadN(struct acq400_dev* adev, int n);
 
 struct acq400_dev* acq400_lookupSite(int site);
 
-
-
+extern int acq400_init_descriptor(struct acq400_path_descriptor** pd);
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
@@ -613,6 +612,7 @@ extern int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes);
 
 
 extern int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd);
+extern int acq400_free_buffers(struct acq400_dev *adev, int free_from);
 extern int acq420_convActive(struct acq400_dev *adev);
 extern void acq400_getID(struct acq400_dev *adev);
 

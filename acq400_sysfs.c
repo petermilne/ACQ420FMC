@@ -4160,6 +4160,27 @@ static ssize_t store_es_enable(
 
 static DEVICE_ATTR(es_enable, S_IRUGO|S_IWUSR, show_es_enable, store_es_enable);
 
+
+static ssize_t store_jettison_buffers_from(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dump_from;
+
+	if (sscanf(buf, "%u Y", &dump_from) == 1){
+		dev_warn(DEVP(adev), "%s DUMPING buffers from %d", __FUNCTION__, dump_from);
+		acq400_free_buffers(adev, dump_from);
+		return count;
+	}else{
+		dev_warn(DEVP(adev), "%s format \"first Y\"", __FUNCTION__);
+		return -1;
+	}
+}
+static DEVICE_ATTR(jettison_buffers_from, S_IWUSR, 0, store_jettison_buffers_from);
+
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
 	&dev_attr_rtm_translen.attr,
@@ -4269,6 +4290,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_hb_last.attr,
 	&dev_attr_has_axi_dma.attr,
 	&dev_attr_has_axi_dma_stack.attr,
+	&dev_attr_jettison_buffers_from.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {

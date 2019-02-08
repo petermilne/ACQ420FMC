@@ -49,6 +49,7 @@ int move_list_to_stash(struct acq400_dev *adev, struct list_head* elist);
 int reserve(struct acq400_path_descriptor* pd, int ibuf);
 int replace(struct acq400_path_descriptor* pd, int ibuf);
 void replace_all(struct acq400_path_descriptor* pd);
+int remove(struct acq400_path_descriptor* pd, int ibuf, struct list_head* rlist);
 
 void empty_lists(struct acq400_dev *adev);
 #endif /* ACQ400_LISTS_H_ */
