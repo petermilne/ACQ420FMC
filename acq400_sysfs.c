@@ -543,6 +543,7 @@ MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
 		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS, 1);
 
 
+
 static ssize_t show_gpg_top_count(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -4440,7 +4441,23 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 extern void sysfs_radcelf_create_files(struct device *dev);
 extern const struct attribute *acq423_attrs[];
 
+
+MAKE_BITS(pwm_clkdiv, PWM_SOURCE_CLK_CTRL, MAKE_BITS_FROM_MASK, 0xffff<<PWM_SOURCE_CLK_CTRL_SHL);
+MAKE_SIGNAL(pwm_src, PWM_SOURCE_CLK_CTRL, PWM_SOURCE_CLK_CTRL_SHL, PWM_SOURCE_CLK_CTRL_EN, ENA, DIS, 1);
+
+
+const struct attribute *pwm2_attrs[] = {
+	&dev_attr_pwm_src.attr,
+	&dev_attr_pwm_clkdiv.attr,
+	NULL
+};
+
+
+
 #define MAXSPEC	8	/* groups of special attrs */
+
+
+
 
 void acq400_createSysfs(struct device *dev)
 {
@@ -4549,6 +4566,9 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_DIO432X(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dio432_attrs;
+			if (IS_DIO482FMC(adev) && GET_MOD_IDV(adev)==MOD_IDV_PWM2){
+				specials[nspec++] = pwm2_attrs;
+			}
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){

@@ -72,6 +72,8 @@
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 
+#define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
+
 #define ATD_TRIGGERED		(ADC_BASE+0x60)
 #define ATD_MASK_AND		(ADC_BASE+0x64)
 #define ATD_MASK_OR		(ADC_BASE+0x68)
@@ -163,6 +165,9 @@
 #define MOD_ID_RAD_CELF		0x69
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
+#define MOD_IDV_PWM		0x01
+#define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
+
 #define MOD_ID_ACQ427ELF	0x07
 #define MOD_ID_ACQ427ELF_2000   0xa7
 
@@ -922,6 +927,11 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_DIO_CTRL_DO_IMM	0x000f
 
 #define HALF_SITE		100		/* MFD, half sites at 100+ overlay 0+ */
+
+/* PWM */
+#define PWM_SOURCE_CLK_CTRL_DIV_SHL	16
+#define PWM_SOURCE_CLK_CTRL_EN		(1<<4)
+#define PWM_SOURCE_CLK_CTRL_SHL		0
 
 #include "acq400_structs.h"
 

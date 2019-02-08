@@ -237,6 +237,9 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO432_DO_LOTIDE	);
 	DBG_REG_CREATE( DIO432_DO_FIFO_COUNT	);
 	DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);
+	if (IS_DIO482FMC(adev) && GET_MOD_IDV(adev)==MOD_IDV_PWM2){
+		DBG_REG_CREATE(PWM_SOURCE_CLK_CTRL);
+	}
 }
 
 #define V2F_FREQ_OFF_1		V2F_FREQ_OFF
