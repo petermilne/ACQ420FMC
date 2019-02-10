@@ -41,4 +41,5 @@ struct HBM {				/* Host Buffer Mapping */
 struct HBM* hbm_allocate1(struct device *dev, int len, int ix, enum dma_data_direction dir);
 int hbm_allocate(struct device *dev, int ix, int nbuffers, int len, struct list_head *buffers, enum dma_data_direction dir);
 int hbm_free(struct device *dev, struct list_head *buffers);
+int hbm_free_buffer_only(struct device *dev, struct list_head *buffers);
 #endif /* HBM_H_ */

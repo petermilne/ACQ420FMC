@@ -269,7 +269,7 @@ static int _reserve(struct acq400_path_descriptor* pd, int ibuf,
 	struct HBM *tmp;
 
 	list_for_each_entry_safe(cur, tmp, list, list){
-		dev_dbg(DEVP(adev), "consider ix %d\n", cur->ix);
+		dev_dbg(DEVP(adev), "%s want %d consider ix %d\n", __FUNCTION__, ibuf, cur->ix);
 		if (cur->ix == ibuf){
 			cur->bstate = BS_RESERVED;
 			list_move_tail(&cur->list, rlist);

@@ -19,8 +19,6 @@
 /* ------------------------------------------------------------------------- */
 
 
-/** @file rtm-t-sysfs.c D-TACQ PCIe RTM_T driver, sysfs (knobs) */
-
 #include <linux/ctype.h>
 
 #include <asm/uaccess.h>  /* VERIFY_READ|WRITE */

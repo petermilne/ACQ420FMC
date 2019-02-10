@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.359"
+#define REVID "3.363"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -280,25 +280,28 @@ int acq400_free_buffers(struct acq400_dev *adev, int free_from)
 	struct acq400_path_descriptor* ppd;
 	struct list_head rlist;
 	int freemax = nbuffers;
+	int nfree = 0;
 	int ib;
 	int rc = 0;
 
 	acq400_init_descriptor(&ppd);
+	ppd->dev = adev;
 	INIT_LIST_HEAD(&rlist);
 	if (distributor_first_buffer > 0){
 		freemax = distributor_first_buffer;
 	}
 
-	for (ib = distributor_first_buffer; ib < nbuffers; ++ib){
+	for (ib = free_from; ib < freemax; ++ib){
 		rc = remove(ppd, ib, &rlist);
 		if (rc != 0){
 			dev_err(DEVP(adev), "failed to reserve buffer %d", ib);
-			return rc;
 		}else{
-			dev_info(DEVP(adev), "removing buffer %d", ib);
+			dev_dbg(DEVP(adev), "removing buffer %d", ib);
+			++nfree;
 		}
 	}
-	hbm_free(DEVP(adev), &rlist);
+	hbm_free_buffer_only(DEVP(adev), &rlist);
+	dev_info(DEVP(adev), "%s dumped %d buffers, PLEASE REBOOT before capture", __FUNCTION__, nfree);
 	kfree(ppd);
 	return 0;
 }

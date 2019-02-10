@@ -121,3 +121,17 @@ int hbm_free(struct device *dev, struct list_head *buffers)
 
 	return 0;
 }
+
+int hbm_free_buffer_only(struct device *dev, struct list_head *buffers)
+{
+	struct HBM* hbm;
+	struct HBM* temp;
+
+	list_for_each_entry_safe(hbm, temp, buffers, list){
+		list_del(&hbm->list);
+		dma_unmap_single(dev, hbm->pa, hbm->len, hbm->dir);
+		free_pages((unsigned long)hbm->va, getOrder(hbm->len));
+	}
+
+	return 0;
+}
