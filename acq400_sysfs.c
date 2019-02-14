@@ -2634,6 +2634,7 @@ static ssize_t store_delay66(
 static DEVICE_ATTR(delay66, S_IWUSR|S_IRUGO, show_delay66, store_delay66);
 
 MAKE_BITS(snoopsel, DAC_CTRL, AO424_DAC_CTRL_SNOOPSEL_SHL, AO424_DAC_CTRL_SNOOPSEL_MSK);
+MAKE_BITS(sync_clk_to_sync, DAC_CTRL, MAKE_BITS_FROM_MASK, AO424_DAC_CTRL_SYNC_CLK_TO_SYNC);
 
 #define DAC_CTRL_RESET(adev)	(IS_BOLO8(adev)? B8_DAC_CON: DAC_CTRL)
 
@@ -2963,6 +2964,7 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_odd_channels.attr,
 	&dev_attr_delay66.attr,
 	&dev_attr_snoopsel.attr,
+	&dev_attr_sync_clk_to_sync.attr,
 	/*
 	&dev_attr_G1.attr, &dev_attr_D1.attr,
 	&dev_attr_G2.attr, &dev_attr_D2.attr,
