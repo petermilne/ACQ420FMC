@@ -1099,7 +1099,222 @@ const struct attribute *acq436_upper_half_attrs_master[] = {
 	NULL
 };
 
+MAKE_BITS(diob_src,    DIOUSB_CTRL,      MAKE_BITS_FROM_MASK,	DIOUSB_CTRL_BUS_MASK);
 
+const struct attribute *sysfs_diobiscuit_attrs[] = {
+	&dev_attr_diob_src.attr,
+	NULL
+};
+
+
+MAKE_BITS(dpg_abort,    DIO432_DIO_CTRL,      MAKE_BITS_FROM_MASK,	DIO432_CTRL_AWG_ABORT);
+
+static ssize_t show_byte_is_output(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	u32 byte_is_output = xo_dev->dio432.byte_is_output;
+
+	return sprintf(buf, "%d,%d,%d,%d\n",
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(0),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(1),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(2),
+			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(3)
+	);
+}
+
+static ssize_t store_byte_is_output(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	int bytes[4];
+	unsigned byte_is_output = 0;
+
+	if (sscanf(buf, "%d,%d,%d,%d", bytes+0, bytes+1, bytes+2, bytes+3) == 4){
+		int ib = 0;
+		for (ib = 0; ib <= 3; ++ib){
+			if (bytes[ib]){
+				byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
+			}
+		}
+		xo_dev->dio432.byte_is_output = byte_is_output;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUSR, show_byte_is_output, store_byte_is_output);
+
+static ssize_t show_dpg_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	unsigned do_count = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
+	unsigned fifsta = acq400rd32(adev, DIO432_DO_FIFO_STATUS);
+	unsigned state =
+		xo_dev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
+		do_count > 0? 2: 1: 0;	/* RUN, ARM, IDLE */
+
+	return sprintf(buf, "%d %d\n", state, do_count);
+}
+
+
+static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUSR, show_dpg_status, 0);
+
+
+static ssize_t show_ext_clk_from_sync(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+	return sprintf(buf, "%d\n",
+			(ctrl&DIO432_CTRL_EXT_CLK_SYNC) != 0);
+
+}
+
+static ssize_t store_ext_clk_from_sync(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned ext_clk_from_sync = 0;
+
+	if (sscanf(buf, "%u", &ext_clk_from_sync) == 1){
+		u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+		if (ext_clk_from_sync){
+			ctrl |= DIO432_CTRL_EXT_CLK_SYNC;
+		}else{
+			ctrl &= ~DIO432_CTRL_EXT_CLK_SYNC;
+		}
+		acq400wr32(adev, DIO432_DIO_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(ext_clk_from_sync, S_IRUGO|S_IWUSR, show_ext_clk_from_sync, store_ext_clk_from_sync);
+
+static ssize_t show_DO32(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "0x%08x\n", xo_dev->dio432.DO32);
+}
+
+static ssize_t store_DO32(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	unsigned DO32 = 0;
+
+	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
+		xo_dev->dio432.DO32 = DO32;
+		wake_up_interruptible(&adev->w_waitq);
+		yield();
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
+
+static ssize_t show_DI32(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "0x%08x\n", xo_dev->dio432.DI32);
+}
+
+static ssize_t store_DI32(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	unsigned DI32 = 0;
+
+	if (sscanf(buf, "%u", &DI32) == 1){
+		xo_dev->dio432.DI32 = DI32;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(DI32, S_IRUGO|S_IWUSR, show_DI32, store_DI32);
+
+static ssize_t show_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	return sprintf(buf, "%d %s\n", xo_dev->dio432.mode,
+			dio32mode2str(xo_dev->dio432.mode));
+}
+
+static ssize_t store_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned mode = 0;
+
+	if (sscanf(buf, "%u", &mode) == 1){
+		dio432_set_mode(adev, mode, 0);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR, show_mode, store_mode);
+
+
+
+
+const struct attribute *dio432_attrs[] = {
+	&dev_attr_dpg_abort.attr,
+	&dev_attr_DI32.attr,
+	&dev_attr_DO32.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_byte_is_output.attr,
+	&dev_attr_ext_clk_from_sync.attr,
+	&dev_attr_dpg_status.attr,
+	NULL
+};
 
 
 

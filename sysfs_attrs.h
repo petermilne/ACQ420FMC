@@ -9,6 +9,9 @@
 #define SYSFS_ATTRS_H_
 
 extern const struct attribute *sysfs_v2f_attrs[];
+extern const struct attribute *atd_attrs[];
+extern const struct attribute *dtd_attrs[];
+extern const struct attribute *sysfs_diobiscuit_attrs[];
 extern const struct attribute *sysfs_qen_attrs[];
 extern const struct attribute **acq480_attrs;
 extern const struct attribute *acq480_ffir_attrs[];
@@ -26,7 +29,7 @@ extern const struct attribute *ao424_attrs[];
 extern const struct attribute *acq436_upper_half_attrs_master[];
 #define acq436_upper_half_attrs &acq436_upper_half_attrs_master[1]
 
-
+extern const struct attribute *dio432_attrs[];
 
 extern struct device_attribute dev_attr_bank_mask;
 
