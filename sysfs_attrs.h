@@ -31,6 +31,14 @@ extern const struct attribute *acq436_upper_half_attrs_master[];
 
 extern const struct attribute *dio432_attrs[];
 
+extern const struct attribute *pig_celf_attrs[];
+extern const struct attribute *acq400t_attrs[];
+
 extern struct device_attribute dev_attr_bank_mask;
+
+
+extern const struct attribute *acq423_attrs[];
+
+extern void sysfs_radcelf_create_files(struct device *dev);
 
 #endif /* SYSFS_ATTRS_H_ */
