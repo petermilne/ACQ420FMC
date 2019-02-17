@@ -397,7 +397,7 @@ void replace_all(struct acq400_path_descriptor* pd)
 		sort_empties(adev);
 	}
 	if (!is_sorted(adev, &adev->EMPTIES)){
-		dev_warn(DEVP(adev), "failed to sort EMPTIES");
+		dev_dbg(DEVP(adev), "failed to sort EMPTIES");
 	}
 	dev_dbg(DEVP(adev), "replace 99");
 }
