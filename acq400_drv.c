@@ -57,7 +57,7 @@ int frontside_bufferlen = 0x10000;
 module_param(frontside_bufferlen, int, 0444);
 
 
-int FIFERR = ADC_FIFO_STA_ERR;
+int FIFERR = 0; 				/* ADC_FIFO_STA_ERR; */
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 
@@ -916,6 +916,7 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 		dev_dbg(DEVP(adev), "acq2006_continuous_stop() restore event..");
 		acq400_enable_event0(adev, 1);
 	}
+	dev_info(DEVP(adev), "shot complete %d", adev->stats.shot);
 	return acq400_release(inode, file);
 }
 
