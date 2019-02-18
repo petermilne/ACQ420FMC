@@ -45,7 +45,7 @@ acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o \
 	acq400_xilinx_axidma.o acq400_deltrg.o \
 	acq400_set.o acq400_sysfs_utils.o  \
 	acq400_axi_chain.o acq400_axi_oneshot.o \
-	radcelf_sysfs.o acq400_reg_cache.o
+	radcelf_sysfs.o acq400_reg_cache.o 
 	
 dmadescfs-objs := dmadescfs_drv.o
 
@@ -76,7 +76,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
-	mgtdram_descgen bigcat egu2int dawg
+	mgtdram_descgen bigcat egu2int dawg watchdog_PIL
 
 
 LIBACQSO = libacq.so
@@ -147,7 +147,10 @@ mmaptest: mmaptest.o
 
 acq400_sls: acq400_sls.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt	-lacq
-		
+
+watchdog_PIL: watchdog_PIL.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+			
 udp_client: udp_client.o
 	$(CC) -o $@ $^ -L../lib -lpopt
 	
