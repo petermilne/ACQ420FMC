@@ -905,6 +905,7 @@ int acq420_continuous_stop(struct inode *inode, struct file *file)
 int acq2006_continuous_stop(struct inode *inode, struct file *file)
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
+	struct acq400_dev *adev1 = acq400_devices[1];
 
 	fiferr = 0;				/* don't care about any errs now */
 	dev_dbg(DEVP(adev), "acq2006_continuous_stop() fiferr clr from %08x", FIFERR);
@@ -916,7 +917,9 @@ int acq2006_continuous_stop(struct inode *inode, struct file *file)
 		dev_dbg(DEVP(adev), "acq2006_continuous_stop() restore event..");
 		acq400_enable_event0(adev, 1);
 	}
-	dev_info(DEVP(adev), "shot complete %d", adev->stats.shot);
+
+
+	dev_info(DEVP(adev), "shot complete %d", adev1? adev1->stats.shot: adev->stats.shot );
 	return acq400_release(inode, file);
 }
 
