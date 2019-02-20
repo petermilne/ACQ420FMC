@@ -2742,6 +2742,15 @@ static ssize_t store_es_enable(
 
 static DEVICE_ATTR(es_enable, S_IRUGO|S_IWUSR, show_es_enable, store_es_enable);
 
+static int jettison = 0;
+
+static ssize_t show_jettison_buffers_from(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return sprintf(buf, "%d\n", jettison);
+}
 
 static ssize_t store_jettison_buffers_from(
 	struct device * dev,
@@ -2755,13 +2764,15 @@ static ssize_t store_jettison_buffers_from(
 	if (sscanf(buf, "%u Y", &dump_from) == 1){
 		dev_warn(DEVP(adev), "%s DUMPING buffers from %d", __FUNCTION__, dump_from);
 		acq400_free_buffers(adev, dump_from);
+		jettison = 1;
 		return count;
 	}else{
 		dev_warn(DEVP(adev), "%s format \"first Y\"", __FUNCTION__);
 		return -1;
 	}
 }
-static DEVICE_ATTR(jettison_buffers_from, S_IWUSR, 0, store_jettison_buffers_from);
+static DEVICE_ATTR(jettison_buffers_from, S_IRUGO|S_IWUSR,
+		show_jettison_buffers_from, store_jettison_buffers_from);
 
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
