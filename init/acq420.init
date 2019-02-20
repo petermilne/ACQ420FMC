@@ -727,7 +727,7 @@ load_mgt() {
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
-	[ $MODEL = "acq2106" ] && load_mgt
+	load_mgt
 	cmt=$(cat /etc/acq400/C/MTYPE)
 	case $cmt in
 	90)
@@ -749,7 +749,7 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 	esac
 fi
 case $MODEL in
-acq2106sfp|kmcu*)
+kmcu*)
 	load_mgt $MODEL;;
 esac
 
