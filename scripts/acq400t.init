@@ -47,10 +47,10 @@ proc get_gpio1 {site addr} {
 
 proc link_hwmon {hsite site} {	
 	set hwmon /sys/class/hwmon/hwmon
- 	exec ln -s $hwmon$hsite/device/in1_input	/dev/acq400t/$site/MuxA
- 	exec ln -s $hwmon$hsite/device/in2_input	/dev/acq400t/$site/MuxB
- 	exec ln -s $hwmon$hsite/device/in3_input	/dev/acq400t/$site/MuxC
- 	exec ln -s $hwmon$hsite/device/in4_input	/dev/acq400t/$site/MuxD
+ 	exec ln -s $hwmon$hsite/in1_input	/dev/acq400t/$site/MuxA
+ 	exec ln -s $hwmon$hsite/in2_input	/dev/acq400t/$site/MuxB
+ 	exec ln -s $hwmon$hsite/in3_input	/dev/acq400t/$site/MuxC
+ 	exec ln -s $hwmon$hsite/in4_input	/dev/acq400t/$site/MuxD
 }
 
 # MTCA_ADAPTER was a once-off tester, fits ACQ2006
@@ -90,9 +90,9 @@ if { $::argc > 0 } {
 	}
 	exec /sbin/insmod  /usr/local/lib/modules/acq400t.ko $parms
 	
-	set siteplus 0
+	set siteplus 1
 	if {[isKMCU]} {
-		set siteplus 1
+		set siteplus 2
 	}
 	
 	foreach site $::argv {
