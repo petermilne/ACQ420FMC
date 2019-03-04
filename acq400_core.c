@@ -333,6 +333,12 @@ int acq400_enable_trg(struct acq400_dev *adev, int enable)
 	u32 timcon = acq400rd32(adev, TIM_CTRL);
 	int was_enabled = (timcon&TIM_CTRL_MODE_HW_TRG_EN) != 0;
 	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 01", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
+	if (adev->sod_mode){
+		if (was_enabled){
+			dev_err(DEVP(adev), "sod_mode is enabled, but so is TRG");
+		}
+		return was_enabled;
+	}
 	if (enable){
 		if (was_enabled){
 			dev_dbg(DEVP(adev), "acq400_enable_trg already enabled ..");

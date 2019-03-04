@@ -183,6 +183,7 @@ struct acq400_dev {
 	int lotide;
 	int sysclkhz;			/* system clock rate */
 	int axi_buffers_after_event;	/* run on this long if set */
+	int sod_mode;			/* Sample On Demand: no trigger */
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;

@@ -1864,6 +1864,34 @@ static DEVICE_ATTR(RW32_debug,
 		S_IRUGO|S_IWUSR, show_RW32_debug, store_RW32_debug);
 
 
+static ssize_t store_sod(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int sod_mode;
+
+	if (sscanf(buf, "%d", &sod_mode) == 1){
+		adev->sod_mode = sod_mode;
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static ssize_t show_sod(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", adev->sod_mode);
+}
+
+static DEVICE_ATTR(sod, S_IRUGO|S_IWUSR, show_sod, store_sod);
+
 MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
 
 
@@ -1891,6 +1919,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_event0.attr,
 	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
+	&dev_attr_sod.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
