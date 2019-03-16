@@ -131,6 +131,7 @@ apps: $(APPS)
 
 modules:
 	make -C $(KERN_SRC) ARCH=arm M=`pwd` modules
+	$(CROSS_COMPILE)strip --strip-debug *.ko
 	
 clean:
 	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(LIBS) $(APPS) \
