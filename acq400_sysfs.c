@@ -1899,7 +1899,6 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_role.attr,
 	&dev_attr_module_name.attr,
-	&dev_attr_fpga_rev.attr,
 	&dev_attr_nbuffers.attr,
 	&dev_attr_bufferlen.attr,
 	&dev_attr_optimise_bufferlen.attr,
@@ -2911,8 +2910,9 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_hb_last.attr,
 	&dev_attr_has_axi_dma.attr,
 	&dev_attr_has_axi_dma_stack.attr,
-&dev_attr_dist_bufferlen.attr,
+	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_jettison_buffers_from.attr,
+	&dev_attr_fpga_rev.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
