@@ -1232,8 +1232,14 @@ static ssize_t store_DO32(
 
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
 		xo_dev->dio432.DO32 = DO32;
-		wake_up_interruptible(&adev->w_waitq);
-		yield();
+		if (xo_dev->dio432.mode == DIO432_IMMEDIATE){
+			wake_up_interruptible(&adev->w_waitq);
+			yield();
+		}else{
+			/* it's clocking, just send it thru. for case clocked IN, immediate OUT */
+			acq400wr32(adev, DIO432_FIFO, xo_dev->dio432.DO32);
+			xo_dev->dio432.DI32 = acq400rd32(adev, DIO432_FIFO);
+		}
 		return count;
 	}else{
 		return -1;
