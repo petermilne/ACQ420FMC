@@ -528,7 +528,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
 #define FPCTL			(0x0034)
 #define SYS_CLK			(0x0038)
-#define AGGDBG			(0x003c)
+#define AGG_DEBUG		(0x003c)
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
 #define GPG_DEBUG		(0x0048)
