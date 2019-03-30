@@ -73,7 +73,23 @@ static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
 
 #define MAKE_BITS_FROM_MASK	0xdeadbeef
 
-
+/** show field signed decimal */
+ssize_t acq400_show_dnum(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	unsigned SHL,
+	unsigned MASK);
+/** store field signed decimal */
+ssize_t acq400_store_dnum(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned SHL,
+		unsigned MASK);
 ssize_t acq400_show_bits(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -200,4 +216,47 @@ static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
 
 #define MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 0)
 #define DEPRECATED_MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 1)
+
+#define MAKE_DNUM(NAME, REG, MASK)					\
+static ssize_t show_dnum##NAME(						\
+	struct device *d,						\
+	struct device_attribute *a,					\
+	char *b)							\
+{									\
+	unsigned shl = getSHL(MASK);				\
+	return acq400_show_dnum(d, a, b, REG, shl, (MASK)>>shl);\
+}									\
+static ssize_t store_dnum##NAME(					\
+	struct device * d,						\
+	struct device_attribute *a,					\
+	const char * b,							\
+	size_t c)							\
+{									\
+	unsigned shl = getSHL(MASK);					\
+	return acq400_store_dnum(d, a, b, c, REG, shl, (MASK)>>shl);	\
+}									\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dnum##NAME, store_dnum##NAME)
+
+#define SCOUNT_KNOB(name, reg) 							\
+static ssize_t show_clk_count_##name(						\
+	struct device * dev,							\
+	struct device_attribute *attr,						\
+	char * buf)								\
+{										\
+	u32 counter = acq400_devices[dev->id]->reg_cache.data[reg/sizeof(int)]; \
+	return sprintf(buf, "%u\n", counter);					\
+}										\
+static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
+
+#define SCOUNT_KNOB_FIELD(name, reg, field)					\
+static ssize_t show_clk_count_##name(						\
+	struct device * dev,							\
+	struct device_attribute *attr,						\
+	char * buf)								\
+{										\
+	unsigned shl = getSHL(field);						\
+	u32 counter = acq400_devices[dev->id]->reg_cache.data[reg/sizeof(int)]; \
+	return sprintf(buf, "%u\n", (counter&field)>>shl);			\
+}										\
+static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
 
