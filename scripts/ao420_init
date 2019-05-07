@@ -5,23 +5,27 @@ KNOBS=/dev/acq400.${SITE}.knobs
 MODEL=$(cat $KNOBS/module_name)
 
 
+vset_sys() {
+	echo set.sys $1 $2
+	set.sys $1 $2
+#	echo get.sys $1 $(get.sys $1)
+}
+
 echo "dac_range_ALL=dac_range_??" >/etc/acq400/${SITE}/groups	
 echo +++ initializing DACs for $MODEL
-echo "file acq400_drv.c +p"   >/sys/kernel/debug/dynamic_debug/control
-echo "file acq400_sysfs.c +p" >/sys/kernel/debug/dynamic_debug/control
-set.sys ${KNOBS}/dacreset 1
-set.sys ${KNOBS}/dacreset 0
-set.sys ${KNOBS}/dacspi 0x300000
-set.sys ${KNOBS}/dacspi 0x400002
-case $MODEL in
-ao428elf)
-	set.sys ${KNOBS}/dacspi 0x200002;;
-*)
-	set.sys ${KNOBS}/dacspi 0x200000;;
-esac
 
-echo "file acq400_drv.c -p"   >/sys/kernel/debug/dynamic_debug/control
-echo "file acq400_sysfs.c -p" >/sys/kernel/debug/dynamic_debug/control
+vset_sys ${KNOBS}/dacreset 1
+vset_sys ${KNOBS}/dacreset 0
+vset_sys ${KNOBS}/dacspi 0x300000	# Clear Code
+vset_sys ${KNOBS}/dacspi 0x400002	# Soft Reset
+
+case $MODEL in
+ao428elf|cpsc2dac)	
+	vset_sys ${KNOBS}/dacspi 0x200002;; # +/- Ref Mult.
+*)
+	vset_sys ${KNOBS}/dacspi 0x400002
+	vset_sys ${KNOBS}/dacspi 0x200000;;
+esac
 
 ln -s /usr/local/bin/wavegen /etc/acq400/$SITE
 
@@ -32,13 +36,15 @@ done
 
 case $MODEL in
 ao428elf)
-	(cd /usr/local/lib/modules/
-	/sbin/insmod adt7x10.ko
-	/sbin/insmod adt7410.ko
-	/sbin/insmod ao428.ko)
-	rm -f /dev/hwmon/2/*	
-	ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon/2/temp
-	ln -s /usr/local/CARE/dac20_autozero /etc/acq400/2/dac20_autozero
+	if [ "$(cat /etc/acq400/0/MODEL)" != "cpsc2" ]; then
+		(cd /usr/local/lib/modules/
+		/sbin/insmod adt7x10.ko
+		/sbin/insmod adt7410.ko
+		/sbin/insmod ao428.ko)
+		rm -f /dev/hwmon/2/*	
+		ln -s /sys/class/hwmon/hwmon4/device/temp1_input /dev/hwmon/2/temp
+		ln -s /usr/local/CARE/dac20_autozero /etc/acq400/2/dac20_autozero
+	fi
 	;;
 esac
 
