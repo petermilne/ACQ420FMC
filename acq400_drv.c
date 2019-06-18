@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.371"
+#define REVID "3.372"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2271,6 +2271,8 @@ int ai_data_loop(void *data)
 					adev->DMA_READY,
 					adev->dma_callback_done || kthread_should_stop(),
 					dma_timeout) <= 0){
+				adev->rt.refill_error = 2;
+				wake_up_interruptible_all(&adev->refill_ready);
 				dev_err(DEVP(adev), "TIMEOUT waiting for DMA\n");
 				goto quit;
 			}
@@ -2339,6 +2341,7 @@ quit:
 	}
 #undef DMA_ASYNC_MEMCPY
 #undef DMA_ASYNC_MEMCPY_NWFE
+
 }
 
 /* this is the much-vaunted hrtimer - program in nsec,
