@@ -19,6 +19,23 @@ if { [string compare -length 4 $HN "kmcu"] == 0 } {
 }
 puts "VAP $VAP VAN $VAN"
 
+proc test_voltages {VAL text} {
+        set VAL1 [expr abs($VAL)]
+        if { $VAL1 > 13.75 || $VAL1 < 6.25} {
+                puts "Something is wrong with $text, quitting"
+                puts "$text value is $VAL"
+                exit 1
+        } elseif { $VAL1 > 7.75 && $VAL1 < 11.75 } {
+                puts "Something is wrong with $text, quitting"
+                puts "$text value is $VAL"
+                exit 1
+        }
+}
+
+test_voltages $VAN "VAN"
+test_voltages $VAP "VAP"
+
+
 #       target = xx * mx/dx + cx
 
 set A_RES { 
