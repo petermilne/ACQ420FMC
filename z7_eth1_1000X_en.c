@@ -25,16 +25,45 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/io.h>
+#include <linux/mfd/syscon.h>
+#include <linux/init.h>
+#include <linux/of.h>
+#include <linux/regmap.h>
+
 
 #define REVID "0.1"
 
-static int __init eth1_1001X_en_init(void)
+#define GEM1_RCLK_CTRL	0x13c
+#define GEM1_CLK_CTRL	0x144
+
+
+static int __init eth1_1000X_en_init(void)
 {
+	struct regmap *syscon;
 	printk("D-TACQ z7_eth1_1000X_en %s\n", REVID);
+
+	syscon = syscon_regmap_lookup_by_compatible("xlnx,zynq-slcr");
+
+	if (IS_ERR(syscon)) {
+		printk("ERROR: eth1_1000X_en_init unable to get syscon\n");
+		return PTR_ERR(syscon);
+	}
+
+	regmap_write(syscon, GEM1_RCLK_CTRL, 0x11);
+	regmap_write(syscon, GEM1_CLK_CTRL,  0x41);
+
 	return 0;
 }
 
-module_init(eth1_1001X_en_init);
+static void __exit eth1_1000X_en_exit(void)
+{
+
+}
+
+
+module_init(eth1_1000X_en_init);
+module_exit(eth1_1000X_en_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ set eth1 1000X clock routing");
