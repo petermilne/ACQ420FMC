@@ -1,0 +1,12 @@
+
+/sbin/insmod /usr/local/lib/modules/xilinx_phy.ko
+/sbin/insmod /usr/local/lib/modules/z7_eth1_1000X_en.ko
+
+mount -t configfs none /sys/kernel/config
+mkdir -p /sys/kernel/config/device-tree/overlays/acq2106_100X
+cat /mnt/dtb.d/acq2106_1000X_overlay.dtb > \
+	/sys/kernel/config/device-tree/overlays/acq2106_100X/dtbo
+
+/usr/local/CARE/set_mac2
+#ifconfig eth1 192.168.0.84 up
+

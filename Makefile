@@ -27,6 +27,8 @@ obj-m += fmc10x.o
 obj-m += ad9510.o
 obj-m += ads62p49.o
 obj-m += ao428.o
+obj-m += z7_eth1_1000X_en.o
+
 #obj-m += acq400-spi-bytebang.o
 
 DC := $(shell date +%y%m%d%H%M%S)

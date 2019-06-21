@@ -1,0 +1,45 @@
+#!/usr/bin/expect
+# configure eth1 mac using u-boot eth1addr if set or based on ethaddr
+# for ethaddr, set high bit of 3rd octet index from zero
+# eg
+# acq2106_132> cat /sys/class/net/eth0/address 
+# 00:21:54:13:00:84
+# acq2106_132> cat /sys/class/net/eth1/address 
+# 00:21:54:93:00:84
+
+
+
+set ub_env [dict create]
+set fp [open /tmp/u-boot_env r]
+
+while {[gets $fp line] != -1} {
+#	puts $line
+	if {[regexp {(\S+)="(\S+)"} $line match key value]} {
+		dict lappend ub_env $key $value
+	}
+}
+
+close $fp
+
+#puts [dict get $ub_env]
+
+
+proc set_eth1_mac {macaddr} {
+	puts "ifconfig eth1 hw ether $macaddr"
+	exec ifconfig eth1 hw ether $macaddr
+}
+
+proc calc_eth1_mac {eth0_macaddr} {
+	set octets [split $eth0_macaddr :]
+	set b3 [lindex $octets 3]
+	set b32 [format %02x [expr 0x$b3 + 0x80] ]
+	return [join [lreplace $octets 3 3 $b32] :]
+}
+if {[dict exists $ub_env eth1addr]} {
+	set eth1_mac [lindex [dict get $ub_env eth1addr] 0]
+} else {
+	set eth1_mac [calc_eth1_mac [lindex [dict get $ub_env ethaddr] 0] ]
+}
+
+set_eth1_mac $eth1_mac
+
