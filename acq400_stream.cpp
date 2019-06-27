@@ -174,6 +174,7 @@ namespace G {
 	int show_events;
 	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
 	unsigned dualaxi;		// 0: none, 1=1 channel, 2= 2channels
+	bool stream_sob_sig;            // insert start of buffer signature
 };
 
 
@@ -230,6 +231,7 @@ public:
 	}
 };
 
+#define SOB_MAGIC	0xaa55fbff
 #define EVX_MAGIC       0xaa55f150
 #define EV0_MAGIC       0xaa55f151
 
@@ -1318,6 +1320,9 @@ struct poptOption opt_table[] = {
 	{ "nbuffers", 0, POPT_ARG_INT, &Buffer::nbuffers, 0,
 			"restrict number of buffers in use NB: NOT tested"
 	},
+        { "stream_sob_sig", 0, POPT_ARG_INT, &G::stream_sob_sig, 0,
+                       "insert Start of Buffer signature in stream"
+        },
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
 	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
@@ -1810,7 +1815,14 @@ protected:
 	AbstractES& ev0;
 
 
-
+        unsigned sob_count;
+        unsigned* sob_buffer;
+        void insertStartOfBufferSignature(int ib){
+               for (unsigned ii = sob_count/2; ii < sob_count; ++ii){
+                       sob_buffer[ii] = ib;
+               }
+               write(1, sob_buffer, sob_count*sizeof(unsigned));
+        }
 
 	void close() {
 		kill_the_holders();
@@ -1825,6 +1837,9 @@ protected:
 	}
 	virtual ~StreamHeadImpl() {
 		close();
+		if (sob_buffer){
+			delete [] sob_buffer;
+		}
 	}
 
 	void setState(enum STATE state) {
@@ -2057,9 +2072,17 @@ public:
 		f_ev(0), nfds(0), event_received(0), verbose(0),
 		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
-		ev0(*AbstractES::ev0_instance()) {
+		ev0(*AbstractES::ev0_instance()),
+		sob_count(0), sob_buffer(0) {
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
+                        if (G::stream_sob_sig){
+                        	sob_count = sample_size()/sizeof(unsigned);
+			        sob_buffer = new unsigned[sob_count];
+			        for (unsigned ii = 0; ii < sob_count/2; ++ii){
+			        	sob_buffer[ii] = SOB_MAGIC;
+			        }
+			}
 
 			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
 			reportFindEvent(0, FE_IDLE);
@@ -2079,6 +2102,11 @@ public:
 		}
 		while((ib = getBufferId()) >= 0){
 			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
+
+			if (G::stream_sob_sig){
+				insertStartOfBufferSignature(ib);
+			}
+
 			Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 			switch(actual.state){
 			case ST_ARM:
