@@ -230,13 +230,16 @@ public:
 	}
 };
 
+#define EVX_MAGIC       0xaa55f150
+#define EV0_MAGIC       0xaa55f151
+
 AbstractES* AbstractES::evX_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0a>;
+			_instance = new ES<0xfffffff0, EVX_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0f>;
+			_instance = new ES<0xfffffff0, EVX_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
@@ -245,9 +248,9 @@ AbstractES* AbstractES::ev0_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xffffffff, 0xaa55f151, 0x0a>;
+			_instance = new ES<0xffffffff, EV0_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xffffffff, 0xaa55f151, 0x0f>;
+			_instance = new ES<0xffffffff, EV0_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
