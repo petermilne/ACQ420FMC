@@ -1,0 +1,10 @@
+awk '
+BEGIN { 
+	bm1 = 0 
+} 
+{ 
+	bm=$1; sub(/^0*/,"",bm); 
+	if (bm != bm1+1) print bm1" -> "bm; 
+	bm1=bm
+}' < /dev/acq400.0.bq
+
