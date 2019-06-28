@@ -739,7 +739,7 @@ static ssize_t show_delay66(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 delay66 = acq400rd32(adev, AO424_DELAY);
+	u32 delay66 = acq400rd32(adev, AO_DELAY66);
 
 	return sprintf(buf, "0x%02x\n", delay66&0x00ff);
 }
@@ -754,7 +754,7 @@ static ssize_t store_delay66(
 	unsigned delay66;
 	if (sscanf(buf, "0x%x", &delay66) == 1 || sscanf(buf, "%d", &delay66) == 1){
 		if (delay66 > 0xff) delay66 = 0xff;
-		acq400wr32(adev, AO424_DELAY, delay66);
+		acq400wr32(adev, AO_DELAY66, delay66);
 		return count;
 	}else{
 		return -1;
@@ -1017,6 +1017,7 @@ const struct attribute *ao428_attrs[] = {
 	&dev_attr_offset_06.attr,
 	&dev_attr_offset_07.attr,
 	&dev_attr_offset_08.attr,
+	&dev_attr_delay66.attr,
 	NULL
 };
 const struct attribute *ao420_attrs[] = {
@@ -1032,6 +1033,7 @@ const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_headroom.attr,
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
+	&dev_attr_delay66.attr,
 	NULL
 };
 

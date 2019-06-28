@@ -64,8 +64,6 @@
 #define ACQ423_BANK		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
 
-#define AO424_DELAY		(AO420_DACSPI)
-
 #define DAC_424_SNOOP		(ADC_BASE+0x4C)
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
@@ -82,6 +80,8 @@
 #define ACQ423_SPAN_B		(ADC_BASE+0x64)
 #define ACQ423_SPAN_C		(ADC_BASE+0x68)
 #define ACQ423_SPAN_D		(ADC_BASE+0x6C)
+
+#define AO_DELAY66		(ADC_BASE+0x60)
 
 #define DTD_CTRL		(ADC_BASE+0x64)
 
