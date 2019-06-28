@@ -741,7 +741,7 @@ static ssize_t show_delay66(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 delay66 = acq400rd32(adev, AO_DELAY66);
 
-	return sprintf(buf, "0x%02x\n", delay66&0x00ff);
+	return sprintf(buf, "0x%02x\n", delay66&AO_DELAY66_MASK);
 }
 
 static ssize_t store_delay66(
@@ -753,7 +753,7 @@ static ssize_t store_delay66(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned delay66;
 	if (sscanf(buf, "0x%x", &delay66) == 1 || sscanf(buf, "%d", &delay66) == 1){
-		if (delay66 > 0xff) delay66 = 0xff;
+		if (delay66 > AO_DELAY66_MASK) delay66 = AO_DELAY66_MASK;
 		acq400wr32(adev, AO_DELAY66, delay66);
 		return count;
 	}else{

@@ -337,6 +337,7 @@
 #define FMC_DSR_TRG_BUS		0x00000006
 #define FMC_DSR_TRG_DIR		0x00000001
 
+#define AO_DELAY66_MASK		0x00000fff
 
 #define ADC_ACC_DEC_LEN		0x000f		/* 0:x1, 1..31: x2..32 */
 #define ADC_ACC_DEC_SHIFT_MASK	0x0f00
