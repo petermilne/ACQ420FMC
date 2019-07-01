@@ -7,7 +7,7 @@ source /usr/local/bin/init_stream
 SITE=$1
 LOG=/var/log/acq400_streamd_$SITE.log
 
-init_stream $SITE 2>&1 >$LOG
+init_stream $SITE >$LOG 2>&1
 jobs >>$LOG
 echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 
