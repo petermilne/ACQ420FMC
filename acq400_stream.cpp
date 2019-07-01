@@ -174,7 +174,7 @@ namespace G {
 	int show_events;
 	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
 	unsigned dualaxi;		// 0: none, 1=1 channel, 2= 2channels
-	bool stream_sob_sig;            // insert start of buffer signature
+	int stream_sob_sig;            // insert start of buffer signature
 };
 
 
@@ -1320,7 +1320,7 @@ struct poptOption opt_table[] = {
 	{ "nbuffers", 0, POPT_ARG_INT, &Buffer::nbuffers, 0,
 			"restrict number of buffers in use NB: NOT tested"
 	},
-        { "stream_sob_sig", 0, POPT_ARG_INT, &G::stream_sob_sig, 0,
+        { "stream-sob-sig", 0, POPT_ARG_INT, &G::stream_sob_sig, 0,
                        "insert Start of Buffer signature in stream"
         },
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
@@ -1818,10 +1818,12 @@ protected:
         unsigned sob_count;
         unsigned* sob_buffer;
         void insertStartOfBufferSignature(int ib){
-               for (unsigned ii = sob_count/2; ii < sob_count; ++ii){
+        	if (verbose) fprintf(stderr, "StreamHeadImpl::insertStartOfBufferSignature() %d\n", sob_count);
+
+        	for (unsigned ii = sob_count/2; ii < sob_count; ++ii){
                        sob_buffer[ii] = ib;
-               }
-               write(1, sob_buffer, sob_count*sizeof(unsigned));
+        	}
+        	write(1, sob_buffer, sob_count*sizeof(unsigned));
         }
 
 	void close() {
@@ -2077,6 +2079,7 @@ public:
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
                         if (G::stream_sob_sig){
+                        	if (verbose) fprintf(stderr, "StreamHeadImpl::StreamHeadImpl() : G::stream_sob_sig %d\n", G::stream_sob_sig);
                         	sob_count = sample_size()/sizeof(unsigned);
 			        sob_buffer = new unsigned[sob_count];
 			        for (unsigned ii = 0; ii < sob_count/2; ++ii){
@@ -2101,7 +2104,8 @@ public:
 			schedule_soft_trigger();
 		}
 		while((ib = getBufferId()) >= 0){
-			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
+			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d sob:%d\n",
+					ib, G::stream_sob_sig);
 
 			if (G::stream_sob_sig){
 				insertStartOfBufferSignature(ib);
