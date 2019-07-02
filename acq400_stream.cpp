@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1030"
+#define VERID	"B1031"
 
 #define NCHAN	4
 
@@ -1675,8 +1675,10 @@ void init(int argc, const char** argv) {
 				G::buffer_mode = BM_RAW;
 			}
 			break;
-		case 'P':
 		case 'O':
+			if (G::oversampling == 0) break;
+			// fall thru
+		case 'P':
 			G::stream_mode = SM_TRANSIENT;
 			break;
 		case 'S':
