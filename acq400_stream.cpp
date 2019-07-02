@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1024"
+#define VERID	"B1030"
 
 #define NCHAN	4
 
@@ -2067,6 +2067,14 @@ protected:
 		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
 		return 0;
 	}
+	virtual int getBufferId() {
+		int ib = StreamHead::getBufferId();
+		if (verbose) fprintf(stderr, "StreamHeadImpl::getBufferId() sob:%d\n", G::stream_sob_sig);
+		if (G::stream_sob_sig){
+			insertStartOfBufferSignature(ib);
+		}
+		return ib;
+	}
 public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
@@ -2104,13 +2112,7 @@ public:
 			schedule_soft_trigger();
 		}
 		while((ib = getBufferId()) >= 0){
-			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d sob:%d\n",
-					ib, G::stream_sob_sig);
-
-			if (G::stream_sob_sig){
-				insertStartOfBufferSignature(ib);
-			}
-
+			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
 			Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
 			switch(actual.state){
 			case ST_ARM:
