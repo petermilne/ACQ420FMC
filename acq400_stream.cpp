@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1031"
+#define VERID	"B1032"
 
 #define NCHAN	4
 
@@ -1819,11 +1819,15 @@ protected:
 
         unsigned sob_count;
         unsigned* sob_buffer;
-        void insertStartOfBufferSignature(int ib){
-        	if (verbose) fprintf(stderr, "StreamHeadImpl::insertStartOfBufferSignature() %d\n", sob_count);
+        unsigned buffer_count;
 
+        void insertStartOfBufferSignature(int ib){
+        	if (verbose) fprintf(stderr, "StreamHeadImpl::insertStartOfBufferSignature() %d ib:%d bc:%d\n",
+        			sob_count, ib, buffer_count);
+
+        	buffer_count += 1;
         	for (unsigned ii = sob_count/2; ii < sob_count; ++ii){
-                       sob_buffer[ii] = ib;
+                       sob_buffer[ii] = (ii+1) == sob_count? buffer_count: ib;
         	}
         	write(1, sob_buffer, sob_count*sizeof(unsigned));
         }
@@ -2085,7 +2089,7 @@ public:
 		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()),
-		sob_count(0), sob_buffer(0) {
+		sob_count(0), sob_buffer(0), buffer_count(0) {
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
                         if (G::stream_sob_sig){
