@@ -440,7 +440,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
 
 #define IS_AXI64_DUALCHAN_CAPABLE(adev)	\
-	(IS_ACQ1001_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
+	(IS_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
 
 #define IS_AXI64_DUALCHAN(adev) \
 	(IS_AXI64(adev) && adev->dma_chan[0] && adev->dma_chan[1])
