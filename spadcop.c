@@ -17,12 +17,15 @@ struct SpadCop {
 	int enabled;
 	int src_site;
 	u32 reg;
+	unsigned updates;
 };
 
 enum hrtimer_restart spadCopAction(struct hrtimer* hrt)
 {
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
 	*sc->dst = *sc->src;
+
+	++sc->updates;
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
 }
@@ -49,11 +52,12 @@ int _spad_cop_enable(int ispad, u32 site, u32 reg, u32 usecs)
 	struct SpadCop* sc = &scx[ispad];
 	if (adev){
 		struct acq400_dev* site0 = acq400_lookupSite(0);
-		sc->dst = ((u32*)site0->dev_virtaddr)+SPADN(ispad);
-		sc->src = ((u32*)adev->dev_virtaddr)+reg;
+		sc->dst = (u32*)(site0->dev_virtaddr+SPADN(ispad));
+		sc->src = (u32*)(adev->dev_virtaddr+reg);
 		sc->reg = reg;
 		sc->src_site = site;
 		sc->kt_period = usecs * 1000;
+		sc->updates = 0;
 		spadCopStart(sc);
 		return 0;
 	}else{
@@ -75,7 +79,7 @@ int _spad_cop_set(int ispad, const char* buf)
 				return -1;
 			}
 		}else{
-			spadCopStop(scx);
+			spadCopStop(sc);
 			return 0;
 		}
 	}else{
@@ -92,7 +96,8 @@ int _spad_cop_show(int ispad, char* buf)
 {
 	struct SpadCop* sc = &scx[ispad];
 	u32 usecs = sc->kt_period >> 10;
-	return sprintf(buf, "%d,%d,%x,%d", sc->enabled, sc->src_site, sc->reg, usecs);
+	return sprintf(buf, "%d,%d,%x,%d %u\n",
+			sc->enabled, sc->src_site, sc->reg, usecs, sc->updates);
 }
 int spad_cop_show(int ispad, char* buf)
 {
@@ -115,7 +120,8 @@ static ssize_t store_spadcop##NAME(					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return spad_cop_set(NAME, buf);					\
+	int rc = spad_cop_set(NAME, buf);				\
+	return rc == 0? count: rc;					\
 }									\
 static DEVICE_ATTR(spadcop##NAME, S_IRUGO|S_IWUSR, 		        \
 		show_spadcop##NAME, store_spadcop##NAME)
