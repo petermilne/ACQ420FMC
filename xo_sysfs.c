@@ -1137,6 +1137,9 @@ const struct attribute *ao424_attrs[] = {
 	&dev_attr_delay66.attr,
 	&dev_attr_snoopsel.attr,
 	&dev_attr_sync_clk_to_sync.attr,
+	&dev_attr_read_latency.attr,
+	&dev_attr_dac_dec.attr,
+
 	/*
 	&dev_attr_G1.attr, &dev_attr_D1.attr,
 	&dev_attr_G2.attr, &dev_attr_D2.attr,
