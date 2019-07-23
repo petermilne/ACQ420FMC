@@ -23,9 +23,10 @@ struct SpadCop {
 enum hrtimer_restart spadCopAction(struct hrtimer* hrt)
 {
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
-	*sc->dst = *sc->src;
-
 	++sc->updates;
+	*sc->dst = sc->reg==0xcccc? sc->updates: *sc->src;
+
+
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
 }
