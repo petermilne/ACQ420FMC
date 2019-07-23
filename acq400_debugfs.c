@@ -112,6 +112,11 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(AO420_RANGE);
 		DBG_REG_CREATE(AO420_DACSPI);
 	}
+	if (IS_AO420(adev)||IS_AO424(adev)){
+		DBG_REG_CREATE(DAC_DEC);
+		DBG_REG_CREATE(DAC_READ_LAT_AC);
+		DBG_REG_CREATE(DAC_READ_LAT_MM);
+	}
 	if (IS_AO420(adev)){
 		DBG_REG_CREATE(DAC_GAIN_OFF(1));
 		DBG_REG_CREATE(DAC_GAIN_OFF(2));

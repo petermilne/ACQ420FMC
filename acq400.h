@@ -69,6 +69,7 @@
 
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
+#define DAC_DEC			ADC_ACC_DEC
 
 #define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
 
@@ -87,6 +88,9 @@
 
 #define ACQ424_SHOT_LENGTH	(ADC_BASE+0x70)
 #define ACQ424_CLK_MIN_MAX	(ADC_BASE+0x74)
+
+#define DAC_READ_LAT_AC		(ADC_BASE+0x70)
+#define DAC_READ_LAT_MM		(ADC_BASE+0x74)
 
 #define ACQ480_TRAIN_CTRL	(ADC_BASE+0x28)
 #define ACQ480_TRAIN_HI_VAL	(ADC_BASE+0x2C)
@@ -339,10 +343,10 @@
 
 #define AO_DELAY66_MASK		0x00000fff
 
-#define ADC_ACC_DEC_LEN		0x000f		/* 0:x1, 1..31: x2..32 */
+#define ADC_ACC_DEC_LEN		0x00ff		/* 0:x1, 1..31: x2..32 */
 #define ADC_ACC_DEC_SHIFT_MASK	0x0f00
 
-#define ADC_MAX_NACC		16
+#define ADC_MAX_NACC		256
 
 #define ADC_ACC_DEC_SHIFT_MAX   0x4
 

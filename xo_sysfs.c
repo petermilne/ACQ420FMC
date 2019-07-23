@@ -763,6 +763,56 @@ static ssize_t store_delay66(
 
 static DEVICE_ATTR(delay66, S_IWUSR|S_IRUGO, show_delay66, store_delay66);
 
+
+static ssize_t show_dac_dec(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 acc_dec = acq400rd32(adev, DAC_DEC);
+
+	return sprintf(buf, "%u\n", (acc_dec&ADC_ACC_DEC_LEN)+1);
+}
+
+static ssize_t store_dac_dec(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int nacc;
+
+	if (sscanf(buf, "%u", &nacc) >= 1){
+		nacc = max(nacc, 1);
+		nacc = min(nacc, ADC_MAX_NACC);
+		acq400wr32(adev, DAC_DEC, nacc-1);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(dac_dec, S_IWUSR|S_IRUGO, show_dac_dec, store_dac_dec);
+
+static ssize_t show_read_latency(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 read_lat_ac = acq400rd32(adev, DAC_READ_LAT_AC);
+	u32 read_lat_mm = acq400rd32(adev, DAC_READ_LAT_MM);
+
+	return sprintf(buf, "%d,%d,%d,%d\n",
+			read_lat_ac>>16, read_lat_ac&0xffff,
+			read_lat_mm>>16, read_lat_mm&0xffff);
+}
+
+static DEVICE_ATTR(read_latency, S_IRUGO, show_read_latency, 0);
+
+
 MAKE_BITS(snoopsel, DAC_CTRL, AO424_DAC_CTRL_SNOOPSEL_SHL, AO424_DAC_CTRL_SNOOPSEL_MSK);
 MAKE_BITS(sync_clk_to_sync, DAC_CTRL, MAKE_BITS_FROM_MASK, AO424_DAC_CTRL_SYNC_CLK_TO_SYNC);
 
@@ -1034,6 +1084,8 @@ const struct attribute *ao420_attrs[] = {
 	&dev_attr_dac_fifo_samples.attr,
 	&dev_attr_dac_encoding.attr,
 	&dev_attr_delay66.attr,
+	&dev_attr_read_latency.attr,
+	&dev_attr_dac_dec.attr,
 	NULL
 };
 
