@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.379"
+#define REVID "3.380"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -270,9 +270,8 @@ int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd)
 			}
 		}
 		return 0;
-	}else{
-		return -1;
 	}
+	return 0;	/* distributor_first_buffer==0 is an option */
 }
 
 int acq400_free_buffers(struct acq400_dev *adev, int free_from)
