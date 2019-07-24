@@ -41,20 +41,15 @@ enum hrtimer_restart spadCopReadClear(struct hrtimer* hrt)
 {
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
 	++sc->updates;
-	*sc->dst = *sc->src;
-	*sc->src = 0xffffffff;
+	*sc->src = *sc->dst = *sc->src;
 
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
 }
 void spadCopStart(struct SpadCop *sc)
 {
-	sc->enabled = 1;
 	hrtimer_init(&sc->timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
-	if (){
-
-	}
-	sc->timer.function = sc->reg == reg==0xcccc? spadCopRampAction:
+	sc->timer.function = sc->reg==0xcccc? spadCopRampAction:
 			     sc->enabled&0x2? spadCopReadClear: spadCopRead;
 	hrtimer_start(&sc->timer, sc->kt_period, HRTIMER_MODE_REL);
 }
@@ -62,7 +57,6 @@ void spadCopStart(struct SpadCop *sc)
 void spadCopStop(struct SpadCop *sc)
 {
 	hrtimer_cancel(&sc->timer);
-	sc->enabled = 0;
 }
 
 #define MAXSPAD	8
@@ -102,6 +96,7 @@ int _spad_cop_set(int ispad, const char* buf)
 			}
 		}else{
 			spadCopStop(sc);
+			sc->enabled = 0;
 			return 0;
 		}
 	}else{
