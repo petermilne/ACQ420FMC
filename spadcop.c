@@ -20,12 +20,29 @@ struct SpadCop {
 	unsigned updates;
 };
 
-enum hrtimer_restart spadCopAction(struct hrtimer* hrt)
+enum hrtimer_restart spadCopRampAction(struct hrtimer* hrt)
+{
+	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
+	*sc->dst = ++sc->updates;
+	hrtimer_forward_now(hrt, sc->kt_period);
+	return HRTIMER_RESTART;
+}
+enum hrtimer_restart spadCopRead(struct hrtimer* hrt)
 {
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
 	++sc->updates;
-	*sc->dst = sc->reg==0xcccc? sc->updates: *sc->src;
+	*sc->dst = *sc->src;
 
+	hrtimer_forward_now(hrt, sc->kt_period);
+	return HRTIMER_RESTART;
+}
+
+enum hrtimer_restart spadCopReadClear(struct hrtimer* hrt)
+{
+	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
+	++sc->updates;
+	*sc->dst = *sc->src;
+	*sc->src = 0xffffffff;
 
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
@@ -34,7 +51,11 @@ void spadCopStart(struct SpadCop *sc)
 {
 	sc->enabled = 1;
 	hrtimer_init(&sc->timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
-	sc->timer.function = spadCopAction;
+	if (){
+
+	}
+	sc->timer.function = sc->reg == reg==0xcccc? spadCopRampAction:
+			     sc->enabled&0x2? spadCopReadClear: spadCopRead;
 	hrtimer_start(&sc->timer, sc->kt_period, HRTIMER_MODE_REL);
 }
 
