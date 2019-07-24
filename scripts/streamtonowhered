@@ -31,7 +31,7 @@ status() {
 
 case $1 in
 start|"")
-        start;;
+	stop; start;;
 stop)
         stop;;
 status)
