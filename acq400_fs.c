@@ -179,7 +179,9 @@ int raw_offset_w(struct InodeMap* map)
 	for (offset = 0, ia = 0; ia < MAXDEVICES; ++ia){
 		dev_dbg(DEVP(adev0), "compare site %d [%d] ret %d",
 							map->site, ia, offset);
-		if (sc_dev->aggregator_set[ia] == map->adev){
+		if (sc_dev->aggregator_set[ia] == 0){
+			dev_err(DEVP(adev0), "WARNING: empty aggregator set element %d", ia);
+		}else if (sc_dev->aggregator_set[ia] == map->adev){
 			dev_dbg(DEVP(adev0), "found site %d [%d] ret %d",
 					map->site, ia, offset);
 			return offset;
