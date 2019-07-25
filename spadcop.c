@@ -90,6 +90,7 @@ int _spad_cop_set(int ispad, const char* buf)
 			if (sc->enabled){
 				return -EBUSY;
 			}else if (nf == 4){
+				sc->enabled = enable
 				return _spad_cop_enable(ispad, site, reg, usecs);
 			}else{
 				return -1;
