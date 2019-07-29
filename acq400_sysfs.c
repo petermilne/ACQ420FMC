@@ -1937,9 +1937,12 @@ static const struct attribute *sysfs_device_attrs[] = {
 };
 
 
+MAKE_BITS(emulate_acq196, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_424_EMUL_196);
+
 static const struct attribute *acq424_attrs[] = {
 	&dev_attr_clk_min_max.attr,
 	&dev_attr_adc_conv_time.attr,
+	&dev_attr_emulate_acq196.attr,
 	NULL
 };
 static const struct attribute *acq425_attrs[] = {
