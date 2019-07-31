@@ -10,7 +10,7 @@
 #include "acq400.h"
 
 int spadcop_tightloop = 0;
-module_param(spadcop_tightloop, int, 0444);
+module_param(spadcop_tightloop, int, 0644);
 MODULE_PARM_DESC(spadcop_tightloop, "set to 1 to ignore timer interrupt and go flat out");
 
 struct SpadCop {
