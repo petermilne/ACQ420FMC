@@ -1733,9 +1733,10 @@ static ssize_t show_nacc(
 	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
 	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
 					getSHL(ADC_ACC_DEC_SHIFT_MASK);
-
-	return sprintf(buf, "%u,%u\n",
-			(acc_dec&ADC_ACC_DEC_LEN)+1, shift);
+	unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
+					getSHL(ADC_ACC_DEC_START_MASK);
+	return sprintf(buf, "%u,%u,%u\n",
+			(acc_dec&ADC_ACC_DEC_LEN)+1, shift, start);
 }
 
 static ssize_t store_nacc(
