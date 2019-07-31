@@ -344,12 +344,13 @@
 
 #define AO_DELAY66_MASK		0x00000fff
 
-#define ADC_ACC_DEC_LEN		0x00ff		/* 0:x1, 1..31: x2..32 */
-#define ADC_ACC_DEC_SHIFT_MASK	0x0f00
+#define ADC_ACC_DEC_LEN		0x000000ff		/* 0:x1, 1..31: x2..32 */
+#define ADC_ACC_DEC_SHIFT_MASK	0x00000f00
+#define ADC_ACC_DEC_START_MASK	0x00ff0000
 
-#define ADC_MAX_NACC		256
+#define ADC_MAX_NACC		256U
 
-#define ADC_ACC_DEC_SHIFT_MAX   0x4
+#define ADC_ACC_DEC_SHIFT_MAX   15U
 
 /* AO420FMC */
 

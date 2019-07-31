@@ -1745,22 +1745,29 @@ static ssize_t store_nacc(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int nacc;
-	int shift = 999;
+	unsigned nacc;
+	unsigned shift = 999;
+	unsigned start = 0;
 
-	if (sscanf(buf, "%u,%u", &nacc, &shift) >= 1){
+	if (sscanf(buf, "%u,%u,%u", &nacc, &shift, &start) >= 1){
 		u32 acdc;
 
-		nacc = max(nacc, 1);
 		nacc = min(nacc, ADC_MAX_NACC);
+		start = min(start,nacc-1);
+
 		if (shift == 999){
 			for (shift = 0; 1<<shift < nacc; ++shift)
 				;
+			if ((1<<shift) > nacc){
+				shift -= 1;
+			}
+			start = nacc - (1<<shift);
 		}
 		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
 
 		acdc = nacc-1;
 		acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
+		acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
 		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;
 	}else{
