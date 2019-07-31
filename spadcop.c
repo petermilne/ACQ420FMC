@@ -9,6 +9,10 @@
 
 #include "acq400.h"
 
+int spadcop_tightloop = 0;
+module_param(spadcop_tightloop, int, 0444);
+MODULE_PARM_DESC(spadcop_tightloop, "set to 1 to ignore timer interrupt and go flat out");
+
 struct SpadCop {
 	volatile u32* src;
 	volatile u32* dst;
@@ -51,12 +55,24 @@ void spadCopStart(struct SpadCop *sc)
 	hrtimer_init(&sc->timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
 	sc->timer.function = sc->reg==0xcccc? spadCopRampAction:
 			     sc->enabled&0x2? spadCopReadClear: spadCopRead;
-	hrtimer_start(&sc->timer, sc->kt_period, HRTIMER_MODE_REL);
+	if (spadcop_tightloop == 0){
+		hrtimer_start(&sc->timer, sc->kt_period, HRTIMER_MODE_REL);
+	}else{
+		while(sc->enabled){
+			int iy;
+			sc->timer.function(&sc->timer);
+			for (iy = 0; iy < spadcop_tightloop; ++iy){
+				yield();
+			}
+		}
+	}
 }
 
 void spadCopStop(struct SpadCop *sc)
 {
-	hrtimer_cancel(&sc->timer);
+	if (spadcop_tightloop == 0){
+		hrtimer_cancel(&sc->timer);
+	}
 }
 
 #define MAXSPAD	8
