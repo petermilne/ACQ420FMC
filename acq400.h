@@ -73,6 +73,9 @@
 
 #define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
 
+#define DIO482_COS_STA         (ADC_BASE+0x60)
+#define DIO482_COS_EN          (ADC_BASE+0x64)
+
 #define ATD_TRIGGERED		(ADC_BASE+0x60)
 #define ATD_MASK_AND		(ADC_BASE+0x64)
 #define ATD_MASK_OR		(ADC_BASE+0x68)

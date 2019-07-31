@@ -3,7 +3,6 @@
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 2010 Peter Milne, D-TACQ Solutions Ltd
  *                      <Peter dot Milne at D hyphen TACQ dot com>
-
     This program is free software; you can redistribute it and/or modify
     it under the terms of Version 2 of the GNU General Public License
     as published by the Free Software Foundation;
@@ -3063,6 +3062,12 @@ const struct attribute *pwm2_attrs[] = {
 	NULL
 };
 
+MAKE_BITS(cos_en, DIO482_COS_EN, MAKE_BITS_FROM_MASK, 0xffffffff);
+
+const struct attribute *dio482_attrs[] = {
+	&dev_attr_cos_en.attr,
+	NULL
+};
 
 
 #define MAXSPEC	8	/* groups of special attrs */
@@ -3178,9 +3183,13 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_DIO432X(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dio432_attrs;
-			if (IS_DIO482FMC(adev) && GET_MOD_IDV(adev)==MOD_IDV_PWM2){
-				specials[nspec++] = pwm2_attrs;
+			if (IS_DIO482FMC(adev)){
+				specials[nspec++] = dio482_attrs;
+				if (GET_MOD_IDV(adev)==MOD_IDV_PWM2){
+					specials[nspec++] = pwm2_attrs;
+				}
 			}
+
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
