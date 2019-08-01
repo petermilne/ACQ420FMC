@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.386"
+#define REVID "3.389"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2466,7 +2466,7 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 	//volatile u32 status =
 	u32 int_sta = x400_get_interrupt(adev);
 
-	if ((int_sta & 0x300) == 0){
+	if ((int_sta & ADC_INT_CSR_HITIDE) == 0){
 		return cos_isr(adev);
 	}
 	// @@todo check this.
