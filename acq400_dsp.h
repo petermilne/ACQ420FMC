@@ -29,6 +29,8 @@ struct acq400_base_dev {
 	struct cdev cdef;
 	struct platform_device *pdev;
 	char dev_name[8];
+	int site;
+	int irq;
 	u32 mod_id;
 
 	/* Hardware device constants */
@@ -36,5 +38,7 @@ struct acq400_base_dev {
 	void *dev_virtaddr;
 	u32 dev_addrsize;
 };
+
+#define DEVP(abd)		(&(abd)->pdev->dev)
 
 #endif /* ACQ400_DSP_H_ */

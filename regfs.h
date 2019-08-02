@@ -27,6 +27,32 @@
 #ifndef REGFS_DEV_H_
 #define REGFS_DEV_H_
 
-#define MODULE_NAME	"regfs"
+#define MAXSTACK 4
+
+
+struct REGFS_DEV {
+	void* va;
+	struct platform_device* pdev;
+	struct resource *mem;
+
+	int istack;
+	struct dentry *dstack[MAXSTACK];
+	struct dentry *top;
+	struct dentry *create_hook;
+
+
+	struct cdev cdev;
+	struct list_head list;
+	wait_queue_head_t w_waitq;
+
+	unsigned ints;
+	unsigned status;
+
+	void* client;		/* stash subclass data here */
+};
+
+extern irqreturn_t (*regfs_isr)(int irq, void *dev_id);
+extern int regfs_probe(struct platform_device *pdev);
+extern int regfs_remove(struct platform_device *pdev);
 
 #endif /* REGFS_DEV_H_ */

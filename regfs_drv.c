@@ -77,30 +77,11 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 
 
 
-#define MAXSTACK 4
-
 #define MINOR_P0	0
 #define MINOR_PMAX	63	/* 64 pages max */
 #define MINOR_EV	64	/* hook event reader here */
 
-struct REGFS_DEV {
-	void* va;
-	struct platform_device* pdev;
-	struct resource *mem;
 
-	int istack;
-	struct dentry *dstack[MAXSTACK];
-	struct dentry *top;
-	struct dentry *create_hook;
-
-
-	struct cdev cdev;
-	struct list_head list;
-	wait_queue_head_t w_waitq;
-
-	unsigned ints;
-	unsigned status;
-};
 
 struct REGFS_PATH_DESCR {
 	struct REGFS_DEV* rdev;
@@ -215,8 +196,9 @@ const struct file_operations regfs_direct_fops = {
 };
 
 
-struct resource* regfs_device_tree_init(struct REGFS_DEV* dev)
+int regfs_device_tree_init(struct REGFS_DEV* dev)
 {
+	/* get site? */
 	return 0;
 }
 int regfs_init_fs(struct REGFS_DEV* dev)
@@ -229,7 +211,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 			dev->pdev->num_resources, dev->pdev->resource[0].flags);
 
 	if (dev->pdev->dev.of_node != 0){
-		if ((mem = regfs_device_tree_init(dev)) == 0){
+		if (regfs_device_tree_init(dev) != 0){
 			dev_err(DEVP(dev), "regfs_device_tree_init() failed");
 			rc = -ENODEV;
 			goto init99;
@@ -427,14 +409,15 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t (*regfs_isr)(int irq, void *dev_id) = acq400_regfs_hack_isr;
+
 static int init_event(struct REGFS_DEV* rdev)
 {
 	struct resource* ri = platform_get_resource(rdev->pdev, IORESOURCE_IRQ, 0);
 	int rc = 0;
 	if (ri){
 		rc = devm_request_irq(
-			&rdev->pdev->dev, ri->start, acq400_regfs_hack_isr,
-				IRQF_SHARED, ri->name, rdev);
+			&rdev->pdev->dev, ri->start, regfs_isr, IRQF_SHARED, ri->name, rdev);
 		if (rc){
 			dev_err(&rdev->pdev->dev,"unable to get IRQ%d\n",ri->start);
 		}
@@ -459,7 +442,7 @@ static struct file_operations regfs_page_fops = {
 	.read = regfs_page_read,
 	.llseek = generic_file_llseek,
 };
-static int regfs_probe(struct platform_device *pdev)
+int regfs_probe(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = kzalloc(sizeof(struct REGFS_DEV), GFP_KERNEL);
 	dev_t devno;
@@ -499,7 +482,7 @@ fail:
 	return rc;
 }
 
-static int regfs_remove(struct platform_device *pdev)
+int regfs_remove(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = 0;		// TODO LOOKUP
 	regfs_remove_fs(rdev);
@@ -508,29 +491,9 @@ static int regfs_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#define regfs_of_match 0
-
-static struct platform_driver regfs_driver = {
-        .driver = {
-                .name = MODULE_NAME,
-                .owner = THIS_MODULE,
-                .of_match_table = regfs_of_match,
-        },
-        .probe = regfs_probe,
-        .remove = regfs_remove,
-};
-
-static void __exit regfs_exit(void)
-{
-	platform_driver_unregister(&regfs_driver);
-}
-
-static int __init regfs_init(void)
-{
-	return platform_driver_register(&regfs_driver);
-}
-module_init(regfs_init);
-module_exit(regfs_exit);
+EXPORT_SYMBOL_GPL(regfs_probe);
+EXPORT_SYMBOL_GPL(regfs_remove);
+EXPORT_SYMBOL_GPL(regfs_isr);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ regfs driver");
