@@ -14,6 +14,10 @@ if [ $SITE -eq 14 ]; then
 	totc=0
 	
 	for site in 1 2 3 4 5 6; do
+		if [ -e /dev/acq400.$site.atd ]; then
+			rm /dev/acq400.$site.atd
+			ln -s /dev/acq400.14.atd /dev/acq400.$site.atd
+		fi
 		kd=/dev/acq400.$site.knobs
 		if [ -d $kd ]; then
 			name=$(cat $kd/module_name)
