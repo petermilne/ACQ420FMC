@@ -2466,12 +2466,14 @@ static irqreturn_t ao400_isr(int irq, void *dev_id)
 	//volatile u32 status =
 	u32 int_sta = x400_get_interrupt(adev);
 
-	if ((int_sta & ADC_INT_CSR_HITIDE) == 0){
-		return cos_isr(adev);
-	}
+	adev->stats.interrupts++;
 	// @@todo check this.
 	x400_disable_interrupt(adev);
 	//acq420_clear_interrupt(adev, status);
+
+	if ((int_sta & ADC_INT_CSR_HITIDE) == 0){
+		return cos_isr(adev);
+	}
 
 	adev->stats.fifo_interrupts++;
 

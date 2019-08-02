@@ -42,6 +42,7 @@ struct STATS {
 	u32 closes;
 	u32 errors;
 
+	u32 interrupts;
 	u32 fifo_interrupts;
 	u32 dma_transactions;
 	int shot;

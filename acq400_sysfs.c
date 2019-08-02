@@ -1265,7 +1265,8 @@ static ssize_t show_stats(
 	char * buf)
 {
 	struct STATS *stats = &acq400_devices[dev->id]->stats;
-	return sprintf(buf, "fifo_ints=%u dma_transactions=%u fifo_errs=%d\n",
+	return sprintf(buf, "ints=%u fifo_ints=%u dma_transactions=%u fifo_errs=%d\n",
+			stats->interrupts,
 			stats->fifo_interrupts, stats->dma_transactions,
 			stats->fifo_errors);
 }
