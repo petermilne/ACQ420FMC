@@ -8,22 +8,40 @@ WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 if [ $SITE -eq 14 ]; then
 	/usr/local/CARE/ATD-DSP/atd-dsp1.init
-
+	totc=0
+	
+	for site in 1 2 3 4 5 6; do
+		kd=/dev/acq400.$site.knobs
+		if [ -d $kd ]; then
+			name=$(cat $kd/module_name)
+			if [ "${name#acq*}" != "${name}" ]; then
+				totc=$(($totc+$(cat $kd/active_chan)))
+			fi
+		fi
+ 	done
+	echo total totc $totc
+	if [ $totc -ge 100 ]; then
+		fmt="%03d"
+	else
+		fmt="%02d"
+	fi
 	ch1=0
 	for site in 1 2 3 4 5 6; do
-		if [ -d /dev/acq400.$site.knobs ]; then
-			cd /etc/acq400/$SITE
-
-			nc=$(cat NCHAN)
+		kd=/dev/acq400.$site.knobs
+		if [ -d $kd ]; then
+			nc=$(cat $kd/active_chan)
+			mkdir -p /etc/acq400/$site
+			cd /etc/acq400/$site
 
 			for ch in $(seq 1 $nc)
 			do
-				ch00=$(printf "%02d" $(($ch+$ch1)))
+				ch00=$(printf $fmt $(($ch+$ch1)))
 				ln -s /usr/local/bin/anatrg anatrg_$ch00
 			done
 			ch1=$((ch+$ch1))
 		fi
 	done
+	[ $ch1 -ne $totc ] && echo "WARNING something does not add up $ch1 $totc"
 	NC=$ch1
 else
 	cd /etc/acq400/$SITE
