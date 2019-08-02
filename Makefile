@@ -180,8 +180,8 @@ is_ramp: is_ramp.o
 acq400_knobs: acq400_knobs.o tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
-anatrg: anatrg.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+anatrg: anatrg.o 
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq
 
 multisitecheckramp: multisitecheckramp.cpp
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt

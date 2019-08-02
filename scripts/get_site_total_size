@@ -18,6 +18,7 @@ do
 	wpc=1
 
 	if [ -e ${s_root}/data32 ]; then
+		echo $nchan > ${s_root}/AGIX
 		site_d32=$(cat ${s_root}/data32)
 		active_chan=$(cat ${s_root}/active_chan)
 		if [ "x$d32" = "x" ]; then
@@ -47,3 +48,4 @@ fi
 
 let nchan="$nchan+$nspad*$cpw"
 let SS="$nchan*4/$cpw"
+
