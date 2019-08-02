@@ -89,6 +89,17 @@ void acq400_dsp_remove_site(int site)
 	devices[site] = 0;
 }
 
+int acq400dsp_probe(struct platform_device *pdev)
+{
+	dev_info(&pdev->dev, "acq400dsp_probe id:%d site:%d num_resources:%d",
+			pdev->id, 99, pdev->num_resources);
+	return 0;
+}
+int acq400dsp_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
 static void __exit acq400_dsp_exit(void)
 {
 	for (; n_acq400_dsp--;){
@@ -96,18 +107,40 @@ static void __exit acq400_dsp_exit(void)
 	}
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id acq400dsp_of_match[] /* __devinitdata */ = {
+        { .compatible = "D-TACQ,acq400dsp"  },
+        { /* end of table */}
+};
+MODULE_DEVICE_TABLE(of, acq400dsp_of_match);
+#else
+#define acq400dsp_of_match NULL
+#endif /* CONFIG_OF */
 
+
+static struct platform_driver acq400dsp_driver = {
+        .driver = {
+                .name = MODULE_NAME,
+                .owner = THIS_MODULE,
+                .of_match_table = acq400dsp_of_match,
+        },
+        .probe = acq400dsp_probe,
+        .remove = acq400dsp_remove,
+};
 
 static int __init acq400_dsp_init(void)
 {
-        int status = 0;
+        int status;
 
 
-	printk("D-TACQ ACQ480 Driver %s\n", REVID);
+	printk("D-TACQ ACQ400 DSP Driver %s\n", REVID);
 
+	status = platform_driver_register(&acq400dsp_driver);
+/*
 	for (n_acq400_dsp = 0; n_acq400_dsp < acq400_dsp_sites_count; ++n_acq400_dsp){
 		acq400_dsp_init_site(n_acq400_dsp);
 	}
+*/
         return status;
 }
 
