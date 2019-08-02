@@ -860,6 +860,8 @@ int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	u32 int_csr;
+	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
+			ADC_INT_CSR_COS_EN_ALL;
 
 	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 		return -ERESTARTSYS;
@@ -868,7 +870,7 @@ int acq400_event_open(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
 	int_csr = x400_get_interrupt(adev);
-	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN_ALL);
+	x400_set_interrupt(adev, int_csr|enable);
 
 	/* good luck using this in a 64-bit system ... */
 	/*
