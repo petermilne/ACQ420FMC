@@ -1,8 +1,11 @@
 #!/bin/sh
 SITE=${1:-1}
+NC=${2:-32}
 DEV=/dev/acq400.${SITE}.atd
 
+rows=$(($NC/4))
+
 mmap -f $DEV -l 4096 | 
-hexdump -ve '4/4 "%08x " "\n"' | head -n 8 | awk '{printf "%02d %s\n", (NR-1)*4, $0 }'
+hexdump -ve '4/4 "%08x " "\n"' | head -n $rows | awk '{printf "%02d %s\n", (NR-1)*4, $0 }'
 
 

@@ -755,8 +755,8 @@ kmcu*)
 	load_mgt $MODEL;;
 esac
 
-[ "x$(/usr/local/CARE/get-fpga-extra" = "x9801" ] &&
-	/usr/local/init/anatrg.init 
+[ "x$(/usr/local/CARE/get-fpga-extra)" = "x9801" ] &&
+	/usr/local/init/anatrg.init 14
 
 build_knobs
 set_fans $FANSPEED

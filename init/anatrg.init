@@ -2,18 +2,40 @@
 
 SITE=${1:-1}
 
-cd /etc/acq400/$SITE
+if [ $SITE -eq 14 ]; then
+	/usr/local/CARE/ATD-DSP1/atd-dsp1.init
 
-NC=$(cat NCHAN)
+	ch1=0
+	for site in 1 2 3 4 5 6; do
+		if [ -d /dev/acq400.$site.knobs ]; then
+			cd /etc/acq400/$SITE
 
-for ch in $(seq 1 $NC)
-do
-	ch00=$(printf "%02d" $ch)
-	ln -s /usr/local/bin/anatrg anatrg_$ch00
-done
+			nc=$(cat NCHAN)
+
+			for ch in $(seq 1 $nc)
+			do
+				ch00=$(printf "%02d" $(($ch+$ch1))
+				ln -s /usr/local/bin/anatrg anatrg_$ch00
+			done
+			ch1=$((ch+$ch1))
+		fi
+	done
+	NC=$ch1
+else
+	cd /etc/acq400/$SITE
+
+	NC=$(cat NCHAN)
+	
+	for ch in $(seq 1 $NC)
+	do
+	    ch00=$(printf "%02d" $ch)
+		ln -s /usr/local/bin/anatrg anatrg_$ch00
+	done				
+fi
+
 
 cat - >> $WEB_APPEND_JOB <<EOF
-nice /usr/local/CARE/monitor_atd_thresholds $SITE &
+nice /usr/local/CARE/monitor_atd_thresholds $SITE $NC &
 EOF
 
 

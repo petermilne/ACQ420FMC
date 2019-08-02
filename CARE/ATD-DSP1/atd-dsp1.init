@@ -1,0 +1,41 @@
+#!/bin/sh
+# custom_qds.init
+MDIR=/usr/local/lib/modules
+/sbin/insmod $MDIR/debugfs2.ko
+/sbin/insmod $MDIR/regfs.ko
+/sbin/insmod $MDIR/acq400_dspfs.ko
+
+echo loading overlay..
+mount -t configfs none /sys/kernel/config
+mkdir -p /sys/kernel/config/device-tree/overlays/dsp1
+cat /mnt/dtb.d/acq400dsp1_overlay.dtb > /sys/kernel/config/device-tree/overlays/dsp1/dtbo
+mkdir -p /sys/kernel/config/device-tree/overlays/dsp2
+cat /mnt/dtb.d/acq400dsp2_overlay.dtb > /sys/kernel/config/device-tree/overlays/dsp2/dtbo
+
+
+ln -s /sys/kernel/debug/dsp1/ /dev/dsp1
+
+cat /usr/local/CARE/ATD-DSP/atd-dsp-regdef >/dev/dsp1/.create
+mkdir /etc/acq400/14/
+ln -s /dev/dsp1/* /etc/acq400/14/
+grep dsp /proc/devices | /usr/local/CARE/ATD-DSP/build_dsp_nodes
+ls -l /dev/dsp1.*
+
+# MODULE ENABLE
+set.qds.enable 1
+
+echo "DSP sites 14, 15 active on 4224, 4225"
+/usr/local/init/acq400_knobs.init start
+
+monitor_dsp1 2>&1 >/dev/null  &
+
+cat >/etc/inetd.dsp.conf - <<EOF
+4281 stream tcp nowait root cat cat /dev/dsp1.event
+4282 stream tcp nowait root cat cat /dev/dsp2.event
+EOF
+
+inetd /etc/inetd.dsp.conf
+
+set.sys /dev/dsp1/QDS_INTCSR 1
+
+

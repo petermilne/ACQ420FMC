@@ -1,6 +1,7 @@
 #!/bin/sh
 
 SITE=${1:-1}
+NC=${2:-32}
 DEV=acq400.${SITE}.atd
 
 #httpd doesn't like names with periods..
@@ -20,7 +21,7 @@ C2R20=/dev/shm/c2rR20
 [ -e $C2R20 ] || cCrR 2 20 > $C2R20
 
 dump_regs() {
-	/usr/local/CARE/atd_dump_memory $SITE
+	/usr/local/CARE/atd_dump_memory $SITE $NC
 }
 
 ADDED_WEB=0

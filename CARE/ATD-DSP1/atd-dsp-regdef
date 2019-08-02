@@ -1,0 +1,9 @@
+# atd-dsp-regdef : analog threshold detect register definitions
+# NB: use spaces
+@MODULE_ID     		0x000 0xffffffff r %08x
+@MODULE_ID.MT  		0x000 0xff000000 r %02x
+@MODULE_ID.RV  		0x000 0x0000ffff r %d
+
+ATD_CSR				0x004 0xffffffff rw %08x
+ATD_INTCSR          0x018 0xffffffff rw %08x
+ATD_TRIGGERED		0x060 0xffffffff rw %08x
