@@ -47,9 +47,7 @@ monitor() {
 	done
 }
 
-if [ -e /dev/acq400.${SITE}.atd ]; then
-	monitor
-fi
+monitor
 
 
 
