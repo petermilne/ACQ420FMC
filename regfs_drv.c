@@ -241,6 +241,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 
 	dev->dstack[dev->istack = 0] = dev->top =
 			debugfs_create_dir(mem->name, NULL);
+	debugfs_create_u32("site", 0444, dev->top, &dev->pdev->id);
 	dev->create_hook = debugfs_create_file(".create", S_IWUGO,
 				  dev->top, dev, &regfs_direct_fops);
 
