@@ -3147,7 +3147,7 @@ void acq400_createSysfs(struct device *dev)
 				dev_err(dev, "failed to create atd sysfs");
 			}
 		}
-		if (HAS_DTD(adev)){
+		if (HAS_DTD(adev) && !IS_DIO482FMC(adev)){
 			dev_info(dev, "HAS_DTD");
 			if (sysfs_create_files(&dev->kobj, dtd_attrs)){
 				dev_err(dev, "failed to create dtd sysfs");
