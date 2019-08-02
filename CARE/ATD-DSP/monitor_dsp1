@@ -1,10 +1,10 @@
 #!/bin/sh
 
-DEV=QDS
+DEV=acq400.14
 DIR=/dev/dsp1/
 
 #httpd doesn't like names with periods..
-XMLNAME=$DEV
+XMLNAME=acq40014
 
 cCrR() {
 cat - <<EOF
