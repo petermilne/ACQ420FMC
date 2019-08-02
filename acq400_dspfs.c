@@ -73,13 +73,11 @@ int acq400dsp_devicetree_init(struct platform_device *pdev, struct device_node *
 int acq400dsp_probe(struct platform_device *pdev)
 {
 	int rc;
-
-	dev_info(&pdev->dev, "acq400dsp_probe id:%d site:%d num_resources:%d",
-			pdev->id, 99, pdev->num_resources);
-	dev_info(&pdev->dev, "acq400dsp_probe [%d] site:%d num_resources:%d",
-			pdev->id, 99, pdev->num_resources);
-
 	rc = acq400dsp_devicetree_init(pdev, pdev->dev.of_node);
+
+	dev_info(&pdev->dev, "acq400dsp_probe id:%d num_resources:%d %s",
+			pdev->id, pdev->num_resources, rc==0?"OK":"dts error");
+
 	if (rc != 0){
 		return rc;
 	}

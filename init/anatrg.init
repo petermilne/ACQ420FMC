@@ -2,6 +2,8 @@
 
 SITE=${1:-1}
 
+WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
+
 if [ $SITE -eq 14 ]; then
 	/usr/local/CARE/ATD-DSP1/atd-dsp1.init
 
@@ -14,7 +16,7 @@ if [ $SITE -eq 14 ]; then
 
 			for ch in $(seq 1 $nc)
 			do
-				ch00=$(printf "%02d" $(($ch+$ch1))
+				ch00=$(printf "%02d" $(($ch+$ch1)))
 				ln -s /usr/local/bin/anatrg anatrg_$ch00
 			done
 			ch1=$((ch+$ch1))
