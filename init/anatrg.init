@@ -5,7 +5,7 @@ SITE=${1:-1}
 WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 if [ $SITE -eq 14 ]; then
-	/usr/local/CARE/ATD-DSP1/atd-dsp1.init
+	/usr/local/CARE/ATD-DSP/atd-dsp1.init
 
 	ch1=0
 	for site in 1 2 3 4 5 6; do

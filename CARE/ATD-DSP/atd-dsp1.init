@@ -27,7 +27,7 @@ echo 0x11 > /dev/dsp1/ATD_CSR
 echo "DSP sites 14, 15 active on 4224, 4225"
 /usr/local/init/acq400_knobs.init start
 
-monitor_dsp1 2>&1 >/dev/null  &
+nice /usr/local/CARE/ATD-DSP/monitor_dsp1 2>&1 >/dev/null  &
 
 cat >/etc/inetd.dsp.conf - <<EOF
 4281 stream tcp nowait root cat cat /dev/dsp1.event
