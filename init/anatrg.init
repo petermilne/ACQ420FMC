@@ -9,7 +9,7 @@ WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 if [ $SITE -eq 14 ]; then
 	/usr/local/CARE/ATD-DSP/atd-dsp1.init
 	MAJOR=$(grep dsp1 /proc/devices | awk '{ print $1 }')
-	ATDPAGE=15
+	ATDPAGE=14
 	mknod /dev/acq400.14.atd c $MAJOR $ATDPAGE
 	totc=0
 	
