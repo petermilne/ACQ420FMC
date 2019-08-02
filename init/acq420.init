@@ -755,8 +755,7 @@ kmcu*)
 	load_mgt $MODEL;;
 esac
 
-[ "x$(/usr/local/CARE/get-fpga-extra)" = "x9802" ] &&
-	/usr/local/init/anatrg.init 14
+
 
 build_knobs
 set_fans $FANSPEED
@@ -822,7 +821,9 @@ fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
-
+	
+[ "x$(/usr/local/CARE/get-fpga-extra)" = "x9802" ] &&
+	/usr/local/init/anatrg.init 14
 start_knob_services
 
 ls -l /etc/acq400/0/sync_out_cable_det

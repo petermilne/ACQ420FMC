@@ -2,6 +2,8 @@
 
 SITE=${1:-1}
 
+echo +++ anatrg.init $SITE
+
 WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 if [ $SITE -eq 14 ]; then
@@ -39,6 +41,6 @@ fi
 cat - >> $WEB_APPEND_JOB <<EOF
 nice /usr/local/CARE/monitor_atd_thresholds $SITE $NC &
 EOF
-
+chmod a+rx $WEB_APPEND_JOB
 
 
