@@ -870,6 +870,8 @@ int acq400_event_open(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
 	int_csr = x400_get_interrupt(adev);
+
+	dev_dbg(DEVP(adev), "acq400_event_open() intcsr |= %x", enable);
 	x400_set_interrupt(adev, int_csr|enable);
 
 	/* good luck using this in a 64-bit system ... */
@@ -994,6 +996,8 @@ static unsigned int acq400_event_poll(
 int acq400_event_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
+			ADC_INT_CSR_COS_EN_ALL;
 
 	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 		return -ERESTARTSYS;
@@ -1001,7 +1005,7 @@ int acq400_event_release(struct inode *inode, struct file *file)
 		if (--adev->event_client_count == 0){
 			u32 int_csr = x400_get_interrupt(adev);
 
-			int_csr &= ~(ADC_INT_CSR_EVENT1_EN|ADC_INT_CSR_EVENT0_EN);
+			int_csr &= ~enable;
 			x400_set_interrupt(adev, int_csr);
 		}
 		mutex_unlock(&adev->bq_clients_mutex);
