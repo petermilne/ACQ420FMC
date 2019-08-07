@@ -2,8 +2,18 @@
 # custom_qds.init
 MDIR=/usr/local/lib/modules
 /sbin/insmod $MDIR/debugfs2.ko
-/sbin/insmod $MDIR/regfs.ko
-/sbin/insmod $MDIR/acq400_dspfs.ko
+if [ -e /mnt/local/regfs.ko ]; then
+	echo load /mnt/local/regfs.ko
+	/sbin/insmod /mnt/local/regfs.ko
+else
+	/sbin/insmod $MDIR/regfs.ko
+fi
+if [ -e /mnt/local/acq400_dspfs.ko ]; then
+	echo load /mnt/local/acq400_dspfs.ko
+	/sbin/insmod /mnt/local/acq400_dspfs.ko
+else
+	/sbin/insmod $MDIR/acq400_dspfs.ko
+fi
 
 echo loading overlay..
 mount -t configfs none /sys/kernel/config
