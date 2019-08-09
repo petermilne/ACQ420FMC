@@ -394,19 +394,24 @@ int regfs_page_release(struct inode *inode, struct file *file)
 }
 
 #define INT_CSR_OFFSET	0x18
+#define DSP_STATUS	0x60
 
 static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
-
+	u32 dsp_status = ioread32(rdev->va + DSP_STATUS);
 	/* RORA interrupt */
 	u32 status = ioread32(rdev->va + INT_CSR_OFFSET);
+	u32 status2;
+	iowrite32(dsp_status, rdev->va + DSP_STATUS);
+	status2 = ioread32(rdev->va + INT_CSR_OFFSET);
 	iowrite32(status, rdev->va + INT_CSR_OFFSET);
 	rdev->ints++;
 	rdev->status = status;
 
 	wake_up_interruptible(&rdev->w_waitq);
-	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr %08x\n", status);
+	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr s:%08x s2:%08x dsp_status:%08x\n", 
+				status, status2, dsp_status);
 	return IRQ_HANDLED;
 }
 
