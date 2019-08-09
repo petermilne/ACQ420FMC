@@ -454,4 +454,6 @@ void acq400_set_peripheral_SPI_CS(unsigned csword)
 }
 
 EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
+EXPORT_SYMBOL_GPL(acq400rd32);
+
 

@@ -665,4 +665,17 @@ extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 void acq400_enable_adc(struct acq400_dev* adev);
+
+extern void acq400_init_event_info(struct EventInfo *eventInfo);
+static inline u32 acq400_adc_sample_count(void)
+{
+        struct acq400_dev* adev = acq400_sites[1];
+
+        if (!adev){
+                return 0xffffffff;
+        }else{
+                return acq400rd32(adev, ADC_SAMPLE_CTR);
+        }
+}
+
 #endif /* ACQ400_STRUCTS_H_ */

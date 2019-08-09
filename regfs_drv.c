@@ -55,7 +55,9 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #include <linux/device.h>
 #include <linux/platform_device.h>
 
-
+#include <linux/dma-direction.h>
+#include "hbm.h"
+#include "acq400.h"
 
 #include "debugfs2.h"
 
@@ -73,6 +75,9 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 
+#undef DEVP
+#undef PD
+#undef PDSZ
 #include "regfs.h"
 
 
@@ -94,7 +99,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1005"
+#define REVID "regfs_fs B1006"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -352,8 +357,19 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 	if (rc < 0){
 		return -EINTR;
 	}else{
-		char lbuf[32];
-		int nbytes = snprintf(lbuf, 64, "%d, 0x%08x\n", rdev->ints, rdev->status);
+		char lbuf[128];
+		int nbytes;
+		struct EventInfo eventInfo;
+		int timeout = 0;
+		acq400_init_event_info(&eventInfo);
+
+		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
+			rdev->ints,
+                        eventInfo.hbm0? eventInfo.hbm0->ix: -1,
+                        eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
+			rdev->status,
+			rdev->sample_count);
+
 		if (nbytes > count){
 			nbytes = count;
 		}
@@ -400,18 +416,14 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
 	u32 dsp_status = ioread32(rdev->va + DSP_STATUS);
-	/* RORA interrupt */
-	u32 status = ioread32(rdev->va + INT_CSR_OFFSET);
-	u32 status2;
 	iowrite32(dsp_status, rdev->va + DSP_STATUS);
-	status2 = ioread32(rdev->va + INT_CSR_OFFSET);
-	iowrite32(status, rdev->va + INT_CSR_OFFSET);
 	rdev->ints++;
-	rdev->status = status;
+	rdev->status = dsp_status;
+	rdev->sample_count = acq400_adc_sample_count();
 
 	wake_up_interruptible(&rdev->w_waitq);
-	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr s:%08x s2:%08x dsp_status:%08x\n", 
-				status, status2, dsp_status);
+	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr %5d sc %08x dsp_status:%08x\n", 
+				rdev->ints, rdev->sample_count, dsp_status);
 	return IRQ_HANDLED;
 }
 

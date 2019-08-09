@@ -837,7 +837,7 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-void init_event_info(struct EventInfo *eventInfo)
+void acq400_init_event_info(struct EventInfo *eventInfo)
 {
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	memset(eventInfo, 0, sizeof(struct EventInfo));
@@ -920,7 +920,7 @@ ssize_t acq400_event_read(
 		}else if (rc == 0){
 			return -EAGAIN;
 		}
-		init_event_info(&eventInfo);
+		acq400_init_event_info(&eventInfo);
 	}
 
 	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
@@ -953,12 +953,12 @@ ssize_t acq400_event_read(
 		}
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x %d\n",
-			adev->rt.samples_at_event,
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
+			adev->rt.event_count,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			event_source,
-			adev->rt.event_count);
+			adev->rt.samples_at_event);
 
 
 	rc = copy_to_user(buf, lbuf, nbytes);
@@ -979,12 +979,12 @@ static unsigned int acq400_event_poll(
 	unsigned rc;
 
 	if (adev->rt.samples_at_event){
-		init_event_info(&PD(file)->eventInfo);
+		acq400_init_event_info(&PD(file)->eventInfo);
 		rc = POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
 		if (adev->rt.samples_at_event){
-			init_event_info(&PD(file)->eventInfo);
+			acq400_init_event_info(&PD(file)->eventInfo);
 			rc = POLLIN;
 		}else{
 			rc = 0;
@@ -1225,6 +1225,6 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         return rc;
 }
 
-
+EXPORT_SYMBOL_GPL(acq400_init_event_info);
 
 

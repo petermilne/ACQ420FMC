@@ -47,6 +47,7 @@ struct REGFS_DEV {
 
 	unsigned ints;
 	unsigned status;
+	unsigned sample_count;
 
 	void* client;		/* stash subclass data here */
 };
