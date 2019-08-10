@@ -91,6 +91,7 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 struct REGFS_PATH_DESCR {
 	struct REGFS_DEV* rdev;
 	int minor;
+	int int_count;
 };
 
 #define PD(filp)		((struct REGFS_PATH_DESCR*)filp->private_data)
@@ -275,6 +276,7 @@ int regfs_page_open(struct inode *inode, struct file *file)
 	if (PD(file)->minor == MINOR_EV){
 		file->f_op = &regfs_event_fops;
 	}
+	PD(file)->int_count = PD(file)->rdev->ints;
 	return 0;
 }
 
@@ -350,7 +352,7 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 	        loff_t *f_pos)
 {
 	struct REGFS_DEV *rdev = PD(file)->rdev;
-	int int_count = rdev->ints;
+	int int_count = PD(file)->int_count;
 	int rc = wait_event_interruptible(
 			rdev->w_waitq,
 			rdev->ints != int_count);
@@ -364,7 +366,7 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 		acq400_init_event_info(&eventInfo);
 
 		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
-			rdev->ints,
+				rdev->ints,
                         eventInfo.hbm0? eventInfo.hbm0->ix: -1,
                         eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			rdev->status,
@@ -380,6 +382,21 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 			return nbytes;
 		}
 	}
+}
+
+unsigned int regfs_event_poll(
+		struct file *file, struct poll_table_struct *poll_table)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	int int_count = PD(file)->int_count;
+	unsigned rc;
+
+	if (rdev->ints == int_count){
+		poll_wait(file, &rdev->w_waitq, poll_table);
+	}
+	rc = rdev->ints != int_count? POLLIN: 0;
+	dev_dbg(DEVP(rdev), "regfs_event_poll() return %u", rc);
+	return rc;
 }
 int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 {
@@ -449,6 +466,7 @@ static struct file_operations regfs_event_fops = {
 	.owner = THIS_MODULE,
 	.release = regfs_page_release,
 	.read = regfs_event_read,
+	.poll = regfs_event_poll
 };
 
 static struct file_operations regfs_page_fops = {
