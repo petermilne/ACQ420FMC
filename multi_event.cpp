@@ -143,6 +143,68 @@ unsigned getSpecificBufferlen(int ibuf)
 	return bl;
 }
 
+
+class EventHandler {
+	int site;
+	int offset;
+	int fd;
+	char *fname;
+	static vector<EventHandler*> handlers;	
+protected:
+	EventHandler(int _site, int _offset): site(_site), offset(_offset)
+	{
+		fname = new char[80];
+		sprintf(fname, "%s.ev", getRoot(site));
+		fd = open(fname, O_RDONLY);
+	}
+	virtual ~EventHandler() {
+		close(fd);
+		delete [] fname;
+	}
+	virtual int action() {
+		return 0;
+	}
+
+public:
+	static bool create(int _site);
+       	static int poll() {
+	       /* call to select */
+
+	       /* then call appropriate action() */
+		return 0;
+       }
+};
+
+vector<EventHandler*> EventHandler::handlers;
+
+
+class COSEventHandler: public EventHandler {
+public:
+	COSEventHandler(int _site, int _offset) : EventHandler(_site, _offset) 
+	{}
+};
+
+class ATDEventHandler: public EventHandler {
+public:
+        ATDEventHandler(int _site, int _offset) : EventHandler(_site, _offset)
+        {}
+};
+
+
+bool EventHandler::create(int _site) {
+	/* WORDTODO : replace hard coded functions */
+	switch(_site){
+		case 2:
+			handlers.push_back(new COSEventHandler(_site, 32));
+			return true;	
+		case 14:
+			handlers.push_back(new ATDEventHandler(_site, 0));
+			return true;
+		default:
+			return false;
+	}
+}
+
 class BufferManager {
 	void init_buffers()
 	{
@@ -168,9 +230,39 @@ public:
 		delete_buffers();
 	}
 };
+
+void ui(int argc, const char** argv)
+{
+        poptContext opt_context =
+                        poptGetContext(argv[0], argc, argv, opt_table, 0);
+
+        int rc;
+
+        while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
+                switch(rc){
+                default:
+                        ;
+                }
+        }
+	const char* ssite;
+	while ((ssite = poptGetArg(opt_context)) != 0){
+		EventHandler::create(atoi(ssite));
+	}
+}
+
+int run(void)
+{
+	while(1){
+		EventHandler::poll();
+	}
+	return 0;
+}
+
 int main(int argc, const char** argv)
 {
 	BufferManager bm();
+	ui(argc, argv);
+	return run();
 }
 
 
