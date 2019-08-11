@@ -365,6 +365,7 @@ struct acq400_path_descriptor {
 		int bq_len;
 	} bq;
 	unsigned char lbuf[MAXLBUF];
+	u32 samples_at_event;
 	struct EventInfo eventInfo;
 };
 

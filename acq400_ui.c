@@ -863,6 +863,7 @@ int acq400_event_open(struct inode *inode, struct file *file)
 	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
 			ADC_INT_CSR_COS_EN_ALL;
 
+	PD(file)->samples_at_event = adev->rt.samples_at_event;
 	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 		return -ERESTARTSYS;
 	}else{
@@ -893,35 +894,24 @@ ssize_t acq400_event_read(
 	int rc;
 	struct EventInfo eventInfo = PD(file)->eventInfo;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
-	u32 old_sample = adev->rt.samples_at_event;
+	u32 old_sample = PD(file)->samples_at_event;
+	u32 new_sample;
 	int timeout = 0;
 	int event_source = 0;
-
-	if (eventInfo.pollin){
-		PD(file)->eventInfo.pollin = 0;
-	}
 
 	dev_dbg(DEVP(adev), "acq400_event_read() 01 pollin %d old_sample %d",
 			eventInfo.pollin, old_sample);
 
-	if (eventInfo.pollin == 0){
-		/* force caller to wait fresh event. This is an auto-rate-limit
-		 * it's also re-entrant (supports multiple clients each at own rate)
-		 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
-		 */
-		dev_dbg(DEVP(adev), "acq400_event_read() 10 wait event");
-
-		rc = wait_event_interruptible_timeout(
+	rc = wait_event_interruptible_timeout(
 				adev->event_waitq,
-				adev->rt.samples_at_event != old_sample,
+				(new_sample = adev->rt.samples_at_event) != old_sample,
 				event_to);
-		if (rc < 0){
-			return -EINTR;
-		}else if (rc == 0){
-			return -EAGAIN;
-		}
-		acq400_init_event_info(&eventInfo);
+	if (rc < 0){
+		return -EINTR;
+	}else if (rc == 0){
+		return -EAGAIN;
 	}
+	acq400_init_event_info(&eventInfo);
 
 	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
 			eventInfo.hbm0, eventInfo.hbm1,
@@ -958,8 +948,8 @@ ssize_t acq400_event_read(
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			event_source,
-			adev->rt.samples_at_event);
-
+			new_sample);
+	PD(file)->samples_at_event = new_sample;
 
 	rc = copy_to_user(buf, lbuf, nbytes);
 	if (rc != 0){
@@ -978,12 +968,12 @@ static unsigned int acq400_event_poll(
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	unsigned rc;
 
-	if (adev->rt.samples_at_event){
+	if (adev->rt.samples_at_event != PD(file)->samples_at_event){
 		acq400_init_event_info(&PD(file)->eventInfo);
 		rc = POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
-		if (adev->rt.samples_at_event){
+		if (adev->rt.samples_at_event != PD(file)->samples_at_event){
 			acq400_init_event_info(&PD(file)->eventInfo);
 			rc = POLLIN;
 		}else{
