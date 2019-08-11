@@ -93,7 +93,7 @@ date:
 	echo $(DC)
 
 packageko:
-	echo stub	/make.packageko $(DC)
+	./make.packageko $(DC)
 
 	
 	
