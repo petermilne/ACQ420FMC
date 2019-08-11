@@ -150,6 +150,7 @@ class EventHandler {
 	int fd;
 	char *fname;
 	static vector<EventHandler*> handlers;	
+	typedef vector<EventHandler*>::iterator EHI;
 protected:
 	EventHandler(int _site, int _offset): site(_site), offset(_offset)
 	{
@@ -167,11 +168,43 @@ protected:
 
 public:
 	static bool create(int _site);
-       	static int poll() {
-	       /* call to select */
 
-	       /* then call appropriate action() */
-		return 0;
+       	static int poll() {
+		sigset_t emptyset;
+		struct timespec pto = {};
+		fd_set exceptfds, readfds;
+		int fd_max = -1;
+		int rc;
+		
+		sigemptyset(&emptyset);
+		pto.tv_sec = 5;
+		FD_ZERO(&exceptfds);
+		FD_ZERO(&readfds);
+
+                for (EHI it = handlers.begin(); it != handlers.end(); ++it){
+			int fd = (*it)->fd;
+			FD_SET(fd, &exceptfds);
+			FD_SET(fd, &readfds);
+			if (fd > fd_max){
+				fd_max = fd;
+			}
+		}
+
+		rc = pselect(fd_max+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
+		if (rc < 0){
+			syslog(LOG_ERR, "ERROR: pselect() fail %d\n", errno);
+		}
+                for (EHI it = handlers.begin(); it != handlers.end(); ++it){
+			int fd = (*it)->fd;
+			if (FD_ISSET(fd, &readfds)){
+				(*it)->action();
+			}
+			if (FD_ISSET(fd, &exceptfds)){
+				syslog(LOG_ERR, "ERROR: fail on %s %d\n", (*it)->fname, errno);
+			}
+		}
+
+		return rc;
        }
 };
 
