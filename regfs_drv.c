@@ -363,10 +363,11 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 		int nbytes;
 		struct EventInfo eventInfo;
 		int timeout = 0;
+		PD(file)->int_count = rdev->ints;
 		acq400_init_event_info(&eventInfo);
 
 		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
-				rdev->ints,
+			PD(file)->int_count,
                         eventInfo.hbm0? eventInfo.hbm0->ix: -1,
                         eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			rdev->status,
