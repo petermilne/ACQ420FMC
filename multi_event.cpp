@@ -143,7 +143,14 @@ unsigned getSpecificBufferlen(int ibuf)
 	return bl;
 }
 
+class EventInfo {
 
+public:
+	const char* def;
+	EventInfo(const char* _def): def(_def){
+
+	}
+};
 class EventHandler {
 	int site;
 	int offset;
@@ -162,7 +169,8 @@ protected:
 		close(fd);
 		delete [] fname;
 	}
-	virtual int action() {
+	virtual int action(EventInfo eventInfo) {
+		printf("%s: %s\n", fname, eventInfo.def);
 		return 0;
 	}
 
@@ -173,6 +181,7 @@ public:
 		sigset_t emptyset;
 		struct timespec pto = {};
 		fd_set exceptfds, readfds;
+		char event_info[128];
 		int fd_max = -1;
 		int rc;
 		
@@ -197,7 +206,13 @@ public:
                 for (EHI it = handlers.begin(); it != handlers.end(); ++it){
 			int fd = (*it)->fd;
 			if (FD_ISSET(fd, &readfds)){
-				(*it)->action();
+				if ((rc = read(fd, event_info, 80)) <= 0){
+					syslog(LOG_ERR, "ERROR read returned %d\n", rc);
+				}else{
+					event_info[rc] = '\0';
+					chomp(event_info);
+				}
+				(*it)->action(event_info);
 			}
 			if (FD_ISSET(fd, &exceptfds)){
 				syslog(LOG_ERR, "ERROR: fail on %s %d\n", (*it)->fname, errno);
