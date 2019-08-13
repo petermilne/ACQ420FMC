@@ -38,18 +38,19 @@ if [ $SITE -eq 14 ]; then
 		fmt="%02d"
 	fi
 	ch1=0
+
 	for site in $ADC_SITES; do
-			nc=$(cat $kd/active_chan)
-			mkdir -p /etc/acq400/$site
-			cd /etc/acq400/$site
-			set.sys /dev/dsp1/ATD_CSR.SITE$site 1
-			for ch in $(seq 1 $nc)
-			do
-				ch00=$(printf $fmt $(($ch+$ch1)))
-				ln -s /usr/local/bin/anatrg anatrg_$ch00
-			done
-			ch1=$((ch+$ch1))
-		fi
+		kd=/dev/acq400.$site.knobs
+		nc=$(cat $kd/active_chan)
+		mkdir -p /etc/acq400/$site
+		cd /etc/acq400/$site
+		set.sys /dev/dsp1/ATD_CSR.SITE$site 1
+		for ch in $(seq 1 $nc)
+		do
+			ch00=$(printf $fmt $(($ch+$ch1)))
+			ln -s /usr/local/bin/anatrg anatrg_$ch00
+		done
+		ch1=$((ch+$ch1))
 	done
 	[ $ch1 -ne $totc ] && echo "WARNING something does not add up $ch1 $totc"
 	NC=$ch1
