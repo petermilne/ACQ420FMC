@@ -8,12 +8,15 @@ WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 if [ $SITE -eq 14 ]; then
 	/usr/local/CARE/ATD-DSP/atd-dsp1.init
+	set.sys /dev/dsp1/ATD_CSR.MOD_EN 1
 	MAJOR=$(grep dsp1 /proc/devices | awk '{ print $1 }')
 	ATDPAGE=14
 	mknod /dev/acq400.14.atd c $MAJOR $ATDPAGE
 	touch /dev/acq400.14
 	totc=0
-	
+
+	ADC_SITES=""
+		
 	for site in 1 2 3 4 5 6; do
 		if [ -e /dev/acq400.$site.atd ]; then
 			rm /dev/acq400.$site.atd
@@ -24,6 +27,7 @@ if [ $SITE -eq 14 ]; then
 			name=$(cat $kd/module_name)
 			if [ "${name#acq*}" != "${name}" ]; then
 				totc=$(($totc+$(cat $kd/active_chan)))
+				ADC_SITES="$ADC_SITES $site"
 			fi
 		fi
  	done
@@ -34,13 +38,11 @@ if [ $SITE -eq 14 ]; then
 		fmt="%02d"
 	fi
 	ch1=0
-	for site in 1 2 3 4 5 6; do
-		kd=/dev/acq400.$site.knobs
-		if [ -d $kd ]; then
+	for site in $ADC_SITES; do
 			nc=$(cat $kd/active_chan)
 			mkdir -p /etc/acq400/$site
 			cd /etc/acq400/$site
-
+			set.sys /dev/dsp1/ATD_CSR.SITE$site 1
 			for ch in $(seq 1 $nc)
 			do
 				ch00=$(printf $fmt $(($ch+$ch1)))
@@ -51,6 +53,7 @@ if [ $SITE -eq 14 ]; then
 	done
 	[ $ch1 -ne $totc ] && echo "WARNING something does not add up $ch1 $totc"
 	NC=$ch1
+	set.sys /dev/dsp1/ATD_CSR.ATD_EN 1
 else
 	cd /etc/acq400/$SITE
 
