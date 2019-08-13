@@ -170,6 +170,7 @@ namespace G {
 	char* sum;
 
 	bool null_copy;
+	bool fillk;			// fill output scaled by 1k
 	int is_spy;		// spy task runs independently of main capture
 	int show_events;
 	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
@@ -1256,6 +1257,8 @@ struct poptOption opt_table[] = {
 	{ "spy", 0, POPT_ARG_INT, &G::is_spy, 0, "separate spy task" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL,
 			"no output copy"    },
+	{ "fill-scale", 0, POPT_ARG_NONE, 0, 'F',
+					"no output, fill output scaled by 1k"    },
 	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,
 			"set verbosity"	    },
 	{ "report-es", 'r', POPT_ARG_INT, &G::report_es, 0,
@@ -1663,6 +1666,10 @@ void init(int argc, const char** argv) {
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'F':
+			G::null_copy = BM_NULL;
+			G::fillk = 1;
+			break;
 		case 'n':
 			G::null_copy = BM_NULL;
 			break;
@@ -2134,11 +2141,11 @@ public:
 
 
 class NullStreamHead: public StreamHeadImpl {
-	void _println(const char* fmt, ...){
+protected:
+	virtual void _println(const char* fmt, ...){
 		va_list args;
 		va_start(args, fmt);
 		vprintf(fmt, args);
-		printf("\n");
 		fflush(stdout);
 	}
 public:
@@ -2156,7 +2163,7 @@ public:
 			default:
 				;
 			}
-			_println("%d", ib);
+			_println("%3d\n", ib);
 			actual.elapsed += samples_buffer;
 		}
 		_println("999 ST_CLEANUP");
@@ -2165,6 +2172,29 @@ public:
 	NullStreamHead(Progress& progress) :
 		StreamHeadImpl(progress)
 	{}
+};
+
+class NullStreamHeadDivK: public NullStreamHead {
+	int kbuf_len;
+	char* kbuf;
+protected:
+	virtual void _println(const char* fmt, ...){
+		va_list args;
+		va_start(args, fmt);
+		vsprintf(kbuf, fmt, args);
+		write(1, kbuf, kbuf_len);
+	}
+public:
+	NullStreamHeadDivK(Progress& progress) :
+		NullStreamHead(progress)
+	{
+		kbuf_len = Buffer::the_buffers[0]->getLen()/1024;
+		kbuf = new char [kbuf_len];
+		memset(kbuf, '\r', kbuf_len);
+	}
+	virtual ~NullStreamHeadDivK() {
+		delete [] kbuf;
+	}
 };
 
 class StreamHeadHB0: public StreamHeadImpl  {
@@ -4163,7 +4193,11 @@ StreamHead* StreamHead::instance() {
 			}
 			switch(G::buffer_mode){
 			case BM_NULL:
-				_instance = new NullStreamHead(Progress::instance());
+				if (G::fillk){
+					_instance = new NullStreamHeadDivK(Progress::instance());
+				}else{
+					_instance = new NullStreamHead(Progress::instance());
+				}
 				break;
 			default:
 				if (G::sum || G::subset){
