@@ -780,6 +780,8 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
 		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
 	fi
+else
+	[ ! -z $STREAM_OPTS ] && echo "STREAM_OPTS=$STREAM_OPTS" >> /etc/sysconfig/acq400_streamd.conf
 fi
 
 echo ++ Enable counter monitors
