@@ -73,12 +73,19 @@ using namespace std;
 
 namespace G {
 	unsigned sample_size = sizeof(unsigned);	// bytes per sample
+	unsigned sample_count_offset;
 	unsigned offset = 0;
 	int devnum = 0;					// full system.
 	int verbose;
+	unsigned fill_len;					// buffer not always fill to the top0
+	unsigned spb;					// samples per buffer
 	FILE* fp_out = stdout;
 	FILE* fp_in = stdin;
 };
+
+unsigned SCIX() {
+	return G::sample_count_offset/sizeof(unsigned);
+}
 
 #include "Buffer.h"
 
@@ -144,11 +151,21 @@ unsigned getSpecificBufferlen(int ibuf)
 }
 
 class EventInfo {
-
+//	864 269 270 OK 0x00008000 546717752
 public:
+	int id;
+	int b0;
+	int b1;
+	unsigned status;
+	unsigned count;
+	int nf;
 	const char* def;
 	EventInfo(const char* _def): def(_def){
-
+		nf = sscanf(def, "%d %d %d OK %x %u", &id, &b0, &b1, &status, &count);
+		if (b0 == -1) b0 = b1;
+	}
+	void print(void){
+		printf("id=%d b0=%d b1=%d count=%u\n", id, b0, b1, count);
 	}
 };
 class EventHandler {
@@ -158,6 +175,7 @@ class EventHandler {
 	char *fname;
 	static vector<EventHandler*> handlers;	
 	typedef vector<EventHandler*>::iterator EHI;
+	int recursion;
 protected:
 	EventHandler(int _site, int _offset): site(_site), offset(_offset)
 	{
@@ -169,8 +187,47 @@ protected:
 		close(fd);
 		delete [] fname;
 	}
-	virtual int action(EventInfo eventInfo) {
-		printf("%s: %s\n", fname, eventInfo.def);
+	virtual int action(EventInfo ei) {
+		if (++recursion > 5){
+			fprintf(stderr, "ERROR: maxrecursion, let it get away\n");
+			recursion = 0;
+			return -1;
+		}
+		if (ei.nf != 5){
+			fprintf(stderr, "ERROR: eventInfo INVALID\n");
+			return -1;
+		}else{
+			ei.print();
+		}
+
+		char* b0_base = Buffer::the_buffers[ei.b0]->getBase();
+
+		unsigned* b0_counts = (unsigned*)b0_base;
+		unsigned c0 = b0_counts[SCIX()];
+
+		if (G::verbose) printf("we have base %p count:%u c0:%u\n", b0_base, ei.count, c0);
+
+		if (ei.count < c0){
+			ei.b0 -= 1; if (ei.b0 == -1) ei.b0 = Buffer::nbuffers-1;
+			if (G::verbose) printf("go back %d\n", ei.b0);
+			return action(ei);
+		}
+
+
+
+		unsigned isam = ei.count - c0;
+		if (isam >= G::spb){
+			ei.b0 += 1; if (ei.b0 >= (int)Buffer::nbuffers) ei.b0 = 0;
+			if (G::verbose) printf("go forward %d\n", ei.b0);
+			return action(ei);
+		}
+
+
+		printf("DO IT [%d]: %s: %d %s %d\n", recursion, fname, ei.b0, ei.def, ei.nf);
+
+		FILE *pp = popen("hexdump -e '16/2 \"%04x,\" 1/4 \"%08x,\" 1/4 \"%u\\n\"'", "w");
+		fwrite(b0_base+ (isam-4)*G::sample_size, 1, G::sample_size*9, pp);
+		pclose(pp);
 		return 0;
 	}
 
@@ -261,6 +318,7 @@ class BufferManager {
 		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 			Buffer::create(root, Buffer::bufferlen);
 		}
+		printf("BufferManager::init_buffers %d\n", Buffer::nbuffers);
 	}
 	void delete_buffers()
 	{
@@ -279,12 +337,31 @@ public:
 	}
 };
 
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define NBUF	 MODPRAMS "nbuffers"
+#define BUFLEN	 MODPRAMS "bufferlen"
+
+#define FILL_LEN "/dev/acq400.0.knobs/bufferlen"
+
 void ui(int argc, const char** argv)
 {
+	const char* evar;
+
+	if ((evar = getenv("VERBOSE"))){
+		G::verbose = atoi(evar);
+	}
+
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
 
         int rc;
+        getKnob(0, "/etc/acq400/0/ssb", &G::sample_size);
+        G::sample_count_offset = G::sample_size - sizeof(unsigned);
+	getKnob(-1, NBUF,  &Buffer::nbuffers);
+	getKnob(-1, BUFLEN, &Buffer::bufferlen);
+	getKnob(-1, FILL_LEN, &G::fill_len);
+
+	G::spb = G::fill_len/G::sample_size;
 
         while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
@@ -308,8 +385,8 @@ int run(void)
 
 int main(int argc, const char** argv)
 {
-	BufferManager bm();
 	ui(argc, argv);
+	BufferManager bm;
 	return run();
 }
 
