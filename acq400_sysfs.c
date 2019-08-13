@@ -1902,6 +1902,16 @@ static DEVICE_ATTR(sod, S_IRUGO|S_IWUSR, show_sod, store_sod);
 
 MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
 
+static ssize_t show_is_adc(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%d\n", IS_ADC(adev));
+}
+
+static DEVICE_ATTR(is_adc, S_IRUGO, show_is_adc, 0);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
@@ -1941,6 +1951,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
 	&dev_attr_sync_trg_to_clk.attr,
+	&dev_attr_is_adc.attr,
 	NULL,
 };
 

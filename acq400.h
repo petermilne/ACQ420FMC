@@ -408,6 +408,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_FMC104(adev)	(GET_MOD_ID(adev) == MOD_ID_FMC104)
 #define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC ||IS_FMC104(adev))
 
+#define IS_ADC(adev)	(IS_ACQ43X(adev)||IS_ACQ42X(adev)||IS_ACQ480(adev))
 
 #define IS_AO420(adev)  \
 	(GET_MOD_ID(adev)==MOD_ID_AO420FMC || GET_MOD_ID(adev)==MOD_ID_AO420FMC_CS2)
