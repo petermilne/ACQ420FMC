@@ -761,6 +761,7 @@ build_knobs
 set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
 
+AXI_COUNT=0
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
 	AXIMOD=${MODLIB}/xilinx_axidma.ko
@@ -780,8 +781,10 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
 		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
 	fi
-else
-	[ ! -z $STREAM_OPTS ] && echo "STREAM_OPTS=$STREAM_OPTS" >> /etc/sysconfig/acq400_streamd.conf
+fi
+if [ $AXI_COUNT -eq 0 ]; then
+	[ ! -z $STREAM_OPTS ] && \
+		echo "STREAM_OPTS=$STREAM_OPTS" >> /etc/sysconfig/acq400_streamd.conf
 fi
 
 echo ++ Enable counter monitors
