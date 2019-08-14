@@ -81,6 +81,7 @@ namespace G {
 	unsigned spb;					// samples per buffer
 	FILE* fp_out = stdout;
 	FILE* fp_in = stdin;
+	int stub;
 };
 
 unsigned SCIX() {
@@ -93,6 +94,7 @@ struct poptOption opt_table[] = {
 	{ "sample-size", 'S', POPT_ARG_INT, &G::sample_size, 0,
 			"bytes per sample [deprecated]"
 	},
+	{ "stub", 0, POPT_ARG_INT, &G::stub, 0, "stub work action" },
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
@@ -150,6 +152,18 @@ unsigned getSpecificBufferlen(int ibuf)
 	return bl;
 }
 
+
+class Stopwatch {
+	const char* name;
+	clock_t t0;
+public:
+	Stopwatch(const char* _name): name(_name), t0(clock()) {}
+	~Stopwatch() {
+		clock_t t1 = clock();
+		float dt = (t1 - t0);
+		printf("%s %.1f usec\n", name, dt/CLOCKS_PER_SEC*1000000);
+	}
+};
 class EventInfo {
 //	864 269 270 OK 0x00008000 546717752
 public:
@@ -160,7 +174,7 @@ public:
 	unsigned count;
 	int nf;
 	const char* def;
-	EventInfo(const char* _def): def(_def){
+	EventInfo(const char* _def): id(0), b0(0), b1(0), status(0), count(0), def(_def){
 		nf = sscanf(def, "%d %d %d OK %x %u", &id, &b0, &b1, &status, &count);
 		if (b0 == -1) b0 = b1;
 	}
@@ -172,15 +186,22 @@ class EventHandler {
 	int site;
 	int offset;
 	int fd;
-	char *fname;
+	char* fnameb;
+	const char *fname;
 	static vector<EventHandler*> handlers;	
 	typedef vector<EventHandler*>::iterator EHI;
 	int recursion;
 protected:
 	EventHandler(int _site, int _offset): site(_site), offset(_offset)
 	{
-		fname = new char[80];
-		sprintf(fname, "%s.ev", getRoot(site));
+		fnameb = new char[80];
+		sprintf(fnameb, "%s.ev", getRoot(site));
+		fname = fnameb;
+		fd = open(fname, O_RDONLY);
+	}
+	EventHandler(int _site, const char* _fname, int _offset): site(_site), offset(_offset)
+	{
+		fname = _fname;
 		fd = open(fname, O_RDONLY);
 	}
 	virtual ~EventHandler() {
@@ -188,6 +209,14 @@ protected:
 		delete [] fname;
 	}
 	virtual int action(EventInfo ei) {
+		if (G::stub){
+			printf("STUB [%d]: %s: b0=%d def=%s\n", recursion, fname, ei.b0, ei.def);
+			return 0;
+		}
+		if (ei.nf < 5){
+			fprintf(stderr, "ERROR: bad eventInfo\n");
+			return -1;
+		}
 		if (++recursion > 5){
 			fprintf(stderr, "ERROR: maxrecursion, let it get away\n");
 			recursion = 0;
@@ -213,8 +242,6 @@ protected:
 			return action(ei);
 		}
 
-
-
 		unsigned isam = ei.count - c0;
 		if (isam >= G::spb){
 			ei.b0 += 1; if (ei.b0 >= (int)Buffer::nbuffers) ei.b0 = 0;
@@ -223,16 +250,25 @@ protected:
 		}
 
 
-		printf("DO IT [%d]: %s: %d %s %d\n", recursion, fname, ei.b0, ei.def, ei.nf);
-
+		printf("DO IT [%d]: %s: %d %s\n", recursion, fname, ei.b0, ei.def);
+#if 0
 		FILE *pp = popen("hexdump -e '16/2 \"%04x,\" 1/4 \"%08x,\" 1/4 \"%u\\n\"'", "w");
 		fwrite(b0_base+ (isam-4)*G::sample_size, 1, G::sample_size*9, pp);
 		pclose(pp);
+#else
+		char fname[80];
+		sprintf(fname, "/tmp/event-%d-%u.dat", site, ei.count);
+		FILE *fp = fopen(fname, "w");
+		fwrite(b0_base, 1, G::fill_len, fp);
+		fclose(fp);
+#endif
+		recursion = 0;
 		return 0;
 	}
 
 public:
 	static bool create(int _site);
+	static bool create(int _site, const char* _fname);
 
        	static int poll() {
 		sigset_t emptyset;
@@ -259,21 +295,25 @@ public:
 		rc = pselect(fd_max+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
 		if (rc < 0){
 			syslog(LOG_ERR, "ERROR: pselect() fail %d\n", errno);
-		}
-                for (EHI it = handlers.begin(); it != handlers.end(); ++it){
-			int fd = (*it)->fd;
-			if (FD_ISSET(fd, &readfds)){
-				if ((rc = read(fd, event_info, 80)) <= 0){
-					syslog(LOG_ERR, "ERROR read returned %d\n", rc);
-				}else{
-					event_info[rc] = '\0';
-					chomp(event_info);
+		}else if (rc > 0){
+			Stopwatch w("ActionTimer");
+			for (EHI it = handlers.begin(); it != handlers.end(); ++it){
+				int fd = (*it)->fd;
+				if (FD_ISSET(fd, &readfds)){
+					if ((rc = read(fd, event_info, 80)) <= 0){
+						syslog(LOG_ERR, "ERROR read returned %d\n", rc);
+					}else{
+						event_info[rc] = '\0';
+						chomp(event_info);
+					}
+					(*it)->action(event_info);
 				}
-				(*it)->action(event_info);
+				if (FD_ISSET(fd, &exceptfds)){
+					syslog(LOG_ERR, "ERROR: fail on %s %d\n", (*it)->fname, errno);
+				}
 			}
-			if (FD_ISSET(fd, &exceptfds)){
-				syslog(LOG_ERR, "ERROR: fail on %s %d\n", (*it)->fname, errno);
-			}
+		}else{
+			printf("Timeout\n");
 		}
 
 		return rc;
@@ -309,6 +349,10 @@ bool EventHandler::create(int _site) {
 			return false;
 	}
 }
+bool EventHandler::create(int _site, const char* _fname) {
+	handlers.push_back(new EventHandler(_site, _fname, 0));
+	return true;
+}
 
 class BufferManager {
 	void init_buffers()
@@ -343,6 +387,8 @@ public:
 
 #define FILL_LEN "/dev/acq400.0.knobs/bufferlen"
 
+BufferManager* bm;
+
 void ui(int argc, const char** argv)
 {
 	const char* evar;
@@ -363,15 +409,27 @@ void ui(int argc, const char** argv)
 
 	G::spb = G::fill_len/G::sample_size;
 
+
         while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
                 default:
                         ;
                 }
         }
+
+        bm = new BufferManager;
+
 	const char* ssite;
 	while ((ssite = poptGetArg(opt_context)) != 0){
-		EventHandler::create(atoi(ssite));
+		if (ssite[0] == '/'){
+			int site;
+
+			if (sscanf(ssite, "/dev/acq400.%d.", &site) == 1){
+				EventHandler::create(site, ssite);
+			}
+		}else{
+			EventHandler::create(atoi(ssite));
+		}
 	}
 }
 
@@ -386,7 +444,6 @@ int run(void)
 int main(int argc, const char** argv)
 {
 	ui(argc, argv);
-	BufferManager bm;
 	return run();
 }
 
