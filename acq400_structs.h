@@ -668,6 +668,22 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 void acq400_enable_adc(struct acq400_dev* adev);
 
 extern void acq400_init_event_info(struct EventInfo *eventInfo);
+
+#define CMASK 0x7f
+
+static inline u32 _acq400_adc_sample_count(struct acq400_dev* adev)
+{
+	u32 c0, c1;
+	unsigned retry = 0;
+	c0 = acq400rd32(adev, ADC_SAMPLE_CTR);
+	while (((c1 = acq400rd32(adev, ADC_SAMPLE_CTR))&CMASK) != (c0&CMASK)){
+		c0 = c1;
+		if (++retry > 5){
+			return 0xffffffff;
+		}
+	}
+	return c1;
+}
 static inline u32 acq400_adc_sample_count(void)
 {
         struct acq400_dev* adev = acq400_sites[1];
@@ -675,7 +691,7 @@ static inline u32 acq400_adc_sample_count(void)
         if (!adev){
                 return 0xffffffff;
         }else{
-                return acq400rd32(adev, ADC_SAMPLE_CTR);
+                return _acq400_adc_sample_count(adev);
         }
 }
 
