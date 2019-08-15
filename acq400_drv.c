@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.397"
+#define REVID "3.398"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2455,15 +2455,19 @@ static irqreturn_t cos_isr(struct acq400_dev *adev)
 {
 	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 	u32 cos = acq400rd32(adev, DIO482_COS_STA);
+	u32 adcc;
+	u32 spad0;
 
 	acq400wr32(adev, DIO482_COS_STA, cos);
 	xtd_dev->atd.event_source = cos;
 	adev->rt.event_count++;
 
 //	adev->rt.samples_at_event = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
-	adev->rt.samples_at_event = acq400_adc_sample_count();
+	adcc = acq400_adc_sample_count();
+	spad0 = get_spadN(acq400_sites[0], 0);
+	adev->rt.samples_at_event = spad0;
 	wake_up_interruptible(&adev->event_waitq); 
-	dev_dbg(DEVP(adev), "sample_count:%08x cos:0x%08x %u", adev->rt.samples_at_event, cos, cos);
+	dev_dbg(DEVP(adev), "spad0:%08x adc:%08x cos:0x%08x %u", adev->rt.samples_at_event, adcc, cos, cos);
 	return IRQ_HANDLED;
 }
 
