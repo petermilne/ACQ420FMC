@@ -102,6 +102,7 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
+#define PRED(ib) ((ib)==0? Buffer::nbuffers: (ib)-1)
 
 char *getRoot(int devnum)
 {
@@ -354,32 +355,6 @@ bool EventHandler::create(int _site, const char* _fname) {
 	return true;
 }
 
-class BufferManager {
-	void init_buffers()
-	{
-		const char* root = getRoot(G::devnum);
-
-		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
-			Buffer::create(root, Buffer::bufferlen);
-		}
-		printf("BufferManager::init_buffers %d\n", Buffer::nbuffers);
-	}
-	void delete_buffers()
-	{
-		/* this _should_ be automatic. But it's not! */
-		for (unsigned ii = 0; ii < Buffer::the_buffers.size(); ++ii){
-			delete Buffer::the_buffers[ii];
-		}
-	}
-public:
-	BufferManager(unsigned start_buf = 0) {
-		Buffer::last_buf = start_buf;
-		init_buffers();
-	}
-	~BufferManager() {
-		delete_buffers();
-	}
-};
 
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"
 #define NBUF	 MODPRAMS "nbuffers"
@@ -417,7 +392,7 @@ void ui(int argc, const char** argv)
                 }
         }
 
-        bm = new BufferManager;
+        bm = new BufferManager(getRoot(G::devnum));
 
 	const char* ssite;
 	while ((ssite = poptGetArg(opt_context)) != 0){

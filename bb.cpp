@@ -486,35 +486,10 @@ RUN_MODE ui(int argc, const char** argv)
 	return M_DUMP;
 }
 
-class BufferManager {
-	void init_buffers()
-	{
-		const char* root = getRoot(G::devnum);
-
-		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
-			Buffer::create(root, Buffer::bufferlen);
-		}
-	}
-	void delete_buffers()
-	{
-		/* this _should_ be automatic. But it's not! */
-		for (unsigned ii = 0; ii < Buffer::the_buffers.size(); ++ii){
-			delete Buffer::the_buffers[ii];
-		}
-	}
-public:
-	BufferManager(unsigned start_buf = 0) {
-		Buffer::last_buf = start_buf;
-		init_buffers();
-	}
-	~BufferManager() {
-		delete_buffers();
-	}
-};
 int main(int argc, const char** argv)
 {
 	RUN_MODE rm = ui(argc, argv);
-	BufferManager bm(G::buffer0);
+	BufferManager bm(getRoot(G::devnum), G::buffer0);
 	switch(rm){
 	case M_FILL:
 		return fill();
