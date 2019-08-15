@@ -260,6 +260,8 @@ protected:
 		char fname[80];
 		sprintf(fname, "/tmp/event-%d-%u.dat", site, ei.count);
 		FILE *fp = fopen(fname, "w");
+		MapBuffer* b0 = dynamic_cast<MapBuffer*>(Buffer::the_buffers[ei.b0]);
+		fwrite(Buffer::the_buffers[b0->pred()]->getBase(), 1, G::fill_len, fp);
 		fwrite(b0_base, 1, G::fill_len, fp);
 		fclose(fp);
 #endif
@@ -383,6 +385,10 @@ void ui(int argc, const char** argv)
 	getKnob(-1, FILL_LEN, &G::fill_len);
 
 	G::spb = G::fill_len/G::sample_size;
+
+	if (G::verbose){
+		fprintf(stderr, "ssb:%d spb:%d\n", G::sample_size, G::spb);
+	}
 
 
         while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
