@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.397"
+#define REVID "3.402"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2754,13 +2754,18 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 		return 0;
 	}
 	dev_info(DEVP(adev), "acq400_mod_init_irq %d", irq);
-	if (IS_AO42X(adev)||IS_DIO432X(adev)){
+
+	if (IS_DIO432X(adev)){
+		dev_info(DEVP(adev), "acq400_mod_init_irq IRQF_NO_THREAD %d", irq);
+		rc = devm_request_irq(
+			DEVP(adev), irq, ao400_isr, IRQF_NO_THREAD, adev->dev_name, adev);
+	}else if (IS_AO42X(adev)||IS_DIO432X(adev)){
 		rc = devm_request_threaded_irq(
-				DEVP(adev), irq, ao400_isr, xo400_dma, IRQF_SHARED,
+				DEVP(adev), irq, ao400_isr, xo400_dma, IRQF_NO_THREAD,
 				adev->dev_name,	adev);
 	}else{
 		rc = devm_request_irq(
-				DEVP(adev), irq, acq400_isr, IRQF_SHARED, adev->dev_name, adev);
+				DEVP(adev), irq, acq400_isr, IRQF_NO_THREAD, adev->dev_name, adev);
 	}
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
