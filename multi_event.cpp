@@ -218,6 +218,10 @@ protected:
 			fprintf(stderr, "ERROR: bad eventInfo\n");
 			return -1;
 		}
+		if (ei.count == 4294967295){
+			fprintf(stderr, "ERROR: overflow count, reject %s\n", ei.def);
+			return -1;
+		}
 		if (++recursion > 5){
 			fprintf(stderr, "ERROR: maxrecursion, let it get away\n");
 			recursion = 0;
@@ -379,7 +383,7 @@ void ui(int argc, const char** argv)
 
         int rc;
         getKnob(0, "/etc/acq400/0/ssb", &G::sample_size);
-        G::sample_count_offset = G::sample_size - sizeof(unsigned);
+        getKnob(0, "/etc/acq400/0/spadstart", &G::sample_count_offset);
 	getKnob(-1, NBUF,  &Buffer::nbuffers);
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, FILL_LEN, &G::fill_len);
@@ -387,7 +391,8 @@ void ui(int argc, const char** argv)
 	G::spb = G::fill_len/G::sample_size;
 
 	if (G::verbose){
-		fprintf(stderr, "ssb:%d spb:%d\n", G::sample_size, G::spb);
+		fprintf(stderr, "ssb:%d sample_count_offset:%d spb:%d\n",
+				G::sample_size, G::sample_count_offset, G::spb);
 	}
 
 

@@ -47,6 +47,7 @@ set.sys /etc/acq400/0/sites ${sitelist}
 
 
 echo $SS > /etc/acq400/0/ssb
+echo $(($SS-$nspad*4)) > /etc/acq400/0/spadstart
 
 [ "x$NO_OPTIMISE_BUFFERLEN" = "xy" ] || 
 	set.sys /dev/acq400.0.knobs/optimise_bufferlen $SS 
