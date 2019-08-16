@@ -1731,12 +1731,16 @@ static ssize_t show_nacc(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
-	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
+	if (acc_dec == ADC_NACC_PASSTHRU){
+		return sprintf(buf, "0,0,0\n");
+	}else{
+		unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
 					getSHL(ADC_ACC_DEC_SHIFT_MASK);
-	unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
+		unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
 					getSHL(ADC_ACC_DEC_START_MASK);
-	return sprintf(buf, "%u,%u,%u\n",
+		return sprintf(buf, "%u,%u,%u\n",
 			(acc_dec&ADC_ACC_DEC_LEN)+1, shift, start);
+	}
 }
 
 static ssize_t store_nacc(
@@ -1751,24 +1755,26 @@ static ssize_t store_nacc(
 	unsigned start = 0;
 
 	if (sscanf(buf, "%u,%u,%u", &nacc, &shift, &start) >= 1){
-		u32 acdc;
+		u32 acdc = 0;
 
-		nacc = min(nacc, ADC_MAX_NACC);
-		start = min(start,nacc-1);
+		if (nacc > 0){
+			nacc = min(nacc, ADC_MAX_NACC);
+			start = min(start,nacc-1);
 
-		if (shift == 999){
-			for (shift = 0; 1<<shift < nacc; ++shift)
-				;
-			if ((1<<shift) > nacc){
-				shift -= 1;
+			if (shift == 999){
+				for (shift = 0; 1<<shift < nacc; ++shift)
+					;
+				if ((1<<shift) > nacc){
+					shift -= 1;
+				}
+				start = nacc - (1<<shift);
 			}
-			start = nacc - (1<<shift);
-		}
-		shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
+			shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
 
-		acdc = nacc-1;
-		acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
-		acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
+			acdc = nacc-1;
+			acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
+			acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
+		}
 		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;
 	}else{
@@ -1777,6 +1783,34 @@ static ssize_t store_nacc(
 }
 
 static DEVICE_ATTR(nacc, S_IRUGO|S_IWUSR, show_nacc, store_nacc);
+static DEVICE_ATTR(ACC, S_IRUGO|S_IWUSR, show_nacc, store_nacc);
+
+static ssize_t store_dec(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned ndec;
+	unsigned start = 0;
+
+	if (sscanf(buf, "%u", &ndec) == 1){
+		u32 acdc= 0;
+
+		if (ndec > 0){
+			ndec = min(ndec, ADC_MAX_NACC);
+			start = ndec-1;
+			acdc = ndec-1;
+			acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
+		}
+		acq400wr32(adev, ADC_ACC_DEC, acdc);
+		return count;
+	}else{
+		return -1;
+	}
+}
+static DEVICE_ATTR(DEC, S_IRUGO|S_IWUSR, show_nacc, store_dec);
 
 static ssize_t show_is_triggered(
 	struct device * dev,
@@ -1948,6 +1982,8 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
 	&dev_attr_nacc.attr,
+	&dev_attr_ACC.attr,
+	&dev_attr_DEC.attr,
 	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
 	&dev_attr_sync_trg_to_clk.attr,
