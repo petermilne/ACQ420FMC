@@ -100,7 +100,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1006"
+#define REVID "regfs_fs B1007"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -453,7 +453,7 @@ static int init_event(struct REGFS_DEV* rdev)
 	int rc = 0;
 	if (ri){
 		rc = devm_request_irq(
-			&rdev->pdev->dev, ri->start, regfs_isr, IRQF_SHARED, ri->name, rdev);
+			&rdev->pdev->dev, ri->start, regfs_isr, IRQF_NO_THREAD, ri->name, rdev);
 		if (rc){
 			dev_err(&rdev->pdev->dev,"unable to get IRQ%d\n",ri->start);
 		}
