@@ -669,7 +669,7 @@ void acq400_enable_adc(struct acq400_dev* adev);
 
 extern void acq400_init_event_info(struct EventInfo *eventInfo);
 
-#define CMASK 0x7f
+#define CMASK (~0x7f)
 
 static inline u32 _acq400_adc_sample_count(struct acq400_dev* adev)
 {

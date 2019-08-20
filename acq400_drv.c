@@ -2409,7 +2409,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 			axi64_tie_off_dmac(adev0, CHANNEL0, adev0->axi_buffers_after_event);
 			adev0->axi_buffers_after_event = 0;
 		}
-		adev->rt.samples_at_event = acq400rd32(adev, ADC_SAMPLE_CTR);
+		adev->rt.samples_at_event = _acq400_adc_sample_count(adev);
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
 		if (HAS_XTD(adev)){
