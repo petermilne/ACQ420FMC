@@ -1988,6 +1988,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_event0_count.attr,
 	&dev_attr_sync_trg_to_clk.attr,
 	&dev_attr_is_adc.attr,
+	&dev_attr_evt_sc_latch.attr,
 	NULL,
 };
 
@@ -2022,9 +2023,7 @@ static const struct attribute *acq435_attrs[] = {
 	&dev_attr_bitslice_frame.attr,
 	&dev_attr_sw_emb_word1.attr,
 	&dev_attr_sw_emb_word2.attr,
-	&dev_attr_evt_sc_latch.attr,
 	&dev_attr_gate_sync.attr,
-
 	NULL
 };
 

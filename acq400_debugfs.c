@@ -171,6 +171,7 @@ void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(EVT_SC_LATCH);
 	if (IS_ACQ420(adev)){
 		DBG_REG_CREATE(ADC_GAIN);
 	}
