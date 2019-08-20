@@ -346,6 +346,9 @@ public:
 bool EventHandler::create(int _site) {
 	/* WORDTODO : replace hard coded functions */
 	switch(_site){
+		case 1:
+			handlers.push_back(new EventHandler(_site, 0));
+			return true;
 		case 2:
 			handlers.push_back(new COSEventHandler(_site, 32));
 			return true;	
