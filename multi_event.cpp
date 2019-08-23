@@ -66,6 +66,7 @@
 #include "knobs.h"
 
 #include "File.h"
+#include "Knob.h"
 
 
 using namespace std;
@@ -82,6 +83,7 @@ namespace G {
 	FILE* fp_out = stdout;
 	FILE* fp_in = stdin;
 	int stub;
+	int max_events;					// quit after this many events.
 };
 
 unsigned SCIX() {
@@ -93,6 +95,9 @@ unsigned SCIX() {
 struct poptOption opt_table[] = {
 	{ "sample-size", 'S', POPT_ARG_INT, &G::sample_size, 0,
 			"bytes per sample [deprecated]"
+	},
+	{ "max-events", 'M', POPT_ARG_INT, &G::max_events, 0,
+			"maximum number of events to record"
 	},
 	{ "stub", 0, POPT_ARG_INT, &G::stub, 0, "stub work action" },
 	{
@@ -192,6 +197,17 @@ class EventHandler {
 	static vector<EventHandler*> handlers;	
 	typedef vector<EventHandler*>::iterator EHI;
 	int recursion;
+	static unsigned evt_sc;
+
+	static void store_latch(void) {
+		struct stat statbuf;
+		if (stat("/etc/acq400/1/evt_sc_latch", &statbuf) == 0){
+			Knob evt_sc_latch("/etc/acq400/1/evt_sc_latch");
+			evt_sc = 0;
+			evt_sc_latch.get(&evt_sc);
+
+		}
+	}
 protected:
 	EventHandler(int _site, int _offset): site(_site), offset(_offset)
 	{
@@ -268,6 +284,10 @@ protected:
 		fwrite(Buffer::the_buffers[b0->pred()]->getBase(), 1, G::fill_len, fp);
 		fwrite(b0_base, 1, G::fill_len, fp);
 		fclose(fp);
+
+		fprintf(stderr, "evt_sc_latch:%u %s isr:%u delta:%u\n",
+			evt_sc, evt_sc>ei.count? ">": "<",
+			ei.count, evt_sc>ei.count? evt_sc-ei.count: ei.count-evt_sc);
 #endif
 		recursion = 0;
 		return 0;
@@ -303,6 +323,8 @@ public:
 		if (rc < 0){
 			syslog(LOG_ERR, "ERROR: pselect() fail %d\n", errno);
 		}else if (rc > 0){
+			store_latch();
+
 			Stopwatch w("ActionTimer");
 			for (EHI it = handlers.begin(); it != handlers.end(); ++it){
 				int fd = (*it)->fd;
@@ -328,6 +350,7 @@ public:
 };
 
 vector<EventHandler*> EventHandler::handlers;
+unsigned EventHandler::evt_sc;
 
 
 class COSEventHandler: public EventHandler {
@@ -424,8 +447,11 @@ void ui(int argc, const char** argv)
 
 int run(void)
 {
-	while(1){
+	int event_count = 0;
+
+	while(G::max_events == 0 || event_count < G::max_events){
 		EventHandler::poll();
+		++event_count;
 	}
 	return 0;
 }

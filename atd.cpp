@@ -79,9 +79,35 @@ namespace G {
 	unsigned offset = 15;				// ch16
 	unsigned atd_code = 0x1e1d7f80;			// rising 2.4V
 	int verbose;
+	int nchan = 16;
+	int atd_site = 14;
 };
 
+#define NO_THRESHOLD 0x7f807f80
 
+int get_atd_code(void)
+{
+	int fd = open("/dev/acq400.14.atd", O_RDONLY);
+	unsigned *va = (unsigned*)mmap(0, 0x1000, PROT_READ, MAP_SHARED, fd, 0);
+	unsigned *cursor;
+
+	if (va == MAP_FAILED){
+		perror("MAP_FAILED");
+		exit(1);
+	}
+
+	for (cursor = va; cursor - va < G::nchan; ++cursor){
+		if (*cursor != NO_THRESHOLD){
+			G::offset = cursor -va;
+			G::atd_code = *cursor;
+			fprintf(stderr, "found atd_code %u 0x%08x\n", G::offset, G::atd_code);
+			return 0;
+		}
+	}
+	fprintf(stderr, "atd_code not found\n");
+	exit(1);
+	return -1;
+}
 int map_file(const char* fn, int perms, void **va)
 {
 	struct stat statbuf;
@@ -102,7 +128,7 @@ int map_file(const char* fn, int perms, void **va)
 
 void dump_sam(short* cursor)
 {
-	FILE *pp = popen("hexdump -e '16/2 \"%04x,\" 1/4 \"%08x,\" 3/4 \"%10u\" \"\\n\"'", "w");
+	FILE *pp = popen("hexdump -e '16/2 \"%04x,\" 1/4 \"%08x,\" 3/4 \"%10u \" \"\\n\"'", "w");
 	fwrite(cursor, 1, G::sample_size, pp);
 	pclose(pp);
 }
@@ -147,7 +173,9 @@ int search(const char* fn)
 	unsigned fncount;
 	int rc = sscanf(fn, "/tmp/event-14-%u.dat", &fncount);
 	if (rc == 1){
-		printf("count at isr:%u count at threshold:%u delta:%u\n\n", fncount, ucount, fncount-ucount);
+		printf("count at isr %u %s measured %u delta %u\n\n",
+				fncount, fncount>ucount? ">": "<", ucount,
+					 fncount>ucount? fncount-ucount: ucount-fncount);
 	}
 
 	return 0;
@@ -169,7 +197,7 @@ struct poptOption opt_table[] = {
 int ui(int argc, const char** argv)
 {
         getKnob(0, "/etc/acq400/0/ssb", &G::sample_size);
-
+        get_atd_code();
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
         int rc;

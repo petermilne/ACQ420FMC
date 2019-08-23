@@ -75,6 +75,7 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	int event_count;
 
 	u32 samples_at_event;
+	u32 samples_at_event_latch;
 	u32 sample_clocks_at_event;
 
 	u32 axi64_ints;
@@ -693,6 +694,24 @@ static inline u32 acq400_adc_sample_count(void)
         }else{
                 return _acq400_adc_sample_count(adev);
         }
+}
+
+
+static inline u32 acq400_adc_latch_count(void)
+{
+        struct acq400_dev* adev = acq400_sites[1];
+
+        if (!adev){
+                return 0xffffffff;
+        }else{
+                return acq400rd32(adev, EVT_SC_LATCH);
+        }
+}
+
+/* ONLY valid if SPAD enabled */
+static inline u32 acq400_agg_sample_count(void)
+{
+	return acq400rd32(acq400_sites[0], SPADN(0));
 }
 
 #endif /* ACQ400_STRUCTS_H_ */

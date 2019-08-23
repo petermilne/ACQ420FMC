@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.403"
+#define REVID "3.406"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -2394,13 +2394,17 @@ static void xtd_action(struct acq400_dev *adev)
 
 #define CHANNEL0	0
 
-static void cos_action(struct acq400_dev *adev, u32 status)
+static void event_action(struct acq400_dev *adev, u32 status)
 {
 	struct acq400_dev* adev0 = acq400_devices[0];
 
 	++adev->rt.event_count;
 
 	if ((status&ADC_INT_CSR_EVENT0) != 0){
+		u32 sc, lc;
+
+		sc = adev->rt.samples_at_event = acq400_agg_sample_count();
+
 		if (acq400_event_count_limit &&
 		    adev->rt.event_count >= acq400_event_count_limit){
 			acq400_enable_event0(adev, 0);
@@ -2409,7 +2413,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 			axi64_tie_off_dmac(adev0, CHANNEL0, adev0->axi_buffers_after_event);
 			adev0->axi_buffers_after_event = 0;
 		}
-		adev->rt.samples_at_event = _acq400_adc_sample_count(adev);
+		lc = adev->rt.samples_at_event_latch = acq400rd32(adev, EVT_SC_LATCH);
 		adev->rt.sample_clocks_at_event =
 					acq400rd32(adev, ADC_SAMPLE_CLK_CTR);
 		if (HAS_XTD(adev)){
@@ -2417,6 +2421,9 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 		}
 
 		wake_up_interruptible(&adev->event_waitq);
+		dev_dbg(DEVP(adev), "event_action() sc:%08x %s lc %08x %d",
+				sc, sc>lc? ">": "<", lc,
+				sc>lc? sc-lc: lc-sc);
 	}
 	if ((status&ADC_INT_CSR_EVENT1) != 0){
 		if (HAS_XTD(adev)){
@@ -2425,7 +2432,7 @@ static void cos_action(struct acq400_dev *adev, u32 status)
 	}
 	cosco[EVX_TO_INDEX(status)]++;
 
-	dev_dbg(DEVP(adev), "cos_action %08x\n", status);
+	dev_dbg(DEVP(adev), "event_action() %08x\n", status);
 }
 
 static void hitide_action(struct acq400_dev *adev, u32 status)
@@ -2442,7 +2449,7 @@ static irqreturn_t acq400_isr(int irq, void *dev_id)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
 	volatile u32 status = x400_get_interrupt(adev);
-	cos_action(adev, status);
+	event_action(adev, status);
 	hitide_action(adev, status);
 
 	x400_set_interrupt(adev, status);
@@ -2455,15 +2462,22 @@ static irqreturn_t cos_isr(struct acq400_dev *adev)
 {
 	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 	u32 cos = acq400rd32(adev, DIO482_COS_STA);
+	//u32 sc = adev->rt.samples_at_event = acq400_adc_sample_count();
 
+	u32 sc = adev->rt.samples_at_event = acq400_agg_sample_count();
+	u32 lc;
 	acq400wr32(adev, DIO482_COS_STA, cos);
 	xtd_dev->atd.event_source = cos;
 	adev->rt.event_count++;
 
 //	adev->rt.samples_at_event = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
 	adev->rt.samples_at_event = acq400_adc_sample_count();
+	lc = adev->rt.samples_at_event_latch = acq400_adc_latch_count();
 	wake_up_interruptible(&adev->event_waitq); 
-	dev_dbg(DEVP(adev), "sample_count:%08x cos:0x%08x %u", adev->rt.samples_at_event, cos, cos);
+	dev_dbg(DEVP(adev), "cos_isr() sc:%08x cos:0x%08x %u", adev->rt.samples_at_event, cos, cos);
+	dev_dbg(DEVP(adev), "cos_isr() sc %08x %s lc %08x diff %d",
+			sc, sc>lc? ">": "<", lc,
+			    sc>lc? sc-lc: lc-sc);
 	return IRQ_HANDLED;
 }
 
