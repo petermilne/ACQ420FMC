@@ -101,7 +101,13 @@ void wr_load(char* wrbase, const char* fname)
 	}
 	char* buf = new char[0x20000];
 	int nr = fread(buf, 1, 0x20000, fp);
-	memcpy(wrbase, buf, nr);
+	int ii;
+
+	for (ii = 0; ii < nr; ++ii){
+		wrbase[ii] = buf[ii];
+		sched_yield();
+	}
+
 	fclose(fp);
 }
 
@@ -125,7 +131,7 @@ int main(int argc, const char** argv)
 		wr_load(wrbase, argv[1]);
 	}
 	*wr_hwid  = 0x41435134;				// ACQ4
-	/* fit wierd backwards load in LM32 */
+	/* fit weird backwards load in LM32 (LM is BE, A9 is LE, but bus interface is supports LE longwords) */
 	int ii = 0; int jj = 3;
 	while((token = strtok_r(rest, ":", &rest))){
 		wrprams[ii+jj] = strtoul(token, 0, 16);
