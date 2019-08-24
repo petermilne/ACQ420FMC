@@ -83,7 +83,7 @@ int get_mac(char* mac, int max_mac)
 void* mmap_wr(void)
 {
         int fd = open("/dev/mem", O_RDWR);
-        unsigned *va = (unsigned*)mmap(0, 0x20000, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40080000);
+        unsigned *va = (unsigned*)mmap(0, 0x40000, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40080000);
 
         if (va == MAP_FAILED){
                 perror("MAP_FAILED");
@@ -92,6 +92,18 @@ void* mmap_wr(void)
 	return va;
 }
 
+void wr_load(char* wrbase, const char* fname)
+{
+	FILE* fp = fopen(fname, "r");
+	if (fp == 0){
+		perror(fname);
+		exit(1);
+	}
+	char* buf = new char[0x20000];
+	int nr = fread(buf, 1, 0x20000, fp);
+	memcpy(wrbase, buf, nr);
+	fclose(fp);
+}
 
 int main(int argc, const char** argv)
 {
@@ -103,7 +115,16 @@ int main(int argc, const char** argv)
 	char* token;
 	char* rest = mac_buf;
 
-	char* wrprams = ((char*)mmap_wr()) + 0x1f000;
+	char* wrbase = (char*)mmap_wr();
+	char* wrprams = wrbase + 0x1f000;
+	unsigned * wr_reset = (unsigned*)(wrbase+0x20400);
+	unsigned * wr_hwid  = (unsigned*)(wrbase+0x20414);
+
+	*wr_reset = 0x1deadbee;
+	if (argc > 1) {
+		wr_load(wrbase, argv[1]);
+	}
+	*wr_hwid  = 0x41435134;				// ACQ4
 	/* fit wierd backwards load in LM32 */
 	int ii = 0; int jj = 3;
 	while((token = strtok_r(rest, ":", &rest))){
@@ -113,6 +134,7 @@ int main(int argc, const char** argv)
 			jj = 3;
 		}
 	}
+	*wr_reset = 0x0deadbee;
 	return 0;
 }
 
