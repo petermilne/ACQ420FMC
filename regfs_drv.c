@@ -100,7 +100,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1008"
+#define REVID "regfs_fs B1009"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -435,7 +435,6 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
 	u32 dsp_status;
 
-	//rdev->sample_count = acq400_adc_sample_count();
 	rdev->sample_count = acq400_agg_sample_count();
 
 	dsp_status = ioread32(rdev->va + DSP_STATUS);
@@ -446,7 +445,7 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 
 
 	wake_up_interruptible(&rdev->w_waitq);
-	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
+	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
 		rdev->ints, rdev->sample_count, rdev->sample_count>rdev->latch_count? ">": "<", rdev->latch_count,
 		rdev->sample_count>rdev->latch_count? rdev->sample_count-rdev->latch_count: rdev->latch_count-rdev->sample_count,
 		dsp_status);
