@@ -79,7 +79,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
-	multi_event atd wr_set_mac
+	multi_event soft_atd wr_set_mac
 
 
 LIBACQSO = libacq.so
@@ -187,7 +187,7 @@ acq400_knobs: acq400_knobs.o tcp_server.o
 anatrg: anatrg.o 
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq
 
-atd: atd.o 
+soft_atd: soft_atd.o 
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq
 	
 multisitecheckramp: multisitecheckramp.cpp
