@@ -152,11 +152,23 @@ int search_rising(short* data, const int nsam, const unsigned offset, const int 
 int search(const char* fn)
 {
 	void* va = 0;
-	int blen = map_file(fn, O_RDONLY, &va);
+	unsigned fncount;
+	unsigned status;
 
+	int blen = map_file(fn, O_RDONLY, &va);
 	if (blen < 0){
 		fprintf(stderr, "mapfile %s failed\n", fn);
 		exit(1);
+	}
+
+	int rc = sscanf(fn, "/tmp/event-14-%u-0x%x.dat", &fncount, &status);
+	if (rc == 2){
+		for (int ii = 0; ii < 32; ++ii){
+			if ((status & (1<<ii)) != 0){
+				G::offset = ii;
+				get_atd_code();
+			}
+		}
 	}
 	printf("searching %s len :%d\n", fn, blen);
 	int isam = search_rising((short*)va, blen/G::sample_size, G::offset, G::sample_size/sizeof(short), G::atd_code);
@@ -170,8 +182,8 @@ int search(const char* fn)
 	}
 	char* cursor = ((char*) va) + isam * G::sample_size;
 	unsigned ucount = ((unsigned*)cursor)[16/2 + 1];
-	unsigned fncount;
-	int rc = sscanf(fn, "/tmp/event-14-%u.dat", &fncount);
+
+
 	if (rc == 1){
 		printf("count at isr %u %s measured %u delta %u\n\n",
 				fncount, fncount>ucount? ">": "<", ucount,

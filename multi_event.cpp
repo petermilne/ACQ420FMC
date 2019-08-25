@@ -234,7 +234,7 @@ protected:
 	void stash(EventInfo ei) {
 		char fname[80];
 
-		sprintf(fname, "/tmp/event-%d-%u.dat", site, ei.count);
+		sprintf(fname, "/tmp/event-%d-%u-0x%08x.dat", site, ei.count, ei.status);
 		FILE *fp = fopen(fname, "w");
 		Buffer* b0 = Buffer::the_buffers[ei.b0];
 
