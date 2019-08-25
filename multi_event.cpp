@@ -396,6 +396,25 @@ bool EventHandler::create(int _site, const char* _fname) {
 
 BufferManager* bm;
 
+int wait_for_active(void)
+{
+	unsigned state = 0;
+	int retry = 0;
+
+	getKnob(0, "/etc/acq400/0/state", &state);
+
+	while(state == 0){
+		if (retry++ != 0 ){
+			usleep(1000);
+			if ((retry % 1000) == 0){
+				fprintf(stderr, "wait_for_active %u\n", retry);
+			}
+		}
+		getKnob(0, "/etc/acq400/0/state", &state);
+	}
+	return 0;
+}
+
 void ui(int argc, const char** argv)
 {
 	const char* evar;
@@ -431,6 +450,9 @@ void ui(int argc, const char** argv)
 
         bm = new BufferManager(getRoot(G::devnum));
 
+        // opening event stream BEFORE run doesn't work (run start action overrides) so ..
+        wait_for_active();
+
 	const char* ssite;
 	while ((ssite = poptGetArg(opt_context)) != 0){
 		if (ssite[0] == '/'){
@@ -445,9 +467,12 @@ void ui(int argc, const char** argv)
 	}
 }
 
+
+
 int run(void)
 {
 	int event_count = 0;
+
 
 	while(G::max_events == 0 || event_count < G::max_events){
 		EventHandler::poll();
