@@ -84,6 +84,12 @@ namespace G {
 	FILE* fp_in = stdin;
 	int stub;
 	int max_events;					// quit after this many events.
+
+	unsigned pre_samples;				// user spec pre samples
+	unsigned post_samples;
+
+	unsigned buffers_pre = 1;
+	unsigned buffers_post;
 };
 
 unsigned SCIX() {
@@ -225,6 +231,30 @@ protected:
 		close(fd);
 		delete [] fname;
 	}
+	void stash(EventInfo ei) {
+		char fname[80];
+
+		sprintf(fname, "/tmp/event-%d-%u.dat", site, ei.count);
+		FILE *fp = fopen(fname, "w");
+		Buffer* b0 = Buffer::the_buffers[ei.b0];
+
+		for (unsigned ib_pre = 0; ib_pre < G::buffers_pre; ++ib_pre){
+			Buffer* bpred = Buffer::the_buffers[b0->pred()];
+			for (unsigned ii = ib_pre+1; ii < G::buffers_pre; ++ii){
+				bpred = Buffer::the_buffers[bpred->pred()];
+			}
+			fwrite(dynamic_cast<MapBuffer*>(bpred)->getBase(), 1, G::fill_len, fp);
+		}
+
+		for (unsigned ib_post = 0; ib_post <= G::buffers_post; ++ib_post){
+			if (ib_post){
+				usleep(40000);			/* 4MB/96 = 40msec WORKTODO */
+			}
+			fwrite(dynamic_cast<MapBuffer*>(b0)->getBase(), 1, G::fill_len, fp);
+			b0 = Buffer::the_buffers[b0->succ()];
+		}
+		fclose(fp);
+	}
 	virtual int action(EventInfo ei) {
 		if (G::stub){
 			printf("STUB [%d]: %s: b0=%d def=%s\n", recursion, fname, ei.b0, ei.def);
@@ -277,13 +307,7 @@ protected:
 		fwrite(b0_base+ (isam-4)*G::sample_size, 1, G::sample_size*9, pp);
 		pclose(pp);
 #else
-		char fname[80];
-		sprintf(fname, "/tmp/event-%d-%u.dat", site, ei.count);
-		FILE *fp = fopen(fname, "w");
-		MapBuffer* b0 = dynamic_cast<MapBuffer*>(Buffer::the_buffers[ei.b0]);
-		fwrite(Buffer::the_buffers[b0->pred()]->getBase(), 1, G::fill_len, fp);
-		fwrite(b0_base, 1, G::fill_len, fp);
-		fclose(fp);
+		stash(ei);
 
 		fprintf(stderr, "evt_sc_latch:%u %s isr:%u delta:%u\n",
 			evt_sc, evt_sc>ei.count? ">": "<",
@@ -433,6 +457,9 @@ void ui(int argc, const char** argv)
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, FILL_LEN, &G::fill_len);
 
+	getKnob(14, "/etc/acq400/PRE", &G::pre_samples);
+	getKnob(14, "/etc/acq400/POST", &G::post_samples);
+
 	G::spb = G::fill_len/G::sample_size;
 
 	if (G::verbose){
@@ -447,6 +474,17 @@ void ui(int argc, const char** argv)
                         ;
                 }
         }
+
+	if (G::pre_samples || G::post_samples){
+		int pre_buffers = G::pre_samples/G::spb;
+		if (pre_buffers > 1){
+			G::buffers_pre = pre_buffers;
+		}
+		int post_buffers = G::post_samples/G::spb;
+		if (post_buffers > 1){
+			G::buffers_post = post_buffers;
+		}
+	}
 
         bm = new BufferManager(getRoot(G::devnum));
 
