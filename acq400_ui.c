@@ -912,6 +912,9 @@ ssize_t acq400_event_read(
 		return -EAGAIN;
 	}
 	acq400_init_event_info(&eventInfo);
+	if (cos_es_enable){
+		acq400_soft_trigger(0);
+	}
 
 	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
 			eventInfo.hbm0, eventInfo.hbm1,

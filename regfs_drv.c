@@ -86,7 +86,9 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #define MINOR_PMAX	63	/* 64 pages max */
 #define MINOR_EV	64	/* hook event reader here */
 
-
+int es_enable;
+module_param(es_enable, int, 0644);
+MODULE_PARM_DESC(es_enable, "toggle soft_trigger to force event");
 
 struct REGFS_PATH_DESCR {
 	struct REGFS_DEV* rdev;
@@ -366,6 +368,10 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 		PD(file)->int_count = rdev->ints;
 		acq400_init_event_info(&eventInfo);
 
+		if (es_enable){
+			acq400_soft_trigger(0);
+		}
+
 		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
 			PD(file)->int_count,
                         eventInfo.hbm0? eventInfo.hbm0->ix: -1,
@@ -438,6 +444,9 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 	rdev->sample_count = acq400_agg_sample_count();
 
 	dsp_status = ioread32(rdev->va + DSP_STATUS);
+	if (es_enable){
+		acq400_soft_trigger(1);
+	}
 	iowrite32(dsp_status, rdev->va + DSP_STATUS);
 	rdev->ints++;
 	rdev->status = dsp_status;

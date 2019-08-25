@@ -114,6 +114,10 @@ int xo_wait_site_stop = -1;
 module_param(xo_wait_site_stop, int, 0644);
 MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stopped");
 
+int cos_es_enable = 0;
+module_param(cos_es_enable, int, 0644);
+MODULE_PARM_DESC(cos_es_enable, "toggle soft_trigger to force event");
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -2469,7 +2473,9 @@ static irqreturn_t cos_isr(struct acq400_dev *adev)
 	acq400wr32(adev, DIO482_COS_STA, cos);
 	xtd_dev->atd.event_source = cos;
 	adev->rt.event_count++;
-
+	if (cos_es_enable){
+		acq400_soft_trigger(1);
+	}
 //	adev->rt.samples_at_event = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
 	adev->rt.samples_at_event = acq400_adc_sample_count();
 	lc = adev->rt.samples_at_event_latch = acq400_adc_latch_count();
