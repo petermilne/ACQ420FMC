@@ -736,8 +736,8 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 		echo +++ init MGT482
 		web_append sfp none;;
 	95)
-		load.mgt_dram_8
-                [ $FANSPEED -lt 60 ] && FANSPEED=60
+		/usr/local/init/mgtdram8.init
+        [ $FANSPEED -lt 60 ] && FANSPEED=60
 		echo "set.site 0 distributor comms=2" \
 				>>/tmp/acq420.init-postpowerup-action
 		(sleep 7; nice mgtd_monitor_dsp1) &

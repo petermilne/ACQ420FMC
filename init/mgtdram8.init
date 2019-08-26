@@ -1,0 +1,53 @@
+#!/bin/sh
+
+echo mgt_dram: fans to max
+set.fanspeed 100
+/usr/local/CARE/acq400_dspfs.init
+
+cat - >/dev/dsp1/.create <<EOF
+@MODULE_ID     0x000 0xffffffff r %08x
+@MODULE_ID.MT  0x000 0xffff0000 r %04x
+@MODULE_ID.RV  0x000 0x0000ffff r %d
+MGT_CTRL       0x004 0xffffffff rw %08x
+MGT_CTRL.BUSCOMMS 0x004 0x00000001 rw %d
+EOF
+
+DSPFLAVOUR=$(cat /dev/dsp1/@MODULE_ID.MT)
+if [ "x$DSPFLAVOUR" != "x9814" ]; then
+	echo "ERROR MGTDRAM incorrect MODULE TYPE expect 9814 got $DSPFLAVOUR"
+else
+(
+# comms not available right way, defer
+	sleep 5
+	STA=$(cat /sys/kernel/debug/mgt400/mgt400.A/MGT_DRAM_STA.0x80)
+	STA=$(cat /sys/kernel/debug/mgt400/mgt400.A/MGT_DRAM_STA.0x80)
+	MGTVER=$(echo $STA | fold -w 1 | tail -n 2 | head -n 1)
+	if [ $MGTVER -lt 6 ]; then
+		echo "WARNING: MGTVER $MGTVER is out of date"
+		sta=WARNING
+	else
+		sta=OK
+	fi
+	echo "MGTDRAM ZYNQ FLAVOUR $DSPFLAVOUR MGT STA $STA MGTVER $MGTVER $sta"
+) &
+fi
+/usr/local/bin/mgtdram_init_gpio
+
+MGTD=/etc/acq400/14/
+mkdir $MGTD
+ln -s /dev/dsp1/* $MGTD
+ln -s /usr/local/CARE/mgt_run_shot_wrapper $MGTD/mgt_run_shot
+ln -s /usr/local/CARE/mgt_offload_wrapper $MGTD/mgt_offload
+ln -s /usr/local/CARE/mgt_taskset $MGTD
+ln -s /usr/local/CARE/mgt_reset_counters $MGTD
+ln -s /usr/local/bin/mgt_abort $MGTD
+[ -e /dev/gpio/MGTDRAM/DCRST ] && ln -s /dev/gpio/MGTDRAM/DCRST $MGTD
+
+cat - >/etc/mgtsh.env << EOF
+export HOME=/root
+EOF
+
+
+
+
+
