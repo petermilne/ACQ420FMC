@@ -1,0 +1,26 @@
+#!/bin/sh
+# dsp1.init : instantiate DSP1 fs.
+MDIR=/usr/local/lib/modules
+/sbin/insmod $MDIR/debugfs2.ko
+if [ -e /mnt/local/regfs.ko ]; then
+	echo load /mnt/local/regfs.ko
+	/sbin/insmod /mnt/local/regfs.ko
+else
+	/sbin/insmod $MDIR/regfs.ko
+fi
+if [ -e /mnt/local/acq400_dspfs.ko ]; then
+	echo load /mnt/local/acq400_dspfs.ko
+	/sbin/insmod /mnt/local/acq400_dspfs.ko
+else
+	/sbin/insmod $MDIR/acq400_dspfs.ko
+fi
+
+echo loading overlay..
+mount -t configfs none /sys/kernel/config
+mkdir -p /sys/kernel/config/device-tree/overlays/dsp1
+cat /mnt/dtb.d/acq400dsp1_overlay.dtb > /sys/kernel/config/device-tree/overlays/dsp1/dtbo
+mkdir -p /sys/kernel/config/device-tree/overlays/dsp2
+cat /mnt/dtb.d/acq400dsp2_overlay.dtb > /sys/kernel/config/device-tree/overlays/dsp2/dtbo
+
+
+ln -s /sys/kernel/debug/dsp1/ /dev/dsp1

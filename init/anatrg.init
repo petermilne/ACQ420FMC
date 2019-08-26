@@ -7,6 +7,7 @@ echo +++ anatrg.init $SITE
 WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 if [ $SITE -eq 14 ]; then
+	/usr/local/CARE/acq400_dspfs.init
 	/usr/local/CARE/ATD-DSP/atd-dsp1.init
 	set.sys /dev/dsp1/ATD_CSR.MOD_EN 1
 	MAJOR=$(grep dsp1 /proc/devices | awk '{ print $1 }')
