@@ -190,6 +190,9 @@ public:
 		nf = sscanf(def, "%d %d %d OK %x %u", &id, &b0, &b1, &status, &count);
 		if (b0 == -1) b0 = b1;
 	}
+	EventInfo(void) {
+		memset(this, 0, sizeof(EventInfo));
+	}
 	void print(void){
 		printf("id=%d b0=%d b1=%d count=%u\n", id, b0, b1, count);
 	}
@@ -204,6 +207,7 @@ class EventHandler {
 	typedef vector<EventHandler*>::iterator EHI;
 	int recursion;
 	static unsigned evt_sc;
+	EventInfo pe;
 
 	static void store_latch(void) {
 		struct stat statbuf;
@@ -279,6 +283,14 @@ protected:
 		}else{
 			ei.print();
 		}
+		if (pe.nf){
+			if ((ei.b0 != -1 && (pe.b1 == ei.b0 || pe.b0 == ei.b0)) ||
+			    (ei.b1 != -1 && (pe.b1 == ei.b1 || pe.b0 == ei.b1))    ){
+				fprintf(stderr, "WARNING: new event, old buffer: %u discard\n", ei.b0);
+				return -1;
+			}
+		}
+		if (G::verbose) printf("previous:%d current:%d\n", pe.b0, ei.b0);
 
 		char* b0_base = Buffer::the_buffers[ei.b0]->getBase();
 
@@ -313,6 +325,7 @@ protected:
 			evt_sc, evt_sc>ei.count? ">": "<",
 			ei.count, evt_sc>ei.count? evt_sc-ei.count: ei.count-evt_sc);
 #endif
+		pe = ei;
 		recursion = 0;
 		return 0;
 	}
@@ -359,7 +372,7 @@ public:
 						event_info[rc] = '\0';
 						chomp(event_info);
 					}
-					(*it)->action(event_info);
+					rc = (*it)->action(event_info);
 				}
 				if (FD_ISSET(fd, &exceptfds)){
 					syslog(LOG_ERR, "ERROR: fail on %s %d\n", (*it)->fname, errno);
@@ -513,8 +526,9 @@ int run(void)
 
 
 	while(G::max_events == 0 || event_count < G::max_events){
-		EventHandler::poll();
-		++event_count;
+		if (EventHandler::poll() == 0){
+			++event_count;
+		}
 	}
 	return 0;
 }
