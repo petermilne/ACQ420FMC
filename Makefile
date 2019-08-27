@@ -79,7 +79,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
-	multi_event soft_atd wr_set_mac
+	multi_event soft_atd wr_reset
 
 
 LIBACQSO = libacq.so
@@ -167,7 +167,7 @@ bb: bb.o Buffer.o
 multi_event: multi_event.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-wr_set_mac: wr_set_mac.o
+wr_reset: wr_reset.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 	
 bbq_send_ai: bbq_send_ai.o Socket.o Buffer.o
