@@ -90,6 +90,7 @@ namespace G {
 
 	unsigned buffers_pre = 1;
 	unsigned buffers_post;
+	int show_events;
 };
 
 unsigned SCIX() {
@@ -108,6 +109,9 @@ struct poptOption opt_table[] = {
 	{ "stub", 0, POPT_ARG_INT, &G::stub, 0, "stub work action" },
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
+	},
+	{
+	  "show-events", 0, POPT_ARG_INT, &G::show_events, 0, "show events"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -371,6 +375,9 @@ public:
 					}else{
 						event_info[rc] = '\0';
 						chomp(event_info);
+						if (G::show_events){
+							printf("%s:%s\n", (*it)->fname, event_info);
+						}
 					}
 					rc = (*it)->action(event_info);
 				}
