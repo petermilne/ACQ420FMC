@@ -889,7 +889,6 @@ ssize_t acq400_event_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	char lbuf[40];
 	int nbytes;
 	int rc;
 	struct EventInfo eventInfo = PD(file)->eventInfo;
@@ -943,7 +942,7 @@ ssize_t acq400_event_read(
 		}
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u %u %u\n",
+	nbytes = snprintf(PD(file)->lbuf, MAXLBUF, "%d %d %d %s 0x%08x %u %u %u\n",
 			adev->rt.event_count,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
@@ -954,13 +953,13 @@ ssize_t acq400_event_read(
 
 	PD(file)->samples_at_event = new_sample;
 
-	rc = copy_to_user(buf, lbuf, nbytes);
+	rc = copy_to_user(buf, PD(file)->lbuf, nbytes);
 	if (rc != 0){
 		rc = -1;
 	}else{
 		rc = nbytes;
 	}
-	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", lbuf, rc);
+	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", PD(file)->lbuf, rc);
 	return rc;
 }
 
