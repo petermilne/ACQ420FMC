@@ -184,7 +184,7 @@ int search(const char* fn)
 	unsigned ucount = ((unsigned*)cursor)[16/2 + 1];
 
 
-	if (rc == 1){
+	if (rc >= 1){
 		printf("count at isr %u %s measured %u delta %u\n\n",
 				fncount, fncount>ucount? ">": "<", ucount,
 					 fncount>ucount? fncount-ucount: ucount-fncount);
