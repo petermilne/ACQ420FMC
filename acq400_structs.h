@@ -726,6 +726,4 @@ static inline void acq400_soft_trigger(unsigned enable)
 	acq400wr32(adev, MCR, mcr);
 }
 
-extern int cos_es_enable;
-
 #endif /* ACQ400_STRUCTS_H_ */
