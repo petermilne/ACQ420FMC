@@ -167,6 +167,9 @@ bb: bb.o Buffer.o
 multi_event: multi_event.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
+wr_set_mac: wr_set_mac.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+	
 bbq_send_ai: bbq_send_ai.o Socket.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 phased_array: phased_array.o Buffer.o

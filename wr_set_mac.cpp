@@ -109,8 +109,9 @@ void wr_load(char* wrbase, const char* fname)
 	}
 }
 
-int main(int argc, const char** argv)
+void set_mac(char* wrbase)
 {
+	char* wrprams = wrbase + 0x1f000;
 	char mac_buf[80];
 	strcpy(mac_buf, "ac:ac:ac:ac:");
 	get_mac(mac_buf+strlen(mac_buf), 80-strlen(mac_buf));
@@ -118,17 +119,6 @@ int main(int argc, const char** argv)
 
 	char* token;
 	char* rest = mac_buf;
-
-	char* wrbase = (char*)mmap_wr();
-	char* wrprams = wrbase + 0x1f000;
-	unsigned * wr_reset = (unsigned*)(wrbase+0x20400);
-	unsigned * wr_hwid  = (unsigned*)(wrbase+0x20414);
-
-	*wr_reset = 0x1deadbee;
-	if (argc > 1) {
-		wr_load(wrbase, argv[1]);
-	}
-	*wr_hwid  = 0x41435134;				// tell ACQ400 we are done.
 	/* fit weird backwards load in LM32 (LM is BE, A9 is LE, but bus interface is supports LE longwords) */
 	int ii = 0; int jj = 3;
 	while((token = strtok_r(rest, ":", &rest))){
@@ -138,7 +128,92 @@ int main(int argc, const char** argv)
 			jj = 3;
 		}
 	}
-	*wr_reset = 0x0deadbee;
+}
+
+void reset(char* wrbase, bool reset)
+{
+	unsigned * wr_reset = (unsigned*)(wrbase+0x20400);
+	*wr_reset = reset? 0x1deadbee: 0x0deadbee;
+}
+
+void set_hwid(char* wrbase)
+{
+	unsigned * wr_hwid  = (unsigned*)(wrbase+0x20414);
+	*wr_hwid  = 0x41435134;				// tell ACQ400 we are done.
+}
+
+namespace G {
+	int verbose;
+	int save_cal;
+};
+
+int save_cal(char* wrbase)
+{
+	unsigned* sfp_deltaTx = (unsigned*)(wrbase + 0x1f020);
+	unsigned* sfp_deltaRx = (unsigned*)(wrbase + 0x1f024);
+
+	FILE *fp = fopen("/mnt/local/wr_cal", "w");
+	fprintf(fp, "delays %u %u\n", *sfp_deltaTx, *sfp_deltaRx);
+	fclose(fp);
+	fprintf(stdout, "delays %u %u\n", *sfp_deltaTx, *sfp_deltaRx);
+	return 0;
+}
+int restore_cal(char* wrbase)
+{
+	unsigned* sfp_deltaTx = (unsigned*)(wrbase + 0x1f020);
+	unsigned* sfp_deltaRx = (unsigned*)(wrbase + 0x1f024);
+	FILE *fp = fopen("/mnt/local/wr_cal", "r");
+	if (fp){
+		unsigned tx, rx;
+		if (fscanf(fp, "delays %u %u", &tx, &rx) == 2){
+			printf("setting delays %u %u\n", tx, rx);
+			*sfp_deltaTx = tx;
+			*sfp_deltaRx = rx;
+			return 0;
+		}
+	}
+	return -1;
+}
+struct poptOption opt_table[] = {
+	{ "save_cal", 's', POPT_ARG_INT, &G::save_cal, 's', "save calibration" },
+	{
+	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
+	},
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
+
+const char* ui(int argc, const char** argv)
+{
+        poptContext opt_context =
+                        poptGetContext(argv[0], argc, argv, opt_table, 0);
+        int rc;
+        while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
+                switch(rc){
+                case 's':
+                default:
+                        ;
+                }
+        }
+        return poptGetArg(opt_context);
+}
+int main(int argc, const char** argv)
+{
+	const char* image_file = ui(argc, argv);
+	char* wrbase = (char*)mmap_wr();
+
+	if (G::save_cal){
+		return save_cal(wrbase);
+	}
+	reset(wrbase, 1);
+	if (image_file) {
+		wr_load(wrbase, image_file);
+	}
+
+	set_mac(wrbase);
+	restore_cal(wrbase);
+	reset(wrbase, 0);
+
 	return 0;
 }
 
