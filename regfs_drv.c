@@ -86,9 +86,6 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #define MINOR_PMAX	63	/* 64 pages max */
 #define MINOR_EV	64	/* hook event reader here */
 
-int es_enable;
-module_param(es_enable, int, 0644);
-MODULE_PARM_DESC(es_enable, "toggle soft_trigger to force event");
 
 struct REGFS_PATH_DESCR {
 	struct REGFS_DEV* rdev;
@@ -102,7 +99,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1009"
+#define REVID "regfs_fs B1013"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -265,22 +262,41 @@ void regfs_remove_fs(struct REGFS_DEV* dev)
 }
 
 
-
+static struct file_operations regfs_page_fops;
 static struct file_operations regfs_event_fops;
 
-int regfs_page_open(struct inode *inode, struct file *file)
-/* minor is page # */
+int regfs_open(struct inode *inode, struct file *file)
 {
 	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->rdev = container_of(inode->i_cdev, struct REGFS_DEV, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
 
 	if (PD(file)->minor == MINOR_EV){
+		PD(file)->int_count = PD(file)->rdev->ints;
 		file->f_op = &regfs_event_fops;
+		if (file->f_op->open){
+			return file->f_op->open(inode, file);
+		}
+	}else{
+		/* minor is page # */
+		file->f_op = &regfs_page_fops;
+		if (file->f_op->open){
+			return file->f_op->open(inode, file);
+		}
 	}
-	PD(file)->int_count = PD(file)->rdev->ints;
+
 	return 0;
 }
+int regfs_release(struct inode *inode, struct file *file)
+{
+	void* buf = PD(file);
+	SETPD(file, 0);
+	if (buf){
+		kfree(buf);
+	}
+	return 0;
+}
+
 
 ssize_t regfs_page_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
@@ -350,6 +366,36 @@ ssize_t regfs_page_read(struct file *file, char __user *buf, size_t count,
 	return count;
 }
 
+/* ONLY ONE consumer allowed */
+int regfs_event_open(struct inode *inode, struct file *file)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+
+	if (rdev->event_client_pid != 0){
+		regfs_release(inode, file);
+		return -EBUSY;
+	}else{
+		rdev->event_client_pid = current->pid;
+		rdev->client_ready = 1;
+		return 0;
+	}
+}
+
+int regfs_event_release(struct inode *inode, struct file *file)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	void* buf = PD(file);
+	rdev->event_client_pid = 0;
+	rdev->client_ready = 0;
+	SETPD(file, 0);
+	if (buf){
+		kfree(buf);
+	}
+	return 0;
+}
+
+
+
 ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 	        loff_t *f_pos)
 {
@@ -365,27 +411,30 @@ ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 		int nbytes;
 		struct EventInfo eventInfo;
 		int timeout = 0;
+		int delta_ints = rdev->ints - PD(file)->int_count;
 		PD(file)->int_count = rdev->ints;
 		acq400_init_event_info(&eventInfo);
 
-		if (es_enable){
-			acq400_soft_trigger(0);
-		}
-
-		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
+		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u %u %u %u\n",
 			PD(file)->int_count,
                         eventInfo.hbm0? eventInfo.hbm0->ix: -1,
                         eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			rdev->status,
-			rdev->sample_count);
+			rdev->sample_count,
+			rdev->latch_count,
+			rdev->sample_count-rdev->latch_count,
+			delta_ints);
 
 		if (nbytes > count){
 			nbytes = count;
 		}
+
 		rc = copy_to_user(buf, lbuf, nbytes);
+
 		if (rc != 0){
 			return -1;
 		}else{
+			rdev->client_ready = 1;
 			return nbytes;
 		}
 	}
@@ -427,11 +476,6 @@ int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 		return 0;
 	}
 }
-int regfs_page_release(struct inode *inode, struct file *file)
-{
-	kfree(PD(file));
-	return 0;
-}
 
 #define INT_CSR_OFFSET	0x18
 #define DSP_STATUS	0x60
@@ -440,24 +484,31 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
 	u32 dsp_status;
+	const int ready = rdev->client_ready;
 
-	rdev->sample_count = acq400_agg_sample_count();
+	if (ready){
+		rdev->sample_count = acq400_agg_sample_count();
+	}
 
 	dsp_status = ioread32(rdev->va + DSP_STATUS);
-	if (es_enable){
-		acq400_soft_trigger(1);
+
+	rdev->ints++;
+	if (ready){
+		rdev->client_ready = 0;
+		rdev->status = dsp_status;
+		rdev->latch_count = acq400_adc_latch_count();
+
+		wake_up_interruptible(&rdev->w_waitq);
+
 	}
 	iowrite32(dsp_status, rdev->va + DSP_STATUS);
-	rdev->ints++;
-	rdev->status = dsp_status;
-	rdev->latch_count = acq400_adc_latch_count();
 
-
-	wake_up_interruptible(&rdev->w_waitq);
-	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
-		rdev->ints, rdev->sample_count, rdev->sample_count>rdev->latch_count? ">": "<", rdev->latch_count,
-		rdev->sample_count>rdev->latch_count? rdev->sample_count-rdev->latch_count: rdev->latch_count-rdev->sample_count,
-		dsp_status);
+	if (ready){
+		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
+			rdev->ints, rdev->sample_count, rdev->sample_count>rdev->latch_count? ">": "<", rdev->latch_count,
+			rdev->sample_count>rdev->latch_count? rdev->sample_count-rdev->latch_count: rdev->latch_count-rdev->sample_count,
+			dsp_status);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -482,19 +533,25 @@ static int init_event(struct REGFS_DEV* rdev)
 
 static struct file_operations regfs_event_fops = {
 	.owner = THIS_MODULE,
-	.release = regfs_page_release,
+	.open  = regfs_event_open,
+	.release = regfs_event_release,
 	.read = regfs_event_read,
 	.poll = regfs_event_poll
 };
 
 static struct file_operations regfs_page_fops = {
 	.owner = THIS_MODULE,
-	.open  = regfs_page_open,
-	.release = regfs_page_release,
+	.release = regfs_release,
 	.mmap = regfs_page_mmap,
 	.write = regfs_page_write,
 	.read = regfs_page_read,
 	.llseek = generic_file_llseek,
+};
+
+static struct file_operations regfs_fops = {
+	.owner = THIS_MODULE,
+	.open  = regfs_open,
+	.release = regfs_release,
 };
 int regfs_probe(struct platform_device *pdev)
 {
@@ -526,7 +583,7 @@ int regfs_probe(struct platform_device *pdev)
                 goto fail;
         }
 
-        cdev_init(&rdev->cdev, &regfs_page_fops);
+        cdev_init(&rdev->cdev, &regfs_fops);
         rdev->cdev.owner = THIS_MODULE;
         rc = cdev_add(&rdev->cdev, devno, minor_max+1);
 

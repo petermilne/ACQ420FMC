@@ -946,12 +946,15 @@ ssize_t acq400_event_read(
 		}
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u\n",
+	nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u %u %u\n",
 			adev->rt.event_count,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			event_source,
-			new_sample);
+			new_sample,
+			adev->rt.samples_at_event_latch,
+			adev->rt.samples_at_event-adev->rt.samples_at_event_latch);
+
 	PD(file)->samples_at_event = new_sample;
 
 	rc = copy_to_user(buf, lbuf, nbytes);

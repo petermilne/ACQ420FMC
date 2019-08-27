@@ -49,6 +49,8 @@ struct REGFS_DEV {
 	unsigned status;
 	unsigned sample_count;
 	unsigned latch_count;
+	unsigned event_client_pid;
+	unsigned client_ready;	/* client requests interrupt status. isr: DO NOT update unless set. */
 
 	void* client;		/* stash subclass data here */
 };
