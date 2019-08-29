@@ -278,13 +278,15 @@ struct acq400_bolo_dev {
 	} bolo8;
 };
 
+struct ATD {
+	u32 event_source;
+	struct hrtimer timer;
+};
+
 struct XTD_dev {
 	char id[16];
 	struct acq400_dev adev;
-	struct ATD {
-		u32 event_source;
-		struct hrtimer timer;
-	} atd, atd_display;
+	struct ATD atd, atd_display;
 };
 
 struct ACQ480_dev {
@@ -655,9 +657,6 @@ extern void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm);
 
 extern struct acq400_dev* acq400_lookupSite(int site);
 extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
-extern void acq400_timer_init(
-	struct hrtimer* timer,
-	enum hrtimer_restart (*function)(struct hrtimer *));
 
 extern int acq400_set_AXI_DMA_len(struct acq400_dev *adev, int len);
 extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
@@ -724,6 +723,14 @@ static inline void acq400_soft_trigger(unsigned enable)
 		mcr &= ~MCR_SOFT_TRIG;
 	}
 	acq400wr32(adev, MCR, mcr);
+}
+
+static inline void acq400_timer_init(
+	struct hrtimer* timer,
+	enum hrtimer_restart (*function)(struct hrtimer *))
+{
+	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer->function = function;
 }
 
 #endif /* ACQ400_STRUCTS_H_ */

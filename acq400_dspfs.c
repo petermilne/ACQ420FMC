@@ -39,11 +39,13 @@
 #include <linux/interrupt.h>
 
 #include "acq400_dsp.h"
-#include "regfs.h"
+#include "acq400.h"
 
 #define REVID	"1.2"
 #define MAXDEV 2
 
+#undef DEVP
+#define DEVP(abd)		(&(abd)->pdev->dev)
 
 int acq400dsp_devicetree_init(struct platform_device *pdev, struct device_node *of_node)
 {
@@ -70,6 +72,10 @@ int acq400dsp_devicetree_init(struct platform_device *pdev, struct device_node *
 		return 0;
 	}
 }
+
+extern int regfs_probe(struct platform_device *pdev);
+extern int regfs_remove(struct platform_device *pdev);
+
 int acq400dsp_probe(struct platform_device *pdev)
 {
 	int rc;

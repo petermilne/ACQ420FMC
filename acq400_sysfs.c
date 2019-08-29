@@ -3112,6 +3112,7 @@ const struct attribute *pwm2_attrs[] = {
 MAKE_BITS(cos_en, DIO482_COS_EN, MAKE_BITS_FROM_MASK, 0xffffffff);
 
 const struct attribute *dio482_attrs[] = {
+//	&dev_attr_event_src.attr,
 	&dev_attr_cos_en.attr,
 	NULL
 };

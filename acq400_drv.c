@@ -24,7 +24,8 @@
 #include "dmaengine.h"
 
 
-#define REVID "3.408"
+#define REVID 			"3.409"
+#define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
 #undef PDEBUG
@@ -114,7 +115,17 @@ int xo_wait_site_stop = -1;
 module_param(xo_wait_site_stop, int, 0644);
 MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stopped");
 
+int event0_feeds_ev_device = 1;
+module_param(event0_feeds_ev_device, int, 0444);
+MODULE_PARM_DESC(event0_feeds_ev_device, "report event0 to clients");
 
+int event1_feeds_ev_device = 0;
+module_param(event1_feeds_ev_device, int, 0444);
+MODULE_PARM_DESC(event1_feeds_ev_device, "report event1 to clients");
+
+unsigned event_status_mask;
+module_param(event_status_mask, int, 0444);
+MODULE_PARM_DESC(event_status_mask, "actual mask used in event_action()");
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -2395,13 +2406,14 @@ static void xtd_action(struct acq400_dev *adev)
 
 #define CHANNEL0	0
 
+
 static void event_action(struct acq400_dev *adev, u32 status)
 {
 	struct acq400_dev* adev0 = acq400_devices[0];
 
 	++adev->rt.event_count;
 
-	if ((status&ADC_INT_CSR_EVENT0) != 0){
+	if ((status&event_status_mask) != 0){
 		u32 sc, lc;
 
 		sc = adev->rt.samples_at_event = acq400_agg_sample_count();
@@ -2463,16 +2475,14 @@ static irqreturn_t cos_isr(struct acq400_dev *adev)
 {
 	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 	u32 cos = acq400rd32(adev, DIO482_COS_STA);
-	//u32 sc = adev->rt.samples_at_event = acq400_adc_sample_count();
 
 	u32 sc = adev->rt.samples_at_event = acq400_agg_sample_count();
 	u32 lc;
-	acq400wr32(adev, DIO482_COS_STA, cos);
-	xtd_dev->atd.event_source = cos;
-	adev->rt.event_count++;
 
-//	adev->rt.samples_at_event = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
-	adev->rt.samples_at_event = acq400_adc_sample_count();
+	adev->rt.event_count++;
+	acq400wr32(adev, DIO482_COS_STA, cos);
+	xtd_dev->atd.event_source |= cos;
+
 	lc = adev->rt.samples_at_event_latch = acq400_adc_latch_count();
 	wake_up_interruptible(&adev->event_waitq); 
 	dev_dbg(DEVP(adev), "cos_isr() sc:%08x cos:0x%08x %u", adev->rt.samples_at_event, cos, cos);
@@ -3002,6 +3012,9 @@ static int __init acq400_init(void)
 	acq400_module_init_proc();
 	a400fs_init();
         status = platform_driver_register(&acq400_driver);
+
+        event_status_mask |= event0_feeds_ev_device? ADC_INT_CSR_EVENT0: 0;
+        event_status_mask |= event1_feeds_ev_device? ADC_INT_CSR_EVENT1: 0;
 
         return status;
 }

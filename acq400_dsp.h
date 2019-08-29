@@ -39,6 +39,6 @@ struct acq400_base_dev {
 	u32 dev_addrsize;
 };
 
-#define DEVP(abd)		(&(abd)->pdev->dev)
+
 
 #endif /* ACQ400_DSP_H_ */

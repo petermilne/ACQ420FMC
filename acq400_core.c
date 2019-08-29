@@ -428,13 +428,6 @@ void acq400_enable_event0(struct acq400_dev *adev, int enable)
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
 
-void acq400_timer_init(
-	struct hrtimer* timer,
-	enum hrtimer_restart (*function)(struct hrtimer *))
-{
-	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	timer->function = function;
-}
 
 void go_rt(int prio)
 {

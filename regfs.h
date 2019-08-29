@@ -29,6 +29,9 @@
 
 #define MAXSTACK 4
 
+#undef DEVP
+#undef PD
+#undef PDSZ
 
 struct REGFS_DEV {
 	void* va;
@@ -47,12 +50,14 @@ struct REGFS_DEV {
 
 	unsigned ints;
 	unsigned status;
+	unsigned status_latch;
 	unsigned sample_count;
 	unsigned latch_count;
 	unsigned event_client_pid;
 	unsigned client_ready;	/* client requests interrupt status. isr: DO NOT update unless set. */
 
-	void* client;		/* stash subclass data here */
+	void* client;				/* stash subclass data here */
+	struct ATD atd;				/* pulse timers */
 };
 
 extern irqreturn_t (*regfs_isr)(int irq, void *dev_id);

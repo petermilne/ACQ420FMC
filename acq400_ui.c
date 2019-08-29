@@ -938,6 +938,7 @@ ssize_t acq400_event_read(
 		struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 		if (xtd_dev->atd.event_source){
 			event_source = xtd_dev->atd.event_source;
+			/* RACE: a fast second interrupt may already have been! */
 			xtd_dev->atd.event_source = 0;
 		}
 	}

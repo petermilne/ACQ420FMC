@@ -75,12 +75,21 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 
-#undef DEVP
-#undef PD
-#undef PDSZ
+
 #include "regfs.h"
 
 
+
+
+#define MBPS	96	/* data rate ACQ424+DIO+3SPAD * 2M */
+#define BS	4	/* block size, MB */
+int atd_suppress_mod_event_nsec = NSEC_PER_MSEC * 1000 / MBPS * BS;
+module_param(atd_suppress_mod_event_nsec, int, 0644);
+MODULE_PARM_DESC(atd_suppress_mod_event_nsec, "hold off mod_event at least one buffer");
+
+int atd_status_display_nsec = NSEC_PER_MSEC * 1000;
+module_param(atd_status_display_nsec, int, 0644);
+MODULE_PARM_DESC(atd_status_display_nsec, "status display latch time");
 
 #define MINOR_P0	0
 #define MINOR_PMAX	63	/* 64 pages max */
@@ -477,8 +486,33 @@ int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 	}
 }
 
+#define ATD_CR		0x4
+#define ATD_MOD_EVENT_EN	(1<<5)
 #define INT_CSR_OFFSET	0x18
+#define INT_CSR_ATD	(1<<8)
+
 #define DSP_STATUS	0x60
+
+void atd_enable_mod_event(struct REGFS_DEV *rdev, int enable)
+{
+	unsigned cr = ioread32(rdev->va + ATD_CR);
+	if (enable){
+		cr |= ATD_MOD_EVENT_EN;
+	}else{
+		cr &= ~ATD_MOD_EVENT_EN;
+	}
+	iowrite32(cr, rdev->va + ATD_CR);
+}
+
+static enum hrtimer_restart
+modevent_masker_timer_handler(struct hrtimer *handle)
+{
+	struct REGFS_DEV *rdev = container_of(handle, struct REGFS_DEV, atd.timer);
+
+	atd_enable_mod_event(rdev, 1);
+	return HRTIMER_NORESTART;
+}
+
 
 static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
@@ -492,16 +526,20 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 
 	dsp_status = ioread32(rdev->va + DSP_STATUS);
 
+	rdev->status_latch = dsp_status;
 	rdev->ints++;
 	if (ready){
 		rdev->client_ready = 0;
 		rdev->status = dsp_status;
 		rdev->latch_count = acq400_adc_latch_count();
-
 		wake_up_interruptible(&rdev->w_waitq);
 
 	}
+	atd_enable_mod_event(rdev, 0);
+
 	iowrite32(dsp_status, rdev->va + DSP_STATUS);
+
+	hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
 
 	if (ready){
 		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
@@ -553,6 +591,39 @@ static struct file_operations regfs_fops = {
 	.open  = regfs_open,
 	.release = regfs_release,
 };
+
+static ssize_t store_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int wc;
+
+	if (sscanf(buf, "0x%08x", &wc) == 1){
+		rdev->status_latch &= ~wc;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+
+	return sprintf(buf, "0x%08x\n", rdev->status_latch);
+}
+
+static DEVICE_ATTR(status_latch, S_IRUGO|S_IWUSR, show_status_latch, store_status_latch);
+static const struct attribute *sysfs_base_attrs[] = {
+	&dev_attr_status_latch.attr,
+	NULL
+};
+
 int regfs_probe(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = kzalloc(sizeof(struct REGFS_DEV), GFP_KERNEL);
@@ -588,7 +659,11 @@ int regfs_probe(struct platform_device *pdev)
         rc = cdev_add(&rdev->cdev, devno, minor_max+1);
 
         init_event(rdev);
-
+        dev_set_drvdata(&pdev->dev, rdev);
+	if (sysfs_create_files(&pdev->dev.kobj, sysfs_base_attrs)){
+		dev_err(&pdev->dev, "failed to create sysfs");
+	}
+        acq400_timer_init(&rdev->atd.timer, modevent_masker_timer_handler);
 fail:
 	return rc;
 }

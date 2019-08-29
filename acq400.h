@@ -333,7 +333,6 @@
 
 #define CHANNELS_PER_BANK(adev)        (IS_ACQ425(adev)? 4: 8)
 
-#define MODULE_NAME             "acq420"
 
 
 #define AO420_DACSPI_CW		(1U<<31)
