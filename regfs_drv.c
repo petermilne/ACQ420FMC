@@ -614,11 +614,12 @@ static ssize_t show_status_latch(
 	char * buf)
 {
 	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
-
-	return sprintf(buf, "0x%08x\n", rdev->status_latch);
+	int rc = sprintf(buf, "0x%08x\n", rdev->status_latch);
+	rdev->status_latch 0;
+	return rc;
 }
 
-static DEVICE_ATTR(status_latch, S_IRUGO|S_IWUSR, show_status_latch, store_status_latch);
+static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_status_latch.attr,
 	NULL
