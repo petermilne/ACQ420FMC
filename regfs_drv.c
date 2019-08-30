@@ -592,22 +592,6 @@ static struct file_operations regfs_fops = {
 	.release = regfs_release,
 };
 
-static ssize_t store_status_latch(
-	struct device * dev,
-	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
-{
-	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
-	int wc;
-
-	if (sscanf(buf, "0x%08x", &wc) == 1){
-		rdev->status_latch &= ~wc;
-		return count;
-	}else{
-		return -1;
-	}
-}
 static ssize_t show_status_latch(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -615,7 +599,7 @@ static ssize_t show_status_latch(
 {
 	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
 	int rc = sprintf(buf, "0x%08x\n", rdev->status_latch);
-	rdev->status_latch 0;
+	rdev->status_latch = 0;
 	return rc;
 }
 

@@ -3111,8 +3111,24 @@ const struct attribute *pwm2_attrs[] = {
 
 MAKE_BITS(cos_en, DIO482_COS_EN, MAKE_BITS_FROM_MASK, 0xffffffff);
 
+static ssize_t show_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
+	unsigned src = xtd_dev->atd.event_source;
+
+	xtd_dev->atd.event_source = 0;
+	return sprintf(buf, "0x%08x\n", src);
+}
+
+static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
+
+
 const struct attribute *dio482_attrs[] = {
-//	&dev_attr_event_src.attr,
+	&dev_attr_status_latch.attr,
 	&dev_attr_cos_en.attr,
 	NULL
 };
