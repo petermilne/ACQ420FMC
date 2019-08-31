@@ -3137,6 +3137,7 @@ static ssize_t store_bits_cos_en(
 		}
 		x400_set_interrupt(adev, icr);
 	}
+	return rc;
 }
 static DEVICE_ATTR(cos_en, S_IRUGO|S_IWUSR, show_bits_cos_en, store_bits_cos_en);
 
@@ -3157,7 +3158,10 @@ static ssize_t show_status_latch(
 static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
 
 
+MAKE_BITS(di_snoop, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xffffffff);
+
 const struct attribute *dio482_attrs[] = {
+	&dev_attr_di_snoop.attr,
 	&dev_attr_status_latch.attr,
 	&dev_attr_cos_en.attr,
 	NULL
