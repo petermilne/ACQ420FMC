@@ -1814,7 +1814,7 @@ protected:
 		return 0;
 	}
 	static void multiEventServer(int fd_in);
-	static void createMultiEventInstance();
+	static void createMultiEventInstance(const char* def);
 
 public:
 	virtual void stream() {
@@ -4182,20 +4182,83 @@ void setEventCountLimit(int limit)
 	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
 }
 
-void StreamHead::multiEventServer(int fd_in)
-{
-	/* WORKTODO decode G::multi_event : pre,post,max */
-	FILE* fp = fdopen(fd_in, "r");
-	char buf[128];
+class MultiEventServer {
+	FILE* fp_in;
+	int verbose;
+	int pre;
+	int post;
+	int maxfiles;
+	int pre_bytes;
+	int post_bytes;
+	char* b0 = MapBuffer::get_ba_lo();
+	char* b1 = MapBuffer::get_ba_hi();
 
-	fprintf(stderr, "StreamHead::multiEventServer() %d\n", fd_in);
+	void handle_event(int ev, int ibuf, char* esp){
+		char fn0[80];
+		sprintf(fn0, "/tmp/.event-%03d.bin", ev);  /* work in a hidden file */
+		FILE *fp = fopen(fn0, "w");
+		if (fp == 0){
+			perror("fopen");
+			exit(EXIT_FAILURE);
+		}
 
-	while (fgets(buf, 128, fp)){
-		fprintf(stderr, "StreamHead::multiEventServer() %s", buf);
-		/* WORKTODO extract data from buffers to file */
+		int linear_pre = esp-b0;
+		int linear_post = b1-esp;
+
+		if (pre_bytes > linear_pre){
+			fwrite(b1-(pre_bytes-linear_pre), 1, pre_bytes-linear_pre, fp);
+			pre_bytes -= linear_pre;
+		}
+		fwrite(esp-pre_bytes, 1, pre_bytes, fp);
+
+		if (post_bytes > linear_post){
+			fwrite(esp, 1, linear_post, fp);
+			fwrite(b0, 1, post_bytes-linear_post, fp);
+		}else{
+			fwrite(esp, 1, post_bytes, fp);
+		}
+		fclose(fp);
+		char fn1[80];
+		sprintf(fn1, "/tmp/event-%03d.bin", ev);
+		rename(fn0, fn1);				/* atomic, file safe to use */
 	}
-}
-void StreamHead::createMultiEventInstance()
+public:
+	MultiEventServer(const char* def, int _fd_in):
+		fp_in(fdopen(_fd_in, "r")), pre(100), post(100), maxfiles(999),
+		b0(MapBuffer::get_ba_lo()),
+		b1(MapBuffer::get_ba_hi())
+	{
+		const char* vs = getenv("MultiEventServerVerbose");
+		vs && (verbose = atoi(vs));
+		if (verbose) fprintf(stderr, "SMultiEventServer\n");
+
+		sscanf(def, "%d,%d,%d", &pre, &post, &maxfiles);
+		pre_bytes = pre*sample_size();
+		post_bytes = (post+1)*sample_size();
+	}
+
+	void serve () {
+		char buf[128];
+		// 17,34,0x46782160
+		while (fgets(buf, 128, fp_in)){
+			fprintf(stderr, "serve() %s", buf);
+
+			int ev;
+			int ibuf;
+			void* esp;
+
+			if (sscanf(buf, "%d,%d,%p", &ev, &ibuf, &esp) == 3){
+				handle_event(ev, ibuf, (char*)esp);
+			}
+			if (ev >= maxfiles){
+				break;
+			}
+		}
+		if (verbose) fprintf(stderr, "serve() done after %d\n", maxfiles);
+		pause();
+	}
+};
+void StreamHead::createMultiEventInstance(const char* def)
 {
 	int pipefd[2] = {};
         pid_t cpid;
@@ -4213,10 +4276,12 @@ void StreamHead::createMultiEventInstance()
 
         if (cpid == 0){    		/* Child reads from pipe */
              close(pipefd[1]);          /* Close unused write end */
-             multiEventServer(pipefd[0]);	/* blocks */
+
+             (new MultiEventServer(def, pipefd[0]))->serve();  /* blocks */
         }else{            		/* Parent writes argv[1] to pipe */
              close(pipefd[0]);          /* Close unused read end */
              multi_event = pipefd[1];
+             nice(5);
              fprintf(stderr, "StreamHead::createMultiEventInstance() multi_event pipe:%d\n", multi_event);
              // return to main line
         }
@@ -4237,7 +4302,7 @@ StreamHead* StreamHead::instance() {
 		}
 
 		if (G::multi_event){
-			createMultiEventInstance();
+			createMultiEventInstance(G::multi_event);
 		}
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;
