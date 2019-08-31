@@ -177,6 +177,7 @@ namespace G {
 	unsigned dualaxi;			// 0: none, 1=1 channel, 2= 2channels
 	int stream_sob_sig;            		// insert start of buffer signature
 	unsigned find_event_mask = 0x1;		// 1: EV0, 2:EV1, 3:EV0|EV1
+	char* multi_event;			// multi-event definintion [pre,]post
 };
 
 
@@ -1286,6 +1287,10 @@ struct poptOption opt_table[] = {
 	  "findEvent-mask", 0, POPT_ARG_INT, &G::find_event_mask, 0,
 	  	  	 "which event to seek 1:EV0, 2:EV1, 3:BOTH"
 	},
+	{
+	  "multi-event", 0, POPT_ARG_STRING, &G::multi_event, 0,
+	  	  	  "multi-event pre,post action"
+	},
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -1782,6 +1787,8 @@ class StreamHead {
 protected:
 	int fc;
 	int fout;
+	static int multi_event;			/* file handle to multi-event comms */
+
 	StreamHead(int _fc, int _fout = 1) : fc(_fc), fout(_fout) {
 		assert(fc >= 0);
 		assert(fout >= 0);
@@ -1806,6 +1813,8 @@ protected:
 		fprintf(stderr, "%s STUB\n", _PFN);
 		return 0;
 	}
+	static void multiEventServer(int fd_in);
+	static void createMultiEventInstance();
 
 public:
 	virtual void stream() {
@@ -1823,6 +1832,7 @@ public:
 	static StreamHead* instance();
 };
 
+int StreamHead::multi_event;
 
 #define TRG_POLL_MS 10
 
@@ -1834,6 +1844,7 @@ protected:
 	int f_ev;
 	int nfds;
 	bool event_received;
+	int ev_num;
 	int verbose;
 	int buffers_searched;
 
@@ -2114,7 +2125,7 @@ public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
 		samples_buffer(Buffer::bufferlen/sample_size()),
-		f_ev(0), nfds(0), event_received(0), verbose(0),
+		f_ev(0), nfds(0), event_received(0), ev_num(0), verbose(0),
 		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()),
@@ -2503,7 +2514,14 @@ int StreamHeadLivePP::_stream() {
 		if (!findEvent(&ibuf, &es)){
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 390\n");
 			continue;	// silently drop it. there will be more
-		}else if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
+		}
+		if (multi_event){
+			char ev_message[128];
+			sprintf(ev_message, "%d,%d,%p\n", ev_num, ibuf, es);
+			write(multi_event, ev_message, strlen(ev_message));
+		}
+
+		if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
 			// only data in this buffer is guaranteed to be there .. drop it
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
 			continue;
@@ -4161,6 +4179,38 @@ void setEventCountLimit(int limit)
 	setKnob(0,
 	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
 }
+
+void StreamHead::multiEventServer(int fd_in)
+{
+	/* WORKTODO decode G::multi_event : pre,post,max */
+	FILE* fp = fdopen(fd_in, "r");
+	char buf[128];
+	while (fgets(buf, 128, fp)){
+		fprintf(stderr, "StreamHead::multiEventServer() %s", buf);
+		/* WORKTODO extract data from buffers to file */
+	}
+}
+void StreamHead::createMultiEventInstance()
+{
+	int pipefd[2] = {};
+        pid_t cpid;
+
+        cpid = fork();
+        if (cpid == -1){
+             perror("fork");
+             exit(EXIT_FAILURE);
+        }
+
+        if (cpid == 0){    		/* Child reads from pipe */
+             close(pipefd[1]);          /* Close unused write end */
+             multiEventServer(pipefd[0]);	/* blocks */
+        }else{            		/* Parent writes argv[1] to pipe */
+             close(pipefd[0]);          /* Close unused read end */
+             multi_event = pipefd[1];
+             // return to main line
+        }
+}
+
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
@@ -4175,6 +4225,9 @@ StreamHead* StreamHead::instance() {
 					open("/dev/acq400.0.bqf", O_RDONLY), 1);
 		}
 
+		if (G::multi_event){
+			createMultiEventInstance();
+		}
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;
 			return _instance;
