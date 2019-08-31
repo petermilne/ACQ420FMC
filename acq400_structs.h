@@ -497,7 +497,8 @@ static inline void x400_enable_interrupt(struct acq400_dev *adev)
 
 static inline void x400_disable_interrupt(struct acq400_dev *adev)
 {
-	acq400wr32(adev, ADC_INT_CSR, 0x0);
+	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
+	acq400wr32(adev, ADC_INT_CSR, int_ctrl & ~0x1);
 }
 
 

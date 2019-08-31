@@ -3109,7 +3109,37 @@ const struct attribute *pwm2_attrs[] = {
 	NULL
 };
 
-MAKE_BITS(cos_en, DIO482_COS_EN, MAKE_BITS_FROM_MASK, 0xffffffff);
+
+
+static ssize_t show_bits_cos_en(
+	struct device *d,
+	struct device_attribute *a,
+	char *b)
+{
+	return acq400_show_bits(d, a, b, DIO482_COS_EN, 0, 0xffffffff);
+}
+static ssize_t store_bits_cos_en(
+	struct device * d,
+	struct device_attribute *a,
+	const char * b,
+	size_t c)
+{
+	ssize_t rc = acq400_store_bits(d, a, b, c, DIO482_COS_EN, 0, 0xffffffff, 0);
+
+	if (rc > 0) {
+		struct acq400_dev *adev = acq400_devices[d->id];
+		u32 ctrl = acq400rd32(adev, DIO482_COS_EN);
+		u32 icr =  x400_get_interrupt(adev);
+		if (ctrl){
+			icr |= DIO_INT_CSR_COS_EN;
+		}else{
+			icr &= ~DIO_INT_CSR_COS_EN;
+		}
+		x400_set_interrupt(adev, icr);
+	}
+}
+static DEVICE_ATTR(cos_en, S_IRUGO|S_IWUSR, show_bits_cos_en, store_bits_cos_en);
+
 
 static ssize_t show_status_latch(
 	struct device * dev,
@@ -3210,7 +3240,7 @@ void acq400_createSysfs(struct device *dev)
 				dev_err(dev, "failed to create atd sysfs");
 			}
 		}
-		if (HAS_DTD(adev) && !IS_DIO482FMC(adev)){
+		if (HAS_DTD(adev)){
 			dev_info(dev, "HAS_DTD");
 			if (sysfs_create_files(&dev->kobj, dtd_attrs)){
 				dev_err(dev, "failed to create dtd sysfs");
