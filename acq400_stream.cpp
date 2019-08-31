@@ -3530,6 +3530,7 @@ vector<Segment>& BufferDistribution::getSegments() {
 	return segments;
 }
 
+/* BLock Transfer */
 class BLT {
 	const char* base;
 	char* cursor;
@@ -3713,25 +3714,22 @@ protected:
 		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
 			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
 		}
-		if (G::demux >= 0){
-			setState(ST_POSTPROCESS); actual.print();
-			Demuxer::_msync(MapBuffer::get_ba_lo(),
-				MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
-			if (pre){
-				int ibuf;
-				char* es;
 
-				if (findEvent(&ibuf, &es)){
-					if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
-					postProcess(ibuf, es);
-				}else{
-					fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
-				}
+		setState(ST_POSTPROCESS); actual.print();
+		Demuxer::_msync(MapBuffer::get_ba_lo(),
+			MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
+		if (pre){
+			int ibuf;
+			char* es;
+
+			if (findEvent(&ibuf, &es)){
+				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
+				postProcess(ibuf, es);
 			}else{
-				postProcess(0, MapBuffer::get_ba_lo());
+				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
 			}
 		}else{
-			fprintf(stderr, "%s demux<0 skip postProcess\n", _PFN);
+			postProcess(0, MapBuffer::get_ba_lo());
 		}
 		notify_result();
 	}
