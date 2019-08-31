@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1032"
+#define VERID	"B1033"
 
 #define NCHAN	4
 
@@ -170,12 +170,13 @@ namespace G {
 	char* sum;
 
 	bool null_copy;
-	bool fillk;			// fill output scaled by 1k
-	int is_spy;		// spy task runs independently of main capture
+	bool fillk;				// fill output scaled by 1k
+	int is_spy;				// spy task runs independently of main capture
 	int show_events;
-	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
-	unsigned dualaxi;		// 0: none, 1=1 channel, 2= 2channels
-	int stream_sob_sig;            // insert start of buffer signature
+	bool double_up;				// channel data appears 2 in a row (ACQ480/4)
+	unsigned dualaxi;			// 0: none, 1=1 channel, 2= 2channels
+	int stream_sob_sig;            		// insert start of buffer signature
+	unsigned find_event_mask = 0x1;		// 1: EV0, 2:EV1, 3:EV0|EV1
 };
 
 
@@ -1281,6 +1282,10 @@ struct poptOption opt_table[] = {
 			"report es position every find" },
 	{ "show-es", 'E', POPT_ARG_INT, &G::show_es, 0,
 			"leave es in data" },
+	{
+	  "findEvent-mask", 0, POPT_ARG_INT, &G::find_event_mask, 0,
+	  	  	 "which event to seek 1:EV0, 2:EV1, 3:BOTH"
+	},
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -1839,6 +1844,7 @@ protected:
 	AbstractES& evX;
 	AbstractES& ev0;
 	AbstractES& ev1;
+	AbstractES& evA;	/* Active Event Signature */
 
         unsigned sob_count;
         unsigned* sob_buffer;
@@ -2081,7 +2087,7 @@ protected:
 
 		for (unsigned *cursor = base; cursor - base < len32; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
-			if (ev0.isES(cursor)){
+			if (evA.isES(cursor)){
 				reportFindEvent(the_buffer, FE_FOUND);
 				if (verbose){
 					fprintf(stderr, "FOUND: %d offset %d %08x %08x %08x %08x\n",
@@ -2113,6 +2119,7 @@ public:
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()),
 		ev1(*AbstractES::ev1_instance()),
+		evA((G::find_event_mask&3)==3? evX: (G::find_event_mask&2)==2? ev1: ev0),
 		sob_count(0), sob_buffer(0), buffer_count(0) {
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
