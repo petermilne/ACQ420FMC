@@ -783,8 +783,8 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	fi
 fi
 if [ $AXI_COUNT -eq 0 ]; then
-	[ ! -z $STREAM_OPTS ] && \
-		echo "STREAM_OPTS=$STREAM_OPTS" >> /etc/sysconfig/acq400_streamd.conf
+	[ ! -z "$STREAM_OPTS" ] && \
+		echo "STREAM_OPTS=\"$STREAM_OPTS\"" >> /etc/sysconfig/acq400_streamd.conf		
 fi
 
 echo ++ Enable counter monitors

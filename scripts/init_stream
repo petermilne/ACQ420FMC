@@ -13,7 +13,7 @@ init_stream() {
 	acq400_teardown $SITE
 	echo $$ > $PID
 	
-	STREAM_OPTS=
+	[ -z "$STREAM_OPTS" ] && STREAM_OPTS=""
 	
 	if [ -e /etc/sysconfig/acq400_streamd.conf ]; then
 		source /etc/sysconfig/acq400_streamd.conf
