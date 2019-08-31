@@ -2081,7 +2081,7 @@ protected:
 
 	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
 		int ib = the_buffer == 0? 0: the_buffer->ib();
-		fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
+		if (verbose) fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	virtual char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
@@ -2515,6 +2515,8 @@ int StreamHeadLivePP::_stream() {
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 390\n");
 			continue;	// silently drop it. there will be more
 		}
+		ev_num += 1;
+
 		if (multi_event){
 			char ev_message[128];
 			sprintf(ev_message, "%d,%d,%p\n", ev_num, ibuf, es);
@@ -2526,8 +2528,8 @@ int StreamHeadLivePP::_stream() {
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
 			continue;
 		}
-		fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n",
-					ibuf, es);
+		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n", ibuf, es);
+
 		char *es1 = es + sample_size;
 
 		// all info referenced to buffer 0!
@@ -4185,6 +4187,9 @@ void StreamHead::multiEventServer(int fd_in)
 	/* WORKTODO decode G::multi_event : pre,post,max */
 	FILE* fp = fdopen(fd_in, "r");
 	char buf[128];
+
+	fprintf(stderr, "StreamHead::multiEventServer() %d\n", fd_in);
+
 	while (fgets(buf, 128, fp)){
 		fprintf(stderr, "StreamHead::multiEventServer() %s", buf);
 		/* WORKTODO extract data from buffers to file */
@@ -4194,6 +4199,11 @@ void StreamHead::createMultiEventInstance()
 {
 	int pipefd[2] = {};
         pid_t cpid;
+
+        if (pipe(pipefd) == -1) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
 
         cpid = fork();
         if (cpid == -1){
@@ -4207,6 +4217,7 @@ void StreamHead::createMultiEventInstance()
         }else{            		/* Parent writes argv[1] to pipe */
              close(pipefd[0]);          /* Close unused read end */
              multi_event = pipefd[1];
+             fprintf(stderr, "StreamHead::createMultiEventInstance() multi_event pipe:%d\n", multi_event);
              // return to main line
         }
 }
