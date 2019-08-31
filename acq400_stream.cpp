@@ -208,6 +208,7 @@ public:
 	virtual bool isES(unsigned *cursor) = 0;
 	static AbstractES* evX_instance();
 	static AbstractES* ev0_instance();
+	static AbstractES* ev1_instance();
 };
 
 template <int MASK, unsigned PAT, unsigned MATCHES>
@@ -234,15 +235,19 @@ public:
 
 #define SOB_MAGIC	0xaa55fbff
 #define EVX_MAGIC       0xaa55f150
+#define EVX_MASK	0xfffffff0
 #define EV0_MAGIC       0xaa55f151
+#define EV1_MAGIC       0xaa55f152
+#define EV0_MASK	0xffffffff
+#define EV1_MASK	0xffffffff
 
 AbstractES* AbstractES::evX_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xfffffff0, EVX_MAGIC, 0x0a>;
+			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xfffffff0, EVX_MAGIC, 0x0f>;
+			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
@@ -251,9 +256,20 @@ AbstractES* AbstractES::ev0_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xffffffff, EV0_MAGIC, 0x0a>;
+			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xffffffff, EV0_MAGIC, 0x0f>;
+			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0f>;
+		}
+	}
+	return _instance;
+}
+AbstractES* AbstractES::ev1_instance() {
+	static AbstractES* _instance;
+	if (!_instance){
+		if (ISACQ480()){
+			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0a>;
+		}else{
+			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
@@ -1822,7 +1838,7 @@ protected:
 	char event_info[80];
 	AbstractES& evX;
 	AbstractES& ev0;
-
+	AbstractES& ev1;
 
         unsigned sob_count;
         unsigned* sob_buffer;
@@ -2096,6 +2112,7 @@ public:
 		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
 		ev0(*AbstractES::ev0_instance()),
+		ev1(*AbstractES::ev1_instance()),
 		sob_count(0), sob_buffer(0), buffer_count(0) {
 			const char* vs = getenv("StreamHeadImplVerbose");
 			vs && (verbose = atoi(vs));
