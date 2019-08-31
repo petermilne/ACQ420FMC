@@ -3152,7 +3152,7 @@ static ssize_t show_status_latch(
 	unsigned src = xtd_dev->atd.event_source;
 
 	xtd_dev->atd.event_source = 0;
-	return sprintf(buf, "0x%08x\n", src);
+	return sprintf(buf, "%08x\n", src);
 }
 
 static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
