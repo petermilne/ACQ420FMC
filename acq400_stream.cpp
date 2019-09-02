@@ -86,6 +86,8 @@
 #include <semaphore.h>
 #include <syslog.h>
 
+#include <sys/statvfs.h>
+
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
@@ -4200,7 +4202,20 @@ class MultiEventServer {
 	const int maxfiles_limit;
 	int ev_count;
 
-
+	static long df(int fd)
+	{
+		struct statvfs buf;
+		if (fstatvfs(fd, &buf) == 0){
+			/* play it safe, don't go over 50% */
+			if (buf.f_bavail < buf.f_blocks/2){
+				return 0;
+			}else{
+				return buf.f_bsize * buf.f_bavail/2;
+			}
+		}else{
+			return -1;
+		}
+	}
 	void handle_event(int ev, int ibuf, char* esp){
 		char fn[80];
 		sprintf(fn, "event-%03d-%lu-%u-%u.dat", ev, time(0), pre, post);
@@ -4215,21 +4230,26 @@ class MultiEventServer {
 			perror("fopen");
 			exit(EXIT_FAILURE);
 		}
-
-		int linear_pre = esp-b0;
-		int linear_post = b1-esp;
-
-		if (pre_bytes > linear_pre){
-			fwrite(b1-(pre_bytes-linear_pre), 1, pre_bytes-linear_pre, fp);
-			pre_bytes -= linear_pre;
-		}
-		fwrite(esp-pre_bytes, 1, pre_bytes, fp);
-
-		if (post_bytes > linear_post){
-			fwrite(esp, 1, linear_post, fp);
-			fwrite(b0, 1, post_bytes-linear_post, fp);
+		long freebytes = df(fileno(fp));
+		if (freebytes < pre_bytes+post_bytes){
+			if (verbose) fprintf(stderr, "MultiEventServer::handle_event LOW memory %ld do not store\n", freebytes);
+			fwrite(esp, 1, sample_size(), fp);
 		}else{
-			fwrite(esp, 1, post_bytes, fp);
+			int linear_pre = esp-b0;
+			int linear_post = b1-esp;
+
+			if (pre_bytes > linear_pre){
+				fwrite(b1-(pre_bytes-linear_pre), 1, pre_bytes-linear_pre, fp);
+				pre_bytes -= linear_pre;
+			}
+			fwrite(esp-pre_bytes, 1, pre_bytes, fp);
+
+			if (post_bytes > linear_post){
+				fwrite(esp, 1, linear_post, fp);
+				fwrite(b0, 1, post_bytes-linear_post, fp);
+			}else{
+				fwrite(esp, 1, post_bytes, fp);
+			}
 		}
 		fclose(fp);
 		char fn1[80];
@@ -4286,7 +4306,7 @@ public:
 		b1(MapBuffer::get_ba_hi()),
 		fp_in(fdopen(_fd_in, "r")),
 		update_number(0),
-		maxfiles_limit(getenv_default("MultiEventServerMaxfilesLimit", 99)),
+		maxfiles_limit(getenv_default("MultiEventServerMaxfilesLimit", 199)),
 		ev_count(0)
 	{
 		verbose = getenv_default("MultiEventServerVerbose");
