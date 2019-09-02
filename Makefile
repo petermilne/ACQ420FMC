@@ -79,7 +79,9 @@ APPS := mmap acq400_stream permute acq435_decode \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
-	multi_event soft_atd wr_reset
+	soft_atd wr_reset
+# dropped
+# multi_event 
 
 
 LIBACQSO = libacq.so
