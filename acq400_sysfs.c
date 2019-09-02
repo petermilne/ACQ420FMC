@@ -3158,7 +3158,18 @@ static ssize_t show_status_latch(
 static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
 
 
-MAKE_BITS(di_snoop, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xffffffff);
+static ssize_t show_di_snoop(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "%08x\n", acq400rd32(adev, DIO432_DI_SNOOP));
+}
+
+static DEVICE_ATTR(di_snoop, S_IRUGO, show_di_snoop, 0);
+
 
 const struct attribute *dio482_attrs[] = {
 	&dev_attr_di_snoop.attr,
