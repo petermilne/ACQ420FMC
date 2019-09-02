@@ -27,9 +27,13 @@ struct SpadCop {
 enum hrtimer_restart spadCopMsecAction(struct hrtimer* hrt)
 {
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
-	u64 ns =  ktime_get_real_ns() - acq400_trigger_ns;
 
-	*sc->dst = (ns >> 20);		// 20 bits seconds, 12 bits msec ?
+	if (acq400_trigger_ns){
+		u64 ns =  ktime_get_real_ns() - acq400_trigger_ns;
+		*sc->dst = (ns >> 20);		// 20 bits seconds, 12 bits msec ?
+	}else{
+		*sc->dst = 0;
+	}
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
 }

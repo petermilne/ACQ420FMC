@@ -411,6 +411,8 @@ int fifo_monitor(void* data)
 		}
 	}
 
+	acq400_trigger_ns = 0;
+
 	return 0;
 }
 
