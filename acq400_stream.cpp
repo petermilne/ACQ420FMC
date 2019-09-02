@@ -93,6 +93,15 @@
 
 #define STDOUT	1
 
+int getenv_default(const char* key, int def = 0){
+	const char* vs = getenv(key);
+	if (vs){
+		return atoi(vs);
+	}else{
+		return def;
+	}
+}
+
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
 	const int nsps = 1000000000;
@@ -2132,8 +2141,7 @@ public:
 		ev1(*AbstractES::ev1_instance()),
 		evA((G::find_event_mask&3)==3? evX: (G::find_event_mask&2)==2? ev1: ev0),
 		sob_count(0), sob_buffer(0), buffer_count(0) {
-			const char* vs = getenv("StreamHeadImplVerbose");
-			vs && (verbose = atoi(vs));
+			verbose = getenv_default("StreamHeadImplVerbose");
                         if (G::stream_sob_sig){
                         	if (verbose) fprintf(stderr, "StreamHeadImpl::StreamHeadImpl() : G::stream_sob_sig %d\n", G::stream_sob_sig);
                         	sob_count = sample_size()/sizeof(unsigned);
@@ -2374,8 +2382,7 @@ public:
 	StreamHeadLivePP():
 			pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
-		const char* vs = getenv("StreamHeadLivePPVerbose");
-		vs && (verbose = atoi(vs));
+		verbose = getenv_default("StreamHeadLivePPVerbose");
 
 		fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
 		startEventWatcher();
@@ -2628,9 +2635,8 @@ protected:
 
 public:
 	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), bufstep(1), dst(_cbb) {
-		const char* vs = getenv("DemuxerVerbose");
-		vs && (verbose = atoi(vs));
-		fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
+		verbose = getenv_default("DemuxerVerbose");
+		if (verbose) fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
 	virtual int demux(void *start, int nbytes);
 	int operator()(void *start, int nsamples){
@@ -3154,8 +3160,7 @@ public:
 		post_fits(headroom >= G::post),
 		bd_scale(_bd_scale)
 	{
-		const char* bv = getenv("BufferDistributionVerbose");
-		bv && (verbose = atoi(bv));
+		verbose = getenv_default("BufferDistributionVerbose");
 	}
 	void show() {
 		fprintf(stderr, "%s pre_fits:%d post_fits:%d\n", _PFN, pre_fits, post_fits);
@@ -3600,10 +3605,9 @@ class Event0 {
 	}
 public:
 	Event0() : disabled(false) {
-		if (getenv("EVENT_VERBOSE")){
-			verbose = atoi(getenv("EVENT_VERBOSE"));
-			fprintf(stderr, "Event0 verbose set %d\n", verbose);
-		}
+		verbose = getenv_default("EVENT_VERBOSE");
+		if (verbose) fprintf(stderr, "Event0 verbose set %d\n", verbose);
+
 		char cmd[80];
 		sprintf(cmd, "get.site 1 event0");
 		FILE *pp = popen(cmd, "r");
@@ -3731,9 +3735,7 @@ protected:
 		if (verbose>1) fprintf(stderr, "%s onStreamBufferStart %d\n", _PFN, ib);
 	}
 	virtual void onStreamEnd() {
-		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
-			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
-		}
+		verbose = getenv_default("ACQ400_STREAM_DEBUG_STREAM_END");
 
 		setState(ST_POSTPROCESS); actual.print();
 		Demuxer::_msync(MapBuffer::get_ba_lo(),
@@ -3906,10 +3908,8 @@ protected:
 		setKnob(0, "estop", "1");
 	}
 	static void initVerbose() {
-		if (getenv("StreamHeadPrePostVerbose")){
-			verbose = atoi(getenv("StreamHeadPrePostVerbose"));
-			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
-		}
+		verbose = getenv_default("StreamHeadPrePostVerbose");
+		if (verbose) fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 	}
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
@@ -4182,7 +4182,11 @@ void setEventCountLimit(int limit)
 	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
 }
 
+
+
 class MultiEventServer {
+	const char* b0;
+	const char* b1;
 	FILE* fp_in;
 	int verbose;
 	int pre;
@@ -4190,12 +4194,19 @@ class MultiEventServer {
 	int maxfiles;
 	int pre_bytes;
 	int post_bytes;
-	char* b0 = MapBuffer::get_ba_lo();
-	char* b1 = MapBuffer::get_ba_hi();
+	int update_number;
+	bool dynamic;				/* get dynamic updates */
+
+	const int maxfiles_limit;
+	int ev_count;
+
 
 	void handle_event(int ev, int ibuf, char* esp){
+		char fn[80];
+		sprintf(fn, "event-%03d-%lu-%u-%u.dat", ev, time(0), pre, post);
 		char fn0[80];
-		sprintf(fn0, "/tmp/.event-%03d.bin", ev);  /* work in a hidden file */
+		sprintf(fn0, "/tmp/.%s", fn);  /* work in a hidden file */
+
 		FILE *fp = fopen(fn0, "w");
 		if (fp == 0){
 			perror("fopen");
@@ -4219,22 +4230,64 @@ class MultiEventServer {
 		}
 		fclose(fp);
 		char fn1[80];
-		sprintf(fn1, "/tmp/event-%03d.bin", ev);
+		sprintf(fn1, "/tmp/%s", fn);
 		rename(fn0, fn1);				/* atomic, file safe to use */
+	}
+	void set_maxfiles(int _maxfiles){
+		maxfiles = _maxfiles > maxfiles_limit? maxfiles_limit: _maxfiles;
+	}
+#define MULTI_EVENT_EQUALS	"MULTI_EVENT="			// prefix in /dev/shm/settings file
+	void update_prams(const char* _def){
+		if (strncmp(_def, MULTI_EVENT_EQUALS, strlen(MULTI_EVENT_EQUALS)) == 0){
+			_def += strlen(MULTI_EVENT_EQUALS);
+		}
+		int _update_number;
+		int _maxfiles;
+		int nf = sscanf(_def, "%d,%d,%d,%d", &pre, &post, &_maxfiles, &_update_number);
+
+
+		if (nf == 3 || (nf == 4 && _update_number > update_number)){
+			if (_maxfiles == 0){
+				set_maxfiles(0);		// disable
+			}
+			if (nf == 4){
+				update_number = _update_number;
+				if (_maxfiles){
+					set_maxfiles(_maxfiles + ev_count);
+				}
+			}else{
+				if (maxfiles == 0){
+					set_maxfiles(_maxfiles + ev_count);	// could be signal to start;
+				}
+			}
+			pre_bytes = pre*sample_size();
+			post_bytes = (post+1)*sample_size();
+		}
+	}
+
+	void update_prams(void) {
+		FILE* fp = fopen("/dev/shm/multi_event_settings", "r");
+		if (fp != 0){
+			char def[80];
+			if (fgets(def, 80, fp)){
+				update_prams(def);
+			}
+			fclose(fp);
+		}
 	}
 public:
 	MultiEventServer(const char* def, int _fd_in):
-		fp_in(fdopen(_fd_in, "r")), pre(100), post(100), maxfiles(999),
 		b0(MapBuffer::get_ba_lo()),
-		b1(MapBuffer::get_ba_hi())
+		b1(MapBuffer::get_ba_hi()),
+		fp_in(fdopen(_fd_in, "r")),
+		update_number(0),
+		maxfiles_limit(getenv_default("MultiEventServerMaxfilesLimit", 99)),
+		ev_count(0)
 	{
-		const char* vs = getenv("MultiEventServerVerbose");
-		vs && (verbose = atoi(vs));
+		verbose = getenv_default("MultiEventServerVerbose");
 		if (verbose) fprintf(stderr, "SMultiEventServer\n");
 
-		sscanf(def, "%d,%d,%d", &pre, &post, &maxfiles);
-		pre_bytes = pre*sample_size();
-		post_bytes = (post+1)*sample_size();
+		update_prams(def);
 	}
 
 	void serve () {
@@ -4242,20 +4295,15 @@ public:
 		// 17,34,0x46782160
 		while (fgets(buf, 128, fp_in)){
 			fprintf(stderr, "serve() %s", buf);
-
+			update_prams();
 			int ev;
 			int ibuf;
 			void* esp;
 
-			if (sscanf(buf, "%d,%d,%p", &ev, &ibuf, &esp) == 3){
+			if (ev_count++ < maxfiles && sscanf(buf, "%d,%d,%p", &ev, &ibuf, &esp) == 3){
 				handle_event(ev, ibuf, (char*)esp);
 			}
-			if (ev >= maxfiles){
-				break;
-			}
 		}
-		if (verbose) fprintf(stderr, "serve() done after %d\n", maxfiles);
-		pause();
 	}
 };
 void StreamHead::createMultiEventInstance(const char* def)
