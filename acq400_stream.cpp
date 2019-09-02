@@ -4204,6 +4204,9 @@ class MultiEventServer {
 	void handle_event(int ev, int ibuf, char* esp){
 		char fn[80];
 		sprintf(fn, "event-%03d-%lu-%u-%u.dat", ev, time(0), pre, post);
+
+		if (verbose) fprintf(stderr, "MultiEventServer::handle_event() %s\n", fn);
+
 		char fn0[80];
 		sprintf(fn0, "/tmp/.%s", fn);  /* work in a hidden file */
 
@@ -4245,6 +4248,8 @@ class MultiEventServer {
 		int _maxfiles;
 		int nf = sscanf(_def, "%d,%d,%d,%d", &pre, &post, &_maxfiles, &_update_number);
 
+		if (verbose) fprintf(stderr, "MultiEventServer::serve() update was %d nf=%d %s\n",
+				update_number, nf, _def);
 
 		if (nf == 3 || (nf == 4 && _update_number > update_number)){
 			if (_maxfiles == 0){
@@ -4256,7 +4261,7 @@ class MultiEventServer {
 					set_maxfiles(_maxfiles + ev_count);
 				}
 			}else{
-				if (maxfiles == 0){
+				if (maxfiles != 0){
 					set_maxfiles(_maxfiles + ev_count);	// could be signal to start;
 				}
 			}
@@ -4285,7 +4290,7 @@ public:
 		ev_count(0)
 	{
 		verbose = getenv_default("MultiEventServerVerbose");
-		if (verbose) fprintf(stderr, "SMultiEventServer\n");
+		if (verbose) fprintf(stderr, "MultiEventServer\n");
 
 		update_prams(def);
 	}
@@ -4294,11 +4299,14 @@ public:
 		char buf[128];
 		// 17,34,0x46782160
 		while (fgets(buf, 128, fp_in)){
-			fprintf(stderr, "serve() %s", buf);
+			if (verbose) fprintf(stderr, "MultiEventServer::serve() %s", buf);
 			update_prams();
 			int ev;
 			int ibuf;
 			void* esp;
+
+			if (verbose) fprintf(stderr, "MultiEventServer::serve() ev_count %d maxfiles %d\n",
+					ev_count, maxfiles);
 
 			if (ev_count++ < maxfiles && sscanf(buf, "%d,%d,%p", &ev, &ibuf, &esp) == 3){
 				handle_event(ev, ibuf, (char*)esp);
