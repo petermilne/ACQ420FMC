@@ -734,4 +734,5 @@ static inline void acq400_timer_init(
 	timer->function = function;
 }
 
+extern u64 acq400_trigger_ns;
 #endif /* ACQ400_STRUCTS_H_ */

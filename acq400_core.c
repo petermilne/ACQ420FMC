@@ -373,6 +373,10 @@ void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
 	}
 }
 
+/* global :-( */
+
+u64 acq400_trigger_ns;
+
 int fifo_monitor(void* data)
 {
 	struct acq400_dev *devs[MAXDEVICES+1];
@@ -381,6 +385,8 @@ int fifo_monitor(void* data)
 	int idev = 0;
 	int cursor;
 	int i1 = 0;		/* randomize start time */
+
+	acq400_trigger_ns = 0;
 
 	devs[idev++] = adev;
 	adev->get_fifo_samples = aggregator_get_fifo_samples;
@@ -395,10 +401,14 @@ int fifo_monitor(void* data)
 
 	while(!kthread_should_stop()) {
 		if (acq420_convActive(devs[idev>1?1:0])){
+			if (acq400_trigger_ns == 0){
+				acq400_trigger_ns = ktime_get_real_ns();
+			}
 			histo_add_all(devs, idev, i1);
 			msleep(histo_poll_ms);
+		}else{
+			yield();
 		}
-//		if (++i1 >= idev) i1 = 0;
 	}
 
 	return 0;
