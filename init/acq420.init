@@ -364,6 +364,7 @@ build_knobs_device() {
 		rb=$(get.sys $dk/clkdiv)
 		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
 	fi
+	[ $site -eq 1 ] && echo 0 > /etc/acq400/$site/event_time
 }
 
 install_cal() {

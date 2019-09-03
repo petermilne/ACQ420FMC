@@ -3779,6 +3779,15 @@ protected:
 		}
 		return -1;
 	}
+
+	void store_event_time()
+	{
+		FILE *fp = fopen("/etc/acq400/0/event_time", "w");
+		if (fp){
+			fprintf(fp, "%lu\n", time(0));
+		}
+		fclose(fp);
+	}
 	void streamCore() {
 		BufferLog blog;
 		int ib;
@@ -3819,6 +3828,7 @@ protected:
 				}
 				if (actual.pre >= pre){
 					if (event_received){
+						store_event_time();
 						clock_gettime(CLOCK_REALTIME, &finish_time);
 						finish_time.tv_sec += 1;
 						setState(ST_RUN_POST);
