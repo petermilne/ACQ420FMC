@@ -546,8 +546,15 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define GPG_DEBUG		(0x0048)
 #define USEC_CCR		(0x004c)
 
+
+
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
+
+#define WR_TAI_CUR_L		(0x0060)
+#define WR_TAI_CUR_H		(0x0064)
+#define WR_TAI_TRG_L		(0x0068)
+#define WR_TAI_TRG_H		(0x006C)
 
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */

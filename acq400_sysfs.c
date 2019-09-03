@@ -608,6 +608,64 @@ static ssize_t show_axi_freq(
 
 static DEVICE_ATTR(axi_freq, S_IRUGO, show_axi_freq, 0);
 
+static ssize_t show_wr_tai_cur(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 tl = acq400rd32(adev, WR_TAI_CUR_L);
+	u32 th = acq400rd32(adev, WR_TAI_CUR_H);
+
+	unsigned long long tai = th;
+	tai = tai << 32 | tl;
+
+	return sprintf(buf, "%llu\n", tai);
+}
+
+static DEVICE_ATTR(wr_tai_cur, S_IRUGO, show_wr_tai_cur, 0);
+
+static ssize_t show_wr_tai_trg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 tl = acq400rd32(adev, WR_TAI_TRG_L);
+	u32 th = acq400rd32(adev, WR_TAI_TRG_H);
+
+	unsigned long long tai = th;
+	tai = tai << 32 | tl;
+
+	return sprintf(buf, "%llu\n", tai);
+}
+
+static ssize_t store_wr_tai_trg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned long long tai_trg;
+
+	if (sscanf(buf, "+%llu", &tai_trg) == 1){
+		unsigned long long tail = acq400rd32(adev, WR_TAI_TRG_L);
+		unsigned long long taih = acq400rd32(adev, WR_TAI_TRG_H);
+
+		tai_trg += (taih<<32 | tail);
+	}else if (sscanf(buf, "%llu", &tai_trg) == 1){
+		;
+	}else{
+		return -1;
+	}
+	acq400wr32(adev, WR_TAI_TRG_H, tai_trg>>32);
+	acq400wr32(adev, WR_TAI_TRG_L, tai_trg);
+	return count;
+}
+
+static DEVICE_ATTR(wr_tai_trg, S_IRUGO|S_IWUSR, show_wr_tai_trg, store_wr_tai_trg);
+
 
 static ssize_t show_gpg_mode(
 	struct device * dev,
@@ -3013,6 +3071,8 @@ static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_scount_SYN_S4.attr,
 	&dev_attr_scount_SYN_S5.attr,
 	&dev_attr_scount_SYN_S6.attr,
+	&dev_attr_wr_tai_cur.attr,
+	&dev_attr_wr_tai_trg.attr,
 	NULL
 };
 
