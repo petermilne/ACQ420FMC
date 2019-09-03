@@ -1855,6 +1855,7 @@ protected:
 	int f_ev;
 	int nfds;
 	bool event_received;
+
 	int ev_num;
 	int verbose;
 	int buffers_searched;
@@ -3587,51 +3588,6 @@ public:
 #define NOTIFY_HOOK "/dev/acq400/data/.control"
 
 
-class Event0 {
-	char event[80];
-	bool disabled;
-	int verbose;
-
-	void setEvent0(const char* triplet){
-		char cmd[132];
-		sprintf(cmd, "set.site 1 event0=%s;get.site 1 event0\n", triplet);
-		if (verbose) fprintf(stderr, cmd);
-		FILE *pp = popen(cmd, "r");
-		if (pp == 0){
-			perror("Event0 popen() fail");
-		}else{
-			fgets(cmd, 80, pp);
-			if (verbose) fprintf(stderr, "response %s\n", cmd);
-			pclose(pp);
-		}
-	}
-public:
-	Event0() : disabled(false) {
-		verbose = getenv_default("EVENT_VERBOSE");
-		if (verbose) fprintf(stderr, "Event0 verbose set %d\n", verbose);
-
-		char cmd[80];
-		sprintf(cmd, "get.site 1 event0");
-		FILE *pp = popen(cmd, "r");
-		if (fscanf(pp, "event0=%s", event) != 1){
-			fprintf(stderr, "fscanf failed\n");
-		}
-		pclose(pp);
-	}
-	void disable() {
-		if (!disabled){
-			setEvent0("0,0,0");
-			disabled = true;
-		}
-	}
-	void enable() {
-		if (disabled){
-			setEvent0(event);
-			disabled = false;
-		}
-	}
-};
-
 class StreamHeadWithClients: public StreamHeadImpl {
 protected:
 	vector <StreamHeadClient*> peers;
@@ -3690,10 +3646,10 @@ protected:
 
 	bool cooked;
 	char* typestring;
-	Event0 event0;
 	static int verbose;
 
 	unsigned ib;
+	bool accepting_events;
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
@@ -3766,7 +3722,6 @@ protected:
 	virtual int getBufferId() {
 		char buf[80];
 		fd_set readfds;
-		fd_set readfds0;
 		int rc;
 
 		FD_ZERO(&readfds);
@@ -3775,24 +3730,23 @@ protected:
 
 		if (verbose>2) fprintf(stderr, "%s fc %d f_ev %d nfds %d\n", _PFN, fc, f_ev, nfds);
 
-		for(readfds0 = readfds;
+		for(fd_set readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
 			if (verbose>2) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
 				if (verbose>2) fprintf(stderr, "%s FD_ISSET f_ev %d\n", _PFN, f_ev);
-				/* we can only handle ONE EVENT */
-				if (!event_received){
-					rc = read(f_ev, event_info, 80);
-					if (rc <= 0){
-						syslog(LOG_DEBUG, "read error  %d\n", rc);
-					}else{
-						event_info[rc] = '\0';
-						chomp(event_info);
-						if (verbose) fprintf(stderr, "%s fd_ev read \"%s\"\n", _PFN, event_info);
+				rc = read(f_ev, event_info, 80);
+				if (rc > 0){
+					event_info[rc] = '\0';
+					chomp(event_info);
+					if (verbose) fprintf(stderr, "%s fd_ev read \"%s\"  accepting? %s\n",
+								_PFN, event_info, accepting_events? "YES": "NO");
+					if (accepting_events){
 						event_received = true;
-						FD_CLR(f_ev, &readfds0);
 					}
+				}else{
+					syslog(LOG_DEBUG, "read error  %d\n", rc);
 				}
 			}
 			if (FD_ISSET(fc, &readfds)){
@@ -3854,7 +3808,8 @@ protected:
 
 			switch(actual.state){
 			case ST_RUN_PRE:
-				if (verbose>1) fprintf(stderr, "%s ST_RUN_PRE\n", _PFN);
+				if (verbose>1) fprintf(stderr, "%s ST_RUN_PRE %d %d\n", _PFN, actual.pre, pre);
+
 				if (actual.pre < pre){
 					if (actual.pre + samples_buffer < pre){
 						actual.pre += samples_buffer;
@@ -3869,7 +3824,7 @@ protected:
 						setState(ST_RUN_POST);
 					}else{
 						if (++buffers_over_pre > G::corner_turn_delay){
-							event0.enable();
+							accepting_events = true;
 						}
 					}
 				}
@@ -3917,7 +3872,7 @@ public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
 		pre(_pre), post(_post),
-		cooked(false), ib(666666)
+		cooked(false), ib(666666), accepting_events(false)
 		{
 
 		initVerbose();
@@ -3967,7 +3922,6 @@ public:
 		}
 
 		if (G::soft_trigger){
-			event0.disable();
 			schedule_soft_trigger();
 		}
 		streamCore();
@@ -4177,6 +4131,8 @@ StreamHead* StreamHead::createLiveDataInstance()
 	}
 }
 
+#define ECL_NOLIMIT	0
+
 void setEventCountLimit(int limit)
 {
 	fprintf(stderr, "setEventCountLimit() %d\n", limit);
@@ -4367,10 +4323,9 @@ StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
 	if (_instance == 0){
-
 		setEventCountLimit(
-				G::show_events? G::show_events:
-				G::stream_mode == SM_TRANSIENT? 1: 0);
+				G::show_events? ECL_NOLIMIT:
+				G::stream_mode == SM_TRANSIENT? 1: ECL_NOLIMIT);
 
 		if (G::is_spy){
 			return _instance = new StreamHead(
