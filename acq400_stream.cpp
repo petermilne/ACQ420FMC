@@ -3782,7 +3782,7 @@ protected:
 
 	void store_event_time()
 	{
-		FILE *fp = fopen("/etc/acq400/0/event_time", "w");
+		FILE *fp = fopen("/etc/acq400/1/event_time", "w");
 		if (fp){
 			fprintf(fp, "%lu\n", time(0));
 		}
