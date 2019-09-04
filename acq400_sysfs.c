@@ -648,12 +648,15 @@ static ssize_t store_wr_tai_trg(
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	unsigned long long tai_trg;
+	unsigned long long tai = 0;
 
-	if (sscanf(buf, "+%llu", &tai_trg) == 1){
-		unsigned long long tail = acq400rd32(adev, WR_TAI_TRG_L);
-		unsigned long long taih = acq400rd32(adev, WR_TAI_TRG_H);
+	if (sscanf(buf, "+%llu", &tai_trg) == 1 ){
+		u32 tl = acq400rd32(adev, WR_TAI_CUR_L);
+		u32 th = acq400rd32(adev, WR_TAI_CUR_H);
 
-		tai_trg += (taih<<32 | tail);
+		tai = th;
+		tai = tai<<32 | tl;
+		tai_trg += tai;
 	}else if (sscanf(buf, "%llu", &tai_trg) == 1){
 		;
 	}else{
@@ -661,6 +664,11 @@ static ssize_t store_wr_tai_trg(
 	}
 	acq400wr32(adev, WR_TAI_TRG_H, tai_trg>>32);
 	acq400wr32(adev, WR_TAI_TRG_L, tai_trg);
+
+	if (tai != 0){
+		dev_dbg(dev, "store_wr_tai_trg() tai:%llu tai_trg:%llu\n", tai, tai_trg);
+	}
+
 	return count;
 }
 
