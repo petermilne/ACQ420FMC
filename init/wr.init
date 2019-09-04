@@ -1,0 +1,14 @@
+#!/bin/bash
+
+wr_reset --is_wr_present=1
+
+if [ $? -eq 0 ]; then
+	echo +++ wr present
+	if [ -e /mnt/local/wrc.le.bin ]; then
+		echo +++ wr load new firmware
+		wr_reset /mnt/local/wrc.le.bin
+	else
+		wr_reset
+	fi
+fi
+ 

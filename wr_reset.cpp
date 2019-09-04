@@ -145,8 +145,51 @@ void set_hwid(char* wrbase)
 namespace G {
 	int verbose;
 	int save_cal;
+	int is_wr_present;
 };
 
+#define WR_FPGA_MAGIC_OFFSET 0x00020410
+#define WR_CODE_MAGIC_OFFSET 0x00000080
+
+#define WR_FPGA_MAGIC_LE     0x44314143
+#define WR_FPGA_MAGIC_BE     0x43413144
+
+#define WR_CODE_MAGIC_LE     0x57525043
+#define WR_CODE_MAGIC_BE     0x43505257
+
+
+int is_wr_present(char* wrbase)
+{
+	unsigned *wr_magic = (unsigned*)(wrbase + WR_FPGA_MAGIC_OFFSET);
+	unsigned *wr_code  = (unsigned*)(wrbase + WR_CODE_MAGIC_OFFSET);
+	union MAGIC {
+		unsigned w;
+		unsigned char b[4];
+	} m;
+
+	if ((m.w = *wr_magic) == WR_FPGA_MAGIC_LE){
+		printf("is_wr_present() D-TACQ WR LOGIC detected 0x%08x = %c%c%c%c\n",
+				WR_FPGA_MAGIC_OFFSET, m.b[0], m.b[1], m.b[2], m.b[3]);
+		if ((m.w = *wr_code) == WR_CODE_MAGIC_LE){
+			printf("is_wr_present() D-TACQ WR CODE detected 0x%08x = %c%c%c%c\n",
+				WR_CODE_MAGIC_OFFSET, m.b[0], m.b[1], m.b[2], m.b[3]);
+			return 0;
+		}else{
+			if (m.w == WR_CODE_MAGIC_BE){
+				printf("is_wr_present() WR_CODE_MAGIC_BE detected, contact D-TACQ\n");
+			}else{
+				printf("is_wr_present() BAD CODE MAGIC 0x%08x %c%c%c%c\n",
+						m.w, m.b[0], m.b[1], m.b[2], m.b[3]);
+			}
+		}
+	}else if (m.w == WR_FPGA_MAGIC_LE){
+		printf("is_wr_present() WR_FPGA_MAGIC_BE detected, contact D-TACQ\n");
+	}else{
+		printf("is_wr_present() BAD FPGA MAGIC 0x%08x %c%c%c%c\n",
+				m.w, m.b[0], m.b[1], m.b[2], m.b[3]);
+	}
+	return -1;
+}
 int save_cal(char* wrbase)
 {
 	unsigned* sfp_deltaTx = (unsigned*)(wrbase + 0x1f020);
@@ -176,6 +219,7 @@ int restore_cal(char* wrbase)
 }
 struct poptOption opt_table[] = {
 	{ "save_cal", 's', POPT_ARG_INT, &G::save_cal, 's', "save calibration" },
+	{ "is_wr_present", 'w', POPT_ARG_INT, &G::is_wr_present, 'w', "report if WRC present in system" },
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
@@ -191,6 +235,7 @@ const char* ui(int argc, const char** argv)
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
                 case 's':
+
                 default:
                         ;
                 }
@@ -202,6 +247,9 @@ int main(int argc, const char** argv)
 	const char* image_file = ui(argc, argv);
 	char* wrbase = (char*)mmap_wr();
 
+	if (G::is_wr_present){
+		return is_wr_present(wrbase);
+	}
 	if (G::save_cal){
 		return save_cal(wrbase);
 	}

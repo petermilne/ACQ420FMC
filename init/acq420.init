@@ -788,6 +788,8 @@ if [ $AXI_COUNT -eq 0 ]; then
 		echo "STREAM_OPTS=\"$STREAM_OPTS\"" >> /etc/sysconfig/acq400_streamd.conf		
 fi
 
+grep filename /tmp/fpga_status | grep -q WHR  && /usr/local/init/wr.init
+
 echo ++ Enable counter monitors
 CACHE_SITES_MASK=${CACHE_SITES_MASK:-0}
 set.sys /sys/module/acq420fmc/parameters/cache_sites_mask $CACHE_SITES_MASK
