@@ -78,7 +78,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
 	fix_state bpaste clocks_to_first_edge \
-	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
+	mgtdram_descgen bigcat egu2int dawg watchdog_PIL dump_regs \
 	soft_atd wr_reset
 # dropped
 # multi_event 
