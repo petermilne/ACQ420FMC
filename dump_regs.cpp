@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 static const char* pattern = "*0x*";
 
 int filter(const struct dirent *dir)
@@ -25,12 +26,24 @@ int filter(const struct dirent *dir)
         return fnmatch(pattern, dir->d_name, 0) == 0;
 }
 
+int regsort(const struct dirent **a, const struct dirent **b)
+{
+	return (*a)->d_ino  > (*b)->d_ino;
+}
 void scancat(const char* dir)
 {
 	struct dirent **namelist;
-	int nn = scandir(dir, &namelist, filter, versionsort);
+	int nn = scandir(dir, &namelist, filter, regsort);
 	for (int ii = 0; ii < nn; ++ii){
-		printf( "%34s %s\n", namelist[ii]->d_name, "nocat");
+		const char* kname = namelist[ii]->d_name;
+		char path[1024];
+		snprintf(path, 1024, "%s/%s", dir, kname);
+		FILE* fp = fopen(path, "r");
+		if (fp){
+			char value[80];
+			printf( "%34s %s", kname, fgets(value, 80, fp));
+			fclose(fp);
+		}
 	}
 }
 
