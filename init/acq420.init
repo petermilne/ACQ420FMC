@@ -788,6 +788,8 @@ if [ $AXI_COUNT -eq 0 ]; then
 		echo "STREAM_OPTS=\"$STREAM_OPTS\"" >> /etc/sysconfig/acq400_streamd.conf		
 fi
 
+# finalize the name please.
+grep filename /tmp/fpga_status | grep -q WR  && /usr/local/init/wr.init
 grep filename /tmp/fpga_status | grep -q WHR  && /usr/local/init/wr.init
 
 echo ++ Enable counter monitors

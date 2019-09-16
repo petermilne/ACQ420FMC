@@ -432,6 +432,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_ACQ2106_STAGGER(adev) \
 	(IS_ACQ2106_STACK(adev) && (GET_MOD_ID_VERSION(adev)&0x4) != 0)
 
+#define IS_ACQ2106_WR(adev) 	((GET_MOD_ID_VERSION(adev)&0x8) != 0)
+
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
 
@@ -551,10 +553,12 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
 
-#define WR_TAI_CUR_L		(0x0060)
-#define WR_TAI_CUR_H		(0x0064)
-#define WR_TAI_TRG_L		(0x0068)
-#define WR_TAI_TRG_H		(0x006C)
+#define WR_CTRL			(0x0200)
+#define WR_CLK_GEN		(0x0204)
+#define WR_TAI_CUR_L		(0x0208)
+#define WR_TAI_CUR_H		(0x020C)
+#define WR_TAI_TRG		(0x0210)
+#define WR_TAI_STAMP		(0x0214)
 
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */

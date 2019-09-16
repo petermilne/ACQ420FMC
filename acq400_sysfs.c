@@ -631,48 +631,23 @@ static ssize_t show_wr_tai_trg(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 tl = acq400rd32(adev, WR_TAI_TRG_L);
-	u32 th = acq400rd32(adev, WR_TAI_TRG_H);
-
-	unsigned long long tai = th;
-	tai = tai << 32 | tl;
-
-	return sprintf(buf, "%llu\n", tai);
+	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG);
+	return sprintf(buf, "0x%08x %u %u\n", tai_trg, tai_trg>>28, tai_trg&0x0fffffff);
 }
 
-static ssize_t store_wr_tai_trg(
+static DEVICE_ATTR(wr_tai_trg, S_IRUGO, show_wr_tai_trg, 0);
+
+static ssize_t show_wr_tai_stamp(
 	struct device * dev,
 	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
+	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned long long tai_trg;
-	unsigned long long tai = 0;
-
-	if (sscanf(buf, "+%llu", &tai_trg) == 1 ){
-		u32 tl = acq400rd32(adev, WR_TAI_CUR_L);
-		u32 th = acq400rd32(adev, WR_TAI_CUR_H);
-
-		tai = th;
-		tai = tai<<32 | tl;
-		tai_trg += tai;
-	}else if (sscanf(buf, "%llu", &tai_trg) == 1){
-		;
-	}else{
-		return -1;
-	}
-	acq400wr32(adev, WR_TAI_TRG_H, tai_trg>>32);
-	acq400wr32(adev, WR_TAI_TRG_L, tai_trg);
-
-	if (tai != 0){
-		dev_dbg(dev, "store_wr_tai_trg() tai:%llu tai_trg:%llu\n", tai, tai_trg);
-	}
-
-	return count;
+	unsigned tai_stamp = acq400rd32(adev, WR_TAI_STAMP);
+	return sprintf(buf, "0x%08x %u %u\n", tai_stamp, tai_stamp>>28, tai_stamp&0x0fffffff);
 }
 
-static DEVICE_ATTR(wr_tai_trg, S_IRUGO|S_IWUSR, show_wr_tai_trg, store_wr_tai_trg);
+static DEVICE_ATTR(wr_tai_stamp, S_IRUGO, show_wr_tai_stamp, 0);
 
 
 static ssize_t show_gpg_mode(
@@ -3079,8 +3054,13 @@ static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_scount_SYN_S4.attr,
 	&dev_attr_scount_SYN_S5.attr,
 	&dev_attr_scount_SYN_S6.attr,
+	NULL
+};
+
+static const struct attribute *acq2106_tai_attrs[] = {
 	&dev_attr_wr_tai_cur.attr,
 	&dev_attr_wr_tai_trg.attr,
+	&dev_attr_wr_tai_stamp.attr,
 	NULL
 };
 
@@ -3296,6 +3276,9 @@ void acq400_createSysfs(struct device *dev)
 
 		if (IS_ACQ2X06SC(adev)){
 			specials[nspec++] = acq2006sc_attrs;
+			if (IS_ACQ2106_WR(adev)) {
+				specials[nspec++] = acq2106_tai_attrs;
+			}
 		}else if (IS_ACQ1001SC(adev)){
 			if (IS_ACQ1014(adev)){
 				dev_info(dev, "ACQ1014: loading extra knobs");

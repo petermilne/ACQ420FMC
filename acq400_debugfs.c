@@ -474,12 +474,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 	DBG_REG_CREATE(GPG_DEBUG);
 	DBG_REG_CREATE(USEC_CCR);
 	DBG_REG_CREATE(SPI_PERIPHERAL_CS);
-	if (IS_ACQ2X06SC(adev)){
-		DBG_REG_CREATE(WR_TAI_CUR_L);
-		DBG_REG_CREATE(WR_TAI_CUR_H);
-		DBG_REG_CREATE(WR_TAI_TRG_L);
-		DBG_REG_CREATE(WR_TAI_TRG_H);
-	}
+
 
 	DBG_REG_CREATE_NAME("CLK_EXT", ACQ2006_CLK_COUNT(EXT_DX));
 	DBG_REG_CREATE_NAME("CLK_MB",  ACQ2006_CLK_COUNT(MB_DX));
@@ -520,6 +515,14 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			snprintf(name, 16, "spad%d", ii);
 			DBG_REG_CREATE_NAME_NC(name, SPADN(ii));
 		}
+	}
+	if (IS_ACQ2X06SC(adev) && IS_ACQ2106_WR(adev)){
+		DBG_REG_CREATE(WR_CTRL);
+		DBG_REG_CREATE(WR_CLK_GEN);
+		DBG_REG_CREATE(WR_TAI_CUR_L);
+		DBG_REG_CREATE(WR_TAI_CUR_H);
+		DBG_REG_CREATE(WR_TAI_TRG);
+		DBG_REG_CREATE(WR_TAI_STAMP);
 	}
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 }
