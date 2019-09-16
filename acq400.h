@@ -560,6 +560,14 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define WR_TAI_TRG		(0x0210)
 #define WR_TAI_STAMP		(0x0214)
 
+#define WR_CTRL_PPS_INTACK	(1<<9)
+#define WR_CTRL_PPS_INTEN	(1<<8)
+#define WR_CTRL_TS_INTACK	(1<<5)
+#define WR_CTRL_TS_INTEN	(1<<4)
+#define WR_CTRL_TRG_SRC_SHL	0
+
+#define WR_CLK_GEN_PV		(0x1f000000)
+
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */
 #define DE_ENABLE		(1<<0)

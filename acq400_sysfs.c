@@ -124,6 +124,8 @@ MAKE_BITS(zclk_sel, MOD_CON, MCR_ZCLK_SELECT_SHL, MCR_ZCLK_MASK);
 
 MAKE_BITS(adc_nobt, ADC_CTRL, ADC_CTRL_42x_RES_SHL, ADC_CTRL_42x_RES_MASK);
 
+
+
 static const struct attribute *hdmi_sync_attrs[] = {
 	&dev_attr_sync_in_clk.attr,
 	&dev_attr_sync_in_sync.attr,
@@ -540,6 +542,7 @@ MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
 
 
 
+
 static ssize_t show_gpg_top_count(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -648,6 +651,21 @@ static ssize_t show_wr_tai_stamp(
 }
 
 static DEVICE_ATTR(wr_tai_stamp, S_IRUGO, show_wr_tai_stamp, 0);
+
+MAKE_BITS(wr_clk_pv, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV);
+
+
+MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
+
+static const struct attribute *acq2106_wr_attrs[] = {
+	&dev_attr_wr_clk_pv.attr,
+	&dev_attr_wr_trg_src.attr,
+	&dev_attr_wr_tai_cur.attr,
+	&dev_attr_wr_tai_trg.attr,
+	&dev_attr_wr_tai_stamp.attr,
+	NULL
+};
+
 
 
 static ssize_t show_gpg_mode(
@@ -3057,12 +3075,6 @@ static const struct attribute *acq2006sc_attrs[] = {
 	NULL
 };
 
-static const struct attribute *acq2106_tai_attrs[] = {
-	&dev_attr_wr_tai_cur.attr,
-	&dev_attr_wr_tai_trg.attr,
-	&dev_attr_wr_tai_stamp.attr,
-	NULL
-};
 
 
 MAKE_BITS(fpctl_acq1014_clk, FPCTL, MAKE_BITS_FROM_MASK, FPCTL_FP_1014_CLK);
@@ -3277,7 +3289,7 @@ void acq400_createSysfs(struct device *dev)
 		if (IS_ACQ2X06SC(adev)){
 			specials[nspec++] = acq2006sc_attrs;
 			if (IS_ACQ2106_WR(adev)) {
-				specials[nspec++] = acq2106_tai_attrs;
+				specials[nspec++] = acq2106_wr_attrs;
 			}
 		}else if (IS_ACQ1001SC(adev)){
 			if (IS_ACQ1014(adev)){

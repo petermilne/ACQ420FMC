@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.412"
+#define REVID 			"3.413"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2771,6 +2771,81 @@ int init_axi64_hbm(struct acq400_dev* adev)
 
 #define IRQ_REQUEST_OFFSET	0		/* arg to platform get irq is OFFSET from region. Linux knows best! */
 
+static irqreturn_t wr_ts_isr(int irq, void *dev_id)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
+	u32 int_sta = acq400rd32(adev, WR_CTRL);
+	u32 ts = acq400rd32(adev, WR_TAI_STAMP);
+
+	acq400wr32(adev, WR_CTRL, WR_CTRL_TS_INTACK);
+
+	return IRQ_WAKE_THREAD;	/* canned */
+}
+
+static irqreturn_t wr_ts_kthread(int irq, void *dev_id)
+/* keep the AO420 FIFO full. Recycle buffer only */
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t wr_pps_isr(int irq, void *dev_id)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
+	u32 int_sta = acq400rd32(adev, WR_CTRL);
+
+	acq400wr32(adev, WR_CTRL, WR_CTRL_PPS_INTACK);
+
+	return IRQ_WAKE_THREAD;	/* canned */
+}
+
+static irqreturn_t wr_pps_kthread(int irq, void *dev_id)
+/* keep the AO420 FIFO full. Recycle buffer only */
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
+	return IRQ_HANDLED;
+}
+
+int acq400_wr_init_irq(struct acq400_dev* adev)
+{
+	int rc;
+	int irq = platform_get_irq(adev->pdev, IRQ_REQUEST_OFFSET);
+	if (irq <= 0){
+		return 0;
+	}
+	dev_info(DEVP(adev), "acq400_wr_init_irq %d", irq);
+
+	rc = devm_request_threaded_irq(
+			DEVP(adev), irq, wr_ts_isr, wr_ts_kthread, IRQF_NO_THREAD,
+			adev->dev_name,	adev);
+	if (rc){
+		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
+		return 0;
+	}
+
+	irq = platform_get_irq(adev->pdev, IRQ_REQUEST_OFFSET+1);
+	if (irq <= 0){
+		return 0;
+	}
+	dev_info(DEVP(adev), "acq400_wr_init_irq %d", irq);
+
+	rc = devm_request_threaded_irq(
+			DEVP(adev), irq, wr_pps_isr, wr_pps_kthread, IRQF_NO_THREAD,
+			adev->dev_name,	adev);
+	if (rc){
+		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
+		return 0;
+	}
+	return rc;
+}
 int acq400_mod_init_irq(struct acq400_dev* adev)
 {
 	int rc;
@@ -2815,6 +2890,11 @@ int acq400_modprobe_sc(struct acq400_dev* adev)
 	acq400_init_proc(adev);
 	acq2006_createDebugfs(adev);
 	acq400sc_init_defaults(adev);
+	if (IS_ACQ2106_WR(adev)){
+		if (acq400_wr_init_irq(adev)){
+			return -1;
+		}
+	}
 	return 0;
 }
 int acq400_modprobe(struct acq400_dev* adev)
