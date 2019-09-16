@@ -70,7 +70,7 @@
 #include "File.h"
 
 
-#define WR_MEM_PA	     	0x40080000
+#define WR_MEM_PA	     	0x80080000
 #define WR_MEM_LEN	     	0x00040000
 
 #define WR_FPGA_MAGIC_OFFSET 	0x00020410
