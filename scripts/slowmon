@@ -1,7 +1,18 @@
 #!/usr/local/bin/expect
+# for full block set export SLOWMON_COUNT=0 in /mnt/local/sysconfig/acq400.sh
+
+set COUNT 1
+if { [info exists ::env(SLOWMON_COUNT) ] } {
+	set COUNT $::env(SLOWMON_COUNT)
+}
+
+if { $COUNT == 0 } {
+	set COUNT_CMD {}	
+} else {
+	set COUNT_CMD "count=$COUNT"
+}
 
 set BS 4096
-set COUNT 1
 
 log_user 0
 
@@ -13,7 +24,7 @@ while { 1 } {
             set blk $expect_out(1,string)
 #	    puts $blk;flush stdout
 	    exec >@stdout 2>/dev/null \
-		dd if=/dev/acq400.0.hb/$blk bs=$BS count=$COUNT
+		dd if=/dev/acq400.0.hb/$blk bs=$BS $COUNT_CMD
         }
     }
 }

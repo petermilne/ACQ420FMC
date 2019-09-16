@@ -2825,7 +2825,7 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 
 	rc = devm_request_threaded_irq(
 			DEVP(adev), irq, wr_ts_isr, wr_ts_kthread, IRQF_NO_THREAD,
-			adev->dev_name,	adev);
+			"wr_ts",	adev);
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
 		return 0;
@@ -2839,7 +2839,7 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 
 	rc = devm_request_threaded_irq(
 			DEVP(adev), irq, wr_pps_isr, wr_pps_kthread, IRQF_NO_THREAD,
-			adev->dev_name,	adev);
+			"wr_pps",	adev);
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
 		return 0;

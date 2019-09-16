@@ -28,6 +28,7 @@ fi
 	cp /mnt/local/sysconfig/acq400_streamd.conf /etc/sysconfig
 
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
+	cp /mnt/local/sysconfig/acq400.sh /etc/profile.d
 	echo "source /mnt/local/sysconfig/acq400.sh"
 	source /mnt/local/sysconfig/acq400.sh
 fi
