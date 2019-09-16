@@ -70,6 +70,19 @@
 #include "File.h"
 
 
+#define WR_MEM_PA	     	0x40080000
+#define WR_MEM_LEN	     	0x00040000
+
+#define WR_FPGA_MAGIC_OFFSET 	0x00020410
+#define WR_CODE_MAGIC_OFFSET 	0x00000080
+
+#define WR_FPGA_MAGIC_LE    	0x44314143
+#define WR_FPGA_MAGIC_BE     	0x43413144
+
+#define WR_CODE_MAGIC_LE     	0x57525043
+#define WR_CODE_MAGIC_BE     	0x43505257
+
+
 using namespace std;
 
 int get_mac(char* mac, int max_mac)
@@ -83,7 +96,7 @@ int get_mac(char* mac, int max_mac)
 void* mmap_wr(void)
 {
         int fd = open("/dev/mem", O_RDWR);
-        unsigned *va = (unsigned*)mmap(0, 0x40000, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40080000);
+        unsigned *va = (unsigned*)mmap(0, WR_MEM_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, WR_MEM_PA);
 
         if (va == MAP_FAILED){
                 perror("MAP_FAILED");
@@ -148,14 +161,6 @@ namespace G {
 	int is_wr_present;
 };
 
-#define WR_FPGA_MAGIC_OFFSET 0x00020410
-#define WR_CODE_MAGIC_OFFSET 0x00000080
-
-#define WR_FPGA_MAGIC_LE     0x44314143
-#define WR_FPGA_MAGIC_BE     0x43413144
-
-#define WR_CODE_MAGIC_LE     0x57525043
-#define WR_CODE_MAGIC_BE     0x43505257
 
 
 int is_wr_present(char* wrbase)
