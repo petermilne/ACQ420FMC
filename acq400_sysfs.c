@@ -653,12 +653,14 @@ static ssize_t show_wr_tai_stamp(
 static DEVICE_ATTR(wr_tai_stamp, S_IRUGO, show_wr_tai_stamp, 0);
 
 MAKE_BITS(wr_clk_pv, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV);
+MAKE_BITS(wr_clk_pv3, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV3);
 
 
 MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
 
 static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_clk_pv.attr,
+	&dev_attr_wr_clk_pv3.attr,
 	&dev_attr_wr_trg_src.attr,
 	&dev_attr_wr_tai_cur.attr,
 	&dev_attr_wr_tai_trg.attr,
