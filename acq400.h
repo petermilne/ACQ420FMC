@@ -569,6 +569,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define WR_CLK_GEN_PV		(0x1f000000)
 #define WR_CLK_GEN_PV3		(0x07000000)
 
+#define WR_TAI_TRG_EN		(1<<31)
+
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */
 #define DE_ENABLE		(1<<0)

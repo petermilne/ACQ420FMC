@@ -628,6 +628,34 @@ static ssize_t show_wr_tai_cur(
 
 static DEVICE_ATTR(wr_tai_cur, S_IRUGO, show_wr_tai_cur, 0);
 
+static ssize_t store_wr_tai_trg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 tai_trg;
+	u32 tai_sec, clocks;
+
+	if (sscanf(buf, "%u,%u", &tai_sec, &clocks) == 2){
+		tai_trg = tai_sec << 28 | clocks;
+		if (tai_trg != 0){
+			tai_trg |= WR_TAI_TRG_EN;
+		}
+		acq400wr32(adev, WR_TAI_TRG, tai_trg);
+		return count;
+	} else if (sscanf(buf, "%u", &tai_trg) == 1){
+		if (tai_trg != 0){
+			tai_trg |= WR_TAI_TRG_EN;
+		}
+		acq400wr32(adev, WR_TAI_TRG, tai_trg);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
 static ssize_t show_wr_tai_trg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -635,10 +663,10 @@ static ssize_t show_wr_tai_trg(
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG);
-	return sprintf(buf, "0x%08x %u %u\n", tai_trg, tai_trg>>28, tai_trg&0x0fffffff);
+	return sprintf(buf, "%u,%u\n", tai_trg>>28, tai_trg&0x0fffffff);
 }
 
-static DEVICE_ATTR(wr_tai_trg, S_IRUGO, show_wr_tai_trg, 0);
+static DEVICE_ATTR(wr_tai_trg, S_IRUGO, show_wr_tai_trg, store_wr_tai_trg);
 
 static ssize_t show_wr_tai_stamp(
 	struct device * dev,
@@ -3363,7 +3391,6 @@ void acq400_createSysfs(struct device *dev)
 					specials[nspec++] = pwm2_attrs;
 				}
 			}
-
 		}else if (IS_ACQ400T(adev)){
 			specials[nspec++] = acq400t_attrs;
 		}else if (IS_ACQ480(adev)){
