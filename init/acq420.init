@@ -707,10 +707,8 @@ if [ $has_acq48x -ne 0 ]; then
 	else
 		echo ACQ480 using user preselect buffers $BLEN $NBUF
 	fi
-	VAP=7	
-else
-	VAP=13
 fi
+source /usr/local/CARE/choose_vap
 
 GS="${GS}${vsites}"
 
@@ -804,6 +802,7 @@ set.sys /dev/gpio/15VA_EN 1
 if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
 	set.sys /dev/acq400.0.knobs/celf_power_en 1	
 fi
+
 
 if [ -e /mnt/local/power ]; then
 	cp /mnt/local/power /etc/sysconfig/power

@@ -1,0 +1,35 @@
+#!/bin/sh
+
+VRANGE=13
+
+for file in /dev/sites/[1-6]/details
+do
+	echo "# sourcing file $file"
+	[ -e $file ] && source $file
+	PN=${FRU_PART_NUM%% *}
+	echo "# FPN $FRU_PART_NUM PN $PN"
+	if [ "$PN" != "${PN#ACQ480*}" ]; then
+		echo "# ACQ480 DETECTED set VRANGE LOW"
+		VRANGE=7
+		break
+	fi
+	if [ "$PN" != "${PN#BOLO*}" ]; then
+		echo "# BOLO DETECTED set VRANGE 12"
+		VRANGE=12
+		break
+	fi
+	VSPEC=${PN##*-}
+	if [ ! -z $VSPEC ]; then
+		vrange=${VSPEC%*V}
+		if [ "$vrange" != "$VSPEC" ]; then
+			if [ $vrange -lt 10 ]; then
+				echo "#LOW VOLTAGE UNIT detected setting VRANGE=7"
+				VRANGE=7
+				break;
+			fi
+		fi
+	fi
+done
+
+echo VAP=$VRANGE
+echo VAN=-$VRANGE
