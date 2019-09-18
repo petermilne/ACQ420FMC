@@ -261,9 +261,8 @@ int main(int argc, const char** argv)
 	reset(wrbase, 1);
 	if (image_file) {
 		wr_load(wrbase, image_file);
+		set_mac(wrbase);
 	}
-
-	set_mac(wrbase);
 	restore_cal(wrbase);
 	reset(wrbase, 0);
 
