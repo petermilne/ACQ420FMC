@@ -19,7 +19,8 @@ Env::Env(const char* fname) {
 	while(getline(fs, line)){
 		//			cout <<  line << endl;
 		if (line.find("#") == 0){
-			cerr << line << " skip comment" <<endl;
+//			cerr << line << " skip comment" <<endl;
+			continue;
 		}
 		size_t pos;
 		if ((pos = line.find("=")) != std::string::npos ){
@@ -27,7 +28,7 @@ Env::Env(const char* fname) {
 			string value = line.substr(pos+1);
 			value.erase(std::remove(value.begin(), value.end(), '"'), value.end());
 
-			cerr << "k:" << key << " v:" << value << endl;
+//			cerr << "k:" << key << " v:" << value << endl;
 			_env[key] = value;
 		}
 	}
