@@ -265,6 +265,11 @@ struct acq400_sc_dev {
 		unsigned len;		/* 1..8 */
 		unsigned diX;		/* 0 : off 1: di4 2: di32 */
 	} spad;				/** scratchpad enable */
+	struct WrClient {
+		unsigned wc_ts;		/* time of event, recorded by ISR */
+		unsigned wc_pid;		/* client pid, singleton 		*/
+		wait_queue_head_t wc_waitq;	/* client blocks on this		*/
+	} pps_client, ts_client;
 };
 
 struct acq400_bolo_dev {
@@ -739,4 +744,6 @@ extern u64 acq400_trigger_ns;
 #define IRQ_REQUEST_OFFSET	0		/* arg to platform get irq is OFFSET from region. Linux knows best! */
 
 extern int acq400_wr_init_irq(struct acq400_dev* adev);
+extern int acq400_wr_open(struct inode *inode, struct file *file);
+
 #endif /* ACQ400_STRUCTS_H_ */
