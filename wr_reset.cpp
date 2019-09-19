@@ -83,13 +83,28 @@
 #define WR_CODE_MAGIC_BE     	0x43505257
 
 
+
+#include "Env.h"
+
 using namespace std;
+
+#define MAC_PFX "00:21:54:33"
+
 
 int get_mac(char* mac, int max_mac)
 {
-	FILE *pp = popen("ifconfig eth1 | grep HWa | awk '{ print $5 }'", "r");
-	fgets(mac, max_mac, pp);
-	pclose(pp);
+	string _mac;
+	Env env("/tmp/u-boot_env");
+	if (!env("eth2addr").empty()){
+		cerr << "eth2addr found " << env("eth2addr") << endl;
+		_mac = env("eth2addr");
+	}else if (!env("ethaddr").empty()){
+		string m0 = env("ethaddr");
+		_mac = m0.replace(0, strlen(MAC_PFX), MAC_PFX, strlen(MAC_PFX));
+	}else{
+		fprintf(stderr, "ERROR no valid mac address\n");
+	}
+	strncpy(mac, _mac.c_str(), max_mac);
 	return 0;
 }
 
