@@ -35,4 +35,4 @@ done
 export VAP=$VRANGE
 export VAN=-$VRANGE
 echo VAP=$VAP
-echo VAN=-$VAN
+echo VAN=$VAN
