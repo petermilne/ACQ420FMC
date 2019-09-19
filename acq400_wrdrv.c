@@ -42,16 +42,16 @@ MODULE_PARM_DESC(nbuffers, "1: enable PPS interrupts");
 
 
 static inline u32 wr_ctrl_set(struct acq400_dev *adev, unsigned bits){
-	u32 int_sta = acq400rd32(adev, WR_CTRL);
-	int_sta |= bits;
-	acq400wr32(adev, WR_CTRL, int_sta);
-	return int_sta;
+	u32 ctrl = acq400rd32(adev, WR_CTRL);
+	ctrl |= bits;
+	acq400wr32(adev, WR_CTRL, ctrl);
+	return ctrl;
 }
 static inline u32 wr_ctrl_clr(struct acq400_dev *adev, unsigned bits){
-	u32 int_sta = acq400rd32(adev, WR_CTRL);
-	int_sta &= ~bits;
-	acq400wr32(adev, WR_CTRL, int_sta);
-	return int_sta;
+	u32 ctrl = acq400rd32(adev, WR_CTRL);
+	ctrl &= ~bits;
+	acq400wr32(adev, WR_CTRL, ctrl);
+	return ctrl;
 }
 
 
@@ -109,6 +109,13 @@ void init_scdev(struct acq400_dev* adev)
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	init_waitqueue_head(&sc_dev->pps_client.wc_waitq);
 	init_waitqueue_head(&sc_dev->ts_client.wc_waitq);
+
+	if (wr_ts_inten){
+		wr_ctrl_set(adev, WR_CTRL_TS_INTEN);
+	}
+	if (wr_pps_inten){
+		wr_ctrl_set(adev, WR_CTRL_PPS_INTEN);
+	}
 }
 
 int acq400_wr_init_irq(struct acq400_dev* adev)
@@ -136,9 +143,7 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 	if (irq <= 0){
 		return 0;
 	}
-	if (wr_ts_inten){
-		wr_ctrl_set(adev, WR_CTRL_TS_INTEN);
-	}
+
 	dev_info(DEVP(adev), "acq400_wr_init_irq %d", irq);
 /*
 	rc = devm_request_threaded_irq(
@@ -149,9 +154,6 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
 		return 0;
-	}
-	if (wr_pps_inten){
-		wr_ctrl_set(adev, WR_CTRL_PPS_INTEN);
 	}
 
 	init_scdev(adev);
