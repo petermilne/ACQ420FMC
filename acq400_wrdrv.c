@@ -169,10 +169,12 @@ int _acq400_wr_open(struct inode *inode, struct file *file)
 
 	if (!is_ts && (file->f_flags & O_WRONLY)) {
 		return -EACCES;
-	}else if (wc->wc_pid != 0 && wc->wc_pid != current->pid){
+	}else if ((file->f_flags & O_RDONLY) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
 		return -EBUSY;
 	}else{
-		wc->wc_pid = current->pid;
+		if ((file->f_flags & O_RDONLY)){
+			wc->wc_pid = current->pid;
+		}
 		return 0;
 	}
 }

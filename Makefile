@@ -81,7 +81,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai  \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL dump_regs \
-	soft_atd wr_reset
+	soft_atd wr_reset wrtd
 	
 # data_sink	
 # dropped
@@ -240,6 +240,8 @@ bigmac.x86: bigmac.o
 mgtdram_descgen: 	mgtdram_descgen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
+wrtd: 	wrtd.o Multicast.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
