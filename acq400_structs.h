@@ -735,4 +735,8 @@ static inline void acq400_timer_init(
 }
 
 extern u64 acq400_trigger_ns;
+
+#define IRQ_REQUEST_OFFSET	0		/* arg to platform get irq is OFFSET from region. Linux knows best! */
+
+extern int acq400_wr_init_irq(struct acq400_dev* adev);
 #endif /* ACQ400_STRUCTS_H_ */

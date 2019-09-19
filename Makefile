@@ -29,6 +29,7 @@ obj-m += ads62p49.o
 obj-m += ao428.o
 obj-m += z7_eth1_1000X_en.o
 
+
 #obj-m += acq400-spi-bytebang.o
 
 DC := $(shell date +%y%m%d%H%M%S)
@@ -47,7 +48,8 @@ acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o \
 	acq400_xilinx_axidma.o acq400_deltrg.o \
 	acq400_set.o acq400_sysfs_utils.o  \
 	acq400_axi_chain.o acq400_axi_oneshot.o \
-	radcelf_sysfs.o acq400_reg_cache.o  spadcop.o
+	radcelf_sysfs.o acq400_reg_cache.o  spadcop.o \
+	acq400_wrdrv.o
 	
 dmadescfs-objs := dmadescfs_drv.o
 
@@ -76,10 +78,12 @@ APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk \
 	acq480_knobs transition_counter acq435_rtm_trim anatrg \
-	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai \
+	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai  \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL dump_regs \
 	soft_atd wr_reset
+	
+# data_sink	
 # dropped
 # multi_event 
 
@@ -169,11 +173,13 @@ bb: bb.o Buffer.o
 multi_event: multi_event.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-wr_reset: wr_reset.o
+wr_reset: wr_reset.o Env.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 	
 bbq_send_ai: bbq_send_ai.o Socket.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
+data_sink: data_sink.o Socket.o
+	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt
 phased_array: phased_array.o Buffer.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 	
