@@ -223,8 +223,8 @@ int restore_cal(char* wrbase)
 	return -1;
 }
 struct poptOption opt_table[] = {
-	{ "save_cal", 's', POPT_ARG_INT, &G::save_cal, 's', "save calibration" },
-	{ "is_wr_present", 'w', POPT_ARG_INT, &G::is_wr_present, 'w', "report if WRC present in system" },
+	{ "save_cal", 's', POPT_ARG_INT, &G::save_cal, 's', "save calibration and quit" },
+	{ "is_wr_present", 'w', POPT_ARG_INT, &G::is_wr_present, 'w', "report if WRC present in systemi and quit" },
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
@@ -247,6 +247,9 @@ const char* ui(int argc, const char** argv)
         }
         return poptGetArg(opt_context);
 }
+
+#define DEF_IMAGE	"/mnt/local/wrc.le.bin"
+
 int main(int argc, const char** argv)
 {
 	const char* image_file = ui(argc, argv);
@@ -259,10 +262,12 @@ int main(int argc, const char** argv)
 		return save_cal(wrbase);
 	}
 	reset(wrbase, 1);
-	if (image_file) {
-		wr_load(wrbase, image_file);
-		set_mac(wrbase);
+	if (image_file == 0) {
+		fprintf(stderr, "try default wrc image file %s\n", DEF_IMAGE);
+		image_file = DEF_IMAGE;
 	}
+	wr_load(wrbase, image_file);
+	set_mac(wrbase);
 	restore_cal(wrbase);
 	reset(wrbase, 0);
 
