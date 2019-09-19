@@ -31,5 +31,8 @@ do
 	fi
 done
 
-echo VAP=$VRANGE
-echo VAN=-$VRANGE
+
+export VAP=$VRANGE
+export VAN=-$VRANGE
+echo VAP=$VAP
+echo VAN=-$VAN
