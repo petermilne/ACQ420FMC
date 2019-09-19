@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.413"
+#define REVID 			"3.414"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2779,7 +2779,7 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 	u32 ts = acq400rd32(adev, WR_TAI_STAMP);
 
-	acq400wr32(adev, WR_CTRL, WR_CTRL_TS_INTACK);
+	acq400wr32(adev, WR_CTRL, int_sta);
 
 	return IRQ_WAKE_THREAD;	/* canned */
 }
@@ -2800,7 +2800,7 @@ static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 
-	acq400wr32(adev, WR_CTRL, WR_CTRL_PPS_INTACK);
+	acq400wr32(adev, WR_CTRL, int_sta);
 
 	return IRQ_WAKE_THREAD;	/* canned */
 }
