@@ -523,6 +523,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(WR_TAI_CUR_H);
 		DBG_REG_CREATE(WR_TAI_TRG);
 		DBG_REG_CREATE(WR_TAI_STAMP);
+		DBG_REG_CREATE(WR_CUR_VERNR);
 	}
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 }

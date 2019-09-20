@@ -663,22 +663,40 @@ static ssize_t show_wr_tai_trg(
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG);
-	return sprintf(buf, "%u,%u\n", tai_trg>>28, tai_trg&0x0fffffff);
+	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
 }
 
 static DEVICE_ATTR(wr_tai_trg, S_IRUGO, show_wr_tai_trg, store_wr_tai_trg);
 
+
+static ssize_t show_wr_stamp(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf, u32 reg)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned tai_stamp = acq400rd32(adev, WR_TAI_STAMP);
+	return sprintf(buf, "0x%08x %u %u\n", tai_stamp, (tai_stamp>>28)&0x7, tai_stamp&0x0fffffff);
+}
 static ssize_t show_wr_tai_stamp(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned tai_stamp = acq400rd32(adev, WR_TAI_STAMP);
-	return sprintf(buf, "0x%08x %u %u\n", tai_stamp, tai_stamp>>28, tai_stamp&0x0fffffff);
+	return show_wr_stamp(dev, attr, buf, WR_TAI_STAMP);
 }
 
 static DEVICE_ATTR(wr_tai_stamp, S_IRUGO, show_wr_tai_stamp, 0);
+
+static ssize_t show_wr_cur_vernier(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return show_wr_stamp(dev, attr, buf, WR_CUR_VERNR);
+}
+
+static DEVICE_ATTR(wr_cur_vernier, S_IRUGO, show_wr_cur_vernier, 0);
 
 MAKE_BITS(wr_clk_pv, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV);
 MAKE_BITS(wr_clk_pv3, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV3);
@@ -693,6 +711,7 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_tai_cur.attr,
 	&dev_attr_wr_tai_trg.attr,
 	&dev_attr_wr_tai_stamp.attr,
+	&dev_attr_wr_cur_vernier.attr,
 	NULL
 };
 

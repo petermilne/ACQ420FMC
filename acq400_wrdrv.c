@@ -212,15 +212,36 @@ ssize_t acq400_wr_read(struct file *file, char __user *buf, size_t count, loff_t
 	wc->wc_ts = 0;
 
 	rc = copy_to_user(buf, &tmp, sizeof(u32));
-	f_pos += sizeof(u32);
 
 	if (rc){
 		return -rc;
 	}else{
+		f_pos += sizeof(u32);
 		return sizeof(u32);
 	}
 }
 
+
+ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	u32 tmp = acq400rd32(adev, ACQ400_MINOR_WR_CUR);
+	int rc;
+
+	if (count < sizeof(u32)){
+		return -EINVAL;
+	}
+
+	rc = copy_to_user(buf, &tmp, sizeof(u32));
+
+	if (rc){
+		return -rc;
+	}else{
+		f_pos += sizeof(u32);
+		return sizeof(u32);
+	}
+}
 ssize_t acq400_wr_write(
 	struct file *file, const char __user *buf, size_t count, loff_t *f_pos)
 {
@@ -257,6 +278,14 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 			.write = acq400_wr_write,
 			.release = acq400_wr_release
 	};
-	file->f_op = &acq400_fops_wr;
-	return file->f_op->open(inode, file);
+	static struct file_operations acq400_fops_wr_cur = {
+			.read = acq400_wr_read_cur,
+	};
+	if (PD(file)->minor==ACQ400_MINOR_WR_CUR){
+		file->f_op = &acq400_fops_wr_cur;
+		return 0;
+	}else{
+		file->f_op = &acq400_fops_wr;
+		return file->f_op->open(inode, file);
+	}
 }
