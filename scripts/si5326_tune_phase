@@ -35,8 +35,8 @@ while [ "$STATE" != "ST_FINISHED" ]; do
 		PVC=$(adjust -3)
 		NSTATE=ST_FINISHED;;
 	esac
-	jump=.
-	[ "$STATE" != "$NSTATE ] && jump='=>'
+	jump='--'
+	[ "$STATE" != "$NSTATE" ] && jump='=>'
 	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump
 	STATE=$NSTATE
 done
