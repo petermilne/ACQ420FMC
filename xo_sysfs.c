@@ -338,6 +338,17 @@ static ssize_t show_xo_buffers(
 }
 static DEVICE_ATTR(xo_buffers, S_IRUGO, show_xo_buffers, 0);
 
+static ssize_t show_dac_fifo_sta(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 fifo_sta = acq400rd32(adev, DAC_FIFO_STA);
+	acq400rd32(adev, DAC_FIFO_STA, fifo_sta);
+	return sprintf(buf, "%02x\n", fifo_sta);
+}
+static DEVICE_ATTR(dac_fifo_sta, S_IRUGO, show_dac_fifo_sta, 0);
 
 const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_length.attr,
@@ -350,6 +361,7 @@ const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_pull_buf.attr,
 	&dev_attr_xo_buffers.attr,
 	&dev_attr_task_active.attr,
+	&dev_attr_dac_fifo_sta.attr,
 	NULL
 };
 
