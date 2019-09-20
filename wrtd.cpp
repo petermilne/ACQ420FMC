@@ -145,6 +145,15 @@ public:
 class WrtdCaster : public TSCaster {
 	int seq;
 	char hn[13];			// acq2106_[n]nnn
+
+	bool is_for_us(struct wrtd_message& msg) {
+		if (strncmp((char*)msg.event_id, "acq2106", 7) == 0){
+			return true;
+		}else{
+			fprintf(stderr, "HELP! non acq2106 message received\n");
+			return false;
+		}
+	}
 protected:
 	WrtdCaster(MultiCast& _mc) : TSCaster(_mc), seq(0)
 	{
@@ -175,12 +184,16 @@ protected:
 	}
 	virtual TS recvfrom() {
 		struct wrtd_message msg;
-		if (mc.recvfrom(&msg, sizeof(msg)) != sizeof(msg)){
-			perror("closedown");
-			exit(1);
+		while(true){
+			if (mc.recvfrom(&msg, sizeof(msg)) != sizeof(msg)){
+				perror("closedown");
+				exit(1);
+			}
+			if (is_for_us(msg)){
+				TS ts(msg.ts_sec, msg.ts_ns/G::ticks_per_ns);
+				return ts;
+			}
 		}
-		TS ts(msg.ts_sec, msg.ts_ns/G::ticks_per_ns);
-		return ts;
 	}
 };
 TSCaster& TSCaster::factory(MultiCast& _mc) {
