@@ -46,6 +46,7 @@ struct TS {
 
 	unsigned secs() const { return (raw& ~TS_EN) >> SECONDS_SHL; }
 	unsigned ticks() const { return raw&TICKS_MASK; }
+	unsigned nsec() const { return ticks() * G::ticks_per_ns; }
 
 	TS add (unsigned dsecs, unsigned dticks = 0) {
 		unsigned ss = secs();
@@ -116,26 +117,103 @@ const char* ui(int argc, const char** argv)
 }
 
 
-int sender(MultiCast& mc)
+
+class TSCaster {
+protected:
+	MultiCast& mc;
+	TSCaster(MultiCast& _mc) : mc(_mc)
+	{}
+public:
+	virtual void sendto(TS& ts) {
+		mc.sendto(&ts, sizeof(unsigned));
+	}
+	virtual TS recvfrom() {
+		TS ts;
+		if (mc.recvfrom(&ts.raw, sizeof(ts.raw)) != sizeof(ts.raw)){
+			perror("closedown");
+			exit(1);
+		}
+		return ts;
+	}
+	static TSCaster& factory(MultiCast& _mc);
+};
+
+#include <stdint.h>
+#include "wrtd-common.h"
+#include <unistd.h>
+
+class WrtdCaster : public TSCaster {
+	int seq;
+	char hn[13];			// acq2106_[n]nnn
+protected:
+	WrtdCaster(MultiCast& _mc) : TSCaster(_mc), seq(0)
+	{
+		gethostname(hn, sizeof(hn));
+	}
+	friend class TSCaster;
+
+	virtual void sendto(TS& ts) {
+	        struct wrtd_message msg;
+
+	        msg.hw_detect[0] = 'L';
+	        msg.hw_detect[1] = 'X';
+	        msg.hw_detect[2] = 'I';
+	        msg.domain = 0;
+
+	        snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
+
+	        msg.seq = seq;++
+	        msg.ts_sec = ts.secs();			// truncated at 7.. worktodo use TAI
+	        msg.ts_ns = ts.nsec();
+	        msg.ts_frac = 0;
+	        msg.ts_hi_sec = 0;
+	        msg.flags = 0;
+	        msg.zero[0] = 0;
+	        msg.zero[1] = 0;
+	        msg.pad[0] = 0;
+	        mc.sendto(&msg, sizeof(msg));
+	}
+	virtual TS recvfrom() {
+		struct wrtd_message msg;
+		if (mc.recvfrom(&msg, sizeof(msg)) != sizeof(msg)){
+			perror("closedown");
+			exit(1);
+		}
+		TS ts(msg.ts_sec, msg.ts_ns/G::ticks_per_ns);
+		return ts;
+	}
+};
+TSCaster& TSCaster::factory(MultiCast& _mc) {
+	if (getenv("WRTD_FULLMESSAGE")){
+		return * new WrtdCaster(_mc);
+	}else{
+		return * new TSCaster(_mc);
+	}
+}
+
+
+
+int sender(TSCaster& comms)
 {
 	FILE *fp = fopen(G::fname, "r");
 	TS ts;
 	while(fread(&ts.raw, sizeof(unsigned), 1, fp) == 1){
 		if (G::verbose) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
 		ts = ts + G::delta_ticks;
-		mc.sendto(&ts, sizeof(unsigned));
+		comms.sendto(ts);
 	}
 	return 0;
 }
 
-int receiver(MultiCast& mc)
+int receiver(TSCaster& comms)
 {
 	FILE *fp = fopen(G::fname, "w");
 	FILE *fp_cur = fopen(G::current, "r");
 
-	TS ts;
-	TS ts_cur;
-	while(mc.recvfrom(&ts.raw, sizeof(ts.raw)) == sizeof(ts.raw)){
+
+	while(true){
+		TS ts = comms.recvfrom();
+		TS ts_cur;
 		if (G::verbose > 1) fprintf(stderr, "receiver:ts:%s\n", ts.toStr());
 		int rc = fwrite(&ts.raw, sizeof(unsigned), 1, fp);
 		if (rc < 1){
@@ -157,9 +235,9 @@ int main(int argc, const char* argv[])
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx") == 0){
-		return sender(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+		return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 	}else{
-		return receiver(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER));
+		return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 	}
 }
 
