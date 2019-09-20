@@ -33,13 +33,15 @@
 
 int wr_ts_inten = 1;
 module_param(wr_ts_inten, int, 0444);
-MODULE_PARM_DESC(nbuffers, "1: enable Time Stamp interrupts");
+MODULE_PARM_DESC(wr_ts_inten, "1: enable Time Stamp interrupts");
 
 int wr_pps_inten = 1;
 module_param(wr_pps_inten, int, 0444);
-MODULE_PARM_DESC(nbuffers, "1: enable PPS interrupts");
+MODULE_PARM_DESC(wr_pps_inten, "1: enable PPS interrupts");
 
-
+int wr_tt_inten = 1;
+module_param(wr_tt_inten, int, 0444);
+MODULE_PARM_DESC(wr_tt_inten, "1: enable WRTT interrupts");
 
 static inline u32 wr_ctrl_set(struct acq400_dev *adev, unsigned bits){
 	u32 ctrl = acq400rd32(adev, WR_CTRL);
@@ -62,10 +64,15 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 
-	sc_dev->ts_client.wc_ts =acq400rd32(adev, WR_TAI_STAMP);
-
+	if (int_sta&WR_CTRL_TT_STA){
+		sc_dev->wrtt_client.wc_ts = acq400rd32(adev, WR_CUR_VERNR);
+		wake_up_interruptible(&sc_dev->wrtt_client.wc_waitq);
+	}
+	if (int_sta&WR_CTRL_TS_STA){
+		sc_dev->ts_client.wc_ts = acq400rd32(adev, WR_TAI_STAMP);
+		wake_up_interruptible(&sc_dev->ts_client.wc_waitq);
+	}
 	acq400wr32(adev, WR_CTRL, int_sta);
-	wake_up_interruptible(&sc_dev->ts_client.wc_waitq);
 	return IRQ_HANDLED;	/* canned */
 }
 #if 0
@@ -109,12 +116,16 @@ void init_scdev(struct acq400_dev* adev)
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	init_waitqueue_head(&sc_dev->pps_client.wc_waitq);
 	init_waitqueue_head(&sc_dev->ts_client.wc_waitq);
+	init_waitqueue_head(&sc_dev->wrtt_client.wc_waitq);
 
 	if (wr_ts_inten){
 		wr_ctrl_set(adev, WR_CTRL_TS_INTEN);
 	}
 	if (wr_pps_inten){
 		wr_ctrl_set(adev, WR_CTRL_PPS_INTEN);
+	}
+	if (wr_tt_inten){
+		wr_ctrl_set(adev, WR_CTRL_TT_INTEN);
 	}
 }
 
@@ -160,14 +171,35 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 	return rc;
 }
 
-int _acq400_wr_open(struct inode *inode, struct file *file)
+struct WrClient *getWCfromMinor(struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	int is_ts = PD(file)->minor==ACQ400_MINOR_WR_TS;
-	struct WrClient *wc = is_ts? &sc_dev->ts_client: &sc_dev->pps_client;
+	struct WrClient *wc = 0;
 
-	if (!is_ts && (file->f_flags & O_WRONLY)) {
+	switch(PD(file)->minor){
+	case ACQ400_MINOR_WR_TS:
+		wc = &sc_dev->ts_client;
+		break;
+	case ACQ400_MINOR_WR_PPS:
+		wc = &sc_dev->pps_client;
+		break;
+	case ACQ400_MINOR_WRTT:
+		wc = &sc_dev->wrtt_client;
+		break;
+	default:
+		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", PD(file)->minor);
+	}
+	return wc;
+}
+int _acq400_wr_open(struct inode *inode, struct file *file)
+{
+	int is_ts = PD(file)->minor==ACQ400_MINOR_WR_TS;
+	struct WrClient *wc = getWCfromMinor(file);
+
+	if (wc == 0){
+		return -ENODEV;
+	}else if (!is_ts && (file->f_flags & O_WRONLY)) {		// only ts is writeable
 		return -EACCES;
 	}else if ((file->f_flags & O_RDONLY) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
 		return -EBUSY;
@@ -181,10 +213,7 @@ int _acq400_wr_open(struct inode *inode, struct file *file)
 
 int acq400_wr_release(struct inode *inode, struct file *file)
 {
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	int is_ts = PD(file)->minor==ACQ400_MINOR_WR_TS;
-	struct WrClient *wc = is_ts? &sc_dev->ts_client: &sc_dev->pps_client;
+	struct WrClient *wc = getWCfromMinor(file);
 
 	if (wc->wc_pid != 0 && wc->wc_pid == current->pid){
 		wc->wc_pid = 0;
@@ -196,8 +225,7 @@ ssize_t acq400_wr_read(struct file *file, char __user *buf, size_t count, loff_t
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct WrClient *wc = PD(file)->minor==ACQ400_MINOR_WR_TS? &sc_dev->ts_client: &sc_dev->pps_client;
+	struct WrClient *wc = getWCfromMinor(file);
 	u32 tmp;
 	int rc;
 

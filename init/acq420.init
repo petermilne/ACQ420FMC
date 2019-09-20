@@ -109,6 +109,7 @@ build_nodes() {
 				mknod /dev/${NAME}.wr_ts  c ${MAJOR} 20
 				mknod /dev/${NAME}.wr_pps c ${MAJOR} 21
 				mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
+				mknod /dev/${NAME}.wr_tt c ${MAJOR} 22
 			else
 				mknod /dev/${NAME}.ev   c ${MAJOR}  6
 				mknod /dev/${NAME}.atd  c ${MAJOR} 16
