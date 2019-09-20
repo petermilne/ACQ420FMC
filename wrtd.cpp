@@ -15,7 +15,7 @@
 #define M1 1000000
 #define NSPS	(1000*M1)		// nanoseconds per second
 
-#define REPORT_THRESHOLD (3*M1)		// 3 msec warning
+#define REPORT_THRESHOLD (2*M1)		// 10 msec warning
 
 namespace G {
 	const char* group = "224.0.23.159";
@@ -25,7 +25,7 @@ namespace G {
 	int delta_ticks = 800000;			// 10 msec at 80MHz
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
-        unsigned dns = 1000000;				// delta nsec
+        unsigned dns = 3000000;				// delta nsec
         unsigned ticks_per_ns = 50;			// ticks per nsec
 }
 
