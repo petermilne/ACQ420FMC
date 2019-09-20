@@ -1,0 +1,4 @@
+#!/bin/sh
+# returns clock period in nsec
+
+get.site 0 SIG:CLK_MB:FREQ | awk '{ printf( "%.0f\n", $2/1000 ) }' | awk '{ print 1e9/(1000*$1) }'
