@@ -25,8 +25,8 @@ namespace G {
 	int delta_ticks = 800000;			// 10 msec at 80MHz
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
-        unsigned dns = 100000;		// delta nsec
-        unsigned ticks_per_ns = 50;		// ticks per nsec
+        unsigned dns = 1000000;				// delta nsec
+        unsigned ticks_per_ns = 50;			// ticks per nsec
 }
 
 
