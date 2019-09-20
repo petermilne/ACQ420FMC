@@ -28,10 +28,11 @@ protected:
 	struct sockaddr_in addr;
 	int sock;
 	socklen_t addrlen;
+	int verbose;
 
 public:
 	MultiCastImpl(const char* _group, int _port):
-		group(_group), port(_port)
+		group(_group), port(_port), verbose(0)
 	{
 		  /* set up socket */
 		   sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -44,6 +45,9 @@ public:
 		   addr.sin_addr.s_addr = htonl(INADDR_ANY);
 		   addr.sin_port = htons(port);
 		   addrlen = sizeof(addr);
+		   if (getenv("MultiCastVerbose")){
+			   verbose = atoi(getenv("MultiCastVerbose"));
+		   }
 	}
 	virtual int sendto(const void* message, int len) {
 		return -1;
@@ -88,19 +92,19 @@ public:
 			perror("setsockopt mreq");
 			exit(1);
 		}
-		printf("MultiCastReceiver() 99\n");
+		if (verbose) printf("MultiCastReceiver() 99\n");
 	}
 
 	virtual int recvfrom(void* message, int len) {
 
-		printf("MultiCastReceiver()::recvfrom 01\n");
+		if (verbose > 1 )printf("MultiCastReceiver()::recvfrom 01\n");
 		int rc = ::recvfrom(sock, message, len, 0,
 				(struct sockaddr *) &addr, &addrlen);
 		if (rc < 0) {
 			perror("recvfrom");
 			exit(1);
 		}
-		printf("MultiCastReceiver()::recvfrom 99 => %d\n", rc);
+		if (verbose > 1) printf("MultiCastReceiver()::recvfrom 99 => %d\n", rc);
 		return rc;
 	}
 };
