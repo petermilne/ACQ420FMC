@@ -226,7 +226,7 @@ ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, lo
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	u32 tmp = acq400rd32(adev, ACQ400_MINOR_WR_CUR);
+	u32 tmp = acq400rd32(adev, WR_CUR_VERNR);
 	int rc;
 
 	if (count < sizeof(u32)){
