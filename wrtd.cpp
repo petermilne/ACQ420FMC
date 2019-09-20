@@ -99,7 +99,11 @@ int receiver(MultiCast& mc)
 	TS ts;
 	while(mc.recvfrom(&ts.raw, sizeof(ts.raw)) == sizeof(ts.raw)){
 		if (G::verbose) fprintf(stderr, "receiver:ts:%s\n", ts.toStr());
-		fwrite(&ts.raw, sizeof(unsigned), 1, fp);
+		int rc = fwrite(&ts.raw, sizeof(unsigned), 1, fp);
+		if (rc < 1){
+			perror("fwrite");
+		}
+		fflush(fp);
 	}
 	return 0;
 }
