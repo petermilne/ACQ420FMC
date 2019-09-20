@@ -666,7 +666,7 @@ static ssize_t show_wr_tai_trg(
 	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
 }
 
-static DEVICE_ATTR(wr_tai_trg, S_IRUGO, show_wr_tai_trg, store_wr_tai_trg);
+static DEVICE_ATTR(wr_tai_trg, S_IRUGO|S_IWUSR, show_wr_tai_trg, store_wr_tai_trg);
 
 
 static ssize_t show_wr_stamp(
