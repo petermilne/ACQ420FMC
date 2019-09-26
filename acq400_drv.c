@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.421"
+#define REVID 			"3.422"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2698,6 +2698,8 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	struct HBM* cursor;
 
 	dev_info(DEVP(adev), "allocate_hbm() nb:%d bl:0x%08x\n", nb, bl);
+	adev->hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+
 	if (IS_SC(adev)){
 	    ix += hbm_allocate(DEVP(adev), ix, reserve_buffers, bl, &adev->GRESV, dir);
 	    nb -= reserve_buffers;
@@ -2706,7 +2708,6 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 
 	dev_info(DEVP(adev), "setting nbuffers %d\n", ix);
 	ix = 0;
-	adev->hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
 	list_for_each_entry(cursor, &adev->GRESV, list){
 		dev_dbg(DEVP(adev), "setting ix G %d %d\n", ix, cursor->ix);
 		adev->hb[ix] = cursor;
