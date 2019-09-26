@@ -771,6 +771,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStop = dio432_onStop;
 	xo_dev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 	xo_dev->xo.fsr = DIO432_DO_FIFO_STATUS;
+	xo_dev->xo.max_fifo_samples = 1234;
 	adev->isFifoError = dio432_isFifoError;
 	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
