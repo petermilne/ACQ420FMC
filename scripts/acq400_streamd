@@ -2,6 +2,12 @@
 # if there's a previous hanging instance, kill it and drop out
 # client can retry at an appropriate moment to restart..
 
+if [ ! -e /var/www/d-tacq/rc-user-complete ]; then
+	sleep 2
+	echo NOT READY
+	exit 0
+fi
+
 source /usr/local/bin/init_stream
 
 SITE=$1
