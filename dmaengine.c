@@ -279,7 +279,7 @@ enum dma_status dma_sync_wait(struct dma_chan *chan, dma_cookie_t cookie)
 	do {
 		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
 		if (time_after_eq(jiffies, dma_sync_wait_timeout)) {
-			pr_err("%s: timeout!\n", __func__);
+			pr_err("%s: timeout timeout:%d status:%d!\n", __func__);
 			return DMA_ERROR;
 		}
 		if (status != DMA_IN_PROGRESS)
