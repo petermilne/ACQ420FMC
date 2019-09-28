@@ -254,7 +254,7 @@ ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, lo
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	u32 tmp = acq400rd32(adev, WR_CUR_VERNR);
+	u32 tmp = acq400rd32(adev, pdesc->minor==ACQ400_MINOR_WR_CUR? WR_CUR_VERNR: WR_TAI_CUR_L);
 	int rc;
 
 	if (count < sizeof(u32)){
@@ -309,10 +309,12 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 	static struct file_operations acq400_fops_wr_cur = {
 			.read = acq400_wr_read_cur,
 	};
-	if (PD(file)->minor==ACQ400_MINOR_WR_CUR){
+	switch(PD(file)->minor){
+	case ACQ400_MINOR_WR_CUR:
+	case ACQ400_MINOR_WR_CUR_TAI:
 		file->f_op = &acq400_fops_wr_cur;
 		return 0;
-	}else{
+	default:
 		file->f_op = &acq400_fops_wr;
 		return file->f_op->open(inode, file);
 	}
