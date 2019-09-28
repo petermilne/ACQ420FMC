@@ -1,5 +1,7 @@
 #!/bin/sh
 
+
+start_wr() {
 wr_reset --is_wr_present=1
 
 if [ $? -eq 0 ]; then
@@ -11,4 +13,42 @@ if [ $? -eq 0 ]; then
 		wr_reset
 	fi
 fi
- 
+}
+
+PIDF_TX=/var/run/wrtd_tx.pid
+PIDF_RX=/var/run/wrtd_tx.pid
+LOG_RX=/var/log/wrtd-rx.log
+LOG_TX=/var/log/wrtd-rx.log
+
+start_wrtd() {
+	WRTD_DNS=50000000
+	WRTD_NICE=-10
+	WRTD_VERBOSE=0
+
+	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
+
+	/usr/local/bin/procServ \
+		-c / -p $PIDF_RX -L $LOG_RX  4280 \
+		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE rx 
+
+	/usr/local/bin/procServ \
+		-c / -p $PIDF_TX -L $LOG_TX  4281 \
+		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE tx 
+}
+
+stop_wrtd() {
+	for pidf in $PIDF_TX $PIDF_TX; do
+		if [ -e $pidf ]; then
+			pid=$(cat $pidf)
+			rm $pidf
+			kill -s TERM $pid
+		fi
+	done
+}
+
+case "$1" in
+start|"")
+	start_wr
+	start_wrtd;;
+esac
+
