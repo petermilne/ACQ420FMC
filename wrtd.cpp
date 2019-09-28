@@ -15,20 +15,21 @@
 #define M1 1000000
 #define NSPS	(1000*M1)		// nanoseconds per second
 
-#define REPORT_THRESHOLD (2*M1)		// 10 msec warning
+
 
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
 	const char* fname = "/dev/acq400.0.wr_ts";
 	const char* current = "/dev/acq400.0.wr_cur";
-	int delta_ticks = 800000;			// 10 msec at 80MHz
+	int delta_ticks;
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
-        unsigned dns = 3000000;				// delta nsec
-        unsigned ticks_per_ns = 50;			// ticks per nsec
+        unsigned dns = 40*M1;				// delta nsec
+        unsigned ns_per_tick = 50;			// ticks per nsec
 }
 
+#define REPORT_THRESHOLD (G::dns/4)
 
 #define SECONDS_SHL	28
 #define SECONDS_MASK	0x7
@@ -46,7 +47,7 @@ struct TS {
 
 	unsigned secs() const { return (raw& ~TS_EN) >> SECONDS_SHL; }
 	unsigned ticks() const { return raw&TICKS_MASK; }
-	unsigned nsec() const { return ticks() * G::ticks_per_ns; }
+	unsigned nsec() const { return ticks() * G::ns_per_tick; }
 
 	TS add (unsigned dsecs, unsigned dticks = 0) {
 		unsigned ss = secs();
@@ -72,7 +73,7 @@ struct TS {
 		}else{
 			_ticks -= ts2.ticks();
 		}
-		return (_secs - ts2.secs())*NSPS + _ticks*G::ticks_per_ns;
+		return (_secs - ts2.secs())*NSPS + _ticks*G::ns_per_tick;
 	}
 
 	const char* toStr(void) {
@@ -82,7 +83,7 @@ struct TS {
 };
 struct poptOption opt_table[] = {
 	{
-	  "tickns", 0, POPT_ARG_INT, &G::ticks_per_ns, 0, "tick size nsec"
+	  "tickns", 0, POPT_ARG_INT, &G::ns_per_tick, 0, "tick size nsec"
 	},
 	{
 	  "dns", 'd', POPT_ARG_INT, &G::dns, 0, "nsec to add to current time"
@@ -107,11 +108,11 @@ const char* ui(int argc, const char** argv)
                         ;
                 }
         }
-        G::ticks_per_sec = NSPS / G::ticks_per_ns;
-        G::delta_ticks = G::dns / G::ticks_per_ns;
+        G::ticks_per_sec = NSPS / G::ns_per_tick;
+        G::delta_ticks = G::dns / G::ns_per_tick;
 
         if (G::verbose) fprintf(stderr, "ns per tick: %u ticks per s: %u delta_ticks %u\n",
-        		G::ticks_per_ns, G::ticks_per_sec, G::delta_ticks);
+        		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
         return poptGetArg(opt_context);
 }
@@ -123,17 +124,20 @@ protected:
 	MultiCast& mc;
 	TSCaster(MultiCast& _mc) : mc(_mc)
 	{}
+	TS ts;
 public:
 	virtual void sendto(TS& ts) {
 		mc.sendto(&ts, sizeof(unsigned));
 	}
 	virtual TS recvfrom() {
-		TS ts;
 		if (mc.recvfrom(&ts.raw, sizeof(ts.raw)) != sizeof(ts.raw)){
 			perror("closedown");
 			exit(1);
 		}
 		return ts;
+	}
+	virtual int printLast() {
+		return printf("%08x\n", ts.raw);
 	}
 	static TSCaster& factory(MultiCast& _mc);
 };
@@ -154,6 +158,7 @@ class WrtdCaster : public TSCaster {
 			return false;
 		}
 	}
+	struct wrtd_message msg;
 protected:
 	WrtdCaster(MultiCast& _mc) : TSCaster(_mc), seq(0)
 	{
@@ -162,8 +167,6 @@ protected:
 	friend class TSCaster;
 
 	virtual void sendto(TS& ts) {
-	        struct wrtd_message msg;
-
 	        msg.hw_detect[0] = 'L';
 	        msg.hw_detect[1] = 'X';
 	        msg.hw_detect[2] = 'I';
@@ -171,7 +174,7 @@ protected:
 
 	        snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
 
-	        msg.seq = seq;++
+	        msg.seq = seq++;
 	        msg.ts_sec = ts.secs();			// truncated at 7.. worktodo use TAI
 	        msg.ts_ns = ts.nsec();
 	        msg.ts_frac = 0;
@@ -182,22 +185,29 @@ protected:
 	        msg.pad[0] = 0;
 	        mc.sendto(&msg, sizeof(msg));
 	}
+	virtual int printLast() {
+		return printf("%s %16s %u %u %u\n", msg.hw_detect, msg.event_id, msg.seq, msg.ts_sec, msg.ts_ns);
+	}
 	virtual TS recvfrom() {
-		struct wrtd_message msg;
 		while(true){
 			if (mc.recvfrom(&msg, sizeof(msg)) != sizeof(msg)){
 				perror("closedown");
 				exit(1);
 			}
 			if (is_for_us(msg)){
-				TS ts(msg.ts_sec, msg.ts_ns/G::ticks_per_ns);
+				TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
 				return ts;
 			}
 		}
 	}
 };
 TSCaster& TSCaster::factory(MultiCast& _mc) {
-	if (getenv("WRTD_FULLMESSAGE")){
+	int use_wrtd_fullmessage = 1;
+	const char* value = getenv("WRTD_FULLMESSAGE");
+	if (value){
+		use_wrtd_fullmessage = atoi(value);
+	}
+	if (use_wrtd_fullmessage){
 		return * new WrtdCaster(_mc);
 	}else{
 		return * new TSCaster(_mc);
@@ -222,7 +232,7 @@ int receiver(TSCaster& comms)
 {
 	FILE *fp = fopen(G::fname, "w");
 	FILE *fp_cur = fopen(G::current, "r");
-
+	long dms = G::dns/M1;
 
 	while(true){
 		TS ts = comms.recvfrom();
@@ -235,10 +245,13 @@ int receiver(TSCaster& comms)
 		fflush(fp);
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
-		TS ts_delay = ts_cur + G::delta_ticks;
-		if (G::verbose) fprintf(stderr, "wrtd rx demand:%s cur:%s %ld usec\n", ts.toStr(), ts_cur.toStr(), ts.diff(ts_delay)/1000);
-		if(ts_delay.diff(ts) > REPORT_THRESHOLD){
-			fprintf(stderr, "wrtd rc WARNING threshold ");
+		if (G::verbose) comms.printLast();
+
+		long dt = ts.diff(ts_cur);
+		if (dt < 0){
+			fprintf(stderr, "wrtd rx ERROR missed ts by %ld msec\n", dt/M1);
+		}else if (dt < (long)REPORT_THRESHOLD){
+			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
 	return 0;
