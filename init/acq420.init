@@ -106,14 +106,6 @@ build_nodes() {
 				mknod /dev/${NAME}.bq   c ${MAJOR} 15	
 				mknod /dev/${NAME}.bqf  c ${MAJOR} 17
 				mknod /dev/${NAME}.axi0 c ${MAJOR} 19
-				case $MODEL in
-				acq2106*)
-					mknod /dev/${NAME}.wr_ts  c ${MAJOR} 20
-					mknod /dev/${NAME}.wr_pps c ${MAJOR} 21
-					mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
-					mknod /dev/${NAME}.wr_tt c ${MAJOR} 23
-					mknod /dev/${NAME}.wr_tai c ${MAJOR} 24;;
-				esac
 			else
 				mknod /dev/${NAME}.ev   c ${MAJOR}  6
 				mknod /dev/${NAME}.atd  c ${MAJOR} 16
@@ -766,14 +758,12 @@ kmcu*)
 	load_mgt $MODEL;;
 esac
 
-# finalize the name please.
-grep filename /tmp/fpga_status | egrep -q -e WHR -e WR  && /usr/local/init/wr.init
-
-
-
 build_knobs
 set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
+
+# finalize the name please.
+grep filename /tmp/fpga_status | egrep -q -e WHR -e WR  && /usr/local/init/wr.init
 
 AXI_COUNT=0
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then

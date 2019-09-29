@@ -2,17 +2,19 @@
 
 
 start_wr() {
-wr_reset --is_wr_present=1
-
-if [ $? -eq 0 ]; then
-	echo +++ wr present
 	if [ -e /mnt/local/wrc.le.bin ]; then
 		echo +++ wr load new firmware
 		wr_reset /mnt/local/wrc.le.bin
 	else
 		wr_reset
 	fi
-fi
+	NAME=acq400.0
+	MAJOR=$(grep ${NAME} /proc/devices | awk '{ print $1 }')
+	mknod /dev/${NAME}.wr_ts  c ${MAJOR} 20
+	mknod /dev/${NAME}.wr_pps c ${MAJOR} 21
+	mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
+	mknod /dev/${NAME}.wr_tt  c ${MAJOR} 23
+	mknod /dev/${NAME}.wr_tai c ${MAJOR} 24
 }
 
 PIDF_TX=/var/run/wrtd_tx.pid
@@ -29,11 +31,11 @@ start_wrtd() {
 
 	/usr/local/bin/procServ \
 		-c / -p $PIDF_RX -L $LOG_RX  4280 \
-		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE rx 
-
+		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE rx
+		
 	/usr/local/bin/procServ \
 		-c / -p $PIDF_TX -L $LOG_TX  4281 \
-		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE tx 
+		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --dns $WRTD_DNS -v $WRTD_VERBOSE tx
 }
 
 stop_wrtd() {
@@ -48,7 +50,10 @@ stop_wrtd() {
 
 case "$1" in
 start|"")
-	start_wr
-	start_wrtd;;
+	wr_reset --is_wr_present=1
+	if [ $? -eq 0 ]; then
+		start_wr
+		start_wrtd
+	fi;;
 esac
 
