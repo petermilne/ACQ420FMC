@@ -20,14 +20,19 @@ monitor() {
         while [ 1 ]
         do
                 (/usr/local/CARE/tai_date
-                echo ---------------------------------------
+                echo ------------------------------
                 cd /etc/acq400/0/
-                for k in wr_tai_cur wr_clk_pv \
-                		wr_cur_vernier wr_tai_stamp wr_tai_trg wr_trg_src; do 
+                for k in wr_tai_cur wr_clk_pv; do 
                 	get_knob $k; 
                 done
                 echo
-                for k in *_count; do 
+				for k in wr_cur_vernier wr_tai_stamp wr_tai_trg; do 
+                	get_knob $k; 
+                done                
+                echo
+                get_knob wr_trg_src
+                echo
+                for k in wr*_count; do 
                 	get_knob $k; 
                 done
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
