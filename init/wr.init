@@ -13,13 +13,14 @@ web_append()
 }
 
 get_knob() {
-	printf "%30s %s\n" $1 $(cat /dev/acq400.0.knobs/$1)	
+	printf "\n%30s %s\n" $1 "$(cat /dev/acq400.0.knobs/$1)"	
 }
 monitor() {
         echo monitor wr.xml
         while [ 1 ]
         do
-                (/usr/local/CARE/tai_date; echo ------------- 
+                (/usr/local/CARE/tai_date
+                echo ---------------------------------------
                 cd /etc/acq400/0/
                 for k in wr*; do get_knob $k; done
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
