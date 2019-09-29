@@ -12,11 +12,17 @@ web_append()
 	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
 }
 
+get_knob() {
+	printf "%30s %s\n" $1 $(cat /dev/acq400.0.knobs/$1)	
+}
 monitor() {
         echo monitor wr.xml
         while [ 1 ]
         do
-                /usr/local/CARE/tai_date | fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
+                (/usr/local/CARE/tai_date; echo ------------- 
+                cd /etc/acq400/0/
+                for k in wr*; do get_knob $k; done
+                )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
                 sleep 1
         done
