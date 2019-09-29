@@ -13,7 +13,7 @@ web_append()
 }
 
 get_knob() {
-	printf "\n%30s %s\n" $1 "$(cat /dev/acq400.0.knobs/$1)"	
+	printf "%30s %s\n" $1 "$(cat /dev/acq400.0.knobs/$1)"	
 }
 monitor() {
         echo monitor wr.xml
@@ -22,7 +22,14 @@ monitor() {
                 (/usr/local/CARE/tai_date
                 echo ---------------------------------------
                 cd /etc/acq400/0/
-                for k in wr*; do get_knob $k; done
+                for k in wr_tai_cur wr_clk_pv \
+                		wr_cur_vernier wr_tai_stamp wr_tai_trg wr_trg_src; do 
+                	get_knob $k; 
+                done
+                echo
+                for k in *_count; do 
+                	get_knob $k; 
+                done
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
                 sleep 1
@@ -49,7 +56,7 @@ start_wr() {
 	
 	
 	nice daemon $WEB_APPEND_JOB
-	monitor &
+	nice daemon /usr/local/init/wr.init monitor
 }
 
 PIDF_TX=/var/run/wrtd_tx.pid
@@ -84,6 +91,8 @@ stop_wrtd() {
 }
 
 case "$1" in
+monitor)
+	monitor;;
 start|"")
 	wr_reset --is_wr_present=1
 	if [ $? -eq 0 ]; then
