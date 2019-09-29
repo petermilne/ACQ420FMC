@@ -266,6 +266,7 @@ struct acq400_sc_dev {
 		unsigned diX;		/* 0 : off 1: di4 2: di32 */
 	} spad;				/** scratchpad enable */
 	struct WrClient {
+		unsigned wc_count;
 		unsigned wc_ts;			/* time of event, recorded by ISR */
 		unsigned wc_pid;		/* client pid, singleton 		*/
 		wait_queue_head_t wc_waitq;	/* client blocks on this		*/

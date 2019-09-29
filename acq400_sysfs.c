@@ -704,6 +704,38 @@ MAKE_BITS(wr_clk_pv3, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV3);
 
 MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
 
+#define MAKE_WR_EVENT_COUNT(FUN) 								\
+static ssize_t store_wr_##FUN##count(								\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	const char * buf,									\
+	size_t count)										\
+{												\
+	struct acq400_dev* adev = acq400_devices[dev->id];					\
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);		\
+	unsigned clear;										\
+	if (sscanf(buf, "%u", &clear) == 1 && clear==1){					\
+		sc_dev->FUN.wc_count = 0;							\
+		return count;									\
+	}else{											\
+		return -1;									\
+	}											\
+}												\
+static ssize_t show_wr_##FUN##count(								\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	char * buf)										\
+{												\
+	struct acq400_dev* adev = acq400_devices[dev->id];					\
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);		\
+	return sprintf(buf, "%u\n", sc_dev->FUN.wc_count);					\
+}												\
+static DEVICE_ATTR(wr_##FUN##_count, S_IRUGO|S_IWUSR, show_wr_##FUN##count, store_wr_##FUN##count)
+
+MAKE_WR_EVENT_COUNT(pps_client);
+MAKE_WR_EVENT_COUNT(ts_client);
+MAKE_WR_EVENT_COUNT(wrtt_client);
+
 static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_clk_pv.attr,
 	&dev_attr_wr_clk_pv3.attr,
@@ -712,6 +744,9 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_tai_trg.attr,
 	&dev_attr_wr_tai_stamp.attr,
 	&dev_attr_wr_cur_vernier.attr,
+	&dev_attr_wr_pps_client_count.attr,
+	&dev_attr_wr_ts_client_count.attr,
+	&dev_attr_wr_wrtt_client_count.attr,
 	NULL
 };
 

@@ -66,10 +66,12 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 
 	if (int_sta&WR_CTRL_TT_STA){
 		sc_dev->wrtt_client.wc_ts = acq400rd32(adev, WR_CUR_VERNR);
+		sc_dev->wrtt_client.wc_count++;
 		wake_up_interruptible(&sc_dev->wrtt_client.wc_waitq);
 	}
 	if (int_sta&WR_CTRL_TS_STA){
 		sc_dev->ts_client.wc_ts = acq400rd32(adev, WR_TAI_STAMP);
+		sc_dev->ts_client.wc_count++;
 		wake_up_interruptible(&sc_dev->ts_client.wc_waitq);
 	}
 	acq400wr32(adev, WR_CTRL, int_sta);
@@ -94,6 +96,7 @@ static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 
 	sc_dev->pps_client.wc_ts =acq400rd32(adev, WR_TAI_CUR_L);
+	sc_dev->pps_client.wc_count++;
 
 	acq400wr32(adev, WR_CTRL, int_sta);
 	wake_up_interruptible(&sc_dev->pps_client.wc_waitq);
