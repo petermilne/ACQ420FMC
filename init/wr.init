@@ -1,5 +1,27 @@
 #!/bin/sh
 
+export WEB_APPEND_JOB=/tmp/wr-web-append.job
+
+web_append()
+{
+	if [ ! -e $WEB_APPEND_JOB ]; then
+		echo '#!/bin/sh' >$WEB_APPEND_JOB
+		echo '# created by wr.init' >> $WEB_APPEND_JOB
+		chmod a+rx $WEB_APPEND_JOB
+	fi
+	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
+}
+
+monitor() {
+        echo monitor wr.xml
+        while [ 1 ]
+        do
+                /usr/local/CARE/tai_date | fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
+                mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
+                sleep 1
+        done
+}
+
 
 start_wr() {
 	if [ -e /mnt/local/wrc.le.bin ]; then
@@ -15,6 +37,11 @@ start_wr() {
 	mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
 	mknod /dev/${NAME}.wr_tt  c ${MAJOR} 23
 	mknod /dev/${NAME}.wr_tai c ${MAJOR} 24
+	web_append wr nomon
+	
+	
+	nice daemon $WEB_APPEND_JOB
+	monitor &
 }
 
 PIDF_TX=/var/run/wrtd_tx.pid
