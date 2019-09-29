@@ -254,20 +254,29 @@ ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, lo
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	u32 tmp = acq400rd32(adev, pdesc->minor==ACQ400_MINOR_WR_CUR? WR_CUR_VERNR: WR_TAI_CUR_L);
+	int reg;
 	int rc;
 
+	switch(pdesc->minor){
+	case ACQ400_MINOR_WR_CUR:
+		reg = WR_CUR_VERNR; break;
+	case ACQ400_MINOR_WR_CUR_TRG:
+		reg = WR_TAI_TRG; break;
+	default:
+		reg = WR_TAI_CUR_L;
+	}
 	if (count < sizeof(u32)){
 		return -EINVAL;
-	}
-
-	rc = copy_to_user(buf, &tmp, sizeof(u32));
-
-	if (rc){
-		return -rc;
 	}else{
-		f_pos += sizeof(u32);
-		return sizeof(u32);
+		u32 tmp = acq400rd32(adev, reg);
+		rc = copy_to_user(buf, &tmp, sizeof(u32));
+
+		if (rc){
+			return -rc;
+		}else{
+			f_pos += sizeof(u32);
+			return sizeof(u32);
+		}
 	}
 }
 ssize_t acq400_wr_write(
@@ -312,6 +321,7 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 	switch(PD(file)->minor){
 	case ACQ400_MINOR_WR_CUR:
 	case ACQ400_MINOR_WR_CUR_TAI:
+	case ACQ400_MINOR_WR_CUR_TRG:
 		file->f_op = &acq400_fops_wr_cur;
 		return 0;
 	default:

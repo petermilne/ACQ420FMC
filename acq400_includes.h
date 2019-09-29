@@ -96,7 +96,7 @@
 #define ACQ400_MINOR_WR_CUR	22	// read : u32 WR_
 #define ACQ400_MINOR_WRTT	23	// read : u32 WR_TT CUR time
 #define ACQ400_MINOR_WR_CUR_TAI 24	// read : u32 WR_TAI_CUR_L no block
-
+#define ACQ400_MINOR_WR_CUR_TRG 25	// read : u32 WR_TRG, no block.
 #define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
 
 #define ACQ400_MINOR_MAP_PAGE_OFFSET(minor) \
