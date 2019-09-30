@@ -95,6 +95,9 @@
 
 #define STDOUT	1
 
+#define MAX_BACKTRACK 	3
+#define MAX_FORTRACK	4
+
 int getenv_default(const char* key, int def = 0){
 	const char* vs = getenv(key);
 	if (vs){
@@ -1858,6 +1861,8 @@ protected:
 
 	int ev_num;
 	int verbose;
+	int buffer_id_verbose;
+	int stop_on_fail;
 	int buffers_searched;
 
 
@@ -2011,7 +2016,7 @@ protected:
 	bool findEvent(int *ibuf, char** espp) {
 
 		unsigned long usecs;
-		int b1, b2;
+		int b1, b2, b3;
 		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
 
 		if (verbose) fprintf(stderr, "%s \"%s\" nscan=%d %s\n", _PFN,
@@ -2027,6 +2032,7 @@ protected:
 
 		Buffer* buffer2 = Buffer::the_buffers[b2];
 
+
 		if (verbose) fprintf(stderr, "call findEvent buffer2 %d\n", buffer2->ib());
 		char* esp = findEvent(buffer2);
 		if (esp){
@@ -2037,6 +2043,21 @@ protected:
 			return true;
 		}else{
 			if (verbose) fprintf(stderr, "b2 not found\n");
+		}
+
+		if (verbose) fprintf(stderr, "call findEvent buffer2+ %d\n", buffer2->succ());
+		Buffer* buffer3 = buffer2;
+		for (int iforward = 1; iforward < MAX_FORTRACK; ++iforward){
+			esp = findEvent(buffer3 = Buffer::the_buffers[b3 = buffer3->succ()]);
+			if (esp){
+				report("b3", b3, esp);
+				if (ibuf) *ibuf = b3;
+				if (espp) *espp = esp;
+				if (verbose) fprintf(stderr, "%s return b3=%d esp=%p true\n", _PFN, b1, esp);
+				return true;
+			}else{
+				if (verbose) fprintf(stderr, "b3=%d not found\n", b3);
+			}
 		}
 
 		Buffer* buffer1;
@@ -2068,10 +2089,16 @@ protected:
 				if (espp) *espp = esp;
 				return true;
 			}
+			if (backtrack >= MAX_BACKTRACK){
+				break;
+			}
 		}
 		reportFindEvent(buffer1, FE_FAIL);
 		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
-
+		if (stop_on_fail){
+			fprintf(stderr, "STOP ON FAIL\n");
+			exit(1);
+		}
 		return false;
 	}
 	int countES(char* start, int len) {
@@ -2123,11 +2150,12 @@ protected:
 		}
 		reportFindEvent(the_buffer, FE_NOTFOUND);
 		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
+
 		return 0;
 	}
 	virtual int getBufferId() {
 		int ib = StreamHead::getBufferId();
-		if (verbose) fprintf(stderr, "StreamHeadImpl::getBufferId() sob:%d\n", G::stream_sob_sig);
+		if (buffer_id_verbose) fprintf(stderr, "StreamHeadImpl::getBufferId() %d %s\n", ib, G::stream_sob_sig? "SOB":"");
 		if (G::stream_sob_sig){
 			insertStartOfBufferSignature(ib);
 		}
@@ -2145,6 +2173,8 @@ public:
 		evA((G::find_event_mask&3)==3? evX: (G::find_event_mask&2)==2? ev1: ev0),
 		sob_count(0), sob_buffer(0), buffer_count(0) {
 			verbose = getenv_default("StreamHeadImplVerbose");
+			buffer_id_verbose = getenv_default("StreamHeadImplBufferIdVerbose");
+
                         if (G::stream_sob_sig){
                         	if (verbose) fprintf(stderr, "StreamHeadImpl::StreamHeadImpl() : G::stream_sob_sig %d\n", G::stream_sob_sig);
                         	sob_count = sample_size()/sizeof(unsigned);
@@ -2154,6 +2184,7 @@ public:
 			        }
 			}
 
+                        stop_on_fail = getenv_default("StreamHeadImplStopOnFail");
 			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
 			reportFindEvent(0, FE_IDLE);
 	}
