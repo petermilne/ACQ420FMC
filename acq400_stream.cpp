@@ -2116,10 +2116,18 @@ protected:
 		}
 		return escount;
 	}
-	enum FE_STATUS { FE_IDLE, FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL };
+	enum FE_STATUS { FE_IDLE, FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL, FE_COUNT };
+
+	unsigned FE_HISTO[FE_COUNT];
 
 	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
 		int ib = the_buffer == 0? 0: the_buffer->ib();
+		FE_HISTO[festa]++;
+		FILE* fp = fopen("/dev/shm/festa", "w");
+		assert(fp);
+		fprintf(fp, "%u,%u\n", FE_HISTO[FE_FOUND], FE_HISTO[FE_NOTFOUND]);
+		fclose(fp);
+
 		if (verbose) fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	virtual char* findEvent(Buffer* the_buffer) {
@@ -2186,7 +2194,9 @@ public:
 
                         stop_on_fail = getenv_default("StreamHeadImplStopOnFail");
 			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+			memset(FE_HISTO, 0, sizeof(FE_HISTO));
 			reportFindEvent(0, FE_IDLE);
+
 	}
 	virtual void startStream() {
 		fc = open_feed();
