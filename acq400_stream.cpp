@@ -3677,6 +3677,33 @@ public:
 		}
 	}
 };
+
+class EventController {
+	const int site;
+	const char* evt;
+	char enable_state[10];
+	bool valid;
+public:
+	EventController(int _site, const char* _evt) : site(_site), evt(_evt), valid(false) {
+		char event_status[80];
+		if (getKnob(site, "event0", event_status) != 1){
+			fprintf(stderr, "ERROR: failed to read event0 knob");
+		}else{
+		// event0=1,0,1 enable d0 RISING
+			if (sscanf(event_status, "event0=%s", enable_state) != 1){
+				fprintf(stderr, "ERROR: failed to extract enable_state");
+			}else{
+				valid = true;
+			}
+		}
+	}
+	void disable(void) {
+		if (valid) setKnob(site, evt, "0,0,0");
+	}
+	void enable(void) {
+		if (valid) setKnob(site, evt, enable_state);
+	}
+};
 class StreamHeadPrePost: public StreamHeadWithClients, StreamHeadClient  {
 protected:
 	unsigned pre;
@@ -3691,6 +3718,7 @@ protected:
 
 	unsigned ib;
 	bool accepting_events;
+	EventController event0;
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
@@ -3876,6 +3904,7 @@ protected:
 					}else{
 						if (++buffers_over_pre > G::corner_turn_delay){
 							accepting_events = true;
+							event0.enable();
 						}
 					}
 				}
@@ -3923,10 +3952,12 @@ public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
 		pre(_pre), post(_post),
-		cooked(false), ib(666666), accepting_events(false)
+		cooked(false), ib(666666), accepting_events(false),
+		event0(1, "event0")
 		{
 
 		initVerbose();
+		event0.disable();
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		setState(ST_STOP);
