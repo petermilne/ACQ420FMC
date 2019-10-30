@@ -1,5 +1,10 @@
 #!/bin/sh
 # dsp1.init : instantiate DSP1 fs.
+
+if [ ! -e /etc/sites ]; then
+	echo "ERROR: /etc/sites does not exist. FPGA not loaded, quit"
+	exit 1
+fi
 MDIR=/usr/local/lib/modules
 /sbin/insmod $MDIR/debugfs2.ko
 if [ -e /mnt/local/regfs.ko ]; then

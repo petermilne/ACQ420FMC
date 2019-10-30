@@ -661,6 +661,10 @@ echo "for debug:"
 echo "echo file acq400_drv.c +p" \> /sys/kernel/debug/dynamic_debug/control
 echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
 
+if [ ! -e /etc/sites ]; then
+	echo "ERROR: /etc/sites does not exist. FPGA not loaded, quit"
+	exit 1
+fi
 source /etc/sites
 good_sites=${good_sites%*,C}
 if [ "x$good_sites" != "x" ]; then
