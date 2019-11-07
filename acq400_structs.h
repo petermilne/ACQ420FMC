@@ -747,5 +747,6 @@ extern u64 acq400_trigger_ns;
 
 extern int acq400_wr_init_irq(struct acq400_dev* adev);
 extern int acq400_wr_open(struct inode *inode, struct file *file);
+extern void ao420_reset_fifo(struct acq400_dev *adev);
 
 #endif /* ACQ400_STRUCTS_H_ */

@@ -350,6 +350,29 @@ static ssize_t show_dac_fifo_sta(
 }
 static DEVICE_ATTR(dac_fifo_sta, S_IRUGO, show_dac_fifo_sta, 0);
 
+
+
+
+static ssize_t store_ao_reset_fifo(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned reset;
+
+	if (sscanf(buf, "%u", &reset) == 1 && reset == 1){
+		ao420_reset_fifo(adev);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(__reset_fifo, S_IWUSR, 0, store_ao_reset_fifo);
+
+
 const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_length.attr,
 	&dev_attr_playloop_oneshot.attr,
@@ -362,6 +385,7 @@ const struct attribute *playloop_attrs[] = {
 	&dev_attr_xo_buffers.attr,
 	&dev_attr_task_active.attr,
 	&dev_attr_dac_fifo_sta.attr,
+	&dev_attr___reset_fifo.attr,
 	NULL
 };
 
