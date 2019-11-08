@@ -1799,7 +1799,7 @@ int xo_data_loop(void *data)
 					xo_dev->AO_playloop.cursor, ic, dma_timeout);
 			goto quit;
 		}
-		dev_dbg(DEVP(adev), "back from dma_sync_wait() ..");
+		dev_dbg(DEVP(adev), "44 back from dma_sync_wait() oneshot:%d", xo_dev->AO_playloop.oneshot);
 
 		xo_dev->AO_playloop.cursor += ao_samples_per_hb;
 
@@ -1833,11 +1833,13 @@ int xo_data_loop(void *data)
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
 		yield();
+		dev_dbg(DEVP(adev), "66 oneshot:%d", xo_dev->AO_playloop.oneshot);
 	}
 
 quit:
-	dev_dbg(DEVP(adev), "xo_data_loop() quit out:%d in:%d",
-			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in);
+	dev_dbg(DEVP(adev), "xo_data_loop() quit out:%d in:%d oneshot:%d",
+			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in,
+			xo_dev->AO_playloop.oneshot);
 
 	if (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
 		if (wait_event_interruptible_timeout(
@@ -1862,6 +1864,9 @@ quit:
 	adev->stats.completed_shot = adev->stats.shot;
 	adev->stats.run = 0;
 	adev->task_active = 0;
+
+	dev_dbg(DEVP(adev), "88 oneshot:%d", xo_dev->AO_playloop.oneshot);
+
 	if (xo_dev->AO_playloop.oneshot == AO_oneshot_rearm &&
 	    (xo_dev->AO_playloop.maxshot==0 || adev->stats.shot < xo_dev->AO_playloop.maxshot)){
 		dev_dbg(DEVP(adev), "xo_data_loop() spawn auto_rearm");
@@ -1944,7 +1949,6 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	}
 
 	xo_dev->AO_playloop.length = playloop_length;
-
 
 	if (playloop_length != 0){
 		if (IS_DIO432X(adev)){
@@ -2831,6 +2835,8 @@ int acq400_modprobe_sc(struct acq400_dev* adev)
 int acq400_modprobe(struct acq400_dev* adev)
 {
 	adev->isFifoError = acq420_isFifoError;	/* REMOVE me: better default wanted */
+
+	dev_info(DEVP(adev), "%s id %x %s", __FUNCTION__, GET_MOD_ID(adev), IS_SC(adev)? "SC": "MODULE");
 
 	if (IS_SC(adev)){
 		return acq400_modprobe_sc(adev);

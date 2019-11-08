@@ -186,6 +186,8 @@
 #define MOD_ID_KMCU		0x83
 #define MOD_ID_KMCU30		0x84
 
+
+
 #define MOD_ID_ACQ423ELF	0x09
 
 
@@ -217,6 +219,7 @@
 #define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
 
+#define DAC_CTRL_AWG_ABORT	(1 << 12)
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC, AO424ELF  */
 #define DAC_CTRL_TWOCMP		(1 << 9)	/* AO424ELF  */
 
@@ -412,10 +415,10 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_AO420(adev)  \
 	(GET_MOD_ID(adev)==MOD_ID_AO420FMC || GET_MOD_ID(adev)==MOD_ID_AO420FMC_CS2)
-
+#define IS_AO42S(adev) (IS_AO420(adev)||IS_AO428(adev))
 #define IS_AO428(adev)  (GET_MOD_ID(adev) == MOD_ID_DAC_CELF)
 #define IS_AO424(adev)  (GET_MOD_ID(adev) == MOD_ID_AO424ELF)
-#define IS_AO42X(adev) 	(IS_AO420(adev) || IS_AO424(adev) || IS_AO428(adev))
+#define IS_AO42X(adev) 	(IS_AO42S(adev) || IS_AO424(adev))
 
 #define IS_AO420_HALF436(adev)	((GET_MOD_IDV(adev)&1) != 0)
 
@@ -500,7 +503,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	IS_ACQ480(adev) || IS_BOLO8(adev) || IS_PIG_CELF(adev) || IS_QEN(adev) )
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
-#define HAS_DTD(adev)	((IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0))
+#define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
 
 #define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev))
