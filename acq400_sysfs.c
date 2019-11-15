@@ -1142,7 +1142,13 @@ extern int bufferlen;
  * For AXI, buffer len MUST be modulo AXI_DMA_BLOCK, since
  * AXI_DMA_BLOCK is a factor of PAGE_SIZE, this doesn't affect the bufferlen
  * calculation, but it is needed to set the transfer #blocks in the FPGA.
+ *
+ * Since the PL330 works in 16K inner loops, it should be more efficient to run inner
+ * loops only ..
  */
+
+
+#define PL330_INNER_LOOP_MAX 16384
 
 static ssize_t _store_optimise_bufferlen(
 	struct device * dev,
@@ -1150,7 +1156,7 @@ static ssize_t _store_optimise_bufferlen(
 	size_t count)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int mindma = lcm(sample_size, PAGE_SIZE);
+	int mindma = lcm(sample_size, IS_AXI64(adev)? PAGE_SIZE: PL330_INNER_LOOP_MAX);
 	int spb = bufferlen/mindma;
 	int newbl = spb*mindma;
 

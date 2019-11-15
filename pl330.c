@@ -3042,7 +3042,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 		irq = adev->irq[i];
 		if (irq) {
 			ret = devm_request_irq(&adev->dev, irq,
-					       pl330_irq_handler, 0,
+					       pl330_irq_handler, IRQF_NO_THREAD,
 					       dev_name(&adev->dev), pi);
 			if (ret)
 				return ret;
