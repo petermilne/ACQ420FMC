@@ -32,9 +32,8 @@
 /** singleton .. */
 class Scratchpad {
 	char *root;
-	int errcount;
 
-	Scratchpad(int site = 0) : errcount(0) {
+	Scratchpad(int site = 0) {
 		root = new char[80];
 		snprintf(root, 80, "/dev/acq400.%d.knobs", site);
 	}
@@ -79,21 +78,21 @@ public:
 	virtual void set(int idx, u32 value){
 		u32 v2;
 		int loopcount = 0;
+		int errcount = 0;
 
 		do {
 			set(idx, "%08x", value);
 			get(idx, &v2);
 			if (value != v2){
-				if (++errcount < 100){
-					fprintf(stderr, "SCRATCHPAD validate ERROR, retry %d idx %d %x != %x\n",
+				if (errcount  && ++errcount < 10){
+					fprintf(stderr, "SCRATCHPAD validate WARNING, retry %d idx %d %x != %x\n",
 							++loopcount, idx, value, v2);
-					errcount = 200;
 				}
 			}
-		} while (value != v2);
+		} while (loopcount < 20 && value != v2);
 
-		if (loopcount == 0){
-			--errcount;	/* no errors? bring report back slowly */
+		if (loopcount > 10){
+			fprintf(stderr, "SCRATCHPAD validate WARNING: we are working way too hard %d\n", loopcount);
 		}
 	}
 
