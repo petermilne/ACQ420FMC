@@ -54,12 +54,15 @@ int TIM_CTRL_LOCK;
 module_param(TIM_CTRL_LOCK, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "disable usr access when set");
 
-MAKE_TRIPLET(fmc_clk, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
-MAKE_TRIPLET(fmc_trg, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
+MAKE_TRIPLET(fmc_clk_out_src, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
+MAKE_TRIPLET(fmc_trg_out_src, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
+
+MAKE_BITS(fmc_lemo_role_trg, FMC_DSR, MAKE_BITS_FROM_MASK, FMC_DSR_LEMO_ROLE_TRG);
 
 static const struct attribute *fmc_fp_attrs[] = {
-	&dev_attr_fmc_clk.attr,
-	&dev_attr_fmc_trg.attr,
+	&dev_attr_fmc_clk_out_src.attr,
+	&dev_attr_fmc_trg_out_src.attr,
+	&dev_attr_fmc_lemo_role_trg.attr,
 	NULL
 };
 
@@ -3445,10 +3448,7 @@ void acq400_createSysfs(struct device *dev)
 		}
 	}
 
-	if (IS_ACQ420(adev) || IS_ACQ430(adev)){
-		/* @@todo should be Master site only,
-		 * but these are usually solo anyway
-		 */
+	if (IS_ACQ420(adev) || IS_ACQ430(adev) || IS_ACQ427(adev)){
 		if (sysfs_create_files(&dev->kobj, fmc_fp_attrs)){
 			dev_err(dev, "failed to create fmc_fp_attrs");
 		}
