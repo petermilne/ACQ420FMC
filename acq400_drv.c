@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.428"
+#define REVID 			"3.434"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1912,6 +1912,17 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 }
 
 
+void set_awg_abort_en(struct acq400_dev* adev)
+{
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	acq400wr32(adev, DAC_CTRL, dac_ctrl|DAC_CTRL_AWG_ABORT);
+}
+
+void set_awg_abort_clr(struct acq400_dev* adev){
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	acq400wr32(adev, DAC_CTRL, dac_ctrl &= ~DAC_CTRL_AWG_ABORT);
+}
+
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 {
 	struct acq400_dev *adev0 = acq400_devices[0];
@@ -1920,17 +1931,31 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 	int first_in_set = xo_use_distributor && (adev == sc_dev->distributor_set[0]);
 	int use_frontside = !xo_use_distributor;
 
+
 	if (xo_use_distributor && !first_in_set){
 		dev_warn(DEVP(adev), "xo400_reset_playloop() xo_use_distributor but not first_in_set");
 	}
 	dev_dbg(DEVP(adev), "xo400_reset_playloop(%d) => %d",
 			xo_dev->AO_playloop.length, playloop_length);
 
-	if (xo_use_distributor && adev->task_active){
+
+
+	if (playloop_length && xo_use_distributor && adev->task_active){
 		dev_warn(DEVP(adev), "XO AWG is already tee'd up, not possible to abort");
 		return -1;
 	}
 
+	if (playloop_length == 0 && xo_use_distributor){
+		dev_dbg(DEVP(adev), "xo400_reset_playloop set awg_abort");
+		xo_dev->AO_playloop.oneshot = AO_oneshot;
+		acq400_visit_set(sc_dev->distributor_set, set_awg_abort_en);
+		while(adev->task_active){
+			dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+			msleep(50);
+		}
+		acq400_visit_set(sc_dev->distributor_set, set_awg_abort_clr);
+		dev_dbg(DEVP(adev), "xo400_reset_playloop clr awg_abort");
+	}
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
 		return -1;
@@ -1947,6 +1972,7 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
 		msleep(100);
 	}
+
 
 	xo_dev->AO_playloop.length = playloop_length;
 
