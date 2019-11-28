@@ -115,6 +115,8 @@ int dio32_immediate_loop(void *data)
 	int nloop = 0;
 	int wake_clients;
 
+	adev->task_active = 1;
+
 	dio432_init(adev, 1);
 
 	for(; !kthread_should_stop(); ++nloop){
@@ -129,7 +131,7 @@ int dio32_immediate_loop(void *data)
 			do32_cache != xo_dev->dio432.DO32 || kthread_should_stop(),
 			dio432_immediate_jiffies);
 	}
-
+	adev->task_active = 0;
 	return 0;
 }
 
@@ -141,8 +143,10 @@ void dio432_init_immediate(struct acq400_dev* adev)
 
 void dio432_init_clocked(struct acq400_dev* adev)
 {
-	if (adev->w_task != 0){
-		kthread_stop(adev->w_task);
+	struct task_struct* w_task;
+
+	if ((w_task = adev->w_task) != 0 && adev->task_active){
+		kthread_stop(w_task);
 	}
 	dio432_init(adev, 0);
 }

@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.435"
+#define REVID 			"3.437"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1897,7 +1897,6 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 			}
 		}
 	}else{
-
 		if (adev->task_active && adev->w_task != 0){
 			kthread_stop(adev->w_task);
 		}
