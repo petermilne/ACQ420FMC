@@ -20,14 +20,6 @@
 
 #include <linux/ctype.h>
 
-#include <asm/uaccess.h>  /* VERIFY_READ|WRITE */
-
-#include "lk-shim.h"
-
-
-#include <linux/device.h>
-#include <linux/user.h>
-
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"

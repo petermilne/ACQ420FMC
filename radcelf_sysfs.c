@@ -28,7 +28,6 @@
 #include "acq400.h"
 #include "acq400_sysfs.h"
 
-#include <linux/moduleparam.h>
 
 int dds_strobe_msec = 1;
 module_param(dds_strobe_msec, int, 0644);

@@ -26,17 +26,7 @@
 /* ------------------------------------------------------------------------- */
 
 
-
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/types.h>
-#include <linux/of.h>
 #include <linux/cdev.h>
-#include <linux/irqreturn.h>
-#include <linux/interrupt.h>
 
 #include "acq400_dsp.h"
 #include "acq400.h"

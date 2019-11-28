@@ -59,6 +59,8 @@
 //#include <mach/pl330.h>
 #include "include/linux/amba/pl330.h"
 #include <linux/of.h>
+#include <linux/types.h>
+#include <linux/cdev.h>
 
 #include <asm/barrier.h>
 #include <asm/dma.h>

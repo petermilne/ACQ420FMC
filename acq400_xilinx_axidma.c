@@ -35,7 +35,6 @@
 #include "include/linux/amba/xilinx_dma.h"
 #include "xilinx_axidma.h"
 
-#include <linux/dmapool.h>
 
 extern int AXI_BUFFER_COUNT;
 extern int AXI_ONESHOT;

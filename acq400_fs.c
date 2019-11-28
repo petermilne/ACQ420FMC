@@ -20,15 +20,6 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/pagemap.h> 	/* PAGE_CACHE_SIZE */
-#include <linux/fs.h>     	/* This is where libfs stuff is declared */
-#include <asm/atomic.h>
-#include <asm/uaccess.h>	/* copy_to_user */
-
 #include "acq400.h"
 #include "hbm.h"
 
