@@ -44,6 +44,7 @@ if { ($::argc >= 1) && ([lindex $::argv 0] == "server") } {
 	set ::env(MGTOFFLOADCUSTOM) $::argv0
 
 	spawn mgt_offload $fetch_range
+	after 2000
 	set timeout 2
 
 	while { 1 } {
