@@ -104,5 +104,7 @@ start|"")
 		start_wr
 		start_wrtd
 	fi;;
+stop)
+	stop_wrtd;;
 esac
 

@@ -33,7 +33,7 @@
 #define NOMAPPING
 #include "File.h"
 
-Knob::Knob(const char* abs_path)
+Knob::Knob(const char* abs_path): cbuf(0)
 {
 	kpath = new char [strlen(abs_path)+1];
 	strcpy(kpath, abs_path);
@@ -49,6 +49,7 @@ Knob::Knob(int site, const char* knob)
 
 Knob::~Knob()
 {
+	if (cbuf) delete [] cbuf;
 	delete [] kpath;
 }
 
@@ -61,6 +62,14 @@ int Knob::get(char *value)
 {
 	File file(kpath, "r");
 	return fscanf(file(), "%s", value);
+}
+
+const char* Knob::operator() (void) {
+	if (!cbuf){
+		cbuf = new char[128];
+	}
+	get(cbuf);
+	return cbuf;
 }
 
 int Knob::set(int value)
@@ -138,4 +147,5 @@ int setKnob(int idev, const char* knob, int value)
 	char vx[32]; snprintf(vx, 32, "%d", value);
 	return setKnob(idev, knob, vx);
 }
+
 

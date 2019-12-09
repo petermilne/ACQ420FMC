@@ -10,6 +10,7 @@
 #include <string.h>
 #include "popt.h"
 
+#include "Knob.h"
 #include "Multicast.h"
 
 #define M1 1000000
@@ -27,6 +28,8 @@ namespace G {
         int verbose = 0;
         unsigned dns = 40*M1;				// delta nsec
         unsigned ns_per_tick = 50;			// ticks per nsec
+        unsigned local_clkdiv;				// Site 1 clock divider, set at start
+        unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -91,6 +94,12 @@ struct poptOption opt_table[] = {
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
+	{
+	  "local_clkdiv", 'l', POPT_ARG_INT, &G::local_clkdiv, 0, "local clock divider"
+	},
+	{
+	  "local_clkoffset", 'L', POPT_ARG_INT, &G::local_clkoffset, 0, "local clock offset"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -100,10 +109,20 @@ const char* ui(int argc, const char** argv)
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
         int rc;
+
+        Knob clkdiv(1, "clkdiv");
+        Knob modname(1, "module_name");
+
+        if (strstr(modname(), "acq48")){
+        	G::local_clkdiv = 1;
+        	G::local_clkoffset = 0;
+        }else{
+        	clkdiv.get((unsigned*)&G::local_clkdiv);
+        	G::local_clkoffset = 2;
+        }
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
                 case 's':
-
                 default:
                         ;
                 }
@@ -228,6 +247,32 @@ int sender(TSCaster& comms)
 	return 0;
 }
 
+TS _adjust_ts(TS ts0)
+{
+	int rem = ts0.ticks() % G::local_clkdiv;
+	unsigned ticks = ts0.ticks();
+
+
+	if (rem != 0){
+		ticks += G::local_clkdiv - rem;
+	}
+	if (ticks > G::local_clkoffset){
+		ticks -= G::local_clkoffset;
+	}
+
+	if (G::verbose > 1) fprintf(stderr, "adjust_ts: ts0 %u div %u rem %u off %u adj %u\n",
+			ts0.ticks(), G::local_clkdiv, rem, G::local_clkoffset, ticks);
+
+	return TS(ts0.secs(), ticks);
+}
+TS adjust_ts(TS ts0)
+{
+	if (G::local_clkdiv > 1 || G::local_clkoffset != 0){
+		return _adjust_ts(ts0);
+	}else{
+		return ts0;
+	}
+}
 int receiver(TSCaster& comms)
 {
 	FILE *fp = fopen(G::fname, "w");
@@ -237,8 +282,11 @@ int receiver(TSCaster& comms)
 	while(true){
 		TS ts = comms.recvfrom();
 		TS ts_cur;
-		if (G::verbose > 1) fprintf(stderr, "receiver:ts:%s\n", ts.toStr());
-		int rc = fwrite(&ts.raw, sizeof(unsigned), 1, fp);
+		TS ts_adj = adjust_ts(ts);
+
+		if (G::verbose > 1) fprintf(stderr, "receiver:ts:%s adj:%s\n", ts.toStr(), ts_adj.toStr());
+
+		int rc = fwrite(&ts_adj.raw, sizeof(unsigned), 1, fp);
 		if (rc < 1){
 			perror("fwrite");
 		}
