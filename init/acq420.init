@@ -402,6 +402,7 @@ build_site0() {
 	ln -s /usr/local/bin/set.sync_role ${ek}
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
+	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
 	
 	lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
 	[ -e $lck ] && ln -s $lck ${ek}
