@@ -1144,20 +1144,25 @@ extern int bufferlen;
 
 
 #define PL330_INNER_LOOP_MAX 16384
+#define LCM_ROLLOVER(m) (m < 0)
 
 static ssize_t _store_optimise_bufferlen(
-	struct device * dev,
+	struct acq400_dev *adev,
 	u32 sample_size,
 	size_t count)
 {
-	struct acq400_dev *adev = acq400_devices[dev->id];
 	int mindma = lcm(sample_size, IS_AXI64(adev)? PAGE_SIZE: PL330_INNER_LOOP_MAX);
-	int spb = bufferlen/mindma;
-	int newbl = spb*mindma;
+	int newbl = bufferlen;
 
-	dev_dbg(DEVP(adev), "store_optimise_bufferlen ss:%d mindma:0x%x spb:%d len:0x%x",
-			sample_size, mindma, spb, newbl);
+	if (LCM_ROLLOVER(mindma) || mindma > bufferlen){
+		dev_warn(DEVP(adev), "_store_optimise_bufferlen() mindma %d > bufferlen %d set bufferlen %d", mindma, bufferlen, newbl);
+	}else{
+		int dma_per_buffer = bufferlen/mindma;
+		newbl = dma_per_buffer*mindma;
 
+		dev_dbg(DEVP(adev), "_store_optimise_bufferlen() ss:%d mindma:%d dma_per_buffer:%d len:%d",
+			sample_size, mindma, dma_per_buffer, newbl);
+	}
 	acq400_set_bufferlen(adev, newbl);
 
 	if (IS_ACQ480(acq400_devices[1])){
@@ -1171,16 +1176,18 @@ static ssize_t store_optimise_bufferlen(
 	const char * buf,
 	size_t count)
 {
+	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 sample_size;
 	u32 burst_len = 1;
 	if (sscanf(buf, "%u %u", &sample_size, &burst_len) >= 1){
+		dev_dbg(DEVP(adev), "store_optimise_bufferlen() %u %u", sample_size, burst_len);
 		if (burst_len > 1){
 			if (burst_len * sample_size < bufferlen){
 				sample_size = burst_len * sample_size;
 			}
 			/* else .. not going to fit, don't even try */
 		}
-		return _store_optimise_bufferlen(dev, sample_size, count);
+		return _store_optimise_bufferlen(adev, sample_size, count);
 	}
 
 	return -1;
