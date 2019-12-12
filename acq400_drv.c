@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.439"
+#define REVID 			"3.440"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2564,6 +2564,7 @@ struct file_operations acq400_fops = {
         .mmap = acq400_mmap_bar
 };
 
+extern int axi_dma_agg32;
 
 void acq400sc_init_defaults(struct acq400_dev *adev)
 {
@@ -2576,6 +2577,9 @@ void acq400sc_init_defaults(struct acq400_dev *adev)
 	if (IS_AXI64(adev)){
 		acq400_set_AXI_DMA_len(adev, bufferlen);
 		sync_continuous = 0;
+		if (IS_AXI64_AGG32(adev)){
+			axi_dma_agg32 = 1;
+		}
 	}
 	if (IS_ACQ2106_STACK(adev)){
 		dev_info(DEVP(adev), "acq2106 STACK%s",
