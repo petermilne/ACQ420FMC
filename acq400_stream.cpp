@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1033"
+#define VERID	"B1034"
 
 #define NCHAN	4
 
@@ -95,8 +95,7 @@
 
 #define STDOUT	1
 
-#define MAX_BACKTRACK 	3
-#define MAX_FORTRACK	4
+
 
 int getenv_default(const char* key, int def = 0){
 	const char* vs = getenv(key);
@@ -1864,10 +1863,6 @@ protected:
 	int buffer_id_verbose;
 	int stop_on_fail;
 	int buffers_searched;
-
-
-
-
 	char event_info[80];
 	AbstractES& evX;
 	AbstractES& ev0;
@@ -1877,6 +1872,9 @@ protected:
         unsigned sob_count;
         unsigned* sob_buffer;
         unsigned buffer_count;
+
+	const int MAX_BACKTRACK;
+	const int MAX_FORTRACK;
 
         void insertStartOfBufferSignature(int ib){
         	if (verbose) fprintf(stderr, "StreamHeadImpl::insertStartOfBufferSignature() %d ib:%d bc:%d\n",
@@ -2179,7 +2177,9 @@ public:
 		ev0(*AbstractES::ev0_instance()),
 		ev1(*AbstractES::ev1_instance()),
 		evA((G::find_event_mask&3)==3? evX: (G::find_event_mask&2)==2? ev1: ev0),
-		sob_count(0), sob_buffer(0), buffer_count(0) {
+		sob_count(0), sob_buffer(0), buffer_count(0),
+		MAX_BACKTRACK(getenv_default("MAX_BACKTRACK", 3)),
+		MAX_FORTRACK(getenv_default("MAX_FORTRACK", 4)) {
 			verbose = getenv_default("StreamHeadImplVerbose");
 			buffer_id_verbose = getenv_default("StreamHeadImplBufferIdVerbose");
 
