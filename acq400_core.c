@@ -41,6 +41,10 @@ int histo_poll_ms = 10;
 module_param(histo_poll_ms, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
 
+int axi_dma_agg32 = 0;
+module_param(axi_dma_agg32, int, 0644);
+MODULE_PARM_DESC(histo_poll_ms, "transitional for AGG32 gaining AXI DMA");
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 	if (adev->RW32_debug){
@@ -291,7 +295,7 @@ void acq2006_aggregator_enable(struct acq400_dev *adev)
 		goto agg99;
 	case SP_EN: {
 			int len = sc_dev->spad.len;
-			if (IS_AXI64(adev)){
+			if (!axi_dma_agg32 && IS_AXI64(adev)){
 				len /= 2;    /* SPADS double spaced in 64 bit */
 			}
 			agg |= SET_AGG_SPAD_LEN(len);
