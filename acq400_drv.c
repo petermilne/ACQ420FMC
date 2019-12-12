@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.440"
+#define REVID 			"3.441"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2766,24 +2766,24 @@ static int allocate_hbm(struct acq400_dev* adev, int nb, int bl, int dir)
 	return 0;
 }
 
-int init_axi64_hbm1(struct acq400_dev* adev, unsigned cmask)
+
+int init_axi64_hbm1(struct acq400_dev* adev, int axi_buffer_count, unsigned cmask)
 {
 	int isrc = reserve_buffers;
 	int ic = cmask==CMASK1? 1: 0;
-	int nb = adev->nbuffers;
 	int ib;
 
-	adev->axi64[ic].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
+	adev->axi64[ic].axi64_hb = kmalloc(axi_buffer_count*sizeof(struct HBM*), GFP_KERNEL);
 
-	for (ib = 0; ib < nb; ++ib){
+	for (ib = 0; ib < axi_buffer_count; ++ib){
 		adev->axi64[ic].axi64_hb[ib] = adev->hb[isrc++];
 	}
 	return 0;
 }
-int init_axi64_hbm2(struct acq400_dev* adev)
+int init_axi64_hbm2(struct acq400_dev* adev, int axi_buffer_count)
 {
 	int isrc = reserve_buffers;
-	int nb = adev->nbuffers/2;
+	int nb = axi_buffer_count/2;
 	int ib;
 
 	adev->axi64[0].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
@@ -2796,7 +2796,7 @@ int init_axi64_hbm2(struct acq400_dev* adev)
 	}
 	return 0;
 }
-int init_axi64_hbm(struct acq400_dev* adev)
+int init_axi64_hbm(struct acq400_dev* adev, int axi_buffer_count)
 {
 	unsigned cmask = (adev->dma_chan[0]!=0? CMASK0: 0) |
 			 (adev->dma_chan[1]!=0? CMASK1: 0);
@@ -2804,9 +2804,9 @@ int init_axi64_hbm(struct acq400_dev* adev)
 	case CMASK1:
 		dev_info(DEVP(adev), "INFO: selected AXI DMA1 only"); /* fall thru */
 	case CMASK0:
-		return init_axi64_hbm1(adev, cmask);
+		return init_axi64_hbm1(adev, axi_buffer_count, cmask);
 	case CMASK1|CMASK0:
-		return init_axi64_hbm2(adev);
+		return init_axi64_hbm2(adev, axi_buffer_count);
 	default:
 		dev_err(DEVP(adev), "ERROR no AXI DMA");
 		return -1;
@@ -2898,6 +2898,7 @@ int acq400_modprobe(struct acq400_dev* adev)
 	return 0;
 }
 
+
 void init_axi_dma(struct acq400_dev* adev)
 {
 	dev_info(DEVP(adev), "init_axi_dma() 01 %s %s",
@@ -2912,7 +2913,7 @@ void init_axi_dma(struct acq400_dev* adev)
           			".. not enough buffers limit to %d", nbuffers-reserve_buffers);
           	}
           	axi64_claim_dmac_channels(adev);
-          	init_axi64_hbm(adev);
+          	init_axi64_hbm(adev, AXI_BUFFER_COUNT);
           	axi64_init_dmac(adev);
 	}
 	dev_info(DEVP(adev), "init_axi_dma() 99");
