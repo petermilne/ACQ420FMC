@@ -39,12 +39,12 @@ Knob::Knob(const char* abs_path): cbuf(0)
 	strcpy(kpath, abs_path);
 }
 
-Knob::Knob(int site, const char* knob)
+Knob::Knob(int site, const char* knob) : cbuf(0)
 {
 	const char* fmt = "/dev/acq400.%d.knobs/%s";
 	int maxlen = strlen(fmt) + 3 + strlen(knob) + 1;
 	kpath = new char [maxlen];
-	snprintf(kpath, maxlen, fmt, site);
+	snprintf(kpath, maxlen, fmt, site, knob);
 }
 
 Knob::~Knob()
