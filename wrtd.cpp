@@ -16,7 +16,7 @@
 #define M1 1000000
 #define NSPS	(1000*M1)		// nanoseconds per second
 
-
+#define MAX_TX_INF	0xFFFFFFFF
 
 namespace G {
 	const char* group = "224.0.23.159";
@@ -30,6 +30,7 @@ namespace G {
         unsigned ns_per_tick = 50;			// ticks per nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
+        unsigned max_tx = MAX_TX_INF;			// send max this many trigs
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -99,6 +100,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "local_clkoffset", 'L', POPT_ARG_INT, &G::local_clkoffset, 0, "local clock offset"
+	},
+	{
+	  "max_tx", 0, POPT_ARG_INT, &G::max_tx, 0, "maximum transmit count"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -237,12 +241,20 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 
 int sender(TSCaster& comms)
 {
+	if (G::max_tx == 0){
+		return 0;
+	}
 	FILE *fp = fopen(G::fname, "r");
 	TS ts;
+	unsigned ntx = 0;
 	while(fread(&ts.raw, sizeof(unsigned), 1, fp) == 1){
 		if (G::verbose) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
 		ts = ts + G::delta_ticks;
 		comms.sendto(ts);
+		++ntx;
+		if (G::max_tx != MAX_TX_INF && ntx >= G::max_tx){
+			break;
+		}
 	}
 	return 0;
 }

@@ -74,14 +74,16 @@ start_wrtd() {
 	WRTD_NICE=-10
 	WRTD_VERBOSE=0
 	WRTD_TICKNS=50000
+	WRTD_TX=1
+	WRTD_RX=1
 
 	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 
-	/usr/local/bin/procServ \
+    [ $WRTD_RX -ne 0 ] && /usr/local/bin/procServ \
 		-c / -p $PIDF_RX -L $LOG_RX  4280 \
 		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE rx
 		
-	/usr/local/bin/procServ \
+	[ $WRTD_TX -ne 0 ] && /usr/local/bin/procServ \
 		-c / -p $PIDF_TX -L $LOG_TX  4281 \
 		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE tx
 }
