@@ -146,7 +146,7 @@
 #define MOD_ID_ACQ425ELF	5
 #define MOD_ID_ACQ425ELF_2000	0xa5
 #define MOD_ID_ACQ437ELF	6
-#define MOD_ID_FMC104		7
+
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
@@ -409,8 +409,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_ACQ43X(adev)	\
 	(IS_ACQ435(adev) || IS_ACQ430(adev) || IS_ACQ437(adev) || IS_ACQ436(adev))
 
-#define IS_FMC104(adev)	(GET_MOD_ID(adev) == MOD_ID_FMC104)
-#define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC ||IS_FMC104(adev))
+#define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC)
 
 #define IS_ADC(adev)	(IS_ACQ43X(adev)||IS_ACQ42X(adev)||IS_ACQ480(adev))
 

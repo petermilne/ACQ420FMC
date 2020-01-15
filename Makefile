@@ -23,7 +23,6 @@ obj-m += dmadescfs.o
 obj-m += radcelf.o
 obj-m += ad9854.o
 obj-m += ad9512.o
-obj-m += fmc10x.o
 obj-m += ad9510.o
 obj-m += ads62p49.o
 obj-m += ao428.o
@@ -65,8 +64,6 @@ acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
 pigcelf-objs := pigcelf_drv.o zynq_peripheral_spi_shim.o
 
 radcelf-objs := radcelf_drv.o zynq_peripheral_spi_shim.o
-
-fmc10x-objs := fmc10x_drv.o zynq_peripheral_spi_shim.o
 
 ao428-objs := ao428_drv.o
 

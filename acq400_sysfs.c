@@ -1805,7 +1805,6 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_AO420FMC_CS2,	"ao420fmc"	},
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
 		{ MOD_ID_DAC_CELF, 	"ao428elf"	},
-		{ MOD_ID_FMC104,        "fmc104"	},
 		{ MOD_ID_DIO432FMC, 	"dio432"	},
 		{ MOD_ID_DIO432PMOD,	"dio432"	},
 		{ MOD_ID_DIO482FMC,  	"dio432"	},	/* logically same */

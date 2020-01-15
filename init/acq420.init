@@ -540,18 +540,12 @@ build_knobs() {
 			exit 1;;
 		esac
 		
-		m1f=etc/acq400/1/module_type
-		if [ -e $m1f ] && [ $(cat $m1f) -eq 7 ]; then
-			echo FMC104 detected..
-			/usr/local/bin/fmc104.init 1
-		else
-			for site in $ACQ480_SITES
-			do
-				grep -q 482 /etc/acq400/$site/MODEL
-				[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
-			done
-			/usr/local/bin/acq480.init ${ACQ480_SITES}
-		fi
+		for site in $ACQ480_SITES
+		do
+			grep -q 482 /etc/acq400/$site/MODEL
+			[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
+		done
+		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	else
 		case $MODEL in
 		acq1*)

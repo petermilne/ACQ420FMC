@@ -373,7 +373,6 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_ACQ430FMC:
 			acq43x_createDebugfs(adev, pcursor);
 			break;
-		case MOD_ID_FMC104:		/* fall thru */
 		case MOD_ID_ACQ480FMC:
 			acq480_createDebugfs(adev, pcursor);
 			break;
