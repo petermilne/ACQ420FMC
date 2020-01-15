@@ -38,10 +38,6 @@ int reset_fifo_verbose;
 module_param(reset_fifo_verbose, int, 0644);
 
 
-int acq480_rtm_translen_offset = 2;
-module_param(acq480_rtm_translen_offset, int, 0644);
-
-
 int TIM_CTRL_LOCK;
 module_param(TIM_CTRL_LOCK, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "disable usr access when set");
@@ -1081,9 +1077,8 @@ static ssize_t show_reg_rtm_translen(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	int ff = IS_ACQ480(adev)? acq480_rtm_translen_offset: 0;
 
-	return show_reg(dev, attr, buf, ADC_TRANSLEN, "%u\n", ff);
+	return show_reg(dev, attr, buf, ADC_TRANSLEN, "%u\n", 0);
 }
 
 static ssize_t store_reg_rtm_translen(
@@ -1093,9 +1088,8 @@ static ssize_t store_reg_rtm_translen(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	int ff = IS_ACQ480(adev)? acq480_rtm_translen_offset: 0;
 
-	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, ff);
+	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, 0);
 }
 static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUSR,
 		show_reg_rtm_translen, store_reg_rtm_translen);
