@@ -5,9 +5,32 @@
  *      Author: pgm
  */
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+
+/********** make me a library func ***/
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
+
+
+template <class Container>
+void split2(const std::string& str, Container& cont, char delim = ' ')
+{
+    std::stringstream ss(str);
+    std::string token;
+    while (std::getline(ss, token, delim)) {
+        cont.push_back(token);
+    }
+}
+/********** make me a library func ***/
+
 #include "popt.h"
 
 #include "Knob.h"
@@ -192,8 +215,43 @@ public:
 	}
 };
 
-MessageFilter& MessageFilter::create() {
 
+
+
+typedef std::vector<const std::string&> CVS;			/* get your pills here */
+
+
+class MultipleMatchFilter : public MessageFilter {
+#ifdef SPLIT2GOOD
+	CVS matches;
+
+public:
+	MultipleMatchFilter(const char* _matches){
+
+		split2<CVS>(_matches, matches, ',');
+
+	}
+	virtual bool operator() (struct wrtd_message& msg) {
+
+		for (CVS ss : matches){
+			if (strncmp(ss.c_str, (char*)msg.event_id, WRTD_ID_LEN) == 0){
+				return true;
+			}
+		}
+
+		return false;
+	}
+#endif
+};
+
+
+MessageFilter& MessageFilter::create() {
+#ifdef SPLIT2GOOD
+	const char* matches = getenv("WRTD_RX_MATCHES");
+	if (matches){
+		return new MultipleMatchFilter(matches);
+	}
+#endif
 	return * new Acq2106DefaultMessageFilter();
 }
 
