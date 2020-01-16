@@ -31,6 +31,7 @@ namespace G {
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
+        const char* tx_id;				// transmit id
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -103,6 +104,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "max_tx", 0, POPT_ARG_INT, &G::max_tx, 0, "maximum transmit count"
+	},
+	{
+          "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -185,7 +189,13 @@ class WrtdCaster : public TSCaster {
 protected:
 	WrtdCaster(MultiCast& _mc) : TSCaster(_mc), seq(0)
 	{
-		gethostname(hn, sizeof(hn));
+		memset(&msg, 0, sizeof(msg));
+		if (G::tx_id){
+			strncpy((char*)msg.event_id, G::tx_id, WRTD_ID_LEN);
+		}else{
+			gethostname(hn, sizeof(hn));
+			snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
+		}
 	}
 	friend class TSCaster;
 
@@ -194,8 +204,6 @@ protected:
 	        msg.hw_detect[1] = 'X';
 	        msg.hw_detect[2] = 'I';
 	        msg.domain = 0;
-
-	        snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
 
 	        msg.seq = seq++;
 	        msg.ts_sec = ts.secs();			// truncated at 7.. worktodo use TAI
