@@ -173,11 +173,14 @@ public:
 #include "wrtd-common.h"
 #include <unistd.h>
 
-class WrtdCaster : public TSCaster {
-	int seq;
-	char hn[13];			// acq2106_[n]nnn
+class MessageFilter {
+public:
+	virtual bool operator () (struct wrtd_message& msg) = 0;
+};
 
-	bool is_for_us(struct wrtd_message& msg) {
+class Acq2106DefaultMessageFilter : public MessageFilter {
+public:
+	virtual bool operator() (struct wrtd_message& msg) {
 		if (strncmp((char*)msg.event_id, "acq2106", 7) == 0){
 			return true;
 		}else{
@@ -185,9 +188,16 @@ class WrtdCaster : public TSCaster {
 			return false;
 		}
 	}
+};
+
+class WrtdCaster : public TSCaster {
+	int seq;
+	char hn[13];			// acq2106_[n]nnn
+
+	MessageFilter& is_for_us;
 	struct wrtd_message msg;
 protected:
-	WrtdCaster(MultiCast& _mc) : TSCaster(_mc), seq(0)
+	WrtdCaster(MultiCast& _mc, MessageFilter& filter) : TSCaster(_mc), seq(0), is_for_us(filter)
 	{
 		memset(&msg, 0, sizeof(msg));
 		if (G::tx_id){
@@ -239,7 +249,8 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 		use_wrtd_fullmessage = atoi(value);
 	}
 	if (use_wrtd_fullmessage){
-		return * new WrtdCaster(_mc);
+		MessageFilter* filter = new Acq2106DefaultMessageFilter();
+		return * new WrtdCaster(_mc, *filter);
 	}else{
 		return * new TSCaster(_mc);
 	}
