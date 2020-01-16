@@ -218,11 +218,10 @@ public:
 
 
 
-typedef std::vector<const std::string&> CVS;			/* get your pills here */
+typedef std::vector<std::string> CVS;			/* get your pills here */
 
 
 class MultipleMatchFilter : public MessageFilter {
-#ifdef SPLIT2GOOD
 	CVS matches;
 
 public:
@@ -233,25 +232,22 @@ public:
 	}
 	virtual bool operator() (struct wrtd_message& msg) {
 
-		for (CVS ss : matches){
-			if (strncmp(ss.c_str, (char*)msg.event_id, WRTD_ID_LEN) == 0){
+		for (std::string ss : matches){
+			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
 				return true;
 			}
 		}
 
 		return false;
 	}
-#endif
 };
 
 
 MessageFilter& MessageFilter::create() {
-#ifdef SPLIT2GOOD
 	const char* matches = getenv("WRTD_RX_MATCHES");
 	if (matches){
-		return new MultipleMatchFilter(matches);
+		return * new MultipleMatchFilter(matches);
 	}
-#endif
 	return * new Acq2106DefaultMessageFilter();
 }
 

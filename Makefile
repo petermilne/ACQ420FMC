@@ -241,7 +241,7 @@ mgtdram_descgen: 	mgtdram_descgen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 wrtd: 	wrtd.o Multicast.o  knobs.o
-	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 	
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
