@@ -176,6 +176,8 @@ public:
 class MessageFilter {
 public:
 	virtual bool operator () (struct wrtd_message& msg) = 0;
+
+	static MessageFilter& create();
 };
 
 class Acq2106DefaultMessageFilter : public MessageFilter {
@@ -189,6 +191,11 @@ public:
 		}
 	}
 };
+
+MessageFilter& MessageFilter::create() {
+
+	return * new Acq2106DefaultMessageFilter();
+}
 
 class WrtdCaster : public TSCaster {
 	int seq;
@@ -249,8 +256,7 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 		use_wrtd_fullmessage = atoi(value);
 	}
 	if (use_wrtd_fullmessage){
-		MessageFilter* filter = new Acq2106DefaultMessageFilter();
-		return * new WrtdCaster(_mc, *filter);
+		return * new WrtdCaster(_mc, MessageFilter::create());
 	}else{
 		return * new TSCaster(_mc);
 	}
