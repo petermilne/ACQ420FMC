@@ -259,6 +259,29 @@ int sender(TSCaster& comms)
 	return 0;
 }
 
+int tx_immediate(TSCaster& comms)
+{
+	if (G::max_tx == 0){
+		return 0;
+	}
+
+	FILE *fp_cur = fopen(G::current, "r");
+	TS ts;
+
+	unsigned ntx = 0;
+	while(fread(&ts.raw, sizeof(unsigned), 1, fp_cur) == 1){
+		if (G::verbose) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
+		ts = ts + G::delta_ticks;
+		comms.sendto(ts);
+		++ntx;
+		if (G::max_tx == MAX_TX_INF || ntx >= G::max_tx){
+			break;
+		}else{
+			usleep(2*G::dns/1000);		// don't overrun previous message
+		}
+	}
+	return 0;
+}
 TS _adjust_ts(TS ts0)
 {
 	int rem = ts0.ticks() % G::local_clkdiv;
@@ -320,7 +343,9 @@ int main(int argc, const char* argv[])
 {
 	const char* mode = ui(argc, argv);
 
-	if (strcmp(mode, "tx") == 0){
+	if (strcmp(mode, "tx_immediate")){
+		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+	}else if (strcmp(mode, "tx") == 0){
 		return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 	}else{
 		return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
