@@ -179,7 +179,12 @@ const char* ui(int argc, const char** argv)
         if (G::verbose) fprintf(stderr, "ns per tick: %u ticks per s: %u delta_ticks %u\n",
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
-        return poptGetArg(opt_context);
+        const char* mode = poptGetArg(opt_context);
+        if (!mode){
+        	fprintf(stderr, "ERROR: please specify mode tx|tx_immediate|rx");
+        	exit(1);
+        }
+        return mode;
 }
 
 
