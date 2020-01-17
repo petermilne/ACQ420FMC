@@ -331,7 +331,7 @@ int sender(TSCaster& comms)
 	TS ts;
 	unsigned ntx = 0;
 	while(fread(&ts.raw, sizeof(unsigned), 1, fp) == 1){
-		if (G::verbose) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
+		if (G::verbose) fprintf(stderr, "sender:ts:%s ntx:%u G::max_tx %u\n", ts.toStr(), ntx, G::max_tx);
 		ts = ts + G::delta_ticks;
 		comms.sendto(ts);
 		++ntx;
@@ -430,7 +430,7 @@ int main(int argc, const char* argv[])
 {
 	const char* mode = ui(argc, argv);
 
-	if (strcmp(mode, "tx_immediate")){
+	if (strcmp(mode, "tx_immediate") == 0){
 		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 	}else if (strcmp(mode, "tx") == 0){
 		return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
