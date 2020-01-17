@@ -44,25 +44,7 @@
 #include <string.h>
 
 
-/********** make me a library func ***/
-#include <string>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
-#include <vector>
-
-
-
-template <class Container>
-void split2(const std::string& str, Container& cont, char delim = ' ')
-{
-    std::stringstream ss(str);
-    std::string token;
-    while (std::getline(ss, token, delim)) {
-        cont.push_back(token);
-    }
-}
-/********** make me a library func ***/
+#include "split2.h"
 
 #include "popt.h"
 
