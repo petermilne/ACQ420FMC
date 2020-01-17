@@ -91,7 +91,7 @@ start_wrtd() {
 }
 
 stop_wrtd() {
-	for pidf in $PIDF_TX $PIDF_TX; do
+	for pidf in $PIDF_RX $PIDF_TX; do
 		if [ -e $pidf ]; then
 			pid=$(cat $pidf)
 			rm $pidf
