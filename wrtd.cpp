@@ -1,8 +1,41 @@
+/* wrtd.cpp : White Rabbit Time Distribution                  	 	     */
+/* ------------------------------------------------------------------------- */
+/*   Copyright (C) 2019 pgm, D-TACQ Solutions Ltd                            *
+ *                      <peter dot milne at D hyphen TACQ dot com>           *
+ *   Created on: Created on: 19 Sep 2019                                     *
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or modify     *
+ *  it under the terms of Version 2 of the GNU General Public License        *
+ *  as published by the Free Software Foundation;                            *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program; if not, write to the Free Software              *
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
+/* ------------------------------------------------------------------------- */
+
 /*
  * wrtd.cpp : White Rabbit Time Distribution
  *
  *  Created on: 19 Sep 2019
  *      Author: pgm
+ *
+ * - Usage
+ *   wrtd tx
+ *   	waits for incoming external trigger, sends wrtd trigger packet set for a [near] future time
+ *   wrtx tx_immediate
+ *   	sends trigger packet immediately (test mode)
+ *   wrtd rx
+ *   	receives network triggers and configures WRTT to fire at specified time
+ *
+ * -command line options
+ *   try --help for full list
+ * - environment
+ *   WRTD_RX_MATCHES=m1[,m2,m3...]   # receiver matches on multiple strings, not just default ["acq2106"[7]]
  */
 
 
@@ -200,7 +233,7 @@ class MessageFilter {
 public:
 	virtual bool operator () (struct wrtd_message& msg) = 0;
 
-	static MessageFilter& create();
+	static MessageFilter& factory();
 };
 
 class Acq2106DefaultMessageFilter : public MessageFilter {
@@ -220,10 +253,8 @@ public:
 
 typedef std::vector<std::string> VS;
 
-
 class MultipleMatchFilter : public MessageFilter {
 	VS matches;
-
 public:
 	MultipleMatchFilter(const char* _matches){
 
@@ -241,7 +272,7 @@ public:
 };
 
 
-MessageFilter& MessageFilter::create() {
+MessageFilter& MessageFilter::factory() {
 	const char* matches = getenv("WRTD_RX_MATCHES");
 	if (matches){
 		return * new MultipleMatchFilter(matches);
@@ -301,7 +332,7 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 		use_wrtd_fullmessage = atoi(value);
 	}
 	if (use_wrtd_fullmessage){
-		return * new WrtdCaster(_mc, MessageFilter::create());
+		return * new WrtdCaster(_mc, MessageFilter::factory());
 	}else{
 		return * new TSCaster(_mc);
 	}
@@ -326,6 +357,7 @@ int sender(TSCaster& comms)
 			break;
 		}
 	}
+	fclose(fp);
 	return 0;
 }
 
@@ -350,6 +382,7 @@ int tx_immediate(TSCaster& comms)
 			usleep(2*G::dns/1000);		// don't overrun previous message
 		}
 	}
+	fclose(fp_cur);
 	return 0;
 }
 TS _adjust_ts(TS ts0)
@@ -407,6 +440,8 @@ int receiver(TSCaster& comms)
 			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
+	fclose(fp);
+	fclose(fp_cur);
 	return 0;
 }
 int main(int argc, const char* argv[])
