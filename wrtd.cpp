@@ -218,26 +218,24 @@ public:
 
 
 
-typedef std::vector<std::string> CVS;			/* get your pills here */
+typedef std::vector<std::string> VS;
 
 
 class MultipleMatchFilter : public MessageFilter {
-	CVS matches;
+	VS matches;
 
 public:
 	MultipleMatchFilter(const char* _matches){
 
-		split2<CVS>(_matches, matches, ',');
+		split2<VS>(_matches, matches, ',');
 
 	}
 	virtual bool operator() (struct wrtd_message& msg) {
-
 		for (std::string ss : matches){
 			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
 				return true;
 			}
 		}
-
 		return false;
 	}
 };
@@ -274,17 +272,10 @@ protected:
 	        msg.hw_detect[0] = 'L';
 	        msg.hw_detect[1] = 'X';
 	        msg.hw_detect[2] = 'I';
-	        msg.domain = 0;
-
 	        msg.seq = seq++;
 	        msg.ts_sec = ts.secs();			// truncated at 7.. worktodo use TAI
 	        msg.ts_ns = ts.nsec();
-	        msg.ts_frac = 0;
-	        msg.ts_hi_sec = 0;
-	        msg.flags = 0;
-	        msg.zero[0] = 0;
-	        msg.zero[1] = 0;
-	        msg.pad[0] = 0;
+	        //msg.event_id is pre-cooked, all other fields are zero
 	        mc.sendto(&msg, sizeof(msg));
 	}
 	virtual int printLast() {
