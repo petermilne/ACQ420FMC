@@ -10,6 +10,6 @@ WRTD_RX=1
 
 [ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 
-/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE --max_tx $TX_COUNT tx &
+/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE --max_tx $TX_COUNT tx 
 
 
