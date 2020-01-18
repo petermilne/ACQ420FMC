@@ -197,6 +197,8 @@ struct WrClient *getWCfromMinor(struct file *file)
 }
 int _acq400_wr_open(struct inode *inode, struct file *file)
 {
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
 	int is_ts = PD(file)->minor==ACQ400_MINOR_WR_TS;
 	struct WrClient *wc = getWCfromMinor(file);
 
@@ -207,8 +209,13 @@ int _acq400_wr_open(struct inode *inode, struct file *file)
 	}else if ((file->f_flags & O_RDONLY) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
 		return -EBUSY;
 	}else{
-		if ((file->f_flags & O_RDONLY)){
+		dev_dbg(DEVP(adev), "_acq400_wr_open flags %08x",file->f_flags);
+		if ((file->f_flags & O_ACCMODE) != O_WRONLY){
 			wc->wc_pid = current->pid;
+			if ((file->f_flags & O_NONBLOCK) == 0){
+				dev_dbg(DEVP(adev), "_acq400_wr_open clear %d", wc->wc_ts);
+				wc->wc_ts = 0;
+			}
 		}
 		return 0;
 	}
@@ -235,7 +242,7 @@ ssize_t acq400_wr_read(struct file *file, char __user *buf, size_t count, loff_t
 	if (count < sizeof(u32)){
 		return -EINVAL;
 	}
-	dev_dbg(DEVP(adev), "acq400_wr_read");
+	dev_dbg(DEVP(adev), "acq400_wr_read %d", wc->wc_ts);
 	if (wait_event_interruptible(wc->wc_waitq, wc->wc_ts)){
 		return -EINTR;
 	}
