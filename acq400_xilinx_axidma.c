@@ -416,20 +416,22 @@ static void _finalize_descriptor_chain(struct acq400_dev *adev, int ichan, int n
 	}
 	apool->active_descriptors = ndescriptors;
 }
-static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int ndescriptors)
+static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int ndescriptors, int new_pool)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	int ii;
 	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
 
-	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d %d", ichan, ndescriptors);
-	for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
-		cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
-		BUG_ON(cursor->va == 0);
-		memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
-		cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
-		cursor->va->control = adev->bufferlen;
-		dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
+	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d %d new_pool %d", ichan, ndescriptors, new_pool);
+	if (new_pool){
+		for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
+			cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
+			BUG_ON(cursor->va == 0);
+			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
+			cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
+			cursor->va->control = adev->bufferlen;
+			dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
+		}
 	}
 	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg ichan:%d ndesc:%d", ichan, ndescriptors);
 
@@ -437,7 +439,7 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 	_finalize_descriptor_chain(adev, ichan, ndescriptors);
 }
 
-static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, int ndescriptors)
+static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, int ndescriptors, int new_pool)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	struct AxiDescrWrapper * base = apool->channelWrappers[ichan];
@@ -446,36 +448,38 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, 
 	int ihb = 0;
 	int iseg;
 
-	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d", ndescriptors);
+	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 01 %d new_pool %d", ndescriptors, new_pool);
 	apool->dump_pa = adev->axi64[ichan].axi64_hb[last_buffer]->pa;
 
-	for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
-		Segment* segment = &apool->segments[iseg];
-		int ib;
-		for (ib = 0; ib < segment->nblocks; ++ib, ++wrapper){
-			if (wrapper->va == 0){
-				wrapper->va =
-					dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
-			}
-			memset(wrapper->va, 0, sizeof(struct xilinx_dma_desc_hw));
-
-			if (segment->mode == STORE){
-				if (ihb >= last_buffer){
-					dev_info(DEVP(adev), "DONE: out of host buffers");
-					break;
+	if (new_pool){
+		for (iseg = 0 ; iseg < apool->segment_cursor; ++iseg){
+			Segment* segment = &apool->segments[iseg];
+			int ib;
+			for (ib = 0; ib < segment->nblocks; ++ib, ++wrapper){
+				if (wrapper->va == 0){
+					wrapper->va =
+							dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
 				}
-				wrapper->va->buf_addr = adev->axi64[0].axi64_hb[ihb++]->pa;
-			}else{
-				wrapper->va->buf_addr = apool->dump_pa;
+				memset(wrapper->va, 0, sizeof(struct xilinx_dma_desc_hw));
+
+				if (segment->mode == STORE){
+					if (ihb >= last_buffer){
+						dev_info(DEVP(adev), "DONE: out of host buffers");
+						break;
+					}
+					wrapper->va->buf_addr = adev->axi64[0].axi64_hb[ihb++]->pa;
+				}else{
+					wrapper->va->buf_addr = apool->dump_pa;
+				}
+				wrapper->va->control = adev->bufferlen;
 			}
-			wrapper->va->control = adev->bufferlen;
 		}
 	}
 	dev_dbg(DEVP(adev), "init_descriptor_cache_segmented() 88 %d", wrapper-base);
 	_finalize_descriptor_chain(adev, ichan, wrapper-base);
 }
 
-typedef void (*init_cache_fun)(struct acq400_dev *adev, int ichan, int ndescriptors);
+typedef void (*init_cache_fun)(struct acq400_dev *adev, int ichan, int ndescriptors, int new_pool);
 
 int get_segmented_descriptor_total(struct acq400_dev *adev)
 {
@@ -514,6 +518,7 @@ static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 	int nchan = cmask == (CMASK0|CMASK1) ? 2: 1;
 	int ndescriptors = AXI_BUFFER_COUNT/nchan;
 	int ic;
+	int new_pool = 0;
 
 	if ((cmask&(CMASK0|CMASK1)) == 0){
 		dev_err(DEVP(adev), "ERROR CMASK not set, no DMAC available");
@@ -542,11 +547,12 @@ static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 		}
 
 		apool->ndescriptors = ndescriptors;
+		new_pool = 1;
 	}
 
 	for (ic = 0; ic < 2; ++ic){
 		if ((1<<ic)&cmask){
-			init_cache(adev, ic, ndescriptors);
+			init_cache(adev, ic, ndescriptors, new_pool);
 		}
 	}
 }
