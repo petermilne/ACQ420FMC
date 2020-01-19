@@ -34,31 +34,31 @@ module_param(dds_strobe_msec, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "STROBE HI TIME in msec");
 
 
-MAKE_BITS(trgA_output, RAD_CTL, 0, RAD_CTL_TRG_A_OUT);
-MAKE_BITS(trgB_output, RAD_CTL, 0, RAD_CTL_TRG_B_OUT);
-MAKE_BITS(clkd_hard_reset, RAD_CTL, 0, RAD_CTL_CLKD_RESET);
-MAKE_BITS(ddsX_hard_reset, RAD_CTL, 0, RAD_CTL_DDS_RESET);
-MAKE_BITS(ddsA_upd_clk_fpga, RAD_DDS_A, 0, RAD_DDS_UPD_CLK_FPGA);
-MAKE_BITS(ddsB_upd_clk_fpga, RAD_DDS_B, 0, RAD_DDS_UPD_CLK_FPGA);
-MAKE_BITS(ddsC_upd_clk_fpga, RAD_DDS_C, 0, RAD_DDS_UPD_CLK_FPGA);
+MAKE_BITS(trgA_output, RAD_CTL, MAKE_BITS_FROM_MASK, RAD_CTL_TRG_A_OUT);
+MAKE_BITS(trgB_output, RAD_CTL, MAKE_BITS_FROM_MASK, RAD_CTL_TRG_B_OUT);
+MAKE_BITS(clkd_hard_reset, RAD_CTL, MAKE_BITS_FROM_MASK, RAD_CTL_CLKD_RESET);
+MAKE_BITS(ddsX_hard_reset, RAD_CTL, MAKE_BITS_FROM_MASK, RAD_CTL_DDS_RESET);
+MAKE_BITS(ddsA_upd_clk_fpga, RAD_DDS_A, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK_FPGA);
+MAKE_BITS(ddsB_upd_clk_fpga, RAD_DDS_B, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK_FPGA);
+MAKE_BITS(ddsC_upd_clk_fpga, RAD_DDS_C, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK_FPGA);
 
-MAKE_BITS(ddsA_upd_clk, RAD_DDS_A, 0, RAD_DDS_UPD_CLK);
-MAKE_BITS(ddsB_upd_clk, RAD_DDS_B, 0, RAD_DDS_UPD_CLK);
-MAKE_BITS(ddsC_upd_clk, RAD_DDS_C, 0, RAD_DDS_UPD_CLK);
-MAKE_BITS(ddsAB_upd_clk, RAD_DDS_AB, 0, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsA_upd_clk, RAD_DDS_A, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsB_upd_clk, RAD_DDS_B, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsC_upd_clk, RAD_DDS_C, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK);
+MAKE_BITS(ddsAB_upd_clk, RAD_DDS_AB, MAKE_BITS_FROM_MASK, RAD_DDS_UPD_CLK);
 
 
-MAKE_BITS(ddsA_clk_OEn, RAD_DDS_A, 0, RAD_DDS_CLK_OEn);
-MAKE_BITS(ddsB_clk_OEn, RAD_DDS_B, 0, RAD_DDS_CLK_OEn);
-MAKE_BITS(ddsC_clk_OEn, RAD_DDS_C, 0, RAD_DDS_CLK_OEn);
+MAKE_BITS(ddsA_clk_OEn, RAD_DDS_A, MAKE_BITS_FROM_MASK, RAD_DDS_CLK_OEn);
+MAKE_BITS(ddsB_clk_OEn, RAD_DDS_B, MAKE_BITS_FROM_MASK, RAD_DDS_CLK_OEn);
+MAKE_BITS(ddsC_clk_OEn, RAD_DDS_C, MAKE_BITS_FROM_MASK, RAD_DDS_CLK_OEn);
 
-MAKE_BITS(ddsA_OSK, RAD_DDS_A, 0, RAD_DDS_OSK);
-MAKE_BITS(ddsB_OSK, RAD_DDS_B, 0, RAD_DDS_OSK);
-MAKE_BITS(ddsC_OSK, RAD_DDS_C, 0, RAD_DDS_OSK);
+MAKE_BITS(ddsA_OSK, RAD_DDS_A, MAKE_BITS_FROM_MASK, RAD_DDS_OSK);
+MAKE_BITS(ddsB_OSK, RAD_DDS_B, MAKE_BITS_FROM_MASK, RAD_DDS_OSK);
+MAKE_BITS(ddsC_OSK, RAD_DDS_C, MAKE_BITS_FROM_MASK, RAD_DDS_OSK);
 
-MAKE_BITS(ddsA_BPSK, RAD_DDS_A, 0, RAD_DDS_BPSK);
-MAKE_BITS(ddsB_BPSK, RAD_DDS_B, 0, RAD_DDS_BPSK);
-MAKE_BITS(ddsC_BPSK, RAD_DDS_C, 0, RAD_DDS_BPSK);
+MAKE_BITS(ddsA_BPSK, RAD_DDS_A, MAKE_BITS_FROM_MASK, RAD_DDS_BPSK);
+MAKE_BITS(ddsB_BPSK, RAD_DDS_B, MAKE_BITS_FROM_MASK, RAD_DDS_BPSK);
+MAKE_BITS(ddsC_BPSK, RAD_DDS_C, MAKE_BITS_FROM_MASK, RAD_DDS_BPSK);
 
 
 void _acq400_spi_strobe(struct acq400_dev *adev, const int REG)
@@ -177,6 +177,10 @@ extern const struct attribute *sysfs_sc_remaining_clocks[];
 
 void sysfs_radcelf_create_files(struct device *dev){
 	struct acq400_dev *adev0 = acq400_devices[0];
+
+	printk("sysfs_radcelf_create_files() RAD_DDS_UPD_CLK_FPGA %08x\n", RAD_DDS_UPD_CLK_FPGA);
+	printk("sysfs_radcelf_create_files() RAD_DDS_UPD_CLK %08x\n", RAD_DDS_UPD_CLK);
+
 
 	if (sysfs_create_files(&dev->kobj, sysfs_radcelf_attrs)){
 		dev_err(dev, "failed to create sysfs");
