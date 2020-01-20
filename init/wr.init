@@ -37,8 +37,9 @@ monitor() {
                 for k in wr*_count; do 
                 	get_knob $k; 
                 done
-                echo
-        		if [ -e $TPL ]; then
+                echo; echo ------------------------------
+        		if [ -e $TPL ]; then        			
+        			echo si5326_tune_phase ..
         			cat $TPL
         		else
         			echo "WARNING: si5326 has not been tuned"
