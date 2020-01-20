@@ -37,6 +37,7 @@ monitor() {
                 for k in wr*_count; do 
                 	get_knob $k; 
                 done
+                echo
         		if [ -e $TPL ]; then
         			cat $TPL
         		else
