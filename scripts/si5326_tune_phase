@@ -41,6 +41,6 @@ while [ "$STATE" != "ST_FINISHED" ]; do
 	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump
 	STATE=$NSTATE
 done
-) 2>&1 | tee /var/log/si5326_tune_phase.log
+) 2>&1 | tee /dev/shm/si5326_tune_phase.log
 
 

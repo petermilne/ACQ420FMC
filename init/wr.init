@@ -17,6 +17,8 @@ get_knob() {
 }
 monitor() {
         echo monitor wr.xml
+        TPL=/dev/shm/si5326_tune_phase.log
+        
         while [ 1 ]
         do
                 (/usr/local/CARE/tai_date
@@ -35,6 +37,11 @@ monitor() {
                 for k in wr*_count; do 
                 	get_knob $k; 
                 done
+        		if [ -e $TPL ]; then
+        			cat $TPL
+        		else
+        			echo "WARNING: si5326 has not been tuned"
+        		fi                     
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
                 sleep 1
