@@ -78,7 +78,7 @@ start_wr() {
 PIDF_TX=/var/run/wrtd_tx.pid
 PIDF_RX=/var/run/wrtd_rx.pid
 LOG_RX=/var/log/wrtd-rx.log
-LOG_TX=/var/log/wrtd-rx.log
+LOG_TX=/var/log/wrtd-tx.log
 
 start_wrtd() {
 	WRTD_DNS=50000000
