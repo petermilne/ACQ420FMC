@@ -762,6 +762,11 @@ grep acq400\.[0-9] /proc/devices | build_nodes
 # finalize the name please.
 grep filename /tmp/fpga_status | egrep -q -e WHR -e WR  && /usr/local/init/wr.init
 
+if [ "x${EBREAK}" = "xyes" ]; then
+	echo acq420.init: BREAK to emergency shell ^D when done
+	PS1="${PS1%>*} EBREAK ${PS1#*>}" /bin/sh
+fi
+
 AXI_COUNT=0
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
