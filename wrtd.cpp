@@ -28,7 +28,7 @@
  *   wrtd tx
  *   	waits for incoming external trigger, sends wrtd trigger packet set for a [near] future time
  *   wrtx tx_immediate
- *   	sends trigger packet immediately (test mode)
+ *   	sends trigger packet immediately (test mode) .. this is a soft trigger, really
  *   wrtd rx
  *   	receives network triggers and configures WRTT to fire at specified time
  *
