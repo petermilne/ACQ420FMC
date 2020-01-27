@@ -1,5 +1,16 @@
 #!/bin/sh
-TX_COUNT=${1:-1}
+
+MAX_TX=${1:-1}
+ARGS=""
+
+if [ "${MAX_TX#[0-9]*}" != "$MAX_TX" ]; then
+    ARGS="--max_tx $MAX_TX"
+    shift
+fi
+ARGS="$ARGS $@"
+
+
+TX_COUNT="${1:-1}"
 
 WRTD_DNS=50000000
 WRTD_NICE=-10
@@ -10,6 +21,6 @@ WRTD_RX=1
 
 [ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 
-/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE --max_tx $TX_COUNT tx 
+/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE $ARGS tx 
 
 
