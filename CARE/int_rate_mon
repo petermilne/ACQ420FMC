@@ -4,6 +4,11 @@ set KEY twd
 if { $::argc > 0 } {
 	set KEY [lindex $::argv 0]
 }
+set SMOO 1
+if { $::argc > 1 } {
+        set SMOO [lindex $::argv 1]
+}
+
 
 proc get_ints {} {
 	global KEY
@@ -14,12 +19,12 @@ proc get_ints {} {
 set old [get_ints]
 
 while { 1 } {
-	after 1000 
+	after [expr 1000 * $SMOO]
 	set new [get_ints]
 #	puts "old $old new $new"
 	set d0 [expr [lindex $new 0] - [lindex $old 0]]
 	set d1 [expr [lindex $new 1] - [lindex $old 1]]
-	puts "$KEY CPU0 $d0 CPU1 $d1 Hz"	
+	puts "$KEY CPU0 [expr $d0 / $SMOO] CPU1 [expr $d1 / $SMOO] Hz"	
 
 	set old $new
 }
