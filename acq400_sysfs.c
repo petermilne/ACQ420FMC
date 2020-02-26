@@ -1076,8 +1076,6 @@ static ssize_t show_reg_rtm_translen(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
-
 	return show_reg(dev, attr, buf, ADC_TRANSLEN, "%u\n", 0);
 }
 
@@ -1087,8 +1085,6 @@ static ssize_t store_reg_rtm_translen(
 	const char * buf,
 	size_t count)
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
-
 	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, 0);
 }
 static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUSR,
