@@ -308,8 +308,9 @@ static int createOutfile(const char* fname) {
 
 enum DemuxBufferType {
 	DB_REGULAR,
+	DB_2D_REGULAR,		// 2DMA, single sample
 	DB_DOUBLE,		// double sample: acq480-4
-	DB_DOUBLE_AXI		// double sample, double AXI, acq480x80
+	DB_2D_DOUBLE		// double sample, double AXI, acq480x80
 };
 
 class DemuxBufferCommon: public Buffer {
@@ -476,6 +477,8 @@ public:
 		nchan(G::nchan),
 		evX(*AbstractES::evX_instance())
 	{
+		if (verbose) fprintf(stderr, "DemuxBuffer T=%d N=%u\n", sizeof(T), N);
+
 		nsam = buffer_len/sizeof(T)/G::nchan;
 		init();
 		mask = new unsigned[nchan];
@@ -505,7 +508,6 @@ public:
 	}
 	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
-
 
 
 template <class T, DemuxBufferType N>
@@ -583,6 +585,7 @@ bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	/* does not happen */
 	return true;
 }
+
 template<class T, DemuxBufferType N> unsigned DemuxBuffer<T, N>::ID_MASK;
 template<class T, DemuxBufferType N> int DemuxBuffer<T, N>::startchan;
 template<class T, DemuxBufferType N> T** DemuxBuffer<T, N>::dddata;
@@ -703,9 +706,65 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 }
 
 
+template <>
+bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len) {
+	short* src1 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = reinterpret_cast<short*>(pdata+start_off);
+	int shortlen = len/sizeof(short)/2;
+	int isam = 0;
+	unsigned NC2 = nchan/2;
+	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
+
+	if (verbose) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
+			_PFN, start_off, src, len);
+
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(src));
+	if (b1&1){
+		if (verbose) fprintf(stderr, "%s ODD buffer skip\n", _PFN);
+		return true;
+	}
+	/*
+	if (b1 > 100){
+		if (verbose) fprintf(stderr, "%s no successor buffer skip\n", _PFN);
+		return true;
+	}
+*/
+	int startoff = 0;
+
+	unsigned ichan = 0;
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
+
+	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		short* src0 = src;
+		for (; ichan < NC2; ++ichan){
+			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+		}
+		for (short *src2 = src0+BUFSHORTS; ichan < nchan; ++ichan){
+			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
+		}
+		if (src-src1 >= shortlen){
+			if (verbose){
+				fprintf(stderr,
+					"demux() END buf ch:%d src:%p len:%d\n",
+					ichan, src,  ddcursors[ichan]-dddata[ichan]);
+			}
+			return false;
+		}
+	}
+	if (verbose) fprintf(stderr, "%s 99 DOES NOT HAPPEN\n", _PFN);
+	/* does not happen */
+	return true;
+}
 
 template <>
-bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len) {
+bool DemuxBuffer<short, DB_2D_DOUBLE>::demux(bool start, int start_off, int len) {
 	short* src1 = reinterpret_cast<short*>(pdata+start_off);
 	short* src = reinterpret_cast<short*>(pdata+start_off);
 	int shortlen = len/sizeof(short)/2;
@@ -1140,11 +1199,19 @@ class DemuxBufferCloner: public BufferCloner {
 		switch(G::wordsize){
 		case sizeof(short):
 			if (G::dualaxi==2){
-				return new DemuxBuffer<short, DB_DOUBLE_AXI>(cpy, G::mask);
-			}else if (G::double_up){
-				return new DemuxBuffer<short, DB_DOUBLE>(cpy, G::mask);
+				if(G::double_up){
+					if (verbose) fprintf(stderr, "createDemuxBuffer DB_2D_DOUBLE\n");
+					return new DemuxBuffer<short, DB_2D_DOUBLE>(cpy, G::mask);
+				}else{
+					if (verbose) fprintf(stderr, "createDemuxBuffer DB_2D_REGULAR\n");
+					return new DemuxBuffer<short, DB_2D_REGULAR>(cpy, G::mask);
+				}
 			}else{
-				return new DemuxBuffer<short, DB_REGULAR>(cpy, G::mask);
+				if (G::double_up){
+					return new DemuxBuffer<short, DB_DOUBLE>(cpy, G::mask);
+				}else{
+					return new DemuxBuffer<short, DB_REGULAR>(cpy, G::mask);
+				}
 			}
 		case sizeof(int):
 			return new DemuxBuffer<int, DB_REGULAR>(cpy, G::mask);
@@ -2641,6 +2708,9 @@ typedef std::vector<FILE *>::iterator FPV_IT;
 #define TRANSOUT	OBS_ROOT"/ch"
 
 
+
+/* TRANSIENT DEMUX */
+
 class Demuxer {
 protected:
 	static int verbose;
@@ -2811,9 +2881,10 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 	short* srcbuf = new short[nsrc];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
-	const unsigned step = 2;
+	const unsigned step = G::double_up? 2: 1;
 	const unsigned NC = G::nchan;
 	const unsigned NC2 = G::nchan/2;
+	const unsigned SRCINC = step==2? NC: NC2;
 	const int BUFSHORTS = Buffer::bufferlen/sizeof(short);
 
 	memcpy(psrc, start, nsrc*sizeof(short));
@@ -2823,7 +2894,7 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
-	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += NC){
+	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += SRCINC){
 		if (sambuf == cbs){
 			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
 						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
@@ -2835,18 +2906,18 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 		for (short* psrct = psrc; chan < NC2; ++chan){
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
 			pdst[chan*cbs+sambuf] = *psrct++;
-			pdst[chan*cbs+sambuf+1] = *psrct++;
+			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 		// harvest second half channels from second src buf
 		for (short* psrct = psrc + BUFSHORTS; chan < NC; ++chan){
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
 			pdst[chan*cbs+sambuf] = *psrct++;
-			pdst[chan*cbs+sambuf+1] = *psrct++;
+			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 #ifdef BUFFER_IDENT
 		if (inst_chan >= 0){
 			pdst[inst_chan*cbs+sambuf] = ++ramp;
-			pdst[inst_chan*cbs+sambuf+1] = ++ramp;
+			if (step==2) pdst[inst_chan*cbs+sambuf+1] = ++ramp;
 		}
 #endif
 	}
