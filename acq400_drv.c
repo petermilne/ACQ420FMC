@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.444"
+#define REVID 			"3.445"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -149,7 +149,7 @@ int good_sites[MAXDEVICES];
 int good_sites_count = 0;
 module_param_array(good_sites, int, &good_sites_count, 0444);
 
-int ao420_dma_threshold = MIN_DMA_BYTES;
+int ao420_dma_threshold = 32000;		/* DMA NFG, replace MIN_DMA_BYTES with est size of FIFO */
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
