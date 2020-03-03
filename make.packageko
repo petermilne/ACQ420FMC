@@ -6,8 +6,8 @@ echo Building $PKO
 rm -Rf modules_output
 mkdir -p modules_output
 
-(cd ../DRIVERS/ISL22313; ./make.zynq)
-(cd ../DRIVERS/SI5326; ./make.zynq)
+(cd ../DRIVERS/ISL22313; ./make.zynq modules)
+(cd ../DRIVERS/SI5326; ./make.zynq modules)
 cp ../DRIVERS/ISL22313/isl22313.ko modules_output
 cp ../DRIVERS/SI5326/si5326.ko modules_output
 
