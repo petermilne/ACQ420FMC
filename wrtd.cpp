@@ -336,10 +336,10 @@ int sender(TSCaster& comms)
 	TS ts;
 	unsigned ntx = 0;
 	while(fread(&ts.raw, sizeof(unsigned), 1, fp) == 1){
-		if (G::verbose) fprintf(stderr, "sender:ts:%s ntx:%u G::max_tx %u\n", ts.toStr(), ntx, G::max_tx);
 		ts = ts + G::delta_ticks;
 		comms.sendto(ts);
 		++ntx;
+		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s ntx:%u G::max_tx %u\n", ts.toStr(), ntx, G::max_tx);
 		if (G::max_tx != MAX_TX_INF && ntx >= G::max_tx){
 			break;
 		}
@@ -359,7 +359,7 @@ int tx_immediate(TSCaster& comms)
 
 	unsigned ntx = 0;
 	while(fread(&ts.raw, sizeof(unsigned), 1, fp_cur) == 1){
-		if (G::verbose) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
+		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
 		ts = ts + G::delta_ticks;
 		comms.sendto(ts);
 		++ntx;
