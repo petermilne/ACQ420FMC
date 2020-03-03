@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.445"
+#define REVID 			"3.448"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -62,7 +62,9 @@ int FIFERR = 0; 				/* ADC_FIFO_STA_ERR; */
 module_param(FIFERR, int, 0644);
 MODULE_PARM_DESC(FIFERR, "fifo status flags considered ERROR");
 
-
+int first_axi_channel = 0;
+module_param(first_axi_channel, int, 0644);
+MODULE_PARM_DESC(first_axi_channel, "in 2D, this channel goes first [0] ");
 
 int maxdma = MAXDMA;
 module_param(maxdma, int, 0644);
@@ -803,14 +805,16 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull() : %d", hbm->ix);
 
 	/* update every hb0 or at least once per second */
-	now = get_seconds() + hb0_no_ratelimit;
-	/* ratelimited to 1Hz - client gets current and previous hbm */
-	if (adev->rt.hbm_m1 != 0 && now != adev->rt.hb0_last){
+	now = get_seconds();
+	/* ratelimited to 1Hz - client gets current and previous hbm
+	 * set hb0_no_rate_limit negative to increase this ..
+	 */
+	if (adev->rt.hbm_m1 != 0 && (now + hb0_no_ratelimit) > adev->rt.hb0_last){
 		adev->rt.hb0_count++;
 		adev->rt.hb0_ix[0] = adev->rt.hbm_m1->ix;
 		adev->rt.hb0_ix[1] = hbm->ix;
 		adev->rt.hb0_last = now;
-		dev_dbg(DEVP(adev), "hb0 %d", adev->rt.hb0_count);
+		dev_dbg(DEVP(adev), "hb0 %d now:%lu", adev->rt.hb0_count, now);
 		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 		wake_up_interruptible(&adev->hb0_marker);
 	}else if (sync_continuous){
@@ -2790,8 +2794,8 @@ int init_axi64_hbm2(struct acq400_dev* adev, int axi_buffer_count)
 	adev->axi64[1].axi64_hb = kmalloc(nb*sizeof(struct HBM*), GFP_KERNEL);
 
 	for (ib = 0; ib < nb; ++ib){
-		adev->axi64[0].axi64_hb[ib] = adev->hb[isrc++];
-		adev->axi64[1].axi64_hb[ib] = adev->hb[isrc++];
+		adev->axi64[ first_axi_channel].axi64_hb[ib] = adev->hb[isrc++];
+		adev->axi64[!first_axi_channel].axi64_hb[ib] = adev->hb[isrc++];
 		dev_dbg(DEVP(adev), "init_axi64_hbm2() %d %d", ib, isrc);
 	}
 	return 0;
