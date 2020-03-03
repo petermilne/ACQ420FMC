@@ -87,6 +87,8 @@ start_wrtd() {
 	WRTD_RX=1
 
 	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
+	
+# may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
     if [ $WRTD_RX -ne 0 ]; then
     	 /usr/local/bin/procServ \
@@ -98,7 +100,7 @@ start_wrtd() {
 		
 	if [ $WRTD_TX -ne 0 ]; then
 		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 \
-		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE tx
+		/bin/nice -n $WRTD_NICE /usr/local/bin/wrtd --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE $WRTD_ID tx
 		sleep 1
 		nc localhost 4281 -e logger -t wrtd_tx &
 	fi
