@@ -334,12 +334,11 @@ int sender(TSCaster& comms)
 	}
 	FILE *fp = fopen(G::fname, "r");
 	TS ts;
-	unsigned ntx = 0;
-	while(fread(&ts.raw, sizeof(unsigned), 1, fp) == 1){
-		ts = ts + G::delta_ticks;
-		comms.sendto(ts);
-		++ntx;
-		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s ntx:%u G::max_tx %u\n", ts.toStr(), ntx, G::max_tx);
+
+	for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
+		TS ts_tx = ts + G::delta_ticks;
+		comms.sendto(ts_tx);
+		if (G::verbose > 1) fprintf(stderr, "sender:ntx:%u ts:%s ts_tx:%s\n", ntx, ts.toStr(), ts_tx.toStr());
 		if (G::max_tx != MAX_TX_INF && ntx >= G::max_tx){
 			break;
 		}
@@ -404,20 +403,20 @@ int receiver(TSCaster& comms)
 	FILE *fp_cur = fopen(G::current, "r");
 	long dms = G::dns/M1;
 
-	while(true){
+	for (unsigned nrx = 0;; ++nrx){
 		TS ts = comms.recvfrom();
-		TS ts_cur;
 		TS ts_adj = adjust_ts(ts);
-
-		if (G::verbose > 1) fprintf(stderr, "receiver:ts:%s adj:%s\n", ts.toStr(), ts_adj.toStr());
 
 		int rc = fwrite(&ts_adj.raw, sizeof(unsigned), 1, fp);
 		if (rc < 1){
 			perror("fwrite");
 		}
 		fflush(fp);
+
+		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
+		if (G::verbose > 1) fprintf(stderr, "receiver:nrx:%u cur:%s ts:%s adj:%s\n", nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
 		if (G::verbose) comms.printLast();
 
 		long dt = ts.diff(ts_cur);
