@@ -204,7 +204,7 @@ soft_atd: soft_atd.o
 multisitecheckramp: multisitecheckramp.cpp
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 	
-acq480_knobs: acq480_knobs.o ads5294.o  
+acq480_knobs: acq480_knobs.o ads5294.o  knobs.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 wavegen: wavegen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq -lm
