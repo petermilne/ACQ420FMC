@@ -21,6 +21,6 @@ WRTD_RX=1
 
 [ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 
-/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE $ARGS tx
+/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE $WRTD_ID $ARGS tx
 
 
