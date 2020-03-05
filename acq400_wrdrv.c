@@ -223,12 +223,21 @@ int _acq400_wr_open(struct inode *inode, struct file *file)
 
 int acq400_wr_release(struct inode *inode, struct file *file)
 {
+	if (PD(file)){
+		kfree(PD(file));
+		SETPD(file, 0);
+	}
+	return 0;
+}
+
+int acq400_wr_release_exclusive(struct inode *inode, struct file *file)
+{
 	struct WrClient *wc = getWCfromMinor(file);
 
 	if (wc->wc_pid != 0 && wc->wc_pid == current->pid){
 		wc->wc_pid = 0;
 	}
-	return 0;
+	return acq400_wr_release(inode, file);
 }
 
 ssize_t acq400_wr_read(struct file *file, char __user *buf, size_t count, loff_t *f_pos)
@@ -323,10 +332,11 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 			.open = _acq400_wr_open,
 			.read = acq400_wr_read,
 			.write = acq400_wr_write,
-			.release = acq400_wr_release
+			.release = acq400_wr_release_exclusive
 	};
 	static struct file_operations acq400_fops_wr_cur = {
 			.read = acq400_wr_read_cur,
+			.release = acq400_wr_release
 	};
 	switch(PD(file)->minor){
 	case ACQ400_MINOR_WR_CUR:
