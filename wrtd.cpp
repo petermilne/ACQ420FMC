@@ -56,6 +56,21 @@
 
 #define MAX_TX_INF	0xFFFFFFFF
 
+
+#include <sched.h>
+void goRealTime(int sched_fifo_priority)
+{
+        struct sched_param p = {};
+        p.sched_priority = sched_fifo_priority;
+
+        int rc = sched_setscheduler(0, SCHED_FIFO, &p);
+
+        if (rc){
+                perror("failed to set RT priority");
+        }
+}
+
+
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
@@ -70,6 +85,7 @@ namespace G {
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
         const char* tx_id;				// transmit id
+        int rt_prio = 0;
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -130,6 +146,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "dns", 'd', POPT_ARG_INT, &G::dns, 0, "nsec to add to current time"
+	},
+	{
+	  "rt_prio", 'p', POPT_ARG_INT, &G::rt_prio, 0, "real time priority"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -430,16 +449,24 @@ int receiver(TSCaster& comms)
 	fclose(fp_cur);
 	return 0;
 }
+
+
+
 int main(int argc, const char* argv[])
 {
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx_immediate") == 0){
 		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
-	}else if (strcmp(mode, "tx") == 0){
-		return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 	}else{
-		return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+		if (G::rt_prio){
+			goRealTime(G::rt_prio);
+		}
+		if (strcmp(mode, "tx") == 0){
+			return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+		}else{
+			return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+		}
 	}
 }
 
