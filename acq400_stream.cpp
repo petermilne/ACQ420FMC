@@ -4269,8 +4269,8 @@ void waitHolders() {
 
 StreamHead* StreamHead::createLiveDataInstance()
 {
-	ident("acq400_stream_hb0");
-
+	ident("acq400_stream_LDI");
+	nice(-10);
 
 	for (nb_cat = 1;
 	     nb_cat*Buffer::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
