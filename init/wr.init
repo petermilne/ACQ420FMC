@@ -90,7 +90,7 @@ start_wrtd() {
 	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 	
 	if [ "z$WRTD_NICE" != "z" ] && [ $WRTD_NICE -lt 0 ]; then
-		N2="bin/nice -n $WRTD_NICE"
+		N2="/bin/nice -n $WRTD_NICE"
 	else
 		N2=""
 	fi 
@@ -98,7 +98,7 @@ start_wrtd() {
 
     if [ $WRTD_RX -ne 0 ]; then
     	 /usr/local/bin/procServ -c / -p $PIDF_RX  4280 \
-			$N /usr/local/bin/wrtd $WRTD_OPTS --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE rx
+			$N2 /usr/local/bin/wrtd $WRTD_OPTS --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE rx
 		sleep 1
 		nc localhost 4280 -e logger -t wrtd_rx &
 	fi
