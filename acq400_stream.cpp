@@ -1625,6 +1625,9 @@ static void hold_open(const char* sites)
 				child = fork();
 
 		                if (child == 0) {
+		                	char id[80];
+		                	sprintf(id, "acq400_stream_holder_%d", isite);
+		                	ident(id);
 		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
 		                	holder_wait_and_pass_aggsem();
 		                	hold_open(G::the_sites[isite]);
@@ -2014,6 +2017,7 @@ protected:
 		if (verbose) fprintf(stderr, "schedule_soft_trigger()");
 		pid_t child = fork();
 		if (child == 0){
+			ident("acq400_stream_st");
 			nice(2);
 			sched_yield();
 			soft_trigger_control();
@@ -2553,6 +2557,7 @@ void StreamHeadLivePP::startSampleIntervalWatcher() {
 			*sample_interval_usecs = 100;
 
 			if (fork() == 0){
+				ident("acq400_stream_siw");
 				while (1){
 					sleep(1);
 					getSampleInterval();
@@ -4097,11 +4102,9 @@ class SubrateStreamHead: public StreamHead {
 public:
 	SubrateStreamHead():
 		StreamHead(open("/dev/acq400.0.bq", O_RDONLY), 1) {
-		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
-		fprintf(fp, "%d\n", getpid());
-		fclose(fp);
-		close(fout);		/* we open it every time .. */
-		BufferCloner::cloneBuffers<OversamplingBufferCloner>();
+			ident("acq400_stream_bq");
+			close(fout);		/* we open it every time .. */
+			BufferCloner::cloneBuffers<OversamplingBufferCloner>();
 	}
 	virtual ~SubrateStreamHead() {
 	}
@@ -4268,6 +4271,7 @@ StreamHead* StreamHead::createLiveDataInstance()
 {
 	ident("acq400_stream_hb0");
 
+
 	for (nb_cat = 1;
 	     nb_cat*Buffer::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
 		;
@@ -4418,6 +4422,7 @@ public:
 		maxfiles_limit(getenv_default("MultiEventServerMaxfilesLimit", 199)),
 		ev_count(0)
 	{
+		ident("acq400_stream_MES");
 		verbose = getenv_default("MultiEventServerVerbose");
 		if (verbose) fprintf(stderr, "MultiEventServer\n");
 
