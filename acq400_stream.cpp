@@ -1626,7 +1626,7 @@ static void hold_open(const char* sites)
 
 		                if (child == 0) {
 		                	char id[80];
-		                	sprintf(id, "acq400_stream_holder_%d", isite);
+		                	sprintf(id, "acq400_stream_holder_%d", isite+1);
 		                	ident(id);
 		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
 		                	holder_wait_and_pass_aggsem();
@@ -2018,7 +2018,7 @@ protected:
 		pid_t child = fork();
 		if (child == 0){
 			ident("acq400_stream_st");
-			nice(2);
+			nice(7);
 			sched_yield();
 			soft_trigger_control();
 			exit(0);
@@ -4471,7 +4471,8 @@ void StreamHead::createMultiEventInstance(const char* def)
         }else{            		/* Parent writes argv[1] to pipe */
              close(pipefd[0]);          /* Close unused read end */
              multi_event = pipefd[1];
-             nice(5);
+             nice(13);
+             ident("acq400_stream_mei");
              fprintf(stderr, "StreamHead::createMultiEventInstance() multi_event pipe:%d\n", multi_event);
              // return to main line
         }
@@ -4480,6 +4481,7 @@ void StreamHead::createMultiEventInstance(const char* def)
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
+	nice(-10);
 	if (_instance == 0){
 		setEventCountLimit(
 				G::show_events? ECL_NOLIMIT:
@@ -4504,7 +4506,6 @@ StreamHead* StreamHead::instance() {
 		}
 
 		ident("acq400_stream_main");
-
 		if (G::stream_mode == SM_TRANSIENT){
 			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
 				Demuxer *demuxer;
