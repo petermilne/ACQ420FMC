@@ -87,10 +87,6 @@ int atd_suppress_mod_event_nsec = NSEC_PER_MSEC * 1000 / MBPS * BS;
 module_param(atd_suppress_mod_event_nsec, int, 0644);
 MODULE_PARM_DESC(atd_suppress_mod_event_nsec, "hold off mod_event at least one buffer");
 
-int atd_status_display_nsec = NSEC_PER_MSEC * 1000;
-module_param(atd_status_display_nsec, int, 0644);
-MODULE_PARM_DESC(atd_status_display_nsec, "status display latch time");
-
 #define MINOR_P0	0
 #define MINOR_PMAX	63	/* 64 pages max */
 #define MINOR_EV	64	/* hook event reader here */
@@ -108,7 +104,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1013"
+#define REVID "regfs_fs B1016"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -526,7 +522,7 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 
 	dsp_status = ioread32(rdev->va + DSP_STATUS);
 
-	rdev->status_latch = dsp_status;
+	rdev->status_latch |= dsp_status;
 	rdev->ints++;
 	if (ready){
 		rdev->client_ready = 0;
@@ -535,11 +531,15 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 		wake_up_interruptible(&rdev->w_waitq);
 
 	}
-	atd_enable_mod_event(rdev, 0);
+	if (atd_suppress_mod_event_nsec){
+		atd_enable_mod_event(rdev, 0);
+	}
 
 	iowrite32(dsp_status, rdev->va + DSP_STATUS);
 
-	hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
+	if (atd_suppress_mod_event_nsec){
+		hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
+	}
 
 	if (ready){
 		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
@@ -598,7 +598,7 @@ static ssize_t show_status_latch(
 	char * buf)
 {
 	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
-	int rc = sprintf(buf, "0x%08x\n", rdev->status_latch);
+	int rc = sprintf(buf, "%04x,%04x\n", rdev->status_latch>>16, rdev->status_latch&0x0000ffff);
 	rdev->status_latch = 0;
 	return rc;
 }
