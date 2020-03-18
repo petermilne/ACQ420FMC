@@ -386,7 +386,7 @@ struct acq400_path_descriptor {
 #define PDEV(filp)		(DEVP(ACQ400_DEV(filp)))
 #define SITE(adev)		((adev).of_prams.site)
 
-#define MIN_DMA_BYTES	256
+
 
 
 

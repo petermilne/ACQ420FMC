@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.449"
+#define REVID 			"3.450"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -155,6 +155,9 @@ int ao420_dma_threshold = 32000;		/* DMA NFG, replace MIN_DMA_BYTES with est siz
 module_param(ao420_dma_threshold, int, 0644);
 MODULE_PARM_DESC(ao420_dma_threshold, "use DMA for transfer to AO [set 999999 to disable]");
 
+int min_dma_bytes = 32000;			/* FRONTSIDE DMA NFG, replace MIN_DMA_BYTES with est size of FIFO */
+module_param(min_dma_bytes, int, 0644);
+MODULE_PARM_DESC(min_dma_bytes, "threshold for using DMA not PIO for AO frontside");
 
 int event_isr_msec = 20;
 module_param(event_isr_msec, int, 0644);
@@ -1363,8 +1366,8 @@ static int xo400_write_fifo_dma(struct acq400_dev* adev, int frombyte, int bytes
 				ib, frombyte, bytes);
 		}
 	}
-	if (bytes >= MIN_DMA_BYTES){
-		int rbytes = (bytes/MIN_DMA_BYTES)*MIN_DMA_BYTES;
+	if (bytes >= min_dma_bytes){
+		int rbytes = (bytes/min_dma_bytes)*min_dma_bytes;
 		if (rbytes != bytes){
 			dev_dbg(DEVP(adev), "xo400_write_fifo_dma() rounding bytes from %d to %d", bytes, rbytes);
 			bytes = rbytes;
@@ -1509,9 +1512,9 @@ static int xo400_fill_fifo(struct acq400_dev* adev)
 
 			lenbytes = min(lenbytes, AO420_MAX_FILL_BLOCK);
 
-			if (adev->dma_chan[0] != 0 && lenbytes > max(MIN_DMA_BYTES, ao420_dma_threshold)){
-				int nbuf = lenbytes/MIN_DMA_BYTES;
-				int dma_bytes = nbuf*MIN_DMA_BYTES;
+			if (adev->dma_chan[0] != 0 && lenbytes > max(min_dma_bytes, ao420_dma_threshold)){
+				int nbuf = lenbytes/min_dma_bytes;
+				int dma_bytes = nbuf*min_dma_bytes;
 
 				dev_dbg(DEVP(adev), "dma: cursor:%5d lenbytes: %d", cursor, dma_bytes);
 				lenbytes = xo400_write_fifo_dma(adev, cursor, dma_bytes);
