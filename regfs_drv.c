@@ -83,9 +83,13 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 
 #define MBPS	96	/* data rate ACQ424+DIO+3SPAD * 2M */
 #define BS	4	/* block size, MB */
-int atd_suppress_mod_event_nsec = NSEC_PER_MSEC * 1000 / MBPS * BS;
+int atd_suppress_mod_event_nsec = 0;
 module_param(atd_suppress_mod_event_nsec, int, 0644);
 MODULE_PARM_DESC(atd_suppress_mod_event_nsec, "hold off mod_event at least one buffer");
+
+int soft_trigger_nsec = NSEC_PER_MSEC * 10;
+module_param(soft_trigger_nsec, int, 0644);
+MODULE_PARM_DESC(soft_trigger_nsec, "high hold time for soft trigger pulse");
 
 #define MINOR_P0	0
 #define MINOR_PMAX	63	/* 64 pages max */
@@ -487,7 +491,8 @@ int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 #define INT_CSR_OFFSET	0x18
 #define INT_CSR_ATD	(1<<8)
 
-#define DSP_STATUS	0x60
+#define DSP_IRQ_STAT	0x60
+#define DSP_FUN_STAT	0x64
 
 void atd_enable_mod_event(struct REGFS_DEV *rdev, int enable)
 {
@@ -509,24 +514,33 @@ modevent_masker_timer_handler(struct hrtimer *handle)
 	return HRTIMER_NORESTART;
 }
 
+static enum hrtimer_restart
+soft_trigger_timer_handler(struct hrtimer *handle)
+{
+	acq400_soft_trigger(0);
+	return HRTIMER_NORESTART;
+}
 
 static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
-	u32 dsp_status;
 	const int ready = rdev->client_ready;
+	u32 irq_stat;
+	u32 fun_stat;
 
 	if (ready){
 		rdev->sample_count = acq400_agg_sample_count();
 	}
 
-	dsp_status = ioread32(rdev->va + DSP_STATUS);
+	irq_stat = ioread32(rdev->va + DSP_IRQ_STAT);
+	fun_stat = ioread32(rdev->va + DSP_FUN_STAT);
 
-	rdev->status_latch |= dsp_status;
+	rdev->status_latch |= fun_stat;
+	rdev->group_status_latch |= fun_stat;
 	rdev->ints++;
 	if (ready){
 		rdev->client_ready = 0;
-		rdev->status = dsp_status;
+		rdev->status = irq_stat;
 		rdev->latch_count = acq400_adc_latch_count();
 		wake_up_interruptible(&rdev->w_waitq);
 
@@ -535,17 +549,24 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 		atd_enable_mod_event(rdev, 0);
 	}
 
-	iowrite32(dsp_status, rdev->va + DSP_STATUS);
+	iowrite32(irq_stat, rdev->va + DSP_IRQ_STAT);
 
 	if (atd_suppress_mod_event_nsec){
 		hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
 	}
 
+	if (rdev->group_status_latch && (rdev->group_status_latch&rdev->group_status_latch) == rdev->group_status_latch){
+		acq400_soft_trigger(1);
+		rdev->group_status_latch = 0;
+		hrtimer_start(&rdev->soft_trigger.timer, ktime_set(0, soft_trigger_nsec), HRTIMER_MODE_REL);
+		dev_dbg(&rdev->pdev->dev, "GROUP_STATUS CONDITION MET: soft trigger");
+	}
+
 	if (ready){
-		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  dsp_status:%08x\n",
+		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  irq:%08x fun:%08x\n",
 			rdev->ints, rdev->sample_count, rdev->sample_count>rdev->latch_count? ">": "<", rdev->latch_count,
 			rdev->sample_count>rdev->latch_count? rdev->sample_count-rdev->latch_count: rdev->latch_count-rdev->sample_count,
-			dsp_status);
+					irq_stat, fun_stat);
 	}
 
 	return IRQ_HANDLED;
@@ -592,20 +613,85 @@ static struct file_operations regfs_fops = {
 	.release = regfs_release,
 };
 
+static int sprintf_split_words(char* buf, unsigned lw)
+{
+	return sprintf(buf, "%04x,%04x\n", lw>>16, lw&0x0000ffff);
+}
+
+
+
 static ssize_t show_status_latch(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
 {
 	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
-	int rc = sprintf(buf, "%04x,%04x\n", rdev->status_latch>>16, rdev->status_latch&0x0000ffff);
+	int rc = sprintf_split_words(buf, rdev->status_latch);
+
 	rdev->status_latch = 0;
 	return rc;
 }
 
 static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
+
+static ssize_t show_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned fun_stat = ioread32(rdev->va + DSP_FUN_STAT);
+	return sprintf_split_words(buf, fun_stat);
+}
+
+static DEVICE_ATTR(status, S_IRUGO, show_status, 0);
+
+
+static ssize_t show_group_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf_split_words(buf, rdev->group_status_latch);
+	return rc;
+}
+
+static DEVICE_ATTR(group_status_latch, S_IRUGO, show_group_status_latch, 0);
+
+static ssize_t store_group_trigger_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned eh, el;
+
+	if (sscanf(buf, "%x,%x", &eh, &el) == 2){
+		rdev->group_status_mask = eh<<16 | el;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_group_trigger_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf_split_words(buf, rdev->group_status_mask);
+	return rc;
+}
+
+static DEVICE_ATTR(group_trigger_mask, S_IRUGO|S_IWUSR, show_group_trigger_mask, store_group_trigger_mask);
+
 static const struct attribute *sysfs_base_attrs[] = {
+	&dev_attr_status.attr,
 	&dev_attr_status_latch.attr,
+	&dev_attr_group_status_latch.attr,
+	&dev_attr_group_trigger_mask.attr,
 	NULL
 };
 
@@ -649,6 +735,7 @@ int regfs_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to create sysfs");
 	}
         acq400_timer_init(&rdev->atd.timer, modevent_masker_timer_handler);
+        acq400_timer_init(&rdev->soft_trigger.timer, soft_trigger_timer_handler);
 fail:
 	return rc;
 }

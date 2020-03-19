@@ -444,6 +444,18 @@ void acq400_enable_event0(struct acq400_dev *adev, int enable)
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
 
+void acq400_soft_trigger(unsigned enable)
+{
+	struct acq400_dev *adev = acq400_sites[0];
+	unsigned mcr = acq400rd32(adev, MCR);
+	if (enable){
+		mcr |= MCR_SOFT_TRIG;
+	}else{
+		mcr &= ~MCR_SOFT_TRIG;
+	}
+	acq400wr32(adev, MCR, mcr);
+}
+
 
 void go_rt(int prio)
 {
@@ -465,3 +477,4 @@ void acq400_set_peripheral_SPI_CS(unsigned csword)
 EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
 EXPORT_SYMBOL_GPL(acq400rd32);
 EXPORT_SYMBOL_GPL(acq400wr32);
+EXPORT_SYMBOL_GPL(acq400_soft_trigger);

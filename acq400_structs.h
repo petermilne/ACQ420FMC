@@ -723,17 +723,7 @@ static inline u32 acq400_agg_sample_count(void)
 	return acq400rd32(acq400_sites[0], SPADN(0));
 }
 
-static inline void acq400_soft_trigger(unsigned enable)
-{
-	struct acq400_dev *adev = acq400_sites[0];
-	unsigned mcr = acq400rd32(adev, MCR);
-	if (enable){
-		mcr |= MCR_SOFT_TRIG;
-	}else{
-		mcr &= ~MCR_SOFT_TRIG;
-	}
-	acq400wr32(adev, MCR, mcr);
-}
+void acq400_soft_trigger(unsigned enable);
 
 static inline void acq400_timer_init(
 	struct hrtimer* timer,

@@ -51,6 +51,8 @@ struct REGFS_DEV {
 	unsigned ints;
 	unsigned status;
 	unsigned status_latch;
+	unsigned group_status_latch;
+	unsigned group_status_mask;
 	unsigned sample_count;
 	unsigned latch_count;
 	unsigned event_client_pid;
@@ -58,6 +60,7 @@ struct REGFS_DEV {
 
 	void* client;				/* stash subclass data here */
 	struct ATD atd;				/* pulse timers */
+	struct ATD soft_trigger;
 };
 
 extern irqreturn_t (*regfs_isr)(int irq, void *dev_id);
