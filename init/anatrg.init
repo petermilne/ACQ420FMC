@@ -56,6 +56,7 @@ if [ $SITE -eq 14 ]; then
 	[ $ch1 -ne $totc ] && echo "WARNING something does not add up $ch1 $totc"
 	NC=$ch1
 	set.sys /dev/dsp1/ATD_CSR.ATD_EN 1
+	set.sys /dev/dsp1/ATD_CSR.ATD_MEE 1
 else
 	cd /etc/acq400/$SITE
 
