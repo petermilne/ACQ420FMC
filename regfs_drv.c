@@ -536,7 +536,11 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 	fun_stat = ioread32(rdev->va + DSP_FUN_STAT);
 
 	rdev->status_latch |= fun_stat;
-	rdev->group_status_latch |= fun_stat;
+	if (rdev->gsmode == GS_NOW){
+		rdev->group_status_latch = fun_stat;
+	}else{
+		rdev->group_status_latch |= fun_stat;
+	}
 	rdev->ints++;
 	if (ready){
 		rdev->client_ready = 0;
@@ -555,7 +559,7 @@ static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 		hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
 	}
 
-	if (rdev->group_status_latch && (rdev->group_status_latch&rdev->group_status_latch) == rdev->group_status_latch){
+	if (rdev->group_trigger_mask && (rdev->group_status_latch&rdev->group_trigger_mask) == rdev->group_trigger_mask){
 		acq400_soft_trigger(1);
 		rdev->group_status_latch = 0;
 		hrtimer_start(&rdev->soft_trigger.timer, ktime_set(0, soft_trigger_nsec), HRTIMER_MODE_REL);
@@ -669,7 +673,7 @@ static ssize_t store_group_trigger_mask(
 	unsigned eh, el;
 
 	if (sscanf(buf, "%x,%x", &eh, &el) == 2){
-		rdev->group_status_mask = eh<<16 | el;
+		rdev->group_trigger_mask = eh<<16 | el;
 		return count;
 	}else{
 		return -1;
@@ -681,17 +685,46 @@ static ssize_t show_group_trigger_mask(
 	char * buf)
 {
 	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
-	int rc = sprintf_split_words(buf, rdev->group_status_mask);
+	int rc = sprintf_split_words(buf, rdev->group_trigger_mask);
 	return rc;
 }
 
 static DEVICE_ATTR(group_trigger_mask, S_IRUGO|S_IWUSR, show_group_trigger_mask, store_group_trigger_mask);
+
+static ssize_t store_group_status_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned en;
+
+	if (sscanf(buf, "%d", &en) == 1){
+		rdev->gsmode = en==1;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_group_status_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf(buf, "%d %s\n", rdev->gsmode, rdev->gsmode==GS_NOW? "GS_NOW": "GS_HISTORIC");
+	return rc;
+}
+
+static DEVICE_ATTR(group_status_mode, S_IRUGO|S_IWUSR, show_group_status_mode, store_group_status_mode);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_status_latch.attr,
 	&dev_attr_group_status_latch.attr,
 	&dev_attr_group_trigger_mask.attr,
+	&dev_attr_group_status_mode.attr,
 	NULL
 };
 

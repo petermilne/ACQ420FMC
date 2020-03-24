@@ -52,7 +52,8 @@ struct REGFS_DEV {
 	unsigned status;
 	unsigned status_latch;
 	unsigned group_status_latch;
-	unsigned group_status_mask;
+	unsigned group_trigger_mask;
+	enum GSMODE { GS_NOW, GS_HISTORIC } gsmode;
 	unsigned sample_count;
 	unsigned latch_count;
 	unsigned event_client_pid;
