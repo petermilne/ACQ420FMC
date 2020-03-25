@@ -5,7 +5,7 @@
 cat /usr/local/CARE/ATD-DSP/atd-dsp-regdef >/dev/dsp1/.create
 mkdir -p /etc/acq400/14/
 ln -s /dev/dsp1/* /etc/acq400/14/
-for file in status status_latch group_status_latch group_trigger_mask; do
+for file in status status_latch group_*; do
 	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/14
 # temporary: locate in site 1	
 	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/1
