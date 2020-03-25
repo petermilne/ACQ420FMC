@@ -392,6 +392,7 @@ install_cal() {
 build_site0() {
 	dk=/dev/acq400.0.knobs
 	ek=/etc/acq400/0/
+	echo "MOTHERBOARD" > $ek/module_role
 	ln -s $1 ${dk}
 	web_append acq400.0 0
     fix_state
@@ -407,6 +408,7 @@ build_site0() {
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
 	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
+	
 	
 	lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
 	[ -e $lck ] && ln -s $lck ${ek}
