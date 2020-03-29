@@ -145,20 +145,33 @@ web_append()
 
 
 build_etc_site() {
-	mkdir -p /etc/acq400/${site}
-	kdir=/dev/acq400.${site}.knobs
-	for src in ${kdir}/*; do
+	ek=/etc/acq400/${site}
+	mkdir -p ${ek}
+	dk=/dev/acq400.${site}.knobs
+	for src in ${dk}/*; do
 		case $(basename $src) in
 		driver|subsystem|power|uevent|dacspi|dacreset|RW32_debug)
 			;;
 		*)
-			ln -s ${src} /etc/acq400/${site};;
+			ln -s ${src} ${ek};;
 		esac
 	done
-	[ -e $kdir/atd_OR ] && /usr/local/init/anatrg.init ${site}
+
 
 	[ -e ${SYSCONF}/site-${site}-peers ] && \
 		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
+		
+	if [ $site -eq 14 ] && [ -e ${ek}/@MODULE_ID ]; then
+		modid=$(cat ${ek}/@MODULE_ID)
+		dsp_mtype=${modid:0:4}
+		case $dsp_mtype in
+		9802)
+			echo "+++ dsp_mtype 9802 anatrg"
+			/usr/local/init/anatrg.init ${site};;
+		*)
+			echo "+++ dsp_mtype $dsp_mtype no action taken";;
+		esac
+	fi		
 }
 
 
