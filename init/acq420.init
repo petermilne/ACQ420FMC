@@ -159,19 +159,7 @@ build_etc_site() {
 
 
 	[ -e ${SYSCONF}/site-${site}-peers ] && \
-		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
-		
-	if [ $site -eq 14 ] && [ -e ${ek}/@MODULE_ID ]; then
-		modid=$(cat ${ek}/@MODULE_ID)
-		dsp_mtype=${modid:0:4}
-		case $dsp_mtype in
-		9802)
-			echo "+++ dsp_mtype 9802 anatrg"
-			/usr/local/init/anatrg.init ${site};;
-		*)
-			echo "+++ dsp_mtype $dsp_mtype no action taken";;
-		esac
-	fi		
+		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers		
 }
 
 
