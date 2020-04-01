@@ -734,6 +734,8 @@ load_mgt() {
 if [ -e /etc/acq400/C/MTYPE ]; then
 	if [ "x$WHITE_RABBIT" = "x1" ]; then
 		echo +++ WHITE_RABBIT: skipping mgt device driver load..
+		echo +++ init MGT482
+		web_append sfp none
 	else
 		load_mgt
 		cmt=$(cat /etc/acq400/C/MTYPE)
