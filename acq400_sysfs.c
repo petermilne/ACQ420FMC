@@ -437,9 +437,9 @@ static ssize_t store_signal(
 {
 	char sense;
 	char mode[16];
+	char* edge = mode;
 	unsigned imode, dx, rising;
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	int nscan;
 
 	if (not_while_busy && adev->busy){
 		return -EBUSY;
@@ -450,8 +450,7 @@ static ssize_t store_signal(
 
 	}
 	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
-	nscan = sscanf(buf, "%u,%u,%u", &imode, &dx, &rising);
-	if (nscan == 3){
+	if (sscanf(buf, "%u,%u,%u", &imode, &dx, &rising) == 3){
 		if (store_signal3(adev, REG, shl, mbit, imode, dx, rising)){
 			return -1;
 		}else{
@@ -459,10 +458,18 @@ static ssize_t store_signal(
 		}
 	}
 
-	/* second form: mode dDX sense : better for human scripting */
-	nscan = sscanf(buf, "%10s d%u %c", mode, &dx, &sense);
+	/* second form: 1,dX,rising : sync_role uses this */
+	if (sscanf(buf, "%u,d%u,%s", &imode, &dx, edge) == 3){
+		rising = get_edge_sense(edge, 0);
+		if (store_signal3(adev, REG, shl, mbit, imode, dx, rising)){
+			return -1;
+		}else{
+			return count;
+		}
+	}
 
-	switch(nscan){
+	/* third form: mode dDX sense : better for human scripting */
+	switch(sscanf(buf, "%10s d%u %c", mode, &dx, &sense)){
 	case 1:
 		if (strcmp(mode, mbit_lo) == 0){
 			return store_signal3(adev, REG, shl, mbit, 0, 0, 0);

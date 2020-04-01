@@ -23,6 +23,8 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
+#include <linux/ctype.h>
+
 #include "acq400.h"
 #include "bolo.h"
 
@@ -46,6 +48,18 @@ ssize_t acq400_show_triplet(
 
 #define SHLMASK(x, f) (((x)<<getSHL(f))&(f))
 
+u32 get_edge_sense(char edge[], u32 vv)
+{
+	int len = strlen(edge);
+	if (len){
+		int ii;
+		for(ii = 0; ii < len; ++ii){
+			edge[ii] = tolower(edge[ii]);
+		}
+		vv = strcmp(edge, "rising") == 0;
+	}
+	return vv;
+}
 ssize_t acq400_store_triplet(
 		struct device * dev,
 		struct device_attribute *attr,
@@ -57,9 +71,15 @@ ssize_t acq400_store_triplet(
 		unsigned T3)
 {
 	u32 v1, v2, v3;
+	char edge[21];
+	edge[0] = '\0';
 
-	if (sscanf(buf, "%d,%d,%d", &v1, &v2, &v3) == 3){
+	if (sscanf(buf, "%d,d%d,%20s", &v1, &v2, edge) == 3 ||
+	    sscanf(buf, "%d,%d,%d", &v1, &v2, &v3) == 3		){
+
 		u32 regval = acq400rd32(acq400_devices[dev->id], REG);
+		v3 = get_edge_sense(edge, v3);
+
 
 		regval &= ~(T1|T2|T3);
 		regval |= SHLMASK(v1, T1) | SHLMASK(v2, T2) | SHLMASK(v3, T3);

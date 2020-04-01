@@ -260,3 +260,4 @@ static ssize_t show_clk_count_##name(						\
 }										\
 static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
 
+extern u32 get_edge_sense(char edge[], u32 vv);
