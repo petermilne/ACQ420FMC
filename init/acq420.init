@@ -732,26 +732,30 @@ load_mgt() {
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
-	load_mgt
-	cmt=$(cat /etc/acq400/C/MTYPE)
-	case $cmt in
-	90)
-		echo +++ init MGT482
-		web_append sfp none;;
-	95)
-		/usr/local/init/mgtdram8.init
-        [ $FANSPEED -lt 60 ] && FANSPEED=60
-		echo "set.site 0 distributor comms=2" \
-				>>/tmp/acq420.init-postpowerup-action
-		(sleep 7; nice mgtd_monitor_dsp1) &
-		echo +++ init MGT-DRAM;;
-	*)
-		if [ "x$cmd" = "x" ]; then
-			echo "WARNING: site C no MTYPE needs FRU\?"
-		else
-			echo "WARNING: site C unsupported MTYPE $cmt"
-		fi;;
-	esac
+	if [ "x$WHITE_RABBIT" = "x1" ]; then
+		echo +++ WHITE_RABBIT: skipping mgt device driver load..
+	else
+		load_mgt
+		cmt=$(cat /etc/acq400/C/MTYPE)
+		case $cmt in
+		90)
+			echo +++ init MGT482
+			web_append sfp none;;
+		95)
+			/usr/local/init/mgtdram8.init
+        	[ $FANSPEED -lt 60 ] && FANSPEED=60
+			echo "set.site 0 distributor comms=2" \
+					>>/tmp/acq420.init-postpowerup-action
+			(sleep 7; nice mgtd_monitor_dsp1) &
+			echo +++ init MGT-DRAM;;
+		*)
+			if [ "x$cmd" = "x" ]; then
+				echo "WARNING: site C no MTYPE needs FRU\?"
+			else
+				echo "WARNING: site C unsupported MTYPE $cmt"
+			fi;;
+		esac
+	fi
 fi
 case $MODEL in
 kmcu*)
