@@ -1,0 +1,3 @@
+#!/bin/sh
+wait_until MODE:TRANS_ACT:STATE IDLE
+
