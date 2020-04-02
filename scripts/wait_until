@@ -1,6 +1,7 @@
 #!/usr/local/bin/expect
 
 log_user 0
+set timeout 1
 
 if { $argc < 2 } {
 	puts "wait_until PV VALUE"
@@ -20,22 +21,23 @@ while { $state != "FINI" } {
 	expect {
 		-re "$PV (\[0-9-\]+) (\[0-9:\.\]+) (\[^ \]+) .*\r" {
 			set v1 $expect_out(3,string)
-			if { $state == "INIT" } {
-				set v0 $v1
-				set state WAIT4
-			} else {
-				if { $v1 != $v0 } {
-					if { $v1 == $VALUE } {
-						set finished 1
-						set state FINI
-					}
-					puts "$v0 => $v1 $state"
-					set v0 $v1
-				}
-			}
 		}
 		timeout {
-			;
+			set vx [exec caget $PV]
+			set v1 [lindex [split $vx " "] 1]	
+		}
+	}
+	if { $state == "INIT" } {
+		set v0 $v1
+		set state WAIT4
+	} else {
+		if { $v1 != $v0 } {
+			if { $v1 == $VALUE } {
+				set finished 1
+				set state FINI
+			}
+			puts "$v0 => $v1 $state"
+			set v0 $v1
 		}
 	}
 }
