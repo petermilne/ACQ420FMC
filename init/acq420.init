@@ -346,7 +346,13 @@ build_knobs_device() {
 	9)
 		set_max_min_khz ${site} 200 10
 		ACQ423_SITES="${ACQ423_SITES} $site";;	
-	40|42|6A)		
+	40|42|6A)	
+		case $mtype in
+		6A)
+			set_max_min_khz ${site} 250 10;;
+		*)
+			set_max_min_khz ${site} 1000 10;;
+		esac
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
 		if [ -e /etc/acq400/$site/dac_mux_master ]; then
 				ln -s /usr/local/bin/muxpattern /etc/acq400/$site/
@@ -359,10 +365,17 @@ build_knobs_device() {
 	60|64)
 		if [ "x$BOLO8_SITES" != "x" ]; then
 			BOLO8_SITES="${BOLO8_SITES},"
-		fi		
+		fi
+		set_max_min_khz ${site} 2000 2000;;	
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
 	61|62|6B)
+		case $mtype in
+		6B)
+			set_max_min_khz ${site} 25000 10;;
+		*)
+			set_max_min_khz ${site} 1000 10;;
+		esac
 		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
 	67|68|69)
 		return;;
