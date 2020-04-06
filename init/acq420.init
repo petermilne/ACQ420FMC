@@ -163,6 +163,10 @@ build_etc_site() {
 }
 
 
+set_max_min_khz() {
+	echo $2 >/etc/acq400/$1/MAX_KHZ
+	echo $3 >/etc/acq400/$1/MIN_KHZ
+}
 customize_acq420()
 {
 	source 	/dev/sites/$1/details
@@ -170,6 +174,8 @@ customize_acq420()
 	old_ifs=$IFS; IFS="-"
 	let ix=0
 	knobd=/dev/acq400.$1.knobs
+	set_max_min_khz $1 1000 10
+
 	is_acq427=0
 	for field in $PN
 	do
@@ -331,11 +337,14 @@ build_knobs_device() {
 		echo WORKAROUND: clear FIFERR
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
+		set_max_min_khz ${site} 128 4
 		CLKDIV=8;;
 	7|8)
 		# space deliberate
+		set_max_min_khz ${site} 80000 10000
 		ACQ480_SITES="${ACQ480_SITES} $site";;
 	9)
+		set_max_min_khz ${site} 200 10
 		ACQ423_SITES="${ACQ423_SITES} $site";;	
 	40|42|6A)		
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
@@ -344,7 +353,8 @@ build_knobs_device() {
 		fi
 		CLKDIV=250;;
 	41)	
-		ao424_init ${site}	
+		ao424_init ${site}
+		set_max_min_khz ${site} 500 10	
 		CLKDIV=500;;
 	60|64)
 		if [ "x$BOLO8_SITES" != "x" ]; then
