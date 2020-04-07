@@ -366,7 +366,7 @@ build_knobs_device() {
 		if [ "x$BOLO8_SITES" != "x" ]; then
 			BOLO8_SITES="${BOLO8_SITES},"
 		fi
-		set_max_min_khz ${site} 2000 2000;;	
+		set_max_min_khz ${site} 2000 2000
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
 	61|62|6B)
