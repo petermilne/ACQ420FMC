@@ -40,9 +40,12 @@ if [ $SITE -eq 14 ]; then
 	fi
 	ch1=0
 
+	data32=-1
+
 	for site in $ADC_SITES; do
 		kd=/dev/acq400.$site.knobs
 		nc=$(cat $kd/active_chan)
+		[ $data32 -eq -1 ] && data32=$(cat $kd/data32)
 		mkdir -p /etc/acq400/$site
 		cd /etc/acq400/$site
 		set.sys /dev/dsp1/ATD_CSR.SITE$site 1
@@ -57,6 +60,7 @@ if [ $SITE -eq 14 ]; then
 	NC=$ch1
 	set.sys /dev/dsp1/ATD_CSR.ATD_EN 1
 	set.sys /dev/dsp1/ATD_CSR.ATD_MEE 1
+	set.sys /dev/dsp1/ATD_CSR.DATA32 $data32
 else
 	cd /etc/acq400/$SITE
 
