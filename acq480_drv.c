@@ -58,6 +58,12 @@ module_param_array(acq480_sites, int, &acq480_sites_count, 0644);
 static int n_acq480;
 module_param(n_acq480, int, 0444);
 
+static int claim_0x20 = 1;
+module_param(claim_0x20, int, 0444);
+
+static int claim_0x22 = 1;
+module_param(claim_0x22, int, 0444);
+
 static int spi_bus_num = 1;
 module_param(spi_bus_num, int, 0444);
 
@@ -203,11 +209,15 @@ struct acq480_dev* acq480_allocate_dev(struct platform_device *pdev)
 
 	adev->pdev = pdev;
 	adev->i2c_adapter = i2c_get_adapter(I2C_CHAN(site));
-	if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
-		printk("acq480_init_site(%d) 50R switch NOT found\n", site);
+	if (claim_0x20){
+		if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
+			printk("acq480_init_site(%d) 50R switch NOT found\n", site);
+		}
 	}
-	if (new_device(adev->i2c_adapter, "tca6424", 0x22, -1) == 0){
-		printk("acq480_init_site(%d) J-clean NOT found\n", site);
+	if (claim_0x22){
+		if (new_device(adev->i2c_adapter, "tca6424", 0x22, -1) == 0){
+			printk("acq480_init_site(%d) J-clean NOT found\n", site);
+		}
 	}
 
 	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
