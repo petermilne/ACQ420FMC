@@ -167,8 +167,7 @@ if { $::argc > 0 } {
 # spy streaming port	
 	puts $FINETD "4280 stream tcp nowait root acq400_stream acq400_stream --spy 1"
 	close $FINETD
-
-s	
+	
 	if { [info exists ::env(ACQ480_MODPARAMS)] } {
 		set ACQ480_MODPARAMS ::env(ACQ480_MODPARAMS)
 	} else {
