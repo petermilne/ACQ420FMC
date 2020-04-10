@@ -528,7 +528,10 @@ static ssize_t store_ffir_coeff(
 }
 static DEVICE_ATTR(ffir_coeff, S_IWUSR, 0, store_ffir_coeff);
 
-
+MAKE_BITS(mr_sel1, ACQ480_ADC_MULTIRATE, MAKE_BITS_FROM_MASK, ACQ480_ADC_MR_MRSEL1);
+MAKE_BITS(mr_sel0, ACQ480_ADC_MULTIRATE, MAKE_BITS_FROM_MASK, ACQ480_ADC_MR_MRSEL0);
+MAKE_BITS(mr_10dec,ACQ480_ADC_MULTIRATE, MAKE_BITS_FROM_MASK, ACQ480_ADC_MR_MR10_DEC);
+MAKE_BITS(mr_en,   ACQ480_ADC_MULTIRATE, MAKE_BITS_FROM_MASK, ACQ480_ADC_MR_EN);
 
 const struct attribute *acq480_ffir_attrs[] = {
 	&dev_attr_ffir_reset.attr,
@@ -545,6 +548,11 @@ const struct attribute *acq480_ffir_attrs[] = {
 	&dev_attr_acq480_two_lane_mode.attr,
 	&dev_attr_acq482_cmap.attr,
 	&dev_attr_acq480_fpga_decim.attr,
+
+	&dev_attr_mr_sel1.attr,
+	&dev_attr_mr_sel0.attr,
+	&dev_attr_mr_10dec.attr,
+	&dev_attr_mr_en.attr,
 	NULL
 };
 
