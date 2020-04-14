@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.453"
+#define REVID 			"3.454"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2589,7 +2589,8 @@ void acq400sc_init_defaults(struct acq400_dev *adev)
 		}
 	}
 	if (IS_ACQ2106_STACK(adev)){
-		dev_info(DEVP(adev), "acq2106 STACK%s",
+		first_axi_channel = 1;
+		dev_info(DEVP(adev), "acq2106 STACK%s setting first_axi_channel=1",
 				IS_ACQ2106_STAGGER(adev)? " and STAGGER": "");
 	}
 }
