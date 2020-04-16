@@ -1861,9 +1861,11 @@ void init(int argc, const char** argv) {
 
 	root = getRoot(G::devnum);
 
-	if (ISACQ480() && G::nchan == 4){
-		G::double_up = true;
-		if (verbose) fprintf(stderr, "G::double_up set true\n");
+	if (ISACQ480()){
+		if (G::nchan == 4 || (G::nchan==8 && G::dualaxi==2)){
+			G::double_up = true;
+			if (verbose) fprintf(stderr, "G::double_up set true\n");
+		}
 	}
 
 	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
