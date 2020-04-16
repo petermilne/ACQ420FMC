@@ -2936,10 +2936,14 @@ template <DemuxBufferType N>
 int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
 	assert(2+2 == 5);
 }
+
+#define VERBOSE_INNER_LOOP 0
+
 template <>
-int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* start, int nbytes) {
+int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* _start, int nbytes) {
 	const int nsam = b2s(nbytes);
 	const int cbs = channel_buffer_sam()/2;
+	char* start = reinterpret_cast<char*>(_start);
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
 	int nsrc = MAX(nbytes/sizeof(short), 2*Buffer::bufferlen/sizeof(short));
 	short* srcbuf = new short[nsrc];
@@ -2950,6 +2954,7 @@ int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* start, int nbytes) {
 	const unsigned NC2 = G::nchan/2;
 	const unsigned SRCINC = step==2? NC: NC2;
 	const int BUFSHORTS = Buffer::bufferlen/sizeof(short);
+	int change_over = 0;
 
 	memcpy(psrc, start, nsrc*sizeof(short));
 
@@ -2965,17 +2970,27 @@ int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* start, int nbytes) {
 						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
 			pdst += BUFSHORTS;	// step to next destination buffer
 			sambuf = 0;
+			if (++change_over == 2){
+				psrc = srcbuf;
+				memcpy(psrc, start += 2*Buffer::bufferlen, nsrc*sizeof(short));
+				change_over = 0;
+				if (verbose) fprintf(stderr, "%s reload srcbuf from %p\n", _PFN, start);
+			}
 		}
 		unsigned chan = 0;
 		// harvest first half channels from first src buf
 		for (short* psrct = psrc; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+#endif
 			pdst[chan*cbs+sambuf] = *psrct++;
 			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 		// harvest second half channels from second src buf
 		for (short* psrct = psrc + BUFSHORTS; chan < NC; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+#endif
 			pdst[chan*cbs+sambuf] = *psrct++;
 			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
@@ -3000,17 +3015,19 @@ int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* start, int nbytes) {
 }
 
 template <>
-int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* start, int nbytes) {
+int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
 	const unsigned NC2 = G::nchan/2;
 
 	const int nsam = b2s(nbytes);
 	const int cbs = channel_buffer_sam()/2;
+	char* start = reinterpret_cast<char*>(_start);
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
 	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
 	short* srcbuf = new short[nsrc];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
+	int change_over = 0;
 
 
 	memcpy(psrc, start, nsrc*sizeof(short));
@@ -3020,29 +3037,38 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* start, int nbytes) {
 			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
 
 	for (int sam = 0, sambuf = 0; sam < nsam; sam += 1, sambuf += 1, psrc += NC2){
-		if (sambuf == cbs){
+		if (sambuf >= cbs){
 			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
 						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
 			pdst += BUFSHORTS;	// step to next destination buffer
 			sambuf = 0;
+			if (++change_over == 2){
+				psrc = srcbuf;
+				memcpy(psrc, start += 2*Buffer::bufferlen, nsrc*sizeof(short));
+				change_over = 0;
+				if (verbose) fprintf(stderr, "%s reload srcbuf from %p\n", _PFN, start);
+			}
 		}
 		unsigned chan = 0;
 		// harvest first half channels from first src buf
 		for (short* psrct = psrc; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) {
 				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
 					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA0[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
 			}
-
+#endif
 			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = *psrct++;
 		}
 		// harvest second half channels from second src buf
 		chan = 0;
 		for (short* psrct = psrc + BUFSHORTS; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)){
 				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
 					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA1[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
 			}
+#endif
 			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA1[chan]*cbs+sambuf] = *psrct++;
 		}
 #ifdef BUFFER_IDENT
