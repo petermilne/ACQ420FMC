@@ -711,7 +711,6 @@ bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len
 	short* src1 = reinterpret_cast<short*>(pdata+start_off);
 	short* src = reinterpret_cast<short*>(pdata+start_off);
 	int shortlen = len/sizeof(short)/2;
-	int isam = 0;
 	unsigned NC2 = nchan/2;
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
 
@@ -731,13 +730,12 @@ bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len
 */
 	int startoff = 0;
 
-	unsigned ichan = 0;
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
 	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
 
-	for (isam = startoff/nchan; true; ++isam, ichan = 0){
+	for (unsigned ichan = 0, isam = startoff/nchan; true; ++isam, ichan = 0){
 		while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
