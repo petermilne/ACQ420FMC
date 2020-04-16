@@ -2769,12 +2769,12 @@ protected:
 	}
 	/* watch out for end of source buffer ! */
 	virtual int _demux(void* start, int nbytes) = 0;
-
-public:
 	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), bufstep(1), dst(_cbb) {
 		verbose = getenv_default("DemuxerVerbose");
 		if (verbose) fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
+public:
+
 	virtual int demux(void *start, int nbytes);
 	int operator()(void *start, int nsamples){
 		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nsamples);
@@ -2794,6 +2794,7 @@ public:
 
 		return rc;
 	}
+	static Demuxer* instance(enum DemuxBufferType N, unsigned WS = sizeof(short));
 };
 
 int Demuxer::verbose;
@@ -2804,24 +2805,28 @@ class DemuxerImpl : public Demuxer {
 	virtual int _demux(void* start, int nbytes);
 	AbstractES& evX;
 	FILE* esf;
-public:
 
 
+protected:
 	DemuxerImpl() : Demuxer(sizeof(T), Buffer::bufferlen/G::nchan),
 		evX(*AbstractES::evX_instance())
 	{
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 		esf = fopen("/dev/shm/es.log", "w");
 	}
+public:
+
 	virtual ~DemuxerImpl() {
 		fclose(esf);
 	}
+	friend class Demuxer;
 };
 
+template <DemuxBufferType N>
 class DualAxiDemuxerImpl : public Demuxer {
 	virtual int _demux(void* start, int nbytes);
 	int inst_chan;
-public:
+protected:
 	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
 		inst_chan(-1)
 	{
@@ -2831,9 +2836,12 @@ public:
 		}
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 	}
+public:
+
 	virtual ~DualAxiDemuxerImpl() {
 
 	}
+	friend class Demuxer;
 };
 
 void Demuxer_report(int buffer);
@@ -2889,6 +2897,33 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	return nbytes;
 }
 
+
+Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
+{
+	switch(N){
+	case DB_REGULAR:
+		switch(WS){
+		case sizeof(short):
+			return new DemuxerImpl<int>;
+		case sizeof(int):
+			return new DemuxerImpl<short>;
+		default:
+			assert(WS==sizeof(short)||WS==sizeof(int));
+			return 0;
+		}
+		break;
+	case DB_2D_REGULAR:
+		assert(WS==sizeof(short));
+		return new DualAxiDemuxerImpl<DB_2D_REGULAR>;
+	case DB_DOUBLE:
+		assert(WS==sizeof(short));
+		return new DemuxerImpl<int>;
+	case DB_2D_DOUBLE:
+		return new DualAxiDemuxerImpl<DB_2D_DOUBLE>;
+	default:
+		assert(0);
+	}
+}
 int interesting(int sam, int nsam)
 {
 	return sam < 4 || sam > (nsam-6);
@@ -2896,7 +2931,8 @@ int interesting(int sam, int nsam)
 short ramp;
 short done_ramping;
 
-int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
+template <DemuxBufferType N>
+int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
 	const int nsam = b2s(nbytes);
 	const int cbs = channel_buffer_sam()/2;
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
@@ -4527,20 +4563,15 @@ StreamHead* StreamHead::instance() {
 		if (G::stream_mode == SM_TRANSIENT){
 			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
 				Demuxer *demuxer;
-				if (G::wordsize == 4){
-					demuxer = new DemuxerImpl<int>;
+
+				if (G::dualaxi == 2){
+					demuxer = Demuxer::instance(G::double_up? DB_REGULAR:DB_2D_DOUBLE);
+					_instance = new DemuxingStreamHeadPrePostDualBuffer(
+						Progress::instance(), *demuxer, G::pre, G::post);
 				}else{
-					if (G::dualaxi == 2){
-						demuxer = new DualAxiDemuxerImpl;
-						_instance = new DemuxingStreamHeadPrePostDualBuffer(
-									Progress::instance(), *demuxer, G::pre, G::post);
-					}else{
-						demuxer = new DemuxerImpl<short>;
-					}
-				}
-				if (_instance == 0){
+					demuxer = Demuxer::instance(DB_REGULAR, G::wordsize);
 					_instance = new DemuxingStreamHeadPrePost(
-					Progress::instance(), *demuxer, G::pre, G::post);
+						Progress::instance(), *demuxer, G::pre, G::post);
 				}
 			}else{
 				_instance = new StreamHeadPrePost(
