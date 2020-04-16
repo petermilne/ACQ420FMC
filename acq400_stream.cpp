@@ -807,9 +807,7 @@ bool DemuxBuffer<short, DB_2D_DOUBLE>::demux(bool start, int start_off, int len)
 	int startoff = 0;
 
 	unsigned ichan = 0;
-	/* run to the end of buffer. nsam could be rounded down,
-	 * so do not use it.
-	 */
+	/* run to the end of buffer. nsam could be rounded down so do not use it.  */
 	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
@@ -2931,12 +2929,17 @@ int interesting(int sam, int nsam)
 short ramp;
 short done_ramping;
 
+
 template <DemuxBufferType N>
 int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
+	assert(2+2 == 5);
+}
+template <>
+int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* start, int nbytes) {
 	const int nsam = b2s(nbytes);
 	const int cbs = channel_buffer_sam()/2;
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
-	int nsrc = MAX(nbytes/sizeof(short),2*Buffer::bufferlen/sizeof(short));
+	int nsrc = MAX(nbytes/sizeof(short), 2*Buffer::bufferlen/sizeof(short));
 	short* srcbuf = new short[nsrc];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
@@ -2948,6 +2951,7 @@ int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
 
 	memcpy(psrc, start, nsrc*sizeof(short));
 
+	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux()\n");
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
 			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
 
@@ -2992,6 +2996,72 @@ int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
 	delete [] srcbuf;
 	return nbytes;
 }
+
+template <>
+int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* start, int nbytes) {
+	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
+	const unsigned NC2 = G::nchan/2;
+
+	const int nsam = b2s(nbytes);
+	const int cbs = channel_buffer_sam()/2;
+	short* pdst = reinterpret_cast<short*>(dst.cursor);
+	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
+	short* srcbuf = new short[nsrc];
+	short* psrc = srcbuf;
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
+
+
+	memcpy(psrc, start, nsrc*sizeof(short));
+
+	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux()\n");
+	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
+			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
+
+	for (int sam = 0, sambuf = 0; sam < nsam; sam += 1, sambuf += 1, psrc += NC2){
+		if (sambuf == cbs){
+			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
+						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
+			pdst += BUFSHORTS;	// step to next destination buffer
+			sambuf = 0;
+		}
+		unsigned chan = 0;
+		// harvest first half channels from first src buf
+		for (short* psrct = psrc; chan < NC2; ++chan){
+			if (verbose > 1 && interesting(sambuf, cbs)) {
+				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
+					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA0[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
+			}
+
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = *psrct++;
+		}
+		// harvest second half channels from second src buf
+		chan = 0;
+		for (short* psrct = psrc + BUFSHORTS; chan < NC2; ++chan){
+			if (verbose > 1 && interesting(sambuf, cbs)){
+				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
+					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA1[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
+			}
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA1[chan]*cbs+sambuf] = *psrct++;
+		}
+#ifdef BUFFER_IDENT
+		if (inst_chan >= 0){
+			pdst[inst_chan*cbs+sambuf] = ++ramp;
+		}
+#endif
+	}
+
+
+	if (verbose) fprintf(stderr, "%s set cursor %p + %d => %p\n", _PFN, dst.cursor, nbytes, dst.cursor+nbytes);
+	dst.cursor += nbytes/G::nchan;
+
+	Progress::instance().print(true, b1);
+
+	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
+
+	delete [] srcbuf;
+	return nbytes;
+}
+
 
 int Demuxer::demux(void* start, int nbytes)
 /* return bytes demuxed */
@@ -4565,7 +4635,7 @@ StreamHead* StreamHead::instance() {
 				Demuxer *demuxer;
 
 				if (G::dualaxi == 2){
-					demuxer = Demuxer::instance(G::double_up? DB_REGULAR:DB_2D_DOUBLE);
+					demuxer = Demuxer::instance(G::double_up? DB_2D_DOUBLE: DB_2D_REGULAR);
 					_instance = new DemuxingStreamHeadPrePostDualBuffer(
 						Progress::instance(), *demuxer, G::pre, G::post);
 				}else{
