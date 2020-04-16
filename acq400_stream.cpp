@@ -706,12 +706,31 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 }
 
 
+/* DB_2D_REGULAR ..  6 x 8 channels
+ * DMA0: Sites 1,3,5  # SITE1 => CH01->CH08
+ * DMA1: Sites 2,4,6  # SITE2 => CH25->CH32
+ *
+ * LUTs index from zero, for each offset per DMA block.
+ */
+
+const u8 DB_2D_R_MEM_PIN_LUT_48_DMA0[] = {
+	[ 0] =  0, [ 1] =  1, [ 2] =  2, [ 3] =  3, [ 4] =  4, [ 5] =  5, [ 6] =  6, [ 7] =  7,
+	[ 8] = 16, [ 9] = 17, [10] = 18, [11] = 19, [12] = 20, [13] = 21, [14] = 22, [15] = 23,
+	[16] = 32, [17] = 33, [18] = 34, [19] = 35, [20] = 36, [21] = 37, [22] = 38, [23] = 39,
+};
+const u8 DB_2D_R_MEM_PIN_LUT_48_DMA1[] = {
+	[ 0] =  8, [ 1] =  9, [ 2] = 10, [ 3] = 11, [ 4] = 12, [ 5] = 13, [ 6] = 14, [ 7] = 15,
+	[ 8] = 24, [ 9] = 25, [10] = 26, [11] = 27, [12] = 28, [13] = 29, [14] = 30, [15] = 31,
+	[16] = 40, [17] = 41, [18] = 42, [19] = 43, [20] = 44, [21] = 45, [22] = 46, [23] = 47,
+};
+
+
 template <>
 bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len) {
-	short* src1 = reinterpret_cast<short*>(pdata+start_off);
-	short* src = reinterpret_cast<short*>(pdata+start_off);
-	int shortlen = len/sizeof(short)/2;
-	unsigned NC2 = nchan/2;
+	short* src000 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = src000;
+	const int shortlen = len/sizeof(short)/2;
+	const unsigned NC2 = nchan/2;
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
 
 	if (verbose) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
@@ -722,36 +741,37 @@ bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len
 		if (verbose) fprintf(stderr, "%s ODD buffer skip\n", _PFN);
 		return true;
 	}
-	/*
-	if (b1 > 100){
-		if (verbose) fprintf(stderr, "%s no successor buffer skip\n", _PFN);
-		return true;
-	}
-*/
-	int startoff = 0;
 
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
 	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
 
-	for (unsigned ichan = 0, isam = startoff/nchan; true; ++isam, ichan = 0){
+	for (unsigned isam = 0; true; ++isam){
 		while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
-		short* src0 = src;
-		for (; ichan < NC2; ++ichan){
-			*ddcursors[ichan]++ = (*src++)&mask[ichan];
+		{
+			short* src0 = src;
+			for (unsigned ichan = 0; ichan < NC2; ++ichan){
+				*ddcursors[DB_2D_R_MEM_PIN_LUT_48_DMA0[ichan]]++ =
+						src0[ichan]&mask[DB_2D_R_MEM_PIN_LUT_48_DMA0[ichan]];
+			}
 		}
-		for (short *src2 = src0+BUFSHORTS; ichan < nchan; ++ichan){
-			*ddcursors[ichan]++ = (*src2++)&mask[ichan];
+		{
+			short* src1 = src+BUFSHORTS;
+			for (unsigned ichan = 0; ichan < NC2; ++ichan){
+				*ddcursors[DB_2D_R_MEM_PIN_LUT_48_DMA1[ichan]]++ =
+						src1[ichan]&mask[DB_2D_R_MEM_PIN_LUT_48_DMA1[ichan]];
+			}
 		}
-		if (src-src1 >= shortlen){
+		src += nchan;
+		if (src-src000 >= shortlen){
 			if (verbose){
 				fprintf(stderr,
 					"demux() END buf ch:%d src:%p len:%d\n",
-					ichan, src,  ddcursors[ichan]-dddata[ichan]);
+					nchan-1, src,  ddcursors[nchan-1]-dddata[nchan-1]);
 			}
 			return false;
 		}
