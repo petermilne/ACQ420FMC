@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1034"
+#define VERID	"B1035"
 
 #define NCHAN	4
 
@@ -2904,9 +2904,9 @@ Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
 	case DB_REGULAR:
 		switch(WS){
 		case sizeof(short):
-			return new DemuxerImpl<int>;
-		case sizeof(int):
 			return new DemuxerImpl<short>;
+		case sizeof(int):
+			return new DemuxerImpl<int>;
 		default:
 			assert(WS==sizeof(short)||WS==sizeof(int));
 			return 0;
