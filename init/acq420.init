@@ -349,6 +349,8 @@ build_knobs_device() {
 	40|42|6A)	
 		case $mtype in
 		6A)
+			echo 1 >/dev/gpio/LED/FMC2_R
+			echo 1 >/dev/gpio/LED/FMC2_G
 			set_max_min_khz ${site} 250 10;;
 		*)
 			set_max_min_khz ${site} 1000 10;;
