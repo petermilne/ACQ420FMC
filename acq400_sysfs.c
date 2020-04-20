@@ -626,11 +626,12 @@ static ssize_t show_wr_tai_cur(
 
 static DEVICE_ATTR(wr_tai_cur, S_IRUGO, show_wr_tai_cur, 0);
 
-static ssize_t store_wr_tai_trg(
+static ssize_t _store_wr_tai_trg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
-	size_t count)
+	size_t count,
+	unsigned reg)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 tai_trg;
@@ -641,17 +642,37 @@ static ssize_t store_wr_tai_trg(
 		if (tai_trg != 0){
 			tai_trg |= WR_TAI_TRG_EN;
 		}
-		acq400wr32(adev, WR_TAI_TRG, tai_trg);
+		acq400wr32(adev, WR_TAI_TRG0, tai_trg);
 		return count;
 	} else if (sscanf(buf, "%u", &tai_trg) == 1){
 		if (tai_trg != 0){
 			tai_trg |= WR_TAI_TRG_EN;
 		}
-		acq400wr32(adev, WR_TAI_TRG, tai_trg);
+		acq400wr32(adev, WR_TAI_TRG0, tai_trg);
 		return count;
 	}else{
 		return -1;
 	}
+}
+
+static ssize_t _show_wr_tai_trg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned reg)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG0);
+	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
+}
+
+static ssize_t store_wr_tai_trg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	return _store_wr_tai_trg(dev, attr, buf, count, WR_TAI_TRG0);
 }
 
 static ssize_t show_wr_tai_trg(
@@ -659,13 +680,28 @@ static ssize_t show_wr_tai_trg(
 	struct device_attribute *attr,
 	char * buf)
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG);
-	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
+	return _show_wr_tai_trg(dev, attr, buf, WR_TAI_TRG0);
 }
 
 static DEVICE_ATTR(wr_tai_trg, S_IRUGO|S_IWUSR, show_wr_tai_trg, store_wr_tai_trg);
 
+static ssize_t store_wr_tai_trg1(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	return _store_wr_tai_trg(dev, attr, buf, count, WR_TAI_TRG1);
+}
+
+static ssize_t show_wr_tai_trg1(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return _show_wr_tai_trg(dev, attr, buf, WR_TAI_TRG1);
+}
+static DEVICE_ATTR(wr_tai_trg1, S_IRUGO|S_IWUSR, show_wr_tai_trg1, store_wr_tai_trg1);
 
 static ssize_t show_wr_stamp(
 	struct device * dev,
@@ -732,7 +768,8 @@ static DEVICE_ATTR(wr_##FUN##_count, S_IRUGO|S_IWUSR, show_wr_##FUN##count, stor
 
 MAKE_WR_EVENT_COUNT(pps_client);
 MAKE_WR_EVENT_COUNT(ts_client);
-MAKE_WR_EVENT_COUNT(wrtt_client);
+MAKE_WR_EVENT_COUNT(wrtt_client0);
+MAKE_WR_EVENT_COUNT(wrtt_client1);
 
 static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_clk_pv.attr,
@@ -740,11 +777,13 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_trg_src.attr,
 	&dev_attr_wr_tai_cur.attr,
 	&dev_attr_wr_tai_trg.attr,
+	&dev_attr_wr_tai_trg1.attr,
 	&dev_attr_wr_tai_stamp.attr,
 	&dev_attr_wr_cur_vernier.attr,
 	&dev_attr_wr_pps_client_count.attr,
 	&dev_attr_wr_ts_client_count.attr,
-	&dev_attr_wr_wrtt_client_count.attr,
+	&dev_attr_wr_wrtt_client0_count.attr,
+	&dev_attr_wr_wrtt_client1_count.attr,
 	NULL
 };
 

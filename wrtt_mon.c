@@ -7,6 +7,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 void wrtt_mon(FILE* fp_wrtt, FILE* fp_trg)
@@ -23,11 +24,19 @@ void wrtt_mon(FILE* fp_wrtt, FILE* fp_trg)
 }
 
 
+const char* fname(const char* ext, int id)
+{
+	static char fname_buf[80];
+	sprintf(fname_buf, "/dev/acq400.0.%s%d", ext, id);
+	return fname_buf;
+}
 
 int main(int argc, char* argv[])
 {
-	FILE* fp_wrtt = fopen("/dev/acq400.0.wr_tt", "r");
-	FILE* fp_trg =  fopen("/dev/acq400.0.wr_trg", "r");
+	int id = argc>1 ? atoi(argv[1]): 0;
+
+	FILE* fp_wrtt = fopen(fname("wr_tt", id), "r");
+	FILE* fp_trg =  fopen(fname("wr_trg", id), "r");
 
 	assert(fp_wrtt);
 	assert(fp_trg);

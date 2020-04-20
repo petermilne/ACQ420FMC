@@ -70,12 +70,13 @@ void goRealTime(int sched_fifo_priority)
         }
 }
 
+#define FNAME_BASE	"/dev/acq400.0"
 
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
-	const char* fname = "/dev/acq400.0.wr_ts";
-	const char* current = "/dev/acq400.0.wr_cur";
+	const char* ts_name = FNAME_BASE ".wr_ts";
+	const char* current = FNAME_BASE ".wr_cur";
 	int delta_ticks;
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
@@ -86,6 +87,7 @@ namespace G {
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
         const char* tx_id;				// transmit id
         int rt_prio = 0;
+        int trg = 0;					// trg 0 or 1
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -167,6 +169,9 @@ struct poptOption opt_table[] = {
 	},
 	{
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
+	},
+	{
+	  "trg", 0, POPT_ARG_INT, &G::trg, 0, "trg 0 or 1 (default 0)"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -354,7 +359,7 @@ int sender(TSCaster& comms)
 	if (G::max_tx == 0){
 		return 0;
 	}
-	FILE *fp = fopen(G::fname, "r");
+	FILE *fp = fopen(G::ts_name, "r");
 	TS ts;
 
 	for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
@@ -421,7 +426,9 @@ TS adjust_ts(TS ts0)
 }
 int receiver(TSCaster& comms)
 {
-	FILE *fp = fopen(G::fname, "w");
+	char trg_name[80];
+	sprintf(trg_name, FNAME_BASE ".wr_tt%d", G::trg);
+	FILE *fp = fopen(trg_name, "w");
 	FILE *fp_cur = fopen(G::current, "r");
 	long dms = G::dns/M1;
 

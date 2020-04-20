@@ -64,8 +64,12 @@ start_wr() {
 	mknod /dev/${NAME}.wr_pps c ${MAJOR} 21
 	mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
 	mknod /dev/${NAME}.wr_tt  c ${MAJOR} 23
+	mknod /dev/${NAME}.wr_tt0  c ${MAJOR} 23
 	mknod /dev/${NAME}.wr_tai c ${MAJOR} 24
 	mknod /dev/${NAME}.wr_trg c ${MAJOR} 25
+	mknod /dev/${NAME}.wr_trg0 c ${MAJOR} 25
+	mknod /dev/${NAME}.wr_trg1 c ${MAJOR} 26
+	mknod /dev/${NAME}.wr_tt1  c ${MAJOR} 27
 	web_append wr nomon
 	
 	

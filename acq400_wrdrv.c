@@ -56,6 +56,12 @@ static inline u32 wr_ctrl_clr(struct acq400_dev *adev, unsigned bits){
 	return ctrl;
 }
 
+static void wrtt_client_isr_action(struct acq400_sc_dev* sc_dev, struct WrClient* cli, u32 ts)
+{
+	cli->wc_ts = ts;
+	cli->wc_count++;
+	wake_up_interruptible(&cli->wc_waitq);
+}
 
 static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 {
@@ -64,15 +70,14 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 
-	if (int_sta&WR_CTRL_TT_STA){
-		sc_dev->wrtt_client.wc_ts = acq400rd32(adev, WR_CUR_VERNR);
-		sc_dev->wrtt_client.wc_count++;
-		wake_up_interruptible(&sc_dev->wrtt_client.wc_waitq);
+	if (int_sta&WR_CTRL_TT0_STA){
+		wrtt_client_isr_action(sc_dev, &sc_dev->wrtt_client0, acq400rd32(adev, WR_CUR_VERNR));
+	}
+	if (int_sta&WR_CTRL_TT1_STA){
+		wrtt_client_isr_action(sc_dev, &sc_dev->wrtt_client1, acq400rd32(adev, WR_CUR_VERNR));
 	}
 	if (int_sta&WR_CTRL_TS_STA){
-		sc_dev->ts_client.wc_ts = acq400rd32(adev, WR_TAI_STAMP);
-		sc_dev->ts_client.wc_count++;
-		wake_up_interruptible(&sc_dev->ts_client.wc_waitq);
+		wrtt_client_isr_action(sc_dev, &sc_dev->ts_client, acq400rd32(adev, WR_TAI_STAMP));
 	}
 	acq400wr32(adev, WR_CTRL, int_sta);
 	return IRQ_HANDLED;	/* canned */
@@ -119,7 +124,8 @@ void init_scdev(struct acq400_dev* adev)
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	init_waitqueue_head(&sc_dev->pps_client.wc_waitq);
 	init_waitqueue_head(&sc_dev->ts_client.wc_waitq);
-	init_waitqueue_head(&sc_dev->wrtt_client.wc_waitq);
+	init_waitqueue_head(&sc_dev->wrtt_client0.wc_waitq);
+	init_waitqueue_head(&sc_dev->wrtt_client1.wc_waitq);
 
 	if (wr_ts_inten){
 		wr_ctrl_set(adev, WR_CTRL_TS_INTEN);
@@ -128,7 +134,8 @@ void init_scdev(struct acq400_dev* adev)
 		wr_ctrl_set(adev, WR_CTRL_PPS_INTEN);
 	}
 	if (wr_tt_inten){
-		wr_ctrl_set(adev, WR_CTRL_TT_INTEN);
+		wr_ctrl_set(adev, WR_CTRL_TT1_INTEN);
+		wr_ctrl_set(adev, WR_CTRL_TT0_INTEN);
 	}
 }
 
@@ -188,7 +195,10 @@ struct WrClient *getWCfromMinor(struct file *file)
 		wc = &sc_dev->pps_client;
 		break;
 	case ACQ400_MINOR_WRTT:
-		wc = &sc_dev->wrtt_client;
+		wc = &sc_dev->wrtt_client0;
+		break;
+	case ACQ400_MINOR_WRTT1:
+		wc = &sc_dev->wrtt_client1;
 		break;
 	default:
 		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", PD(file)->minor);
@@ -278,9 +288,11 @@ ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, lo
 
 	switch(pdesc->minor){
 	case ACQ400_MINOR_WR_CUR:
-		reg = WR_CUR_VERNR; break;
-	case ACQ400_MINOR_WR_CUR_TRG:
-		reg = WR_TAI_TRG; break;
+		reg = WR_CUR_VERNR; 	break;
+	case ACQ400_MINOR_WR_CUR_TRG0:
+		reg = WR_TAI_TRG0; 	break;
+	case ACQ400_MINOR_WR_CUR_TRG1:
+		reg = WR_TAI_TRG1; 	break;
 	default:
 		reg = WR_TAI_CUR_L;
 	}
@@ -302,10 +314,19 @@ ssize_t acq400_wr_write(
 	struct file *file, const char __user *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_path_descriptor* pdesc = PD(file);
 	u32 tmp;
 	int rc;
+	u32 reg;
 
-
+	switch(pdesc->minor){
+	case ACQ400_MINOR_WR_CUR_TRG0:
+		reg = WR_TAI_TRG0;	break;
+	case ACQ400_MINOR_WR_CUR_TRG1:
+		reg = WR_TAI_TRG1; 	break;
+	default:
+		return -ENODEV;
+	}
 	if (count < sizeof(u32)){
 		return -EINVAL;
 	}
@@ -317,7 +338,7 @@ ssize_t acq400_wr_write(
 	if (rc){
 		return -1;
 	}else{
-		acq400wr32(adev, WR_TAI_TRG, tmp);
+		acq400wr32(adev, reg, tmp);
 	}
 
 	*f_pos += sizeof(u32);
@@ -331,18 +352,26 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 	static struct file_operations acq400_fops_wr = {
 			.open = _acq400_wr_open,
 			.read = acq400_wr_read,
-			.write = acq400_wr_write,
 			.release = acq400_wr_release_exclusive
 	};
 	static struct file_operations acq400_fops_wr_cur = {
 			.read = acq400_wr_read_cur,
 			.release = acq400_wr_release
 	};
+	static struct file_operations acq400_fops_wr_trg = {
+			.open = _acq400_wr_open,
+			.read = acq400_wr_read_cur,
+			.write = acq400_wr_write,
+			.release = acq400_wr_release_exclusive
+	};
 	switch(PD(file)->minor){
 	case ACQ400_MINOR_WR_CUR:
 	case ACQ400_MINOR_WR_CUR_TAI:
-	case ACQ400_MINOR_WR_CUR_TRG:
 		file->f_op = &acq400_fops_wr_cur;
+		return 0;
+	case ACQ400_MINOR_WR_CUR_TRG0:
+	case ACQ400_MINOR_WR_CUR_TRG1:
+		file->f_op = &acq400_fops_wr_trg;
 		return 0;
 	default:
 		file->f_op = &acq400_fops_wr;
