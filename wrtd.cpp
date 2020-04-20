@@ -148,6 +148,9 @@ struct poptOption opt_table[] = {
 	  "dns", 'd', POPT_ARG_INT, &G::dns, 0, "nsec to add to current time"
 	},
 	{
+	  "delta_ns", 'd', POPT_ARG_INT, &G::dns, 0, "nsec to add to current time"
+	},
+	{
 	  "rt_prio", 'p', POPT_ARG_INT, &G::rt_prio, 0, "real time priority"
 	},
 	{
