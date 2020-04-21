@@ -77,8 +77,8 @@ void goRealTime(int sched_fifo_priority)
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
-	const char* ts_name = FNAME_BASE ".wr_ts";
-	const char* current = FNAME_BASE ".wr_cur";
+	const char* ts_name = FNAME_BASE ".wr_ts";		// blocking device returns TIMESTAMP
+	const char* current = FNAME_BASE ".wr_cur";		// noblock device returns current TAI
 	int delta_ticks;
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
@@ -438,11 +438,25 @@ TS adjust_ts(TS ts0)
 int receiver(TSCaster& comms)
 {
 	long dms = G::dns/M1;
-	FILE *fp_trg[2] = {
-		File(FNAME_BASE ".wr_trg0", "w")(),
-		File(FNAME_BASE ".wr_trg", "w")()
-	};
-	FILE *fp_cur = File(G::current, "r")();
+
+	FILE *fp_trg[2];
+	fp_trg[0] = fopen(FNAME_BASE ".wr_trg0", "w");
+	if (fp_trg[0] == 0){
+		perror(FNAME_BASE ".wr_trg0");
+		exit(errno);
+	}
+
+	fp_trg[1] = fopen(FNAME_BASE ".wr_trg1", "w");
+	if (fp_trg[1] == 0){
+		perror(FNAME_BASE ".wr_trg1");
+		exit(errno);
+	}
+
+	FILE *fp_cur = fopen(G::current, "r");
+	if (fp_cur == 0){
+		perror(G::current);
+		exit(errno);
+	}
 
 	for (unsigned nrx = 0;; ++nrx){
 		TS ts = comms.recvfrom();
@@ -457,8 +471,8 @@ int receiver(TSCaster& comms)
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
-		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s\n",
-				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
+		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s write:%d\n",
+				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr(), rc);
 		if (G::verbose) comms.printLast();
 
 		long dt = ts.diff(ts_cur);
