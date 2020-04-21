@@ -35,7 +35,8 @@
  * -command line options
  *   try --help for full list
  * - environment
- *   WRTD_RX_MATCHES=m1[,m2,m3...]   # receiver matches on multiple strings, not just default ["acq2106"[7]]
+ *   WRTD_RX_MATCHES=m1[,m2,m3...]   # receiver matches on multiple strings, not just default ["acq2106"[7]], operates WRTT[0]
+ *   WRTD_RX_MATCHES1=mx[my..]       # match strings operate WRTT1. WRTT0 has priority, strings MUST be unique.
  */
 
 
@@ -87,7 +88,7 @@ namespace G {
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
         const char* tx_id;				// transmit id
         int rt_prio = 0;
-        int trg = 0;					// trg 0 or 1
+        int trg = 0;					// trg 0 or 1, decoded from message
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -169,9 +170,6 @@ struct poptOption opt_table[] = {
 	},
 	{
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
-	},
-	{
-	  "trg", 0, POPT_ARG_INT, &G::trg, 0, "trg 0 or 1 (default 0)"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -269,15 +267,25 @@ typedef std::vector<std::string> VS;
 
 class MultipleMatchFilter : public MessageFilter {
 	VS matches;
+	VS matches1;
 public:
-	MultipleMatchFilter(const char* _matches){
+	MultipleMatchFilter(const char* _matches, const char* _matches1){
 
 		split2<VS>(_matches, matches, ',');
-
+		if (_matches1){
+			split2<VS>(_matches1, matches1, ',');
+		}
 	}
 	virtual bool operator() (struct wrtd_message& msg) {
 		for (std::string ss : matches){
 			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
+				G::trg = 0;
+				return true;
+			}
+		}
+		for (std::string ss : matches1){
+			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
+				G::trg = 1;
 				return true;
 			}
 		}
@@ -289,7 +297,7 @@ public:
 MessageFilter& MessageFilter::factory() {
 	const char* matches = getenv("WRTD_RX_MATCHES");
 	if (matches){
-		return * new MultipleMatchFilter(matches);
+		return * new MultipleMatchFilter(matches, getenv("WRTD_RX_MATCHES1"));
 	}
 	return * new Acq2106DefaultMessageFilter();
 }
@@ -426,21 +434,21 @@ TS adjust_ts(TS ts0)
 }
 int receiver(TSCaster& comms)
 {
-	char trg_name[80];
-	sprintf(trg_name, FNAME_BASE ".wr_tt%d", G::trg);
-	FILE *fp = fopen(trg_name, "w");
-	FILE *fp_cur = fopen(G::current, "r");
 	long dms = G::dns/M1;
+	FILE *fp_trg[2];
+	fp_trg[0] = fopen(FNAME_BASE ".wr_tt0", "w");   // action WRTT0
+	fp_trg[1] = fopen(FNAME_BASE ".wr_tt1", "w");   // action WRTT1.
+	FILE *fp_cur = fopen(G::current, "r");
 
 	for (unsigned nrx = 0;; ++nrx){
 		TS ts = comms.recvfrom();
 		TS ts_adj = adjust_ts(ts);
 
-		int rc = fwrite(&ts_adj.raw, sizeof(unsigned), 1, fp);
+		int rc = fwrite(&ts_adj.raw, sizeof(unsigned), 1, fp_trg[G::trg]);
 		if (rc < 1){
 			perror("fwrite");
 		}
-		fflush(fp);
+		fflush(fp_trg[G::trg]);
 
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
@@ -455,7 +463,8 @@ int receiver(TSCaster& comms)
 			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
-	fclose(fp);
+	fclose(fp_trg[0]);
+	fclose(fp_trg[1]);
 	fclose(fp_cur);
 	return 0;
 }
