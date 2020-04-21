@@ -94,7 +94,7 @@ start_wrtd() {
 	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 	
 	if [ "x$WRTD_DNS" != "x" ]; then
-		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS
+		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS"
 		WRTD_DELTA_NS=$WRTD_DNS
 	fi
 	
