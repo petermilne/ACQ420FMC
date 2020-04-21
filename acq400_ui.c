@@ -1207,6 +1207,7 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case ACQ400_MINOR_WR_CUR_TRG0:
         	case ACQ400_MINOR_WR_CUR_TRG1:
         	case ACQ400_MINOR_WRTT:
+        	case ACQ400_MINOR_WRTT1:
         		rc = acq400_wr_open(inode, file);
         		break;
             	default:
