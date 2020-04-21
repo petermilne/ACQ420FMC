@@ -49,6 +49,7 @@
 
 #include "popt.h"
 
+#include "Env.h"
 #include "File.h"
 #include "Knob.h"
 #include "Multicast.h"
@@ -185,6 +186,10 @@ const char* ui(int argc, const char** argv)
         Knob clkdiv(1, "clkdiv");
         Knob modname(1, "module_name");
 
+        G::ns_per_tick = Env::getenv("WRTD_TICKNS", 50);
+        G::dns = Env::getenv("WRTD_DELTA_NS", 50000000);
+        G::tx_id = Env::getenv("WRTD_ID", "WRTD0");
+
         if (strstr(modname(), "acq48")){
         	G::local_clkdiv = 1;
         	G::local_clkoffset = 0;
@@ -206,6 +211,12 @@ const char* ui(int argc, const char** argv)
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
         const char* mode = poptGetArg(opt_context);
+        if (strcmp(mode, "tx_immediate")){
+        	const char* tx_id = poptGetArg(opt_context);
+        	if (tx_id){
+        		G::tx_id = tx_id;
+        	}
+        }
         if (!mode){
         	fprintf(stderr, "ERROR: please specify mode tx|tx_immediate|rx");
         	exit(1);
