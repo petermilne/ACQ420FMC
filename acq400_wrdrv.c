@@ -183,43 +183,46 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 
 struct WrClient *getWCfromMinor(struct file *file)
 {
-	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	unsigned minor = pdesc->minor;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct WrClient *wc = 0;
 
-	switch(PD(file)->minor){
+	switch(minor){
 	case ACQ400_MINOR_WR_TS:
-		wc = &sc_dev->ts_client;
-		break;
+		return &sc_dev->ts_client;
 	case ACQ400_MINOR_WR_PPS:
-		wc = &sc_dev->pps_client;
-		break;
+		return &sc_dev->pps_client;
 	case ACQ400_MINOR_WRTT:
-		wc = &sc_dev->wrtt_client0;
-		break;
+		return &sc_dev->wrtt_client0;
 	case ACQ400_MINOR_WRTT1:
-		wc = &sc_dev->wrtt_client1;
-		break;
+		return &sc_dev->wrtt_client1;
 	default:
-		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", PD(file)->minor);
+		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", minor);
+		return 0;
 	}
-	return wc;
 }
+
+#define ACCMODE(file) (file->f_flags & O_ACCMODE)
+
+#define READ_REQUESTED(file) (ACCMODE(file) == O_RDONLY || ACCMODE(file) == O_RDWR)
+
 int _acq400_wr_open(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	int is_ts = PD(file)->minor==ACQ400_MINOR_WR_TS;
+	unsigned minor = pdesc->minor;
 	struct WrClient *wc = getWCfromMinor(file);
+
+	dev_dbg(DEVP(adev), "_acq400_wr_open() %d minor %d flags %x", __LINE__, PD(file)->minor, file->f_flags);
 
 	if (wc == 0){
 		return -ENODEV;
-	}else if (!is_ts && (file->f_flags & O_WRONLY)) {		// only ts is writeable
+	}else if (minor!=ACQ400_MINOR_WR_TS && (file->f_flags & O_WRONLY)) {		// only ts is writeable
 		return -EACCES;
-	}else if ((file->f_flags & O_RDONLY) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
+	}else if (READ_REQUESTED(file) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
 		return -EBUSY;
 	}else{
-		dev_dbg(DEVP(adev), "_acq400_wr_open flags %08x",file->f_flags);
 		if ((file->f_flags & O_ACCMODE) != O_WRONLY){
 			wc->wc_pid = current->pid;
 			if ((file->f_flags & O_NONBLOCK) == 0){
@@ -347,6 +350,22 @@ ssize_t acq400_wr_write(
 	return sizeof(u32);
 }
 
+
+int open_ok(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+/*
+[   85.627158] acq420 40000000.acq2006sc: acq400_open FAIL minor:23 rc:-13
+ACQ400_MINOR_WRTT 23
+EACCES		13
+
+[   85.633927] acq420 40000000.acq2006sc: acq400_open FAIL minor:27 rc:-19
+ACQ400_MINOR_WRTT1 27
+ENODEV		19
+ *
+ */
+
 int acq400_wr_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_wr = {
@@ -355,26 +374,33 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 			.release = acq400_wr_release_exclusive
 	};
 	static struct file_operations acq400_fops_wr_cur = {
+			.open = open_ok,
 			.read = acq400_wr_read_cur,
 			.release = acq400_wr_release
 	};
 	static struct file_operations acq400_fops_wr_trg = {
-			.open = _acq400_wr_open,
+			.open = open_ok,
 			.read = acq400_wr_read_cur,
 			.write = acq400_wr_write,
-			.release = acq400_wr_release_exclusive
+			.release = acq400_wr_release
 	};
+
+
 	switch(PD(file)->minor){
 	case ACQ400_MINOR_WR_CUR:
 	case ACQ400_MINOR_WR_CUR_TAI:
+		dev_dbg(DEVP(ACQ400_DEV(file)), "acq400_wr_open() %d minor %d ", __LINE__, PD(file)->minor);
 		file->f_op = &acq400_fops_wr_cur;
-		return 0;
+		break;
 	case ACQ400_MINOR_WR_CUR_TRG0:
 	case ACQ400_MINOR_WR_CUR_TRG1:
+		dev_dbg(DEVP(ACQ400_DEV(file)), "acq400_wr_open() %d minor %d ", __LINE__, PD(file)->minor);
 		file->f_op = &acq400_fops_wr_trg;
-		return 0;
+		break;
 	default:
+		dev_dbg(DEVP(ACQ400_DEV(file)), "acq400_wr_open() %d minor %d ", __LINE__, PD(file)->minor);
 		file->f_op = &acq400_fops_wr;
-		return file->f_op->open(inode, file);
+		break;
 	}
+	return file->f_op->open(inode, file);
 }

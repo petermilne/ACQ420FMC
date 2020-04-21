@@ -49,6 +49,7 @@
 
 #include "popt.h"
 
+#include "File.h"
 #include "Knob.h"
 #include "Multicast.h"
 
@@ -432,13 +433,16 @@ TS adjust_ts(TS ts0)
 		return ts0;
 	}
 }
+
+
 int receiver(TSCaster& comms)
 {
 	long dms = G::dns/M1;
-	FILE *fp_trg[2];
-	fp_trg[0] = fopen(FNAME_BASE ".wr_tt0", "w");   // action WRTT0
-	fp_trg[1] = fopen(FNAME_BASE ".wr_tt1", "w");   // action WRTT1.
-	FILE *fp_cur = fopen(G::current, "r");
+	FILE *fp_trg[2] = {
+		File(FNAME_BASE ".wr_trg0", "w")(),
+		File(FNAME_BASE ".wr_trg", "w")()
+	};
+	FILE *fp_cur = File(G::current, "r")();
 
 	for (unsigned nrx = 0;; ++nrx){
 		TS ts = comms.recvfrom();
@@ -453,7 +457,8 @@ int receiver(TSCaster& comms)
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
-		if (G::verbose > 1) fprintf(stderr, "receiver:nrx:%u cur:%s ts:%s adj:%s\n", nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
+		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s\n",
+				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
 		if (G::verbose) comms.printLast();
 
 		long dt = ts.diff(ts_cur);
@@ -463,9 +468,6 @@ int receiver(TSCaster& comms)
 			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
-	fclose(fp_trg[0]);
-	fclose(fp_trg[1]);
-	fclose(fp_cur);
 	return 0;
 }
 

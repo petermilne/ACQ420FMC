@@ -32,6 +32,7 @@
 
 #include <string>
 #include <stdarg.h>
+#include <unistd.h>
 
 class File {
 	FILE *_fp;
