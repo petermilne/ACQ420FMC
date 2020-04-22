@@ -207,6 +207,7 @@ const char* ui(int argc, const char** argv)
         G::tx_id 	= Env::getenv("WRTD_ID", "WRTD0");
         G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
         G::rt_prio	= Env::getenv("WRTD_RTPRIO", 0);
+        G::delay01	= Env::getenv("WRTD_DELAY01", 1000000);
 
         if (strstr(modname(), "acq48")){
         	G::local_clkdiv = 1;
