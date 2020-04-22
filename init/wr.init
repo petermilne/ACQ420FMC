@@ -76,6 +76,7 @@ start_wr() {
 	nice daemon $WEB_APPEND_JOB
 	nice daemon /usr/local/init/wr.init monitor
 	
+	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
