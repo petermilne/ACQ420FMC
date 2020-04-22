@@ -230,11 +230,9 @@ const char* ui(int argc, const char** argv)
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
         const char* mode = poptGetArg(opt_context);
-        if (strcmp(mode, "tx_immediate")){
-        	const char* tx_id = poptGetArg(opt_context);
-        	if (tx_id){
-        		G::tx_id = tx_id;
-        	}
+        const char* tx_id = poptGetArg(opt_context);
+        if (tx_id){
+        	G::tx_id = tx_id;
         }
         if (!mode){
         	fprintf(stderr, "ERROR: please specify mode tx|tx_immediate|rx");
@@ -521,7 +519,7 @@ int main(int argc, const char* argv[])
 {
 	const char* mode = ui(argc, argv);
 
-	if (strcmp(mode, "tx_immediate") == 0){
+	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 	}else{
 		if (G::rt_prio){
