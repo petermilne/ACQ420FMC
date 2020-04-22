@@ -309,7 +309,7 @@ class MultipleMatchFilter : public MessageFilter {
 		matches.push_back(*_mx);
 	}
 public:
-	MultipleMatchFilter(const char* m0, const char* m1, const char*m2){
+	MultipleMatchFilter(const char* m0, const char* m1, const char* m2){
 		append_match(m0);
 		append_match(m1);
 		append_match(m2);
@@ -490,7 +490,7 @@ int receiver(TSCaster& comms)
 		TS ts = comms.recvfrom();
 		TS ts_adj = adjust_ts(ts);
 
-		if (G::trg <= 2){
+		if (G::trg < 2){
 			_write_trg(fp_trg[G::trg], ts_adj);
 		}else{
 			/* DOUBLE TAP */
