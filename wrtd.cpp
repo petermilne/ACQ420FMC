@@ -102,7 +102,8 @@ namespace G {
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
         const char* tx_id;				// transmit id
         int rt_prio = 0;
-        int trg = 0;					// trg 0 or 1, decoded from message
+        int trg = 0;					// trg 0 or 1, 2, decoded from message
+        int delay01;					// tr==2? trg0 at time t, trg1 at t+delay01
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -184,6 +185,9 @@ struct poptOption opt_table[] = {
 	},
 	{
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
+	},
+	{
+	  "delay01", 0, POPT_ARG_INT, &G::delay01, 0, "in double tap, delay to second trigger"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
@@ -292,27 +296,30 @@ public:
 typedef std::vector<std::string> VS;
 
 class MultipleMatchFilter : public MessageFilter {
-	VS matches;
-	VS matches1;
-public:
-	MultipleMatchFilter(const char* _matches, const char* _matches1){
+	std::vector<VS> matches;
 
-		split2<VS>(_matches, matches, ',');
-		if (_matches1){
-			split2<VS>(_matches1, matches1, ',');
+	void append_match(const char* mx)
+	{
+		VS* _mx = new VS;
+		if (mx){
+			split2<VS>(mx, *_mx, ',');
+
 		}
+		matches.push_back(*_mx);
+	}
+public:
+	MultipleMatchFilter(const char* m0, const char* m1, const char*m2){
+		append_match(m0);
+		append_match(m1);
+		append_match(m2);
 	}
 	virtual bool operator() (struct wrtd_message& msg) {
-		for (std::string ss : matches){
-			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
-				G::trg = 0;
-				return true;
-			}
-		}
-		for (std::string ss : matches1){
-			if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
-				G::trg = 1;
-				return true;
+		for (unsigned ii = 0; ii < matches.size(); ++ii){
+			for (std::string ss : matches[ii]){
+				if (strncmp(ss.c_str(), (char*)msg.event_id, WRTD_ID_LEN) == 0){
+					G::trg = ii;
+					return true;
+				}
 			}
 		}
 		return false;
@@ -323,7 +330,7 @@ public:
 MessageFilter& MessageFilter::factory() {
 	const char* matches = getenv("WRTD_RX_MATCHES");
 	if (matches){
-		return * new MultipleMatchFilter(matches, getenv("WRTD_RX_MATCHES1"));
+		return * new MultipleMatchFilter(matches, getenv("WRTD_RX_MATCHES1"), getenv("WRTD_RX_DOUBLETAP"));
 	}
 	return * new Acq2106DefaultMessageFilter();
 }
@@ -459,6 +466,14 @@ TS adjust_ts(TS ts0)
 	}
 }
 
+void _write_trg(FILE* fp, TS ts)
+{
+	int rc = fwrite(&ts.raw, sizeof(unsigned), 1, fp);
+	if (rc < 1){
+		perror("fwrite");
+	}
+	fflush(fp);
+}
 
 int receiver(TSCaster& comms)
 {
@@ -474,17 +489,19 @@ int receiver(TSCaster& comms)
 		TS ts = comms.recvfrom();
 		TS ts_adj = adjust_ts(ts);
 
-		int rc = fwrite(&ts_adj.raw, sizeof(unsigned), 1, fp_trg[G::trg]);
-		if (rc < 1){
-			perror("fwrite");
+		if (G::trg <= 2){
+			_write_trg(fp_trg[G::trg], ts_adj);
+		}else{
+			/* DOUBLE TAP */
+			_write_trg(fp_trg[0], ts_adj);
+			_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
 		}
-		fflush(fp_trg[G::trg]);
 
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
-		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s write:%d\n",
-				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr(), rc);
+		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s\n",
+				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
 		if (G::verbose) comms.printLast();
 
 		long dt = ts.diff(ts_cur);
