@@ -83,38 +83,33 @@ start_wr() {
 PIDF_TX=/var/run/wrtd_tx.pid
 PIDF_RX=/var/run/wrtd_rx.pid
 
+# /mnt/local/sysconfig/wr.sh can override set values. be sure to export values that to the wrtd executable..
 start_wrtd() {
-	WRTD_DELTA_NS=50000000
-	WRTD_NICE=-10
-	WRTD_VERBOSE=0
-	WRTD_TICKNS=50000
+	export WRTD_DELTA_NS=50000000
+	export WRTD_NICE=-10
+	export WRTD_VERBOSE=0
+	export WRTD_TICKNS=50000
+	export WRTD_RTPRIO=10
 	WRTD_TX=1
 	WRTD_RX=1
-
+	export WRTD_ID=$(hostname)
+	export WRTD_RX_MATCHES=$(hostname)
 	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 	
 	if [ "x$WRTD_DNS" != "x" ]; then
 		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS"
 		WRTD_DELTA_NS=$WRTD_DNS
 	fi
-	
-	if [ "z$WRTD_NICE" != "z" ] && [ $WRTD_NICE -lt 0 ]; then
-		N2="/bin/nice -n $WRTD_NICE"
-	else
-		N2=""
-	fi 
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
     if [ $WRTD_RX -ne 0 ]; then
-    	 /usr/local/bin/procServ -c / -p $PIDF_RX  4280 \
-			$N2 /usr/local/bin/wrtd $WRTD_OPTS --tickns $WRTD_TICKNS --delta_ns $WRTD_DELTA_NS -v $WRTD_VERBOSE rx
+    	/usr/local/bin/procServ -c / -p $PIDF_RX 4280 /usr/local/bin/wrtd rx
 		sleep 1
 		nc localhost 4280 -e logger -t wrtd_rx &
 	fi
 		
 	if [ $WRTD_TX -ne 0 ]; then
-		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 \
-			$N2 /usr/local/bin/wrtd $WRTD_OPTS --tickns $WRTD_TICKNS --delta_ns $WRTD_DELTA_NS -v $WRTD_VERBOSE $WRTD_ID tx
+		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 /usr/local/bin/wrtd tx
 		sleep 1
 		nc localhost 4281 -e logger -t wrtd_tx &
 	fi

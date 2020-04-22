@@ -73,13 +73,25 @@ void goRealTime(int sched_fifo_priority)
         }
 }
 
-#define FNAME_BASE	"/dev/acq400.0"
+
+#define DEV_TS		"/dev/acq400.0.wr_ts"	// blocking device returns TIMESTAMP
+#define DEV_CUR		"/dev/acq400.0.wr_cur"	// noblock device returns current TAI
+#define DEV_TRG0	"/dev/acq400.0.wr_trg0" // write trigger0 definition here
+#define DEV_TRG1	"/dev/acq400.0.wr_trg1" // write trigger1 definition here
+
+FILE *fopen_safe(const char* fname, const char* mode)
+{
+	FILE *fp = fopen(fname, mode);
+	if (fp == 0){
+		perror(fname);
+		exit(errno);
+	}
+	return fp;
+}
 
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
-	const char* ts_name = FNAME_BASE ".wr_ts";		// blocking device returns TIMESTAMP
-	const char* current = FNAME_BASE ".wr_cur";		// noblock device returns current TAI
 	int delta_ticks;
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
@@ -186,9 +198,11 @@ const char* ui(int argc, const char** argv)
         Knob clkdiv(1, "clkdiv");
         Knob modname(1, "module_name");
 
-        G::ns_per_tick = Env::getenv("WRTD_TICKNS", 50);
-        G::dns = Env::getenv("WRTD_DELTA_NS", 50000000);
-        G::tx_id = Env::getenv("WRTD_ID", "WRTD0");
+        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 50);
+        G::dns 		= Env::getenv("WRTD_DELTA_NS", 50000000);
+        G::tx_id 	= Env::getenv("WRTD_ID", "WRTD0");
+        G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
+        G::rt_prio	= Env::getenv("WRTD_RTPRIO", 0);
 
         if (strstr(modname(), "acq48")){
         	G::local_clkdiv = 1;
@@ -379,7 +393,7 @@ int sender(TSCaster& comms)
 	if (G::max_tx == 0){
 		return 0;
 	}
-	FILE *fp = fopen(G::ts_name, "r");
+	FILE *fp = fopen_safe(DEV_TS, "r");
 	TS ts;
 
 	for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
@@ -400,7 +414,7 @@ int tx_immediate(TSCaster& comms)
 		return 0;
 	}
 
-	FILE *fp_cur = fopen(G::current, "r");
+	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
 	TS ts;
 
 	unsigned ntx = 0;
@@ -451,23 +465,10 @@ int receiver(TSCaster& comms)
 	long dms = G::dns/M1;
 
 	FILE *fp_trg[2];
-	fp_trg[0] = fopen(FNAME_BASE ".wr_trg0", "w");
-	if (fp_trg[0] == 0){
-		perror(FNAME_BASE ".wr_trg0");
-		exit(errno);
-	}
+	fp_trg[0] = fopen_safe(DEV_TRG0, "w");
+	fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 
-	fp_trg[1] = fopen(FNAME_BASE ".wr_trg1", "w");
-	if (fp_trg[1] == 0){
-		perror(FNAME_BASE ".wr_trg1");
-		exit(errno);
-	}
-
-	FILE *fp_cur = fopen(G::current, "r");
-	if (fp_cur == 0){
-		perror(G::current);
-		exit(errno);
-	}
+	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
 
 	for (unsigned nrx = 0;; ++nrx){
 		TS ts = comms.recvfrom();
