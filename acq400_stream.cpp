@@ -3014,6 +3014,22 @@ int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* _start, int nbytes) {
 	return nbytes;
 }
 
+static char getMR10DEC(void){
+	unsigned mr10 = 3;
+	getKnob(0, "/etc/acq400/0/NCHAN", &mr10);
+	switch (mr10){
+	default:
+	case 3:
+		return 32;
+	case 2:
+		return 16;
+	case 1:
+		return 8;
+	case 0:
+		return 4;
+	}
+}
+
 template <>
 int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
@@ -3025,10 +3041,16 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
 	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
 	short* srcbuf = new short[nsrc];
+	char* decims = new char[nbytes];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
 	int change_over = 0;
-
+	const char decim_rates[] = {
+		[0] = 2,
+		[1] = 1,
+		[2] = getMR10DEC(),
+		[3] = 2,
+	};
 
 	memcpy(psrc, start, nsrc*sizeof(short));
 
@@ -3050,8 +3072,18 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 			}
 		}
 		unsigned chan = 0;
+		short* psrct = psrc;
 		// harvest first half channels from first src buf
-		for (short* psrct = psrc; chan < NC2; ++chan){
+		for (; chan < 1; ++chan){
+			short xx = *psrct++;
+			decims[sam] = decim_rates[xx&0x3];
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = xx & 0xFFFC;
+		}
+		for (; chan < 8; ++chan){
+			short xx = *psrct++;
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = xx & 0xFFFC;
+		}
+		for ( ; chan < NC2; ++chan){
 #if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) {
 				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
@@ -3062,7 +3094,7 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 		}
 		// harvest second half channels from second src buf
 		chan = 0;
-		for (short* psrct = psrc + BUFSHORTS; chan < NC2; ++chan){
+		for (psrct = psrc + BUFSHORTS; chan < NC2; ++chan){
 #if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)){
 				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
@@ -3086,6 +3118,11 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
 
+	FILE* fp_decims = fopen("/dev/shm/decims", "w");
+	assert(fp_decims);
+	fwrite(decims, sizeof(char), nbytes, fp_decims);
+	fclose(fp_decims);
+	delete [] decims;
 	delete [] srcbuf;
 	return nbytes;
 }
