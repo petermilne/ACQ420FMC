@@ -2774,6 +2774,7 @@ protected:
 		if (verbose) fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
 public:
+	virtual ~Demuxer() {}
 
 	virtual int demux(void *start, int nbytes);
 	int operator()(void *start, int nsamples){
@@ -2844,8 +2845,12 @@ protected:
 public:
 
 	virtual ~DualAxiDemuxerImpl() {
+		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		if (N == DB_2D_REGULAR){
-			fp_decims = fopen("/dev/shm/decims", "w");
+			if (fp_decims){
+				if (verbose) fprintf(stderr, "%s closing down fp_decims\n", _PFN);
+				fclose(fp_decims);
+			}
 		}
 	}
 	friend class Demuxer;
@@ -3037,22 +3042,7 @@ static char getMR10DEC(void){
 	}
 }
 
-/*
-# tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
-# tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
-tb_final = np.zeros(tb.shape[-1])
-ttime = 0
-for ix, idec in enumerate(tb):
-        if tb[ix-2] == 1 and idec == 2 and ix > 3:
-            idec = 1
 
-        if tb[ix-1] == 0 and idec == 2 and ix > 3:
-            idec = 0
-        tb_final[ix] = ttime
-        ttime += decims[idec] * dt
-
-return tb_final
-*/
 template <>
 int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
