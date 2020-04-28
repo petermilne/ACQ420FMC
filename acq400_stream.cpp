@@ -2826,6 +2826,7 @@ template <DemuxBufferType N>
 class DualAxiDemuxerImpl : public Demuxer {
 	virtual int _demux(void* start, int nbytes);
 	int inst_chan;
+	FILE* fp_decims;
 protected:
 	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
 		inst_chan(-1)
@@ -2834,12 +2835,18 @@ protected:
 		if (getenv("DualAxiDemuxerInstChan")){
 			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
 		}
+		if (N == DB_2D_REGULAR){
+			fp_decims = fopen("/dev/shm/decims", "w");
+			assert(fp_decims);
+		}
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 	}
 public:
 
 	virtual ~DualAxiDemuxerImpl() {
-
+		if (N == DB_2D_REGULAR){
+			fp_decims = fopen("/dev/shm/decims", "w");
+		}
 	}
 	friend class Demuxer;
 };
@@ -3030,6 +3037,22 @@ static char getMR10DEC(void){
 	}
 }
 
+/*
+# tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
+# tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
+tb_final = np.zeros(tb.shape[-1])
+ttime = 0
+for ix, idec in enumerate(tb):
+        if tb[ix-2] == 1 and idec == 2 and ix > 3:
+            idec = 1
+
+        if tb[ix-1] == 0 and idec == 2 and ix > 3:
+            idec = 0
+        tb_final[ix] = ttime
+        ttime += decims[idec] * dt
+
+return tb_final
+*/
 template <>
 int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
@@ -3041,22 +3064,26 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
 	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
 	short* srcbuf = new short[nsrc];
-	char* decims = new char[nbytes];
+	u8* decims = new u8[nsam];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
 	int change_over = 0;
-	const char decim_rates[] = {
+	const u8 decim_rates[] = {
 		[0] = 2,
 		[1] = 1,
 		[2] = getMR10DEC(),
-		[3] = 2,
+		[3] = 2
 	};
 
 	memcpy(psrc, start, nsrc*sizeof(short));
 
+	memset(decims, 'X', nsam);	// @@REMOVEME
+
 	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux()\n");
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
 			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
+	if (verbose) fprintf(stderr, "%s decim_rates %u,%u,%u,%u\n", _PFN,
+			decim_rates[0], decim_rates[1], decim_rates[2], decim_rates[3]);
 
 	for (int sam = 0, sambuf = 0; sam < nsam; sam += 1, sambuf += 1, psrc += NC2){
 		if (sambuf >= cbs){
@@ -3118,11 +3145,13 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
 
-	FILE* fp_decims = fopen("/dev/shm/decims", "w");
-	assert(fp_decims);
-	fwrite(decims, sizeof(char), nbytes, fp_decims);
-	fclose(fp_decims);
+	int nw = fwrite(decims, sizeof(u8), nsam, fp_decims);
+
+	if (verbose) fprintf(stderr, "%s fwrite(decims) %d\n", _PFN, nw);
+
+	if (verbose) fprintf(stderr, "%s delete [] %p\n", _PFN, decims);
 	delete [] decims;
+	if (verbose) fprintf(stderr, "%s delete [] %p\n", _PFN, srcbuf);
 	delete [] srcbuf;
 	return nbytes;
 }
