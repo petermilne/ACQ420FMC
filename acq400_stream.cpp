@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1035"
+#define VERID	"B1037"
 
 #define NCHAN	4
 
@@ -2800,6 +2800,8 @@ public:
 
 int Demuxer::verbose;
 
+
+
 template <class T>
 class DemuxerImpl : public Demuxer {
 
@@ -2822,41 +2824,6 @@ public:
 	}
 	friend class Demuxer;
 };
-
-template <DemuxBufferType N>
-class DualAxiDemuxerImpl : public Demuxer {
-	virtual int _demux(void* start, int nbytes);
-	int inst_chan;
-	FILE* fp_decims;
-protected:
-	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
-		inst_chan(-1)
-	{
-		bufstep = 2;
-		if (getenv("DualAxiDemuxerInstChan")){
-			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
-		}
-		if (N == DB_2D_REGULAR){
-			fp_decims = fopen("/dev/shm/decims", "w");
-			assert(fp_decims);
-		}
-		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
-	}
-public:
-
-	virtual ~DualAxiDemuxerImpl() {
-		if (verbose) fprintf(stderr, "%s\n", _PFN);
-		if (N == DB_2D_REGULAR){
-			if (fp_decims){
-				if (verbose) fprintf(stderr, "%s closing down fp_decims\n", _PFN);
-				fclose(fp_decims);
-			}
-		}
-	}
-	friend class Demuxer;
-};
-
-void Demuxer_report(int buffer);
 
 template <class T>
 int DemuxerImpl<T>::_demux(void* start, int nbytes){
@@ -2910,6 +2877,38 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 }
 
 
+template <DemuxBufferType N>
+class DualAxiDemuxerImpl : public Demuxer {
+	virtual int _demux(void* start, int nbytes);
+	int inst_chan;
+	FILE* fp_decims;
+	u8 *decims;
+	u8 *decims_cursor;
+protected:
+	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
+		inst_chan(-1)
+	{
+		bufstep = 2;
+		if (getenv("DualAxiDemuxerInstChan")){
+			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
+		}
+		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
+	}
+public:
+	virtual int demux(void* start, int nbytes);
+
+	virtual ~DualAxiDemuxerImpl() {
+		if (verbose) fprintf(stderr, "%s\n", _PFN);
+	}
+	friend class Demuxer;
+};
+
+
+
+void Demuxer_report(int buffer);
+
+
+
 Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
 {
 	switch(N){
@@ -2942,6 +2941,11 @@ int interesting(int sam, int nsam)
 }
 short ramp;
 short done_ramping;
+
+template <DemuxBufferType N>
+int DualAxiDemuxerImpl<N>::demux(void* start, int nbytes){
+	return ::Demuxer::demux(start, nbytes);
+}
 
 
 template <DemuxBufferType N>
@@ -3042,6 +3046,55 @@ static char getMR10DEC(void){
 	}
 }
 
+/**
+ * DB_2D_REGULAR : wrap ::demux(), create decims array. adjust the decims to fit real hardware.
+ */
+template<>
+int DualAxiDemuxerImpl<DB_2D_REGULAR>::demux(void* start, int nbytes){
+	int nsam = nbytes/sample_size();
+	const u8 decim_rates[] = {
+			[0] = 2,
+			[1] = 1,
+			[2] = getMR10DEC(),
+			[3] = 2
+		};
+
+	if (verbose) fprintf(stderr, "%s open fp_decims %d\n", _PFN, nsam);
+	if (verbose) fprintf(stderr, "%s decim_rates %u,%u,%u,%u\n", _PFN,
+				decim_rates[0], decim_rates[1], decim_rates[2], decim_rates[3]);
+
+	fp_decims = fopen("/dev/shm/decims", "w");
+	assert(fp_decims);
+	decims_cursor = decims = new u8[nsam];
+
+	int rc = ::Demuxer::demux(start, nbytes);
+
+	const unsigned last = decims_cursor - decims;
+	unsigned ii = 0;
+	u8 *decims_out = new u8[nsam];
+	for (; ii < 2; ++ii){
+		decims_out[ii] = decim_rates[decims[ii]];
+	}
+	for (; ii < last; ++ii){
+		u8 id = decims[ii];
+		if (id == 2){
+			if (decims[ii-2] == 1){			// SPRINT->JOG : pull 2
+				id = 1;
+			}else if (decims[ii-1] == 0){		// RUN->JOG: pull 1
+				id = 2;
+			}
+		}
+		decims_out[ii] = decim_rates[id];
+	}
+
+	int nw = fwrite(decims_out, sizeof(u8), nsam, fp_decims);
+	if (verbose) fprintf(stderr, "%s closing down fp_decims %d\n", _PFN, nw);
+	fclose(fp_decims);
+	delete [] decims_out;
+	delete [] decims;
+	return rc;
+}
+
 
 template <>
 int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
@@ -3054,26 +3107,15 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
 	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
 	short* srcbuf = new short[nsrc];
-	u8* decims = new u8[nsam];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
 	int change_over = 0;
-	const u8 decim_rates[] = {
-		[0] = 2,
-		[1] = 1,
-		[2] = getMR10DEC(),
-		[3] = 2
-	};
 
 	memcpy(psrc, start, nsrc*sizeof(short));
-
-	memset(decims, 'X', nsam);	// @@REMOVEME
 
 	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux()\n");
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
 			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
-	if (verbose) fprintf(stderr, "%s decim_rates %u,%u,%u,%u\n", _PFN,
-			decim_rates[0], decim_rates[1], decim_rates[2], decim_rates[3]);
 
 	for (int sam = 0, sambuf = 0; sam < nsam; sam += 1, sambuf += 1, psrc += NC2){
 		if (sambuf >= cbs){
@@ -3093,7 +3135,7 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 		// harvest first half channels from first src buf
 		for (; chan < 1; ++chan){
 			short xx = *psrct++;
-			decims[sam] = decim_rates[xx&0x3];
+			*decims_cursor++ = xx&0x3;
 			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = xx & 0xFFFC;
 		}
 		for (; chan < 8; ++chan){
@@ -3134,13 +3176,6 @@ int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
 	Progress::instance().print(true, b1);
 
 	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
-
-	int nw = fwrite(decims, sizeof(u8), nsam, fp_decims);
-
-	if (verbose) fprintf(stderr, "%s fwrite(decims) %d\n", _PFN, nw);
-
-	if (verbose) fprintf(stderr, "%s delete [] %p\n", _PFN, decims);
-	delete [] decims;
 	if (verbose) fprintf(stderr, "%s delete [] %p\n", _PFN, srcbuf);
 	delete [] srcbuf;
 	return nbytes;
