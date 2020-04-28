@@ -2777,9 +2777,9 @@ public:
 	virtual ~Demuxer() {}
 
 	virtual int demux(void *start, int nbytes);
-	int operator()(void *start, int nsamples){
-		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nsamples);
-		return demux(start, nsamples);
+	int operator()(void *start, int nbytes){
+		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nbytes);
+		return demux(start, nbytes);
 	}
 	static int _msync (void *__addr, size_t __len, int __flags)
 	{
