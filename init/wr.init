@@ -136,6 +136,9 @@ start|"")
 		start_wr
 		start_wrtd
 	fi;;
+restart_wrtd)
+	stop_wrtd
+	start_wrtd;;
 stop)
 	stop_wrtd;;
 esac

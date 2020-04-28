@@ -238,6 +238,7 @@ const char* ui(int argc, const char** argv)
         	fprintf(stderr, "ERROR: please specify mode tx|tx_immediate|rx");
         	exit(1);
         }
+        G::delay01 /= G::ns_per_tick;
         return mode;
 }
 
