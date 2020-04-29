@@ -595,6 +595,22 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 	measure_ao_fifo(adev);
 }
 
+void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en)
+{
+	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+	cgen &= ~DAC_424_CGEN_DISABLE_X;
+
+	if (odd_chan_en){
+		cgen |= DAC_424_CGEN_ODD_CHANS;
+		adev->nchan_enabled = 16;
+	}else{
+		cgen &= ~DAC_424_CGEN_ODD_CHANS;
+		adev->nchan_enabled = 32;
+	}
+	acq400wr32(adev, DAC_424_CGEN, cgen);
+	measure_ao_fifo(adev);
+}
+
 static void ao424_init_defaults(struct acq400_dev *adev)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
@@ -620,9 +636,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	xo_dev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
-	if (measure_ao_fifo_ok){
-	    measure_ao_fifo(adev);
-	}
+	ao424_set_odd_channels(adev, ao424_16);
 }
 
 

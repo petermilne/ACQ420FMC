@@ -939,19 +939,7 @@ static ssize_t store_odd_channels(
 	int odd_chan_en;
 
 	if (sscanf(buf, "%d", &odd_chan_en) == 1){
-		u32 cgen = acq400rd32(adev, DAC_424_CGEN);
-		cgen &= ~DAC_424_CGEN_DISABLE_X;
-
-		if (odd_chan_en){
-			cgen |= DAC_424_CGEN_ODD_CHANS;
-			adev->nchan_enabled = 16;
-		}else{
-			cgen &= ~DAC_424_CGEN_ODD_CHANS;
-			adev->nchan_enabled = 32;
-		}
-
-		acq400wr32(adev, DAC_424_CGEN, cgen);
-		measure_ao_fifo(adev);
+		ao424_set_odd_channels(adev, odd_chan_en);
 		return count;
 	}else{
 		return -1;
