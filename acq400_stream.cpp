@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1037"
+#define VERID	"B1038"
 
 #define NCHAN	4
 
@@ -2907,7 +2907,7 @@ public:
 
 void Demuxer_report(int buffer);
 
-
+static bool DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback;
 
 Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
 {
@@ -2925,6 +2925,8 @@ Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
 		break;
 	case DB_2D_REGULAR:
 		assert(WS==sizeof(short));
+		DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback =
+				getenv_default("DB_2D_REGULAR_NOPULLBACK", 0);
 		return new DualAxiDemuxerImpl<DB_2D_REGULAR>;
 	case DB_DOUBLE:
 		assert(WS==sizeof(short));
@@ -3070,12 +3072,13 @@ int DualAxiDemuxerImpl<DB_2D_REGULAR>::demux(void* start, int nbytes){
 	int rc = ::Demuxer::demux(start, nbytes);
 
 	const unsigned last = decims_cursor - decims;
+	const unsigned notouch = DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback? last: 2;
 	unsigned ii = 0;
 	u8 *decims_out = new u8[nsam];
-	for (; ii < 2; ++ii){
+	for (; ii < notouch; ++ii){
 		decims_out[ii] = decim_rates[decims[ii]];
 	}
-	for (; ii < last; ++ii){
+	for (; ii < last; ++ii){			// does not exec if notouch==last
 		u8 id = decims[ii];
 		if (id == 2){
 			if (decims[ii-2] == 1){			// SPRINT->JOG : pull 2
