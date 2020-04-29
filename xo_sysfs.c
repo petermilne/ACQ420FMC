@@ -38,6 +38,9 @@ int hook_dac_gx_to_spad;
 module_param(hook_dac_gx_to_spad, int, 0644);
 MODULE_PARM_DESC(hook_dac_gx_to_spad, "1: writes to DAC GX mirrored to SPADx");
 
+int ao424_16 = 0;
+module_param(ao424_16, int, 0644);
+MODULE_PARM_DESC(ao424_16, "ao424, 16 channel mode only");
 
 static ssize_t show_playloop_length(
 	struct device * dev,
@@ -1105,23 +1108,7 @@ const struct attribute *ao420_attrs[] = {
 
 
 
-const struct attribute *ao424_attrs[] = {
-	&dev_attr_AO_01.attr,
-	&dev_attr_AO_02.attr,
-	&dev_attr_AO_03.attr,
-	&dev_attr_AO_04.attr,
-	&dev_attr_AO_05.attr,
-	&dev_attr_AO_06.attr,
-	&dev_attr_AO_07.attr,
-	&dev_attr_AO_08.attr,
-	&dev_attr_AO_09.attr,
-	&dev_attr_AO_10.attr,
-	&dev_attr_AO_11.attr,
-	&dev_attr_AO_12.attr,
-	&dev_attr_AO_13.attr,
-	&dev_attr_AO_14.attr,
-	&dev_attr_AO_15.attr,
-	&dev_attr_AO_16.attr,
+static const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_17.attr,
 	&dev_attr_AO_18.attr,
 	&dev_attr_AO_19.attr,
@@ -1138,6 +1125,23 @@ const struct attribute *ao424_attrs[] = {
 	&dev_attr_AO_30.attr,
 	&dev_attr_AO_31.attr,
 	&dev_attr_AO_32.attr,
+	&dev_attr_AO_01.attr,
+	&dev_attr_AO_02.attr,
+	&dev_attr_AO_03.attr,
+	&dev_attr_AO_04.attr,
+	&dev_attr_AO_05.attr,
+	&dev_attr_AO_06.attr,
+	&dev_attr_AO_07.attr,
+	&dev_attr_AO_08.attr,
+	&dev_attr_AO_09.attr,
+	&dev_attr_AO_10.attr,
+	&dev_attr_AO_11.attr,
+	&dev_attr_AO_12.attr,
+	&dev_attr_AO_13.attr,
+	&dev_attr_AO_14.attr,
+	&dev_attr_AO_15.attr,
+	&dev_attr_AO_16.attr,
+
 	&dev_attr_dacreset.attr,
 	&dev_attr_dacreset_device.attr,
 	&dev_attr_dac_headroom.attr,
@@ -1161,6 +1165,10 @@ const struct attribute *ao424_attrs[] = {
 	*/
 	NULL
 };
+
+const struct attribute **get_ao424_attrs(void) {
+	return ao424_attrs + (ao424_16? 16: 0);
+}
 
 const struct attribute *acq436_upper_half_attrs_master[] = {
 	&dev_attr_dac_mux_master.attr,

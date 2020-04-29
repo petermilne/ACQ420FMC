@@ -3451,7 +3451,7 @@ void acq400_createSysfs(struct device *dev)
 			}
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = playloop_attrs;
-			specials[nspec++] = ao424_attrs;
+			specials[nspec++] = get_ao424_attrs();
 		}else if (IS_BOLO8(adev)){
 			specials[nspec++] = dacspi_attrs;
 			specials[nspec++] = bolo8_attrs;

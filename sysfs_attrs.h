@@ -25,7 +25,7 @@ extern const struct attribute *ao420_attrs[];
 
 #define ao420_half_436_attrs &ao420_attrs[8]
 
-extern const struct attribute *ao424_attrs[];
+extern const struct attribute **get_ao424_attrs(void);
 extern const struct attribute *acq436_upper_half_attrs_master[];
 #define acq436_upper_half_attrs &acq436_upper_half_attrs_master[1]
 
