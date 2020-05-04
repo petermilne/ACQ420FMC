@@ -227,6 +227,9 @@ bigcat: bigcat.cpp
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
 
+mr_offload: mr_offload.o
+	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
+	
 muxdec: muxdec.o
 	$(CXX) -O3 -o muxdec muxdec.o -L../lib -lacq
 
