@@ -79,7 +79,8 @@ APPS := mmap acq400_stream permute acq435_decode \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
 	dump_regs \
 	soft_atd \
-	wr_reset wrtd wrtt_mon
+	wr_reset wrtd wrtt_mon \
+	mr_offload
 	
 # data_sink	
 # dropped
@@ -227,9 +228,9 @@ bigcat: bigcat.cpp
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
 
-mr_offload: mr_offload.o
-	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
-	
+mr_offload: mr_offload.o knobs.o
+	$(CXX) -O3 -o mr_offload mr_offload.o knobs.o -L../lib -lpopt
+
 muxdec: muxdec.o
 	$(CXX) -O3 -o muxdec muxdec.o -L../lib -lacq
 

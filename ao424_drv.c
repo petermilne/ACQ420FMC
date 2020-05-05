@@ -165,19 +165,27 @@ int ao424_set_spans(struct acq400_dev* adev)
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	unsigned ctrl = acq400rd32(adev, DAC_CTRL);
 	int was_enabled = 0;
+	int was_c16 = 0;
 	int rc = 0;
 
 	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
 
+	if (adev->task_active){
+		dev_err(DEVP(adev), "ao424_set_spans not allowed when task_active");
+		return -1;
+	}
+	if ((was_c16 = (cgen&DAC_424_CGEN_ODD_CHANS) != 0)){
+		if (!allow_spans_in_odds_mode){
+			dev_err(DEVP(adev), "ao424_set_spans not allowed in ODD chans mode");
+			return -1;
+		}else{
+			ao424_set_odd_channels(adev, 0);
+		}
+	}
 	if (xo_dev->ao424_device_settings.encoded_twocmp == 1){
 		xo_dev->ao424_device_settings.encoded_twocmp = 0;
 		ctrl &= ~DAC_CTRL_TWOCMP;
 		acq400wr32(adev, DAC_CTRL, ctrl);
-	}
-
-	if (!allow_spans_in_odds_mode && (cgen&DAC_424_CGEN_ODD_CHANS) != 0){
-		dev_err(DEVP(adev), "ao424_set_spans not allowed in ODD chans mode");
-		return -1;
 	}
 	if ((ctrl&ADC_CTRL_ADC_EN) != 0){
 		if (xo_dev->AO_playloop.length > 0){
@@ -206,6 +214,9 @@ int ao424_set_spans(struct acq400_dev* adev)
 		if (!is_unipolar){
 			xo_dev->ao424_device_settings.encoded_twocmp = 1;
 			ctrl |= DAC_CTRL_TWOCMP;
+		}
+		if (was_c16){
+			ao424_set_odd_channels(adev, 1);
 		}
 		if (was_enabled){
 			dev_dbg(DEVP(adev), "enable ADC_CTRL_ADC_EN");
