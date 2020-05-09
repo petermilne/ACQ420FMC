@@ -2460,7 +2460,7 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	void getSampleInterval();
 	void startSampleIntervalWatcher();
 
-	static bool getPram(const char* pf, int* pram)
+	static bool getPram(const char* pf, unsigned* pram)
 	{
 		FILE *fp = fopen(pf, "r");
 		if (!fp) {
@@ -2469,21 +2469,26 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		char aline[32];
 		bool rc = false;
 		if (fgets(aline, 32, fp)){
-			rc = sscanf(aline, "%d", pram) == 1;
+			rc = sscanf(aline, "%u", pram) == 1;
 		}
 		fclose(fp);
 		return rc;
 	}
 	static bool getPP(unsigned *_pre, unsigned* _post)
 	{
-		int pp[2];
+		unsigned pp[2];
 		if (getPram(LIVE_PRE, pp) && getPram(LIVE_POST, pp+1)){
-			if (_pre) *_pre = pp[0];
-			if (_post) *_post = pp[1];
-			return true;
-		}else{
-			return false;
+			if (*_pre != pp[0] || *_post != pp[1]){
+				if (::verbose){
+					fprintf(stderr, "%s %d,%d => %d,%d\n", _PFN, *_pre, *_post, pp[0], pp[1]);
+				}
+				*_pre = pp[0];
+				*_post = pp[1];
+				return true;
+			}
 		}
+
+		return false;
 	}
 	bool getPP(void) {
 		return getPP(&pre, &post);
@@ -2544,7 +2549,6 @@ bool StreamHead::has_pre_post_live_demux(void) {
 
 void StreamHeadLivePP::getSampleInterval()
 {
-
 	FILE *pp = popen("get.site 1 SIG:sample_count:FREQ", "r");
 
 	int freq;
@@ -2589,9 +2593,6 @@ int StreamHeadLivePP::_stream() {
 	int rc = 0;
 	char* b0 = MapBuffer::get_ba_lo();
 	char* b1 = MapBuffer::get_ba_hi();
-	int bo1 = Buffer::BO_NONE;
-	int bo2 = Buffer::BO_NONE;
-
 
 	if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 // @@TODO: why does it DIE HERE?
@@ -2616,6 +2617,9 @@ int StreamHeadLivePP::_stream() {
 	INIT_SEL;
 	// 1637099 -1 201    sample_count, hb0 hb1
 	for( getPP(); rc >= 0; getPP()){
+		int bo1 = Buffer::BO_NONE;
+		int bo2 = Buffer::BO_NONE;
+
 		INIT_SEL;
 		rc = pselect(f_ev+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
 		if (rc < 0){
@@ -2634,9 +2638,9 @@ int StreamHeadLivePP::_stream() {
 		}
 
 		if (pre){
-			bo1 = Buffer::BO_START;
+			bo1 |= Buffer::BO_START;
 		}else{
-			bo2 = Buffer::BO_START;
+			bo2 |= Buffer::BO_START;
 		}
 		if (!post){
 			bo1 |= Buffer::BO_FINISH;
@@ -2669,36 +2673,46 @@ int StreamHeadLivePP::_stream() {
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
 			continue;
 		}
-		if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n", ibuf, es);
-
-		char *es1 = es + sample_size;
+		if (verbose){
+			fprintf(stderr, "%s found %d %p pre %d post %d\n", _PFN,
+					ibuf, es, pre, post);
+		}
+		char *es1 = es + (show_es? 0: sample_size);
 
 		// all info referenced to buffer 0!
 		Buffer* buf = Buffer::the_buffers[0];
 		b0 = buf->getBase();
 
 		if (!(es - prelen() > b0 && es1 + postlen() < b1 )){
-			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 49\n");
+			if (verbose) fprintf(stderr, "%s 49\n", _PFN);
 			continue;	// silently drop it. there will be more
 		}
 		if (pre){
 			int escount = countES(es-prelen(), prelen());
 			int eslen = escount*sample_size;
+			int start_off = es - prelen() - b0 - eslen;
+			int len = prelen()+eslen;
+
 			if (es - prelen() > b0 + eslen){
-				if (verbose) fprintf(stderr,
-					"StreamHeadLivePP::stream() 55 escount:%d\n", escount);
+				if (verbose) fprintf(stderr, "%s 54 escount:%d\n", _PFN, escount);
 			}
-			buf->writeBuffer(1, bo1, es - prelen() - b0 - eslen, prelen()+eslen);
+
+			int nb = buf->writeBuffer(1, bo1, start_off, len);
+			if (verbose) fprintf(stderr, "%s 56 wb %d, %d => %d\n", _PFN, start_off, len, nb);
 		}
 		if (post){
 			int escount = countES(es1, postlen());
 			int eslen = escount*sample_size;
+			int start_off = es1 - b0;
+			int len = postlen()+eslen;
+
 			if (es1 - b0 > postlen() - eslen){
-				if (verbose) fprintf(stderr,
-					"StreamHeadLivePP::stream() 57 escount:%d\n", escount);
+				if (verbose) fprintf(stderr, "%s 57 escount:%d\n", _PFN, escount);
 			}
 			waitPost();
-			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
+
+			int nb = buf->writeBuffer(1, bo2, start_off, len);
+			if (verbose) fprintf(stderr, "%s 59 wb %d, %d => %d\n", _PFN, start_off, len, nb);
 		}
 	}
 
