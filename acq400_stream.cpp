@@ -2515,19 +2515,24 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	}
 
 	int  _stream();
-	int verbose;
+	static int verbose;
+	bool show_es;
 public:
 	StreamHeadLivePP():
 			pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
-		verbose = getenv_default("StreamHeadLivePPVerbose");
+		const char* vs = getenv("StreamHeadLivePPVerbose");
+		vs && (verbose = atoi(vs));
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() verbose=%d\n", verbose);
+		const char* ses = getenv("StreamHeadLivePPShowES");
+		ses && (show_es = atoi(ses));
 
 		fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
 		startEventWatcher();
 		startSampleIntervalWatcher();
 
 
-		if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() pid %d progress: %s\n", getpid(), actual.name);
 
 		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
 				Buffer::the_buffers[0]->getBase());
@@ -2542,6 +2547,8 @@ public:
 	}
 	virtual void stream();
 };
+
+int StreamHeadLivePP::verbose;
 
 bool StreamHead::has_pre_post_live_demux(void) {
 	return StreamHeadLivePP::hasPP();
