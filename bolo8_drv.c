@@ -33,14 +33,14 @@
  * we're going to run out with multiple BOLOS, so we really have to increase
  * that number ...
  */
-int bolo_gpio_base = 128;
+int bolo_gpio_base = 0;
 module_param(bolo_gpio_base, int, 0644);
 
 int bolo8sites[6] = { 0,  };
 int bolo8sites_count = 0;
 module_param_array(bolo8sites, int, &bolo8sites_count, 0644);
 
-struct i2c_adapter *i2c_adap[6];
+struct i2c_adapter *i2c_adap[7];   /* index by site 1..6 from zero */
 
 static int nbolo;
 
