@@ -183,7 +183,7 @@ int client(const char* uutname) {
 int main(int argc, const char** argv)
 {
 	const char* uutname = init(argc, argv);
-	if (uutname == 0){
+	if (uutname != 0){
 		return client(uutname);
 	}else{
 		return offload();
