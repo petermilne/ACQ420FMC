@@ -147,30 +147,35 @@ int offload(void) {
 	return 0;
 }
 
+int writebin(const char* fmt, const char* uutname, int shot, void* data, int len)
+{
+	char fname[80];
+
+	sprintf(fname, fmt, uutname, shot);
+	FILE *fp = fopen(fname, "w");
+	assert(fp);
+	fwrite(data, len, 1, fp);
+	fclose(fp);
+	return 0;
+}
+
 int client(const char* uutname) {
 	mr_offload header;
 
 	fread(&header, sizeof(mr_offload), 1, stdin);
 
-	char header_name[80];
-	char payload_name[80];
+	writebin("%s.%d.hdr", uutname, header.shot, &header, sizeof(mr_offload));
 
-	sprintf(header_name, "%s.%d.hdr", uutname, header.shot);
-	sprintf(payload_name, "%s.%d.dat", uutname, header.shot);
+	char* decims = new char[header.nsam];
+	fread(decims, sizeof(char), header.nsam, stdin);
 
-	FILE *fph = fopen(header_name, "w");
-	assert(fph);
-	fwrite(&header, sizeof(mr_offload), 1, fph);
-	fclose(fph);
+	writebin("%s.%d.dec", uutname, header.shot, decims, header.nsam);
 
-	int len = header.nsam * header.nchan;
+	const int len = header.nchan * header.nsam;
 	short* payload = new short[len];
 	fread(payload, sizeof(short), len, stdin);
 
-	FILE* fpp = fopen(payload_name, "w");
-	assert(fpp);
-	fwrite(fpp, sizeof(short), len, fpp);
-	fclose(fpp);
+	writebin("%s.%d.dat", uutname, header.shot, payload, sizeof(short)*len);
 
 	return 0;
 }
