@@ -39,6 +39,9 @@ LED5
 LED8
 LED7"
 
+
+
+
 init_one_b8() {
 	site=$1
 	pga=$2
@@ -66,6 +69,8 @@ init_one_b8() {
 		echo 0 > /sys/class/gpio/gpio$gpio/value
 		let gpio=$gpio+1
 	done
+	
+
 }
 
 get_gpiochip() {
@@ -82,6 +87,8 @@ get_gpiochip() {
 	done	
 }
 
+REVBIAS=0xa000
+
 init_b8_hardware() 
 {
 	site=$1
@@ -93,6 +100,9 @@ init_b8_hardware()
 	set.sys /dev/acq400.${site}.knobs/current_adc_enable 1
 	set.sys /dev/acq400.${site}.knobs/offset_dac_enable 1
 	/usr/local/bin/ao420_init ${site}
+	for ch in $(seq 8); do
+		echo $REVBIAS > /dev/acq400.$site.knobs/offset_dac$ch
+	done
 }
 
 cd /sys/class/gpio
