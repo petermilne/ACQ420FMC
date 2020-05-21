@@ -55,7 +55,9 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #include <linux/device.h>
 #include <linux/platform_device.h>
 
-
+#include <linux/dma-direction.h>
+#include "hbm.h"
+#include "acq400.h"
 
 #include "debugfs2.h"
 
@@ -73,38 +75,31 @@ PEX_INT                         0x00c           0xffffffff      r       %08x
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 
+
 #include "regfs.h"
 
 
 
-#define MAXSTACK 4
+
+#define MBPS	96	/* data rate ACQ424+DIO+3SPAD * 2M */
+#define BS	4	/* block size, MB */
+int atd_suppress_mod_event_nsec = 0;
+module_param(atd_suppress_mod_event_nsec, int, 0644);
+MODULE_PARM_DESC(atd_suppress_mod_event_nsec, "hold off mod_event at least one buffer");
+
+int soft_trigger_nsec = NSEC_PER_MSEC * 10;
+module_param(soft_trigger_nsec, int, 0644);
+MODULE_PARM_DESC(soft_trigger_nsec, "high hold time for soft trigger pulse");
 
 #define MINOR_P0	0
 #define MINOR_PMAX	63	/* 64 pages max */
 #define MINOR_EV	64	/* hook event reader here */
 
-struct REGFS_DEV {
-	void* va;
-	struct platform_device* pdev;
-	struct resource *mem;
-
-	int istack;
-	struct dentry *dstack[MAXSTACK];
-	struct dentry *top;
-	struct dentry *create_hook;
-
-
-	struct cdev cdev;
-	struct list_head list;
-	wait_queue_head_t w_waitq;
-
-	unsigned ints;
-	unsigned status;
-};
 
 struct REGFS_PATH_DESCR {
 	struct REGFS_DEV* rdev;
 	int minor;
+	int int_count;
 };
 
 #define PD(filp)		((struct REGFS_PATH_DESCR*)filp->private_data)
@@ -113,7 +108,7 @@ struct REGFS_PATH_DESCR {
 
 #define DEVP(rd)	(&(rd)->pdev->dev)
 
-#define REVID "regfs_fs B1005"
+#define REVID "regfs_fs B1016"
 
 #define LO32(addr) (((unsigned)(addr) & 4) == 0)
 
@@ -215,8 +210,9 @@ const struct file_operations regfs_direct_fops = {
 };
 
 
-struct resource* regfs_device_tree_init(struct REGFS_DEV* dev)
+int regfs_device_tree_init(struct REGFS_DEV* dev)
 {
+	/* get site? */
 	return 0;
 }
 int regfs_init_fs(struct REGFS_DEV* dev)
@@ -229,7 +225,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 			dev->pdev->num_resources, dev->pdev->resource[0].flags);
 
 	if (dev->pdev->dev.of_node != 0){
-		if ((mem = regfs_device_tree_init(dev)) == 0){
+		if (regfs_device_tree_init(dev) != 0){
 			dev_err(DEVP(dev), "regfs_device_tree_init() failed");
 			rc = -ENODEV;
 			goto init99;
@@ -259,6 +255,7 @@ int regfs_init_fs(struct REGFS_DEV* dev)
 
 	dev->dstack[dev->istack = 0] = dev->top =
 			debugfs_create_dir(mem->name, NULL);
+	debugfs_create_u32("site", 0444, dev->top, &dev->pdev->id);
 	dev->create_hook = debugfs_create_file(".create", S_IWUGO,
 				  dev->top, dev, &regfs_direct_fops);
 
@@ -274,21 +271,41 @@ void regfs_remove_fs(struct REGFS_DEV* dev)
 }
 
 
-
+static struct file_operations regfs_page_fops;
 static struct file_operations regfs_event_fops;
 
-int regfs_page_open(struct inode *inode, struct file *file)
-/* minor is page # */
+int regfs_open(struct inode *inode, struct file *file)
 {
 	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->rdev = container_of(inode->i_cdev, struct REGFS_DEV, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
 
 	if (PD(file)->minor == MINOR_EV){
+		PD(file)->int_count = PD(file)->rdev->ints;
 		file->f_op = &regfs_event_fops;
+		if (file->f_op->open){
+			return file->f_op->open(inode, file);
+		}
+	}else{
+		/* minor is page # */
+		file->f_op = &regfs_page_fops;
+		if (file->f_op->open){
+			return file->f_op->open(inode, file);
+		}
+	}
+
+	return 0;
+}
+int regfs_release(struct inode *inode, struct file *file)
+{
+	void* buf = PD(file);
+	SETPD(file, 0);
+	if (buf){
+		kfree(buf);
 	}
 	return 0;
 }
+
 
 ssize_t regfs_page_write(struct file *file, const char __user *buf, size_t count,
         loff_t *f_pos)
@@ -358,29 +375,93 @@ ssize_t regfs_page_read(struct file *file, char __user *buf, size_t count,
 	return count;
 }
 
+/* ONLY ONE consumer allowed */
+int regfs_event_open(struct inode *inode, struct file *file)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+
+	if (rdev->event_client_pid != 0){
+		regfs_release(inode, file);
+		return -EBUSY;
+	}else{
+		rdev->event_client_pid = current->pid;
+		rdev->client_ready = 1;
+		return 0;
+	}
+}
+
+int regfs_event_release(struct inode *inode, struct file *file)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	void* buf = PD(file);
+	rdev->event_client_pid = 0;
+	rdev->client_ready = 0;
+	SETPD(file, 0);
+	if (buf){
+		kfree(buf);
+	}
+	return 0;
+}
+
+
+
 ssize_t regfs_event_read(struct file *file, char __user *buf, size_t count,
 	        loff_t *f_pos)
 {
 	struct REGFS_DEV *rdev = PD(file)->rdev;
-	int int_count = rdev->ints;
+	int int_count = PD(file)->int_count;
 	int rc = wait_event_interruptible(
 			rdev->w_waitq,
 			rdev->ints != int_count);
 	if (rc < 0){
 		return -EINTR;
 	}else{
-		char lbuf[32];
-		int nbytes = snprintf(lbuf, 64, "%d, 0x%08x\n", rdev->ints, rdev->status);
+		char lbuf[128];
+		int nbytes;
+		struct EventInfo eventInfo;
+		int timeout = 0;
+		int delta_ints = rdev->ints - PD(file)->int_count;
+		PD(file)->int_count = rdev->ints;
+		acq400_init_event_info(&eventInfo);
+
+		nbytes = snprintf(lbuf, sizeof(lbuf), "%d %d %d %s 0x%08x %u %u %u %u\n",
+			PD(file)->int_count,
+                        eventInfo.hbm0? eventInfo.hbm0->ix: -1,
+                        eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
+			rdev->status,
+			rdev->sample_count,
+			rdev->latch_count,
+			rdev->sample_count-rdev->latch_count,
+			delta_ints);
+
 		if (nbytes > count){
 			nbytes = count;
 		}
+
 		rc = copy_to_user(buf, lbuf, nbytes);
+
 		if (rc != 0){
 			return -1;
 		}else{
+			rdev->client_ready = 1;
 			return nbytes;
 		}
 	}
+}
+
+unsigned int regfs_event_poll(
+		struct file *file, struct poll_table_struct *poll_table)
+{
+	struct REGFS_DEV *rdev = PD(file)->rdev;
+	int int_count = PD(file)->int_count;
+	unsigned rc;
+
+	if (rdev->ints == int_count){
+		poll_wait(file, &rdev->w_waitq, poll_table);
+	}
+	rc = rdev->ints != int_count? POLLIN: 0;
+	dev_dbg(DEVP(rdev), "regfs_event_poll() return %u", rc);
+	return rc;
 }
 int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 {
@@ -404,28 +485,98 @@ int regfs_page_mmap(struct file* file, struct vm_area_struct* vma)
 		return 0;
 	}
 }
-int regfs_page_release(struct inode *inode, struct file *file)
+
+#define ATD_CR		0x4
+#define ATD_MOD_EVENT_EN	(1<<5)
+#define INT_CSR_OFFSET	0x18
+#define INT_CSR_ATD	(1<<8)
+
+#define DSP_IRQ_STAT	0x60
+#define DSP_FUN_STAT	0x64
+
+void atd_enable_mod_event(struct REGFS_DEV *rdev, int enable)
 {
-	kfree(PD(file));
-	return 0;
+	unsigned cr = ioread32(rdev->va + ATD_CR);
+	if (enable){
+		cr |= ATD_MOD_EVENT_EN;
+	}else{
+		cr &= ~ATD_MOD_EVENT_EN;
+	}
+	iowrite32(cr, rdev->va + ATD_CR);
 }
 
-#define INT_CSR_OFFSET	0x18
+static enum hrtimer_restart
+modevent_masker_timer_handler(struct hrtimer *handle)
+{
+	struct REGFS_DEV *rdev = container_of(handle, struct REGFS_DEV, atd.timer);
+
+	atd_enable_mod_event(rdev, 1);
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart
+soft_trigger_timer_handler(struct hrtimer *handle)
+{
+	acq400_soft_trigger(0);
+	return HRTIMER_NORESTART;
+}
 
 static irqreturn_t acq400_regfs_hack_isr(int irq, void *dev_id)
 {
 	struct REGFS_DEV* rdev = (struct REGFS_DEV*)dev_id;
+	const int ready = rdev->client_ready;
+	u32 irq_stat;
+	u32 fun_stat;
 
-	/* RORA interrupt */
-	u32 status = ioread32(rdev->va + INT_CSR_OFFSET);
-	iowrite32(status, rdev->va + INT_CSR_OFFSET);
+	if (ready){
+		rdev->sample_count = acq400_agg_sample_count();
+	}
+
+	irq_stat = ioread32(rdev->va + DSP_IRQ_STAT);
+	fun_stat = ioread32(rdev->va + DSP_FUN_STAT);
+
+	rdev->status_latch |= fun_stat;
+	if (rdev->gsmode == GS_NOW){
+		rdev->group_status_latch = fun_stat;
+	}else{
+		rdev->group_status_latch |= fun_stat;
+	}
 	rdev->ints++;
-	rdev->status = status;
+	if (ready){
+		rdev->client_ready = 0;
+		rdev->status = irq_stat;
+		rdev->latch_count = acq400_adc_latch_count();
+		wake_up_interruptible(&rdev->w_waitq);
 
-	wake_up_interruptible(&rdev->w_waitq);
-	dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr %08x\n", status);
+	}
+	if (atd_suppress_mod_event_nsec){
+		atd_enable_mod_event(rdev, 0);
+	}
+
+	iowrite32(irq_stat, rdev->va + DSP_IRQ_STAT);
+
+	if (atd_suppress_mod_event_nsec){
+		hrtimer_start(&rdev->atd.timer, ktime_set(0, atd_suppress_mod_event_nsec), HRTIMER_MODE_REL);
+	}
+
+	if (rdev->group_trigger_mask && (rdev->group_status_latch&rdev->group_trigger_mask) == rdev->group_trigger_mask){
+		acq400_soft_trigger(1);
+		rdev->group_status_latch = 0;
+		hrtimer_start(&rdev->soft_trigger.timer, ktime_set(0, soft_trigger_nsec), HRTIMER_MODE_REL);
+		dev_dbg(&rdev->pdev->dev, "GROUP_STATUS CONDITION MET: soft trigger");
+	}
+
+	if (ready){
+		dev_dbg(&rdev->pdev->dev, "acq400_regfs_hack_isr acq400_agg_sample_count %5d sc %08x %s lc %08x diff %d  irq:%08x fun:%08x\n",
+			rdev->ints, rdev->sample_count, rdev->sample_count>rdev->latch_count? ">": "<", rdev->latch_count,
+			rdev->sample_count>rdev->latch_count? rdev->sample_count-rdev->latch_count: rdev->latch_count-rdev->sample_count,
+					irq_stat, fun_stat);
+	}
+
 	return IRQ_HANDLED;
 }
+
+irqreturn_t (*regfs_isr)(int irq, void *dev_id) = acq400_regfs_hack_isr;
 
 static int init_event(struct REGFS_DEV* rdev)
 {
@@ -433,8 +584,7 @@ static int init_event(struct REGFS_DEV* rdev)
 	int rc = 0;
 	if (ri){
 		rc = devm_request_irq(
-			&rdev->pdev->dev, ri->start, acq400_regfs_hack_isr,
-				IRQF_SHARED, ri->name, rdev);
+			&rdev->pdev->dev, ri->start, regfs_isr, IRQF_NO_THREAD, ri->name, rdev);
 		if (rc){
 			dev_err(&rdev->pdev->dev,"unable to get IRQ%d\n",ri->start);
 		}
@@ -446,20 +596,139 @@ static int init_event(struct REGFS_DEV* rdev)
 
 static struct file_operations regfs_event_fops = {
 	.owner = THIS_MODULE,
-	.release = regfs_page_release,
+	.open  = regfs_event_open,
+	.release = regfs_event_release,
 	.read = regfs_event_read,
+	.poll = regfs_event_poll
 };
 
 static struct file_operations regfs_page_fops = {
 	.owner = THIS_MODULE,
-	.open  = regfs_page_open,
-	.release = regfs_page_release,
+	.release = regfs_release,
 	.mmap = regfs_page_mmap,
 	.write = regfs_page_write,
 	.read = regfs_page_read,
 	.llseek = generic_file_llseek,
 };
-static int regfs_probe(struct platform_device *pdev)
+
+static struct file_operations regfs_fops = {
+	.owner = THIS_MODULE,
+	.open  = regfs_open,
+	.release = regfs_release,
+};
+
+static int sprintf_split_words(char* buf, unsigned lw)
+{
+	return sprintf(buf, "%04x,%04x\n", lw>>16, lw&0x0000ffff);
+}
+
+
+
+static ssize_t show_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf_split_words(buf, rdev->status_latch);
+
+	rdev->status_latch = 0;
+	return rc;
+}
+
+static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
+
+static ssize_t show_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned fun_stat = ioread32(rdev->va + DSP_FUN_STAT);
+	return sprintf_split_words(buf, fun_stat);
+}
+
+static DEVICE_ATTR(status, S_IRUGO, show_status, 0);
+
+
+static ssize_t show_group_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf_split_words(buf, rdev->group_status_latch);
+	return rc;
+}
+
+static DEVICE_ATTR(group_status_latch, S_IRUGO, show_group_status_latch, 0);
+
+static ssize_t store_group_trigger_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned eh, el;
+
+	if (sscanf(buf, "%x,%x", &eh, &el) == 2){
+		rdev->group_trigger_mask = eh<<16 | el;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_group_trigger_mask(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf_split_words(buf, rdev->group_trigger_mask);
+	return rc;
+}
+
+static DEVICE_ATTR(group_trigger_mask, S_IRUGO|S_IWUSR, show_group_trigger_mask, store_group_trigger_mask);
+
+static ssize_t store_group_status_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	unsigned en;
+
+	if (sscanf(buf, "%d", &en) == 1){
+		rdev->gsmode = en==1;
+		return count;
+	}else{
+		return -1;
+	}
+}
+static ssize_t show_group_status_mode(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct REGFS_DEV *rdev = (struct REGFS_DEV *)dev_get_drvdata(dev);
+	int rc = sprintf(buf, "%d %s\n", rdev->gsmode, rdev->gsmode==GS_NOW? "GS_NOW": "GS_HISTORIC");
+	return rc;
+}
+
+static DEVICE_ATTR(group_status_mode, S_IRUGO|S_IWUSR, show_group_status_mode, store_group_status_mode);
+
+static const struct attribute *sysfs_base_attrs[] = {
+	&dev_attr_status.attr,
+	&dev_attr_status_latch.attr,
+	&dev_attr_group_status_latch.attr,
+	&dev_attr_group_trigger_mask.attr,
+	&dev_attr_group_status_mode.attr,
+	NULL
+};
+
+int regfs_probe(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = kzalloc(sizeof(struct REGFS_DEV), GFP_KERNEL);
 	dev_t devno;
@@ -489,17 +758,22 @@ static int regfs_probe(struct platform_device *pdev)
                 goto fail;
         }
 
-        cdev_init(&rdev->cdev, &regfs_page_fops);
+        cdev_init(&rdev->cdev, &regfs_fops);
         rdev->cdev.owner = THIS_MODULE;
         rc = cdev_add(&rdev->cdev, devno, minor_max+1);
 
         init_event(rdev);
-
+        dev_set_drvdata(&pdev->dev, rdev);
+	if (sysfs_create_files(&pdev->dev.kobj, sysfs_base_attrs)){
+		dev_err(&pdev->dev, "failed to create sysfs");
+	}
+        acq400_timer_init(&rdev->atd.timer, modevent_masker_timer_handler);
+        acq400_timer_init(&rdev->soft_trigger.timer, soft_trigger_timer_handler);
 fail:
 	return rc;
 }
 
-static int regfs_remove(struct platform_device *pdev)
+int regfs_remove(struct platform_device *pdev)
 {
 	struct REGFS_DEV* rdev = 0;		// TODO LOOKUP
 	regfs_remove_fs(rdev);
@@ -508,29 +782,9 @@ static int regfs_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#define regfs_of_match 0
-
-static struct platform_driver regfs_driver = {
-        .driver = {
-                .name = MODULE_NAME,
-                .owner = THIS_MODULE,
-                .of_match_table = regfs_of_match,
-        },
-        .probe = regfs_probe,
-        .remove = regfs_remove,
-};
-
-static void __exit regfs_exit(void)
-{
-	platform_driver_unregister(&regfs_driver);
-}
-
-static int __init regfs_init(void)
-{
-	return platform_driver_register(&regfs_driver);
-}
-module_init(regfs_init);
-module_exit(regfs_exit);
+EXPORT_SYMBOL_GPL(regfs_probe);
+EXPORT_SYMBOL_GPL(regfs_remove);
+EXPORT_SYMBOL_GPL(regfs_isr);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("D-TACQ regfs driver");

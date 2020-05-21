@@ -23,6 +23,9 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
+#include <uapi/linux/sched/types.h>
+#include <linux/sched/rt.h>
+
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
@@ -37,6 +40,10 @@ MODULE_PARM_DESC(debcount, "NZ if counter debounce ever .. happened");
 int histo_poll_ms = 10;
 module_param(histo_poll_ms, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "histogram poll rate msec");
+
+int axi_dma_agg32 = 0;
+module_param(axi_dma_agg32, int, 0644);
+MODULE_PARM_DESC(histo_poll_ms, "transitional for AGG32 gaining AXI DMA");
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
@@ -201,7 +208,7 @@ int check_fifo_statuses(struct acq400_dev *adev)
 		int islave = 0;
 		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 
-		for (islave = 0; islave < MAXSITES; ++islave){
+		for (islave = 0; islave < MAXDEVICES; ++islave){
 			struct acq400_dev* slave = sc_dev->aggregator_set[islave];
 			if (!slave) break;
 
@@ -288,7 +295,7 @@ void acq2006_aggregator_enable(struct acq400_dev *adev)
 		goto agg99;
 	case SP_EN: {
 			int len = sc_dev->spad.len;
-			if (IS_AXI64(adev)){
+			if (!axi_dma_agg32 && IS_AXI64(adev)){
 				len /= 2;    /* SPADS double spaced in 64 bit */
 			}
 			agg |= SET_AGG_SPAD_LEN(len);
@@ -330,6 +337,12 @@ int acq400_enable_trg(struct acq400_dev *adev, int enable)
 	u32 timcon = acq400rd32(adev, TIM_CTRL);
 	int was_enabled = (timcon&TIM_CTRL_MODE_HW_TRG_EN) != 0;
 	dev_dbg(DEVP(adev), "acq400_enable_trg() 0x%08x (bits=%02x) %s 01", timcon, TIM_CTRL_MODE_HW_TRG_EN, enable? "ON": "off");
+	if (adev->sod_mode){
+		if (was_enabled){
+			dev_err(DEVP(adev), "sod_mode is enabled, but so is TRG");
+		}
+		return was_enabled;
+	}
 	if (enable){
 		if (was_enabled){
 			dev_dbg(DEVP(adev), "acq400_enable_trg already enabled ..");
@@ -364,18 +377,24 @@ void histo_add_all(struct acq400_dev *devs[], int maxdev, int i1)
 	}
 }
 
+/* global :-( */
+
+u64 acq400_trigger_ns;
+
 int fifo_monitor(void* data)
 {
-	struct acq400_dev *devs[MAXSITES+1];
+	struct acq400_dev *devs[MAXDEVICES+1];
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int idev = 0;
 	int cursor;
 	int i1 = 0;		/* randomize start time */
 
+	acq400_trigger_ns = 0;
+
 	devs[idev++] = adev;
 	adev->get_fifo_samples = aggregator_get_fifo_samples;
-	for (cursor = 0; cursor < MAXSITES; ++cursor){
+	for (cursor = 0; cursor < MAXDEVICES; ++cursor){
 		struct acq400_dev* slave = sc_dev->aggregator_set[cursor];
 		if (slave){
 			devs[idev++] = slave;
@@ -386,11 +405,17 @@ int fifo_monitor(void* data)
 
 	while(!kthread_should_stop()) {
 		if (acq420_convActive(devs[idev>1?1:0])){
+			if (acq400_trigger_ns == 0){
+				acq400_trigger_ns = ktime_get_real_ns();
+			}
 			histo_add_all(devs, idev, i1);
 			msleep(histo_poll_ms);
+		}else{
+			yield();
 		}
-//		if (++i1 >= idev) i1 = 0;
 	}
+
+	acq400_trigger_ns = 0;
 
 	return 0;
 }
@@ -419,13 +444,18 @@ void acq400_enable_event0(struct acq400_dev *adev, int enable)
 	acq400wr32(adev, TIM_CTRL, timcon);
 }
 
-void acq400_timer_init(
-	struct hrtimer* timer,
-	enum hrtimer_restart (*function)(struct hrtimer *))
+void acq400_soft_trigger(unsigned enable)
 {
-	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	timer->function = function;
+	struct acq400_dev *adev = acq400_sites[0];
+	unsigned mcr = acq400rd32(adev, MCR);
+	if (enable){
+		mcr |= MCR_SOFT_TRIG;
+	}else{
+		mcr &= ~MCR_SOFT_TRIG;
+	}
+	acq400wr32(adev, MCR, mcr);
 }
+
 
 void go_rt(int prio)
 {
@@ -445,4 +475,6 @@ void acq400_set_peripheral_SPI_CS(unsigned csword)
 }
 
 EXPORT_SYMBOL_GPL(acq400_set_peripheral_SPI_CS);
-
+EXPORT_SYMBOL_GPL(acq400rd32);
+EXPORT_SYMBOL_GPL(acq400wr32);
+EXPORT_SYMBOL_GPL(acq400_soft_trigger);

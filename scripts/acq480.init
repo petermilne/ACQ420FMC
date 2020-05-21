@@ -167,8 +167,13 @@ if { $::argc > 0 } {
 # spy streaming port	
 	puts $FINETD "4280 stream tcp nowait root acq400_stream acq400_stream --spy 1"
 	close $FINETD
-
-	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko acq480_sites=$SITES
+	
+	if { [info exists ::env(ACQ480_MODPARAMS)] } {
+		set ACQ480_MODPARAMS ::env(ACQ480_MODPARAMS)
+	} else {
+		set ACQ480_MODPARAMS ""
+	}
+	exec /sbin/insmod  /usr/local/lib/modules/acq480.ko $ACQ480_MODPARAMS acq480_sites=$SITES
 	
 	if {$use_gpio} {
 	    	foreach site $::argv {	        	

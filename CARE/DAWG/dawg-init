@@ -1,0 +1,7 @@
+#!/bin/sh
+# to make this turnkey:
+# cp /usr/local/CARE/dawg-init /mnt/local
+# cp /usr/local/CARE/dawg-test-pat-deltatime /mnt/local/dawg-test-pat
+# sync;sync;reboot
+COMMAND="dawg -s /mnt/local/dawg-test-pat -r 1000 --interactive"
+

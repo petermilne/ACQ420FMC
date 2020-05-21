@@ -19,34 +19,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
-#include <linux/device.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/fs.h>
-#include <linux/gfp.h>
-#include <linux/ioctl.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/list.h>
-
-#include <linux/dmaengine.h>
-
-#define CONFIG_PCI 1
-#include <linux/pci.h>
-#include <linux/time.h>
-#include <linux/init.h>
-#include <linux/timex.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-#include <linux/moduleparam.h>
-#include <linux/mutex.h>
-
-
-#include <linux/slab.h>
-#include <linux/string.h>
-#include <linux/poll.h>
-
-
+#include "acq400.h"
 #include "hbm.h"
 
 static int getOrder(int len)
@@ -117,6 +90,20 @@ int hbm_free(struct device *dev, struct list_head *buffers)
 		dma_unmap_single(dev, hbm->pa, hbm->len, hbm->dir);
 		free_pages((unsigned long)hbm->va, getOrder(hbm->len));
 		kfree(hbm);
+	}
+
+	return 0;
+}
+
+int hbm_free_buffer_only(struct device *dev, struct list_head *buffers)
+{
+	struct HBM* hbm;
+	struct HBM* temp;
+
+	list_for_each_entry_safe(hbm, temp, buffers, list){
+		list_del(&hbm->list);
+		dma_unmap_single(dev, hbm->pa, hbm->len, hbm->dir);
+		free_pages((unsigned long)hbm->va, getOrder(hbm->len));
 	}
 
 	return 0;

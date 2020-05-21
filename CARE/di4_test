@@ -1,6 +1,14 @@
 #!/bin/sh
 # assume HDMI loopback in place
 
+set_hdmi_sync_out() {
+	echo "set_hdmi_sync_out"
+	for K in CLK TRG SYNC GPIO
+	do
+		set.site 0 SIG:SYNC_OUT:$K DO
+	done
+}
+
 test_di4() {
 	DI4="$(echo $(cat di4_?))"
 	if [ "$DI4" = "$1" ]; then
@@ -10,6 +18,8 @@ test_di4() {
 		exit 1
 	fi
 }
+
+set_hdmi_sync_out
 
 set_do4() {
 for dx in $(seq 0 3)

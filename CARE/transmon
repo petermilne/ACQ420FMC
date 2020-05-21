@@ -1,0 +1,40 @@
+#!/usr/bin/env expect
+# example
+# ./transmon acq2106_181 0 0
+# accept the initial state zero, exit on the second 0  (ie shot complete)
+# ./transmon acq2106_181 1
+# quit on state arm
+
+log_user 0
+
+set UUT [lindex $argv 0]
+if { $UUT == "" } {
+	puts "USAGE transmon UUT states-to-wait"
+	exit 1
+}
+set WSTATES [lassign $argv drop]
+
+spawn nc $UUT 2235
+
+set t0 0
+
+while { 1 } {
+	expect -re "(\[0-9]+) (\[0-9]+) (\[0-9]+) (\[0-9]+) (\[0-9]+)" {
+#		puts "got one $expect_out(0,string) state $expect_out(1,string)"
+		set t1 [clock milliseconds]
+		if { $t0 == 0 } {
+			set t0 $t1
+		}
+		puts [format {[%10d] %s} [expr $t1 - $t0 ] $expect_out(0,string)]
+		if { $expect_out(1,string) == [lindex $WSTATES 0]} {
+			set quitstate [lindex $WSTATES 0]
+			set WSTATES [lassign $WSTATES drop]
+			if {[llength $WSTATES] == 0 } {
+				puts "Quit on $quitstate"
+				exit 0
+			}
+		}
+	}
+}
+
+

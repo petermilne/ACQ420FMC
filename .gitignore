@@ -76,6 +76,15 @@ tblock2file
 transition_counter
 udp_client
 wavegen
+dawg
+packageko*
+bbq_send_ai
+*.o.d
+egu2int
+watchdog_PIL
+libacq.so*
+modules.img
+spadramp
 
 
 

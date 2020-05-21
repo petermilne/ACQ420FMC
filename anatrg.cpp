@@ -48,6 +48,7 @@
 #include <fcntl.h>
 
 #include "acq-util.h"
+#include "Knob.h"
 
 using namespace std;
 
@@ -123,6 +124,27 @@ void make_mapping()
 		exit(1);
 	}
 }
+
+bool fileExists(const char* fname)
+{
+	struct stat statbuf;
+	return stat(fname, &statbuf) == 0;
+}
+void adjust_channel_in_agg_set(void)
+{
+	char path[80];
+	snprintf(path, 80, "/dev/acq400.%d.knobs/atd_triggered", G::channel);
+	if (fileExists(path)){
+		return;
+	}
+	snprintf(path, 80, "/dev/acq400.%d.knobs/AGIX", G::channel);
+	if (fileExists(path)){
+		Knob ix(path);
+		unsigned offset;
+		ix.get(&offset);
+		G::channel += offset;	/* convert from site channel to agg channel */
+	}
+}
 const char* cli(int argc, const char** argv, int& p1, int& p2)
 {
 	poptContext opt_context =
@@ -146,6 +168,7 @@ const char* cli(int argc, const char** argv, int& p1, int& p2)
 	p2 = getValue(poptGetArg(opt_context));
 
 	if (!G::dummy){
+		adjust_channel_in_agg_set();
 		make_mapping();
 	}
 	return verb;

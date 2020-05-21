@@ -2,19 +2,82 @@
 
 SITE=${1:-1}
 
-cd /etc/acq400/$SITE
+echo +++ anatrg.init $SITE
 
-NC=$(cat NCHAN)
+WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
-for ch in $(seq 1 $NC)
-do
-	ch00=$(printf "%02d" $ch)
-	ln -s /usr/local/bin/anatrg anatrg_$ch00
-done
+if [ $SITE -eq 14 ]; then
+	/usr/local/CARE/acq400_dspfs.init
+	/usr/local/CARE/ATD-DSP/atd-dsp1.init
+	set.sys /dev/dsp1/ATD_CSR.MOD_EN 1
+	MAJOR=$(grep dsp1 /proc/devices | awk '{ print $1 }')
+	ATDPAGE=14
+	mknod /dev/acq400.14.atd c $MAJOR $ATDPAGE
+	touch /dev/acq400.14
+	totc=0
+
+	ADC_SITES=""
+		
+	for site in 1 2 3 4 5 6; do
+		if [ -e /dev/acq400.$site.atd ]; then
+			rm /dev/acq400.$site.atd
+			ln -s /dev/acq400.14.atd /dev/acq400.$site.atd
+		fi
+		kd=/dev/acq400.$site.knobs
+		if [ -d $kd ]; then
+			name=$(cat $kd/module_name)
+			if [ "${name#acq*}" != "${name}" ]; then
+				totc=$(($totc+$(cat $kd/active_chan)))
+				ADC_SITES="$ADC_SITES $site"
+			fi
+		fi
+ 	done
+	echo total totc $totc
+	if [ $totc -ge 100 ]; then
+		fmt="%03d"
+	else
+		fmt="%02d"
+	fi
+	ch1=0
+
+	data32=-1
+
+	for site in $ADC_SITES; do
+		kd=/dev/acq400.$site.knobs
+		nc=$(cat $kd/active_chan)
+		[ $data32 -eq -1 ] && data32=$(cat $kd/data32)
+		mkdir -p /etc/acq400/$site
+		cd /etc/acq400/$site
+		set.sys /dev/dsp1/ATD_CSR.SITE$site 1
+		for ch in $(seq 1 $nc)
+		do
+			ch00=$(printf $fmt $(($ch+$ch1)))
+			ln -s /usr/local/bin/anatrg anatrg_$ch00
+		done
+		ch1=$((ch+$ch1))
+	done
+	[ $ch1 -ne $totc ] && echo "WARNING something does not add up $ch1 $totc"
+	NC=$ch1
+	set.sys /dev/dsp1/ATD_CSR.ATD_EN 1
+	set.sys /dev/dsp1/ATD_CSR.ATD_MEE 1
+	set.sys /dev/dsp1/ATD_CSR.DATA32 $data32
+else
+	cd /etc/acq400/$SITE
+
+	NC=$(cat NCHAN)
+	
+	for ch in $(seq 1 $NC)
+	do
+	    ch00=$(printf "%02d" $ch)
+		ln -s /usr/local/bin/anatrg anatrg_$ch00
+	done
+fi
+
 
 cat - >> $WEB_APPEND_JOB <<EOF
-nice /usr/local/CARE/monitor_atd_thresholds $SITE &
+nice /usr/local/CARE/monitor_atd_thresholds $SITE $NC &
+/usr/local/bin/add_webpage_site acq400.14 14
 EOF
-
+chmod a+rx $WEB_APPEND_JOB
 
 

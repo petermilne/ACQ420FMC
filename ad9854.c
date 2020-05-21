@@ -501,7 +501,7 @@ static ssize_t store_##name(						\
 {									\
 	return store_multibytes(dev, attr, buf, count, name##_OFF, name##_LEN);\
 }									\
-static DEVICE_ATTR(name, S_IRUGO|S_IWUGO, show_##name, store_##name);   \
+static DEVICE_ATTR(name, S_IRUGO|S_IWUSR, show_##name, store_##name);   \
 static DEVICE_ATTR(_##name, S_IRUGO, show_##name##_help, 0);
 
 AD9854_REG(POTW1);
@@ -547,7 +547,7 @@ static ssize_t store_strobe_mode(
 	}
 }
 
-static DEVICE_ATTR(strobe_mode, S_IRUGO|S_IWUGO, show_strobe_mode, store_strobe_mode);
+static DEVICE_ATTR(strobe_mode, S_IRUGO|S_IWUSR, show_strobe_mode, store_strobe_mode);
 
 static ssize_t store_strobe(
 	struct device *dev,
@@ -566,7 +566,7 @@ static ssize_t store_strobe(
 	}
 }
 
-static DEVICE_ATTR(strobe, S_IWUGO, 0, store_strobe);
+static DEVICE_ATTR(strobe, S_IWUSR, 0, store_strobe);
 
 static ssize_t store_Baadd(
 	struct device *dev,
@@ -588,7 +588,7 @@ static ssize_t store_Baadd(
 	}
 }
 
-static DEVICE_ATTR(Baadd, S_IWUGO, 0, store_Baadd);
+static DEVICE_ATTR(Baadd, S_IWUSR, 0, store_Baadd);
 
 const struct attribute *ad9854_attrs[] = {
 	&dev_attr_POTW1.attr, 	&dev_attr__POTW1.attr,
@@ -689,7 +689,7 @@ ssize_t ad9854_proc_write(struct file *file, const char *user_buffer,
 	unsigned bto = *data;
 	ssize_t rc = count;
 
-	if (copy_from_user(lbuf, user_buffer, count) == 0){
+	if (raw_copy_from_user(lbuf, user_buffer, count) == 0){
 		int cursor = 0;
 		char bytestr[4] = {};
 		int ib = -1;

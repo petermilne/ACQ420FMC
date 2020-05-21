@@ -64,13 +64,17 @@
 #define ACQ423_BANK		(ADC_BASE+0x44)
 #define AO420_DACSPI		(ADC_BASE+0x48)
 
-#define AO424_DELAY		(AO420_DACSPI)
-
 #define DAC_424_SNOOP		(ADC_BASE+0x4C)
 #define ADC_CONV_TIME 		(ADC_BASE+0x4C) /*(mask 0x000000FF)*/
 
 #define ADC_TRANSLEN		(ADC_BASE+0x50)
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
+#define DAC_DEC			ADC_ACC_DEC
+
+#define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
+
+#define DIO482_COS_STA         (ADC_BASE+0x60)
+#define DIO482_COS_EN          (ADC_BASE+0x64)
 
 #define ATD_TRIGGERED		(ADC_BASE+0x60)
 #define ATD_MASK_AND		(ADC_BASE+0x64)
@@ -81,14 +85,21 @@
 #define ACQ423_SPAN_C		(ADC_BASE+0x68)
 #define ACQ423_SPAN_D		(ADC_BASE+0x6C)
 
+#define AO_DELAY66		(ADC_BASE+0x60)
+
 #define DTD_CTRL		(ADC_BASE+0x64)
 
 #define ACQ424_SHOT_LENGTH	(ADC_BASE+0x70)
 #define ACQ424_CLK_MIN_MAX	(ADC_BASE+0x74)
 
+#define DAC_READ_LAT_AC		(ADC_BASE+0x70)
+#define DAC_READ_LAT_MM		(ADC_BASE+0x74)
+
 #define ACQ480_TRAIN_CTRL	(ADC_BASE+0x28)
 #define ACQ480_TRAIN_HI_VAL	(ADC_BASE+0x2C)
 #define ACQ480_TRAIN_LO_VAL	(ADC_BASE+0x30)
+
+#define ACQ480_ADC_MULTIRATE	(ADC_BASE+0x58)
 
 #define AO428_OFFSET_1		(ADC_BASE+0x80)
 #define AO428_OFFSET_2		(ADC_BASE+0x84)
@@ -103,6 +114,8 @@
 
 #define DAC_MATH_BASE		(ADC_BASE+0x80)
 #define DAC_GAIN_OFF(n)		(DAC_MATH_BASE+(n-1)*sizeof(u32))
+
+#define DAC_MUX			(ADC_BASE+0x90)			/* ACQ436 upper half only */
 
 #define ACQ480_FIRCO_LOAD	(ADC_BASE+0x80)
 #define ACQ480_FIRCO_CSR	(ADC_BASE+0x84)
@@ -135,7 +148,7 @@
 #define MOD_ID_ACQ425ELF	5
 #define MOD_ID_ACQ425ELF_2000	0xa5
 #define MOD_ID_ACQ437ELF	6
-#define MOD_ID_FMC104		7
+
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
@@ -161,6 +174,10 @@
 #define MOD_ID_RAD_CELF		0x69
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
+#define MOD_IDV_PWM		0x01
+#define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
+#define MOD_IDV_PG		0xff	/* DIO482-PG */
+
 #define MOD_ID_ACQ427ELF	0x07
 #define MOD_ID_ACQ427ELF_2000   0xa7
 
@@ -171,6 +188,8 @@
 #define MOD_ID_ACQ2106SC	0x82
 #define MOD_ID_KMCU		0x83
 #define MOD_ID_KMCU30		0x84
+
+
 
 #define MOD_ID_ACQ423ELF	0x09
 
@@ -183,6 +202,7 @@
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 /* ADC_CTRL Bitfields */
+#define ADC_CTRL_424_EMUL_196	(1<<21)		/* output raw data in ACQ196 order for back-compatibility */
 #define ADC_CTRL_SYNC_TRG_N  	(1<<20)
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)
 #define ADC_CTRL_482_CMAP	(1<<18)
@@ -202,6 +222,7 @@
 #define ADC_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
 #define ADC_CTRL_ADC_EN		(1 << 4)
 
+#define DAC_CTRL_AWG_ABORT	(1 << 12)
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC, AO424ELF  */
 #define DAC_CTRL_TWOCMP		(1 << 9)	/* AO424ELF  */
 
@@ -270,11 +291,12 @@
 
 
 
-
+#define DIO_INT_CSR_COS		(1<<11)
 #define ADC_INT_CSR_EVENT1	(1<<10)
 #define ADC_INT_CSR_EVENT0	(1<<9)
 #define ADC_INT_CSR_HITIDE	(1<<8)
 
+#define DIO_INT_CSR_COS_EN	(1<<3)
 #define ADC_INT_CSR_EVENT1_EN	(1<<2)
 #define ADC_INT_CSR_EVENT0_EN	(1<<1)
 #define ADC_INT_CSR_HITIDE_EN	(1<<0)
@@ -309,17 +331,20 @@
 #define ACQ435_MODE_B0DIS	(1<<0)
 
 #define ACQ435_MODE_BXDIS	0xf
-#define ACQ430_BANKSEL	\
+#define ACQ430_BANKSEL		\
 	(ACQ435_MODE_B3DIS|ACQ435_MODE_B2DIS|ACQ435_MODE_B1DIS)
+
+#define ACQ437_BANKSEL 		(ACQ435_MODE_B3DIS|ACQ435_MODE_B2DIS)
+#define ACQ436_BANKSEL 		(ACQ435_MODE_B3DIS)
 
 #define CHANNELS_PER_BANK(adev)        (IS_ACQ425(adev)? 4: 8)
 
-#define MODULE_NAME             "acq420"
 
 
 #define AO420_DACSPI_CW		(1U<<31)
 #define AO420_DACSPI_WC		(1U<<30)
 
+#define FMC_DSR_LEMO_ROLE_TRG	(1<<12)
 #define FMC_DSR_CLK_BUS_DX	0x00000e00
 #define FMC_DSR_CLK_BUS		0x00000180
 #define FMC_DSR_CLK_DIR		0x00000040
@@ -327,13 +352,16 @@
 #define FMC_DSR_TRG_BUS		0x00000006
 #define FMC_DSR_TRG_DIR		0x00000001
 
+#define AO_DELAY66_MASK		0x00000fff
 
-#define ADC_ACC_DEC_LEN		0x000f		/* 0:x1, 1..31: x2..32 */
-#define ADC_ACC_DEC_SHIFT_MASK	0x0f00
+#define ADC_ACC_DEC_LEN		0x000000ff		/* 0:x1, 1..31: x2..32 */
+#define ADC_ACC_DEC_SHIFT_MASK	0x00000f00
+#define ADC_ACC_DEC_START_MASK	0x00ff0000
 
-#define ADC_MAX_NACC		16
+#define ADC_MAX_NACC		256U
+#define ADC_NACC_PASSTHRU	0
 
-#define ADC_ACC_DEC_SHIFT_MAX   0x4
+#define ADC_ACC_DEC_SHIFT_MAX   15U
 
 /* AO420FMC */
 
@@ -384,18 +412,18 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_ACQ43X(adev)	\
 	(IS_ACQ435(adev) || IS_ACQ430(adev) || IS_ACQ437(adev) || IS_ACQ436(adev))
 
-#define IS_FMC104(adev)	(GET_MOD_ID(adev) == MOD_ID_FMC104)
-#define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC ||IS_FMC104(adev))
+#define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC)
 
+#define IS_ADC(adev)	(IS_ACQ43X(adev)||IS_ACQ42X(adev)||IS_ACQ480(adev))
 
 #define IS_AO420(adev)  \
 	(GET_MOD_ID(adev)==MOD_ID_AO420FMC || GET_MOD_ID(adev)==MOD_ID_AO420FMC_CS2)
-
+#define IS_AO42S(adev) (IS_AO420(adev)||IS_AO428(adev))
 #define IS_AO428(adev)  (GET_MOD_ID(adev) == MOD_ID_DAC_CELF)
 #define IS_AO424(adev)  (GET_MOD_ID(adev) == MOD_ID_AO424ELF)
-#define IS_AO42X(adev) 	(IS_AO420(adev) || IS_AO424(adev) || IS_AO428(adev))
+#define IS_AO42X(adev) 	(IS_AO42S(adev) || IS_AO424(adev))
 
-
+#define IS_AO420_HALF436(adev)	((GET_MOD_IDV(adev)&1) != 0)
 
 
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
@@ -409,6 +437,10 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_ACQ2106_STAGGER(adev) \
 	(IS_ACQ2106_STACK(adev) && (GET_MOD_ID_VERSION(adev)&0x4) != 0)
+
+#define IS_ACQ2106_WR(adev) 	((GET_MOD_ID_VERSION(adev)&0x8) != 0)
+
+#define IS_AXI64_AGG32(adev)	((GET_MOD_ID_VERSION(adev)&0x10) != 0)
 
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
@@ -429,7 +461,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	(IS_ACQ2106_AXI64(adev) || IS_ACQ1001_AXI64(adev) || IS_KMCx_AXI64(adev))
 
 #define IS_AXI64_DUALCHAN_CAPABLE(adev)	\
-	(IS_ACQ1001_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
+	(IS_AXI64(adev) && (GET_MOD_ID_VERSION(adev)&0x3) == 0x3)
 
 #define IS_AXI64_DUALCHAN(adev) \
 	(IS_AXI64(adev) && adev->dma_chan[0] && adev->dma_chan[1])
@@ -441,12 +473,13 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	(IS_ACQ1001SC(adev) && (GET_MOD_ID_VERSION(adev)&0x4) != 0)
 
 #define IS_BOLO8(adev) \
-	(GET_MOD_ID(adev)==MOD_ID_BOLO8 || GET_MOD_ID(adev)==MOD_ID_BOLO8B)
+	(GET_MOD_ID(adev)==MOD_ID_BOLO8 || GET_MOD_ID(adev)== MOD_ID_BOLO8B)
 
 
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO482FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC)
+#define IS_DIO484ELF_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) ==MOD_IDV_PG)
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)||IS_DIO482FMC(adev))
 
 #define IS_XO(adev)		(IS_DIO432X(adev) || IS_AO42X(adev))
@@ -518,13 +551,41 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define SIG_SRC_ROUTE		(0x0030)	/* SSR_xx	*/
 #define FPCTL			(0x0034)
 #define SYS_CLK			(0x0038)
+#define AGG_DEBUG		(0x003c)
 #define DISTRIBUTOR		(0x0040)
 #define DISTRIBUTOR_STA		(0x0044)
 #define GPG_DEBUG		(0x0048)
 #define USEC_CCR		(0x004c)
 
+
+
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
+
+#define WR_CTRL			(0x0200)
+#define WR_CLK_GEN		(0x0204)
+#define WR_TAI_CUR_L		(0x0208)
+#define WR_TAI_CUR_H		(0x020C)
+#define WR_TAI_TRG0		(0x0210)
+#define WR_TAI_STAMP		(0x0214)
+#define WR_CUR_VERNR		(0x0218)
+#define WR_TAI_TRG1		(0x021C)
+
+
+#define WR_CTRL_TT1_STA		(1<<11)
+#define WR_CTRL_TT1_INTEN	(1<<10)
+#define WR_CTRL_PPS_STA		(1<<9)
+#define WR_CTRL_PPS_INTEN	(1<<8)
+#define WR_CTRL_TT0_STA		(1<<7)
+#define WR_CTRL_TT0_INTEN	(1<<6)
+#define WR_CTRL_TS_STA		(1<<5)
+#define WR_CTRL_TS_INTEN	(1<<4)
+#define WR_CTRL_TRG_SRC_SHL	0
+
+#define WR_CLK_GEN_PV		(0x1f000000)
+#define WR_CLK_GEN_PV3		(0x07000000)
+
+#define WR_TAI_TRG_EN		(1<<31)
 
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */
@@ -758,12 +819,16 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define DIO_CLKDIV		ADC_CLKDIV
 #define DIO432_DIO_CPLD_CTRL	0x44
 #define DIO432_DIO_SAMPLE_COUNT 0x48
+#define DIO432_DI_SNOOP		0x4c
+
 
 #define DIO432_DO_LOTIDE	0x8c
 #define DIO432_DO_FIFO_COUNT	0x90
 #define DIO432_DO_FIFO_STATUS	0x94
 
-
+#define DIO482_PG_GPGCR		0x80
+#define DIO482_PG_GPGDR		0x84
+#define DIO482_PG_IMM_MASK	0x88
 
 #define DIO432_FIFO		0x1000
 
@@ -839,6 +904,12 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define ACQ480_FIRCO_CSR_CTR	(0x00ff0000)
 #define ACQ480_FIRCO_CSR_CTR_SHL 16
 
+#define ACQ480_ADC_MR_MRSEL1	0x00007000
+#define ACQ480_ADC_MR_MRSEL0	0x00000700
+#define ACQ480_ADC_MR_MR10_DEC	0x00000030
+#define ACQ480_ADC_MR_EN	0x00000001
+
+#define AO424_DAC_CTRL_SYNC_CLK_TO_SYNC	(1<<20)
 #define AO424_DAC_CTRL_SPAN	(1<<5)
 #define AO424_DAC_FIFO_STA_SWC	(1<<8)
 
@@ -915,6 +986,13 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define QEN_DIO_CTRL_DIR_OUT	0x00f0
 #define QEN_DIO_CTRL_DO_IMM	0x000f
+
+#define HALF_SITE		100		/* MFD, half sites at 100+ overlay 0+ */
+
+/* PWM */
+#define PWM_SOURCE_CLK_CTRL_DIV_SHL	16
+#define PWM_SOURCE_CLK_CTRL_EN		(1<<4)
+#define PWM_SOURCE_CLK_CTRL_SHL		0
 
 #include "acq400_structs.h"
 

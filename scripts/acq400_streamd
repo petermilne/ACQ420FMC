@@ -2,12 +2,18 @@
 # if there's a previous hanging instance, kill it and drop out
 # client can retry at an appropriate moment to restart..
 
+if [ ! -e /var/www/d-tacq/rc-user-complete ]; then
+	sleep 2
+	echo NOT READY
+	exit 0
+fi
+
 source /usr/local/bin/init_stream
 
 SITE=$1
 LOG=/var/log/acq400_streamd_$SITE.log
 
-init_stream $SITE 2>&1 >$LOG
+init_stream $SITE >$LOG 2>&1
 jobs >>$LOG
 echo $SAMPLE_SIZE $OVERSAMPLING $SITE >>$LOG
 

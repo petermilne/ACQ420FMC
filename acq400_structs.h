@@ -8,6 +8,9 @@
 #ifndef ACQ400_STRUCTS_H_
 #define ACQ400_STRUCTS_H_
 
+#define MAX_PHYSICAL_SITES	 6
+#define MAXDEVICES 		12	/* includes virtual devices 101..106 */
+
 
 
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
@@ -29,7 +32,6 @@ struct OF_PRAMS {
 	u32 dma_channel;
 	u32 fifo_depth;
 	u32 burst_length;
-	u32 irq;
 };
 struct STATS {
 	/* Driver statistics */
@@ -40,6 +42,7 @@ struct STATS {
 	u32 closes;
 	u32 errors;
 
+	u32 interrupts;
 	u32 fifo_interrupts;
 	u32 dma_transactions;
 	int shot;
@@ -72,6 +75,7 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	int event_count;
 
 	u32 samples_at_event;
+	u32 samples_at_event_latch;
 	u32 sample_clocks_at_event;
 
 	u32 axi64_ints;
@@ -105,6 +109,8 @@ struct acq400_dev {
 	struct dentry* debug_dir;
 	char *debug_names;
 
+	char site_no[4];		/* string, %d 3 chars, \0 */
+	char dev_name[16];		/* string, acq400.%d 7+3 chars \0 */
 	u32 mod_id;
 	wait_queue_head_t waitq;
 
@@ -179,6 +185,7 @@ struct acq400_dev {
 	int lotide;
 	int sysclkhz;			/* system clock rate */
 	int axi_buffers_after_event;	/* run on this long if set */
+	int sod_mode;			/* Sample On Demand: no trigger */
 
 	int oneshot;
 	struct proc_dir_entry *proc_entry;
@@ -235,14 +242,11 @@ void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va)
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
-#define MAXSITES	6
-
-
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
-	struct acq400_dev* aggregator_set[MAXSITES];
-	struct acq400_dev* distributor_set[MAXSITES];
+	struct acq400_dev* aggregator_set[MAXDEVICES];
+	struct acq400_dev* distributor_set[MAXDEVICES];
 	struct SewFifo {
 		struct mutex sf_mutex;
 		struct circ_buf sf_buf;
@@ -261,6 +265,13 @@ struct acq400_sc_dev {
 		unsigned len;		/* 1..8 */
 		unsigned diX;		/* 0 : off 1: di4 2: di32 */
 	} spad;				/** scratchpad enable */
+	struct WrClient {
+		unsigned wc_count;
+		unsigned wc_ts;			/* time of event, recorded by ISR */
+		unsigned wc_pid;		/* client pid, singleton 		*/
+		wait_queue_head_t wc_waitq;	/* client blocks on this		*/
+	} pps_client, ts_client,
+	  wrtt_client0, wrtt_client1;
 };
 
 struct acq400_bolo_dev {
@@ -274,13 +285,15 @@ struct acq400_bolo_dev {
 	} bolo8;
 };
 
+struct ATD {
+	u32 event_source;
+	struct hrtimer timer;
+};
+
 struct XTD_dev {
 	char id[16];
 	struct acq400_dev adev;
-	struct ATD {
-		u32 event_source;
-		struct hrtimer timer;
-	} atd, atd_display;
+	struct ATD atd, atd_display;
 };
 
 struct ACQ480_dev {
@@ -362,6 +375,7 @@ struct acq400_path_descriptor {
 		int bq_len;
 	} bq;
 	unsigned char lbuf[MAXLBUF];
+	u32 samples_at_event;
 	struct EventInfo eventInfo;
 };
 
@@ -373,9 +387,7 @@ struct acq400_path_descriptor {
 #define PDEV(filp)		(DEVP(ACQ400_DEV(filp)))
 #define SITE(adev)		((adev).of_prams.site)
 
-#define MIN_DMA_BYTES	256
 
-#define MAXDEVICES 	6
 
 
 
@@ -399,6 +411,9 @@ void acq400_init_proc(struct acq400_dev* adev);
 void acq400_del_proc(struct acq400_dev* adev);
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value);
+void acq400setbits(struct acq400_dev *adev, int offset, u32 bits);
+void acq400clrbits(struct acq400_dev *adev, int offset, u32 bits);
+
 u32 acq400rd32(struct acq400_dev *adev, int offset);
 u32 acq400rd32_upcount(struct acq400_dev *adev, int offset);
 
@@ -463,8 +478,7 @@ u32 get_spadN(struct acq400_dev* adev, int n);
 
 struct acq400_dev* acq400_lookupSite(int site);
 
-
-
+extern int acq400_init_descriptor(struct acq400_path_descriptor** pd);
 
 void write32(volatile u32* to, volatile u32* from, int nwords);
 
@@ -475,7 +489,6 @@ void dio432_disable(struct acq400_dev* adev);
 
 extern int a400fs_init(void);
 extern void a400fs_exit(void);
-extern const char* devname(struct acq400_dev *adev);
 
 void ao424_setspan_defaults(struct acq400_dev* adev);
 int ao424_set_spans(struct acq400_dev* adev);
@@ -494,7 +507,8 @@ static inline void x400_enable_interrupt(struct acq400_dev *adev)
 
 static inline void x400_disable_interrupt(struct acq400_dev *adev)
 {
-	acq400wr32(adev, ADC_INT_CSR, 0x0);
+	u32 int_ctrl = acq400rd32(adev, ADC_INT_CSR);
+	acq400wr32(adev, ADC_INT_CSR, int_ctrl & ~0x1);
 }
 
 
@@ -581,7 +595,7 @@ enum ACQ1014_ROUTE {
 	ACQ1014_RP
 };
 
-int acq400_get_site(struct acq400_dev *adev, char s);
+int acq400_get_site(struct acq400_dev *adev, char* s);
 int acq400_add_set(struct acq400_dev* set[], struct acq400_dev *adev, int site);
 void acq400_clear_set(struct acq400_dev* set[]);
 int acq400_read_set(struct acq400_dev* set[],
@@ -592,6 +606,7 @@ void acq400_clear_aggregator_set(struct acq400_dev *adev);
 int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);
 void acq400_visit_set(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev));
+void acq400_visit_set_arg(struct acq400_dev *set[], void (*action)(struct acq400_dev *adev, void* arg), void*arg);
 void init_axi_dma(struct acq400_dev* adev);
 
 
@@ -614,6 +629,7 @@ extern int xo400_write_fifo(struct acq400_dev* adev, int frombyte, int bytes);
 
 
 extern int acq400_reserve_dist_buffers(struct acq400_path_descriptor* pd);
+extern int acq400_free_buffers(struct acq400_dev *adev, int free_from);
 extern int acq420_convActive(struct acq400_dev *adev);
 extern void acq400_getID(struct acq400_dev *adev);
 
@@ -652,9 +668,6 @@ extern void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm);
 
 extern struct acq400_dev* acq400_lookupSite(int site);
 extern void acq400_enable_event0(struct acq400_dev *adev, int enable);
-extern void acq400_timer_init(
-	struct hrtimer* timer,
-	enum hrtimer_restart (*function)(struct hrtimer *));
 
 extern int acq400_set_AXI_DMA_len(struct acq400_dev *adev, int len);
 extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
@@ -664,4 +677,71 @@ extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 void acq400_enable_adc(struct acq400_dev* adev);
+
+extern void acq400_init_event_info(struct EventInfo *eventInfo);
+
+#define CMASK (~0x7f)
+
+static inline u32 _acq400_adc_sample_count(struct acq400_dev* adev)
+{
+	u32 c0, c1;
+	unsigned retry = 0;
+	c0 = acq400rd32(adev, ADC_SAMPLE_CTR);
+	while (((c1 = acq400rd32(adev, ADC_SAMPLE_CTR))&CMASK) != (c0&CMASK)){
+		c0 = c1;
+		if (++retry > 5){
+			return 0xffffffff;
+		}
+	}
+	return c1;
+}
+static inline u32 acq400_adc_sample_count(void)
+{
+        struct acq400_dev* adev = acq400_sites[1];
+
+        if (!adev){
+                return 0xffffffff;
+        }else{
+                return _acq400_adc_sample_count(adev);
+        }
+}
+
+
+static inline u32 acq400_adc_latch_count(void)
+{
+        struct acq400_dev* adev = acq400_sites[1];
+
+        if (!adev){
+                return 0xffffffff;
+        }else{
+                return acq400rd32(adev, EVT_SC_LATCH);
+        }
+}
+
+/* ONLY valid if SPAD enabled */
+static inline u32 acq400_agg_sample_count(void)
+{
+	return acq400rd32(acq400_sites[0], SPADN(0));
+}
+
+void acq400_soft_trigger(unsigned enable);
+
+static inline void acq400_timer_init(
+	struct hrtimer* timer,
+	enum hrtimer_restart (*function)(struct hrtimer *))
+{
+	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer->function = function;
+}
+
+extern u64 acq400_trigger_ns;
+
+#define IRQ_REQUEST_OFFSET	0		/* arg to platform get irq is OFFSET from region. Linux knows best! */
+
+extern int acq400_wr_init_irq(struct acq400_dev* adev);
+extern int acq400_wr_open(struct inode *inode, struct file *file);
+extern void ao420_reset_fifo(struct acq400_dev *adev);
+
+extern int ao424_16;
+extern void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en);
 #endif /* ACQ400_STRUCTS_H_ */

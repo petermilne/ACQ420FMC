@@ -27,6 +27,45 @@
 #ifndef REGFS_DEV_H_
 #define REGFS_DEV_H_
 
-#define MODULE_NAME	"regfs"
+#define MAXSTACK 4
+
+#undef DEVP
+#undef PD
+#undef PDSZ
+
+struct REGFS_DEV {
+	void* va;
+	struct platform_device* pdev;
+	struct resource *mem;
+
+	int istack;
+	struct dentry *dstack[MAXSTACK];
+	struct dentry *top;
+	struct dentry *create_hook;
+
+
+	struct cdev cdev;
+	struct list_head list;
+	wait_queue_head_t w_waitq;
+
+	unsigned ints;
+	unsigned status;
+	unsigned status_latch;
+	unsigned group_status_latch;
+	unsigned group_trigger_mask;
+	enum GSMODE { GS_NOW, GS_HISTORIC } gsmode;
+	unsigned sample_count;
+	unsigned latch_count;
+	unsigned event_client_pid;
+	unsigned client_ready;	/* client requests interrupt status. isr: DO NOT update unless set. */
+
+	void* client;				/* stash subclass data here */
+	struct ATD atd;				/* pulse timers */
+	struct ATD soft_trigger;
+};
+
+extern irqreturn_t (*regfs_isr)(int irq, void *dev_id);
+extern int regfs_probe(struct platform_device *pdev);
+extern int regfs_remove(struct platform_device *pdev);
 
 #endif /* REGFS_DEV_H_ */

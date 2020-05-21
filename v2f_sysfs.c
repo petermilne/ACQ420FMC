@@ -51,7 +51,7 @@ static ssize_t store_chan_sel(
 }
 
 static DEVICE_ATTR(chan_sel,
-		S_IRUGO|S_IWUGO, show_chan_sel, store_chan_sel);
+		S_IRUGO|S_IWUSR, show_chan_sel, store_chan_sel);
 
 static ssize_t show_hf(
 	struct device * dev,
@@ -84,7 +84,7 @@ static ssize_t store_hf(
 	}
 }
 
-static DEVICE_ATTR(hf, S_IRUGO|S_IWUGO, show_hf, store_hf);
+static DEVICE_ATTR(hf, S_IRUGO|S_IWUSR, show_hf, store_hf);
 
 /*
 #define V2F_OFFSET_PACKED_1M 	3277
@@ -124,7 +124,7 @@ static ssize_t store_freq_offset(
 }
 
 static DEVICE_ATTR(freq_offset,
-		S_IRUGO|S_IWUGO, show_freq_offset, store_freq_offset);
+		S_IRUGO|S_IWUSR, show_freq_offset, store_freq_offset);
 */
 static ssize_t show_freq_offset_raw(
 	struct device * dev,
@@ -157,7 +157,7 @@ static ssize_t store_freq_offset_raw(
 }
 
 static DEVICE_ATTR(freq_offset_raw,
-		S_IRUGO|S_IWUGO, show_freq_offset_raw, store_freq_offset_raw);
+		S_IRUGO|S_IWUSR, show_freq_offset_raw, store_freq_offset_raw);
 
 
 static ssize_t show_reg(
@@ -206,7 +206,7 @@ static ssize_t store_reg_##kname(							\
 {											\
 	return store_reg(dev, attr, buf, count, REG, MAX);				\
 }											\
-static DEVICE_ATTR(kname, S_IRUGO|S_IWUGO, show_reg_##kname, store_reg_##kname)
+static DEVICE_ATTR(kname, S_IRUGO|S_IWUSR, show_reg_##kname, store_reg_##kname)
 
 
 MAKE_REG_CAL(v2f_freq_off_1, V2F_FREQ_OFF+0x0, V2F_FREQ_OFF_MAX);
@@ -246,6 +246,7 @@ static ssize_t show_qen_count(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int count = acq400rd32(adev, QEN_ENC_COUNT);
+
 	return sprintf(buf, "%d\n", count);
 }
 
@@ -261,7 +262,7 @@ static ssize_t store_qen_count(
 	acq400wr32(adev, QEN_CTRL, ctrl);
 	return count;
 }
-static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUGO, show_qen_count, store_qen_count);
+static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUSR, show_qen_count, store_qen_count);
 
 MAKE_BITS(phaseA_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
 MAKE_BITS(phaseB_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
@@ -317,7 +318,7 @@ static ssize_t store_acq1014_##fun(						\
 	}									\
 	return -1;								\
 }										\
-static DEVICE_ATTR(acq1014_##fun, S_IRUGO|S_IWUGO, show_acq1014_##fun, store_acq1014_##fun);
+static DEVICE_ATTR(acq1014_##fun, S_IRUGO|S_IWUSR, show_acq1014_##fun, store_acq1014_##fun);
 
 ACQ1014_REG(CLK, clk);
 ACQ1014_REG(TRG, trg);
@@ -328,3 +329,115 @@ const struct attribute *sysfs_acq1014_attrs[] = {
 	&dev_attr_acq1014_trg.attr,
 	NULL
 };
+
+static ssize_t store_DELTRGN(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int ix)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int threshold;
+	if (sscanf(buf, "%d", &threshold) == 1){
+		return acq400_setDelTrg(adev, ix, threshold) == 0? count: -1;
+	}
+	return -1;
+}
+
+static ssize_t show_DELTRGN(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int ix)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	int threshold;
+	if (acq400_getDelTrg(adev, ix, &threshold) == 0){
+		return sprintf(buf, "%d\n", threshold);
+	}else{
+		return -1;
+	}
+	return 0;
+}
+
+#define MAKE_DELTRG(IXO, IX)						\
+static ssize_t show_DELTRG##IXO(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_DELTRGN(dev, attr, buf, IX-1);			\
+}									\
+									\
+static ssize_t store_DELTRG##IXO(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_DELTRGN(dev, attr, buf, count, IX-1);		\
+}									\
+static DEVICE_ATTR(deltrg_##IXO, S_IRUGO|S_IWUSR, 			\
+		show_DELTRG##IXO, store_DELTRG##IXO)
+
+
+MAKE_DELTRG(01, 1);
+MAKE_DELTRG(02, 2);
+MAKE_DELTRG(03, 3);
+MAKE_DELTRG(04, 4);
+MAKE_DELTRG(05, 5);
+MAKE_DELTRG(06, 6);
+MAKE_DELTRG(07, 7);
+MAKE_DELTRG(08, 8);
+
+
+MAKE_BITS(atd_triggered, ATD_TRIGGERED, 0, 0xffffffff);
+MAKE_BITS(atd_OR, 	 ATD_MASK_OR,   0, 0xffffffff);
+MAKE_BITS(atd_AND, 	 ATD_MASK_AND,  0, 0xffffffff);
+MAKE_BITS(dtd_ZN, 	 DTD_CTRL,  	0, DTD_CTRL_ZN);
+MAKE_BITS(dtd_CLR,       DTD_CTRL,  	0, DTD_CTRL_CLR);
+
+
+
+
+
+static ssize_t show_atd_triggered_display(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
+
+	return sprintf(buf, "0x%08x\n", xtd_dev->atd_display.event_source);
+
+}
+static DEVICE_ATTR(atd_triggered_display, S_IRUGO, show_atd_triggered_display, 0);
+
+const struct attribute *atd_attrs[] = {
+	&dev_attr_atd_triggered.attr,
+	&dev_attr_atd_triggered_display.attr,
+	&dev_attr_atd_OR.attr,
+	&dev_attr_atd_AND.attr,
+	NULL
+};
+
+const struct attribute *dtd_attrs[] = {
+	&dev_attr_deltrg_01.attr,
+	&dev_attr_deltrg_02.attr,
+	&dev_attr_deltrg_03.attr,
+	&dev_attr_deltrg_04.attr,
+	&dev_attr_deltrg_05.attr,
+	&dev_attr_deltrg_06.attr,
+	&dev_attr_deltrg_07.attr,
+	&dev_attr_deltrg_08.attr,
+	&dev_attr_dtd_ZN.attr,
+	&dev_attr_dtd_CLR.attr,
+	&dev_attr_atd_triggered.attr,
+	&dev_attr_atd_triggered_display.attr,
+	NULL
+};
+
+
+

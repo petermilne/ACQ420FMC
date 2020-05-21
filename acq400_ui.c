@@ -837,7 +837,7 @@ int acq400_axi_dma_once_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-void init_event_info(struct EventInfo *eventInfo)
+void acq400_init_event_info(struct EventInfo *eventInfo)
 {
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
 	memset(eventInfo, 0, sizeof(struct EventInfo));
@@ -860,7 +860,10 @@ int acq400_event_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	u32 int_csr;
+	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
+			ADC_INT_CSR_COS_EN_ALL;
 
+	PD(file)->samples_at_event = adev->rt.samples_at_event;
 	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 		return -ERESTARTSYS;
 	}else{
@@ -868,7 +871,9 @@ int acq400_event_open(struct inode *inode, struct file *file)
 		mutex_unlock(&adev->bq_clients_mutex);
 	}
 	int_csr = x400_get_interrupt(adev);
-	x400_set_interrupt(adev, int_csr|ADC_INT_CSR_COS_EN_ALL);
+
+	dev_dbg(DEVP(adev), "acq400_event_open() intcsr |= %x", enable);
+	x400_set_interrupt(adev, int_csr|enable);
 
 	/* good luck using this in a 64-bit system ... */
 	/*
@@ -884,40 +889,28 @@ ssize_t acq400_event_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	char lbuf[40];
 	int nbytes;
 	int rc;
 	struct EventInfo eventInfo = PD(file)->eventInfo;
 	struct acq400_dev* adev0 = acq400_lookupSite(0);
-	u32 old_sample = adev->rt.samples_at_event;
+	u32 old_sample = PD(file)->samples_at_event;
+	u32 new_sample;
 	int timeout = 0;
 	int event_source = 0;
-
-	if (eventInfo.pollin){
-		PD(file)->eventInfo.pollin = 0;
-	}
 
 	dev_dbg(DEVP(adev), "acq400_event_read() 01 pollin %d old_sample %d",
 			eventInfo.pollin, old_sample);
 
-	if (eventInfo.pollin == 0){
-		/* force caller to wait fresh event. This is an auto-rate-limit
-		 * it's also re-entrant (supports multiple clients each at own rate)
-		 * NB: NO ATTEMPT to guarantee that all events processed. caveat emptor
-		 */
-		dev_dbg(DEVP(adev), "acq400_event_read() 10 wait event");
-
-		rc = wait_event_interruptible_timeout(
+	rc = wait_event_interruptible_timeout(
 				adev->event_waitq,
-				adev->rt.samples_at_event != old_sample,
+				(new_sample = adev->rt.samples_at_event) != old_sample,
 				event_to);
-		if (rc < 0){
-			return -EINTR;
-		}else if (rc == 0){
-			return -EAGAIN;
-		}
-		init_event_info(&eventInfo);
+	if (rc < 0){
+		return -EINTR;
+	}else if (rc == 0){
+		return -EAGAIN;
 	}
+	acq400_init_event_info(&eventInfo);
 
 	dev_dbg(DEVP(adev), "acq400_event_read() hbm0 %p hbm1 %p %s",
 			eventInfo.hbm0, eventInfo.hbm1,
@@ -945,25 +938,29 @@ ssize_t acq400_event_read(
 		struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
 		if (xtd_dev->atd.event_source){
 			event_source = xtd_dev->atd.event_source;
+			/* RACE: a fast second interrupt may already have been! */
 			xtd_dev->atd.event_source = 0;
 		}
 	}
 
-	nbytes = snprintf(lbuf, sizeof(lbuf), "%u %d %d %s 0x%08x %d\n",
-			adev->rt.samples_at_event,
+	nbytes = snprintf(PD(file)->lbuf, MAXLBUF, "%d %d %d %s 0x%08x %u %u %u\n",
+			adev->rt.event_count,
 			eventInfo.hbm0? eventInfo.hbm0->ix: -1,
 			eventInfo.hbm1? eventInfo.hbm1->ix: -1, timeout? "TO": "OK",
 			event_source,
-			adev->rt.event_count);
+			new_sample,
+			adev->rt.samples_at_event_latch,
+			adev->rt.samples_at_event-adev->rt.samples_at_event_latch);
 
+	PD(file)->samples_at_event = new_sample;
 
-	rc = copy_to_user(buf, lbuf, nbytes);
+	rc = copy_to_user(buf, PD(file)->lbuf, nbytes);
 	if (rc != 0){
 		rc = -1;
 	}else{
 		rc = nbytes;
 	}
-	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", lbuf, rc);
+	dev_dbg(DEVP(adev), "acq400_event_read() 99 \"%s\" rc %d", PD(file)->lbuf, rc);
 	return rc;
 }
 
@@ -974,13 +971,13 @@ static unsigned int acq400_event_poll(
 	struct acq400_dev *adev = ACQ400_DEV(file);
 	unsigned rc;
 
-	if (adev->rt.samples_at_event){
-		init_event_info(&PD(file)->eventInfo);
+	if (adev->rt.samples_at_event != PD(file)->samples_at_event){
+		acq400_init_event_info(&PD(file)->eventInfo);
 		rc = POLLIN;
 	}else{
 		poll_wait(file, &adev->event_waitq, poll_table);
-		if (adev->rt.samples_at_event){
-			init_event_info(&PD(file)->eventInfo);
+		if (adev->rt.samples_at_event != PD(file)->samples_at_event){
+			acq400_init_event_info(&PD(file)->eventInfo);
 			rc = POLLIN;
 		}else{
 			rc = 0;
@@ -992,6 +989,8 @@ static unsigned int acq400_event_poll(
 int acq400_event_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
+	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
+			ADC_INT_CSR_COS_EN_ALL;
 
 	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
 		return -ERESTARTSYS;
@@ -999,7 +998,7 @@ int acq400_event_release(struct inode *inode, struct file *file)
 		if (--adev->event_client_count == 0){
 			u32 int_csr = x400_get_interrupt(adev);
 
-			int_csr &= ~(ADC_INT_CSR_EVENT1_EN|ADC_INT_CSR_EVENT0_EN);
+			int_csr &= ~enable;
 			x400_set_interrupt(adev, int_csr);
 		}
 		mutex_unlock(&adev->bq_clients_mutex);
@@ -1201,6 +1200,16 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case ACQ400_MINOR_AXI_DMA_ONCE:
         		rc = acq400_axi_dma_once_open(inode, file);
         		break;
+        	case ACQ400_MINOR_WR_TS:
+        	case ACQ400_MINOR_WR_PPS:
+        	case ACQ400_MINOR_WR_CUR:
+        	case ACQ400_MINOR_WR_CUR_TAI:
+        	case ACQ400_MINOR_WR_CUR_TRG0:
+        	case ACQ400_MINOR_WR_CUR_TRG1:
+        	case ACQ400_MINOR_WRTT:
+        	case ACQ400_MINOR_WRTT1:
+        		rc = acq400_wr_open(inode, file);
+        		break;
             	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
         		    minor < ACQ400_MINOR_MAP_PAGE+16  ){
@@ -1219,6 +1228,6 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         return rc;
 }
 
-
+EXPORT_SYMBOL_GPL(acq400_init_event_info);
 
 

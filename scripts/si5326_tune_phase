@@ -1,0 +1,46 @@
+#!/bin/sh
+
+adjust() {
+	set.site 0 si5326_step_phase $1 >/dev/null;get.site 0 wr_clk_pv3
+}
+
+
+(
+STATE=ST_COARSE_TO_X01
+iter=0
+
+while [ "$STATE" != "ST_FINISHED" ]; do
+	iter=$(($iter+1))
+	NSTATE=$STATE
+
+	case $STATE in
+	ST_COARSE_TO_X01)
+		PVC=$(adjust -3)
+		case $PVC in
+		1|5)
+			NSTATE=ST_FINE_TO_01X;;
+		esac;;
+	ST_FINE_TO_01X)
+		PVC=$(adjust -1)
+		case $PVC in
+		2|3)
+			NSTATE=ST_FINE_TO_1XX;;
+		esac;;
+	ST_FINE_TO_1XX)
+		PVC=$(adjust -1)
+		case $PVC in
+		4|5|6|7)
+			NSTATE=ST_COARSE_FINAL;;
+		esac;;
+	ST_COARSE_FINAL)
+		PVC=$(adjust -3)
+		NSTATE=ST_FINISHED;;
+	esac
+	jump='--'
+	[ "$STATE" != "$NSTATE" ] && jump='=>'
+	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump
+	STATE=$NSTATE
+done
+) 2>&1 | tee /dev/shm/si5326_tune_phase.log
+
+

@@ -27,11 +27,6 @@
 /* ------------------------------------------------------------------------- */
 
 
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <asm/uaccess.h>	/* copy_to_user */
-
 #include "acq400.h"
 
 
@@ -119,7 +114,7 @@ void acq400_sew_fifo_init(struct acq400_dev* adev, int ix)
 	sf->adev = adev;
 	sf->regoff = ix? ACQ435_SW_EMB_WORD2: ACQ435_SW_EMB_WORD1;
 	sf->sf_task = kthread_run(acq400_sew_fifo_work, sf,
-						"%s.sf", devname(adev));
+						"%s.sf", adev->dev_name);
 }
 int acq400_sew_fifo_destroy(struct acq400_dev* adev, int ix)
 {

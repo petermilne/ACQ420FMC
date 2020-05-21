@@ -42,7 +42,7 @@
 #include "local.h"	/* chomp() */
 #include "popt.h"
 
-#define MAXSITES	6
+#define MAXDEVICES	6
 using namespace std;
 
 namespace AcqData {
@@ -98,13 +98,13 @@ int check_ramp_site(unsigned *b0, unsigned offset, int nrows, unsigned& start)
 	return fail;
 }
 int pass_count;
-int fail_count[MAXSITES+1] = {};
+int fail_count[MAXDEVICES+1] = {};
 
 int show_fail_summary()
 {
 	bool ok = true;
 	printf("CUMULATIVE ");
-        for (int site = 1; site <= MAXSITES; ++site){
+        for (int site = 1; site <= MAXDEVICES; ++site){
                 if (fail_count[site]){
                         printf("%d:%d ", site, fail_count[site]);
                         ok = 0;

@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPAD4   LATEST | AVERAGE
+# SPAD5   PERIOD_MIN | PERIOD_MAX
+# SPAD6   0xcccc : marker
+echo 1,5,0x70,1000 > /dev/acq400.0.knobs/spadcop4
+echo 2,5,0x74,1000 > /dev/acq400.0.knobs/spadcop5
+echo 1,5,0xcccc,1000 > /dev/acq400.0.knobs/spadcop6
+
+

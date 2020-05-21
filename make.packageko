@@ -1,0 +1,26 @@
+#!/bin/bash
+# $1 is the datecode
+REL=$(cat ../linux-xlnx/include/config/kernel.release)
+PKO="packageko-$REL-$1.img"
+echo Building $PKO
+rm -Rf modules_output
+mkdir -p modules_output
+
+(cd ../DRIVERS/ISL22313; ./make.zynq modules)
+(cd ../DRIVERS/SI5326; ./make.zynq modules)
+cp ../DRIVERS/ISL22313/isl22313.ko modules_output
+cp ../DRIVERS/SI5326/si5326.ko modules_output
+
+cp $(find ../linux-xlnx -name \*.ko) modules_output
+cp *.ko modules_output
+mksquashfs modules_output/* release/$PKO 2>&1 >squashfs.log
+rm packageko*img
+cp release/$PKO .
+if [ $? -ne 0 ]; then
+	echo ERROR: check squashfs.log
+	exit 1
+else 
+	echo FINISHED: $(ls -s release/$PKO | awk '{ print $2 " size:"$1}' )
+fi
+
+ 

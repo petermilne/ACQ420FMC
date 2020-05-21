@@ -256,8 +256,8 @@ protected:
 	void createAuxFile() {
 		if (aux_file) delete aux_file;
 
-		char auxfn[128];
-		snprintf(auxfn, 128, "%s/%06d%s", outbase, seq, txt.data());
+		char auxfn[160];
+		snprintf(auxfn, 159, "%s/%06d%s", outbase, seq, txt.data());
 		aux_file = new File(auxfn, "w");
 	}
 	void stashAux(FILE *fout, const char* in_fname){
@@ -372,8 +372,8 @@ protected:
 public:
 	virtual void process(string bufn){
 		Mapping<T> m(bufn, G::bufferlen);
-		char fname[128];
-		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
+		char fname[160];
+		snprintf(fname, 159, "%s/%06d%s", outbase, seq, dat.data());
 		File fout(fname, "w");
 		fwrite(m(), sizeof(T), G::bufferlen/sizeof(T), fout());
 		if (is_new_minute){
@@ -398,8 +398,8 @@ public:
 	}
 	virtual void process(string bufn){
 		Mapping<FROM> m(bufn, G::bufferlen);
-		char fname[128];
-		snprintf(fname, 128, "%s/%06d%s", outbase, seq, dat.data());
+		char fname[160];
+		snprintf(fname, 159, "%s/%06d%s", outbase, seq, dat.data());
 		File fout(fname, "w");
 
 		const FROM* cmax = m() + G::bufferlen/sizeof(FROM);

@@ -25,33 +25,6 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
-#include <linux/device.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/pci.h>
-#include <linux/time.h>
-#include <linux/init.h>
-#include <linux/timex.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-#include <linux/moduleparam.h>
-#include <linux/mutex.h>
-
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-#include <linux/wait.h>
-
-#include <asm/uaccess.h>  /* VERIFY_READ|WRITE */
-
-#include "lk-shim.h"
-
-
-#include <linux/device.h>
-#include <linux/module.h>
-#include <linux/user.h>
-
 #include "acq400.h"
 #include "hbm.h"
 
@@ -124,7 +97,7 @@ static ssize_t store_span_ch##NAME(				\
 {								\
 	return store_span(CH, dev, attr, buf, count);		\
 }								\
-static DEVICE_ATTR(gain##NAME, S_IRUGO|S_IWUGO,		\
+static DEVICE_ATTR(gain##NAME, S_IRUGO|S_IWUSR,		\
 		show_span_ch##NAME, store_span_ch##NAME)
 
 MAKE_ACQ423_SPAN( 1, 1);
@@ -225,7 +198,7 @@ static ssize_t store_odd_channels(
 }
 
 static DEVICE_ATTR(odd_channels,
-		S_IRUGO|S_IWUGO, show_odd_channels, store_odd_channels);
+		S_IRUGO|S_IWUSR, show_odd_channels, store_odd_channels);
 
 MAKE_BITS(d37_mode,  ACQ423_BANK, MAKE_BITS_FROM_MASK, ACQ423_BANK_D37_MODE);
 

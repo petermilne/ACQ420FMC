@@ -1,0 +1,145 @@
+#!/bin/sh
+
+export WEB_APPEND_JOB=/tmp/wr-web-append.job
+
+web_append()
+{
+	if [ ! -e $WEB_APPEND_JOB ]; then
+		echo '#!/bin/sh' >$WEB_APPEND_JOB
+		echo '# created by wr.init' >> $WEB_APPEND_JOB
+		chmod a+rx $WEB_APPEND_JOB
+	fi
+	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
+}
+
+get_knob() {
+	printf "%30s %s\n" $1 "$(cat /dev/acq400.0.knobs/$1)"	
+}
+monitor() {
+        echo monitor wr.xml
+        TPL=/dev/shm/si5326_tune_phase.log
+        
+        while [ 1 ]
+        do
+                (/usr/local/CARE/tai_date
+                echo ------------------------------
+                cd /etc/acq400/0/
+                for k in wr_tai_cur wr_clk_pv; do 
+                	get_knob $k; 
+                done
+                echo
+				for k in wr_cur_vernier wr_tai_stamp wr_tai_trg; do 
+                	get_knob $k; 
+                done                
+                echo
+                get_knob wr_trg_src
+                echo
+                for k in wr*_count; do 
+                	get_knob $k; 
+                done
+                echo; echo ------------------------------
+        		if [ -e $TPL ]; then        			
+        			echo si5326_tune_phase ..
+        			tail -n 20 $TPL
+        		else
+        			echo "WARNING: si5326 has not been tuned"
+        		fi                     
+                )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
+                mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
+                sleep 1
+        done
+}
+
+
+start_wr() {
+	if [ -e /mnt/local/wrc.le.bin ]; then
+		echo +++ wr load new firmware
+		wr_reset /mnt/local/wrc.le.bin
+	else
+		wr_reset
+	fi
+	NAME=acq400.0
+	MAJOR=$(grep ${NAME} /proc/devices | awk '{ print $1 }')
+	mknod /dev/${NAME}.wr_ts  c ${MAJOR} 20
+	mknod /dev/${NAME}.wr_pps c ${MAJOR} 21
+	mknod /dev/${NAME}.wr_cur c ${MAJOR} 22
+	mknod /dev/${NAME}.wr_tt  c ${MAJOR} 23
+	mknod /dev/${NAME}.wr_tt0  c ${MAJOR} 23
+	mknod /dev/${NAME}.wr_tai c ${MAJOR} 24
+	mknod /dev/${NAME}.wr_trg c ${MAJOR} 25
+	mknod /dev/${NAME}.wr_trg0 c ${MAJOR} 25
+	mknod /dev/${NAME}.wr_trg1 c ${MAJOR} 26
+	mknod /dev/${NAME}.wr_tt1  c ${MAJOR} 27
+	web_append wr nomon
+	
+	
+	nice daemon $WEB_APPEND_JOB
+	nice daemon /usr/local/init/wr.init monitor
+	
+	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
+	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
+	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
+	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
+}
+
+PIDF_TX=/var/run/wrtd_tx.pid
+PIDF_RX=/var/run/wrtd_rx.pid
+
+# /mnt/local/sysconfig/wr.sh can override set values. be sure to export values that to the wrtd executable..
+start_wrtd() {
+	export WRTD_DELTA_NS=50000000
+	export WRTD_NICE=-10
+	export WRTD_VERBOSE=0
+	export WRTD_TICKNS=50000
+	export WRTD_RTPRIO=10
+	WRTD_TX=1
+	WRTD_RX=1
+	export WRTD_ID=$(hostname)
+	export WRTD_RX_MATCHES=$(hostname)
+	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
+	
+	if [ "x$WRTD_DNS" != "x" ]; then
+		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS"
+		WRTD_DELTA_NS=$WRTD_DNS
+	fi
+# may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
+
+    if [ $WRTD_RX -ne 0 ]; then
+    	/usr/local/bin/procServ -c / -p $PIDF_RX 4280 /usr/local/bin/wrtd rx
+		sleep 1
+		nc localhost 4280 -e logger -t wrtd_rx &
+	fi
+		
+	if [ $WRTD_TX -ne 0 ]; then
+		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 /usr/local/bin/wrtd tx
+		sleep 1
+		nc localhost 4281 -e logger -t wrtd_tx &
+	fi
+}
+
+stop_wrtd() {
+	for pidf in $PIDF_RX $PIDF_TX; do
+		if [ -e $pidf ]; then
+			pid=$(cat $pidf)
+			rm $pidf
+			kill -s TERM $pid
+		fi
+	done
+}
+
+case "$1" in
+monitor)
+	monitor;;
+start|"")
+	wr_reset --is_wr_present=1
+	if [ $? -eq 0 ]; then
+		start_wr
+		start_wrtd
+	fi;;
+restart_wrtd)
+	stop_wrtd
+	start_wrtd;;
+stop)
+	stop_wrtd;;
+esac
+

@@ -2,12 +2,7 @@
 
 echo mgt_dram: fans to max
 set.fanspeed 100
-MDIR=/usr/local/lib/modules
-/sbin/insmod $MDIR/debugfs2.ko
-/sbin/insmod $MDIR/regfs.ko
-/sbin/insmod $MDIR/acq400_dspfs.ko
-ln -s /sys/kernel/debug/dsp1/ /dev/dsp1
-
+/usr/local/CARE/acq400_dspfs.init
 
 cat - >/dev/dsp1/.create <<EOF
 @MODULE_ID     0x000 0xffffffff r %08x

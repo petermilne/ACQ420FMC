@@ -1,0 +1,35 @@
+<?xml version="1.0" standalone="no" ?>
+<ACQ>
+<!-- acq436-default.xml
+     add calibration data if available via <Calibrated> fields -->
+<!-- calibration data -->
+<AcqCalibration>
+    <Info>
+        <CalDate>20190126</CalDate>
+        <Version>B1007</Version>
+        <Model>ACQ436ELF</Model>
+	<SerialNum>E43630000</SerialNum>
+    </Info>
+     <Data AICHAN="24" code_min="-8388608" code_max="8388607" SW="hi_res_mode,gain%d">
+		<Range name="HI_RES_1mA" sw="1,0">		
+			<Nominal min="-10" max="10" eoff="0" eslo="1.19209289551e-06" roff="0"/>
+        </Range>
+        <Range name="HI_SPEED_1mA" sw="0,0">
+ 			<Nominal min="-10" max="10" eoff="0" eslo="1.19209289551e-06" roff="0"/>
+        </Range>
+     </Data>
+</AcqCalibration>
+<ModelSpec>
+        <ChannelBlockMask>
+                <BlockWidth>8</BlockWidth>
+                <BlockSet>"1110"</BlockSet>
+        </ChannelBlockMask>
+        <MaxAggregateRate>12.28 MB/sec</MaxAggregateRate>
+        <MaxDeviceRate>128 kS/sec</MaxDeviceRate>
+        <MinDeviceRate>0 MS/sec</MinDeviceRate>
+        <CalClock>128000</CalClock>
+        <CalMeanN>1024000</CalMeanN>
+</ModelSpec>
+</ACQ>
+
+

@@ -11,7 +11,7 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 #include <linux/freezer.h>
 #include <linux/init.h>
 #include <linux/kthread.h>

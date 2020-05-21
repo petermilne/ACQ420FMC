@@ -179,6 +179,8 @@ int check_all_buffers_are_poisoned(struct acq400_dev *adev)
 }
 int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 {
-	return poison_overwritten(adev, hbm);
+	int po = poison_overwritten(adev, hbm);
+	dev_dbg(DEVP(adev), "poison_overwritten %d %s", hbm->ix, po? "YES": "NO <<<<<<<<<<<<<<<<<<");
+	return po;
 }
 

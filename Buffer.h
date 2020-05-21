@@ -163,6 +163,31 @@ public:
 	}
 };
 
+class BufferManager {
+	const char* root;
+	void init_buffers()
+	{
+		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
+			Buffer::create(root, Buffer::bufferlen);
+		}
+		printf("BufferManager::init_buffers %d\n", Buffer::nbuffers);
+	}
+	void delete_buffers()
+	{
+		/* this _should_ be automatic. But it's not! */
+		for (unsigned ii = 0; ii < Buffer::the_buffers.size(); ++ii){
+			delete Buffer::the_buffers[ii];
+		}
+	}
+public:
+	BufferManager(const char* _root, unsigned start_buf = 0): root(_root) {
+		Buffer::last_buf = start_buf;
+		init_buffers();
+	}
+	~BufferManager() {
+		delete_buffers();
+	}
+};
 
 
 

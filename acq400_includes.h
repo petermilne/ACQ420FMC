@@ -30,10 +30,9 @@
 #include <asm/sizes.h>
 
 
-#include <linux/dmaengine.h>
+#include "include/linux/dmaengine.h"
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <linux/sched/rt.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -58,8 +57,10 @@
 #include <linux/debugfs.h>
 #include <linux/poll.h>
 //#include <mach/pl330.h>
-#include <linux/amba/pl330.h>
+#include "include/linux/amba/pl330.h"
 #include <linux/of.h>
+#include <linux/types.h>
+#include <linux/cdev.h>
 
 #include <asm/barrier.h>
 #include <asm/dma.h>
@@ -92,7 +93,14 @@
 #define ACQ400_MINOR_BQ_FULL	17
 #define ACQ400_MINOR_RSV_DIST	18
 #define ACQ400_MINOR_AXI_DMA_ONCE 19
-
+#define ACQ400_MINOR_WR_TS	20	// read : u32 WR_TAI_STAMP
+#define ACQ400_MINOR_WR_PPS	21      // read : u32 WR_TAI_CUR_L
+#define ACQ400_MINOR_WR_CUR	22	// read : u32 WR_
+#define ACQ400_MINOR_WRTT	23	// read : u32 WR_TT CUR time
+#define ACQ400_MINOR_WR_CUR_TAI 24	// read : u32 WR_TAI_CUR_L no block
+#define ACQ400_MINOR_WR_CUR_TRG0 25	// read : u32 WR_TAI_TRG0, no block.  write: u32 WR_TAI_TRG0
+#define ACQ400_MINOR_WR_CUR_TRG1 26	// read : u32 WR_TAI_TRG1, no block.  write: u32 WR_TAI_TRG1
+#define ACQ400_MINOR_WRTT1	27
 #define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
 
 #define ACQ400_MINOR_MAP_PAGE_OFFSET(minor) \

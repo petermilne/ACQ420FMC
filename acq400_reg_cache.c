@@ -91,7 +91,7 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id)
 			}
 		}
 	}
-	dev_info(dev, "%s site:%d max:%d last:%d map:\n%08x\n%08x\n%08x\n%08x\n",
+	dev_info(dev, "%s site:%d max:%d last:%d map:%08x %08x %08x %08x",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],
 			reg_cache->map[2], reg_cache->map[3]);
@@ -101,7 +101,7 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id)
 	reg_cache->timer.function = dev_rc_timer_update;
 	hrtimer_start(&reg_cache->timer, ktime_set(0, id*10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 
-	dev_info(dev, "%s last %d", __FUNCTION__, last);
+	dev_info(dev, "%s last cache entry %d", __FUNCTION__, last);
 	return last;
 }
 

@@ -6,9 +6,7 @@
 #define DMAENGINE_H
 
 #include <linux/bug.h>
-#include <linux/dmaengine.h>
-
-#warning DT CUSTOM ALERT
+#include "include/linux/dmaengine.h"
 
 #define DMA_SUCCESS	DMA_COMPLETE
 /* D-TACQ Customisation */

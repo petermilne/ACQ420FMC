@@ -2,6 +2,7 @@
 SITE=${1:-1}
 OUTPUTS=${2:-1,1,0,0}
 
+set.site $SITE mode 0
 set.site $SITE byte_is_output $OUTPUTS
 set.site $SITE mode 1
 

@@ -60,7 +60,6 @@
 #include <semaphore.h>
 #include <syslog.h>
 
-#include <vector>
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
@@ -89,6 +88,8 @@ namespace G {
 	int max_samples;
 	int TO = 1;					// Timeout, seconds
 	int load_threshold = 2;
+	unsigned load_bufferlen;			// Set bufferlen for load
+	unsigned play_bufferlen;			// Change bufferlen on play
 };
 
 #include "Buffer.h"
@@ -154,6 +155,15 @@ int G_nsamples;
 void set_playloop_length(int nsamples)
 {
 	char cmd[128];
+	if (G::play_bufferlen){
+		unsigned ll = G::load_bufferlen;
+		unsigned pl = G::play_bufferlen;
+		while ((pl&0x1) == 0){
+			ll >>= 1; pl >>= 1;
+		}
+		nsamples = nsamples * pl / ll;
+		setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen);
+	}
 	sprintf(cmd, "set.site %d playloop_length %d %d",
 			G::play_site, G_nsamples = nsamples, G::mode);
 	system(cmd);
@@ -370,6 +380,8 @@ int load() {
 	openlog("bb", LOG_PID, LOG_USER);
 	set_playloop_length(0);
 
+
+
 	if (G::concurrent){
 		_load_concurrent();
 	}else{
@@ -387,6 +399,24 @@ int dump() {
 	return 0;
 }
 
+/*
+acq2106_112> grep ^050, /proc/driver/acq400/0/buffers
+050,e1800000,0x21800000,0x400000,0
+*/
+unsigned getSpecificBufferlen(int ibuf)
+{
+	char cmd[128];
+	sprintf(cmd, "grep ^%03d, /proc/driver/acq400/0/buffers", ibuf);
+	unsigned bl = 0;
+	FILE * pp = popen(cmd, "r");
+	if (fscanf(pp, "%*d,%*x,%*x,%x,%*d", &bl) == 1){
+		fprintf(stderr, "success bl:0x%08x\n", bl);
+	}else{
+		fprintf(stderr, "FAIL: %s\n", cmd);
+	}
+	pclose(pp);
+	return bl;
+}
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"
 #define DFB	 MODPRAMS "distributor_first_buffer"
 #define BUFLEN	 MODPRAMS "bufferlen"
@@ -404,8 +434,17 @@ RUN_MODE ui(int argc, const char** argv)
 		G::load_threshold = atoi(evar);
 	}
 	getKnob(-1, NBUF,  &Buffer::nbuffers);
-	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, DFB, 	&G::buffer0);
+	getKnob(-1, BUFLEN, &Buffer::bufferlen);
+	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
+	getKnob(-1, "/etc/acq400/0/dist_bufferlen_load", &G::load_bufferlen);
+
+	if (G::load_bufferlen){
+		setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::load_bufferlen);
+	}
+	if (G::buffer0 != 0){
+		Buffer::bufferlen = getSpecificBufferlen(G::buffer0);
+	}
 
 	Buffer::nbuffers -= G::buffer0;
 
@@ -447,34 +486,10 @@ RUN_MODE ui(int argc, const char** argv)
 	return M_DUMP;
 }
 
-class BufferManager {
-	void init_buffers()
-	{
-		const char* root = getRoot(G::devnum);
-		Buffer::last_buf = G::buffer0;
-		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
-			Buffer::create(root, Buffer::bufferlen);
-		}
-	}
-	void delete_buffers()
-	{
-		/* this _should_ be automatic. But it's not! */
-		for (unsigned ii = 0; ii < Buffer::the_buffers.size(); ++ii){
-			delete Buffer::the_buffers[ii];
-		}
-	}
-public:
-	BufferManager() {
-		init_buffers();
-	}
-	~BufferManager() {
-		delete_buffers();
-	}
-};
 int main(int argc, const char** argv)
 {
 	RUN_MODE rm = ui(argc, argv);
-	BufferManager bm;
+	BufferManager bm(getRoot(G::devnum), G::buffer0);
 	switch(rm){
 	case M_FILL:
 		return fill();

@@ -48,7 +48,7 @@
 
 #include "acq480_ioctl.h"
 
-#define REVID 		"1"
+#define REVID 		"1.1.0"
 #define MODULE_NAME	"acq480"
 
 int acq480_sites[6] = { 0,  };
@@ -58,6 +58,14 @@ module_param_array(acq480_sites, int, &acq480_sites_count, 0644);
 static int n_acq480;
 module_param(n_acq480, int, 0444);
 
+static int claim_0x20 = 1;
+module_param(claim_0x20, int, 0444);
+
+static int claim_0x22 = 1;
+module_param(claim_0x22, int, 0444);
+
+static int spi_bus_num = 1;
+module_param(spi_bus_num, int, 0444);
 
 #define I2C_CHAN(site) 	((site)+1)
 #define NGPIO_CHIP	8
@@ -201,11 +209,15 @@ struct acq480_dev* acq480_allocate_dev(struct platform_device *pdev)
 
 	adev->pdev = pdev;
 	adev->i2c_adapter = i2c_get_adapter(I2C_CHAN(site));
-	if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
-		printk("acq480_init_site(%d) 50R switch NOT found\n", site);
+	if (claim_0x20){
+		if (new_device(adev->i2c_adapter, "pca9534", 0x20, -1) == 0){
+			printk("acq480_init_site(%d) 50R switch NOT found\n", site);
+		}
 	}
-	if (new_device(adev->i2c_adapter, "tca6424", 0x22, -1) == 0){
-		printk("acq480_init_site(%d) J-clean NOT found\n", site);
+	if (claim_0x22){
+		if (new_device(adev->i2c_adapter, "tca6424", 0x22, -1) == 0){
+			printk("acq480_init_site(%d) J-clean NOT found\n", site);
+		}
 	}
 
 	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
@@ -410,13 +422,15 @@ static void __init acq480_init_site(int site)
 			.platform_data	= 0,
 			.irq		= -1,
 			.max_speed_hz	= 20000000,
-			.bus_num	= 1,
+			.bus_num	= 0,
 			.chip_select	= 0,
 	};
 	struct platform_device* pdev =
 			kzalloc(sizeof(struct platform_device), GFP_KERNEL);
 	pdev->name = MODULE_NAME;
 	pdev->id = site;
+
+	ads5294spi_spi_slave_info.bus_num = spi_bus_num;
 	platform_device_register(pdev);
 
 	ads5294spi_spi_slave_info.chip_select = site - 1;

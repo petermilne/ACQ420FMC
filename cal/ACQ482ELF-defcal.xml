@@ -5,7 +5,7 @@
       <CalDate>20180525_114333</CalDate>
       <Carrier>acq2106_087</Carrier>
       <Model>ACQ482ELF</Model>
-      <SerialNum>E48210002</SerialNum>
+      <SerialNum>E48210000</SerialNum>
       <Temperature>30.5</Temperature>
       <SampleRate>50000000 kHz</SampleRate>
       <FirmwareRev>acq4xx-607-20180503135345 PATCHED</FirmwareRev>
@@ -14,14 +14,9 @@
     <Data AICHAN="8" DG="ACQ480:GAIN:%02d" SW="default" code_max="32764" code_min="-32768">
       <Range name="2.5V" sw="default">
         <Nominal eoff="0" eslo="7.62939453125e-05" max="2.5" min="-2.5" roff="0"/>
+        <!-- 
         <Calibrated ch="1" eoff="0.000937244368024" eslo="7.9447505095e-05" max="2.60419364382" min="-2.60239860258"/>
-        <Calibrated ch="2" eoff="0.00730135938938" eslo="7.8962118097e-05" max="2.59465308307" min="-2.58012932641"/>
-        <Calibrated ch="3" eoff="-0.00532577373894" eslo="7.9142345675e-05" max="2.58793146699" min="-2.59866215682"/>
-        <Calibrated ch="4" eoff="-0.00165487112287" eslo="7.9421614265e-05" max="2.6007531635" min="-2.60414232736"/>
-        <Calibrated ch="5" eoff="0.0116563109617" eslo="7.8938997898e-05" max="2.59825045509" min="-2.57501677216"/>
-        <Calibrated ch="6" eoff="0.00222778862308" eslo="7.8934248889e-05" max="2.58866632197" min="-2.58428967897"/>
-        <Calibrated ch="7" eoff="0.00501967088418" eslo="7.928349098e-05" max="2.60290181983" min="-2.59294176155"/>
-        <Calibrated ch="8" eoff="-0.00159698953848" eslo="7.9343841021e-05" max="2.5982626492" min="-2.60153597211"/>
+         -->
       </Range>
     </Data>
   </AcqCalibration>

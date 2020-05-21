@@ -79,12 +79,14 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1024"
+#define VERID	"B1038"
 
 #define NCHAN	4
 
 #include <semaphore.h>
 #include <syslog.h>
+
+#include <sys/statvfs.h>
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
@@ -92,6 +94,17 @@
 #define _PFN	__PRETTY_FUNCTION__
 
 #define STDOUT	1
+
+
+
+int getenv_default(const char* key, int def = 0){
+	const char* vs = getenv(key);
+	if (vs){
+		return atoi(vs);
+	}else{
+		return def;
+	}
+}
 
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
@@ -170,10 +183,14 @@ namespace G {
 	char* sum;
 
 	bool null_copy;
-	int is_spy;		// spy task runs independently of main capture
+	bool fillk;				// fill output scaled by 1k
+	int is_spy;				// spy task runs independently of main capture
 	int show_events;
-	bool double_up;		// channel data appears 2 in a row (ACQ480/4)
-	unsigned dualaxi;		// 0: none, 1=1 channel, 2= 2channels
+	bool double_up;				// channel data appears 2 in a row (ACQ480/4)
+	unsigned dualaxi;			// 0: none, 1=1 channel, 2= 2channels
+	int stream_sob_sig;            		// insert start of buffer signature
+	unsigned find_event_mask = 0x1;		// 1: EV0, 2:EV1, 3:EV0|EV1
+	char* multi_event;			// multi-event definintion [pre,]post
 };
 
 
@@ -206,6 +223,7 @@ public:
 	virtual bool isES(unsigned *cursor) = 0;
 	static AbstractES* evX_instance();
 	static AbstractES* ev0_instance();
+	static AbstractES* ev1_instance();
 };
 
 template <int MASK, unsigned PAT, unsigned MATCHES>
@@ -230,13 +248,21 @@ public:
 	}
 };
 
+#define SOB_MAGIC	0xaa55fbff
+#define EVX_MAGIC       0xaa55f150
+#define EVX_MASK	0xfffffff0
+#define EV0_MAGIC       0xaa55f151
+#define EV1_MAGIC       0xaa55f152
+#define EV0_MASK	0xffffffff
+#define EV1_MASK	0xffffffff
+
 AbstractES* AbstractES::evX_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0a>;
+			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xfffffff0, 0xaa55f150, 0x0f>;
+			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
@@ -245,9 +271,20 @@ AbstractES* AbstractES::ev0_instance() {
 	static AbstractES* _instance;
 	if (!_instance){
 		if (ISACQ480()){
-			_instance = new ES<0xffffffff, 0xaa55f151, 0x0a>;
+			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0a>;
 		}else{
-			_instance = new ES<0xffffffff, 0xaa55f151, 0x0f>;
+			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0f>;
+		}
+	}
+	return _instance;
+}
+AbstractES* AbstractES::ev1_instance() {
+	static AbstractES* _instance;
+	if (!_instance){
+		if (ISACQ480()){
+			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0a>;
+		}else{
+			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0f>;
 		}
 	}
 	return _instance;
@@ -271,8 +308,9 @@ static int createOutfile(const char* fname) {
 
 enum DemuxBufferType {
 	DB_REGULAR,
+	DB_2D_REGULAR,		// 2DMA, single sample
 	DB_DOUBLE,		// double sample: acq480-4
-	DB_DOUBLE_AXI		// double sample, double AXI, acq480x80
+	DB_2D_DOUBLE		// double sample, double AXI, acq480x80
 };
 
 class DemuxBufferCommon: public Buffer {
@@ -304,12 +342,13 @@ private:
 	static T** ddcursors;
 
 	bool data_fits_buffer;
-	char** fnames;
+	char** new_names;
+	char** old_names;
 	char OUT_ROOT[128];
 	char OUT_ROOT_NEW[128];
 	char OUT_ROOT_OLD[128];
-	char CLEAN_COMMAND[128];
-	char FIN_COMMAND[128];
+	char CLEAN_COMMAND[160];
+	char FIN_FILE[160];
 
 	static u32 ID_MASK;
 
@@ -330,21 +369,23 @@ private:
 			ID_MASK = 0xff;
 		}
 	}
+	void _make_names(const char* root, char** names){
+		char buf[160];
+
+		for (unsigned ic = 0; ic < nchan; ++ic){
+			int len = sprintf(buf, "%s/CH%02d", root, lchan(ic));
+			names[ic] = new char[len+1];
+			strcpy(names[ic], buf);
+		}
+	}
 	void make_names() {
 		sprintf(OUT_ROOT, FMT_OUT_ROOT, G::devnum);
 		sprintf(OUT_ROOT_NEW, FMT_OUT_ROOT_NEW, G::devnum);
 		sprintf(OUT_ROOT_OLD, FMT_OUT_ROOT_OLD, G::devnum);
-		sprintf(CLEAN_COMMAND, "rm -Rf %s", OUT_ROOT_OLD);
-		sprintf(FIN_COMMAND,   "date >%s.fin", OUT_ROOT);
+		sprintf(FIN_FILE,   "%s.fin", OUT_ROOT);
 
-		fnames = new char* [nchan];
-		char buf[132];
-
-		for (unsigned ic = 0; ic < nchan; ++ic){
-			int len = sprintf(buf, "%s/CH%02d", OUT_ROOT_NEW, lchan(ic));
-			fnames[ic] = new char[len+1];
-			strcpy(fnames[ic], buf);
-		}
+		_make_names(OUT_ROOT_NEW, new_names = new char* [nchan]);
+		_make_names(OUT_ROOT_OLD, old_names = new char* [nchan]);
 	}
 	void start() {
 		mkdir(OUT_ROOT_NEW, 0777);
@@ -353,11 +394,25 @@ private:
 		}
 		startchan = 0;
 	}
+	void clean_old() {
+		for (unsigned ic = 0; ic < nchan; ++ic){
+			unlink(old_names[ic]);
+		}
+		rmdir(OUT_ROOT_OLD);
+	}
+	void fin_cmd() {
+		FILE *fp = fopen(FIN_FILE, "w");
+		time_t now;
+
+		time(&now);
+		fprintf(fp, "%s\n", ctime(&now));
+		fclose(fp);
+	}
 	void finish() {
-		system(CLEAN_COMMAND);
+		clean_old();
 		rename(OUT_ROOT, OUT_ROOT_OLD);
 		rename(OUT_ROOT_NEW, OUT_ROOT);
-		system(FIN_COMMAND);
+		fin_cmd();
 		if (G::script_runs_on_completion != 0){
 			system(G::script_runs_on_completion);
 		}
@@ -379,9 +434,9 @@ private:
 	bool demux(bool start, int start_off, int len);
 
 	bool writeChan(int ic){
-		FILE* fp = fopen(fnames[ic], "w");
+		FILE* fp = fopen(new_names[ic], "w");
 		if (fp ==0){
-			perror(fnames[ic]);
+			perror(new_names[ic]);
 			return true;
 		}
 		int nelems = ddcursors[ic]-dddata[ic];
@@ -389,7 +444,7 @@ private:
 		fclose(fp);
 		if (nwrite != nelems || (verbose&&ic==0) || verbose>1){
 			fprintf(stderr, "DemuxBuffer::writeChan(%s) ic:%d %d %d %s\n",
-					fnames[ic], ic, nwrite, nelems, nwrite!=nelems? "ERROR":"");
+					new_names[ic], ic, nwrite, nelems, nwrite!=nelems? "ERROR":"");
 		}
 		return false;
 	}
@@ -439,6 +494,8 @@ public:
 		nchan(G::nchan),
 		evX(*AbstractES::evX_instance())
 	{
+		if (verbose) fprintf(stderr, "DemuxBuffer T=%d N=%u\n", sizeof(T), N);
+
 		nsam = buffer_len/sizeof(T)/G::nchan;
 		init();
 		mask = new unsigned[nchan];
@@ -468,7 +525,6 @@ public:
 	}
 	virtual unsigned getSizeofItem() { return sizeof(T); }
 };
-
 
 
 template <class T, DemuxBufferType N>
@@ -546,6 +602,7 @@ bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	/* does not happen */
 	return true;
 }
+
 template<class T, DemuxBufferType N> unsigned DemuxBuffer<T, N>::ID_MASK;
 template<class T, DemuxBufferType N> int DemuxBuffer<T, N>::startchan;
 template<class T, DemuxBufferType N> T** DemuxBuffer<T, N>::dddata;
@@ -666,9 +723,83 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 }
 
 
+/* DB_2D_REGULAR ..  6 x 8 channels
+ * DMA0: Sites 1,3,5  # SITE1 => CH01->CH08
+ * DMA1: Sites 2,4,6  # SITE2 => CH25->CH32
+ *
+ * LUTs index from zero, for each offset per DMA block.
+ */
+
+const u8 DB_2D_R_MEM_PIN_LUT_48_DMA0[] = {
+	[ 0] =  0, [ 1] =  1, [ 2] =  2, [ 3] =  3, [ 4] =  4, [ 5] =  5, [ 6] =  6, [ 7] =  7,
+	[ 8] = 16, [ 9] = 17, [10] = 18, [11] = 19, [12] = 20, [13] = 21, [14] = 22, [15] = 23,
+	[16] = 32, [17] = 33, [18] = 34, [19] = 35, [20] = 36, [21] = 37, [22] = 38, [23] = 39,
+};
+const u8 DB_2D_R_MEM_PIN_LUT_48_DMA1[] = {
+	[ 0] =  8, [ 1] =  9, [ 2] = 10, [ 3] = 11, [ 4] = 12, [ 5] = 13, [ 6] = 14, [ 7] = 15,
+	[ 8] = 24, [ 9] = 25, [10] = 26, [11] = 27, [12] = 28, [13] = 29, [14] = 30, [15] = 31,
+	[16] = 40, [17] = 41, [18] = 42, [19] = 43, [20] = 44, [21] = 45, [22] = 46, [23] = 47,
+};
+
 
 template <>
-bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len) {
+bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len) {
+	short* src000 = reinterpret_cast<short*>(pdata+start_off);
+	short* src = src000;
+	const int shortlen = len/sizeof(short)/2;
+	const unsigned NC2 = nchan/2;
+	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
+
+	if (verbose) fprintf(stderr, "%s start_off:%08x src:%p len:%d\n",
+			_PFN, start_off, src, len);
+
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(src));
+	if (b1&1){
+		if (verbose) fprintf(stderr, "%s ODD buffer skip\n", _PFN);
+		return true;
+	}
+
+	/* run to the end of buffer. nsam could be rounded down,
+	 * so do not use it.
+	 */
+	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
+
+	for (unsigned isam = 0; true; ++isam){
+		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+			if (verbose) fprintf(stderr, "skip ES\n");
+			src += nchan;
+		}
+		{
+			short* src0 = src;
+			for (unsigned ichan = 0; ichan < NC2; ++ichan){
+				*ddcursors[DB_2D_R_MEM_PIN_LUT_48_DMA0[ichan]]++ =
+						src0[ichan]&mask[DB_2D_R_MEM_PIN_LUT_48_DMA0[ichan]];
+			}
+		}
+		{
+			short* src1 = src+BUFSHORTS;
+			for (unsigned ichan = 0; ichan < NC2; ++ichan){
+				*ddcursors[DB_2D_R_MEM_PIN_LUT_48_DMA1[ichan]]++ =
+						src1[ichan]&mask[DB_2D_R_MEM_PIN_LUT_48_DMA1[ichan]];
+			}
+		}
+		src += nchan;
+		if (src-src000 >= shortlen){
+			if (verbose){
+				fprintf(stderr,
+					"demux() END buf ch:%d src:%p len:%d\n",
+					nchan-1, src,  ddcursors[nchan-1]-dddata[nchan-1]);
+			}
+			return false;
+		}
+	}
+	if (verbose) fprintf(stderr, "%s 99 DOES NOT HAPPEN\n", _PFN);
+	/* does not happen */
+	return true;
+}
+
+template <>
+bool DemuxBuffer<short, DB_2D_DOUBLE>::demux(bool start, int start_off, int len) {
 	short* src1 = reinterpret_cast<short*>(pdata+start_off);
 	short* src = reinterpret_cast<short*>(pdata+start_off);
 	int shortlen = len/sizeof(short)/2;
@@ -693,9 +824,7 @@ bool DemuxBuffer<short, DB_DOUBLE_AXI>::demux(bool start, int start_off, int len
 	int startoff = 0;
 
 	unsigned ichan = 0;
-	/* run to the end of buffer. nsam could be rounded down,
-	 * so do not use it.
-	 */
+	/* run to the end of buffer. nsam could be rounded down so do not use it.  */
 	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
@@ -1103,11 +1232,19 @@ class DemuxBufferCloner: public BufferCloner {
 		switch(G::wordsize){
 		case sizeof(short):
 			if (G::dualaxi==2){
-				return new DemuxBuffer<short, DB_DOUBLE_AXI>(cpy, G::mask);
-			}else if (G::double_up){
-				return new DemuxBuffer<short, DB_DOUBLE>(cpy, G::mask);
+				if(G::double_up){
+					if (verbose) fprintf(stderr, "createDemuxBuffer DB_2D_DOUBLE\n");
+					return new DemuxBuffer<short, DB_2D_DOUBLE>(cpy, G::mask);
+				}else{
+					if (verbose) fprintf(stderr, "createDemuxBuffer DB_2D_REGULAR\n");
+					return new DemuxBuffer<short, DB_2D_REGULAR>(cpy, G::mask);
+				}
 			}else{
-				return new DemuxBuffer<short, DB_REGULAR>(cpy, G::mask);
+				if (G::double_up){
+					return new DemuxBuffer<short, DB_DOUBLE>(cpy, G::mask);
+				}else{
+					return new DemuxBuffer<short, DB_REGULAR>(cpy, G::mask);
+				}
 			}
 		case sizeof(int):
 			return new DemuxBuffer<int, DB_REGULAR>(cpy, G::mask);
@@ -1251,12 +1388,22 @@ struct poptOption opt_table[] = {
 	{ "spy", 0, POPT_ARG_INT, &G::is_spy, 0, "separate spy task" },
 	{ "null-copy", 0, POPT_ARG_NONE, 0, BM_NULL,
 			"no output copy"    },
+	{ "fill-scale", 0, POPT_ARG_NONE, 0, 'F',
+					"no output, fill output scaled by 1k"    },
 	{ "verbose",   'v', POPT_ARG_INT, &verbose, 0,
 			"set verbosity"	    },
 	{ "report-es", 'r', POPT_ARG_INT, &G::report_es, 0,
 			"report es position every find" },
 	{ "show-es", 'E', POPT_ARG_INT, &G::show_es, 0,
 			"leave es in data" },
+	{
+	  "findEvent-mask", 0, POPT_ARG_INT, &G::find_event_mask, 0,
+	  	  	 "which event to seek 1:EV0, 2:EV1, 3:BOTH"
+	},
+	{
+	  "multi-event", 0, POPT_ARG_STRING, &G::multi_event, 0,
+	  	  	  "multi-event pre,post action"
+	},
 	{ "hb0",       0, POPT_ARG_NONE, 0, BM_DEMUX },
 	{ "test-scratchpad", 0, POPT_ARG_NONE, 0, BM_TEST,
 			"minimal overhead data test buffer top/tail for sample count"},
@@ -1315,6 +1462,9 @@ struct poptOption opt_table[] = {
 	{ "nbuffers", 0, POPT_ARG_INT, &Buffer::nbuffers, 0,
 			"restrict number of buffers in use NB: NOT tested"
 	},
+        { "stream-sob-sig", 0, POPT_ARG_INT, &G::stream_sob_sig, 0,
+                       "insert Start of Buffer signature in stream"
+        },
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
 	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
@@ -1350,7 +1500,7 @@ void acq400_stream_getstate(void);
 #include <sys/wait.h>
 #include <sys/select.h>
 
-static void wait_and_cleanup_sighandler(int signo);
+
 
 
 void ident(const char* tid = "acq400_stream") {
@@ -1365,16 +1515,37 @@ void ident(const char* tid = "acq400_stream") {
 	fclose(fp);
 }
 
+static bool it_was_sig_term;
+
+
+static void default_wait_on_sigterm(int signo)
+{
+	pid_t wpid;
+	int status = 0;
+	if (verbose){
+		fprintf(stderr, "%s %d\n", _PFN, getpid());
+	}
+
+	while ((wpid = wait(&status)) > 0){
+		if (verbose){
+			fprintf(stderr, "%s %d reaps %d\n", _PFN, getpid(), wpid);
+		}
+	}
+	exit(0);
+}
+static void wait_and_cleanup_sighandler(int signo)
+{
+	it_was_sig_term = true;
+}
 static void wait_and_cleanup(pid_t child)
 {
 	sigset_t  emptyset, blockset;
 
-	if (verbose) fprintf(stderr, "wait_and_cleanup 01 pid %d\n", getpid());
+	if (verbose) fprintf(stderr, "%s 01 pid %d\n", _PFN, getpid());
 
 	ident();
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGHUP);
-	sigaddset(&blockset, SIGTERM);
 	sigaddset(&blockset, SIGINT);
 	sigaddset(&blockset, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &blockset, NULL);
@@ -1402,9 +1573,10 @@ static void wait_and_cleanup(pid_t child)
 		int ready = pselect(1, &readfds, NULL, &exceptfds, NULL, &emptyset);
 
 		if (ready == -1 && errno != EINTR){
-			perror("pselect");
-			finished = true;
-			break;
+			if (it_was_sig_term){
+				perror("pselect");
+				finished = true;
+			}
 		}else if (FD_ISSET(0, &exceptfds)){
 			if (verbose) fprintf(stderr, "exception on stdin\n");
 			finished = true;
@@ -1430,11 +1602,22 @@ static void wait_and_cleanup(pid_t child)
 			if (verbose) fprintf(stderr, "out of pselect, not sure why\n");
 		}
 	}
+	sigaddset(&blockset, SIGTERM);
+	sigdelset(&blockset, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &blockset, NULL);
+	fprintf(stderr, "%s %d exterminate\n", _PFN, getpid());
+    Progress::instance().setState(ST_CLEANUP);
+    kill(0, SIGTERM);
 
-	fprintf(stderr, "wait_and_cleanup exterminate\n");
-        Progress::instance().setState(ST_CLEANUP);
-        kill(0, SIGTERM);
-        exit(0);
+	int nwait = 0;
+	pid_t wpid;
+	int status = 0;
+	while ((wpid = waitpid(-getpgrp(), &status, 0)) > 0){
+		++nwait;
+		fprintf(stderr, "%d waited for %d\n", nwait, wpid);
+	}
+
+    exit(0);
 }
 
 static void hold_open(int site)
@@ -1507,15 +1690,15 @@ static void hold_open(const char* sites)
 			for (int isite = 0; isite < G::nsites; ++isite ){
 				child = fork();
 
-		                if (child == 0) {
-		                	syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
-		                	holder_wait_and_pass_aggsem();
-		                	hold_open(G::the_sites[isite]);
-		                	assert(1);
-		                }else{
-		                	sched_yield();
-		                	holders.push_back(child);
-		                }
+				if (child == 0) {
+					syslog(LOG_DEBUG, "%d  %10s %d\n", getpid(), "hold_open", isite);
+					holder_wait_and_pass_aggsem();
+					hold_open(G::the_sites[isite]);
+					assert(1);
+				}else{
+					sched_yield();
+					holders.push_back(child);
+				}
 			}
 		}
 	}
@@ -1629,6 +1812,10 @@ void aggregator_init()
 		hold_open(G::aggregator_sites);
 	}
 }
+
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define DFB	 MODPRAMS "distributor_first_buffer"
+
 void init(int argc, const char** argv) {
 	char* progname = new char(strlen(argv[0]));
 	if (strcmp(progname, "acq400_stream_getstate") == 0){
@@ -1642,12 +1829,19 @@ void init(int argc, const char** argv) {
 	int rc;
 	bool fill_ramp = false;
 
-	getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
+	getKnob(-1, DFB,   &Buffer::nbuffers);
+	if (Buffer::nbuffers == 0){
+		getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
+	}
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
 	getKnob(G::devnum, "has_axi_dma", &G::dualaxi);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'F':
+			G::null_copy = BM_NULL;
+			G::fillk = 1;
+			break;
 		case 'n':
 			G::null_copy = BM_NULL;
 			break;
@@ -1660,8 +1854,10 @@ void init(int argc, const char** argv) {
 				G::buffer_mode = BM_RAW;
 			}
 			break;
-		case 'P':
 		case 'O':
+			if (G::oversampling == 0) break;
+			// fall thru
+		case 'P':
 			G::stream_mode = SM_TRANSIENT;
 			break;
 		case 'S':
@@ -1692,7 +1888,11 @@ void init(int argc, const char** argv) {
 	}
 	/* do this early so all descendents get the same pgid .. so we can kill them :-) */
 	setpgid(0, 0);
-
+	struct sigaction sa;
+	sa.sa_handler = default_wait_on_sigterm;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGTERM, &sa, NULL);
 
 	Buffer::sample_size = sample_size();
 
@@ -1712,9 +1912,11 @@ void init(int argc, const char** argv) {
 
 	root = getRoot(G::devnum);
 
-	if (ISACQ480() && G::nchan == 4){
-		G::double_up = true;
-		if (verbose) fprintf(stderr, "G::double_up set true\n");
+	if (ISACQ480()){
+		if (G::nchan == 4 || (G::nchan==8 && G::dualaxi==2)){
+			G::double_up = true;
+			if (verbose) fprintf(stderr, "G::double_up set true\n");
+		}
 	}
 
 	for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
@@ -1737,6 +1939,8 @@ class StreamHead {
 protected:
 	int fc;
 	int fout;
+	static int multi_event;			/* file handle to multi-event comms */
+
 	StreamHead(int _fc, int _fout = 1) : fc(_fc), fout(_fout) {
 		assert(fc >= 0);
 		assert(fout >= 0);
@@ -1761,6 +1965,8 @@ protected:
 		fprintf(stderr, "%s STUB\n", _PFN);
 		return 0;
 	}
+	static void multiEventServer(int fd_in);
+	static void createMultiEventInstance(const char* def);
 
 public:
 	virtual void stream() {
@@ -1778,6 +1984,7 @@ public:
 	static StreamHead* instance();
 };
 
+int StreamHead::multi_event;
 
 #define TRG_POLL_MS 10
 
@@ -1789,18 +1996,35 @@ protected:
 	int f_ev;
 	int nfds;
 	bool event_received;
+
+	int ev_num;
 	int verbose;
+	int buffer_id_verbose;
+	int stop_on_fail;
 	int buffers_searched;
-
-
-
-
 	char event_info[80];
 	AbstractES& evX;
 	AbstractES& ev0;
+	AbstractES& ev1;
+	AbstractES& evA;	/* Active Event Signature */
 
+        unsigned sob_count;
+        unsigned* sob_buffer;
+        unsigned buffer_count;
 
+	const int MAX_BACKTRACK;
+	const int MAX_FORTRACK;
 
+        void insertStartOfBufferSignature(int ib){
+        	if (verbose) fprintf(stderr, "StreamHeadImpl::insertStartOfBufferSignature() %d ib:%d bc:%d\n",
+        			sob_count, ib, buffer_count);
+
+        	buffer_count += 1;
+        	for (unsigned ii = sob_count/2; ii < sob_count; ++ii){
+                       sob_buffer[ii] = (ii+1) == sob_count? buffer_count: ib;
+        	}
+        	write(1, sob_buffer, sob_count*sizeof(unsigned));
+        }
 
 	void close() {
 		kill_the_holders();
@@ -1815,6 +2039,9 @@ protected:
 	}
 	virtual ~StreamHeadImpl() {
 		close();
+		if (sob_buffer){
+			delete [] sob_buffer;
+		}
 	}
 
 	void setState(enum STATE state) {
@@ -1859,7 +2086,8 @@ protected:
 		if (verbose) fprintf(stderr, "schedule_soft_trigger()");
 		pid_t child = fork();
 		if (child == 0){
-			nice(2);
+			ident("acq400_stream_st");
+			nice(7);
 			sched_yield();
 			soft_trigger_control();
 			exit(0);
@@ -1926,7 +2154,7 @@ protected:
 	bool findEvent(int *ibuf, char** espp) {
 
 		unsigned long usecs;
-		int b1, b2;
+		int b1, b2, b3;
 		int nscan = sscanf(event_info, "%lu %d %d", &usecs, &b1, &b2);
 
 		if (verbose) fprintf(stderr, "%s \"%s\" nscan=%d %s\n", _PFN,
@@ -1942,6 +2170,7 @@ protected:
 
 		Buffer* buffer2 = Buffer::the_buffers[b2];
 
+
 		if (verbose) fprintf(stderr, "call findEvent buffer2 %d\n", buffer2->ib());
 		char* esp = findEvent(buffer2);
 		if (esp){
@@ -1952,6 +2181,21 @@ protected:
 			return true;
 		}else{
 			if (verbose) fprintf(stderr, "b2 not found\n");
+		}
+
+		if (verbose) fprintf(stderr, "call findEvent buffer2+ %d\n", buffer2->succ());
+		Buffer* buffer3 = buffer2;
+		for (int iforward = 1; iforward < MAX_FORTRACK; ++iforward){
+			esp = findEvent(buffer3 = Buffer::the_buffers[b3 = buffer3->succ()]);
+			if (esp){
+				report("b3", b3, esp);
+				if (ibuf) *ibuf = b3;
+				if (espp) *espp = esp;
+				if (verbose) fprintf(stderr, "%s return b3=%d esp=%p true\n", _PFN, b1, esp);
+				return true;
+			}else{
+				if (verbose) fprintf(stderr, "b3=%d not found\n", b3);
+			}
 		}
 
 		Buffer* buffer1;
@@ -1977,16 +2221,22 @@ protected:
 			++backtrack){
 			esp = findEvent(buffer1);
 			if (esp){
-				char bn[8]; sprintf(bn, "bt%d", backtrack);
+				char bn[16]; sprintf(bn, "bt%d", backtrack);
 				report(bn, buffer1->ib(), esp);
 				if (ibuf) *ibuf = b1;
 				if (espp) *espp = esp;
 				return true;
 			}
+			if (backtrack >= MAX_BACKTRACK){
+				break;
+			}
 		}
 		reportFindEvent(buffer1, FE_FAIL);
 		if (verbose) fprintf(stderr, "ERROR: not found anywhere\n");
-
+		if (stop_on_fail){
+			fprintf(stderr, "STOP ON FAIL\n");
+			exit(1);
+		}
 		return false;
 	}
 	int countES(char* start, int len) {
@@ -2004,11 +2254,19 @@ protected:
 		}
 		return escount;
 	}
-	enum FE_STATUS { FE_IDLE, FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL };
+	enum FE_STATUS { FE_IDLE, FE_SEARCH, FE_FOUND, FE_NOTFOUND, FE_FAIL, FE_COUNT };
+
+	unsigned FE_HISTO[FE_COUNT];
 
 	void reportFindEvent(Buffer* the_buffer, enum FE_STATUS festa){
 		int ib = the_buffer == 0? 0: the_buffer->ib();
-		fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
+		FE_HISTO[festa]++;
+		FILE* fp = fopen("/dev/shm/festa", "w");
+		assert(fp);
+		fprintf(fp, "%u,%u\n", FE_HISTO[FE_FOUND], FE_HISTO[FE_NOTFOUND]);
+		fclose(fp);
+
+		if (verbose) fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	virtual char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
@@ -2025,7 +2283,7 @@ protected:
 
 		for (unsigned *cursor = base; cursor - base < len32; cursor += stride, sample_offset += 1){
 			if (verbose > 2) fprintf(stderr, "findEvent cursor:%p\n", cursor);
-			if (ev0.isES(cursor)){
+			if (evA.isES(cursor)){
 				reportFindEvent(the_buffer, FE_FOUND);
 				if (verbose){
 					fprintf(stderr, "FOUND: %d offset %d %08x %08x %08x %08x\n",
@@ -2038,21 +2296,47 @@ protected:
 		}
 		reportFindEvent(the_buffer, FE_NOTFOUND);
 		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
+
 		return 0;
+	}
+	virtual int getBufferId() {
+		int ib = StreamHead::getBufferId();
+		if (buffer_id_verbose) fprintf(stderr, "StreamHeadImpl::getBufferId() %d %s\n", ib, G::stream_sob_sig? "SOB":"");
+		if (G::stream_sob_sig){
+			insertStartOfBufferSignature(ib);
+		}
+		return ib;
 	}
 public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
 		samples_buffer(Buffer::bufferlen/sample_size()),
-		f_ev(0), nfds(0), event_received(0), verbose(0),
+		f_ev(0), nfds(0), event_received(0), ev_num(0), verbose(0),
 		buffers_searched(0),
 		evX(*AbstractES::evX_instance()),
-		ev0(*AbstractES::ev0_instance()) {
-			const char* vs = getenv("StreamHeadImplVerbose");
-			vs && (verbose = atoi(vs));
+		ev0(*AbstractES::ev0_instance()),
+		ev1(*AbstractES::ev1_instance()),
+		evA((G::find_event_mask&3)==3? evX: (G::find_event_mask&2)==2? ev1: ev0),
+		sob_count(0), sob_buffer(0), buffer_count(0),
+		MAX_BACKTRACK(getenv_default("MAX_BACKTRACK", 3)),
+		MAX_FORTRACK(getenv_default("MAX_FORTRACK", 4)) {
+			verbose = getenv_default("StreamHeadImplVerbose");
+			buffer_id_verbose = getenv_default("StreamHeadImplBufferIdVerbose");
 
+                        if (G::stream_sob_sig){
+                        	if (verbose) fprintf(stderr, "StreamHeadImpl::StreamHeadImpl() : G::stream_sob_sig %d\n", G::stream_sob_sig);
+                        	sob_count = sample_size()/sizeof(unsigned);
+			        sob_buffer = new unsigned[sob_count];
+			        for (unsigned ii = 0; ii < sob_count/2; ++ii){
+			        	sob_buffer[ii] = SOB_MAGIC;
+			        }
+			}
+
+                        stop_on_fail = getenv_default("StreamHeadImplStopOnFail");
 			if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+			memset(FE_HISTO, 0, sizeof(FE_HISTO));
 			reportFindEvent(0, FE_IDLE);
+
 	}
 	virtual void startStream() {
 		fc = open_feed();
@@ -2084,11 +2368,11 @@ public:
 
 
 class NullStreamHead: public StreamHeadImpl {
-	void _println(const char* fmt, ...){
+protected:
+	virtual void _println(const char* fmt, ...){
 		va_list args;
 		va_start(args, fmt);
 		vprintf(fmt, args);
-		printf("\n");
 		fflush(stdout);
 	}
 public:
@@ -2106,7 +2390,7 @@ public:
 			default:
 				;
 			}
-			_println("%d", ib);
+			_println("%3d\n", ib);
 			actual.elapsed += samples_buffer;
 		}
 		_println("999 ST_CLEANUP");
@@ -2115,6 +2399,29 @@ public:
 	NullStreamHead(Progress& progress) :
 		StreamHeadImpl(progress)
 	{}
+};
+
+class NullStreamHeadDivK: public NullStreamHead {
+	int kbuf_len;
+	char* kbuf;
+protected:
+	virtual void _println(const char* fmt, ...){
+		va_list args;
+		va_start(args, fmt);
+		vsprintf(kbuf, fmt, args);
+		write(1, kbuf, kbuf_len);
+	}
+public:
+	NullStreamHeadDivK(Progress& progress) :
+		NullStreamHead(progress)
+	{
+		kbuf_len = Buffer::the_buffers[0]->getLen()/1024;
+		kbuf = new char [kbuf_len];
+		memset(kbuf, '\r', kbuf_len);
+	}
+	virtual ~NullStreamHeadDivK() {
+		delete [] kbuf;
+	}
 };
 
 class StreamHeadHB0: public StreamHeadImpl  {
@@ -2204,7 +2511,7 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	void getSampleInterval();
 	void startSampleIntervalWatcher();
 
-	static bool getPram(const char* pf, int* pram)
+	static bool getPram(const char* pf, unsigned* pram)
 	{
 		FILE *fp = fopen(pf, "r");
 		if (!fp) {
@@ -2213,21 +2520,26 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 		char aline[32];
 		bool rc = false;
 		if (fgets(aline, 32, fp)){
-			rc = sscanf(aline, "%d", pram) == 1;
+			rc = sscanf(aline, "%u", pram) == 1;
 		}
 		fclose(fp);
 		return rc;
 	}
 	static bool getPP(unsigned *_pre, unsigned* _post)
 	{
-		int pp[2];
+		unsigned pp[2];
 		if (getPram(LIVE_PRE, pp) && getPram(LIVE_POST, pp+1)){
-			if (_pre) *_pre = pp[0];
-			if (_post) *_post = pp[1];
-			return true;
-		}else{
-			return false;
+			if (*_pre != pp[0] || *_post != pp[1]){
+				if (::verbose){
+					fprintf(stderr, "%s %d,%d => %d,%d\n", _PFN, *_pre, *_post, pp[0], pp[1]);
+				}
+				*_pre = pp[0];
+				*_post = pp[1];
+				return true;
+			}
 		}
+
+		return false;
 	}
 	bool getPP(void) {
 		return getPP(&pre, &post);
@@ -2254,20 +2566,24 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	}
 
 	int  _stream();
-	int verbose;
+	static int verbose;
+	bool show_es;
 public:
 	StreamHeadLivePP():
 			pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
 		const char* vs = getenv("StreamHeadLivePPVerbose");
 		vs && (verbose = atoi(vs));
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() verbose=%d\n", verbose);
+		const char* ses = getenv("StreamHeadLivePPShowES");
+		ses && (show_es = atoi(ses));
 
 		fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
 		startEventWatcher();
 		startSampleIntervalWatcher();
 
 
-		if (verbose) fprintf(stderr, "StreamHeadImpl() pid %d progress: %s\n", getpid(), actual.name);
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() pid %d progress: %s\n", getpid(), actual.name);
 
 		if (verbose) fprintf(stderr, "StreamHeadLivePP: buffer[0] : %p\n",
 				Buffer::the_buffers[0]->getBase());
@@ -2283,13 +2599,14 @@ public:
 	virtual void stream();
 };
 
+int StreamHeadLivePP::verbose;
+
 bool StreamHead::has_pre_post_live_demux(void) {
 	return StreamHeadLivePP::hasPP();
 }
 
 void StreamHeadLivePP::getSampleInterval()
 {
-
 	FILE *pp = popen("get.site 1 SIG:sample_count:FREQ", "r");
 
 	int freq;
@@ -2320,6 +2637,7 @@ void StreamHeadLivePP::startSampleIntervalWatcher() {
 			*sample_interval_usecs = 100;
 
 			if (fork() == 0){
+				ident("acq400_stream_siw");
 				while (1){
 					sleep(1);
 					getSampleInterval();
@@ -2333,9 +2651,6 @@ int StreamHeadLivePP::_stream() {
 	int rc = 0;
 	char* b0 = MapBuffer::get_ba_lo();
 	char* b1 = MapBuffer::get_ba_hi();
-	int bo1 = Buffer::BO_NONE;
-	int bo2 = Buffer::BO_NONE;
-
 
 	if (verbose > 1) fprintf(stderr, "StreamHeadLivePP::stream(): f_ev %d\n", f_ev);
 // @@TODO: why does it DIE HERE?
@@ -2360,6 +2675,9 @@ int StreamHeadLivePP::_stream() {
 	INIT_SEL;
 	// 1637099 -1 201    sample_count, hb0 hb1
 	for( getPP(); rc >= 0; getPP()){
+		int bo1 = Buffer::BO_NONE;
+		int bo2 = Buffer::BO_NONE;
+
 		INIT_SEL;
 		rc = pselect(f_ev+1, &readfds, NULL, &exceptfds, &pto, &emptyset);
 		if (rc < 0){
@@ -2378,9 +2696,9 @@ int StreamHeadLivePP::_stream() {
 		}
 
 		if (pre){
-			bo1 = Buffer::BO_START;
+			bo1 |= Buffer::BO_START;
 		}else{
-			bo2 = Buffer::BO_START;
+			bo2 |= Buffer::BO_START;
 		}
 		if (!post){
 			bo1 |= Buffer::BO_FINISH;
@@ -2399,41 +2717,60 @@ int StreamHeadLivePP::_stream() {
 		if (!findEvent(&ibuf, &es)){
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 390\n");
 			continue;	// silently drop it. there will be more
-		}else if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
+		}
+		ev_num += 1;
+
+		if (multi_event){
+			char ev_message[128];
+			sprintf(ev_message, "%d,%d,%p\n", ev_num, ibuf, es);
+			write(multi_event, ev_message, strlen(ev_message));
+		}
+
+		if (es+postlen() > Buffer::the_buffers[ibuf]->getEnd()){
 			// only data in this buffer is guaranteed to be there .. drop it
 			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 395\n");
 			continue;
 		}
-		fprintf(stderr, "StreamHeadLivePP::stream() found %d %p\n",
-					ibuf, es);
-		char *es1 = es + sample_size;
+		if (verbose){
+			fprintf(stderr, "%s found %d %p pre %d post %d\n", _PFN,
+					ibuf, es, pre, post);
+		}
+		char *es1 = es + (show_es? 0: sample_size);
 
 		// all info referenced to buffer 0!
 		Buffer* buf = Buffer::the_buffers[0];
 		b0 = buf->getBase();
 
 		if (!(es - prelen() > b0 && es1 + postlen() < b1 )){
-			if (verbose) fprintf(stderr, "StreamHeadLivePP::stream() 49\n");
+			if (verbose) fprintf(stderr, "%s 49\n", _PFN);
 			continue;	// silently drop it. there will be more
 		}
 		if (pre){
 			int escount = countES(es-prelen(), prelen());
 			int eslen = escount*sample_size;
+			int start_off = es - prelen() - b0 - eslen;
+			int len = prelen()+eslen;
+
 			if (es - prelen() > b0 + eslen){
-				if (verbose) fprintf(stderr,
-					"StreamHeadLivePP::stream() 55 escount:%d\n", escount);
+				if (verbose) fprintf(stderr, "%s 54 escount:%d\n", _PFN, escount);
 			}
-			buf->writeBuffer(1, bo1, es - prelen() - b0 - eslen, prelen()+eslen);
+
+			int nb = buf->writeBuffer(1, bo1, start_off, len);
+			if (verbose) fprintf(stderr, "%s 56 wb %d, %d => %d\n", _PFN, start_off, len, nb);
 		}
 		if (post){
 			int escount = countES(es1, postlen());
 			int eslen = escount*sample_size;
+			int start_off = es1 - b0;
+			int len = postlen()+eslen;
+
 			if (es1 - b0 > postlen() - eslen){
-				if (verbose) fprintf(stderr,
-					"StreamHeadLivePP::stream() 57 escount:%d\n", escount);
+				if (verbose) fprintf(stderr, "%s 57 escount:%d\n", _PFN, escount);
 			}
 			waitPost();
-			buf->writeBuffer(1, bo2, es1 - b0, postlen()+eslen);
+
+			int nb = buf->writeBuffer(1, bo2, start_off, len);
+			if (verbose) fprintf(stderr, "%s 59 wb %d, %d => %d\n", _PFN, start_off, len, nb);
 		}
 	}
 
@@ -2465,6 +2802,9 @@ typedef std::vector<FILE *>::iterator FPV_IT;
 
 #define TRANSOUT	OBS_ROOT"/ch"
 
+
+
+/* TRANSIENT DEMUX */
 
 class Demuxer {
 protected:
@@ -2501,17 +2841,17 @@ protected:
 	}
 	/* watch out for end of source buffer ! */
 	virtual int _demux(void* start, int nbytes) = 0;
-
-public:
 	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), bufstep(1), dst(_cbb) {
-		const char* vs = getenv("DemuxerVerbose");
-		vs && (verbose = atoi(vs));
-		fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
+		verbose = getenv_default("DemuxerVerbose");
+		if (verbose) fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
+public:
+	virtual ~Demuxer() {}
+
 	virtual int demux(void *start, int nbytes);
-	int operator()(void *start, int nsamples){
-		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nsamples);
-		return demux(start, nsamples);
+	int operator()(void *start, int nbytes){
+		if (verbose) fprintf(stderr, "%s %p %d\n", _PFN, start, nbytes);
+		return demux(start, nbytes);
 	}
 	static int _msync (void *__addr, size_t __len, int __flags)
 	{
@@ -2527,9 +2867,12 @@ public:
 
 		return rc;
 	}
+	static Demuxer* instance(enum DemuxBufferType N, unsigned WS = sizeof(short));
 };
 
 int Demuxer::verbose;
+
+
 
 template <class T>
 class DemuxerImpl : public Demuxer {
@@ -2537,39 +2880,22 @@ class DemuxerImpl : public Demuxer {
 	virtual int _demux(void* start, int nbytes);
 	AbstractES& evX;
 	FILE* esf;
-public:
 
 
+protected:
 	DemuxerImpl() : Demuxer(sizeof(T), Buffer::bufferlen/G::nchan),
 		evX(*AbstractES::evX_instance())
 	{
 		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
 		esf = fopen("/dev/shm/es.log", "w");
 	}
+public:
+
 	virtual ~DemuxerImpl() {
 		fclose(esf);
 	}
+	friend class Demuxer;
 };
-
-class DualAxiDemuxerImpl : public Demuxer {
-	virtual int _demux(void* start, int nbytes);
-	int inst_chan;
-public:
-	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
-		inst_chan(-1)
-	{
-		bufstep = 2;
-		if (getenv("DualAxiDemuxerInstChan")){
-			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
-		}
-		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
-	}
-	virtual ~DualAxiDemuxerImpl() {
-
-	}
-};
-
-void Demuxer_report(int buffer);
 
 template <class T>
 int DemuxerImpl<T>::_demux(void* start, int nbytes){
@@ -2622,6 +2948,67 @@ int DemuxerImpl<T>::_demux(void* start, int nbytes){
 	return nbytes;
 }
 
+
+template <DemuxBufferType N>
+class DualAxiDemuxerImpl : public Demuxer {
+	virtual int _demux(void* start, int nbytes);
+	int inst_chan;
+	FILE* fp_decims;
+	u8 *decims;
+	u8 *decims_cursor;
+protected:
+	DualAxiDemuxerImpl() : Demuxer(sizeof(short), 2*Buffer::bufferlen/G::nchan),
+		inst_chan(-1)
+	{
+		bufstep = 2;
+		if (getenv("DualAxiDemuxerInstChan")){
+			inst_chan = atoi(getenv("DualAxiDemuxerInstChan")) - 1;
+		}
+		if (verbose) fprintf(stderr, "%s %d\n", _PFN, dst.channel_buffer_bytes);
+	}
+public:
+	virtual int demux(void* start, int nbytes);
+
+	virtual ~DualAxiDemuxerImpl() {
+		if (verbose) fprintf(stderr, "%s\n", _PFN);
+	}
+	friend class Demuxer;
+};
+
+
+
+void Demuxer_report(int buffer);
+
+static bool DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback;
+
+Demuxer* Demuxer::instance(enum DemuxBufferType N, unsigned WS)
+{
+	switch(N){
+	case DB_REGULAR:
+		switch(WS){
+		case sizeof(short):
+			return new DemuxerImpl<short>;
+		case sizeof(int):
+			return new DemuxerImpl<int>;
+		default:
+			assert(WS==sizeof(short)||WS==sizeof(int));
+			return 0;
+		}
+		break;
+	case DB_2D_REGULAR:
+		assert(WS==sizeof(short));
+		DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback =
+				getenv_default("DB_2D_REGULAR_NOPULLBACK", 0);
+		return new DualAxiDemuxerImpl<DB_2D_REGULAR>;
+	case DB_DOUBLE:
+		assert(WS==sizeof(short));
+		return new DemuxerImpl<int>;
+	case DB_2D_DOUBLE:
+		return new DualAxiDemuxerImpl<DB_2D_DOUBLE>;
+	default:
+		assert(0);
+	}
+}
 int interesting(int sam, int nsam)
 {
 	return sam < 4 || sam > (nsam-6);
@@ -2629,50 +3016,78 @@ int interesting(int sam, int nsam)
 short ramp;
 short done_ramping;
 
-int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
+template <DemuxBufferType N>
+int DualAxiDemuxerImpl<N>::demux(void* start, int nbytes){
+	return ::Demuxer::demux(start, nbytes);
+}
+
+
+template <DemuxBufferType N>
+int  DualAxiDemuxerImpl<N>::_demux(void* start, int nbytes) {
+	assert(2+2 == 5);
+}
+
+#define VERBOSE_INNER_LOOP 0
+
+template <>
+int  DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux(void* _start, int nbytes) {
 	const int nsam = b2s(nbytes);
 	const int cbs = channel_buffer_sam()/2;
+	char* start = reinterpret_cast<char*>(_start);
 	short* pdst = reinterpret_cast<short*>(dst.cursor);
-	int nsrc = MAX(nbytes/sizeof(short),2*Buffer::bufferlen/sizeof(short));
+	int nsrc = MAX(nbytes/sizeof(short), 2*Buffer::bufferlen/sizeof(short));
 	short* srcbuf = new short[nsrc];
 	short* psrc = srcbuf;
 	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
-	const unsigned step = 2;
+	const unsigned step = G::double_up? 2: 1;
 	const unsigned NC = G::nchan;
 	const unsigned NC2 = G::nchan/2;
+	const unsigned SRCINC = step==2? NC: NC2;
 	const int BUFSHORTS = Buffer::bufferlen/sizeof(short);
+	int change_over = 0;
 
 	memcpy(psrc, start, nsrc*sizeof(short));
 
+	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_DOUBLE>::_demux()\n");
 	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
 			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
 
 	if (verbose) fprintf(stderr, "%s step %d double_up %d nchan:%d\n", _PFN, step, G::double_up, G::nchan);
 
-	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += NC){
+	for (int sam = 0, sambuf = 0; sam < nsam; sam += step, sambuf += step, psrc += SRCINC){
 		if (sambuf == cbs){
 			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
 						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
 			pdst += BUFSHORTS;	// step to next destination buffer
 			sambuf = 0;
+			if (++change_over == 2){
+				psrc = srcbuf;
+				memcpy(psrc, start += 2*Buffer::bufferlen, nsrc*sizeof(short));
+				change_over = 0;
+				if (verbose) fprintf(stderr, "%s reload srcbuf from %p\n", _PFN, start);
+			}
 		}
 		unsigned chan = 0;
 		// harvest first half channels from first src buf
 		for (short* psrct = psrc; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+#endif
 			pdst[chan*cbs+sambuf] = *psrct++;
-			pdst[chan*cbs+sambuf+1] = *psrct++;
+			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 		// harvest second half channels from second src buf
 		for (short* psrct = psrc + BUFSHORTS; chan < NC; ++chan){
+#if VERBOSE_INNER_LOOP
 			if (verbose > 1 && interesting(sambuf, cbs)) fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n", _PFN, chan, sam, chan*cbs+sambuf, psrct-srcbuf);
+#endif
 			pdst[chan*cbs+sambuf] = *psrct++;
-			pdst[chan*cbs+sambuf+1] = *psrct++;
+			if (step==2) pdst[chan*cbs+sambuf+1] = *psrct++;
 		}
 #ifdef BUFFER_IDENT
 		if (inst_chan >= 0){
 			pdst[inst_chan*cbs+sambuf] = ++ramp;
-			pdst[inst_chan*cbs+sambuf+1] = ++ramp;
+			if (step==2) pdst[inst_chan*cbs+sambuf+1] = ++ramp;
 		}
 #endif
 	}
@@ -2688,6 +3103,159 @@ int  DualAxiDemuxerImpl::_demux(void* start, int nbytes) {
 	delete [] srcbuf;
 	return nbytes;
 }
+
+static char getMR10DEC(void){
+	unsigned mr10 = 3;
+	getKnob(0, "/etc/acq400/0/NCHAN", &mr10);
+	switch (mr10){
+	default:
+	case 3:
+		return 32;
+	case 2:
+		return 16;
+	case 1:
+		return 8;
+	case 0:
+		return 4;
+	}
+}
+
+/**
+ * DB_2D_REGULAR : wrap ::demux(), create decims array. adjust the decims to fit real hardware.
+ */
+template<>
+int DualAxiDemuxerImpl<DB_2D_REGULAR>::demux(void* start, int nbytes){
+	int nsam = nbytes/sample_size();
+	const u8 decim_rates[] = {
+			[0] = 2,
+			[1] = 1,
+			[2] = getMR10DEC(),
+			[3] = 2
+		};
+
+	if (verbose) fprintf(stderr, "%s open fp_decims %d\n", _PFN, nsam);
+	if (verbose) fprintf(stderr, "%s decim_rates %u,%u,%u,%u\n", _PFN,
+				decim_rates[0], decim_rates[1], decim_rates[2], decim_rates[3]);
+
+	fp_decims = fopen("/dev/shm/decims", "w");
+	assert(fp_decims);
+	decims_cursor = decims = new u8[nsam];
+
+	int rc = ::Demuxer::demux(start, nbytes);
+
+	const unsigned last = decims_cursor - decims;
+	const unsigned notouch = DualAxiDemuxerImpl_DB_2D_REGULAR_nopullback? last: 2;
+	unsigned ii = 0;
+	u8 *decims_out = new u8[nsam];
+	for (; ii < notouch; ++ii){
+		decims_out[ii] = decim_rates[decims[ii]];
+	}
+	for (; ii < last; ++ii){			// does not exec if notouch==last
+		u8 id = decims[ii];
+		if (id == 2){
+			if (decims[ii-2] == 1){			// SPRINT->JOG : pull 2
+				id = 1;
+			}else if (decims[ii-1] == 0){		// RUN->JOG: pull 1
+				id = 2;
+			}
+		}
+		decims_out[ii] = decim_rates[id];
+	}
+
+	int nw = fwrite(decims_out, sizeof(u8), nsam, fp_decims);
+	if (verbose) fprintf(stderr, "%s closing down fp_decims %d\n", _PFN, nw);
+	fclose(fp_decims);
+	delete [] decims_out;
+	delete [] decims;
+	return rc;
+}
+
+
+template <>
+int  DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux(void* _start, int nbytes) {
+	const unsigned BUFSHORTS = Buffer::bufferlen/sizeof(short);
+	const unsigned NC2 = G::nchan/2;
+
+	const int nsam = b2s(nbytes);
+	const int cbs = channel_buffer_sam()/2;
+	char* start = reinterpret_cast<char*>(_start);
+	short* pdst = reinterpret_cast<short*>(dst.cursor);
+	unsigned nsrc = MAX(nbytes/sizeof(short), 2*BUFSHORTS);
+	short* srcbuf = new short[nsrc];
+	short* psrc = srcbuf;
+	int b1 = MapBuffer::getBuffer(reinterpret_cast<char*>(start));
+	int change_over = 0;
+
+	memcpy(psrc, start, nsrc*sizeof(short));
+
+	if (verbose) fprintf(stderr, "DualAxiDemuxerImpl<DB_2D_REGULAR>::_demux()\n");
+	if (verbose) fprintf(stderr, "%s (%p %d) b:%d %p = %p * nsam:%d cbs:%d\n",
+			_PFN, start, nbytes, b1, pdst, psrc, nsam, cbs);
+
+	for (int sam = 0, sambuf = 0; sam < nsam; sam += 1, sambuf += 1, psrc += NC2){
+		if (sambuf >= cbs){
+			if (verbose) fprintf(stderr, "%s step pdst from %p up %d to %p sam=%d\n",
+						_PFN, pdst, BUFSHORTS, pdst+BUFSHORTS, sam);
+			pdst += BUFSHORTS;	// step to next destination buffer
+			sambuf = 0;
+			if (++change_over == 2){
+				psrc = srcbuf;
+				memcpy(psrc, start += 2*Buffer::bufferlen, nsrc*sizeof(short));
+				change_over = 0;
+				if (verbose) fprintf(stderr, "%s reload srcbuf from %p\n", _PFN, start);
+			}
+		}
+		unsigned chan = 0;
+		short* psrct = psrc;
+		// harvest first half channels from first src buf
+		for (; chan < 1; ++chan){
+			short xx = *psrct++;
+			*decims_cursor++ = xx&0x3;
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = xx & 0xFFFC;
+		}
+		for (; chan < 8; ++chan){
+			short xx = *psrct++;
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = xx & 0xFFFC;
+		}
+		for ( ; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
+			if (verbose > 1 && interesting(sambuf, cbs)) {
+				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
+					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA0[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
+			}
+#endif
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA0[chan]*cbs+sambuf] = *psrct++;
+		}
+		// harvest second half channels from second src buf
+		chan = 0;
+		for (psrct = psrc + BUFSHORTS; chan < NC2; ++chan){
+#if VERBOSE_INNER_LOOP
+			if (verbose > 1 && interesting(sambuf, cbs)){
+				fprintf(stderr, "%s [%d][%7d] pdst[%6d] = [%7d]\n",
+					_PFN, DB_2D_R_MEM_PIN_LUT_48_DMA1[chan], sam, chan*cbs+sambuf, psrct-srcbuf);
+			}
+#endif
+			pdst[DB_2D_R_MEM_PIN_LUT_48_DMA1[chan]*cbs+sambuf] = *psrct++;
+		}
+#ifdef BUFFER_IDENT
+		if (inst_chan >= 0){
+			pdst[inst_chan*cbs+sambuf] = ++ramp;
+		}
+#endif
+	}
+
+
+	if (verbose) fprintf(stderr, "%s set cursor %p + %d => %p\n", _PFN, dst.cursor, nbytes, dst.cursor+nbytes);
+	dst.cursor += nbytes/G::nchan;
+
+	Progress::instance().print(true, b1);
+
+	if (verbose) fprintf(stderr, "%s return %d\n", _PFN, nbytes);
+	if (verbose) fprintf(stderr, "%s delete [] %p\n", _PFN, srcbuf);
+	delete [] srcbuf;
+	return nbytes;
+}
+
 
 int Demuxer::demux(void* start, int nbytes)
 /* return bytes demuxed */
@@ -2770,20 +3338,6 @@ Progress& Progress::instance(FILE *fp) {
 }
 
 
-static bool cleanup_done;
-
-static void wait_and_cleanup_sighandler(int signo)
-{
-	if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler(%d) pid:%d %s\n",
-			signo, getpid(), cleanup_done? "FRESH": "DONE");
-	if (!cleanup_done){
-		kill(0, SIGTERM);
-		cleanup_done = true;
-		Progress::instance().setState(ST_CLEANUP);
-		if (verbose) fprintf(stderr,"wait_and_cleanup_sighandler progress done\n");
-	}
-	exit(0);
-}
 void acq400_stream_getstate(void)
 {
 	Progress::instance().print();
@@ -3030,8 +3584,7 @@ public:
 		post_fits(headroom >= G::post),
 		bd_scale(_bd_scale)
 	{
-		const char* bv = getenv("BufferDistributionVerbose");
-		bv && (verbose = atoi(bv));
+		verbose = getenv_default("BufferDistributionVerbose");
 	}
 	void show() {
 		fprintf(stderr, "%s pre_fits:%d post_fits:%d\n", _PFN, pre_fits, post_fits);
@@ -3426,6 +3979,7 @@ vector<Segment>& BufferDistribution::getSegments() {
 	return segments;
 }
 
+/* BLock Transfer */
 class BLT {
 	const char* base;
 	char* cursor;
@@ -3454,52 +4008,6 @@ public:
 
 #define NOTIFY_HOOK "/dev/acq400/data/.control"
 
-
-class Event0 {
-	char event[80];
-	bool disabled;
-	int verbose;
-
-	void setEvent0(const char* triplet){
-		char cmd[80];
-		sprintf(cmd, "set.site 1 event0=%s;get.site 1 event0\n", triplet);
-		if (verbose) fprintf(stderr, cmd);
-		FILE *pp = popen(cmd, "r");
-		if (pp == 0){
-			perror("Event0 popen() fail");
-		}else{
-			fgets(cmd, 80, pp);
-			if (verbose) fprintf(stderr, "response %s\n", cmd);
-			pclose(pp);
-		}
-	}
-public:
-	Event0() : disabled(false) {
-		if (getenv("EVENT_VERBOSE")){
-			verbose = atoi(getenv("EVENT_VERBOSE"));
-			fprintf(stderr, "Event0 verbose set %d\n", verbose);
-		}
-		char cmd[80];
-		sprintf(cmd, "get.site 1 event0");
-		FILE *pp = popen(cmd, "r");
-		if (fscanf(pp, "event0=%s", event) != 1){
-			fprintf(stderr, "fscanf failed\n");
-		}
-		pclose(pp);
-	}
-	void disable() {
-		if (!disabled){
-			setEvent0("0,0,0");
-			disabled = true;
-		}
-	}
-	void enable() {
-		if (disabled){
-			setEvent0(event);
-			disabled = false;
-		}
-	}
-};
 
 class StreamHeadWithClients: public StreamHeadImpl {
 protected:
@@ -3549,6 +4057,33 @@ public:
 		}
 	}
 };
+
+class EventController {
+	const int site;
+	const char* evt;
+	char enable_state[10];
+	bool valid;
+public:
+	EventController(int _site, const char* _evt) : site(_site), evt(_evt), valid(false) {
+		char event_status[80];
+		if (getKnob(site, "event0", event_status) != 1){
+			fprintf(stderr, "ERROR: failed to read event0 knob");
+		}else{
+		// event0=1,0,1 enable d0 RISING
+			if (sscanf(event_status, "event0=%s", enable_state) != 1){
+				fprintf(stderr, "ERROR: failed to extract enable_state");
+			}else{
+				valid = true;
+			}
+		}
+	}
+	void disable(void) {
+		if (valid) setKnob(site, evt, "0,0,0");
+	}
+	void enable(void) {
+		if (valid) setKnob(site, evt, enable_state);
+	}
+};
 class StreamHeadPrePost: public StreamHeadWithClients, StreamHeadClient  {
 protected:
 	unsigned pre;
@@ -3559,10 +4094,11 @@ protected:
 
 	bool cooked;
 	char* typestring;
-	Event0 event0;
 	static int verbose;
 
 	unsigned ib;
+	bool accepting_events;
+	EventController event0;
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
@@ -3606,28 +4142,23 @@ protected:
 		if (verbose>1) fprintf(stderr, "%s onStreamBufferStart %d\n", _PFN, ib);
 	}
 	virtual void onStreamEnd() {
-		if (getenv("ACQ400_STREAM_DEBUG_STREAM_END")){
-			verbose = atoi(getenv("ACQ400_STREAM_DEBUG_STREAM_END"));
-		}
-		if (G::demux >= 0){
-			setState(ST_POSTPROCESS); actual.print();
-			Demuxer::_msync(MapBuffer::get_ba_lo(),
-				MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
-			if (pre){
-				int ibuf;
-				char* es;
+		verbose = getenv_default("ACQ400_STREAM_DEBUG_STREAM_END");
 
-				if (findEvent(&ibuf, &es)){
-					if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
-					postProcess(ibuf, es);
-				}else{
-					fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
-				}
+		setState(ST_POSTPROCESS); actual.print();
+		Demuxer::_msync(MapBuffer::get_ba_lo(),
+			MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
+		if (pre){
+			int ibuf;
+			char* es;
+
+			if (findEvent(&ibuf, &es)){
+				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
+				postProcess(ibuf, es);
 			}else{
-				postProcess(0, MapBuffer::get_ba_lo());
+				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
 			}
 		}else{
-			fprintf(stderr, "%s demux<0 skip postProcess\n", _PFN);
+			postProcess(0, MapBuffer::get_ba_lo());
 		}
 		notify_result();
 	}
@@ -3640,7 +4171,6 @@ protected:
 	virtual int getBufferId() {
 		char buf[80];
 		fd_set readfds;
-		fd_set readfds0;
 		int rc;
 
 		FD_ZERO(&readfds);
@@ -3649,24 +4179,23 @@ protected:
 
 		if (verbose>2) fprintf(stderr, "%s fc %d f_ev %d nfds %d\n", _PFN, fc, f_ev, nfds);
 
-		for(readfds0 = readfds;
+		for(fd_set readfds0 = readfds;
 			(rc = select(nfds, &readfds, 0, 0, 0)) > 0; readfds = readfds0){
 			if (verbose>2) fprintf(stderr, "select returns  %d\n", rc);
 
 			if (FD_ISSET(f_ev, &readfds)){
 				if (verbose>2) fprintf(stderr, "%s FD_ISSET f_ev %d\n", _PFN, f_ev);
-				/* we can only handle ONE EVENT */
-				if (!event_received){
-					rc = read(f_ev, event_info, 80);
-					if (rc <= 0){
-						syslog(LOG_DEBUG, "read error  %d\n", rc);
-					}else{
-						event_info[rc] = '\0';
-						chomp(event_info);
-						if (verbose) fprintf(stderr, "%s fd_ev read \"%s\"\n", _PFN, event_info);
+				rc = read(f_ev, event_info, 80);
+				if (rc > 0){
+					event_info[rc] = '\0';
+					chomp(event_info);
+					if (verbose) fprintf(stderr, "%s fd_ev read \"%s\"  accepting? %s\n",
+								_PFN, event_info, accepting_events? "YES": "NO");
+					if (accepting_events){
 						event_received = true;
-						FD_CLR(f_ev, &readfds0);
 					}
+				}else{
+					syslog(LOG_DEBUG, "read error  %d\n", rc);
 				}
 			}
 			if (FD_ISSET(fc, &readfds)){
@@ -3699,6 +4228,15 @@ protected:
 		}
 		return -1;
 	}
+
+	void store_event_time()
+	{
+		FILE *fp = fopen("/etc/acq400/1/event_time", "w");
+		if (fp){
+			fprintf(fp, "%lu\n", time(0));
+		}
+		fclose(fp);
+	}
 	void streamCore() {
 		BufferLog blog;
 		int ib;
@@ -3728,7 +4266,8 @@ protected:
 
 			switch(actual.state){
 			case ST_RUN_PRE:
-				if (verbose>1) fprintf(stderr, "%s ST_RUN_PRE\n", _PFN);
+				if (verbose>1) fprintf(stderr, "%s ST_RUN_PRE %d %d\n", _PFN, actual.pre, pre);
+
 				if (actual.pre < pre){
 					if (actual.pre + samples_buffer < pre){
 						actual.pre += samples_buffer;
@@ -3738,11 +4277,13 @@ protected:
 				}
 				if (actual.pre >= pre){
 					if (event_received){
+						store_event_time();
 						clock_gettime(CLOCK_REALTIME, &finish_time);
 						finish_time.tv_sec += 1;
 						setState(ST_RUN_POST);
 					}else{
 						if (++buffers_over_pre > G::corner_turn_delay){
+							accepting_events = true;
 							event0.enable();
 						}
 					}
@@ -3784,19 +4325,19 @@ protected:
 		setKnob(0, "estop", "1");
 	}
 	static void initVerbose() {
-		if (getenv("StreamHeadPrePostVerbose")){
-			verbose = atoi(getenv("StreamHeadPrePostVerbose"));
-			fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
-		}
+		verbose = getenv_default("StreamHeadPrePostVerbose");
+		if (verbose) fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 	}
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
 		pre(_pre), post(_post),
-		cooked(false), ib(666666)
+		cooked(false), ib(666666), accepting_events(false),
+		event0(1, "event0")
 		{
 
 		initVerbose();
+		event0.disable();
 		actual.status_fp = stdout;
 		if (verbose) fprintf(stderr, "%s\n", _PFN);
 		setState(ST_STOP);
@@ -3843,7 +4384,6 @@ public:
 		}
 
 		if (G::soft_trigger){
-			event0.disable();
 			schedule_soft_trigger();
 		}
 		streamCore();
@@ -3866,11 +4406,9 @@ class SubrateStreamHead: public StreamHead {
 public:
 	SubrateStreamHead():
 		StreamHead(open("/dev/acq400.0.bq", O_RDONLY), 1) {
-		FILE *fp = fopen("/var/run/acq400_stream.bq.pid", "w");
-		fprintf(fp, "%d\n", getpid());
-		fclose(fp);
-		close(fout);		/* we open it every time .. */
-		BufferCloner::cloneBuffers<OversamplingBufferCloner>();
+			ident("acq400_stream_bq");
+			close(fout);		/* we open it every time .. */
+			BufferCloner::cloneBuffers<OversamplingBufferCloner>();
 	}
 	virtual ~SubrateStreamHead() {
 	}
@@ -4035,7 +4573,8 @@ void waitHolders() {
 
 StreamHead* StreamHead::createLiveDataInstance()
 {
-	ident("acq400_stream_hb0");
+	ident("acq400_stream_LDI");
+	nice(-10);
 
 	for (nb_cat = 1;
 	     nb_cat*Buffer::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
@@ -4053,26 +4592,213 @@ StreamHead* StreamHead::createLiveDataInstance()
 	}
 }
 
+#define ECL_NOLIMIT	0
+
 void setEventCountLimit(int limit)
 {
 	fprintf(stderr, "setEventCountLimit() %d\n", limit);
 	setKnob(0,
 	"/sys/module/acq420fmc/parameters/acq400_event_count_limit", limit);
 }
+
+
+
+class MultiEventServer {
+	const char* b0;
+	const char* b1;
+	FILE* fp_in;
+	int verbose;
+	int pre;
+	int post;
+	int maxfiles;
+	int pre_bytes;
+	int post_bytes;
+	int update_number;
+	bool dynamic;				/* get dynamic updates */
+
+	const int maxfiles_limit;
+	int ev_count;
+
+	static long df(int fd)
+	{
+		struct statvfs buf;
+		if (fstatvfs(fd, &buf) == 0){
+			/* play it safe, don't go over 50% */
+			if (buf.f_bavail < buf.f_blocks/2){
+				return 0;
+			}else{
+				return buf.f_bsize * buf.f_bavail/2;
+			}
+		}else{
+			return -1;
+		}
+	}
+	void handle_event(int ev, int ibuf, char* esp){
+		char fn[80];
+		sprintf(fn, "event-%03d-%lu-%u-%u.dat", ev, time(0), pre, post);
+
+		if (verbose) fprintf(stderr, "MultiEventServer::handle_event() %s\n", fn);
+
+		char fn0[80];
+		sprintf(fn0, "/tmp/.%s", fn);  /* work in a hidden file */
+
+		FILE *fp = fopen(fn0, "w");
+		if (fp == 0){
+			perror("fopen");
+			exit(EXIT_FAILURE);
+		}
+		long freebytes = df(fileno(fp));
+		if (freebytes < pre_bytes+post_bytes){
+			if (verbose) fprintf(stderr, "MultiEventServer::handle_event LOW memory %ld do not store\n", freebytes);
+			fwrite(esp, 1, sample_size(), fp);
+		}else{
+			int linear_pre = esp-b0;
+			int linear_post = b1-esp;
+
+			if (pre_bytes > linear_pre){
+				fwrite(b1-(pre_bytes-linear_pre), 1, pre_bytes-linear_pre, fp);
+				pre_bytes -= linear_pre;
+			}
+			fwrite(esp-pre_bytes, 1, pre_bytes, fp);
+
+			if (post_bytes > linear_post){
+				fwrite(esp, 1, linear_post, fp);
+				fwrite(b0, 1, post_bytes-linear_post, fp);
+			}else{
+				fwrite(esp, 1, post_bytes, fp);
+			}
+		}
+		fclose(fp);
+		char fn1[80];
+		sprintf(fn1, "/tmp/%s", fn);
+		rename(fn0, fn1);				/* atomic, file safe to use */
+	}
+	void set_maxfiles(int _maxfiles){
+		maxfiles = _maxfiles > maxfiles_limit? maxfiles_limit: _maxfiles;
+	}
+#define MULTI_EVENT_EQUALS	"MULTI_EVENT="			// prefix in /dev/shm/settings file
+	void update_prams(const char* _def){
+		if (strncmp(_def, MULTI_EVENT_EQUALS, strlen(MULTI_EVENT_EQUALS)) == 0){
+			_def += strlen(MULTI_EVENT_EQUALS);
+		}
+		int _update_number;
+		int _maxfiles;
+		int nf = sscanf(_def, "%d,%d,%d,%d", &pre, &post, &_maxfiles, &_update_number);
+
+		if (verbose) fprintf(stderr, "MultiEventServer::serve() update was %d nf=%d %s\n",
+				update_number, nf, _def);
+
+		if (nf == 3 || (nf == 4 && _update_number > update_number)){
+			if (_maxfiles == 0){
+				set_maxfiles(0);		// disable
+			}
+			if (nf == 4){
+				update_number = _update_number;
+				if (_maxfiles){
+					set_maxfiles(_maxfiles + ev_count);
+				}
+			}else{
+				if (maxfiles != 0){
+					set_maxfiles(_maxfiles + ev_count);	// could be signal to start;
+				}
+			}
+			pre_bytes = pre*sample_size();
+			post_bytes = (post+1)*sample_size();
+		}
+	}
+
+	void update_prams(void) {
+		FILE* fp = fopen("/dev/shm/multi_event_settings", "r");
+		if (fp != 0){
+			char def[80];
+			if (fgets(def, 80, fp)){
+				update_prams(def);
+			}
+			fclose(fp);
+		}
+	}
+public:
+	MultiEventServer(const char* def, int _fd_in):
+		b0(MapBuffer::get_ba_lo()),
+		b1(MapBuffer::get_ba_hi()),
+		fp_in(fdopen(_fd_in, "r")),
+		update_number(0),
+		maxfiles_limit(getenv_default("MultiEventServerMaxfilesLimit", 199)),
+		ev_count(0)
+	{
+		ident("acq400_stream_MES");
+		verbose = getenv_default("MultiEventServerVerbose");
+		if (verbose) fprintf(stderr, "MultiEventServer\n");
+
+		update_prams(def);
+	}
+
+	void serve () {
+		char buf[128];
+		// 17,34,0x46782160
+		while (fgets(buf, 128, fp_in)){
+			if (verbose) fprintf(stderr, "MultiEventServer::serve() %s", buf);
+			update_prams();
+			int ev;
+			int ibuf;
+			void* esp;
+
+			if (verbose) fprintf(stderr, "MultiEventServer::serve() ev_count %d maxfiles %d\n",
+					ev_count, maxfiles);
+
+			if (ev_count++ < maxfiles && sscanf(buf, "%d,%d,%p", &ev, &ibuf, &esp) == 3){
+				handle_event(ev, ibuf, (char*)esp);
+			}
+		}
+	}
+};
+void StreamHead::createMultiEventInstance(const char* def)
+{
+	int pipefd[2] = {};
+        pid_t cpid;
+
+        if (pipe(pipefd) == -1) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+
+        cpid = fork();
+        if (cpid == -1){
+             perror("fork");
+             exit(EXIT_FAILURE);
+        }
+
+        if (cpid == 0){    		/* Child reads from pipe */
+             close(pipefd[1]);          /* Close unused write end */
+
+             (new MultiEventServer(def, pipefd[0]))->serve();  /* blocks */
+        }else{            		/* Parent writes argv[1] to pipe */
+             close(pipefd[0]);          /* Close unused read end */
+             multi_event = pipefd[1];
+             nice(13);
+             ident("acq400_stream_mei");
+             fprintf(stderr, "StreamHead::createMultiEventInstance() multi_event pipe:%d\n", multi_event);
+             // return to main line
+        }
+}
+
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
+	nice(-10);
 	if (_instance == 0){
-
 		setEventCountLimit(
-				G::show_events? G::show_events:
-				G::stream_mode == SM_TRANSIENT? 1: 0);
+				G::show_events? ECL_NOLIMIT:
+				G::stream_mode == SM_TRANSIENT? 1: ECL_NOLIMIT);
 
 		if (G::is_spy){
 			return _instance = new StreamHead(
 					open("/dev/acq400.0.bqf", O_RDONLY), 1);
 		}
 
+		if (G::multi_event){
+			createMultiEventInstance(G::multi_event);
+		}
 		if (G::oversampling && fork() == 0){
 			_instance = new SubrateStreamHead;
 			return _instance;
@@ -4084,24 +4810,18 @@ StreamHead* StreamHead::instance() {
 		}
 
 		ident("acq400_stream_main");
-
 		if (G::stream_mode == SM_TRANSIENT){
 			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
 				Demuxer *demuxer;
-				if (G::wordsize == 4){
-					demuxer = new DemuxerImpl<int>;
+
+				if (G::dualaxi == 2){
+					demuxer = Demuxer::instance(G::double_up? DB_2D_DOUBLE: DB_2D_REGULAR);
+					_instance = new DemuxingStreamHeadPrePostDualBuffer(
+						Progress::instance(), *demuxer, G::pre, G::post);
 				}else{
-					if (G::dualaxi == 2){
-						demuxer = new DualAxiDemuxerImpl;
-						_instance = new DemuxingStreamHeadPrePostDualBuffer(
-									Progress::instance(), *demuxer, G::pre, G::post);
-					}else{
-						demuxer = new DemuxerImpl<short>;
-					}
-				}
-				if (_instance == 0){
+					demuxer = Demuxer::instance(DB_REGULAR, G::wordsize);
 					_instance = new DemuxingStreamHeadPrePost(
-					Progress::instance(), *demuxer, G::pre, G::post);
+						Progress::instance(), *demuxer, G::pre, G::post);
 				}
 			}else{
 				_instance = new StreamHeadPrePost(
@@ -4113,7 +4833,11 @@ StreamHead* StreamHead::instance() {
 			}
 			switch(G::buffer_mode){
 			case BM_NULL:
-				_instance = new NullStreamHead(Progress::instance());
+				if (G::fillk){
+					_instance = new NullStreamHeadDivK(Progress::instance());
+				}else{
+					_instance = new NullStreamHead(Progress::instance());
+				}
 				break;
 			default:
 				if (G::sum || G::subset){

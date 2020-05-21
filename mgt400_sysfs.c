@@ -89,7 +89,7 @@ static ssize_t show_RW32_debug(
 }
 
 static DEVICE_ATTR(RW32_debug,
-		S_IRUGO|S_IWUGO, show_RW32_debug, store_RW32_debug);
+		S_IRUGO|S_IWUSR, show_RW32_debug, store_RW32_debug);
 
 #define DMA_STATUS(DIR, REG, SHL) 					\
 static ssize_t show_dma_stat_##DIR(					\
@@ -202,7 +202,7 @@ static ssize_t show_aurora_enable(
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
 	return sprintf(buf, "%u\n", (mgt400rd32(mdev, AURORA_CR)&AURORA_CR_ENA)!=0);
 }
-static DEVICE_ATTR(aurora_enable, S_IRUGO|S_IWUGO, show_aurora_enable, store_aurora_enable);
+static DEVICE_ATTR(aurora_enable, S_IRUGO|S_IWUSR, show_aurora_enable, store_aurora_enable);
 
 
 static ssize_t show_aurora_lane_up(
@@ -340,7 +340,7 @@ static ssize_t store_clear_stats(
 		return -1;
 	}
 }
-static DEVICE_ATTR(clear_stats, S_IRUGO|S_IWUGO, show_clear_stats, store_clear_stats);
+static DEVICE_ATTR(clear_stats, S_IRUGO|S_IWUSR, show_clear_stats, store_clear_stats);
 
 static ssize_t show_spad(
 	struct device * dev,
@@ -374,7 +374,7 @@ static ssize_t store_spad(
 	}
 }
 
-static DEVICE_ATTR(spad, S_IRUGO|S_IWUGO, show_spad, store_spad);
+static DEVICE_ATTR(spad, S_IRUGO|S_IWUSR, show_spad, store_spad);
 
 static ssize_t show_auto_dma(
 	struct device * dev,
@@ -411,7 +411,7 @@ static ssize_t store_auto_dma(
 	return count;
 }
 
-static DEVICE_ATTR(auto_dma, S_IRUGO|S_IWUGO, show_auto_dma, store_auto_dma);
+static DEVICE_ATTR(auto_dma, S_IRUGO|S_IWUSR, show_auto_dma, store_auto_dma);
 
 #define AGG_SEL	"aggregator="
 
@@ -456,7 +456,7 @@ int get_site(char s)
 	int ii;
 	int site = s-'0';
 
-	for(ii = 0; ii < MAXSITES; ++ii){
+	for(ii = 0; ii < MAXDEVICES; ++ii){
 		if (sc_dev->aggregator_set[ii] &&
 		    sc_dev->aggregator_set[ii]->of_prams.site == site){
 			return site;
@@ -542,7 +542,7 @@ static ssize_t store_reg_##name(					\
 	return store_agg_reg(dev, attr, buf, count,  offset, mshift);	\
 }									\
 static DEVICE_ATTR(name, 						\
-	S_IRUGO|S_IWUGO, show_reg_##name, store_reg_##name)
+	S_IRUGO|S_IWUSR, show_reg_##name, store_reg_##name)
 
 REG_KNOB(aggregator, ZDMA_CR,	AGGREGATOR_MSHIFT);
 
@@ -571,7 +571,7 @@ static ssize_t store_ident(
 		return -1;
 	}
 }
-static DEVICE_ATTR(ident, S_IRUGO|S_IWUGO, show_ident, store_ident);
+static DEVICE_ATTR(ident, S_IRUGO|S_IWUSR, show_ident, store_ident);
 
 
 static const struct attribute *sysfs_base_attrs[] = {

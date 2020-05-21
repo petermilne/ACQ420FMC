@@ -42,7 +42,7 @@ MODULE_PARM_DESC(AXIDMA_ONCE_TO_MSEC, "timeout for transferrining 4MB at 800MB/s
 
 
 int AXIDMA_ONCE_BUSY;
-module_param(AXIDMA_ONCE_BUSY, int, 0044);
+module_param(AXIDMA_ONCE_BUSY, int, 0444);
 MODULE_PARM_DESC(AXIDMA_ONCE_BUSY, "TRUE when ONCE in progress");
 
 int AXIDMA_ONCE_RESET_ON_EXIT;

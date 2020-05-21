@@ -1,0 +1,11 @@
+#!/bin/sh
+
+COMMAND="dawg -s /etc/dawg-test-pat -r 1000 --slow 4 --interactive"
+
+if [ -e /mnt/local/dawg-init ]; then
+	# user can redefine COMMAND
+	source /mnt/local/dawg-init
+fi
+
+exec $COMMAND
+

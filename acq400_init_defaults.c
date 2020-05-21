@@ -226,16 +226,23 @@ extern int xo_use_distributor;
 void _dio432_DO_onStart(struct acq400_dev *adev)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+
+	x400_disable_interrupt(adev);
+	acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
+
 	if (xo_use_distributor){
-		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
 	}else if (xo_dev->AO_playloop.oneshot == 0 ||
 		xo_dev->AO_playloop.length > adev->lotide){
-		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10");
+
 		acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
-		x400_enable_interrupt(adev);
+		if (adev->lotide){
+			dev_dbg(DEVP(adev), "_dio432_DO_onStart() 10, set lotide, enable_interrupt");
+			x400_enable_interrupt(adev);
+		}else{
+			dev_dbg(DEVP(adev), "_dio432_DO_onStart() 15, clear lotide, interrupt stays disabled");
+		}
 	}else{
-		acq400wr32(adev, DIO432_DO_LOTIDE, 0);
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 20");
 	}
 	acq400wr32(adev, DIO432_DIO_CTRL, acq400rd32(adev, DIO432_DIO_CTRL)|DIO432_CTRL_DIO_EN);
@@ -486,27 +493,37 @@ int xtd_watchdog(void *data)
 
 static void start_xtd_watchdog(struct acq400_dev *adev)
 {
-	kthread_run(xtd_watchdog, adev, "%s.xtd", devname(adev));
+	kthread_run(xtd_watchdog, adev, "%s.xtd", adev->dev_name);
 }
 static void acq43X_init_defaults(struct acq400_dev *adev)
 {
-	int is_acq430 = IS_ACQ430(adev);
 	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+	u32 banksel = 0;
+	const char* devname;
 
-	dev_info(DEVP(adev), "%s device init", is_acq430? "ACQ430": "ACQ435");
-	adev->data32 = 1;
+
+
 	if (IS_ACQ430(adev)){
 		adev->nchan_enabled = 8;
+		banksel = ACQ430_BANKSEL;
+		devname = "ACQ430";
 	}else if (IS_ACQ437(adev)){
 		adev->nchan_enabled = 16;
+		banksel = ACQ437_BANKSEL;
+		devname = "ACQ437";
+	}else if (IS_ACQ436(adev)){
+		adev->nchan_enabled = 24;
+		banksel = ACQ436_BANKSEL;
+		devname = "ACQ436";
 	}else{
 		adev->nchan_enabled = 32;	// 32 are you sure?.
+		devname = "ACQ435";
 	}
+	dev_info(DEVP(adev), "%s device init", devname);
+
+	acq400wr32(adev, ACQ435_MODE, banksel);
+	adev->data32 = 1;
 	adev->word_size = 4;
-	if (is_acq430){
-		acq400wr32(adev, ACQ435_MODE, ACQ430_BANKSEL);
-	}
-	// @@todo ACQ437_BANKSEL ?
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	acq400wr32(adev, ADC_CLKDIV, 16);
@@ -556,14 +573,11 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-	dev_info(DEVP(adev), "AO420 device init");
 
 	adev->data32 = data32;
-	adev->nchan_enabled = 4;
+	adev->nchan_enabled = IS_AO420_HALF436(adev)? 2: 4;
 	adev->word_size = data32? 4: 2;
 	adev->cursor.hb = &adev->hb[0];
-
 	adev->sysclkhz = SYSCLK_M66;
 	adev->onStart = _ao420_onStart;
 	adev->onStop = _ao420_onStop;
@@ -572,8 +586,28 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 16384;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
-	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	dev_info(DEVP(adev), "AO420 device init NCHAN %d", adev->nchan_enabled);
+	{
+		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+		dac_ctrl |= ADC_CTRL_MODULE_EN;
+		acq400wr32(adev, DAC_CTRL, dac_ctrl);
+	}
+	measure_ao_fifo(adev);
+}
+
+void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en)
+{
+	u32 cgen = acq400rd32(adev, DAC_424_CGEN);
+	cgen &= ~DAC_424_CGEN_DISABLE_X;
+
+	if (odd_chan_en){
+		cgen |= DAC_424_CGEN_ODD_CHANS;
+		adev->nchan_enabled = 16;
+	}else{
+		cgen &= ~DAC_424_CGEN_ODD_CHANS;
+		adev->nchan_enabled = 32;
+	}
+	acq400wr32(adev, DAC_424_CGEN, cgen);
 	measure_ao_fifo(adev);
 }
 
@@ -602,9 +636,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	xo_dev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
-	if (measure_ao_fifo_ok){
-	    measure_ao_fifo(adev);
-	}
+	ao424_set_odd_channels(adev, ao424_16);
 }
 
 
@@ -760,6 +792,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	adev->onStop = dio432_onStop;
 	xo_dev->xo.getFifoSamples = _dio432_DO_getFifoSamples;
 	xo_dev->xo.fsr = DIO432_DO_FIFO_STATUS;
+	xo_dev->xo.max_fifo_samples = 8000;
 	adev->isFifoError = dio432_isFifoError;
 	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");

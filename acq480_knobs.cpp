@@ -15,10 +15,13 @@
 #include <libgen.h>
 #include <unistd.h>
 
+
 using namespace std;
 
 #include "ads5294.h"
 #include "acq480_ioctl.h"
+
+#include "Knob.h"
 
 struct Command;
 
@@ -29,11 +32,25 @@ class Acq480FMC {
 	vector<Command*> commands;
 	FILE* fp;
 
+	static bool is_acq482(int _site) {
+		unsigned _is_acq482;
+		Knob k = Knob(_site, "acq482_cmap");
+		if (k.get(&_is_acq482) == 1){
+			return _is_acq482;
+		}else{
+			return 0;
+		}
+	}
+	static const int cmap_acq480[9];
+	static const int cmap_acq482[9];
+
 	void init_commands();
+	const int* cmap;
 public:
 	Ads5294 chip;
 
-	Acq480FMC(int _site) : site(_site) {
+
+	Acq480FMC(int _site) : site(_site), cmap(is_acq482(_site)? cmap_acq482: cmap_acq480) {
 		char fname[80];
 		snprintf(fname, 80, "/dev/acq480.%d", site);
 		fp = fopen(fname, "r+");
@@ -50,6 +67,13 @@ public:
 		init_commands();
 	}
 
+	Ads5294::Chan pchan(int lchan){
+		if (!(lchan >= 0 && lchan <= 8)){
+			fprintf(stderr, "ERROR: CH %d not in range 0..8\n", lchan);
+			exit(1);
+		}
+		return static_cast<Ads5294::Chan>(cmap[lchan]);
+	}
 	~Acq480FMC() {
 		flush();
 		/*
@@ -93,6 +117,10 @@ public:
 		}
 	}
 };
+
+const int Acq480FMC::cmap_acq480[9] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+const int Acq480FMC::cmap_acq482[9] = { 0, 8, 7, 6, 5, 4, 3, 2, 1 };
+
 
 struct Command {
 	const char* cmd;
@@ -190,7 +218,7 @@ public:
 		if (argc < 3) die(help());
 
 		int rc = module.chip.setGain(
-				static_cast<Ads5294::Chan>(atoi(argv[1])),
+				module.pchan(atoi(argv[1])),
 				static_cast<Ads5294::Gain>(atoi(argv[2])));
 		if (rc != 0) die("setGain failed");
 		return 1;
@@ -204,7 +232,7 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 		printf("%d\n", module.chip.getGain(
-				static_cast<Ads5294::Chan>(atoi(argv[1]))));
+				module.pchan(atoi(argv[1]))));
 		return 0;
 	}
 
@@ -218,7 +246,7 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 3) die(help());
 		int rc = module.chip.setDecimationFilter(
-				static_cast<Ads5294::Chan>(atoi(argv[1])),
+				module.pchan(atoi(argv[1])),
 				static_cast<Ads5294::Filter>(atoi(argv[2])),
 				argc<4? false: atoi(argv[3]));
 		if (rc != 0) die("setGain failed");
@@ -245,12 +273,11 @@ public:
 			setCoeffs(coeffs, argc-2, argv+2);
 		}
 
-		Ads5294::Chan chan = static_cast<Ads5294::Chan>(atoi(argv[1]));
+		Ads5294::Chan chan = module.pchan(atoi(argv[1]));
 		if (chan == Ads5294::CHX){
 			for (int ch = 1; ch <= 8; ch = ch+1){
 				if (module.chip.setCustomCoefficients(
-					static_cast<Ads5294::Chan>(ch),
-					argc > 2? coeffs: 0) != 0){
+					module.pchan(ch), argc > 2? coeffs: 0) != 0){
 					return -1;
 				}
 			}
@@ -272,7 +299,7 @@ public:
 		if (argc < 2) die(help());
 
 		module.chip.setHiPassFilter(
-				static_cast<Ads5294::Chan>(atoi(argv[1])),
+				module.pchan(atoi(argv[1])),
 				argc > 2? atoi(argv[2]): false,
 				argc > 3? strtoul(argv[3], 0, 0): 0
 				);
@@ -299,7 +326,7 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 		module.chip.setAverageSelect(
-			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			module.pchan(atoi(argv[1])),
 			argc>2? atoi(argv[2]): false,
 			argc>3? strtoul(argv[3], 0, 0): 0
 		);
@@ -314,9 +341,8 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 		module.chip.setInvert(
-			static_cast<Ads5294::Chan>(atoi(argv[1])),
-			argc>2? atoi(argv[2]): true
-		);
+				module.pchan(atoi(argv[1])),
+				argc>2? atoi(argv[2]): true);
 		return 1;
 	}
 };
@@ -327,7 +353,7 @@ public:
 	int operator() (class Acq480FMC module, int argc, char* argv[]) {
 		if (argc < 2) die(help());
 		module.chip.setLFNS(
-			static_cast<Ads5294::Chan>(atoi(argv[1])),
+			module.pchan(atoi(argv[1])),
 			argc>2? atoi(argv[2]): true
 		);
 		return 1;

@@ -1,0 +1,34 @@
+#!/bin/sh
+# custom_qds.init
+
+
+cat /usr/local/CARE/ATD-DSP/atd-dsp-regdef >/dev/dsp1/.create
+mkdir -p /etc/acq400/14/
+ln -s /dev/dsp1/* /etc/acq400/14/
+for file in status status_latch group_*; do
+	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/14
+# temporary: locate in site 1	
+	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/1
+done
+
+grep dsp /proc/devices | /usr/local/CARE/ATD-DSP/build_dsp_nodes
+ls -l /dev/dsp1.*
+
+# MODULE ENABLE
+echo 0x11 > /dev/dsp1/ATD_CSR
+
+echo "DSP sites 14, 15 active on 4224, 4225"
+/usr/local/init/acq400_knobs.init start
+
+nice /usr/local/CARE/ATD-DSP/monitor_dsp1 2>&1 >/dev/null  &
+
+cat >/etc/inetd.dsp.conf - <<EOF
+4281 stream tcp nowait root cat cat /dev/dsp1.event
+4282 stream tcp nowait root cat cat /dev/dsp2.event
+EOF
+
+inetd /etc/inetd.dsp.conf
+
+set.sys /dev/dsp1/ATD_INTCSR 1
+
+

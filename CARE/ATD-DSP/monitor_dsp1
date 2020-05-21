@@ -1,0 +1,58 @@
+#!/bin/sh
+
+DEV=acq400.14
+DIR=/dev/dsp1/
+
+#httpd doesn't like names with periods..
+XMLNAME=acq40014
+
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat> 
+EOF
+}
+
+CCRR=/dev/shm/c3rR15
+
+[ -e $CCRR ] || cCrR 3 15 > $CCRR
+
+dump_regs() {
+	cd /dev/dsp1; lscat
+}
+
+ADDED_WEB=0
+
+add_web() {
+if [ -e /var/www/d-tacq/acq_main_page.html ]; then
+	grep -q $DEV /var/www/d-tacq/acq_main_page.html
+	if [ $? -ne 0 ]; then
+		sed -ie '/TABAPPEND/ {
+a       <li><a title="'$DEV'" href="acq_info_page.html">'$DEV'</a></li>
+}' /var/www/d-tacq/acq_main_page.html
+	fi
+	ADDED_WEB=1
+fi
+}
+
+monitor() {
+	while [ 1 ]
+	do
+		[ $ADDED_WEB -eq 0 ] && add_web				
+		dump_regs | fs2xml --kvp -o /dev/shm/$XMLNAME.xml -s $CCRR
+		sleep 1		
+	done
+}
+
+if [ "$(basename $0)" = "monitor_dsp1" ]; then
+	if [ -d $DIR ]; then
+		monitor
+	else
+		echo ERROR: monitor dir not found: $DIR
+	fi
+fi
+
+
+

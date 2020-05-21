@@ -1,0 +1,55 @@
+#!/bin/sh
+# muxpattern: cli for dawg Digital Arbitrary Waveform Generator
+# no args: query
+# off
+# on [file]
+
+# master_site defaults to 6. 
+# to modify, manipulate OPTS externally
+
+#SITE=$(basename $PWD)
+
+LOG="logger -t muxpattern --"
+OPTS="$OPTS --site $SITE"
+
+$LOG SITE $SITE OPTS $OPTS
+PIDF=/var/run/muxpattern.$SITE.pid
+LOG=/var/log/muxpattern.$SITE.log
+PATFILE=/var/run/muxpattern.$SITE
+MONPORT=4233
+
+start() {
+	PAT=${1:-/etc/dawg-test-pat}
+	if [ ! -r $PAT ]; then
+		echo ERROR: file \"$PAT\" not found
+		exit 1
+	fi
+	echo $PAT >$PATFILE
+	$LOG start /usr/local/bin/dawg -R 1 -r -1 -s $PAT $OPTS
+	/usr/local/bin/procServ \
+		-c / -p $PIDF -L $LOG $MONPORT \
+	/usr/local/bin/dawg -R 1 -r -1 -s $PAT $OPTS
+}
+
+stop() {
+	if [ -r ${PIDF} ]; then
+		kill -s TERM $(cat ${PIDF})
+		rm ${PIDF}
+	fi      	  
+}
+
+query() {
+	if [ -r ${PIDF} ]; then
+		echo ON $(cat $PATFILE)
+	else
+		echo OFF
+	fi
+}
+
+case "$1" in 
+on|start) stop;start $2;;
+off|stop) stop;;
+*)	  query;;
+esac
+
+

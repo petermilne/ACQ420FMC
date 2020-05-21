@@ -5,15 +5,8 @@ echo acq420.init B1010
 echo changing loglevel to debug
 echo 9 > /proc/sys/kernel/printk
 
-BLEN=1048576
-NBUF=512
-
-# check for AXI DMA
-grep load.*_64B /tmp/fpga_status
-if [ $? -eq 0 ]; then
-	BLEN=4194304
-	NBUF=128
-fi
+BLEN=4194304
+NBUF=128
 
 DROOT=/sys/kernel/debug
 
@@ -28,12 +21,17 @@ fi
 	cp /mnt/local/sysconfig/acq400_streamd.conf /etc/sysconfig
 
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
+	cp /mnt/local/sysconfig/acq400.sh /etc/profile.d
 	echo "source /mnt/local/sysconfig/acq400.sh"
 	source /mnt/local/sysconfig/acq400.sh
 fi
 ln -s $DROOT/dynamic_debug/control /dev/ddc
 
 source /tmp/u-boot_env
+if [ "x${EBREAK}" = "xyes" ]; then
+	echo acq420.init: BREAK to emergency shell ^D when done
+	PS1="${PS1%>*} EBREAK ${PS1#*>}" /bin/sh
+fi
 MODEL=${devicetree_image%*.dtb}; 
 MODEL=${MODEL#*/}
 export MODEL
@@ -122,7 +120,8 @@ build_nodes() {
 				mknod /dev/${NAME}.awg c ${MAJOR} 8;;
 			61|62|6B)
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
-				mknod /dev/${NAME}.awgc c ${MAJOR} 10;;			
+				mknod /dev/${NAME}.awgc c ${MAJOR} 10
+				mknod /dev/${NAME}.awgr c ${MAJOR} 14;;
 			2)
 				mknod /dev/${NAME}.sew1 c ${MAJOR} 	12
 				mknod /dev/${NAME}.sew2 c ${MAJOR} 	13
@@ -146,23 +145,28 @@ web_append()
 
 
 build_etc_site() {
-	mkdir -p /etc/acq400/${site}
-	kdir=/dev/acq400.${site}.knobs
-	for src in ${kdir}/*; do
+	ek=/etc/acq400/${site}
+	mkdir -p ${ek}
+	dk=/dev/acq400.${site}.knobs
+	for src in ${dk}/*; do
 		case $(basename $src) in
 		driver|subsystem|power|uevent|dacspi|dacreset|RW32_debug)
 			;;
 		*)
-			ln -s ${src} /etc/acq400/${site};;
+			ln -s ${src} ${ek};;
 		esac
 	done
-	[ -e $kdir/atd_OR ] && /usr/local/init/anatrg.init ${site}
+
 
 	[ -e ${SYSCONF}/site-${site}-peers ] && \
-		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers
+		cp ${SYSCONF}/site-${site}-peers /etc/acq400/${site}/peers		
 }
 
 
+set_max_min_khz() {
+	echo $2 >/etc/acq400/$1/MAX_KHZ
+	echo $3 >/etc/acq400/$1/MIN_KHZ
+}
 customize_acq420()
 {
 	source 	/dev/sites/$1/details
@@ -170,6 +174,8 @@ customize_acq420()
 	old_ifs=$IFS; IFS="-"
 	let ix=0
 	knobd=/dev/acq400.$1.knobs
+	set_max_min_khz $1 1000 10
+
 	is_acq427=0
 	for field in $PN
 	do
@@ -269,8 +275,8 @@ chmod a+rx $1/gx
 }
 
 get_mtype() {
-	if [ -f /dev/sites/1/details ]; then
-		source /dev/sites/1/details
+	if [ -f /dev/sites/$1/details ]; then
+		source /dev/sites/$1/details
 		eval ${FRU_PART_NUM#* }
 		echo $M
 	fi	
@@ -331,25 +337,47 @@ build_knobs_device() {
 		echo WORKAROUND: clear FIFERR
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
 		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
+		set_max_min_khz ${site} 128 4
 		CLKDIV=8;;
 	7|8)
 		# space deliberate
+		set_max_min_khz ${site} 80000 10000
 		ACQ480_SITES="${ACQ480_SITES} $site";;
 	9)
+		set_max_min_khz ${site} 200 10
 		ACQ423_SITES="${ACQ423_SITES} $site";;	
-	40|42|6A)		
+	40|42|6A)	
+		case $mtype in
+		6A)
+			echo 1 >/dev/gpio/LED/FMC2_R
+			echo 1 >/dev/gpio/LED/FMC2_G
+			set_max_min_khz ${site} 250 10;;
+		*)
+			set_max_min_khz ${site} 1000 10;;
+		esac
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
+		if [ -e /etc/acq400/$site/dac_mux_master ]; then
+				ln -s /usr/local/bin/muxpattern /etc/acq400/$site/
+		fi
 		CLKDIV=250;;
 	41)	
-		ao424_init ${site}	
+		ao424_init ${site}
+		set_max_min_khz ${site} 500 10	
 		CLKDIV=500;;
 	60|64)
 		if [ "x$BOLO8_SITES" != "x" ]; then
 			BOLO8_SITES="${BOLO8_SITES},"
-		fi		
+		fi
+		set_max_min_khz ${site} 2000 2000
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
 	61|62|6B)
+		case $mtype in
+		6B)
+			set_max_min_khz ${site} 25000 10;;
+		*)
+			set_max_min_khz ${site} 1000 10;;
+		esac
 		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
 	67|68|69)
 		return;;
@@ -361,6 +389,7 @@ build_knobs_device() {
 		rb=$(get.sys $dk/clkdiv)
 		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
 	fi
+	[ $site -eq 1 ] && echo 0 > /etc/acq400/$site/event_time
 }
 
 install_cal() {
@@ -389,9 +418,10 @@ install_cal() {
 build_site0() {
 	dk=/dev/acq400.0.knobs
 	ek=/etc/acq400/0/
+	echo "MOTHERBOARD" > $ek/module_role
 	ln -s $1 ${dk}
 	web_append acq400.0 0
-    fix-state
+    fix_state
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel ${ek}
 	ln -s /usr/local/bin/run0 /usr/local/bin/get.xdt ${ek}
@@ -403,6 +433,9 @@ build_site0() {
 	ln -s /usr/local/bin/set.sync_role ${ek}
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
+	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
+	
+	
 	lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
 	[ -e $lck ] && ln -s $lck ${ek}
 	
@@ -413,9 +446,10 @@ build_site0() {
 	
 	[ "x$REBOOT_KNOB" = "xy" ] && ln -s /usr/local/bin/reboot ${ek}
 	
+	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/fpctl* ${dk}/spad* \
 		${dk}/di4_? ${dk}/do4_? ${dk}/data32 ${dk}/bq* ${dk}/dist_s1 \
-		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route*; do
+		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route* ${dk}/wr*; do
 		[ -e $k ] && ln -s $k /etc/acq400/0/
 	done
 	for knob in NCHAN data32 shot shot_complete; do
@@ -425,13 +459,16 @@ build_site0() {
 	echo "+++ build_site0 model $MODEL"
 	case $MODEL in
 	acq2?06*)
+		[ "x$ETH1_E1000X" = "xy" ] && /usr/local/CARE/load.acq2106_1000X
 		rm /etc/acq400/0/sync_out_cable_det
 		ln -s /dev/gpio/SYNC_CABLE_DET /etc/acq400/0/sync_out_cable_det
 		ls -l /etc/acq400/0/sync_out_cable_det
 		ln -s /usr/local/bin/load.si5326 /etc/acq400/0
+		ln -s /usr/local/bin/si5326_tune_phase /etc/acq400/0/
 	    if [ -e ${dk}/has_axi_dma_stack ] && [ $(cat ${dk}/has_axi_dma_stack) != "0" ]; then
 	       ln -s /usr/local/CARE/stack_480 /etc/acq400/0
 	    fi 
+	    ln -s /usr/local/CARE/LLC_instrument_latency ${ek}
 	esac
 }
 
@@ -536,18 +573,12 @@ build_knobs() {
 			exit 1;;
 		esac
 		
-		m1f=etc/acq400/1/module_type
-		if [ -e $m1f ] && [ $(cat $m1f) -eq 7 ]; then
-			echo FMC104 detected..
-			/usr/local/bin/fmc104.init 1
-		else
-			for site in $ACQ480_SITES
-			do
-				grep -q 482 /etc/acq400/$site/MODEL
-				[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
-			done
-			/usr/local/bin/acq480.init ${ACQ480_SITES}
-		fi
+		for site in $ACQ480_SITES
+		do
+			grep -q 482 /etc/acq400/$site/MODEL
+			[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
+		done
+		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	else
 		case $MODEL in
 		acq1*)
@@ -619,6 +650,9 @@ if [ $notloaded -eq 0 ]; then
 	exit 1
 fi
 
+MODLIB=/lib/modules/$(uname -r)
+
+/sbin/insmod ${MODLIB}/dmaengine314.ko
 
 if [ -x /mnt/local/init.pl330.ko ]; then
 	/mnt/local/init.pl330.ko
@@ -626,7 +660,7 @@ else
 	if [ -f /mnt/local/pl330.ko ]; then
 		MOD=/mnt/local/pl330.ko
 	else
-		MOD=/usr/local/lib/modules/pl330.ko
+		MOD=${MODLIB}/pl330.ko
 	fi
 	/sbin/insmod $MOD
 fi
@@ -634,8 +668,8 @@ fi
 if [ -f /mnt/local/acq420fmc.ko ]; then
 	MOD=/mnt/local/acq420fmc.ko
 	echo "WARNING using override driver $MOD"
-elif [ -f /usr/local/lib/modules/acq420fmc.ko ]; then
-	MOD=/usr/local/lib/modules/acq420fmc.ko
+elif [ -f ${MODLIB}/acq420fmc.ko ]; then
+	MOD=${MODLIB}/acq420fmc.ko
 else
 	echo "ERROR, module acq420fmc.ko not found" 
 		exit 1
@@ -648,6 +682,10 @@ echo "for debug:"
 echo "echo file acq400_drv.c +p" \> /sys/kernel/debug/dynamic_debug/control
 echo "echo file acq400_sysfs.c +p" \> /sys/kernel/debug/dynamic_debug/control
 
+if [ ! -e /etc/sites ]; then
+	echo "ERROR: /etc/sites does not exist. FPGA not loaded, quit"
+	exit 1
+fi
 source /etc/sites
 good_sites=${good_sites%*,C}
 if [ "x$good_sites" != "x" ]; then
@@ -671,20 +709,38 @@ if [ "$acq2106_sn" != "$dtsn" ]; then
 		DRVR_CUSTOM="$DRVR_CUSTOM is_acq2106B=1"
 	fi
 fi		
-	
-	
-if [ "x$(get_mtype 1)" = "x08" ]; then
+
+has_acq48x=0
+vsites=
+
+for s in $(echo $good_sites | tr , \  ); do
+	case $(get_mtype $s) in
+	08)
+		echo "+++ has_acq48x"
+		
+		has_acq48x=1;;
+	6D)
+		vs=$(($s+100))
+		echo "+++ has acq436 in site $s, create virtual site $vs"		
+		cp -a /dev/sites/$s /dev/sites/$vs
+		vsites="${vsites},$vs";;
+	esac
+done
+
+if [ $has_acq48x -ne 0 ]; then	
 # larger buffers for ACQ480
 	if [ "x$ACQ480_CUSTOM_BUF" != "xy" ]; then
 		BLEN=0x400000
-		NBUF=129
+		NBUF=128
 	else
 		echo ACQ480 using user preselect buffers $BLEN $NBUF
 	fi
-	VAP=7	
-else
-	VAP=13
 fi
+source /usr/local/CARE/choose_vap
+
+GS="${GS}${vsites}"
+
+echo "vg_sites=${good_sites}${vsites}" >>/etc/sites
 
 echo insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 sleep .2 	
@@ -701,40 +757,54 @@ load_mgt() {
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
-	[ $MODEL = "acq2106" ] && load_mgt
-	cmt=$(cat /etc/acq400/C/MTYPE)
-	case $cmt in
-	90)
+	if [ "x$WHITE_RABBIT" = "x1" ]; then
+		echo +++ WHITE_RABBIT: skipping mgt device driver load..
 		echo +++ init MGT482
-		web_append sfp none;;
-	95)
-		load.mgt_dram_8
-                [ $FANSPEED -lt 60 ] && FANSPEED=60
-		echo "set.site 0 distributor comms=2" \
-				>>/tmp/acq420.init-postpowerup-action
-		(sleep 7; nice mgtd_monitor_dsp1) &
-		echo +++ init MGT-DRAM;;
-	*)
-		if [ "x$cmd" = "x" ]; then
-			echo "WARNING: site C no MTYPE needs FRU\?"
-		else
-			echo "WARNING: site C unsupported MTYPE $cmt"
-		fi;;
-	esac
+		web_append sfp none
+	else
+		load_mgt
+		cmt=$(cat /etc/acq400/C/MTYPE)
+		case $cmt in
+		90)
+			echo +++ init MGT482
+			web_append sfp none;;
+		95)
+			/usr/local/init/mgtdram8.init
+        	[ $FANSPEED -lt 60 ] && FANSPEED=60
+			echo "set.site 0 distributor comms=2" \
+					>>/tmp/acq420.init-postpowerup-action
+			(sleep 7; nice mgtd_monitor_dsp1) &
+			echo +++ init MGT-DRAM;;
+		*)
+			if [ "x$cmd" = "x" ]; then
+				echo "WARNING: site C no MTYPE needs FRU\?"
+			else
+				echo "WARNING: site C unsupported MTYPE $cmt"
+			fi;;
+		esac
+	fi
 fi
 case $MODEL in
-acq2106sfp|kmcu*)
+kmcu*)
 	load_mgt $MODEL;;
 esac
-
 
 build_knobs
 set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
 
+# finalize the name please.
+grep filename /tmp/fpga_status | egrep -q -e WHR -e WR  && /usr/local/init/wr.init
+
+if [ "x${EBREAK}" = "xyes" ]; then
+	echo acq420.init: BREAK to emergency shell ^D when done
+	PS1="${PS1%>*} EBREAK ${PS1#*>}" /bin/sh
+fi
+
+AXI_COUNT=0
 if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 	AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
-	AXIMOD=/usr/local/lib/modules/xilinx_axidma.ko
+	AXIMOD=${MODLIB}/xilinx_axidma.ko
 	if [ -e /mnt/local/xilinx_axidma.ko ]; then
 		AXIMOD=/mnt/local/xilinx_axidma.ko
 		echo "using override module $AXIMOD"
@@ -752,6 +822,11 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
 	fi
 fi
+if [ $AXI_COUNT -eq 0 ]; then
+	[ ! -z "$STREAM_OPTS" ] && \
+		echo "STREAM_OPTS=\"$STREAM_OPTS\"" >> /etc/sysconfig/acq400_streamd.conf		
+fi
+
 
 echo ++ Enable counter monitors
 CACHE_SITES_MASK=${CACHE_SITES_MASK:-0}
@@ -764,6 +839,7 @@ set.sys /dev/gpio/15VA_EN 1
 if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
 	set.sys /dev/acq400.0.knobs/celf_power_en 1	
 fi
+
 
 if [ -e /mnt/local/power ]; then
 	cp /mnt/local/power /etc/sysconfig/power
@@ -778,8 +854,14 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 	for site in $ACQ480_SITES
 	do
 		web_append acq480.$site nomon
-		[ $AXI_COUNT -gt 1 ] && \
-			/usr/local/CARE/acq480_init_two_lane $site		
+		if [ $AXI_COUNT -gt 1 ]; then
+			case $MODEL in
+				acq1001)
+					/usr/local/CARE/acq480_init_two_lane $site;;
+				acq21*)
+					;; # could be two lane, but that's a special case.
+			esac
+		fi
 	done
 	echo 1 > /etc/acq400/0/acq480_force_training
 fi
@@ -792,7 +874,9 @@ fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
-
+	
+[ "x$(/usr/local/CARE/get-fpga-extra)" = "x9802" ] &&
+	/usr/local/init/anatrg.init 14
 start_knob_services
 
 ls -l /etc/acq400/0/sync_out_cable_det
@@ -836,6 +920,9 @@ acq400_bos	4240/tcp	# deprecated
 acq400_crb	4241/tcp	# cat raw buffers prefer bigcat
 acq400_bigcat   4242/tcp	# download all capture data 
 acq400_sum	4270/tcp	# check it works
+
+wrtd_tx		4280/tcp
+wrtd_rx		4281/tcp
 
 acq400_slowmon	53666/tcp	# check me
 EOF
