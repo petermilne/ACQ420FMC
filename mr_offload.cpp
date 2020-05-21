@@ -49,6 +49,8 @@ ie 10s until data.. for 2M samples, 192MB.
 #include "Env.h"
 #include "popt.h"
 
+#include <assert.h>
+
 #define NCHAN 48
 
 #define BUFLEN 0x400000
@@ -94,7 +96,7 @@ namespace G {
 	int nsam;
 }
 
-void init(int argc, const char** argv) {
+const char* init(int argc, const char** argv) {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 
@@ -105,16 +107,21 @@ void init(int argc, const char** argv) {
 			;
 		}
 	}
+
+	return poptGetArg(opt_context);
 }
 
 struct mr_offload mro = {};
 
 void offload_header() {
-	unsigned tai;
+	unsigned tai, tai_vernier;
 
 	getKnob(0, "/dev/acq400.1.knobs/shot", &mro.shot);
-	getKnob(0, "/dev/acq400.0.knobs/wr_tai_trg", &tai);
+	getKnob(0, "/dev/acq400.0.knobs/wr_tai_trg", &tai_vernier);
+	getKnob(0, "/dev/acq400.0.knobs/wr_tai_cur", &tai);		// @@TODO : should be time at TRG time ..0
 	mro.TAI = tai;
+	mro.TAI <<=32;
+	mro.TAI = tai_vernier;
 	mro.DT = 25;
 	mro.nsam = Env::getenv("NSAM", 100000);
 	mro.nchan = NCHAN;
@@ -124,7 +131,7 @@ void offload_header() {
 	fwrite(&mro, sizeof(struct mr_offload), 1, stdout);
 }
 
-void offload(void) {
+int offload(void) {
 	offload_header();
 	void* buf = new short* [BUFLEN];
 	cat("/dev/shm/decims", buf);
@@ -137,12 +144,44 @@ void offload(void) {
 			cat(fname, buf);
 		}
 	}
+	return 0;
+}
 
+int client(const char* uutname) {
+	mr_offload header;
+
+	fread(&header, sizeof(mr_offload), 1, stdin);
+
+	char header_name[80];
+	char payload_name[80];
+
+	sprintf(header_name, "%s.%d.hdr", uutname, header.shot);
+	sprintf(payload_name, "%s.%d.dat", uutname, header.shot);
+
+	FILE *fph = fopen(header_name, "w");
+	assert(fph);
+	fwrite(&header, sizeof(mr_offload), 1, fph);
+	fclose(fph);
+
+	int len = header.nsam * header.nchan;
+	short* payload = new short[len];
+	fread(payload, sizeof(short), len, stdin);
+
+	FILE* fpp = fopen(payload_name, "w");
+	assert(fpp);
+	fwrite(fpp, sizeof(short), len, fpp);
+	fclose(fpp);
+
+	return 0;
 }
 
 int main(int argc, const char** argv)
 {
-	init(argc, argv);
-	offload();
+	const char* uutname = init(argc, argv);
+	if (uutname == 0){
+		return client(uutname);
+	}else{
+		return offload();
+	}
 	return 0;
 }
