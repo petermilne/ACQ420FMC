@@ -363,6 +363,7 @@ protected:
 	        msg.ts_ns = ts.nsec();
 	        //msg.event_id is pre-cooked, all other fields are zero
 	        mc.sendto(&msg, sizeof(msg));
+	        if (G::verbose) printLast();
 	}
 	virtual int printLast() {
 		return printf("%s %16s %u %u %u\n", msg.hw_detect, msg.event_id, msg.seq, msg.ts_sec, msg.ts_ns);
