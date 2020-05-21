@@ -113,6 +113,16 @@ const char* init(int argc, const char** argv) {
 
 struct mr_offload mro = {};
 
+int get_nsam(void)
+{
+        FILE *pp = popen("get.site 1 TRANS_ACT:POST", "r");
+
+        int post = 0;
+        fscanf(pp, "TRANS_ACT:POST %d", &post);
+        pclose(pp);
+	return post;
+}
+
 void offload_header() {
 	unsigned tai, tai_vernier;
 
@@ -123,7 +133,7 @@ void offload_header() {
 	mro.TAI <<=32;
 	mro.TAI = tai_vernier;
 	mro.DT = 25;
-	mro.nsam = Env::getenv("NSAM", 100000);
+	mro.nsam = get_nsam();
 	mro.nchan = NCHAN;
 	for (int ii = 0; ii < NCHAN; ++ii){
 		mro.ESLO[ii] = 3.0517578e-5;
