@@ -115,7 +115,7 @@ struct mr_offload mro = {};
 
 int get_nsam(void)
 {
-        FILE *pp = popen("get.site 1 TRANS_ACT:POST", "r");
+        FILE *pp = popen("get.site 0 TRANS_ACT:POST", "r");
 
         int post = 0;
         fscanf(pp, "TRANS_ACT:POST %d", &post);
