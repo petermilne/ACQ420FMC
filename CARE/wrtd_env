@@ -1,0 +1,8 @@
+#!/bin/sh
+# changes KNOBS in wr.sh
+KNOB=$(basename $0)
+if [ "x$1" != "x" ]; then
+sed -ine s/^$KNOB=./$KNOB=$/ /dev/shm/wr.sh
+else
+sed -ne /^$KNOB=/p /dev/shm/wr.sh | sed -e s/$KNOB=//
+fi

@@ -515,10 +515,37 @@ int receiver(TSCaster& comms)
 	return 0;
 }
 
+bool get_local_env(FILE* fp)
+{
+	char* key = new char[80];
+	char* value = new char[256];
 
+	while(true){
+		switch(fscanf(fp, "%s=%255c", key, value)){
+		case 0:
+		case 1:
+			continue;
+		case 2:
+			if (key[0] == '#'){
+				continue;
+			}
+			::setenv(key, value, true);
+		default:
+			fclose(fp);
+			return true;
+		}
+	}
+}
+
+void get_local_env(void)
+{
+	FILE* fp = fopen("/dev/shm/wr.sh", "r");
+	fp != 0 && get_local_env(fp);
+}
 
 int main(int argc, const char* argv[])
 {
+	get_local_env();
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
