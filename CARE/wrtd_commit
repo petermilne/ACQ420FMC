@@ -7,7 +7,7 @@ if [ "x$1" = "x1" ]; then
 	[ "${NAME%%reset*}" != "$NAME" ] 	&& RESET=1
 	[ "${NAME%%tx*}" 	!= "$NAME" ] 	&& TX=1
 	
-	[ $RESET -ne 0 ] && cp /mnt/local/sysconfig/wr.sh /etc/acq400/11/wr.sh
+	[ $RESET -ne 0 ] && cp /mnt/local/sysconfig/wr.sh /dev/shm/wr.sh
 	[ $TX -ne 0 ] && PORT=4281
 	printf '\030\n' | nc localhost $PORT	
 fi
