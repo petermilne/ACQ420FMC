@@ -530,6 +530,7 @@ bool get_local_env(FILE* fp)
 				continue;
 			}
 			::setenv(key, value, true);
+			break;
 		default:
 			fclose(fp);
 			return true;
