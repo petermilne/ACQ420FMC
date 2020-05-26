@@ -70,8 +70,8 @@ EOF
 	else
 		cp /mnt/local/sysconfig/wr.sh /dev/shm/wr.sh
 	fi
-	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_\
-		RX WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP \
+	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_RX \ 
+		WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP \
 		WRTD_DELAY01; do
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/11/$kb
 	done
