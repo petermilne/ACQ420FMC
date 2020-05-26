@@ -56,14 +56,19 @@ ie 10s until data.. for 2M samples, 192MB.
 #define BUFLEN 0x400000
 #define FOUT	stdout
 
+/** mr_offload: offload ALL data in one BLOB, comprising 3 sections:
+ * mr_offload header;
+ * char decims[nsamples];     // array with decimation factor in force at each sample.
+ * short chdata[NCHAN][NSAM]; // 2D array (or, concatenation of 1D arrays, raw channel data)
+ */
 struct mr_offload {
 	unsigned int shot;	// shot number, set automatically by the box
 	unsigned long long TAI;	// time in nsec at start trigger
-	float DT;	// sample clock period, nsec
-	int nsam;     	// total samples in the shot eg max 2M
-	int nchan;    	// number of channels, usually 48
-	float ESLO[NCHAN];        // SLOPE,
-	float EOFF[NCHAN];        // OFFSET   volts[ch][sam] = raw[ch][sam] * ESLO[ch] + EOFF[ch]
+	float DT;		// sample clock period, nsec
+	int nsam;     		// total samples in the shot eg max 2M
+	int nchan;    		// number of channels, usually 48
+	float ESLO[NCHAN];      // SLOPE,
+	float EOFF[NCHAN];      // OFFSET   volts[ch][sam] = raw[ch][sam] * ESLO[ch] + EOFF[ch]
 };
 /*
 	char decims[nsamples];    // array with decimation factor in force at each sample.
