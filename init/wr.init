@@ -66,7 +66,6 @@ export WRTD_RX_MATCHES=$(hostname)
 export WRTD_RX_MATCHES1=
 export WRTD_RX_DOUBLETAP=
 export WRTD_DELAY01=1000000
-
 EOF
 	else
 		cp /mnt/local/sysconfig/wr.sh /dev/shm/wr.sh
@@ -112,6 +111,11 @@ init_wr_onetime() {
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/11
 	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/11	
 	
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_tx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_rx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_tx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_rx
+	
 	init_wrtd
 }
 
@@ -149,13 +153,13 @@ start_wrtd() {
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
     if [ $WRTD_RX -ne 0 ]; then
-    	/usr/local/bin/procServ -c / -p $PIDF_RX 4280 /usr/local/bin/wrtd rx
+    	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4280 /usr/local/bin/wrtd rx
 		sleep 1
 		nc localhost 4280 -e logger -t wrtd_rx &
 	fi
 		
 	if [ $WRTD_TX -ne 0 ]; then
-		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 /usr/local/bin/wrtd tx
+		/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4281 /usr/local/bin/wrtd tx
 		sleep 1
 		nc localhost 4281 -e logger -t wrtd_tx &
 	fi

@@ -2,7 +2,7 @@
 # changes KNOBS in wr.sh
 KNOB=$(basename $0)
 if [ "x$1" != "x" ]; then
-sed -ine s/^$KNOB=./$KNOB=$/ /dev/shm/wr.sh
+sed -ine s/^export $KNOB=./export $KNOB=$/ /dev/shm/wr.sh
 else
-sed -ne /^$KNOB=/p /dev/shm/wr.sh | sed -e s/$KNOB=//
+sed -ne /^export $KNOB=/p /dev/shm/wr.sh | sed -e s/$KNOB=//
 fi
