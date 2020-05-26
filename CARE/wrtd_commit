@@ -4,10 +4,10 @@ RESET=0
 TX=0
 PORT=4280
 if [ "x$1" = "x1" ]; then
-	[ "${NAME%%reset*}" != "$NAME" ] && RESET=1
-	[ "${NAME%%rx*}" != "$NAME" ] TX=1
+	[ "${NAME%%reset*}" != "$NAME" ] 	&& RESET=1
+	[ "${NAME%%tx*}" 	!= "$NAME" ] 	&& TX=1
 	
 	[ $RESET -ne 0 ] && cp /mnt/local/sysconfig/wr.sh /etc/acq400/11/wr.sh
-	[ $TX ne 0 ] && PORT=4281
-	printf '\030' | nc localhost $PORT	
+	[ $TX -ne 0 ] && PORT=4281
+	printf '\030\n' | nc localhost $PORT	
 fi
