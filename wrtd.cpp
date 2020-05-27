@@ -559,6 +559,20 @@ void get_local_env(void)
 	fp != 0 && get_local_env(fp);
 }
 
+int sleep_if_notenabled(const char* key)
+{
+	if (Env::getenv(key, 0) == 0){
+		if (G::verbose){
+			fprintf(stderr, "%s==0, sleep(9999)\n",key);
+		}
+		sleep(9999);
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+
 int main(int argc, const char* argv[])
 {
 	get_local_env();
@@ -571,9 +585,11 @@ int main(int argc, const char* argv[])
 			goRealTime(G::rt_prio);
 		}
 		if (strcmp(mode, "tx") == 0){
-			return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+			return sleep_if_notenabled("WRTD_TX") ||
+				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 		}else{
-			return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+			return sleep_if_notenabled("WRTD_RX") ||
+				receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 		}
 	}
 }
