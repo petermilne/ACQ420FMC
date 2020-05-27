@@ -517,25 +517,40 @@ int receiver(TSCaster& comms)
 
 bool get_local_env(FILE* fp)
 {
-	char* key = new char[80];
-	char* value = new char[256];
+	const int maxline = 80+256;
+	char newline[maxline];
 
-	while(true){
-		switch(fscanf(fp, "%s=%255c", key, value)){
-		case 0:
-		case 1:
-			continue;
+	G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
+	if (G::verbose){
+		fprintf(stderr, "get_local_env()\n");
+	}
+
+	while(fgets(newline, maxline, fp)){
+		char* key = new char[80];
+		char* value = new char[256];
+		int rc = sscanf(newline, "%80[^=#]=%255c", key, value);
+		if (G::verbose){
+			fprintf(stderr, "get_local_env(\"%s\") rc=%d\n", newline, rc);
+		}
+		switch(rc){
 		case 2:
 			if (key[0] == '#'){
-				continue;
+				break;
+			}
+			if (G::verbose){
+				fprintf(stderr, "::setenv(%s, %s, true)\n", key, value);
 			}
 			::setenv(key, value, true);
-			break;
+			continue;			// deliberate memleak : setenv needs the variables to stick
 		default:
-			fclose(fp);
-			return true;
+			break;
 		}
+		delete [] key;
+		delete [] value;
 	}
+
+	fclose(fp);
+	return true;
 }
 
 void get_local_env(void)
