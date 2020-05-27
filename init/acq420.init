@@ -757,11 +757,12 @@ load_mgt() {
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
-	if [ "x$WHITE_RABBIT" = "x1" ]; then
-		echo +++ WHITE_RABBIT: skipping mgt device driver load..
-		echo +++ init MGT482
-		web_append sfp none
-	else
+# finalize the name please.
+	grep filename /tmp/fpga_status | egrep -q -e WHR -e WR
+	if [ $? -eq 0 ] && WHITE_RABBIT=1
+	
+	grep filename /tmp/fpga_status | grep -q _9[05][0-9][0-9]
+	if [ $? - eq 0 ]; then
 		load_mgt
 		cmt=$(cat /etc/acq400/C/MTYPE)
 		case $cmt in
@@ -780,21 +781,25 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 				echo "WARNING: site C no MTYPE needs FRU\?"
 			else
 				echo "WARNING: site C unsupported MTYPE $cmt"
-			fi;;
+			fi ;;
 		esac
+	elif [ "x$WHITE_RABBIT" = "x1" ]; then
+		echo +++ WHITE_RABBIT: skipping mgt device driver load..
+		echo +++ init MGT482
+		web_append sfp none
 	fi
+else
+	case $MODEL in
+	kmcu*)
+		load_mgt $MODEL;;
+	esac
 fi
-case $MODEL in
-kmcu*)
-	load_mgt $MODEL;;
-esac
 
 build_knobs
 set_fans $FANSPEED
 grep acq400\.[0-9] /proc/devices | build_nodes
 
-# finalize the name please.
-grep filename /tmp/fpga_status | egrep -q -e WHR -e WR  && /usr/local/init/wr.init
+[ "x$WHITE_RABBIT" = "x1" ]  && /usr/local/init/wr.init
 
 if [ "x${EBREAK}" = "xyes" ]; then
 	echo acq420.init: BREAK to emergency shell ^D when done
