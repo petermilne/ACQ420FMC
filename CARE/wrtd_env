@@ -2,7 +2,7 @@
 # changes KNOBS in wr.sh
 KNOB=$(basename $0)
 if [ "x$1" != "x" ]; then
-	grep -q ^$KNOB=.
+	grep -q ^$KNOB=. /dev/shm/wr.sh
 	if [ $? -eq 0 ]; then
 		sed -i  -e "s/^$KNOB=.*$/$KNOB=$1/" /dev/shm/wr.sh
 	else
