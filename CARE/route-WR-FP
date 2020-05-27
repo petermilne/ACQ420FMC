@@ -1,0 +1,14 @@
+# route-WR-FP : White Rabbit Clock routing for monitoring
+# comment out if not required
+
+echo ... $0
+# Route the Si5326 to SYNC_OUT for external monitor
+set.site 0 SIG:SYNC_OUT:CLK CLK
+set.site 0 SIG:SYNC_OUT:CLK:DX d2
+# Route the WR01?M to front panel
+set.site 0 SIG:SRC:SYNC:1 MBCLK
+set.site 0 SIG:FP:SYNC=SYNC1
+# Route WRTT to front panel
+set.site 0 SIG:SRC:SYNC:0 WRPPS
+set.site 0 SIG:SRC:TRG:0 WRTT0
+set.site 0 SIG:FP:GPIO=EVT0
