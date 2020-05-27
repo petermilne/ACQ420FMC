@@ -53,23 +53,22 @@ monitor() {
 
 init_wrtd() {
  	if [ -e /mnt/local/sysconfig/wr.sh ]; then
-		cp /mnt/local/sysconfig/wr.sh /dev/shm/wr.sh
+		source /mnt/local/sysconfig/wr.sh
 	else
- 	    cat - > /dev/shm/wr.sh <<EOF
-export WRTD_DELTA_NS=50000000
-export WRTD_NICE=-10
-export WRTD_VERBOSE=0
-export WRTD_TICKNS=50000
-export WRTD_RTPRIO=10
-export WRTD_TX=1
-export WRTD_RX=1
-export WRTD_ID=$(hostname)
-export WRTD_RX_MATCHES=$(hostname)
-export WRTD_RX_MATCHES1=
-export WRTD_RX_DOUBLETAP=
-export WRTD_DELAY01=1000000
-EOF
+		WRTD_DELTA_NS=50000000
+		WRTD_NICE=-10
+		WRTD_VERBOSE=0
+		WRTD_TICKNS=50000
+		WRTD_RTPRIO=10
+		WRTD_TX=1
+		WRTD_RX=1
+		WRTD_ID=$(hostname)
+		WRTD_RX_MATCHES=$(hostname)
+		WRTD_RX_MATCHES1=
+		WRTD_RX_DOUBLETAP=
+		WRTD_DELAY01=1000000
 	fi
+	set | grep WRTD > /dev/shm/wr.sh
 	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_RX \
 		WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01; do
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/11/$kb
