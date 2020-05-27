@@ -759,7 +759,7 @@ load_mgt() {
 if [ -e /etc/acq400/C/MTYPE ]; then
 # finalize the name please.
 	grep filename /tmp/fpga_status | egrep -q -e WHR -e WR
-	if [ $? -eq 0 ] && WHITE_RABBIT=1
+	[ $? -eq 0 ] && WHITE_RABBIT=1
 	
 	grep filename /tmp/fpga_status | grep -q _9[05][0-9][0-9]
 	if [ $? - eq 0 ]; then
