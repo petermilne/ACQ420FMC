@@ -7,7 +7,10 @@ if [ "x$1" = "x1" ]; then
 	[ "${NAME%%reset*}" != "$NAME" ] 	&& RESET=1
 	[ "${NAME%%tx*}" 	!= "$NAME" ] 	&& TX=1
 	
-	[ $RESET -ne 0 ] && cp /mnt/local/sysconfig/wr.sh /dev/shm/wr.sh
+	if [ $RESET -ne 0 ] && [ -e /mnt/local/sysconfig/wr.sh ]; then
+		source /mnt/local/sysconfig/wr.sh
+		set | grep WRTD | tr -d \' > /dev/shm/wr.sh
+	fi			
 	[ $TX -ne 0 ] && PORT=4281
 	printf '\030\n' | nc localhost $PORT	
 fi
