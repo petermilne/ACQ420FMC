@@ -49,10 +49,12 @@
 
 #include "popt.h"
 
+#include "local.h"
 #include "Env.h"
 #include "File.h"
 #include "Knob.h"
 #include "Multicast.h"
+
 
 #define M1 1000000
 #define NSPS	(1000*M1)		// nanoseconds per second
@@ -382,12 +384,7 @@ protected:
 	}
 };
 TSCaster& TSCaster::factory(MultiCast& _mc) {
-	int use_wrtd_fullmessage = 1;
-	const char* value = getenv("WRTD_FULLMESSAGE");
-	if (value){
-		use_wrtd_fullmessage = atoi(value);
-	}
-	if (use_wrtd_fullmessage){
+	if (Env::getenv("WRTD_FULLMESSAGE", 1)){
 		return * new WrtdCaster(_mc, MessageFilter::factory());
 	}else{
 		return * new TSCaster(_mc);
@@ -528,6 +525,7 @@ bool get_local_env(FILE* fp)
 	while(fgets(newline, maxline, fp)){
 		char* key = new char[80];
 		char* value = new char[256];
+		chomp(newline);
 		int rc = sscanf(newline, "%80[^=#]=%255c", key, value);
 		if (G::verbose){
 			fprintf(stderr, "get_local_env(\"%s\") rc=%d\n", newline, rc);

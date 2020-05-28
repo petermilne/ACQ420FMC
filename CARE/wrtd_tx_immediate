@@ -21,6 +21,6 @@ WRTD_RX=1
 
 [ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
 
-/usr/local/bin/wrtd 2>&1  $ARGS tx_immediate 
+/usr/local/bin/wrtd 2>&1  $ARGS tx_immediate $WRTD_ID
 
 
