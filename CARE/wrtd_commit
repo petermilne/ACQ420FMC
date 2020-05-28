@@ -11,6 +11,6 @@ if [ "x$1" = "x1" ]; then
 		source /mnt/local/sysconfig/wr.sh
 		set | grep WRTD | tr -d \' > /dev/shm/wr.sh
 	fi			
-	[ $TX -ne 0 ] && PORT=4281
+	[ $TX -eq 0 ] && PORT=4281
 	printf '\030\n' | nc localhost $PORT	
 fi
