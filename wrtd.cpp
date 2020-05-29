@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 
 #include "split2.h"
@@ -233,7 +234,7 @@ const char* ui(int argc, const char** argv)
 
         const char* mode = poptGetArg(opt_context);
         const char* tx_id = poptGetArg(opt_context);
-        if (tx_id){
+        if (tx_id && !isdigit(tx_id[0])){
         	G::tx_id = tx_id;
         }
         if (!mode){
