@@ -3,14 +3,15 @@
 MAX_TX=${1:-1}
 ARGS=""
 
+eval $(sed -e 's/^/export /' /dev/shm/wr.sh)
+
 if [ "${MAX_TX#[0-9]*}" != "$MAX_TX" ]; then
     ARGS="--max_tx $MAX_TX"
     shift
+else
+	 WRTD_ID=$1   
 fi
 ARGS="$ARGS $@"
 
-source /dev/shm/wr.sh
 
-/usr/local/bin/wrtd 2>&1  --tickns $WRTD_TICKNS --dns $WRTD_DNS -v $WRTD_VERBOSE $ARGS tx $WRTD_ID 
-
-
+/usr/local/bin/wrtd 2>&1  $WRTD_OPTS  $ARGS tx

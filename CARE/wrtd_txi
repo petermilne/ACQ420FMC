@@ -4,20 +4,17 @@
 MAX_TX=${1:-1}
 ARGS=""
 
+eval $(sed -e 's/^/export /' /dev/shm/wr.sh)
+
 if [ "${MAX_TX#[0-9]*}" != "$MAX_TX" ]; then
     ARGS="--max_tx $MAX_TX"
     shift
+else
+	 WRTD_ID=$1   
 fi
 ARGS="$ARGS $@"
 
-source /dev/shm/wr.sh
 
-if [ "x$1" = "x" ] || [ "$1" = "0" ] || [ $1 -le 1000 ]; then
-	WRTD_ID=${WRTD_ID:-$(hostname)}
-else
-	WRTD_ID=$1
-fi
-
-/usr/local/bin/wrtd 2>&1 txi $WRTD_ID
+/usr/local/bin/wrtd 2>&1  $WRTD_OPTS  $ARGS txi $WRTD_ID
 
 
