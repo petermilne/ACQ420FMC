@@ -765,6 +765,7 @@ load_mgt() {
 
 if [ -e /etc/acq400/C/MTYPE ]; then
 # finalize the name please.
+    WHITE_RABBIT=0
 	grep filename /tmp/fpga_status | egrep -q -e WHR -e WR
 	[ $? -eq 0 ] && WHITE_RABBIT=1
 	
