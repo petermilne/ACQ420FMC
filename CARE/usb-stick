@@ -1,0 +1,14 @@
+#!/bin/sh
+
+case $1 in
+mount|start)
+	[ -e /usbstick ] || mkdir /usbstick
+	[ -e /dev/sda1 ] || echo 1 > /sys/bus/usb/devices/1-1.1/bConfigurationValue
+	mount /dev/sda1 /usbstick;;
+umount|stop)
+	sync;sync;umount /usbstick;;
+*)
+	df /usbstick;;
+esac
+
+
