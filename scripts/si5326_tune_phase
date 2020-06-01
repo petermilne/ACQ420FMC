@@ -38,7 +38,7 @@ while [ "$STATE" != "ST_FINISHED" ]; do
 	esac
 	jump='--'
 	[ "$STATE" != "$NSTATE" ] && jump='=>'
-	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump
+	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump | tee /dev/shm/si5326_tune_phase.state
 	STATE=$NSTATE
 done
 ) 2>&1 | tee /dev/shm/si5326_tune_phase.log
