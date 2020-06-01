@@ -281,6 +281,13 @@ get_mtype() {
 		echo $M
 	fi	
 }
+
+fake_fmc2_leds() 
+{
+	echo 0 >/dev/gpio/LED/FMC2_R
+	echo 1 >/dev/gpio/LED/FMC2_G
+}
+
 build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
@@ -349,8 +356,7 @@ build_knobs_device() {
 	40|42|6A)	
 		case $mtype in
 		6A)
-			echo 1 >/dev/gpio/LED/FMC2_R
-			echo 1 >/dev/gpio/LED/FMC2_G
+			fake_fmc2_leds
 			set_max_min_khz ${site} 250 10;;
 		*)
 			set_max_min_khz ${site} 1000 10;;
@@ -380,6 +386,7 @@ build_knobs_device() {
 		esac
 		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
 	67|68|69)
+		fake_fmc2_leds
 		return;;
 	*)
 		CLKDIV=200;;
