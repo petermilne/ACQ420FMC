@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ "x$1" = "xbg" ]; then
+	si5326_tune_phase 2>&1 >/dev/null &
+	exit 0
+fi
+
 adjust() {
 	set.site 0 si5326_step_phase $1 >/dev/null;get.site 0 wr_clk_pv3
 }
