@@ -9,10 +9,14 @@ adjust() {
 	set.site 0 si5326_step_phase $1 >/dev/null;get.site 0 wr_clk_pv3
 }
 
+show_state() {
+	printf '%2d %20s %2d :%s\n' $1 $2 $3 $4 | tee /dev/shm/si5326_tune_phase.state
+}
 
 (
 STATE=ST_COARSE_TO_X01
 iter=0
+show_state $iter $STATE 0 0
 
 while [ "$STATE" != "ST_FINISHED" ]; do
 	iter=$(($iter+1))
@@ -43,9 +47,12 @@ while [ "$STATE" != "ST_FINISHED" ]; do
 	esac
 	jump='--'
 	[ "$STATE" != "$NSTATE" ] && jump='=>'
-	printf '%2d %20s %2d :%s\n' $iter $STATE $PVC $jump | tee /dev/shm/si5326_tune_phase.state
+	show_state $iter $STATE $PVC $jump
 	STATE=$NSTATE
 done
+
+show_state $iter $STATE $PVC $jump
+
 ) 2>&1 | tee /dev/shm/si5326_tune_phase.log
 
 

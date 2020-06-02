@@ -936,6 +936,7 @@ acq400_sum	4270/tcp	# check it works
 
 wrtd_tx		4280/tcp
 wrtd_rx		4281/tcp
+si5326_tune_phase 4282/tcp
 
 acq400_slowmon	53666/tcp	# check me
 EOF

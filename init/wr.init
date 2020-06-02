@@ -68,7 +68,7 @@ init_wrtd() {
 		WRTD_RX_DOUBLETAP=
 		WRTD_DELAY01=1000000
 	fi
-	set | grep WRTD | tr -d \' > /dev/shm/wr.sh
+	set | grep WRTD | tr -d "'" > /dev/shm/wr.sh
 	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_RX \
 		WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01; do
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/11/$kb
@@ -117,9 +117,10 @@ init_wr_onetime() {
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_tx
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_rx
 	
-	printf '%2d %20s %2d :%s\n' 0 OFF 0 0 > /dev/shm/si5326_tune_phase.state
+	printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
 	ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
-	ln -s /usr/local/bin/si5326_tune_phase  /etc/acq400/11/
+	ln -s /usr/local/bin/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
+	
 	init_wrtd
 }
 
@@ -136,6 +137,7 @@ start_wr() {
 
 PIDF_TX=/var/run/wrtd_tx.pid
 PIDF_RX=/var/run/wrtd_rx.pid
+PIDF_SI=/var/run/si5326_tune_phase.pid
 
 # /mnt/local/sysconfig/wr.sh can override set values. be sure to export values that to the wrtd executable..
 start_wrtd() {
@@ -145,13 +147,16 @@ start_wrtd() {
 	fi
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
-    /usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd rx
+    /usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd rx	
+	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd tx
+	/usr/local/bin/procServ -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
+
+	(
 	sleep 1
 	nc localhost 4281 -e logger -t wrtd_rx &
-			
-	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd tx
-	sleep 1
 	nc localhost 4280 -e logger -t wrtd_tx &
+	nc localhost 4282 -e logger -t si5326_tune_phase &
+	) &
 }
 
 stop_wrtd() {
