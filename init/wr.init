@@ -119,7 +119,7 @@ init_wr_onetime() {
 	
 	printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
 	ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
-	ln -s /usr/local/bin/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
+	ln -s /usr/local/CARE/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
 	
 	init_wrtd
 }
