@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ "x$1" = "xbg" ]; then
-	si5326_tune_phase 2>&1 >/dev/null &
+	daemon si5326_tune_phase
 	exit 0
 fi
 
