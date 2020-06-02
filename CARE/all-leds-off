@@ -8,8 +8,8 @@ else
 fi
 
 echo FIRST, disable the IOC
-echo "acq4xx-epics-console, ^T ^X"
-
+#echo "acq4xx-epics-console, ^T ^X"
+echo /usr/local/epics/scripts/toggle_ioc
 
 for led in $LEDS
 do
