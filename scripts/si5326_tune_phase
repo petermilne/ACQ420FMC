@@ -10,7 +10,10 @@ adjust() {
 }
 
 show_state() {
-	printf '%2d %20s %2d :%s\n' $1 $2 $3 $4 | tee /dev/shm/si5326_tune_phase.state
+	good=0; busy=0
+    [ "$STATE" = "ST_FINISHED" ] && good=1
+    [ "$STATE" = "ST_FINISHED" ] || [ "$STATE" = "ST_OFF" ] || busy=1
+	printf '%2d %20s %2d :%s %d %d\n' $1 $2 $3 $4 $busy $good | tee /dev/shm/si5326_tune_phase.state
 }
 
 (
