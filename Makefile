@@ -228,8 +228,8 @@ bigcat: bigcat.cpp
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
 
-mr_offload: mr_offload.o knobs.o
-	$(CXX) -O3 -o mr_offload mr_offload.o knobs.o -L../lib -lpopt
+mr_offload: mr_offload.o knobs.o connect_to.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 muxdec: muxdec.o
 	$(CXX) -O3 -o muxdec muxdec.o -L../lib -lacq

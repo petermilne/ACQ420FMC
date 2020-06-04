@@ -200,37 +200,10 @@ int client(const char* uutname, FILE* in) {
 	return 0;
 }
 
-#include <sys/socket.h>    	//socket
-#include <arpa/inet.h> 		//inet_addr
-#include <strings.h>
-
-
-int client(const char* uutname, int port)
+#include "connect_to.h"
+int client(const char* uutname, const char* port)
 {
-
-	    //Create socket
-	int sock = socket(AF_INET , SOCK_STREAM , 0);
-	if (sock == -1){
-	        fprintf(stderr, "Could not create socket");
-	        exit(1);
-	}
-	struct sockaddr_in server;
-	server.sin_addr.s_addr = inet_addr(uutname);
-	server.sin_family = AF_INET;
-	server.sin_port = htons(port);
-
-	    //Connect to remote server
-	if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0){
-		perror("connect failed. Error");
-	        exit(1);
-	}
-	FILE *in = fdopen(sock, "r");
-	if (in == 0){
-		perror("fdopen() failed");
-		exit(1);
-	}
-
-	return client(uutname, in);
+	return client(uutname, connect_to_stream(uutname, port));
 }
 
 
@@ -243,7 +216,7 @@ int main(int argc, const char** argv)
 			char* _uutname = new char[colon-uutname+1];
 			strncpy(_uutname, uutname, colon-uutname);
 			_uutname[colon-uutname] = '\0';
-			int port = atoi(colon+1);
+			const char* port = colon+1;
 			return client(_uutname, port);
 		}else{
 			return client(uutname, stdin);
