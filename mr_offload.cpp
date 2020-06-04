@@ -76,9 +76,14 @@ struct mr_offload {
 	short chdata[NCHAN][NSAM]; // 2D array (or, concatenation of 1D arrays, raw channel data)
 */
 
+const char* G_root = ".";
+
 struct poptOption opt_table[] = {
-		POPT_AUTOHELP
-		POPT_TABLEEND
+	{
+          "output", 'o', POPT_ARG_STRING, &G_root, 0, "output to directory [./]"
+	},
+	POPT_AUTOHELP
+	POPT_TABLEEND
 };
 
 
@@ -162,11 +167,11 @@ int offload(void) {
 	return 0;
 }
 
-int writebin(const char* fmt, const char* uutname, int shot, void* data, int len)
+int writebin(const char* fmt, const char* root, const char* uutname, int shot, void* data, int len)
 {
 	char fname[80];
 
-	sprintf(fname, fmt, uutname, shot);
+	sprintf(fname, fmt, root, uutname, shot);
 	FILE *fp = fopen(fname, "w");
 	assert(fp);
 	fwrite(data, len, 1, fp);
@@ -174,32 +179,75 @@ int writebin(const char* fmt, const char* uutname, int shot, void* data, int len
 	return 0;
 }
 
-int client(const char* uutname) {
+int client(const char* uutname, FILE* in) {
 	mr_offload header;
 
-	fread(&header, sizeof(mr_offload), 1, stdin);
+	fread(&header, sizeof(mr_offload), 1, in);
 
-	writebin("%s.%d.hdr", uutname, header.shot, &header, sizeof(mr_offload));
+	writebin("%s/%s.%d.hdr", G_root, uutname, header.shot, &header, sizeof(mr_offload));
 
 	char* decims = new char[header.nsam];
-	fread(decims, sizeof(char), header.nsam, stdin);
+	fread(decims, sizeof(char), header.nsam, in);
 
-	writebin("%s.%d.dec", uutname, header.shot, decims, header.nsam);
+	writebin("%s/%s.%d.dec", G_root, uutname, header.shot, decims, header.nsam);
 
 	const int len = header.nchan * header.nsam;
 	short* payload = new short[len];
-	fread(payload, sizeof(short), len, stdin);
+	fread(payload, sizeof(short), len, in);
 
-	writebin("%s.%d.dat", uutname, header.shot, payload, sizeof(short)*len);
+	writebin("%s/%s.%d.dat", G_root, uutname, header.shot, payload, sizeof(short)*len);
 
 	return 0;
 }
+
+#include <sys/socket.h>    	//socket
+#include <arpa/inet.h> 		//inet_addr
+#include <strings.h>
+
+
+int client(const char* uutname, int port)
+{
+
+	    //Create socket
+	int sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1){
+	        fprintf(stderr, "Could not create socket");
+	        exit(1);
+	}
+	struct sockaddr_in server;
+	server.sin_addr.s_addr = inet_addr(uutname);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+
+	    //Connect to remote server
+	if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0){
+		perror("connect failed. Error");
+	        exit(1);
+	}
+	FILE *in = fdopen(sock, "r");
+	if (in == 0){
+		perror("fdopen() failed");
+		exit(1);
+	}
+
+	return client(uutname, in);
+}
+
 
 int main(int argc, const char** argv)
 {
 	const char* uutname = init(argc, argv);
 	if (uutname != 0 && strcmp(uutname, "server") != 0){
-		return client(uutname);
+		const char* colon = index(uutname, ':');
+		if (colon){
+			char* _uutname = new char[colon-uutname+1];
+			strncpy(_uutname, uutname, colon-uutname);
+			_uutname[colon-uutname] = '\0';
+			int port = atoi(colon+1);
+			return client(_uutname, port);
+		}else{
+			return client(uutname, stdin);
+		}
 	}else{
 		return offload();
 	}
