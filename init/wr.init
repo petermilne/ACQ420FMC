@@ -46,6 +46,7 @@ monitor() {
         		fi                     
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
+                cat /dev/shm/wr.sh | fs2xml -k '' -o wrtd.xml -s $C2R20
                 sleep 1
         done
 }
@@ -91,6 +92,7 @@ init_wr_onetime() {
 	mknod /dev/${NAME}.wr_trg1 c ${MAJOR} 26
 	mknod /dev/${NAME}.wr_tt1  c ${MAJOR} 27
 	web_append wr nomon
+	web_append wrtd nomon
 	
 	
 	nice daemon $WEB_APPEND_JOB
