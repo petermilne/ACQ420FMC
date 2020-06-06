@@ -826,6 +826,9 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
 			__LINE__, acq400rd32(adev, DAC_CTRL));
 	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
+	if (IS_DIO484ELF_PG(adev)){
+		init_gpg_buffer(adev, &xo_dev->gpg, DIO482_PG_GPGMEM);
+	}
 }
 
 

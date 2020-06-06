@@ -242,6 +242,11 @@ void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va)
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
+struct GPG_buffer {
+	unsigned *gpg_buffer;
+	unsigned *gpg_base;
+	unsigned gpg_cursor;		/* words .. */
+};
 struct acq400_sc_dev {
 	char id[16];
 	struct acq400_dev adev;
@@ -255,9 +260,7 @@ struct acq400_sc_dev {
 		struct acq400_dev* adev;
 		int regoff;
 	} sewFifo[2];
-	unsigned char *gpg_buffer;
-	unsigned *gpg_base;
-	unsigned gpg_cursor;		/* words .. */
+	struct GPG_buffer gpg;
 	enum  { SP_OFF, SP_EN, SP_FRAME } SpadEn;
 	enum  { SD_SEW, SD_DI4, SD_DI32 } SpadDix;
 	struct Spad {
@@ -351,6 +354,7 @@ struct XO_dev {
 		} u;
 		int encoded_twocmp;
 	} ao424_device_settings;
+	struct GPG_buffer gpg;
 };
 
 #define MAXLBUF	  1024
@@ -744,4 +748,7 @@ extern void ao420_reset_fifo(struct acq400_dev *adev);
 
 extern int ao424_16;
 extern void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en);
+
+extern struct GPG_buffer* get_gpg(struct acq400_dev* adev);
+void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base);
 #endif /* ACQ400_STRUCTS_H_ */

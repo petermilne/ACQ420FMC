@@ -547,7 +547,8 @@ static ssize_t show_gpg_top_count(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
 	return sprintf(buf, "%u\n", gpg_top+2);
 }
@@ -579,12 +580,14 @@ static ssize_t show_gpg_debug(
 /* state, addr, ctr, ostate, until */
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	u32 deb = acq400rd32(adev, GPG_DEBUG);
+	unsigned GPG_DBGR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGDR: GPG_DBG_ADDR;
+	struct GPG_buffer* gpg = get_gpg(adev);
+
+	u32 deb = acq400rd32(adev, GPG_DBGR);
 	u32 state = getField(deb, GPG_DBG_STATE);
 	u32 addr = getField(deb, GPG_DBG_ADDR);
 	u32 ctr = getField(deb, GPG_DBG_CTR);
-	u32 gpd = ((u32*)sc_dev->gpg_buffer)[addr];
+	u32 gpd = ((u32*)gpg->gpg_buffer)[addr];
 	u32 ostate = gpd&0x000000ff;
 
 	return sprintf(buf, "%u,%u,%u,%u,%x,%u\n",
@@ -795,8 +798,9 @@ static ssize_t show_gpg_mode(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 
-	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_mode = (gpg_ctrl&GPG_CTRL_MODE) >> GPG_CTRL_MODE_SHL;
 	return sprintf(buf, "%u\n", gpg_mode);
 }
@@ -808,16 +812,17 @@ static ssize_t store_gpg_mode(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_mode;
 
 	if (sscanf(buf, "%u", &gpg_mode) == 1){
-		u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 		gpg_mode <<= GPG_CTRL_MODE_SHL;
 		gpg_mode &= GPG_CTRL_MODE;
 		gpg_ctrl &= ~GPG_CTRL_MODE;
 		gpg_ctrl |= gpg_mode;
 
-		acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+		acq400wr32(adev, GPG_CR, gpg_ctrl);
 		return count;
 	}else{
 		return -1;
@@ -832,7 +837,8 @@ static ssize_t show_gpg_enable(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	return sprintf(buf, "%u\n", (gpg_ctrl&GPG_CTRL_ENABLE) != 0);
 }
 
@@ -843,16 +849,17 @@ static ssize_t store_gpg_enable(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_enable;
 
 	if (sscanf(buf, "%u", &gpg_enable) == 1){
-		u32 gpg_ctrl = acq400rd32(adev, GPG_CONTROL);
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 		if (gpg_enable){
 			gpg_ctrl |= GPG_CTRL_ENABLE;
 		}else{
 			gpg_ctrl &= ~GPG_CTRL_ENABLE;
 		}
-		acq400wr32(adev, GPG_CONTROL, gpg_ctrl);
+		acq400wr32(adev, GPG_CR, gpg_ctrl);
 		return count;
 	}else{
 		return -1;
@@ -3346,6 +3353,13 @@ const struct attribute *dio482_attrs[] = {
 
 extern const struct attribute *spadcop_attrs[];
 
+const struct attribute *dio484_pg_attrs[] = {
+		&dev_attr_gpg_debug.attr,
+		&dev_attr_gpg_mode.attr,
+		&dev_attr_gpg_enable.attr,
+		&dev_attr_gpg_top_count.attr,
+		NULL
+};
 
 void acq400_createSysfs(struct device *dev)
 {
@@ -3428,8 +3442,9 @@ void acq400_createSysfs(struct device *dev)
 			}
 			acq400_clearDelTrg(adev);
 		}
-
-		if (IS_ACQ423(adev)){
+		if (IS_DIO484ELF_PG(adev)) {
+			specials[nspec++] = dio484_pg_attrs;
+		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_attrs;
 		}else if (IS_ACQ424(adev)){
 			specials[nspec++] = acq424_attrs;

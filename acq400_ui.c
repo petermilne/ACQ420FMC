@@ -422,18 +422,29 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 	}
 }
 
-
+struct GPG_buffer* get_gpg(struct acq400_dev* adev)
+{
+	if (IS_DIO484ELF_PG(adev)){
+		struct XO_dev* pg_dev = container_of(adev, struct XO_dev, adev);
+		dev_info(DEVP(adev), "is:%s gpg_buffer:%p gpg_base:%p gpg_cursor:%u",
+				pg_dev->id, pg_dev->gpg.gpg_buffer, pg_dev->gpg.gpg_base, pg_dev->gpg.gpg_cursor);
+		return &pg_dev->gpg;
+	}else{
+		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+		return &sc_dev->gpg;
+	}
+}
 
 int acq400_gpgmem_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct GPG_buffer* gpg = get_gpg(adev);
 	if (file->f_flags & O_WRONLY) {
 		int iw;
-		for (iw = 0; iw < sc_dev->gpg_cursor; ++iw){
-			iowrite32(0, sc_dev->gpg_base+iw);
+		for (iw = 0; iw < gpg->gpg_cursor; ++iw){
+			iowrite32(0, gpg->gpg_base+iw);
 		}
-		sc_dev->gpg_cursor = 0;
+		gpg->gpg_cursor = 0;
 	}
 	return 0;
 }
@@ -441,8 +452,8 @@ ssize_t acq400_gpgmem_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	int len = sc_dev->gpg_cursor*sizeof(u32);
+	struct GPG_buffer* gpg = get_gpg(adev);
+	int len = gpg->gpg_cursor*sizeof(u32);
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
 
@@ -454,7 +465,7 @@ ssize_t acq400_gpgmem_read(
 			count = headroom;
 		}
 	}
-	rc = copy_to_user(buf, sc_dev->gpg_buffer+bcursor, count);
+	rc = copy_to_user(buf, gpg->gpg_buffer+bcursor, count);
 	if (rc){
 		return -1;
 	}
@@ -467,7 +478,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct GPG_buffer* gpg = get_gpg(adev);
 	int len = GPG_MEM_ACTUAL;
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
@@ -480,12 +491,12 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 			count = headroom;
 		}
 	}
-	rc = copy_from_user(sc_dev->gpg_buffer+bcursor, buf, count);
+	rc = copy_from_user(gpg->gpg_buffer+bcursor, buf, count);
 	if (rc){
 		return -1;
 	}
 	*f_pos += count;
-	sc_dev->gpg_cursor += count/sizeof(u32);
+	gpg->gpg_cursor += count/sizeof(u32);
 	return count;
 
 }
@@ -493,14 +504,15 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
 {
 	if (gpg_count >= 2){
-		u32 gpg_ctrl = acq400rd32(adev, GPG_CTRL);
+		unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+		u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 		u32 gpg_top = gpg_count - 1		// was count, not address
 					 -1;		// GPG_2ND_LAST_ADDR
 		gpg_top <<= GPG_CTRL_TOPADDR_SHL;
 		gpg_top &= GPG_CTRL_TOPADDR;
 		gpg_ctrl &= ~GPG_CTRL_TOPADDR;
 		gpg_ctrl |= gpg_top;
-		acq400wr32(adev, GPG_CTRL, gpg_ctrl);
+		acq400wr32(adev, GPG_CR, gpg_ctrl);
 		return 0;
 	}else{
 		dev_err(DEVP(adev), "set_gpg_top() ERROR: must have 2 or more entries");
@@ -511,16 +523,15 @@ int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	unsigned* src = (unsigned *)sc_dev->gpg_buffer;
+	struct GPG_buffer* gpg = get_gpg(adev);
 	int iw;
 	int rc;
 
-	for (iw = 0; iw < sc_dev->gpg_cursor; ++iw){
-		iowrite32(src[iw], sc_dev->gpg_base+iw);
+	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
+		iowrite32(gpg->gpg_buffer[iw], gpg->gpg_base+iw);
 	}
 	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
-	rc = set_gpg_top(adev, sc_dev->gpg_cursor);
+	rc = set_gpg_top(adev, gpg->gpg_cursor);
 	acq400_release(inode, file);
 	return rc;
 }

@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.462"
+#define REVID 			"3.474"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2846,6 +2846,15 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 	return rc;
 }
 
+void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base)
+{
+	gpg->gpg_base = adev->dev_virtaddr + mem_base;
+	gpg->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+	gpg->gpg_cursor = 0;
+
+	dev_info(DEVP(adev), "gpg:%p base:%p buffer:%p cursor:%u", gpg, gpg->gpg_base, gpg->gpg_buffer, gpg->gpg_cursor);
+}
+
 
 int acq400_modprobe_sc(struct acq400_dev* adev)
 {
@@ -2855,8 +2864,7 @@ int acq400_modprobe_sc(struct acq400_dev* adev)
 		dev_err(DEVP(adev), "failed to allocate buffers");
 		return -1;
 	}
-	sc_dev->gpg_base = adev->dev_virtaddr + GPG_MEM_BASE;
-	sc_dev->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+	init_gpg_buffer(adev, &sc_dev->gpg, GPG_MEM_BASE);
 
 	acq400_createSysfs(DEVP(adev));
 	acq400_init_proc(adev);
@@ -2877,22 +2885,20 @@ int acq400_modprobe(struct acq400_dev* adev)
 
 	if (IS_SC(adev)){
 		return acq400_modprobe_sc(adev);
-	}else if (IS_XO(adev) && xo_use_bigbuf){
+	}if (IS_XO(adev) && xo_use_bigbuf){
 		adev->hb = acq400_devices[0]->hb;
 		dev_info(DEVP(adev), "site %d using MAIN HB", adev->of_prams.site);
-	}else{
-		if (IS_AO424(adev)){
-			if (allocate_hbm(adev, AO420_NBUFFERS,
-					ao424_buffer_length, DMA_TO_DEVICE)){
-				dev_err(DEVP(adev), "failed to allocate buffers");
-				return -1;
-			}
-		}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
-			if (allocate_hbm(adev, AO420_NBUFFERS,
-					ao420_buffer_length, DMA_TO_DEVICE)){
-				dev_err(DEVP(adev), "failed to allocate buffers");
-				return -1;
-			}
+	}else if (IS_AO424(adev)){
+		if (allocate_hbm(adev, AO420_NBUFFERS,
+				ao424_buffer_length, DMA_TO_DEVICE)){
+			dev_err(DEVP(adev), "failed to allocate buffers");
+			return -1;
+		}
+	}else if (IS_AO42X(adev) || IS_DIO432X(adev)){
+		if (allocate_hbm(adev, AO420_NBUFFERS,
+				ao420_buffer_length, DMA_TO_DEVICE)){
+			dev_err(DEVP(adev), "failed to allocate buffers");
+			return -1;
 		}
 	}
 
@@ -3032,13 +3038,14 @@ static int acq400_remove(struct platform_device *pdev)
 		if (adev->client_data) {
 			kfree(adev->client_data);
 		}
-		if (sc_dev->gpg_buffer){
-			kfree(sc_dev->gpg_buffer);
+		if (sc_dev->gpg.gpg_buffer){
+			kfree(sc_dev->gpg.gpg_buffer);
 		}
 
 		kfree(adev->fifo_histo);
 		kfree(adev);
 
+		/** @todo What about other size, esp DIO482_PG_GPGMEM */
 		return 0;
 	}
 }
