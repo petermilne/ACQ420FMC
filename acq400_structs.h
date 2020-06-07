@@ -354,6 +354,11 @@ struct XO_dev {
 		} u;
 		int encoded_twocmp;
 	} ao424_device_settings;
+};
+
+struct PG_dev {
+	char id[16];
+	struct acq400_dev adev;
 	struct GPG_buffer gpg;
 };
 

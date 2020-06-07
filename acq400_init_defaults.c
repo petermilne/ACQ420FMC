@@ -75,6 +75,11 @@ module_param(dio432_rowback, int, 0644);
 MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
 
+unsigned DIO484_PG_OUTPUTS = 0x7;
+module_param(DIO484_PG_OUTPUTS, int, 0444);
+MODULE_PARM_DESC(dio432_rowback, "PG output bytes");
+
+
 void acq420_onStart(struct acq400_dev *adev);
 void acq480_onStart(struct acq400_dev *adev);
 void acq43X_onStart(struct acq400_dev *adev);
@@ -826,9 +831,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
 			__LINE__, acq400rd32(adev, DAC_CTRL));
 	//@@todo dev_info(DEVP(adev), "dio432_init_defaults() 99 cursor %d", adev->cursor.hb[0]->ix);
-	if (IS_DIO484ELF_PG(adev)){
-		init_gpg_buffer(adev, &xo_dev->gpg, DIO482_PG_GPGMEM);
-	}
+
 }
 
 
@@ -907,11 +910,26 @@ void measure_ao_fifo(struct acq400_dev *adev)
 	ao420_reset_fifo(adev);
 }
 
+void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output);
+
+void dio484_pg_init_defaults(struct acq400_dev* adev)
+{
+	struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
+	init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM);
+	dev_info(DEVP(adev), "direction set %x", DIO484_PG_OUTPUTS);
+	dio432_set_direction(adev, DIO484_PG_OUTPUTS);
+}
 
 void _acq400_mod_init_defaults(struct acq400_dev* adev)
 {
 	adev->sysclkhz = SYSCLK_M100;
 }
+
+
 void acq400_mod_init_defaults(struct acq400_dev* adev)
 {
 	_acq400_mod_init_defaults(adev);
@@ -919,7 +937,11 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 	if (IS_ACQ42X(adev)){
 		acq420_init_defaults(adev);
 	}else if (IS_DIO432X(adev)){
-		dio432_init_defaults(adev);
+		if (IS_DIO484ELF_PG(adev)){
+			dio484_pg_init_defaults(adev);
+		}else{
+			dio432_init_defaults(adev);
+		}
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_ACQ430FMC:
