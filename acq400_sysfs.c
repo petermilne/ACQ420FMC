@@ -579,17 +579,17 @@ static ssize_t show_gpg_debug(
 	char * buf)
 /* state, addr, ctr, ostate, until */
 {
-	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_DBGR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGDR: GPG_DBG_ADDR;
-	struct GPG_buffer* gpg = get_gpg(adev);
 
-	u32 deb = acq400rd32(adev, GPG_DBGR);
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct GPG_buffer* gpg = get_gpg(adev);
+	//dev_dbg(DEVP(adev), "gpg:%p base:%p buffer:%p cursor:%u dbgr:%x", gpg, gpg->gpg_base, gpg->gpg_buffer, gpg->gpg_cursor, gpg->gpg_dbgr);
+
+	u32 deb = acq400rd32(adev, gpg->gpg_dbgr);
 	u32 state = getField(deb, GPG_DBG_STATE);
 	u32 addr = getField(deb, GPG_DBG_ADDR);
 	u32 ctr = getField(deb, GPG_DBG_CTR);
-	u32 gpd = ((u32*)gpg->gpg_buffer)[addr];
+	u32 gpd = gpg->gpg_buffer[addr];
 	u32 ostate = gpd&0x000000ff;
-
 	return sprintf(buf, "%u,%u,%u,%u,%x,%u\n",
 			deb, addr, ctr, state, ostate, gpd>>8);
 }
@@ -2156,13 +2156,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 
 static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
-	&dev_attr_simulate.attr,
-	&dev_attr_stats.attr,
-	&dev_attr_event1.attr,
-	&dev_attr_event0.attr,
-	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
-	&dev_attr_sod.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
@@ -2174,15 +2168,25 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
+	&dev_attr_is_triggered.attr,
+	&dev_attr_sync_trg_to_clk.attr,
+	&dev_attr_is_adc.attr,
+	&dev_attr_simulate.attr,
+	&dev_attr_stats.attr,
+	NULL,
+};
+
+static const struct attribute *sysfs_adc_device_attrs[] = {
+	&dev_attr_event1.attr,
+	&dev_attr_event0.attr,
+	&dev_attr_sync.attr,
+	&dev_attr_sod.attr,
 	&dev_attr_nacc.attr,
 	&dev_attr_ACC.attr,
 	&dev_attr_DEC.attr,
-	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
-	&dev_attr_sync_trg_to_clk.attr,
-	&dev_attr_is_adc.attr,
 	&dev_attr_evt_sc_latch.attr,
-	NULL,
+	NULL
 };
 
 
@@ -3113,14 +3117,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_psu_sync.attr,
 	&dev_attr_soft_trig.attr,
 	&dev_attr_celf_power_en.attr,
-	&dev_attr_gpg_top_count.attr,
 	&dev_attr_axi_freq.attr,
-	&dev_attr_gpg_trg.attr,
-	&dev_attr_gpg_clk.attr,
-	&dev_attr_gpg_sync.attr,
-	&dev_attr_gpg_mode.attr,
-	&dev_attr_gpg_enable.attr,
-	&dev_attr_gpg_debug.attr,
 	&dev_attr_spad.attr,
 	&dev_attr_spad0.attr,
 	&dev_attr_spad1.attr,
@@ -3140,6 +3137,17 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_jettison_buffers_from.attr,
 	&dev_attr_fpga_rev.attr,
+	NULL
+};
+
+static const struct attribute *gpg_attrs[] = {
+	&dev_attr_gpg_trg.attr,
+	&dev_attr_gpg_clk.attr,
+	&dev_attr_gpg_sync.attr,
+	&dev_attr_gpg_mode.attr,
+	&dev_attr_gpg_enable.attr,
+	&dev_attr_gpg_top_count.attr,
+	&dev_attr_gpg_debug.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
@@ -3383,14 +3391,12 @@ static ssize_t store_DO32(
 
 static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
 
+extern const struct device_attribute dev_attr_byte_is_output;
 
 const struct attribute *dio484_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
-		&dev_attr_gpg_debug.attr,
-		&dev_attr_gpg_mode.attr,
-		&dev_attr_gpg_enable.attr,
-		&dev_attr_gpg_top_count.attr,
+		&dev_attr_byte_is_output.attr,
 		NULL
 };
 
@@ -3451,12 +3457,18 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_KMCx_SC(adev)){
 			specials[nspec++] = kmcx_sc_attrs;
 		}
+		specials[nspec++] = gpg_attrs;
 		specials[nspec++] = spadcop_attrs;
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
 			dev_err(dev, "failed to create sysfs");
 		}
 
+		if (HAS_AI(adev)){
+			if (sysfs_create_files(&dev->kobj, sysfs_adc_device_attrs)){
+				dev_err(dev, "failed to create sysfs");
+			}
+		}
 		if (HAS_RGM(adev)){
 			if (sysfs_create_files(&dev->kobj, rgm_attrs)){
 				dev_err(dev, "failed to create rgm sysfs");
@@ -3476,6 +3488,7 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 		if (IS_DIO484ELF_PG(adev)) {
+			specials[nspec++] = gpg_attrs;
 			specials[nspec++] = dio484_pg_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_attrs;

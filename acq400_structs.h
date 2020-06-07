@@ -246,6 +246,7 @@ struct GPG_buffer {
 	unsigned *gpg_buffer;
 	unsigned *gpg_base;
 	unsigned gpg_cursor;		/* words .. */
+	unsigned gpg_dbgr;
 };
 struct acq400_sc_dev {
 	char id[16];
@@ -755,5 +756,5 @@ extern int ao424_16;
 extern void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en);
 
 extern struct GPG_buffer* get_gpg(struct acq400_dev* adev);
-void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base);
+void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base, unsigned dbgr);
 #endif /* ACQ400_STRUCTS_H_ */

@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.477"
+#define REVID 			"3.483"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2849,11 +2849,12 @@ int acq400_mod_init_irq(struct acq400_dev* adev)
 	return rc;
 }
 
-void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base)
+void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base, unsigned dbgr)
 {
 	gpg->gpg_base = adev->dev_virtaddr + mem_base;
-	gpg->gpg_buffer = kmalloc(4096, GFP_KERNEL);
+	gpg->gpg_buffer = kzalloc(4096, GFP_KERNEL);
 	gpg->gpg_cursor = 0;
+	gpg->gpg_dbgr = dbgr;
 
 	dev_info(DEVP(adev), "gpg:%p base:%p buffer:%p cursor:%u", gpg, gpg->gpg_base, gpg->gpg_buffer, gpg->gpg_cursor);
 }
@@ -2867,7 +2868,7 @@ int acq400_modprobe_sc(struct acq400_dev* adev)
 		dev_err(DEVP(adev), "failed to allocate buffers");
 		return -1;
 	}
-	init_gpg_buffer(adev, &sc_dev->gpg, GPG_MEM_BASE);
+	init_gpg_buffer(adev, &sc_dev->gpg, GPG_MEM_BASE, GPG_DEBUG);
 
 	acq400_createSysfs(DEVP(adev));
 	acq400_init_proc(adev);

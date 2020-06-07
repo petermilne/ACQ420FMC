@@ -919,7 +919,7 @@ void dio484_pg_init_defaults(struct acq400_dev* adev)
 	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
-	init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM);
+	init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM, DIO482_PG_GPGDR);
 	dev_info(DEVP(adev), "direction set %x", DIO484_PG_OUTPUTS);
 	dio432_set_direction(adev, DIO484_PG_OUTPUTS);
 }

@@ -426,7 +426,7 @@ struct GPG_buffer* get_gpg(struct acq400_dev* adev)
 {
 	if (IS_DIO484ELF_PG(adev)){
 		struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
-		dev_info(DEVP(adev), "is:%s gpg_buffer:%p gpg_base:%p gpg_cursor:%u",
+		dev_dbg(DEVP(adev), "is:%s gpg_buffer:%p gpg_base:%p gpg_cursor:%u",
 				pg_dev->id, pg_dev->gpg.gpg_buffer, pg_dev->gpg.gpg_base, pg_dev->gpg.gpg_cursor);
 		return &pg_dev->gpg;
 	}else{
