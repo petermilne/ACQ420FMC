@@ -2156,13 +2156,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 
 static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
-	&dev_attr_simulate.attr,
-	&dev_attr_stats.attr,
-	&dev_attr_event1.attr,
-	&dev_attr_event0.attr,
-	&dev_attr_sync.attr,
 	&dev_attr_trg.attr,
-	&dev_attr_sod.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
@@ -2174,15 +2168,25 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_lotide.attr,
 	&dev_attr_sysclkhz.attr,
 	&dev_attr_active_chan.attr,
+	&dev_attr_is_triggered.attr,
+	&dev_attr_sync_trg_to_clk.attr,
+	&dev_attr_is_adc.attr,
+	NULL,
+};
+
+static const struct attribute *sysfs_adc_device_attrs[] = {
+	&dev_attr_simulate.attr,
+	&dev_attr_stats.attr,
+	&dev_attr_event1.attr,
+	&dev_attr_event0.attr,
+	&dev_attr_sync.attr,
+	&dev_attr_sod.attr,
 	&dev_attr_nacc.attr,
 	&dev_attr_ACC.attr,
 	&dev_attr_DEC.attr,
-	&dev_attr_is_triggered.attr,
 	&dev_attr_event0_count.attr,
-	&dev_attr_sync_trg_to_clk.attr,
-	&dev_attr_is_adc.attr,
 	&dev_attr_evt_sc_latch.attr,
-	NULL,
+	NULL
 };
 
 
@@ -3457,6 +3461,11 @@ void acq400_createSysfs(struct device *dev)
 			dev_err(dev, "failed to create sysfs");
 		}
 
+		if (HAS_AI(adev)){
+			if (sysfs_create_files(&dev->kobj, sysfs_adc_device_attrs)){
+				dev_err(dev, "failed to create sysfs");
+			}
+		}
 		if (HAS_RGM(adev)){
 			if (sysfs_create_files(&dev->kobj, rgm_attrs)){
 				dev_err(dev, "failed to create rgm sysfs");
