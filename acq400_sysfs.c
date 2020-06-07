@@ -3119,12 +3119,6 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_celf_power_en.attr,
 	&dev_attr_gpg_top_count.attr,
 	&dev_attr_axi_freq.attr,
-	&dev_attr_gpg_trg.attr,
-	&dev_attr_gpg_clk.attr,
-	&dev_attr_gpg_sync.attr,
-	&dev_attr_gpg_mode.attr,
-	&dev_attr_gpg_enable.attr,
-	&dev_attr_gpg_debug.attr,
 	&dev_attr_spad.attr,
 	&dev_attr_spad0.attr,
 	&dev_attr_spad1.attr,
@@ -3144,6 +3138,16 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_jettison_buffers_from.attr,
 	&dev_attr_fpga_rev.attr,
+	NULL
+};
+
+static const struct attribute *gpg_attrs[] = {
+	&dev_attr_gpg_trg.attr,
+	&dev_attr_gpg_clk.attr,
+	&dev_attr_gpg_sync.attr,
+	&dev_attr_gpg_mode.attr,
+	&dev_attr_gpg_enable.attr,
+	&dev_attr_gpg_debug.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
@@ -3393,10 +3397,6 @@ const struct attribute *dio484_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_byte_is_output.attr,
-		&dev_attr_gpg_debug.attr,
-		&dev_attr_gpg_mode.attr,
-		&dev_attr_gpg_enable.attr,
-		&dev_attr_gpg_top_count.attr,
 		NULL
 };
 
@@ -3457,6 +3457,7 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_KMCx_SC(adev)){
 			specials[nspec++] = kmcx_sc_attrs;
 		}
+		specials[nspec++] = gpg_attrs;
 		specials[nspec++] = spadcop_attrs;
 	}else{
 		if (sysfs_create_files(&dev->kobj, sysfs_device_attrs)){
@@ -3487,6 +3488,7 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 		if (IS_DIO484ELF_PG(adev)) {
+			specials[nspec++] = gpg_attrs;
 			specials[nspec++] = dio484_pg_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_attrs;
