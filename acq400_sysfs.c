@@ -2171,12 +2171,12 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_is_triggered.attr,
 	&dev_attr_sync_trg_to_clk.attr,
 	&dev_attr_is_adc.attr,
+	&dev_attr_simulate.attr,
+	&dev_attr_stats.attr,
 	NULL,
 };
 
 static const struct attribute *sysfs_adc_device_attrs[] = {
-	&dev_attr_simulate.attr,
-	&dev_attr_stats.attr,
 	&dev_attr_event1.attr,
 	&dev_attr_event0.attr,
 	&dev_attr_sync.attr,
