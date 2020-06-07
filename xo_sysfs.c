@@ -1216,7 +1216,7 @@ static ssize_t store_byte_is_output(
 	}
 }
 
-static DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUSR, show_byte_is_output, store_byte_is_output);
+DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUSR, show_byte_is_output, store_byte_is_output);
 
 static ssize_t show_dpg_status(
 	struct device * dev,

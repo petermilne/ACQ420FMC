@@ -3387,10 +3387,12 @@ static ssize_t store_DO32(
 
 static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
 
+extern const struct device_attribute dev_attr_byte_is_output;
 
 const struct attribute *dio484_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
+		&dev_attr_byte_is_output.attr,
 		&dev_attr_gpg_debug.attr,
 		&dev_attr_gpg_mode.attr,
 		&dev_attr_gpg_enable.attr,
