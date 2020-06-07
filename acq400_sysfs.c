@@ -3353,7 +3353,8 @@ const struct attribute *dio482_attrs[] = {
 
 extern const struct attribute *spadcop_attrs[];
 
-#ifdef PGMCOMOUT
+MAKE_BITS(DO32_immediate_mask, DIO482_PG_IMM_MASK, 0, 0xffffffff);
+
 static ssize_t show_DO32(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3373,15 +3374,7 @@ static ssize_t store_DO32(
 	unsigned DO32 = 0;
 
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
-		xo_dev->dio432.DO32 = DO32;
-		if (xo_dev->dio432.mode == DIO432_IMMEDIATE){
-			wake_up_interruptible(&adev->w_waitq);
-			yield();
-		}else{
-			/* it's clocking, just send it thru. for case clocked IN, immediate OUT */
-			acq400wr32(adev, DIO432_FIFO, xo_dev->dio432.DO32);
-			xo_dev->dio432.DI32 = acq400rd32(adev, DIO432_FIFO);
-		}
+		acq400wr32(adev, DIO432_FIFO, DO32);
 		return count;
 	}else{
 		return -1;
@@ -3389,9 +3382,11 @@ static ssize_t store_DO32(
 }
 
 static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
-#endif
+
 
 const struct attribute *dio484_pg_attrs[] = {
+		&dev_attr_DO32.attr,
+		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_gpg_debug.attr,
 		&dev_attr_gpg_mode.attr,
 		&dev_attr_gpg_enable.attr,
