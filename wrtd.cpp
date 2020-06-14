@@ -212,6 +212,11 @@ const char* ui(int argc, const char** argv)
         G::rt_prio	= Env::getenv("WRTD_RTPRIO", 0);
         G::delay01	= Env::getenv("WRTD_DELAY01", 1000000);
 
+
+        const char* ip_multicast_if = ::getenv("WRTD_MULTICAST_IF");
+        if (ip_multicast_if){
+        	MultiCast::set_IP_MULTICAST_IF(ip_multicast_if);
+        }
         if (strstr(modname(), "acq48")){
         	G::local_clkdiv = 1;
         	G::local_clkoffset = 0;
