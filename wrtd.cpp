@@ -479,18 +479,24 @@ void _write_trg(FILE* fp, TS ts)
 	fflush(fp);
 }
 
-int receiver(TSCaster& comms)
-{
-	long dms = G::dns/M1;
 
+class Receiver {
+	const long dms;
 	FILE *fp_trg[2];
-	fp_trg[0] = fopen_safe(DEV_TRG0, "w");
-	fp_trg[1] = fopen_safe(DEV_TRG1, "w");
+	FILE *fp_cur;
 
-	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
-
-	for (unsigned nrx = 0;; ++nrx){
-		TS ts = comms.recvfrom();
+public:
+	Receiver() :  dms(G::dns/M1) {
+		fp_trg[0] = fopen_safe(DEV_TRG0, "w");
+		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
+		fp_cur = fopen_safe(DEV_CUR, "r");
+	}
+	virtual ~Receiver() {
+		fclose(fp_trg[0]);
+		fclose(fp_trg[1]);
+		fclose(fp_cur);
+	}
+	void action(TS ts, int nrx = 0){
 		TS ts_adj = adjust_ts(ts);
 
 		if (G::trg < 2){
@@ -506,7 +512,6 @@ int receiver(TSCaster& comms)
 
 		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s\n",
 				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
-		if (G::verbose) comms.printLast();
 
 		long dt = ts.diff(ts_cur);
 		if (dt < 0){
@@ -515,8 +520,15 @@ int receiver(TSCaster& comms)
 			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
-	return 0;
-}
+	int event_loop(TSCaster& comms) {
+		for (unsigned nrx = 0;; ++nrx){
+			action(comms.recvfrom(), nrx);
+			if (G::verbose) comms.printLast();
+		}
+		return 0;
+	}
+};
+
 
 bool get_local_env(FILE* fp)
 {
@@ -593,7 +605,7 @@ int main(int argc, const char* argv[])
 				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 		}else{
 			return sleep_if_notenabled("WRTD_RX") ||
-				receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+				(new Receiver)->event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 		}
 	}
 }
