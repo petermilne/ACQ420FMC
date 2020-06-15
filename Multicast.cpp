@@ -98,7 +98,11 @@ public:
 			exit(1);
 		}
 		mreq.imr_multiaddr.s_addr = inet_addr(group);
-		mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+		if (multicast_if != 0){
+			mreq.imr_interface.s_addr = inet_addr(multicast_if);
+		}else{
+			mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+		}
 		if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
 				&mreq, sizeof(mreq)) < 0) {
 			perror("setsockopt mreq");
