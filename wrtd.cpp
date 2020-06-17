@@ -247,6 +247,10 @@ const char* ui(int argc, const char** argv)
         	exit(1);
         }
         G::delay01 /= G::ns_per_tick;
+
+	if (G::rt_prio){
+		goRealTime(G::rt_prio);
+	}
         return mode;
 }
 
@@ -612,9 +616,6 @@ int main(int argc, const char* argv[])
 		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)),
 				Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0);
 	}else{
-		if (G::rt_prio){
-			goRealTime(G::rt_prio);
-		}
 		if (strcmp(mode, "tx") == 0){
 			return sleep_if_notenabled("WRTD_TX") ||
 				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
