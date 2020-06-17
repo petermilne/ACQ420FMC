@@ -116,6 +116,8 @@ init_wr_onetime() {
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_tx
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_rx
 	
+	echo "no rx" > /etc/acq400/11/WRTD_REPORT
+	
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_tx
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_rx
 	

@@ -419,30 +419,7 @@ int sender(TSCaster& comms)
 	return 0;
 }
 
-int tx_immediate(TSCaster& comms)
-{
-	if (G::max_tx == 0){
-		return 0;
-	}
 
-	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
-	TS ts;
-
-	unsigned ntx = 0;
-	while(fread(&ts.raw, sizeof(unsigned), 1, fp_cur) == 1){
-		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
-		ts = ts + G::delta_ticks;
-		comms.sendto(ts);
-		++ntx;
-		if (G::max_tx == MAX_TX_INF || ntx >= G::max_tx){
-			break;
-		}else{
-			usleep(2*G::dns/1000);		// don't overrun previous message
-		}
-	}
-	fclose(fp_cur);
-	return 0;
-}
 TS _adjust_ts(TS ts0)
 {
 	int rem = ts0.ticks() % G::local_clkdiv;
@@ -485,8 +462,9 @@ class Receiver {
 	FILE *fp_trg[2];
 	FILE *fp_cur;
 
+	char* report;
 public:
-	Receiver() :  dms(G::dns/M1) {
+	Receiver() :  dms(G::dns/M1), report(new char[128]) {
 		fp_trg[0] = fopen_safe(DEV_TRG0, "w");
 		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 		fp_cur = fopen_safe(DEV_CUR, "r");
@@ -510,10 +488,19 @@ public:
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
-		if (G::verbose > 1) fprintf(stderr, "receiver:[%d] nrx:%u cur:%s ts:%s adj:%s\n",
-				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr());
-
 		long dt = ts.diff(ts_cur);
+
+		snprintf(report, 128, "Receiver:%d nrx:%u cur:%s ts:%s adj:%s diff:%ld %s\n",
+				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr(), dt, dt<0? "ERROR": "OK");
+
+		FILE *fp_report = fopen("/etc/acq400/11/WRTD_REPORT", "w");
+		fprintf(fp_report, report);
+		fclose(fp_report);
+		if (G::verbose > 1){
+			fprintf(stderr, report);
+		}
+
+
 		if (dt < 0){
 			fprintf(stderr, "wrtd rx ERROR missed ts by %ld msec\n", dt/M1);
 		}else if (dt < (long)REPORT_THRESHOLD){
@@ -529,6 +516,33 @@ public:
 	}
 };
 
+int tx_immediate(TSCaster& comms, Receiver* local_rx)
+{
+	if (G::max_tx == 0){
+		return 0;
+	}
+
+	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
+	TS ts;
+
+	unsigned ntx = 0;
+	while(fread(&ts.raw, sizeof(unsigned), 1, fp_cur) == 1){
+		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
+		ts = ts + G::delta_ticks;
+		comms.sendto(ts);
+		if (local_rx){
+			local_rx->action(ts);
+		}
+		++ntx;
+		if (G::max_tx == MAX_TX_INF || ntx >= G::max_tx){
+			break;
+		}else{
+			usleep(2*G::dns/1000);		// don't overrun previous message
+		}
+	}
+	fclose(fp_cur);
+	return 0;
+}
 
 bool get_local_env(FILE* fp)
 {
@@ -595,7 +609,8 @@ int main(int argc, const char* argv[])
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
-		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)),
+				Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0);
 	}else{
 		if (G::rt_prio){
 			goRealTime(G::rt_prio);
