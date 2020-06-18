@@ -153,6 +153,9 @@ struct TS {
 		}else{
 			_ticks -= ts2.ticks();
 		}
+		if (_secs==0 && ts2.secs() == SECONDS_MASK){
+			_secs += SECONDS_MASK+1;
+		}
 		return (_secs - ts2.secs())*NSPS + _ticks*G::ns_per_tick;
 	}
 
@@ -615,14 +618,12 @@ int main(int argc, const char* argv[])
 	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)),
 				Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0);
-	}else{
-		if (strcmp(mode, "tx") == 0){
-			return sleep_if_notenabled("WRTD_TX") ||
+	}else if (strcmp(mode, "tx") == 0){
+		return sleep_if_notenabled("WRTD_TX") ||
 				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
-		}else{
-			return sleep_if_notenabled("WRTD_RX") ||
+	}else{
+		return sleep_if_notenabled("WRTD_RX") ||
 				(new Receiver)->event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
-		}
 	}
 }
 
