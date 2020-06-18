@@ -82,7 +82,7 @@ void goRealTime(int sched_fifo_priority)
 #define DEV_TRG0	"/dev/acq400.0.wr_trg0" // write trigger0 definition here
 #define DEV_TRG1	"/dev/acq400.0.wr_trg1" // write trigger1 definition here
 
-FILE *fopen_safe(const char* fname, const char* mode)
+FILE *fopen_safe(const char* fname, const char* mode = "r")
 {
 	FILE *fp = fopen(fname, mode);
 	if (fp == 0){
@@ -406,25 +406,6 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 
 
 
-int sender(TSCaster& comms)
-{
-	if (G::max_tx == 0){
-		return 0;
-	}
-	FILE *fp = fopen_safe(DEV_TS, "r");
-	TS ts;
-
-	for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
-		TS ts_tx = ts + G::delta_ticks;
-		comms.sendto(ts_tx);
-		if (G::verbose > 1) fprintf(stderr, "sender:ntx:%u ts:%s ts_tx:%s\n", ntx, ts.toStr(), ts_tx.toStr());
-		if (G::max_tx != MAX_TX_INF && ntx >= G::max_tx){
-			break;
-		}
-	}
-	fclose(fp);
-	return 0;
-}
 
 
 TS _adjust_ts(TS ts0)
@@ -523,40 +504,47 @@ public:
 	}
 };
 
-int tx_immediate(TSCaster& comms, Receiver* local_rx)
-{
-	if (G::max_tx == 0){
+
+class Transmitter {
+	FILE* fp;
+	const int sleep_us;
+public:
+	Transmitter(const char* dev, int _sleep_us = 0) :
+		fp(::fopen_safe(dev)), sleep_us(_sleep_us)
+	{}
+	virtual ~Transmitter(){
+		fclose(fp);
+	}
+	int event_loop(TSCaster& comms, Receiver* local_rx) {
+		if (G::max_tx == 0){
+			return 0;
+		}
+		TS ts;
+		for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
+			TS ts_tx = ts + G::delta_ticks;
+			comms.sendto(ts_tx);
+			if (local_rx){
+				local_rx->action(ts_tx);
+			}
+			++ntx;
+			if (G::verbose > 1) fprintf(stderr, "sender:ntx:%u ts:%s ts_tx:%s\n", ntx, ts.toStr(), ts_tx.toStr());
+			if (G::max_tx != MAX_TX_INF && ntx >= G::max_tx){
+				break;
+			}else if (sleep_us){
+				usleep(sleep_us);
+			}
+		}
 		return 0;
 	}
-
-	FILE *fp_cur = fopen_safe(DEV_CUR, "r");
-	TS ts;
-
-	unsigned ntx = 0;
-	while(fread(&ts.raw, sizeof(unsigned), 1, fp_cur) == 1){
-		if (G::verbose > 1) fprintf(stderr, "sender:ts:%s\n", ts.toStr());
-		ts = ts + G::delta_ticks;
-		comms.sendto(ts);
-		if (local_rx){
-			local_rx->action(ts);
-		}
-		++ntx;
-		if (G::max_tx == MAX_TX_INF || ntx >= G::max_tx){
-			break;
-		}else{
-			usleep(2*G::dns/1000);		// don't overrun previous message
-		}
-	}
-	fclose(fp_cur);
-	return 0;
-}
+};
 
 bool get_local_env(FILE* fp)
 {
 	const int maxline = 80+256;
 	char newline[maxline];
 
-	G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
+	G::verbose = Env::getenv("WRTD_VERBOSE", 0);
+
 	if (G::verbose){
 		fprintf(stderr, "get_local_env()\n");
 	}
@@ -610,20 +598,33 @@ int sleep_if_notenabled(const char* key)
 }
 
 
+int txi() {
+	Transmitter t(DEV_CUR, 2*G::dns/1000);
+	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0;
+	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
+}
+int tx() {
+	Transmitter t(DEV_TS);
+	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0;
+	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
+}
+int rx() {
+	Receiver r;
+	return r.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+}
+
 int main(int argc, const char* argv[])
 {
 	get_local_env();
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
-		return tx_immediate(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)),
-				Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0);
+		return txi();
 	}else if (strcmp(mode, "tx") == 0){
-		return sleep_if_notenabled("WRTD_TX") ||
-				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+		return sleep_if_notenabled("WRTD_TX") || tx();
 	}else{
-		return sleep_if_notenabled("WRTD_RX") ||
-				(new Receiver)->event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+		return sleep_if_notenabled("WRTD_RX") || rx();
+
 	}
 }
 
