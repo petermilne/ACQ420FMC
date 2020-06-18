@@ -524,7 +524,7 @@ public:
 			TS ts_tx = ts + G::delta_ticks;
 			comms.sendto(ts_tx);
 			if (local_rx){
-				local_rx->action(ts_tx);
+				local_rx->action(ts_tx, ntx);
 			}
 			++ntx;
 			if (G::verbose > 1) fprintf(stderr, "sender:ntx:%u ts:%s ts_tx:%s\n", ntx, ts.toStr(), ts_tx.toStr());
