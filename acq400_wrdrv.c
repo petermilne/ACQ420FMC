@@ -82,16 +82,6 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 	acq400wr32(adev, WR_CTRL, int_sta);
 	return IRQ_HANDLED;	/* canned */
 }
-#if 0
-static irqreturn_t wr_ts_kthread(int irq, void *dev_id)
-/* keep the AO420 FIFO full. Recycle buffer only */
-{
-	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-
-	return IRQ_HANDLED;
-}
-#endif
 
 static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 {
@@ -107,17 +97,6 @@ static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 	wake_up_interruptible(&sc_dev->pps_client.wc_waitq);
 	return IRQ_HANDLED;	/* canned */
 }
-#if 0
-static irqreturn_t wr_pps_kthread(int irq, void *dev_id)
-/* keep the AO420 FIFO full. Recycle buffer only */
-{
-	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-
-	return IRQ_HANDLED;
-}
-#endif
-
 
 void init_scdev(struct acq400_dev* adev)
 {
@@ -146,17 +125,10 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 	if (irq <= 0){
 		return 0;
 	}
-	dev_info(DEVP(adev), "acq400_wr_init_irq %d", irq);
 
-/*
-	rc = devm_request_threaded_irq(
-			DEVP(adev), irq, wr_ts_isr, wr_ts_kthread, IRQF_NO_THREAD,
-			"wr_ts",	adev);
-*/
 	rc = devm_request_irq(DEVP(adev), irq, wr_ts_isr, IRQF_NO_THREAD, "wr_ts", adev);
-
 	if (rc){
-		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
+		dev_err(DEVP(adev),"unable to get IRQ %d\n", irq);
 		return 0;
 	}
 
@@ -165,15 +137,9 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 		return 0;
 	}
 
-	dev_info(DEVP(adev), "acq400_wr_init_irq %d", irq);
-/*
-	rc = devm_request_threaded_irq(
-			DEVP(adev), irq, wr_pps_isr, wr_pps_kthread, IRQF_NO_THREAD,
-			"wr_pps",	adev);
-*/
 	rc = devm_request_irq(DEVP(adev), irq, wr_pps_isr, IRQF_NO_THREAD, "wr_pps", adev);
 	if (rc){
-		dev_err(DEVP(adev),"unable to get IRQ %d K414 KLUDGE IGNORE\n", irq);
+		dev_err(DEVP(adev),"unable to get IRQ %d\n", irq);
 		return 0;
 	}
 
