@@ -126,6 +126,12 @@ private:
 	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
 		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
 	}
+	unsigned inc(unsigned s){
+		return ++s&SECONDS_MASK;
+	}
+	unsigned dec(unsigned s){
+		return --s&SECONDS_MASK;
+	}
 public:
 	unsigned raw;
 	char repr[16];
@@ -165,12 +171,9 @@ public:
 		if (ts2.ticks() > ticks()){
 			_ticks += G::ticks_per_sec;
 			_ticks -= ts2.ticks();
-			_secs -= 1;
+			_secs = dec(_secs);
 		}else{
 			_ticks -= ts2.ticks();
-		}
-		if (_secs==0 && ts2.secs() == SECONDS_MASK){
-			_secs += SECONDS_MASK+1;
 		}
 		return (_secs - ts2.secs())*NSPS + _ticks*G::ns_per_tick;
 	}
