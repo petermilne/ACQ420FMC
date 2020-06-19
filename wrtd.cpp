@@ -45,6 +45,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <assert.h>
 
 #include "split2.h"
 
@@ -61,6 +62,9 @@
 #define NSPS	(1000*M1)		// nanoseconds per second
 
 #define MAX_TX_INF	0xFFFFFFFF
+
+
+typedef std::vector<std::string> VS;
 
 
 #include <sched.h>
@@ -117,12 +121,24 @@ namespace G {
 #define TS_EN		(1<<31)
 
 struct TS {
+
+private:
+	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
+		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
+	}
+public:
 	unsigned raw;
 	char repr[16];
 
 	TS(unsigned _raw = 0): raw(_raw) {}
 	TS(unsigned _secs, unsigned _ticks, bool en=true) {
-		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
+		make_raw(_secs, _ticks, en);
+	}
+	TS(const char* def){
+		 VS tsx;
+		 split2<VS>(def, tsx, ':');
+		 assert(tsx.size() == 2);
+		 make_raw(strtoul(tsx[0].c_str(), 0, 10), strtoul(tsx[1].c_str(), 0, 10));
 	}
 
 	unsigned secs() const { return (raw& ~TS_EN) >> SECONDS_SHL; }
@@ -162,6 +178,12 @@ struct TS {
 	const char* toStr(void) {
 		sprintf(repr, "%d:%07d", secs(), ticks());
 		return repr;
+	}
+	static int do_ts_diff(const char* _ts1, const char* _ts2){
+		TS ts1(_ts1);
+		TS ts2(_ts2);
+		fprintf(stderr, "ts1:%s ts2:%s diff:%ld\n", ts1.toStr(), ts2.toStr(), ts1.diff(ts2));
+		return 0;
 	}
 };
 struct poptOption opt_table[] = {
@@ -241,6 +263,13 @@ const char* ui(int argc, const char** argv)
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
         const char* mode = poptGetArg(opt_context);
+
+        printf("mode %s\n", mode);
+        if (strcmp(mode, "ts_diff") == 0){
+        	TS::do_ts_diff(poptGetArg(opt_context), poptGetArg(opt_context));
+        	exit(0);
+        }
+        exit(0);
         const char* tx_id = poptGetArg(opt_context);
         if (tx_id && !isdigit(tx_id[0])){
         	G::tx_id = tx_id;
@@ -308,7 +337,7 @@ public:
 
 
 
-typedef std::vector<std::string> VS;
+
 
 class MultipleMatchFilter : public MessageFilter {
 	std::vector<VS> matches;
