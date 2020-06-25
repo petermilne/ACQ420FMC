@@ -2,10 +2,14 @@
 # bolo-pro-test [dac-offset]
 # bolo production test. enables passthru mode, sets dac_offset
 
-if { $argc != 1 } {
-    set dacoff 1fff
+set dacoff 1fff
+if { $argc > 0 } {
+    set arg1 [lindex $argv 0]
+    if { $arg1 != "loop" } {
+	    set dacoff [lindex $argv 0]
+    }
 } else {
-    set dacoff [lindex $argv 0]
+    set arg1 none
 }
 
 set hn [exec hostname]
@@ -19,6 +23,7 @@ foreach line [split [read $SF] \n] {
 	}
 }
 close $SF
+exec set.site 1 bolo_dsp_enable=1
 
 spawn /bin/sh
 
@@ -28,8 +33,10 @@ set cmds {
 	{mm.l $DSP1+4 4b7f}
         {mm.l $DSP1+c DACOFF}
 	{md.l $DSP1 8}
-	{exit}
+	{echo init99}
 }
+
+set DACOFF {mm.l $DSP1+c DACOFF}
 
 foreach cmd $cmds {
 	set cmd2 [regsub DACOFF $cmd $dacoff ]
@@ -38,5 +45,17 @@ foreach cmd $cmds {
 
 	}
 }
+
+while { $arg1 == "loop" } {
+	foreach _dacoff { 0 1fff 3fff 5fff 7fff 7fff 0 } {
+		set cmd2 [regsub DACOFF $DACOFF $_dacoff]
+		send "$cmd2\r"
+		expect "$hn>" {
+
+		} 
+		after 250
+	}
+}
+
 
 
