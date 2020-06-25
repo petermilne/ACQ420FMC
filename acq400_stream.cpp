@@ -936,6 +936,16 @@ class OversamplingMapBufferSingleSample: public _OversamplingMapBufferSingleSamp
 	const int asr1;
 	const int nsam;
 
+	bool checkit_ok(T* src, int isam) {
+		T checkit = src[isam*G::nchan+0] >> asr1;
+		for (unsigned ic = 1; ic < 4; ++ic){
+			T checkit2 = src[isam*G::nchan+ic] >> asr1;
+			if (checkit2 != checkit){
+				return true;
+			}
+		}
+		return false;
+	}
 public:
 	OversamplingMapBufferSingleSample(Buffer* cpy,
 			int _oversampling, int _asr) :
@@ -966,19 +976,14 @@ public:
 		memset(sums, 0, G::nchan*sizeof(int));
 
 		for (int isam = 0; isam < nsam; isam += stride){
-			/* runs of samples are bad - could be ES, could be strange 0x0000 .. either way, REJECT */
-			T checkit = src[isam*G::nchan+0] >> asr1;
-			bool checkit_ok = false;
-			for (unsigned ic = 1; ic < 4; ++ic){
-				T checkit2 = src[isam*G::nchan+ic] >> asr1;
-				if (checkit2 != checkit){
-					checkit_ok = true;
-					break;
+			if (checkiten){
+				/* runs of samples are bad - could be ES, could be strange 0x0000 .. either way, REJECT */
+				if (!checkit_ok(src, isam) && !checkit_ok(src, ++isam)){
+					if (verbose){
+						fprintf(stderr, "checkit_ok reject\n");
+					}
+					return 0;
 				}
-			}
-			if (!checkit_ok){
-				fprintf(stderr, "checkit_ok reject\n");
-				return 0;
 			}
 			for (unsigned ic = 0; ic < G::nchan; ++ic){
 				sums[ic] += src[isam*G::nchan+ic] >> asr1;
