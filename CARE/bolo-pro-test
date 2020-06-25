@@ -1,0 +1,42 @@
+#!/usr/bin/expect
+# bolo-pro-test [dac-offset]
+# bolo production test. enables passthru mode, sets dac_offset
+
+if { $argc != 1 } {
+    set dacoff 1fff
+} else {
+    set dacoff [lindex $argv 0]
+}
+
+set hn [exec hostname]
+
+set SF [open /etc/sites r]
+foreach line [split [read $SF] \n] {
+	if {[string match vg_sites=* $line ]} {
+		set sites [lindex [split $line = ] 1]
+		puts "play0 $sites"
+		exec play0 $sites
+	}
+}
+close $SF
+
+spawn /bin/sh
+
+set cmds { 
+	{map /usr/local/acq2106.map >/dev/null} 
+	{mm.l $DSP1+0 10000}
+	{mm.l $DSP1+4 4b7f}
+        {mm.l $DSP1+c DACOFF}
+	{md.l $DSP1 10}
+	{exit}
+}
+
+foreach cmd $cmds {
+	set cmd2 [regsub DACOFF $cmd $dacoff ]
+	send "$cmd2\r"
+	expect "$hn>" {
+
+	}
+}
+
+
