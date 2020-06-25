@@ -27,7 +27,7 @@ set cmds {
 	{mm.l $DSP1+0 10000}
 	{mm.l $DSP1+4 4b7f}
         {mm.l $DSP1+c DACOFF}
-	{md.l $DSP1 10}
+	{md.l $DSP1 8}
 	{exit}
 }
 
