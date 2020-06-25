@@ -1,8 +1,9 @@
 #!/bin/bash
 
 
+LATEST=$(ls -t release/*.tgz |head  -n 1)
 UUT=$1
-PKG=$2
+PKG=${2:-$LATEST}
 ROOT=${3:-/mnt/packages}
 
 if [ "x$UUT" = "x" -o "x$PKG" = "x" ]; then
@@ -15,7 +16,14 @@ else
 	ACT=${UUT}
 fi
 
-if [ ! -e $PKG ]; then
+if [ "$PKG" != "$LATEST" ]; then
+	echo "WARNING $PKG != $LATEST are you sure y/n"
+	prompt yn
+	if [ "$yn" != "y" ]; then
+		echo "Quitting, good move"
+		exit 1
+	fi
+elif [ ! -e $PKG ]; then
 	echo ERROR: $PKG does not exist
 	echo usage deploy.package UUT package
 	exit 1
