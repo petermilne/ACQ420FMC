@@ -296,6 +296,7 @@ build_knobs_device() {
 	dir=$1
 	site=$(cat $dir/site)
 	dk=/dev/acq400.${site}.knobs
+	ek=/etc/acq400.${site}
 	ln -s $dir/ ${dk}
 	build_etc_site ${site}
 	
@@ -314,21 +315,21 @@ build_knobs_device() {
 			ACQ427_SITES="${ACQ427_SITES} "	
 		fi
 		ACQ427_SITES="${ACQ427_SITES}$site"
-		create_gx /etc/acq400/$site/ 8
+		create_gx ${ek}/ 8
 		customize_acq420 $site;;
 	5|A5)
 		if [ "x$ACQ425_SITES" != "x" ]; then
 			ACQ425_SITES="${ACQ425_SITES} "
 		fi		
 		ACQ425_SITES="${ACQ425_SITES}$site"
-		create_gx /etc/acq400/$site/ 16
+		create_gx ${ek}/ 16
 		customize_acq420 $site;;
 	6C)
 		customize_acq420 $site;;
 	1|A1)			
 		customize_acq420 $site
 		set.sys ${dk}/gains 0000
-		echo 'gain=gain[1234]' > /etc/acq400/$site/groups;;
+		echo 'gain=gain[1234]' > ${ek}/groups;;
 	FE|FD)
 		if [ "x$ACQ400T_SITES" != "x" ]; then
 			ACQ400T_SITES="${ACQ400T_SITES} "
@@ -339,7 +340,7 @@ build_knobs_device() {
 	2|3|6)
 		case $mtype in
 		6)
-			create_gx /etc/acq400/$site/ 16
+			create_gx ${ek}/ 16
 			if [ "x$ACQ437_SITES" != "x" ]; then
 				ACQ437_SITES="${ACQ437_SITES} "
 			fi		
@@ -347,7 +348,7 @@ build_knobs_device() {
 		esac
 		echo WORKAROUND: clear FIFERR
 		echo 0 >/sys/module/acq420fmc/parameters/FIFERR
-		echo 4 >/etc/acq400/${site}/SAMPLE_SIZE
+		echo 4 >${ek}/SAMPLE_SIZE
 		set_max_min_khz ${site} 128 4
 		CLKDIV=8;;
 	7|8)
@@ -366,8 +367,8 @@ build_knobs_device() {
 			set_max_min_khz ${site} 1000 10;;
 		esac
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
-		if [ -e /etc/acq400/$site/dac_mux_master ]; then
-				ln -s /usr/local/bin/muxpattern /etc/acq400/$site/
+		if [ -e ${ek}/dac_mux_master ]; then
+				ln -s /usr/local/bin/muxpattern ${ek}/
 		fi
 		CLKDIV=250;;
 	41)	
@@ -379,8 +380,10 @@ build_knobs_device() {
 			BOLO8_SITES="${BOLO8_SITES},"
 		fi
 		set_max_min_khz ${site} 2000 2000
-		echo "setting BOLO ${site} NCHAN 16 for MAIN/CUR ADC combo sample" 
-		echo 16 > /etc/acq400/${site}/NCHAN
+		echo "setting BOLO ${site} NCHAN 16 for MAIN/CUR ADC combo sample"
+		rm ${ek}/active_chan
+		echo 16 > ${ek}/active_chan
+		echo 16 > ${ek}/NCHAN
 		BOLO8_SITES="${BOLO8_SITES}$site"
 		CLKDIV=100;; 
 	61|62|6B)
@@ -390,7 +393,7 @@ build_knobs_device() {
 		*)
 			set_max_min_khz ${site} 1000 10;;
 		esac
-		ln -s /usr/local/bin/clocks_to_first_edge /etc/acq400/$site/;;
+		ln -s /usr/local/bin/clocks_to_first_edge ${ek}/;;
 	67|68|69)
 		fake_fmc2_leds
 		return;;
@@ -402,7 +405,7 @@ build_knobs_device() {
 		rb=$(get.sys $dk/clkdiv)
 		echo "set clkdiv $CLKDIV get.sys $dk/clkdiv ${rb}"
 	fi
-	[ $site -eq 1 ] && echo 0 > /etc/acq400/$site/event_time
+	[ $site -eq 1 ] && echo 0 > ${ek}/event_time
 }
 
 install_cal() {
