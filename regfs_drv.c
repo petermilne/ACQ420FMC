@@ -541,7 +541,7 @@ static int is_group_trigger(struct REGFS_DEV* rdev)
 		if (rdev->group_first_n_triggers == GROUP_FIRST_N_TRIGGERS_ALL){
 			return active == rdev->group_trigger_mask;
 		}else{
-			return count_set_bits(active) > rdev->group_first_n_triggers;
+			return count_set_bits(active) >= rdev->group_first_n_triggers;
 		}
 	}
 }
