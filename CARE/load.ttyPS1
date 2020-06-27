@@ -1,0 +1,9 @@
+
+echo before:
+ls -l /dev/ttyPS*
+mount -t configfs none /sys/kernel/config
+mkdir -p /sys/kernel/config/device-tree/overlays/uart0
+cat /mnt/dtb.d/acq400_uart0.dtb > /sys/kernel/config/device-tree/overlays/uart0
+echo after:
+ls -l /dev/ttyPS*
+
