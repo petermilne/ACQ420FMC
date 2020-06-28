@@ -385,13 +385,10 @@ ssize_t acq400_hb0_read(
 	unsigned hb0_count;
 
 	if (hb0_no_ratelimit){
+		/* have we moved on from last time? */
 		hb0_count = HB0_COUNT(PD(file));
 	}else{
-		/* force wait until next .. this is very conservative, we could
-		 * stash the hb0 in DESCR for use between calls.
-		 * But this way is self-regulating. This is for human monitor,
-		 * not an attempt to handle ALL the data
-		 */
+		/* force wait until next .. this is very conservative */
 		hb0_count = adev->rt.hb0_count;
 	}
 
