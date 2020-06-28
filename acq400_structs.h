@@ -388,6 +388,7 @@ struct acq400_path_descriptor {
 	u32 samples_at_event;
 	struct EventInfo eventInfo;
 };
+#define HB0_COUNT(pd)	((pd)->bq.head)
 
 #define PD(filp)		((struct acq400_path_descriptor*)filp->private_data)
 #define SETPD(filp, value)	(filp->private_data = (value))

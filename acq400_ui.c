@@ -372,6 +372,8 @@ int acq400_open_hb(struct inode *inode, struct file *file)
 }
 
 
+extern int hb0_no_ratelimit;
+
 ssize_t acq400_hb0_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
@@ -379,12 +381,19 @@ ssize_t acq400_hb0_read(
 	char HB0[16];
 
 	int rc;
-	/* force wait until next .. this is very conservative, we could
-	 * stash the hb0 in DESCR for use between calls.
-	 * But this way is self-regulating. This is for human monitor,
-	 * not an attempt to handle ALL the data
-	 */
-	unsigned hb0_count = adev->rt.hb0_count;
+
+	unsigned hb0_count;
+
+	if (hb0_no_ratelimit){
+		hb0_count = HB0_COUNT(PD(file));
+	}else{
+		/* force wait until next .. this is very conservative, we could
+		 * stash the hb0 in DESCR for use between calls.
+		 * But this way is self-regulating. This is for human monitor,
+		 * not an attempt to handle ALL the data
+		 */
+		hb0_count = adev->rt.hb0_count;
+	}
 
 	if (wait_event_interruptible(
 			adev->hb0_marker,
@@ -397,6 +406,7 @@ ssize_t acq400_hb0_read(
 	} else if (adev->rt.refill_error){
 		return -GET_FULL_REFILL_ERR;
 	}
+	HB0_COUNT(PD(file)) = adev->rt.hb0_count;
 	sprintf(HB0, "%d %d\n", adev->rt.hb0_ix[0], adev->rt.hb0_ix[1]);
 	count = min(count, strlen(HB0)+1);
 	rc = copy_to_user(buf, HB0, count);
@@ -414,6 +424,8 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 			.read = acq400_hb0_read,
 			.release = acq400_release
 	};
+
+	HB0_COUNT(PD(file)) = -1;
 	file->f_op = &acq400_fops_hb0;
 	if (file->f_op->open){
 		return file->f_op->open(inode, file);
