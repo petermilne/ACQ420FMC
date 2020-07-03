@@ -4589,7 +4589,9 @@ StreamHead* StreamHead::createLiveDataInstance()
 		;
 	}
 	BufferCloner::cloneBuffers<DemuxBufferCloner>();
-	stream_fmt = "%s.hb0";
+
+	const char* _sf = ::getenv("StreamHead_LDI_SOURCE");
+	stream_fmt = _sf? _sf: "%s.hb0";
 
 	bool live_pp = G::stream_mode != SM_TRANSIENT && has_pre_post_live_demux();
 	setKnob(0, "/etc/acq400/0/live_mode", live_pp? "2": "1");
