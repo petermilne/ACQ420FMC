@@ -1382,7 +1382,7 @@ struct ProgressImpl: public Progress {
 	}
 };
 
-const char* stream_fmt = "%s.c";
+
 
 int shuffle_test;
 int fill_ramp_incr;
@@ -1942,6 +1942,8 @@ class StreamHead {
 	static bool has_pre_post_live_demux(void);
 	static StreamHead* createLiveDataInstance();
 protected:
+	static const char* stream_fmt;
+
 	int fc;
 	int fout;
 	static int multi_event;			/* file handle to multi-event comms */
@@ -1990,6 +1992,7 @@ public:
 };
 
 int StreamHead::multi_event;
+const char* StreamHead::stream_fmt = "%s.c";
 
 #define TRG_POLL_MS 10
 
