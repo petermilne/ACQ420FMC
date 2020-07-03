@@ -886,7 +886,7 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 		web_append acq480.$site nomon
 		if [ $AXI_COUNT -gt 1 ]; then
 			case $MODEL in
-				acq1001)
+				acq1014|acq1001)
 					/usr/local/CARE/acq480_init_two_lane $site;;
 				acq21*)
 					;; # could be two lane, but that's a special case.
