@@ -884,12 +884,12 @@ if [ "x${ACQ480_SITES}" != "x" ]; then
 	for site in $ACQ480_SITES
 	do
 		web_append acq480.$site nomon
-		if [ $AXI_COUNT -gt 1 ]; then
+		if [ "x$ACQ480_4CH_TWO_LANE" = "xy" ]; then
+			/usr/local/CARE/acq480_init_two_lane $site
+		elif [ $AXI_COUNT -gt 1 ]; then
 			case $MODEL in
 				acq1014|acq1001)
 					/usr/local/CARE/acq480_init_two_lane $site;;
-				acq21*)
-					;; # could be two lane, but that's a special case.
 			esac
 		fi
 	done
