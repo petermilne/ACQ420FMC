@@ -601,6 +601,13 @@ build_knobs() {
 		do
 			grep -q 482 /etc/acq400/$site/MODEL
 			[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
+			
+			grep -q 481 /etc/acq400/$site/MODEL
+			if [ $? -eq 0 ]; then
+				export ACQ480_FIXED_TERM=1
+				export ACQ480_MODPARAMS="claim_0x20=0 claim_0x22=0"
+			fi
+			break
 		done
 		/usr/local/bin/acq480.init ${ACQ480_SITES}
 	else
