@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.484"
+#define REVID 			"3.485"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2712,7 +2712,12 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 
 	if (IS_SC(adev)){
 		struct acq400_sc_dev *sc_dev;
-		SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
+		if (IS_ACQ2106_TIGA(adev)){
+			dev_info(DEVP(adev), "acq2106_tiga device detected");
+			SPECIALIZE(sc_dev, adev, struct acq400_tiga_dev, "SC");
+		}else{
+			SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
+		}
 		mutex_init(&sc_dev->sewFifo[0].sf_mutex);
 		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
 	}else if (IS_ACQ480(adev)){

@@ -437,10 +437,9 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_ACQ2106_STAGGER(adev) \
 	(IS_ACQ2106_STACK(adev) && (GET_MOD_ID_VERSION(adev)&0x4) != 0)
-
 #define IS_ACQ2106_WR(adev) 	((GET_MOD_ID_VERSION(adev)&0x8) != 0)
-
 #define IS_AXI64_AGG32(adev)	((GET_MOD_ID_VERSION(adev)&0x10) != 0)
+#define IS_ACQ2106_TIGA(adev) 	((GET_MOD_ID_VERSION(adev)&0x20) != 0)
 
 #define IS_ACQ2X06SC(adev) (IS_ACQ2006SC(adev) || IS_ACQ2106SC(adev))
 #define IS_ACQ1001SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ1001SC)
@@ -572,6 +571,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define WR_TAI_TRG1		(0x021C)
 
 
+
 #define WR_CTRL_TT1_STA		(1<<11)
 #define WR_CTRL_TT1_INTEN	(1<<10)
 #define WR_CTRL_PPS_STA		(1<<9)
@@ -586,6 +586,33 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define WR_CLK_GEN_PV3		(0x07000000)
 
 #define WR_TAI_TRG_EN		(1<<31)
+
+#define WR_TS_S1		(0x0240)
+#define WR_TS_S2		(0x0244)
+#define WR_TS_S3		(0x0248)
+#define WR_TS_S4		(0x024C)
+#define WR_TS_S5		(0x0250)
+#define WR_TS_S6		(0x0254)
+#define WR_TS_S(site)		(WR_TS_S1+((site)-1)*4)
+
+#define WR_TT_S1		(0x0260)
+#define WR_TT_S2		(0x0264)
+#define WR_TT_S3		(0x0268)
+#define WR_TT_S4		(0x026C)
+#define WR_TT_S5		(0x0270)
+#define WR_TT_S6		(0x0274)
+#define WR_TT_S(site)		(WR_TT_S1+((site)-1)*4)
+
+#define WR_TIGA_CSR		(0x0280)
+
+#define WR_TIGA_CSR_TS_MASK	0x3F			/* 6 sites */
+
+#define WR_TIGA_CSR_TS_ST_SHADOW (1<<15)
+#define WR_TIGA_CSR_TT_ST_SHL	24
+#define WR_TIGA_CSR_TT_EN_SHL	16
+#define WR_TIGA_CSR_TS_ST_SHL	 8
+#define WR_TIGA_CSR_TS_EN_SHL	 0
+
 
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DATA_ENGINE_SELECT_AGG	(1<<14)			/* PRI only */

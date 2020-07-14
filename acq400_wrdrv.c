@@ -56,7 +56,20 @@ static inline u32 wr_ctrl_clr(struct acq400_dev *adev, unsigned bits){
 	return ctrl;
 }
 
-static void wrtt_client_isr_action(struct acq400_sc_dev* sc_dev, struct WrClient* cli, u32 ts)
+static inline u32 tiga_ctrl_set(struct acq400_dev *adev, unsigned bits){
+	u32 ctrl = acq400rd32(adev, WR_TIGA_CSR);
+	ctrl |= bits;
+	acq400wr32(adev, WR_TIGA_CSR, ctrl);
+	return ctrl;
+}
+static inline u32 tiga_ctrl_clr(struct acq400_dev *adev, unsigned bits){
+	u32 ctrl = acq400rd32(adev, WR_TIGA_CSR);
+	ctrl &= ~bits;
+	acq400wr32(adev, WR_TIGA_CSR, ctrl);
+	return ctrl;
+}
+
+static void wrtt_client_isr_action(struct WrClient* cli, u32 ts)
 {
 	cli->wc_ts = ts;
 	cli->wc_count++;
@@ -71,17 +84,58 @@ static irqreturn_t wr_ts_isr(int irq, void *dev_id)
 	u32 int_sta = acq400rd32(adev, WR_CTRL);
 
 	if (int_sta&WR_CTRL_TT0_STA){
-		wrtt_client_isr_action(sc_dev, &sc_dev->wrtt_client0, acq400rd32(adev, WR_CUR_VERNR));
+		wrtt_client_isr_action(&sc_dev->wrtt_client0, acq400rd32(adev, WR_CUR_VERNR));
 	}
 	if (int_sta&WR_CTRL_TT1_STA){
-		wrtt_client_isr_action(sc_dev, &sc_dev->wrtt_client1, acq400rd32(adev, WR_CUR_VERNR));
+		wrtt_client_isr_action(&sc_dev->wrtt_client1, acq400rd32(adev, WR_CUR_VERNR));
 	}
 	if (int_sta&WR_CTRL_TS_STA){
-		wrtt_client_isr_action(sc_dev, &sc_dev->ts_client, acq400rd32(adev, WR_TAI_STAMP));
+		wrtt_client_isr_action(&sc_dev->ts_client, acq400rd32(adev, WR_TAI_STAMP));
 	}
 	acq400wr32(adev, WR_CTRL, int_sta);
 	return IRQ_HANDLED;	/* canned */
 }
+
+
+static irqreturn_t wr_ts_tiga_isr(int irq, void *dev_id)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)dev_id;
+	struct acq400_tiga_dev* tiga_dev = container_of(adev, struct acq400_tiga_dev, sc_dev.adev);
+	int handled = 0;
+	u32 int_sta = acq400rd32(adev, WR_TIGA_CSR);
+
+	if (int_sta&WR_TIGA_CSR_TS_ST_SHADOW){
+		wrtt_client_isr_action(&tiga_dev->sc_dev.ts_client, acq400rd32(adev, WR_TAI_STAMP));
+		handled = 1;
+	}
+	if (int_sta&(WR_TIGA_CSR_TS_MASK<<WR_TIGA_CSR_TS_ST_SHL)){
+		int isite;
+		for (isite = 0; isite < 6; ++isite){
+			if (int_sta&(1<<(isite+WR_TIGA_CSR_TS_ST_SHL))){
+				wrtt_client_isr_action(tiga_dev->ts_clients+isite,
+						acq400rd32(adev, WR_TS_S(isite+1)));
+			}
+		}
+		handled = 1;
+	}
+	if (int_sta&(WR_TIGA_CSR_TS_MASK<<WR_TIGA_CSR_TT_ST_SHL)){
+		int isite;
+		for (isite = 0; isite < 6; ++isite){
+			if (int_sta&(1<<(isite+WR_TIGA_CSR_TT_ST_SHL))){
+				wrtt_client_isr_action(tiga_dev->tt_clients+isite,
+						acq400rd32(adev, WR_TT_S(isite+1)));
+			}
+		}
+		handled = 1;
+	}
+	if (handled){
+		acq400wr32(adev, WR_TIGA_CSR, int_sta);
+		return IRQ_HANDLED;
+	}else{
+		return wr_ts_isr(irq, dev_id);
+	}
+}
+
 
 static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 {
@@ -98,6 +152,21 @@ static irqreturn_t wr_pps_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;	/* canned */
 }
 
+void init_tiga_scdev(struct acq400_dev* adev)
+{
+	struct acq400_tiga_dev* tiga_dev = container_of(adev, struct acq400_tiga_dev, sc_dev.adev);
+	int isite;
+	for (isite = 0; isite < 6; ++isite){
+		init_waitqueue_head(&tiga_dev->ts_clients[isite].wc_waitq);
+		init_waitqueue_head(&tiga_dev->tt_clients[isite].wc_waitq);
+	}
+	if (wr_ts_inten){
+		tiga_ctrl_set(adev, WR_TIGA_CSR_TS_MASK<<WR_TIGA_CSR_TS_EN_SHL);
+	}
+	if (wr_tt_inten){
+		tiga_ctrl_set(adev, WR_TIGA_CSR_TS_MASK<<WR_TIGA_CSR_TT_EN_SHL);
+	}
+}
 void init_scdev(struct acq400_dev* adev)
 {
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
@@ -106,8 +175,10 @@ void init_scdev(struct acq400_dev* adev)
 	init_waitqueue_head(&sc_dev->wrtt_client0.wc_waitq);
 	init_waitqueue_head(&sc_dev->wrtt_client1.wc_waitq);
 
+
 	if (wr_ts_inten){
 		wr_ctrl_set(adev, WR_CTRL_TS_INTEN);
+
 	}
 	if (wr_pps_inten){
 		wr_ctrl_set(adev, WR_CTRL_PPS_INTEN);
@@ -115,6 +186,9 @@ void init_scdev(struct acq400_dev* adev)
 	if (wr_tt_inten){
 		wr_ctrl_set(adev, WR_CTRL_TT1_INTEN);
 		wr_ctrl_set(adev, WR_CTRL_TT0_INTEN);
+	}
+	if (IS_ACQ2106_TIGA(adev)){
+		init_tiga_scdev(adev);
 	}
 }
 
@@ -126,7 +200,8 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 		return 0;
 	}
 
-	rc = devm_request_irq(DEVP(adev), irq, wr_ts_isr, IRQF_NO_THREAD, "wr_ts", adev);
+	rc = devm_request_irq(DEVP(adev), irq, IS_ACQ2106_TIGA(adev)? wr_ts_tiga_isr: wr_ts_isr,
+			IRQF_NO_THREAD, "wr_ts", adev);
 	if (rc){
 		dev_err(DEVP(adev),"unable to get IRQ %d\n", irq);
 		return 0;

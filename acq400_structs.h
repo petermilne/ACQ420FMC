@@ -276,6 +276,15 @@ struct acq400_sc_dev {
 		wait_queue_head_t wc_waitq;	/* client blocks on this		*/
 	} pps_client, ts_client,
 	  wrtt_client0, wrtt_client1;
+
+};
+
+enum {	WR_TIGA_S1, WR_TIGA_S2, WR_TIGA_S3, WR_TIGA_S4, WR_TIGA_S5, WR_TIGA_S6 };
+
+struct acq400_tiga_dev {
+	struct acq400_sc_dev sc_dev;
+	struct WrClient ts_clients[6];		/* hook tiga wr clients here */
+	struct WrClient tt_clients[6];
 };
 
 struct acq400_bolo_dev {

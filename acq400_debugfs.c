@@ -536,6 +536,24 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(WR_TAI_STAMP);
 		DBG_REG_CREATE(WR_CUR_VERNR);
 		DBG_REG_CREATE(WR_TAI_TRG1);
+
+		if (IS_ACQ2106_TIGA(adev)){
+			DBG_REG_CREATE(WR_TS_S1);
+			DBG_REG_CREATE(WR_TS_S2);
+			DBG_REG_CREATE(WR_TS_S3);
+			DBG_REG_CREATE(WR_TS_S4);
+			DBG_REG_CREATE(WR_TS_S5);
+			DBG_REG_CREATE(WR_TS_S6);
+
+			DBG_REG_CREATE(WR_TT_S1);
+			DBG_REG_CREATE(WR_TT_S2);
+			DBG_REG_CREATE(WR_TT_S3);
+			DBG_REG_CREATE(WR_TT_S4);
+			DBG_REG_CREATE(WR_TT_S5);
+			DBG_REG_CREATE(WR_TT_S6);
+
+			DBG_REG_CREATE(WR_TIGA_CSR);
+		}
 	}
 	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
 }

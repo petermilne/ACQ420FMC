@@ -645,13 +645,13 @@ static ssize_t _store_wr_tai_trg(
 		if (tai_trg != 0){
 			tai_trg |= WR_TAI_TRG_EN;
 		}
-		acq400wr32(adev, WR_TAI_TRG0, tai_trg);
+		acq400wr32(adev, reg, tai_trg);
 		return count;
 	} else if (sscanf(buf, "%u", &tai_trg) == 1){
 		if (tai_trg != 0){
 			tai_trg |= WR_TAI_TRG_EN;
 		}
-		acq400wr32(adev, WR_TAI_TRG0, tai_trg);
+		acq400wr32(adev, reg, tai_trg);
 		return count;
 	}else{
 		return -1;
@@ -669,42 +669,26 @@ static ssize_t _show_wr_tai_trg(
 	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
 }
 
-static ssize_t store_wr_tai_trg(
-	struct device * dev,
-	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
-{
-	return _store_wr_tai_trg(dev, attr, buf, count, WR_TAI_TRG0);
-}
+#define MAKE_WR_TAI_TRG(name, reg)								\
+static ssize_t store_wr_tai_##name(								\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	const char * buf,									\
+	size_t count)										\
+{												\
+	return _store_wr_tai_trg(dev, attr, buf, count, reg);					\
+}												\
+static ssize_t show_wr_tai_##name(								\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	char * buf)										\
+{												\
+	return _show_wr_tai_trg(dev, attr, buf, reg);						\
+}												\
+static DEVICE_ATTR(wr_tai_##name, S_IRUGO|S_IWUSR, show_wr_tai_##name, store_wr_tai_##name)
 
-static ssize_t show_wr_tai_trg(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	return _show_wr_tai_trg(dev, attr, buf, WR_TAI_TRG0);
-}
-
-static DEVICE_ATTR(wr_tai_trg, S_IRUGO|S_IWUSR, show_wr_tai_trg, store_wr_tai_trg);
-
-static ssize_t store_wr_tai_trg1(
-	struct device * dev,
-	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
-{
-	return _store_wr_tai_trg(dev, attr, buf, count, WR_TAI_TRG1);
-}
-
-static ssize_t show_wr_tai_trg1(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	return _show_wr_tai_trg(dev, attr, buf, WR_TAI_TRG1);
-}
-static DEVICE_ATTR(wr_tai_trg1, S_IRUGO|S_IWUSR, show_wr_tai_trg1, store_wr_tai_trg1);
+MAKE_WR_TAI_TRG(trg, WR_TAI_TRG0);
+MAKE_WR_TAI_TRG(trg1, WR_TAI_TRG1);
 
 static ssize_t show_wr_stamp(
 	struct device * dev,
@@ -712,7 +696,7 @@ static ssize_t show_wr_stamp(
 	char * buf, u32 reg)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned tai_stamp = acq400rd32(adev, WR_TAI_STAMP);
+	unsigned tai_stamp = acq400rd32(adev, reg);
 	return sprintf(buf, "0x%08x %u %u\n", tai_stamp, (tai_stamp>>28)&0x7, tai_stamp&0x0fffffff);
 }
 static ssize_t show_wr_tai_stamp(
@@ -790,6 +774,84 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	NULL
 };
 
+
+#define MAKE_TIGA_COUNT(site, FUN) \
+static ssize_t store_wr_##FUN##_s##site##count(							\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	const char * buf,									\
+	size_t count)										\
+{												\
+	struct acq400_dev* adev = acq400_devices[dev->id];					\
+	struct acq400_tiga_dev* tiga_dev = container_of(adev, struct acq400_tiga_dev, sc_dev.adev);\
+	unsigned clear;										\
+	if (sscanf(buf, "%u", &clear) == 1 && clear==1){					\
+		tiga_dev->FUN##_clients[site-1].wc_count = 0;					\
+		return count;									\
+	}else{											\
+		return -1;									\
+	}											\
+}												\
+static ssize_t show_wr_##FUN##_s##site##count(							\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	char * buf)										\
+{												\
+	struct acq400_dev* adev = acq400_devices[dev->id];					\
+	struct acq400_tiga_dev* tiga_dev = container_of(adev, struct acq400_tiga_dev, sc_dev.adev);\
+	return sprintf(buf, "%u\n", tiga_dev->FUN##_clients[site-1].wc_count);			\
+}												\
+static DEVICE_ATTR(wr_##FUN##_s##site##_count, S_IRUGO|S_IWUSR, show_wr_##FUN##_s##site##count, store_wr_##FUN##_s##site##count)
+
+#define MAKE_TIGA_REGS(site) \
+MAKE_WR_TAI_TRG(trg_s##site, WR_TT_S(site));							\
+static ssize_t show_wr_tai_stamp_s##site(							\
+	struct device * dev,									\
+	struct device_attribute *attr,								\
+	char * buf)										\
+{												\
+	return show_wr_stamp(dev, attr, buf, WR_TS_S(site));					\
+}												\
+static DEVICE_ATTR(wr_tai_stamp_s##site, S_IRUGO, show_wr_tai_stamp_s##site, 0);		\
+MAKE_TIGA_COUNT(site, ts);									\
+MAKE_TIGA_COUNT(site, tt)
+
+
+MAKE_TIGA_REGS(1);
+MAKE_TIGA_REGS(2);
+MAKE_TIGA_REGS(3);
+MAKE_TIGA_REGS(4);
+MAKE_TIGA_REGS(5);
+MAKE_TIGA_REGS(6);
+
+static const struct attribute *acq2106_tiga_attrs[] = {
+	&dev_attr_wr_tai_trg_s1.attr,
+	&dev_attr_wr_tai_trg_s2.attr,
+	&dev_attr_wr_tai_trg_s3.attr,
+	&dev_attr_wr_tai_trg_s4.attr,
+	&dev_attr_wr_tai_trg_s5.attr,
+	&dev_attr_wr_tai_trg_s6.attr,
+	&dev_attr_wr_tai_stamp_s1.attr,
+	&dev_attr_wr_tai_stamp_s2.attr,
+	&dev_attr_wr_tai_stamp_s3.attr,
+	&dev_attr_wr_tai_stamp_s4.attr,
+	&dev_attr_wr_tai_stamp_s5.attr,
+	&dev_attr_wr_tai_stamp_s6.attr,
+
+	&dev_attr_wr_ts_s1_count.attr,
+	&dev_attr_wr_ts_s2_count.attr,
+	&dev_attr_wr_ts_s3_count.attr,
+	&dev_attr_wr_ts_s4_count.attr,
+	&dev_attr_wr_ts_s5_count.attr,
+	&dev_attr_wr_ts_s6_count.attr,
+	&dev_attr_wr_tt_s1_count.attr,
+	&dev_attr_wr_tt_s2_count.attr,
+	&dev_attr_wr_tt_s3_count.attr,
+	&dev_attr_wr_tt_s4_count.attr,
+	&dev_attr_wr_tt_s5_count.attr,
+	&dev_attr_wr_tt_s6_count.attr,
+	NULL
+};
 
 
 static ssize_t show_gpg_mode(
@@ -3446,6 +3508,9 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = acq2006sc_attrs;
 			if (IS_ACQ2106_WR(adev)) {
 				specials[nspec++] = acq2106_wr_attrs;
+			}
+			if (IS_ACQ2106_TIGA(adev)){
+				specials[nspec++] = acq2106_tiga_attrs;
 			}
 		}else if (IS_ACQ1001SC(adev)){
 			if (IS_ACQ1014(adev)){
