@@ -112,8 +112,9 @@
 #define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
 
 #define ACQ420_MINOR_TIGA_TS_1	120
-#define ACQ420_MINOR_TIGA_TT_1	140
-#define ACQ420_MINOR_TIGA_99	160
+#define ACQ420_MINOR_TIGA_TT_1	130
+#define ACQ420_MINOR_TIGA_TTB_1 140
+#define ACQ420_MINOR_TIGA_99	150
 
 #define MINOR_IS_TIGA_TS(minor) \
 	()

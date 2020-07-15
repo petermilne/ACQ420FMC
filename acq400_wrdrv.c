@@ -104,6 +104,8 @@ static irqreturn_t wr_ts_tiga_isr(int irq, void *dev_id)
 	int handled = 0;
 	u32 int_sta = acq400rd32(adev, WR_TIGA_CSR);
 
+	dev_dbg(DEVP(adev), "%s %08x", __FUNCTION__, int_sta);
+
 	if (int_sta&WR_TIGA_CSR_TS_ST_SHADOW){
 		wrtt_client_isr_action(&tiga_dev->sc_dev.ts_client, acq400rd32(adev, WR_TAI_STAMP));
 		handled = 1;
@@ -123,7 +125,7 @@ static irqreturn_t wr_ts_tiga_isr(int irq, void *dev_id)
 		for (isite = 0; isite < 6; ++isite){
 			if (int_sta&(1<<(isite+WR_TIGA_CSR_TT_ST_SHL))){
 				wrtt_client_isr_action(tiga_dev->tt_clients+isite,
-						acq400rd32(adev, WR_TT_S(isite+1)));
+						acq400rd32(adev, WR_CUR_VERNR));
 			}
 		}
 		handled = 1;
@@ -228,6 +230,9 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 #define IS_MINOR_TIGA_TT(minor) \
 		((minor) >= ACQ420_MINOR_TIGA_TT_1 && (minor) <  ACQ420_MINOR_TIGA_TT_1+WR_TIGA_REGCOUNT)
 
+#define IS_MINOR_TIGA_TTB(minor) \
+		((minor) >= ACQ420_MINOR_TIGA_TTB_1 && (minor) <  ACQ420_MINOR_TIGA_TTB_1+WR_TIGA_REGCOUNT)
+
 struct WrClient *_tiga_getWCfromMinor(struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
@@ -240,6 +245,8 @@ struct WrClient *_tiga_getWCfromMinor(struct file *file)
 		return tiga_dev->ts_clients + (minor-ACQ420_MINOR_TIGA_TS_1);
 	}else if (IS_MINOR_TIGA_TT(minor)){
 		return tiga_dev->tt_clients + (minor-ACQ420_MINOR_TIGA_TT_1);
+	}else if (IS_MINOR_TIGA_TTB(minor)){
+		return tiga_dev->tt_clients + (minor-ACQ420_MINOR_TIGA_TTB_1);
 	}else{
 		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", minor);
 		return 0;
@@ -512,6 +519,12 @@ int acq400_tiga_open(struct inode *inode, struct file *file)
 			.write = acq400_wr_write,
 			.release = acq400_wr_release
 	};
+	static struct file_operations acq400_fops_wr_trg_block = {
+			.open = _acq400_tiga_open,
+			.read = acq400_wr_read,
+			.write = acq400_wr_write,
+			.release = acq400_wr_release_exclusive
+	};
 	struct acq400_path_descriptor* pdesc = PD(file);
 	int minor = pdesc->minor;
 
@@ -521,9 +534,13 @@ int acq400_tiga_open(struct inode *inode, struct file *file)
 	}else if (minor >= ACQ420_MINOR_TIGA_TT_1 && minor <  ACQ420_MINOR_TIGA_TT_1+WR_TIGA_REGCOUNT){
 		PD_REG(pdesc) = WR_TT_S(minor-ACQ420_MINOR_TIGA_TT_1+1);
 		file->f_op = &acq400_fops_wr_trg;
+	}else if (minor >= ACQ420_MINOR_TIGA_TTB_1 && minor <  ACQ420_MINOR_TIGA_TTB_1+WR_TIGA_REGCOUNT){
+		PD_REG(pdesc) = WR_TT_S(minor-ACQ420_MINOR_TIGA_TT_1+1);
+		file->f_op = &acq400_fops_wr_trg_block;
 	}else{
 		return -ENODEV;
 	}
+	dev_dbg(PDEV(file), "%s minor %d REG 0x%04x", __FUNCTION__, minor, PD_REG(pdesc));
 
 	return file->f_op->open(inode, file);
 }

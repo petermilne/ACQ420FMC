@@ -83,7 +83,8 @@ tiga_init() {
 	
 	for reg in $(seq 6); do
 		mknod /dev/${NAME}.wr_tiga_ts_s$reg c ${MAJOR} $((120+$reg-1))
-		mknod /dev/${NAME}.wr_tiga_tt_s$reg c ${MAJOR} $((140+$reg-1))
+		mknod /dev/${NAME}.wr_tiga_tt_s$reg c ${MAJOR} $((130+$reg-1))
+		mknod /dev/${NAME}.wr_tiga_ttb_s$reg c ${MAJOR} $((140+$reg-1))
 	done
 }
 
