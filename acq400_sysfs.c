@@ -665,7 +665,7 @@ static ssize_t _show_wr_tai_trg(
 	unsigned reg)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned tai_trg = acq400rd32(adev, WR_TAI_TRG0);
+	unsigned tai_trg = acq400rd32(adev, reg);
 	return sprintf(buf, "0x%08x %u %u\n", tai_trg, (tai_trg>>28)&0x7, tai_trg&0x0fffffff);
 }
 
