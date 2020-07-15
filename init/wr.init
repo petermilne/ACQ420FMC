@@ -76,6 +76,17 @@ init_wrtd() {
 	done
  
 }
+
+tiga_init() {
+	NAME=$1
+	MAJOR=$2
+	
+	for reg in $(seq 6); do
+		mknod /dev/${NAME}.wr_tiga_ts_s$reg c ${MAJOR} $((120+$reg-1))
+		mknod /dev/${NAME}.wr_tiga_ts_s$reg c ${MAJOR} $((140+$reg-1))
+	done
+}
+
 init_wr_onetime() {
 	[ -e /dev/${NAME}.wr_ts ] && return
 
@@ -94,6 +105,7 @@ init_wr_onetime() {
 	web_append wr nomon
 	web_append wrtd nomon
 	
+	[ -e /dev/acq400.0.wr_tai_stamp_s1 ] && tiga_init $NAME $MAJOR
 	
 	nice daemon $WEB_APPEND_JOB
 	nice daemon /usr/local/init/wr.init monitor

@@ -1234,6 +1234,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
         		    minor < ACQ400_MINOR_MAP_PAGE+16  ){
         			rc = acq400_map_page_open(inode, file);
+        		}else if (minor >= ACQ420_MINOR_TIGA_TS_1 &&
+        			  minor < ACQ420_MINOR_TIGA_99){
+        			rc = acq400_tiga_open(inode, file);
         		}else{
         			rc = -ENODEV;
         		}

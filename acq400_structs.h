@@ -396,6 +396,7 @@ struct acq400_path_descriptor {
 	unsigned char lbuf[MAXLBUF];
 	u32 samples_at_event;
 	struct EventInfo eventInfo;
+	unsigned client_private;
 };
 #define HB0_COUNT(pd)	((pd)->bq.head)
 
@@ -760,6 +761,7 @@ extern u64 acq400_trigger_ns;
 
 extern int acq400_wr_init_irq(struct acq400_dev* adev);
 extern int acq400_wr_open(struct inode *inode, struct file *file);
+extern int acq400_tiga_open(struct inode *inode, struct file *file);
 extern void ao420_reset_fifo(struct acq400_dev *adev);
 
 extern int ao424_16;

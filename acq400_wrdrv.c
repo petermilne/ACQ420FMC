@@ -222,31 +222,63 @@ int acq400_wr_init_irq(struct acq400_dev* adev)
 	return rc;
 }
 
+#define IS_MINOR_TIGA_TS(minor) \
+		((minor) >= ACQ420_MINOR_TIGA_TS_1 && (minor) <  ACQ420_MINOR_TIGA_TS_1+WR_TIGA_REGCOUNT)
+
+#define IS_MINOR_TIGA_TT(minor) \
+		((minor) >= ACQ420_MINOR_TIGA_TT_1 && (minor) <  ACQ420_MINOR_TIGA_TT_1+WR_TIGA_REGCOUNT)
+
+struct WrClient *_tiga_getWCfromMinor(struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	unsigned minor = pdesc->minor;
+	struct acq400_tiga_dev* tiga_dev = container_of(adev, struct acq400_tiga_dev, sc_dev.adev);
+
+
+	if (IS_MINOR_TIGA_TS(minor)){
+		return tiga_dev->ts_clients + (minor-ACQ420_MINOR_TIGA_TS_1);
+	}else if (IS_MINOR_TIGA_TT(minor)){
+		return tiga_dev->tt_clients + (minor-ACQ420_MINOR_TIGA_TT_1);
+	}else{
+		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", minor);
+		return 0;
+	}
+}
+
+
 struct WrClient *getWCfromMinor(struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	unsigned minor = pdesc->minor;
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 
-	switch(minor){
-	case ACQ400_MINOR_WR_TS:
-		return &sc_dev->ts_client;
-	case ACQ400_MINOR_WR_PPS:
-		return &sc_dev->pps_client;
-	case ACQ400_MINOR_WRTT:
-		return &sc_dev->wrtt_client0;
-	case ACQ400_MINOR_WRTT1:
-		return &sc_dev->wrtt_client1;
-	default:
-		dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", minor);
-		return 0;
+
+	if (minor >= ACQ420_MINOR_TIGA_TS_1){
+		return _tiga_getWCfromMinor(file);
+	}else{
+		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+
+		switch(minor){
+		case ACQ400_MINOR_WR_TS:
+			return &sc_dev->ts_client;
+		case ACQ400_MINOR_WR_PPS:
+			return &sc_dev->pps_client;
+		case ACQ400_MINOR_WRTT:
+			return &sc_dev->wrtt_client0;
+		case ACQ400_MINOR_WRTT1:
+			return &sc_dev->wrtt_client1;
+		default:
+			dev_err(DEVP(adev), "getWCfromMinor: BAD MINOR %u", minor);
+			return 0;
+		}
 	}
 }
 
 #define ACCMODE(file) (file->f_flags & O_ACCMODE)
 
 #define READ_REQUESTED(file) (ACCMODE(file) == O_RDONLY || ACCMODE(file) == O_RDWR)
+
 
 int _acq400_wr_open(struct inode *inode, struct file *file)
 {
@@ -322,28 +354,18 @@ ssize_t acq400_wr_read(struct file *file, char __user *buf, size_t count, loff_t
 	}
 }
 
+#define PD_REG(pdesc) (pdesc->client_private)
 
 ssize_t acq400_wr_read_cur(struct file *file, char __user *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-	int reg;
 	int rc;
 
-	switch(pdesc->minor){
-	case ACQ400_MINOR_WR_CUR:
-		reg = WR_CUR_VERNR; 	break;
-	case ACQ400_MINOR_WR_CUR_TRG0:
-		reg = WR_TAI_TRG0; 	break;
-	case ACQ400_MINOR_WR_CUR_TRG1:
-		reg = WR_TAI_TRG1; 	break;
-	default:
-		reg = WR_TAI_CUR_L;
-	}
 	if (count < sizeof(u32)){
 		return -EINVAL;
 	}else{
-		u32 tmp = acq400rd32(adev, reg);
+		u32 tmp = acq400rd32(adev, PD_REG(pdesc));
 		rc = copy_to_user(buf, &tmp, sizeof(u32));
 
 		if (rc){
@@ -361,28 +383,18 @@ ssize_t acq400_wr_write(
 	struct acq400_path_descriptor* pdesc = PD(file);
 	u32 tmp;
 	int rc;
-	u32 reg;
 
-	switch(pdesc->minor){
-	case ACQ400_MINOR_WR_CUR_TRG0:
-		reg = WR_TAI_TRG0;	break;
-	case ACQ400_MINOR_WR_CUR_TRG1:
-		reg = WR_TAI_TRG1; 	break;
-	default:
-		return -ENODEV;
-	}
 	if (count < sizeof(u32)){
 		return -EINVAL;
 	}
 	dev_dbg(DEVP(adev), "acq400_wr_write() ");
-
 
 	rc = copy_from_user(&tmp, buf, sizeof(u32));
 
 	if (rc){
 		return -1;
 	}else{
-		acq400wr32(adev, reg, tmp);
+		acq400wr32(adev, PD_REG(pdesc), tmp);
 	}
 
 	*f_pos += sizeof(u32);
@@ -425,8 +437,18 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 			.write = acq400_wr_write,
 			.release = acq400_wr_release
 	};
+	struct acq400_path_descriptor* pdesc = PD(file);
 
-
+	switch(pdesc->minor){
+	case ACQ400_MINOR_WR_CUR:
+		PD_REG(pdesc) = WR_CUR_VERNR; 	break;
+	case ACQ400_MINOR_WR_CUR_TRG0:
+		PD_REG(pdesc) =  WR_TAI_TRG0; 	break;
+	case ACQ400_MINOR_WR_CUR_TRG1:
+		PD_REG(pdesc) =  WR_TAI_TRG1; 	break;
+	default:
+		PD_REG(pdesc) =  WR_TAI_CUR_L;
+	}
 	switch(PD(file)->minor){
 	case ACQ400_MINOR_WR_CUR:
 	case ACQ400_MINOR_WR_CUR_TAI:
@@ -445,3 +467,64 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 	}
 	return file->f_op->open(inode, file);
 }
+
+
+
+int _acq400_tiga_open(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	unsigned minor = pdesc->minor;
+	struct WrClient *wc = _tiga_getWCfromMinor(file);
+
+	dev_dbg(DEVP(adev), "_acq400_tiga_open() %d minor %d flags %x", __LINE__, PD(file)->minor, file->f_flags);
+
+	if (wc == 0){
+		return -ENODEV;
+	}else if (!IS_MINOR_TIGA_TS(minor) && (file->f_flags & O_WRONLY)) {		// only ts is writeable
+		return -EACCES;
+	}else if (READ_REQUESTED(file) && wc->wc_pid != 0 && wc->wc_pid != current->pid){
+		return -EBUSY;
+	}else{
+		if ((file->f_flags & O_ACCMODE) != O_WRONLY){
+			wc->wc_pid = current->pid;
+			if ((file->f_flags & O_NONBLOCK) == 0){
+				dev_dbg(DEVP(adev), "_acq400_wr_open clear %d", wc->wc_ts);
+				wc->wc_ts = 0;
+			}
+		}
+		return 0;
+	}
+}
+
+
+
+int acq400_tiga_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_wr = {
+			.open = _acq400_tiga_open,
+			.read = acq400_wr_read,
+			.release = acq400_wr_release_exclusive
+	};
+	static struct file_operations acq400_fops_wr_trg = {
+			.open = open_ok,
+			.read = acq400_wr_read_cur,
+			.write = acq400_wr_write,
+			.release = acq400_wr_release
+	};
+	struct acq400_path_descriptor* pdesc = PD(file);
+	int minor = pdesc->minor;
+
+	if (minor >= ACQ420_MINOR_TIGA_TS_1 && minor <  ACQ420_MINOR_TIGA_TS_1+WR_TIGA_REGCOUNT){
+		PD_REG(pdesc) = WR_TS_S(minor-ACQ420_MINOR_TIGA_TS_1+1);
+		file->f_op = &acq400_fops_wr;
+	}else if (minor >= ACQ420_MINOR_TIGA_TT_1 && minor <  ACQ420_MINOR_TIGA_TT_1+WR_TIGA_REGCOUNT){
+		PD_REG(pdesc) = WR_TT_S(minor-ACQ420_MINOR_TIGA_TT_1+1);
+		file->f_op = &acq400_fops_wr_trg;
+	}else{
+		return -ENODEV;
+	}
+
+	return file->f_op->open(inode, file);
+}
+

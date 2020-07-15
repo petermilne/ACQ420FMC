@@ -111,6 +111,13 @@
 #define ACQ420_MINOR_CHAN	200
 #define ACQ420_MINOR_CHAN2	232	// in reality 203 of course, but looking ahead ..
 
+#define ACQ420_MINOR_TIGA_TS_1	120
+#define ACQ420_MINOR_TIGA_TT_1	140
+#define ACQ420_MINOR_TIGA_99	160
+
+#define MINOR_IS_TIGA_TS(minor) \
+	()
+
 
 #define BQ_MIN_BACKLOG		2
 #define BQ_MAX_BACKLOG		512
