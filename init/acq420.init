@@ -134,6 +134,8 @@ build_nodes() {
 					mknod /dev/${NAME}.awgc c ${MAJOR} 10
 					mknod /dev/${NAME}.awgr c ${MAJOR} 14
 				fi;;
+			7B)
+				mknod /dev/acq400.$ID.gpg c ${MAJOR} 5;;
 			2)
 				mknod /dev/${NAME}.sew1 c ${MAJOR} 	12
 				mknod /dev/${NAME}.sew2 c ${MAJOR} 	13
