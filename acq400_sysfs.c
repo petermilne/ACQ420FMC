@@ -547,7 +547,7 @@ static ssize_t show_gpg_top_count(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
 	return sprintf(buf, "%u\n", gpg_top+2);
@@ -860,7 +860,7 @@ static ssize_t show_gpg_mode(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_mode = (gpg_ctrl&GPG_CTRL_MODE) >> GPG_CTRL_MODE_SHL;
@@ -874,7 +874,7 @@ static ssize_t store_gpg_mode(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_mode;
 
 	if (sscanf(buf, "%u", &gpg_mode) == 1){
@@ -899,7 +899,7 @@ static ssize_t show_gpg_enable(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	return sprintf(buf, "%u\n", (gpg_ctrl&GPG_CTRL_ENABLE) != 0);
 }
@@ -911,7 +911,7 @@ static ssize_t store_gpg_enable(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_enable;
 
 	if (sscanf(buf, "%u", &gpg_enable) == 1){
@@ -3434,6 +3434,13 @@ static ssize_t show_DO32(
 	return sprintf(buf, "0x%08x\n", acq400rd32(adev, DIO432_DI_SNOOP));
 }
 
+/*
+ * DO32=value  :: DO32 = value
+ * DO32=+value :: DO32 |= value   	set bits
+ * DO32=-value :: DO32 &= ~value        clear bits
+ * DO32=+dvalue:: DO32 |= 1<<value      set bit
+ * DO32=-dvalue:: DO32 &= ~(1<<value)   clear bit
+ */
 static ssize_t store_DO32(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3442,8 +3449,34 @@ static ssize_t store_DO32(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned DO32 = 0;
+	enum BITMODE { CLR=-1, CPY=0, SET=1 } mode = CPY;		/* -1: CLR, 0: OVERWRITE, 1: SET */
+	int is_bit = 0;
 
+	if (buf[0] == '+'){
+		mode = SET;
+		buf++;
+	}else if (buf[0] == '-'){
+		mode = CLR;
+		buf++;
+	}
+	if (mode != CPY && buf[0] == 'd'){
+		is_bit = 1;
+		buf++;
+	}
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
+		if (mode != CPY){
+			unsigned old = acq400rd32(adev, DIO432_FIFO);
+			if (is_bit){
+				DO32 = 1<<DO32;
+			}
+			if (mode == SET){
+				DO32 = old | DO32;
+			}else if (mode == CLR){
+				DO32 = old & ~DO32;
+			}else{
+				return -1;
+			}
+		}
 		acq400wr32(adev, DIO432_FIFO, DO32);
 		return count;
 	}else{
@@ -3455,10 +3488,13 @@ static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
 
 extern const struct device_attribute dev_attr_byte_is_output;
 
+SCOUNT_KNOB(FPTRG, DIO482_PG_FPTRG_COUNT);
+
 const struct attribute *dio484_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_byte_is_output.attr,
+		&dev_attr_scount_FPTRG.attr,
 		NULL
 };
 
@@ -3552,7 +3588,7 @@ void acq400_createSysfs(struct device *dev)
 			}
 			acq400_clearDelTrg(adev);
 		}
-		if (IS_DIO484ELF_PG(adev)) {
+		if (IS_DIO482_PG(adev)) {
 			specials[nspec++] = gpg_attrs;
 			specials[nspec++] = dio484_pg_attrs;
 		}else if (IS_ACQ423(adev)){

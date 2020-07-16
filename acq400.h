@@ -149,6 +149,9 @@
 #define MOD_ID_ACQ425ELF_2000	0xa5
 #define MOD_ID_ACQ437ELF	6
 
+#define MOD_ID_ACQ427ELF	0x07
+#define MOD_ID_ACQ427ELF_2000   0xa7
+
 #define MOD_ID_DUMMY		0x00ff
 
 #define MOD_ID_AO420FMC		0x40
@@ -165,6 +168,9 @@
 
 #define MOD_ID_DIO_BISCUIT	0x67
 /* known Biscuit Variants, switch on MOD_ID_VERSION */
+
+
+
 #define MOD_IDV_V2F		0x0
 #define MOD_IDV_DIO		0x1
 #define MOD_IDV_QEN		0x2
@@ -178,10 +184,12 @@
 #define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
 #define MOD_IDV_PG		0x0f	/* DIO482-PG */
 
-#define MOD_ID_ACQ427ELF	0x07
-#define MOD_ID_ACQ427ELF_2000   0xa7
+
+
 
 #define MOD_ID_ACQ436ELF	0x6d
+
+#define MOD_ID_DIO482TD_PG	0x7b
 
 #define MOD_ID_ACQ2006SC	0x80
 #define MOD_ID_ACQ1001SC	0x81
@@ -479,6 +487,10 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO482FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC)
 #define IS_DIO484ELF_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) ==MOD_IDV_PG)
+#define IS_DIO482TD_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD_PG)
+
+#define IS_DIO482_PG(adev)	(IS_DIO484ELF_PG(adev)||IS_DIO482TD_PG(adev))
+
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)||IS_DIO482FMC(adev))
 
 #define IS_XO(adev)		(IS_DIO432X(adev) || IS_AO42X(adev))
@@ -854,12 +866,17 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define DIO432_DO_FIFO_COUNT	0x90
 #define DIO432_DO_FIFO_STATUS	0x94
 
+#define DIO482_PG_FPTRG_COUNT	0x20
+
 #define DIO482_PG_GPGCR		0x80
 #define DIO482_PG_GPGDR		0x84
 #define DIO482_PG_IMM_MASK	0x88
 
 #define DIO482_PG_GPGMEM	0x4000
 #define DIO432_FIFO		0x1000
+
+#define DIO482_PG_IMM_DO	0x1000
+
 
 
 #define DIO432_CTRL_SHIFT_DIV_SHL (9)

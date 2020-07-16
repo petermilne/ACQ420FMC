@@ -924,6 +924,10 @@ void dio484_pg_init_defaults(struct acq400_dev* adev)
 	dio432_set_direction(adev, DIO484_PG_OUTPUTS);
 }
 
+void dio482td_init_defaults(struct acq400_dev* adev)
+{
+	dio484_pg_init_defaults(adev);
+}
 void _acq400_mod_init_defaults(struct acq400_dev* adev)
 {
 	adev->sysclkhz = SYSCLK_M100;
@@ -989,6 +993,9 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			break;
 		case MOD_ID_DAC_CELF:
 			ao428_init_defaults(adev);
+			break;
+		case MOD_ID_DIO482TD_PG:
+			dio482td_init_defaults(adev);
 			break;
 		default:
 			dev_warn(DEVP(adev), "no custom init for module type %x",

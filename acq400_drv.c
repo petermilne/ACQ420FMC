@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.491"
+#define REVID 			"3.493"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2723,7 +2723,7 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 	}else if (IS_ACQ480(adev)){
 		struct ACQ480_dev *a480_dev;
 		SPECIALIZE(a480_dev, adev, struct ACQ480_dev, "ACQ480");
-	}else if (IS_DIO484ELF_PG(adev)){
+	}else if (IS_DIO482_PG(adev)){
 		struct PG_dev *pg_dev;
 		SPECIALIZE(pg_dev, adev, struct PG_dev, "PG");
 	}else if (IS_XO(adev)){

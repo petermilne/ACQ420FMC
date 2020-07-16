@@ -235,22 +235,25 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO432_MOD_ID		);
 	DBG_REG_CREATE( DIO432_DIO_CTRL		);
 	DBG_REG_CREATE( DIO432_TIM_CTRL		);
-	if (!IS_DIO484ELF_PG(adev)){
+	if (!IS_DIO482_PG(adev)){
 		DBG_REG_CREATE( DIO432_DI_HITIDE	);
 		DBG_REG_CREATE( DIO432_DI_FIFO_COUNT	);
 		DBG_REG_CREATE_RW( DIO432_DI_FIFO_STATUS);
 	}
 	DBG_REG_CREATE( DIO432_DIO_ICR		);
 	DBG_REG_CREATE( ADC_CLK_CTR);
+	if (IS_DIO482TD_PG(adev)){
+		DBG_REG_CREATE_NAME_N(DIO482_PG_FPTRG_COUNT);
+	}
 	DBG_REG_CREATE( DIO_CLKDIV );
 	DBG_REG_CREATE( DIO432_DIO_CPLD_CTRL	);
 	DBG_REG_CREATE( DIO432_DIO_SAMPLE_COUNT );
 	DBG_REG_CREATE( DIO432_DI_SNOOP );
-	if (IS_DIO482FMC(adev) && !IS_DIO484ELF_PG(adev)){
+	if (IS_DIO482FMC(adev) && !IS_DIO482_PG(adev)){
 		DBG_REG_CREATE(DIO482_COS_STA);
 		DBG_REG_CREATE(DIO482_COS_EN);
 	}
-	if (!IS_DIO484ELF_PG(adev)){
+	if (!IS_DIO482_PG(adev)){
 		DBG_REG_CREATE( DIO432_DO_LOTIDE	);
 		DBG_REG_CREATE( DIO432_DO_FIFO_COUNT	);
 		DBG_REG_CREATE( DIO432_DO_FIFO_STATUS	);
@@ -259,10 +262,11 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(PWM_SOURCE_CLK_CTRL);
 	}
 
-	if (IS_DIO484ELF_PG(adev)){
+	if (IS_DIO482_PG(adev)){
 		DBG_REG_CREATE(DIO482_PG_GPGCR);
 		DBG_REG_CREATE(DIO482_PG_GPGDR);
 		DBG_REG_CREATE(DIO482_PG_IMM_MASK);
+		DBG_REG_CREATE(DIO482_PG_IMM_DO);
 	}
 }
 
@@ -365,7 +369,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 
 	if (IS_ACQ42X(adev)){
 		acq420_createDebugfs(adev, pcursor);
-	}else if (IS_DIO432X(adev)){
+	}else if (IS_DIO432X(adev) || IS_DIO482TD_PG(adev)){
 		dio432_createDebugfs(adev, pcursor);
 	}else{
 		switch(GET_MOD_ID(adev)){

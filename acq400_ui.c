@@ -433,7 +433,7 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 
 struct GPG_buffer* get_gpg(struct acq400_dev* adev)
 {
-	if (IS_DIO484ELF_PG(adev)){
+	if (IS_DIO482_PG(adev)){
 		struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
 		dev_dbg(DEVP(adev), "is:%s gpg_buffer:%p gpg_base:%p gpg_cursor:%u",
 				pg_dev->id, pg_dev->gpg.gpg_buffer, pg_dev->gpg.gpg_base, pg_dev->gpg.gpg_cursor);
@@ -513,7 +513,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
 {
 	if (gpg_count >= 2){
-		unsigned GPG_CR = IS_DIO484ELF_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
+		unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 		u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 		u32 gpg_top = gpg_count - 1		// was count, not address
 					 -1;		// GPG_2ND_LAST_ADDR
