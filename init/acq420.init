@@ -7,7 +7,7 @@ echo 9 > /proc/sys/kernel/printk
 
 BLEN=1048576
 NBUF=512
--
+
 # check for AXI DMA
 grep load.*_64B /tmp/fpga_status
 if [ $? -eq 0 ]; then

@@ -3489,12 +3489,14 @@ static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
 extern const struct device_attribute dev_attr_byte_is_output;
 
 SCOUNT_KNOB(FPTRG, DIO482_PG_FPTRG_COUNT);
+MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_PG_TRGOUT_PG4);
 
 const struct attribute *dio484_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_byte_is_output.attr,
 		&dev_attr_scount_FPTRG.attr,
+		&dev_attr_trgout_PG4.attr,
 		NULL
 };
 

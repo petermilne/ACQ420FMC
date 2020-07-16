@@ -880,9 +880,11 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define DIO482_PG_DO4 0xf	/* 4 bits */
 
-
+#define DIO432_CTRL		MCR
 #define DIO432_CTRL_SHIFT_DIV_SHL (9)
 #define DIO432_CTRL_AWG_ABORT	(1<<12)
+
+#define DIO432_CTRL_PG_TRGOUT_PG4 (1 << 10)
 #define DIO432_CTRL_LL		(1 << 8)
 #define DIO432_CTRL_EXT_CLK_SYNC (1<< 7)
 #define DIO432_CTRL_RAMP_EN 	(1 << 5)	/* Deprecated, sadly. Use SPAD */
