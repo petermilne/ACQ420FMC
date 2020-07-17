@@ -3423,15 +3423,14 @@ const struct attribute *dio482_attrs[] = {
 
 extern const struct attribute *spadcop_attrs[];
 
-MAKE_BITS(DO32_immediate_mask, DIO482_PG_IMM_MASK, 0, 0xffffffff);
-
-static ssize_t show_DO32(
+static ssize_t show_DO32_reg(
 	struct device * dev,
 	struct device_attribute *attr,
-	char * buf)
+	char * buf,
+	unsigned reg)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "0x%08x\n", acq400rd32(adev, DIO432_DI_SNOOP));
+	return sprintf(buf, "0x%08x\n", acq400rd32(adev, reg));
 }
 
 /*
@@ -3441,11 +3440,12 @@ static ssize_t show_DO32(
  * DO32=+dvalue:: DO32 |= 1<<value      set bit
  * DO32=-dvalue:: DO32 &= ~(1<<value)   clear bit
  */
-static ssize_t store_DO32(
+static ssize_t store_DO32_reg(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
-	size_t count)
+	size_t count,
+	unsigned reg)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned DO32 = 0;
@@ -3465,7 +3465,7 @@ static ssize_t store_DO32(
 	}
 	if (sscanf(buf, "0x%x", &DO32) == 1 || sscanf(buf, "%u", &DO32) == 1){
 		if (mode != CPY){
-			unsigned old = acq400rd32(adev, DIO432_FIFO);
+			unsigned old = acq400rd32(adev, reg);
 			if (is_bit){
 				DO32 = 1<<DO32;
 			}
@@ -3477,14 +3477,34 @@ static ssize_t store_DO32(
 				return -1;
 			}
 		}
-		acq400wr32(adev, DIO432_FIFO, DO32);
+		acq400wr32(adev, reg, DO32);
 		return count;
 	}else{
 		return -1;
 	}
 }
 
-static DEVICE_ATTR(DO32, S_IRUGO|S_IWUSR, show_DO32, store_DO32);
+
+#define MAKE_STORE_DO32(name, wreg, rreg) 					\
+static ssize_t show_##name(							\
+	struct device * dev,							\
+	struct device_attribute *attr,						\
+	char * buf)								\
+{										\
+	return show_DO32_reg(dev, attr, buf, rreg);				\
+}										\
+static ssize_t store_##name(							\
+	struct device * dev,							\
+	struct device_attribute *attr,						\
+	const char * buf,							\
+	size_t count)								\
+{										\
+	return store_DO32_reg(dev, attr, buf, count, wreg);			\
+}										\
+static DEVICE_ATTR(name, S_IRUGO|S_IWUSR, show_##name, store_##name)
+
+MAKE_STORE_DO32(DO32, 			DIO432_FIFO, DIO432_DI_SNOOP);
+MAKE_STORE_DO32(DO32_immediate_mask, 	DIO482_PG_IMM_MASK, DIO482_PG_IMM_MASK);
 
 extern const struct device_attribute dev_attr_byte_is_output;
 
