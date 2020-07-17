@@ -3492,6 +3492,7 @@ SCOUNT_KNOB(FPTRG, DIO482_PG_FPTRG_COUNT);
 MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_PG_TRGOUT_PG4);
 
 const struct attribute *dio484_pg_attrs[] = {
+		&dev_attr_sync.attr,
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_byte_is_output.attr,
