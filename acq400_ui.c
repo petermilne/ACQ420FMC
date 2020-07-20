@@ -536,7 +536,12 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 	int iw;
 	int rc;
 
+	gpg->gpg_used_bits = 0;
+
 	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
+		unsigned gbits = gpg->gpg_base[iw] & 0x000000ff;
+		gpg->gpg_used_bits |= gbits;
+		gpg->gpg_final_state = gbits;
 		iowrite32(gpg->gpg_buffer[iw], gpg->gpg_base+iw);
 	}
 	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);

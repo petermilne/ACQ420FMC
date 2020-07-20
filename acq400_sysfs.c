@@ -547,10 +547,11 @@ static ssize_t show_gpg_top_count(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
+	struct GPG_buffer* gpg = get_gpg(adev);
 	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
-	return sprintf(buf, "%u\n", gpg_top+2);
+	return sprintf(buf, "%u,%08x,%08x\n", gpg_top+2, gpg->gpg_used_bits, gpg->gpg_final_state);
 }
 
 static ssize_t store_gpg_top_count(

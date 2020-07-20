@@ -247,6 +247,8 @@ struct GPG_buffer {
 	unsigned *gpg_base;
 	unsigned gpg_cursor;		/* words .. */
 	unsigned gpg_dbgr;
+	unsigned gpg_used_bits;
+	unsigned gpg_final_state;
 };
 struct acq400_sc_dev {
 	char id[16];
