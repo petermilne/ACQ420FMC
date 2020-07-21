@@ -26,7 +26,7 @@ public:
 	static int getenv(const char* key, int def) {
 		const char* sv = ::getenv(key);
 		if (sv){
-			return atoi(sv);
+			return strtol(sv, 0, 0);
 		}else{
 			return def;
 		}

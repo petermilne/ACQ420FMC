@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <glob.h>
 
 #include <assert.h>
 
@@ -111,6 +112,8 @@ namespace G {
         int rt_prio = 0;
         int trg = 0;					// trg 0 or 1, 2, decoded from message
         int delay01;					// tr==2? trg0 at time t, trg1 at t+delay01
+        unsigned tx_mask;
+        const char* dev_ts = DEV_TS;
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -124,6 +127,7 @@ struct TS {
 
 private:
 	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
+		mask = 0;
 		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
 	}
 	unsigned inc(unsigned s){
@@ -135,8 +139,9 @@ private:
 public:
 	unsigned raw;
 	char repr[16];
+	unsigned char mask;		/* possible, multiple receivers */
 
-	TS(unsigned _raw = 0): raw(_raw) {}
+	TS(unsigned _raw = 0): raw(_raw), mask(0) {}
 	TS(unsigned _secs, unsigned _ticks, bool en=true) {
 		make_raw(_secs, _ticks, en);
 	}
@@ -220,6 +225,12 @@ struct poptOption opt_table[] = {
 	{
 	  "delay01", 0, POPT_ARG_INT, &G::delay01, 0, "in double tap, delay to second trigger"
 	},
+	{
+	  "tx_mask", 0, POPT_ARG_INT, &G::tx_mask, 0, "mask for TIGA trigger tx"
+	},
+	{
+	  "dev_ts", 0, POPT_ARG_STRING, &G::dev_ts, 0, "timestamp device eg may be a TIGA site.."
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -233,13 +244,14 @@ const char* ui(int argc, const char** argv)
         Knob clkdiv(1, "clkdiv");
         Knob modname(1, "module_name");
 
-        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 50);
-        G::dns 		= Env::getenv("WRTD_DELTA_NS", 50000000);
-        G::tx_id 	= Env::getenv("WRTD_ID", "WRTD0");
-        G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
-        G::rt_prio	= Env::getenv("WRTD_RTPRIO", 0);
-        G::delay01	= Env::getenv("WRTD_DELAY01", 1000000);
-
+        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 	50	);
+        G::dns 		= Env::getenv("WRTD_DELTA_NS", 	50000000);
+        G::tx_id 	= Env::getenv("WRTD_ID", 	"WRTD0"	);
+        G::verbose 	= Env::getenv("WRTD_VERBOSE", 	0	);
+        G::rt_prio	= Env::getenv("WRTD_RTPRIO", 	0	);
+        G::delay01	= Env::getenv("WRTD_DELAY01", 	1000000	);
+        G::tx_mask	= Env::getenv("WRTD_TX_MASK", 	0	);
+        G::dev_ts	= Env::getenv("WRTD_DEV_TS",    DEV_TS	);
 
         const char* ip_multicast_if = ::getenv("WRTD_MULTICAST_IF");
         if (ip_multicast_if){
@@ -388,6 +400,9 @@ class WrtdCaster : public TSCaster {
 
 	MessageFilter& is_for_us;
 	struct wrtd_message msg;
+
+
+
 protected:
 	WrtdCaster(MultiCast& _mc, MessageFilter& filter) : TSCaster(_mc), seq(0), is_for_us(filter)
 	{
@@ -409,6 +424,7 @@ protected:
 	        msg.ts_sec = ts.secs();			// truncated at 7.. worktodo use TAI
 	        msg.ts_ns = ts.nsec();
 	        //msg.event_id is pre-cooked, all other fields are zero
+	        msg.event_id[IMASK()] = ts.mask;
 	        mc.sendto(&msg, sizeof(msg));
 	        if (G::verbose) printLast();
 	}
@@ -423,9 +439,13 @@ protected:
 			}
 			if (is_for_us(msg)){
 				TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
+				ts.mask = msg.event_id[IMASK()];
 				return ts;
 			}
 		}
+	}
+	static const int IMASK(){
+		return WRTD_ID_LEN-1;
 	}
 };
 TSCaster& TSCaster::factory(MultiCast& _mc) {
@@ -478,25 +498,20 @@ void _write_trg(FILE* fp, TS ts)
 
 
 class Receiver {
+
+protected:
 	const long dms;
 	FILE *fp_trg[2];
 	FILE *fp_cur;
 
 	char* report;
-public:
+
 	Receiver() :  dms(G::dns/M1), report(new char[128]) {
 		fp_trg[0] = fopen_safe(DEV_TRG0, "w");
 		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 		fp_cur = fopen_safe(DEV_CUR, "r");
 	}
-	virtual ~Receiver() {
-		fclose(fp_trg[0]);
-		fclose(fp_trg[1]);
-		fclose(fp_cur);
-	}
-	void action(TS ts, int nrx = 0){
-		TS ts_adj = adjust_ts(ts);
-
+	virtual void onAction(TS ts, TS ts_adj){
 		if (G::trg < 2){
 			_write_trg(fp_trg[G::trg], ts_adj);
 		}else{
@@ -505,6 +520,16 @@ public:
 			_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
 		}
 
+	}
+public:
+	virtual ~Receiver() {
+		fclose(fp_trg[0]);
+		fclose(fp_trg[1]);
+		fclose(fp_cur);
+	}
+	void action(TS ts, int nrx = 0){
+		TS ts_adj = adjust_ts(ts);
+		onAction(ts, ts_adj);
 		TS ts_cur;
 		fread(&ts_cur.raw, sizeof(unsigned), 1, fp_cur);
 
@@ -534,9 +559,58 @@ public:
 		}
 		return 0;
 	}
+	static Receiver* instance();
 };
 
 
+class TIGA_Receiver: public Receiver {
+	FILE *fp_trg8[8];
+protected:
+	virtual void onAction(TS ts, TS ts_adj){
+		if (ts.mask == 0){
+			Receiver::onAction(ts, ts_adj);
+		}else{
+			unsigned char mask = ts.mask;
+			for (int ii = 0; mask&1; mask >>= 1, ++ii){
+				_write_trg(fp_trg8[ii], ts_adj);
+			}
+		}
+	}
+	TIGA_Receiver() : Receiver()
+	{
+		memset(fp_trg8, 0, sizeof(fp_trg8));
+		fp_trg8[0] = fp_trg[0];
+		fp_trg8[1] = fp_trg[1];
+
+		glob_t globbuf;
+		glob("/dev/acq400.0.wr_tiga_tt_s?", 0, NULL, &globbuf);
+		for (unsigned ii = 0; ii < globbuf.gl_pathc; ++ii){
+			const char* fn = globbuf.gl_pathv[ii];
+			int site = fn[strlen(fn)-1];
+
+			if (site >= 1 && site <= 6){
+				fp_trg8[site+1] = fopen_safe(fn, "w");		/* site1 => [2] */
+			}
+		}
+		globfree(&globbuf);
+	}
+
+friend class Receiver;
+};
+
+Receiver* Receiver::instance()
+{
+	static Receiver* _instance;
+
+	if (!_instance){
+		if (Env::getenv("WRTD_TIGA", 0)){
+			_instance = new TIGA_Receiver;
+		}else{
+			_instance = new Receiver;
+		}
+	}
+	return _instance;
+}
 class Transmitter {
 	FILE* fp;
 	const int sleep_us;
@@ -554,6 +628,7 @@ public:
 		TS ts;
 		for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
 			TS ts_tx = ts + G::delta_ticks;
+			ts_tx.mask = G::tx_mask;
 			comms.sendto(ts_tx);
 			if (local_rx){
 				local_rx->action(ts_tx, ntx);
@@ -632,16 +707,16 @@ int sleep_if_notenabled(const char* key)
 
 int txi() {
 	Transmitter t(DEV_CUR, 2*G::dns/1000);
-	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0;
+	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 int tx() {
-	Transmitter t(DEV_TS);
-	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? new Receiver: 0;
+	Transmitter t(G::dev_ts);
+	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 int rx() {
-	Receiver r;
+	Receiver r = *Receiver::instance();
 	return r.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
 
