@@ -539,12 +539,13 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 	gpg->gpg_used_bits = 0;
 
 	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
-		unsigned gbits = gpg->gpg_base[iw] & 0x000000ff;
-		gpg->gpg_used_bits |= gbits;
-		gpg->gpg_final_state = gbits;
-		iowrite32(gpg->gpg_buffer[iw], gpg->gpg_base+iw);
+		unsigned stl_entry = gpg->gpg_buffer[iw] & 0x000000ff;
+		iowrite32(stl_entry, gpg->gpg_base+iw);
+
+		gpg->gpg_final_state = stl_entry & 0x000000ff;
+		gpg->gpg_used_bits  |= stl_entry & 0x000000ff;
 	}
-	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d\n", iw);
+	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d used:%08x fin:%08x\n", iw, gpg->gpg_used_bits, gpg->gpg_final_state);
 	rc = set_gpg_top(adev, gpg->gpg_cursor);
 	acq400_release(inode, file);
 	return rc;
