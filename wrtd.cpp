@@ -578,15 +578,22 @@ protected:
 	}
 	TIGA_Receiver() : Receiver()
 	{
+		if (G::verbose){
+			fprintf(stderr, "TIGA_Receiver()");
+		}
 		memset(fp_trg8, 0, sizeof(fp_trg8));
 		fp_trg8[0] = fp_trg[0];
 		fp_trg8[1] = fp_trg[1];
 
 		glob_t globbuf;
-		glob("/dev/acq400.0.wr_tiga_tt_s?", 0, NULL, &globbuf);
+		glob("/dev/acq400.0.wr_tiga_ttb_s?", 0, NULL, &globbuf);
 		for (unsigned ii = 0; ii < globbuf.gl_pathc; ++ii){
 			const char* fn = globbuf.gl_pathv[ii];
 			int site = fn[strlen(fn)-1];
+
+			if (G::verbose){
+				fprintf(stderr, "TIGA_Receiver() fn:\"%s\" site:%d\n", fn, site);
+			}
 
 			if (site >= 1 && site <= 6){
 				fp_trg8[site+1] = fopen_safe(fn, "w");		/* site1 => [2] */
