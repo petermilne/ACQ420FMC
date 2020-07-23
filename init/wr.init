@@ -84,10 +84,12 @@ tiga_init() {
 	NAME=$1
 	MAJOR=$2
 	
-	for reg in $(seq 6); do
-		mknod /dev/${NAME}.wr_tiga_ts_s$reg c ${MAJOR} $((120+$reg-1))
-		mknod /dev/${NAME}.wr_tiga_tt_s$reg c ${MAJOR} $((130+$reg-1))
-		mknod /dev/${NAME}.wr_tiga_ttb_s$reg c ${MAJOR} $((140+$reg-1))
+	for site in $(seq 6); do
+		if [ "$(cat /dev/acq400.${site}.knobs/module_type)" = "7B" ]; then
+			mknod /dev/${NAME}.wr_tiga_ts_s$site c ${MAJOR} $((120+$site-1))
+			mknod /dev/${NAME}.wr_tiga_tt_s$site c ${MAJOR} $((130+$site-1))
+			mknod /dev/${NAME}.wr_tiga_ttb_s$site c ${MAJOR} $((140+$site-1))
+		fi
 	done
 }
 
