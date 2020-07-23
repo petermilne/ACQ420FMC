@@ -429,7 +429,8 @@ protected:
 	        if (G::verbose) printLast();
 	}
 	virtual int printLast() {
-		return printf("%s %16s %u %u %u\n", msg.hw_detect, msg.event_id, msg.seq, msg.ts_sec, msg.ts_ns);
+		return printf("%s %16s mask=%x seq=%u sec=%u ns=%u\n", msg.hw_detect, msg.event_id,
+					msg.event_id[IMASK()], msg.seq, msg.ts_sec, msg.ts_ns);
 	}
 	virtual TS recvfrom() {
 		while(true){
@@ -444,6 +445,7 @@ protected:
 			}
 		}
 	}
+public:
 	static const int IMASK(){
 		return WRTD_ID_LEN-1;
 	}
@@ -578,15 +580,22 @@ protected:
 	}
 	TIGA_Receiver() : Receiver()
 	{
+		if (G::verbose){
+			fprintf(stderr, "TIGA_Receiver()\n");
+		}
 		memset(fp_trg8, 0, sizeof(fp_trg8));
 		fp_trg8[0] = fp_trg[0];
 		fp_trg8[1] = fp_trg[1];
 
 		glob_t globbuf;
-		glob("/dev/acq400.0.wr_tiga_tt_s?", 0, NULL, &globbuf);
+		glob("/dev/acq400.0.wr_tiga_ttb_s?", 0, NULL, &globbuf);
 		for (unsigned ii = 0; ii < globbuf.gl_pathc; ++ii){
 			const char* fn = globbuf.gl_pathv[ii];
-			int site = fn[strlen(fn)-1];
+			int site = fn[strlen(fn)-1]-'0';
+
+			if (G::verbose){
+				fprintf(stderr, "TIGA_Receiver() fn:\"%s\" site:%d\n", fn, site);
+			}
 
 			if (site >= 1 && site <= 6){
 				fp_trg8[site+1] = fopen_safe(fn, "w");		/* site1 => [2] */
