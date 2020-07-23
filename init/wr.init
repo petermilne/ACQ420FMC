@@ -180,7 +180,7 @@ start_wrtd() {
 	sleep 1
 	nc localhost 4281 -e logger -t wrtd_rx &
 	nc localhost 4280 -e logger -t wrtd_tx &
-	nc localhost 4282 -e logger -t si5326_tune_phase &
+	is_tiga || nc localhost 4282 -e logger -t si5326_tune_phase &
 	) &
 }
 

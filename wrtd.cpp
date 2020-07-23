@@ -107,7 +107,7 @@ namespace G {
         unsigned ns_per_tick = 50;			// ticks per nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
-        unsigned max_tx = MAX_TX_INF;			// send max this many trigs
+        unsigned max_tx = 1;			// send max this many trigs
         const char* tx_id;				// transmit id
         int rt_prio = 0;
         int trg = 0;					// trg 0 or 1, 2, decoded from message
@@ -514,6 +514,9 @@ protected:
 		fp_cur = fopen_safe(DEV_CUR, "r");
 	}
 	virtual void onAction(TS ts, TS ts_adj){
+		if (G::verbose){
+			fprintf(stderr, "%s mask:%x\n", PFN, ts.mask);
+		}
 		if (G::trg < 2){
 			_write_trg(fp_trg[G::trg], ts_adj);
 		}else{
@@ -569,12 +572,17 @@ class TIGA_Receiver: public Receiver {
 	FILE *fp_trg8[8];
 protected:
 	virtual void onAction(TS ts, TS ts_adj){
+		if (G::verbose){
+			fprintf(stderr, "%s mask:%x\n", PFN, ts.mask);
+		}
 		if (ts.mask == 0){
 			Receiver::onAction(ts, ts_adj);
 		}else{
 			unsigned char mask = ts.mask;
-			for (int ii = 0; mask&1; mask >>= 1, ++ii){
-				_write_trg(fp_trg8[ii], ts_adj);
+			for (int ii = 0; mask; mask >>= 1, ++ii){
+				if (mask&1){
+					_write_trg(fp_trg8[ii], ts_adj);
+				}
 			}
 		}
 	}
@@ -725,8 +733,9 @@ int tx() {
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 int rx() {
-	Receiver r = *Receiver::instance();
-	return r.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+
+	return Receiver::instance()->event_loop(
+			TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
 
 int main(int argc, const char* argv[])
