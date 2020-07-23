@@ -38,12 +38,15 @@ monitor() {
                 	get_knob $k; 
                 done
                 echo; echo ------------------------------
-        		if [ -e $TPL ]; then        			
-        			echo si5326_tune_phase ..
-        			tail -n 20 $TPL
-        		else
-        			echo "WARNING: si5326 has not been tuned"
-        		fi                     
+                
+                if ! is_tiga; then
+        			if [ -e $TPL ]; then        			
+        				echo si5326_tune_phase ..
+        				tail -n 20 $TPL
+        			else
+	        			echo "WARNING: si5326 has not been tuned"
+    	    		fi
+    	    	fi                     
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
                 cat /dev/shm/wr.sh | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
@@ -106,7 +109,7 @@ init_wr_onetime() {
 	web_append wr nomon
 	web_append wrtd nomon
 	
-	[ -e /dev/acq400.0.knobs/wr_tai_stamp_s1 ] && tiga_init $NAME $MAJOR
+	is_tiga && tiga_init $NAME $MAJOR
 	
 	nice daemon $WEB_APPEND_JOB
 	nice daemon /usr/local/init/wr.init monitor
@@ -134,11 +137,13 @@ init_wr_onetime() {
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_tx
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_rx
 	
-	printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
-	ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
-	ln -s /usr/local/CARE/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
+	if ! is_tiga; then
+		printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
+		ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
+		ln -s /usr/local/CARE/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
+	fi
 	
-	init_wrtd
+	init_wrtd 11
 }
 
 start_wr() {
