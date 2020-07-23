@@ -588,7 +588,7 @@ protected:
 		fp_trg8[1] = fp_trg[1];
 
 		glob_t globbuf;
-		glob("/dev/acq400.0.wr_tiga_ttb_s?", 0, NULL, &globbuf);
+		glob("/dev/acq400.0.wr_tiga_tt_s?", 0, NULL, &globbuf);
 		for (unsigned ii = 0; ii < globbuf.gl_pathc; ++ii){
 			const char* fn = globbuf.gl_pathv[ii];
 			int site = fn[strlen(fn)-1]-'0';
