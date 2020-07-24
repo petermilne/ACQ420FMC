@@ -41,9 +41,8 @@ monitor() {
                 done
                 echo; echo ------------------------------
                 
-                if is_tiga; then
-                	grep -n WRTD_ID /dev/shm/wr?.sh | sed -e 's!/dev/shm/!!'
-                else
+                if ! is_tiga; then
+ 
         			if [ -e $TPL ]; then        			
         				echo si5326_tune_phase ..
         				tail -n 20 $TPL
@@ -53,7 +52,16 @@ monitor() {
     	    	fi                     
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
-                cat ${WRSH} | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
+                
+                (
+                	cat ${WRSH}
+                	if is_tiga; then
+                    	echo
+                		echo "DIO482 PG modules"
+                		echo "-----------------"
+                		grep -H WRTD_ID /dev/shm/wr?.sh | sed -e 's!/dev/shm/wr!s!' -e 's/.sh:/: /'
+                	fi
+                ) | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
                 sleep 1
         done
 }
@@ -87,6 +95,18 @@ init_wrtd() {
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/${site}/$kb
 	done
  
+ 	ln -s /usr/local/CARE/tai_date			/etc/acq400/${site}
+	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/${site}
+	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/${site}
+	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}	
+	
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_reset_tx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_commit_tx
+	
+	if [ $site -eq 11 ]; then
+		ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_reset_rx
+		ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_commit_rx
+	fi
 }
 
 tiga_init() {
@@ -135,24 +155,17 @@ init_wr_onetime() {
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
 	
-	ln -s /usr/local/CARE/tai_date			/etc/acq400/11
-	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/11
-	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/11
-	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/11	
-	
-	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_tx
-	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_rx
-	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_tx
-	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_rx
+
 	
 	echo "no rx" > /etc/acq400/11/WRTD_REPORT
 	
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_tx
 	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_rx
 	
-	if ! is_tiga; then
-		printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
-		ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
+	
+	printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
+	ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
+	if ! is_tiga; then		
 		ln -s /usr/local/CARE/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
 	fi
 	
@@ -176,7 +189,8 @@ start_wrtd_tiga() {
 		if [ "$(cat /dev/acq400.${site}.knobs/module_type)" = "7B" ]; then
 			pidf_tx=/var/run/wrtd_tx${site}.pid
 			port=42${site}80
-			source /dev/sh/wr${site}.sh
+			echo "+++ start_wrt_tiga site:$site port:$port"
+			source /dev/shm/wr${site}.sh
 			/usr/local/bin/procServ --holdoff=1 -c / -p $pidf_tx $port /usr/local/bin/wrtd $WRTD_OPTS tx
 		fi
 	done
