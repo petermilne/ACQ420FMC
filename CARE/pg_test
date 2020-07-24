@@ -1,17 +1,21 @@
 #!/bin/sh
 
 export SITE=${SITE:-2}
+TSCALE=${TSCALE:-1}
 MODE=${1:-2}
 
-set.site SITE gpg_enable 0
+[ $TSCALE -ne 1 ] && echo Loading with timescaler=$TSCALE
+
+set.site $SITE gpg_enable 0
+set.site $SITE gpg_timescaler $TSCALE
 /usr/local/epics/scripts/gpg_monitor 1
 
 stl2gpg  /dev/acq400.$SITE.gpg <<EOF
-1000,0f
+1000,1
 2000,0
-3000,0f
+3000,2
 4000,0
-5000,0f
+5000,4
 6000,0
 7000,1f
 8000,1
