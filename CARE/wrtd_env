@@ -1,13 +1,15 @@
 #!/bin/sh
 # changes KNOBS in wr.sh
 KNOB=$(basename $0)
+SITE=${SITE:-11}
+WRSH=/dev/shm/wr${SITE}.sh
 if [ "x$1" != "x" ]; then
-	grep -q ^$KNOB=. /dev/shm/wr.sh
+	grep -q ^$KNOB=. ${WRSH}
 	if [ $? -eq 0 ]; then
-		sed -i  -e "s/^$KNOB=.*$/$KNOB=$1/" /dev/shm/wr.sh
+		sed -i  -e "s/^$KNOB=.*$/$KNOB=$1/" ${WRSH}
 	else
-		echo "$KNOB=$1" >> /dev/shm/wr.sh
+		echo "$KNOB=$1" >> ${WRSH}
 	fi
 else
-	sed -ne "/^$KNOB=/p" /dev/shm/wr.sh | sed -e "s/^$KNOB=//"
+	sed -ne "/^$KNOB=/p" ${WRSH} | sed -e "s/^$KNOB=//"
 fi

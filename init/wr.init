@@ -2,6 +2,8 @@
 
 export WEB_APPEND_JOB=/tmp/wr-web-append.job
 
+WRSH=/dev/shm/wr11.sh
+
 web_append()
 {
 	if [ ! -e $WEB_APPEND_JOB ]; then
@@ -39,7 +41,9 @@ monitor() {
                 done
                 echo; echo ------------------------------
                 
-                if ! is_tiga; then
+                if is_tiga; then
+                	grep -n WRTD_ID /dev/shm/wr?.sh | sed -e 's!/dev/shm/!!'
+                else
         			if [ -e $TPL ]; then        			
         				echo si5326_tune_phase ..
         				tail -n 20 $TPL
@@ -49,13 +53,12 @@ monitor() {
     	    	fi                     
                 )| fs2xml -k '' -o /dev/shm/wr-new.xml -s $C2R20
                 mv /dev/shm/wr-new.xml  /dev/shm/wr.xml
-                cat /dev/shm/wr.sh | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
+                cat ${WRSH} | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
                 sleep 1
         done
 }
 
-
-init_wrtd() {
+init_wrsh() {
  	if [ -e /mnt/local/sysconfig/wr.sh ]; then
 		source /mnt/local/sysconfig/wr.sh
 	else
@@ -72,10 +75,16 @@ init_wrtd() {
 		WRTD_RX_DOUBLETAP=
 		WRTD_DELAY01=1000000
 	fi
-	set | grep WRTD | tr -d "'" > /dev/shm/wr.sh
-	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_RX \
-		WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01; do
-		ln -s /usr/local/CARE/wrtd_env /etc/acq400/11/$kb
+	set | grep WRTD | tr -d "'" > ${WRSH}
+}
+
+init_wrtd() {
+	site=${1:-11}
+	S11KNOBS=""
+	[ $site -eq 11 ] && S11KNOBS="WRTD_RX WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01"
+	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX  \
+		WRTD_ID ${S11KNOBS}; do
+		ln -s /usr/local/CARE/wrtd_env /etc/acq400/${site}/$kb
 	done
  
 }
@@ -89,6 +98,8 @@ tiga_init() {
 			mknod /dev/${NAME}.wr_tiga_ts_s$site c ${MAJOR} $((120+$site-1))
 			mknod /dev/${NAME}.wr_tiga_tt_s$site c ${MAJOR} $((130+$site-1))
 			mknod /dev/${NAME}.wr_tiga_ttb_s$site c ${MAJOR} $((140+$site-1))
+			cp ${WRSH} /dev/shm/wr${site}.sh
+			init_wrtd $site
 		fi
 	done
 }
@@ -111,7 +122,7 @@ init_wr_onetime() {
 	web_append wr nomon
 	web_append wrtd nomon
 	
-	is_tiga && tiga_init $NAME $MAJOR
+	init_wrsh
 	
 	nice daemon $WEB_APPEND_JOB
 	nice daemon /usr/local/init/wr.init monitor
@@ -146,6 +157,7 @@ init_wr_onetime() {
 	fi
 	
 	init_wrtd 11
+	is_tiga && tiga_init $NAME $MAJOR	
 }
 
 start_wr() {
@@ -159,6 +171,18 @@ start_wr() {
 	init_wr_onetime
 }
 
+start_wrtd_tiga() {
+	for site in $(seq 6); do
+		if [ "$(cat /dev/acq400.${site}.knobs/module_type)" = "7B" ]; then
+			pidf_tx=/var/run/wrtd_tx${site}.pid
+			port=42${site}80
+			source /dev/sh/wr${site}.sh
+			/usr/local/bin/procServ --holdoff=1 -c / -p $pidf_tx $port /usr/local/bin/wrtd $WRTD_OPTS tx
+		fi
+	done
+}
+
+
 PIDF_TX=/var/run/wrtd_tx.pid
 PIDF_RX=/var/run/wrtd_rx.pid
 PIDF_SI=/var/run/si5326_tune_phase.pid
@@ -171,7 +195,7 @@ start_wrtd() {
 	fi
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
-	[ -e /dev/shm/wr.sh ] && source /dev/shm/wr.sh
+	[ -e ${WRSH} ] && source ${WRSH}
     /usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd $WRTD_OPTS rx	
 	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd $WRTD_OPTS tx
 	/usr/local/bin/procServ -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
@@ -182,10 +206,11 @@ start_wrtd() {
 	nc localhost 4280 -e logger -t wrtd_tx &
 	is_tiga || nc localhost 4282 -e logger -t si5326_tune_phase &
 	) &
+	is_tiga && start_wrtd_tiga
 }
 
 stop_wrtd() {
-	for pidf in $PIDF_RX $PIDF_TX; do
+	for pidf in /var/run/wrtd*; do
 		if [ -e $pidf ]; then
 			pid=$(cat $pidf)
 			rm $pidf
