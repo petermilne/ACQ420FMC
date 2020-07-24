@@ -501,6 +501,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
 		}
 	}
 	rc = copy_from_user(gpg->gpg_buffer+bcursor, buf, count);
+
 	if (rc){
 		return -1;
 	}
@@ -540,13 +541,21 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 
 	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
 		unsigned stl_entry = gpg->gpg_buffer[iw];
+		unsigned stl_state = stl_entry &0x00000ff;
+
+		if (gpg->gpg_timescaler > 1){
+			unsigned stl_time  = stl_entry >> 8;
+			stl_time *= gpg->gpg_timescaler;
+			stl_entry = stl_time << 8 | stl_state;
+		}
 		iowrite32(stl_entry, gpg->gpg_base+iw);
 
-		gpg->gpg_final_state = stl_entry & 0x000000ff;
-		gpg->gpg_used_bits  |= stl_entry & 0x000000ff;
+		gpg->gpg_final_state = stl_state;
+		gpg->gpg_used_bits  |= stl_state;
 	}
 	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d used:%08x fin:%08x\n", iw, gpg->gpg_used_bits, gpg->gpg_final_state);
 	rc = set_gpg_top(adev, gpg->gpg_cursor);
+	gpg->gpg_timescaler = 1;
 	acq400_release(inode, file);
 	return rc;
 }

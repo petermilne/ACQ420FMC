@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.499"
+#define REVID 			"3.500"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2860,6 +2860,7 @@ void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned m
 	gpg->gpg_buffer = kzalloc(4096, GFP_KERNEL);
 	gpg->gpg_cursor = 0;
 	gpg->gpg_dbgr = dbgr;
+	gpg->gpg_timescaler = 1;
 
 	dev_info(DEVP(adev), "gpg:%p base:%p buffer:%p cursor:%u", gpg, gpg->gpg_base, gpg->gpg_buffer, gpg->gpg_cursor);
 }
