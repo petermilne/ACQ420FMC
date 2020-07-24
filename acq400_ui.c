@@ -539,7 +539,7 @@ int acq400_gpgmem_release(struct inode *inode, struct file *file)
 	gpg->gpg_used_bits = 0;
 
 	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
-		unsigned stl_entry = gpg->gpg_buffer[iw] & 0x000000ff;
+		unsigned stl_entry = gpg->gpg_buffer[iw];
 		iowrite32(stl_entry, gpg->gpg_base+iw);
 
 		gpg->gpg_final_state = stl_entry & 0x000000ff;
