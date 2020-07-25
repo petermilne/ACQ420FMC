@@ -45,6 +45,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <glob.h>
+#include <libgen.h>
 
 #include <assert.h>
 
@@ -123,6 +124,8 @@ namespace G {
 #define TICKS_MASK	0x0fffffff
 #define TS_EN		(1<<31)
 
+#define TS_QUICK	0xffffffff			// trigger right away, no timing ..
+
 struct TS {
 
 private:
@@ -193,7 +196,12 @@ public:
 		fprintf(stderr, "ts1:%s ts2:%s diff:%ld\n", ts1.toStr(), ts2.toStr(), ts1.diff(ts2));
 		return 0;
 	}
+
+	static const TS ts_quick;
 };
+
+const TS TS::ts_quick = TS_QUICK;
+
 struct poptOption opt_table[] = {
 	{
 	  "tickns", 0, POPT_ARG_INT, &G::ns_per_tick, 0, "tick size nsec"
@@ -310,7 +318,7 @@ protected:
 	{}
 	TS ts;
 public:
-	virtual void sendto(TS& ts) {
+	virtual void sendto(const TS& ts) {
 		mc.sendto(&ts, sizeof(unsigned));
 	}
 	virtual TS recvfrom() {
@@ -416,7 +424,7 @@ protected:
 	}
 	friend class TSCaster;
 
-	virtual void sendto(TS& ts) {
+	virtual void sendto(const TS& ts) {
 	        msg.hw_detect[0] = 'L';
 	        msg.hw_detect[1] = 'X';
 	        msg.hw_detect[2] = 'I';
@@ -737,8 +745,20 @@ int tx() {
 	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
-int rx() {
 
+int txq() {
+	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+	for (unsigned im = 0; true; ++im){
+		comms.sendto(TS::ts_quick);
+		if (++im < G::max_tx){
+			usleep(G::dns/1000);
+		}else{
+			break;
+		}
+	}
+	return 0;
+}
+int rx() {
 	return Receiver::instance()->event_loop(
 			TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
@@ -748,13 +768,14 @@ int main(int argc, const char* argv[])
 	get_local_env();
 	const char* mode = ui(argc, argv);
 
-	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
+	if (strcmp(basename((char*)argv[0]), "wrtd_txq") == 0 || strcmp(mode, "txq") == 0){
+		return txq();
+	}else if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
 	}else if (strcmp(mode, "tx") == 0){
 		return sleep_if_notenabled("WRTD_TX") || tx();
 	}else{
 		return sleep_if_notenabled("WRTD_RX") || rx();
-
 	}
 }
 
