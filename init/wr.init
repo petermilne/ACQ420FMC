@@ -3,6 +3,7 @@
 export WEB_APPEND_JOB=/tmp/wr-web-append.job
 
 WRSH=/dev/shm/wr11.sh
+PS=/usr/local/bin/procServ
 
 web_append()
 {
@@ -60,7 +61,7 @@ monitor() {
                 		echo "DIO482 PG modules"
                 		echo "-----------------"
 						for wrsh in /dev/shm/wr?.sh; do
-							[ -e $wrsh ] && egrep -H -e WRTD_ID -e WRTD_TX_MASK $wrsh;
+							[ -e $wrsh ] && echo $(egrep -H -e WRTD_ID -e WRTD_TX_MASK $wrsh)
 						done | sed -e 's!/dev/shm/wr! s!g' -e 's/.sh:/: /g'
                 	fi
                 ) | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
@@ -199,7 +200,7 @@ start_wrtd_tiga() {
 			port=42${site}80
 			echo "+++ start_wrt_tiga site:$site port:$port"
 			source /dev/shm/wr${site}.sh
-			/usr/local/bin/procServ --holdoff=1 -c / -p $pidf_tx $port /usr/local/bin/wrtd $WRTD_OPTS tx
+			SITE=${site} ${PS} --holdoff=1 -c / -p $pidf_tx $port /usr/local/bin/wrtd $WRTD_OPTS tx
 		fi
 	done
 }
@@ -218,10 +219,10 @@ start_wrtd() {
 	fi
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
-	[ -e ${WRSH} ] && source ${WRSH}
-    /usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd $WRTD_OPTS rx	
-	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd $WRTD_OPTS tx
-	/usr/local/bin/procServ -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
+	[ -e ${WRSH} ] && source ${WRSH} 
+    SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd $WRTD_OPTS rx	
+	SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd $WRTD_OPTS tx
+	is_tiga || ${PS} -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
 
 	(
 	sleep 1
@@ -234,12 +235,10 @@ start_wrtd() {
 }
 
 cold_start_wrtd() {
-	wait_ioc_ready; 
-	while [ $(caget -t $(hostname):0:WR:PPS:COUNT) -lt 10 ]; do
-	 	echo "+++ cold_start_wrtd waiting PPS"
-	 	sleep 1
-	 done
-	 start_wrtd
+	echo "+++ cold_start_wrtd 01"
+	sleep 45
+	nice /usr/local/init/wr.init start_wrtd
+	echo "+++ cold_start_wrtd 99"
 }
 
 cold_start_wr() {
@@ -267,6 +266,8 @@ monitor)
 	monitor;;
 start|"")
 	cold_start_wr;;
+start_wrtd)
+	start_wrtd;;
 restart_wrtd)
 	stop_wrtd
 	start_wrtd;;
