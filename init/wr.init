@@ -59,7 +59,8 @@ monitor() {
                     	echo
                 		echo "DIO482 PG modules"
                 		echo "-----------------"
-                		grep -H WRTD_ID /dev/shm/wr?.sh | sed -e 's!/dev/shm/wr!s!' -e 's/.sh:/: /'
+						echo $(egrep -H -e WRTD_ID -e WRTD_TX_MASK /dev/shm/wr?.sh) \
+							| sed -e 's!/dev/shm/wr!s!' -e 's/.sh:/: /'
                 	fi
                 ) | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
                 sleep 1
@@ -82,6 +83,7 @@ init_wrsh() {
 		WRTD_RX_MATCHES1=
 		WRTD_RX_DOUBLETAP=
 		WRTD_DELAY01=1000000
+		WRTD_TX_MASK=0
 	fi
 	set | grep WRTD | tr -d "'" > ${WRSH}
 }
