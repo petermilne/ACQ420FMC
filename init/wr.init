@@ -97,7 +97,7 @@ init_wrtd() {
 	S11KNOBS=""
 	[ $site -eq 11 ] && S11KNOBS="WRTD_RX WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01"
 	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX  \
-		WRTD_ID ${S11KNOBS}; do
+		WRTD_ID WRTD_TX_MASK ${S11KNOBS}; do
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/${site}/$kb
 	done
  
