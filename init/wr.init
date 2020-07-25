@@ -61,7 +61,9 @@ monitor() {
                 		echo "DIO482 PG modules"
                 		echo "-----------------"
 						for wrsh in /dev/shm/wr?.sh; do
-							[ -e $wrsh ] && echo $(egrep -H -e WRTD_ID -e WRTD_TX_MASK $wrsh)
+							if [ -e $wrsh ]; then
+								echo $(egrep -H -e WRTD_ID -e WRTD_TX_MASK -e WRTD_DEV_TS $wrsh)
+							fi
 						done | sed -e 's!/dev/shm/wr! s!g' -e 's/.sh:/: /g'
                 	fi
                 ) | fs2xml -k '' -o /dev/shm/wrtd.xml -s $C2R20
