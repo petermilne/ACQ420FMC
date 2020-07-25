@@ -579,9 +579,11 @@ protected:
 			Receiver::onAction(ts, ts_adj);
 		}else{
 			unsigned char mask = ts.mask;
+			FILE *fp;
+
 			for (int ii = 0; mask; mask >>= 1, ++ii){
-				if (mask&1){
-					_write_trg(fp_trg8[ii], ts_adj);
+				if ((mask&1) && (fp = fp_trg8[ii])){
+					_write_trg(fp, ts_adj);
 				}
 			}
 		}
