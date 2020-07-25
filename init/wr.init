@@ -120,8 +120,12 @@ tiga_init() {
 			mknod /dev/${NAME}.wr_tiga_ts_s$site c ${MAJOR} $((120+$site-1))
 			mknod /dev/${NAME}.wr_tiga_tt_s$site c ${MAJOR} $((130+$site-1))
 			mknod /dev/${NAME}.wr_tiga_ttb_s$site c ${MAJOR} $((140+$site-1))
-			(cat ${WRSH}; echo WRTD_DEV_TS=/dev/acq400.0.wr_tiga_ts_s${site}) \
-				>/dev/shm/wr${site}.sh
+			if [ -e /mnt/local/sysconfig/wr$site.sh ]; then
+				cp /mnt/local/sysconfig/wr$site.sh /dev/shm/wr${site}.sh
+			else
+				(cat ${WRSH}; echo WRTD_DEV_TS=/dev/acq400.0.wr_tiga_ts_s${site}) \
+					>/dev/shm/wr${site}.sh
+			fi
 			init_wrtd $site
 		fi
 	done
