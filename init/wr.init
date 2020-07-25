@@ -104,7 +104,8 @@ init_wrtd() {
  	ln -s /usr/local/CARE/tai_date			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/${site}
-	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}	
+	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}
+	ln -s /usr/local/bin/wrtd 				/etc/acq400/${site}/wrtd_txq
 	
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_reset_tx
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_commit_tx

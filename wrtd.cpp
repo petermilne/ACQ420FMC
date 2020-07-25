@@ -115,6 +115,7 @@ namespace G {
         int delay01;					// tr==2? trg0 at time t, trg1 at t+delay01
         unsigned tx_mask;
         const char* dev_ts = DEV_TS;
+        unsigned site;
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -125,6 +126,7 @@ namespace G {
 #define TS_EN		(1<<31)
 
 #define TS_QUICK	0xffffffff			// trigger right away, no timing ..
+#define TS_QUICK_TICKS	0x0fffffff			// trigger right away, no timing ..
 
 struct TS {
 
@@ -197,10 +199,10 @@ public:
 		return 0;
 	}
 
-	static const TS ts_quick;
+	static TS ts_quick;
 };
 
-const TS TS::ts_quick = TS_QUICK;
+TS TS::ts_quick = TS_QUICK;
 
 struct poptOption opt_table[] = {
 	{
@@ -447,9 +449,15 @@ protected:
 				exit(1);
 			}
 			if (is_for_us(msg)){
-				TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
-				ts.mask = msg.event_id[IMASK()];
-				return ts;
+				if (msg.ts_ns == TS_QUICK_TICKS){
+					TS ts(TS_QUICK);
+					ts.mask = msg.event_id[IMASK()];
+					return ts;
+				}else{
+					TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
+					ts.mask = msg.event_id[IMASK()];
+					return ts;
+				}
 			}
 		}
 	}
@@ -514,9 +522,11 @@ protected:
 	FILE *fp_trg[2];
 	FILE *fp_cur;
 
+	char* report_fname;
 	char* report;
 
-	Receiver() :  dms(G::dns/M1), report(new char[128]) {
+	Receiver() :  dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
+		sprintf(report_fname, "/etc/acq400/%d/WRTD_REPORT", G::site);
 		fp_trg[0] = fopen_safe(DEV_TRG0, "w");
 		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 		fp_cur = fopen_safe(DEV_CUR, "r");
@@ -534,11 +544,14 @@ protected:
 		}
 
 	}
+
 public:
 	virtual ~Receiver() {
 		fclose(fp_trg[0]);
 		fclose(fp_trg[1]);
 		fclose(fp_cur);
+		delete [] report;
+		delete [] report_fname;
 	}
 	void action(TS ts, int nrx = 0){
 		TS ts_adj = adjust_ts(ts);
@@ -551,7 +564,7 @@ public:
 		snprintf(report, 128, "Receiver:%d nrx:%u cur:%s ts:%s adj:%s diff:%ld %s\n",
 				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr(), dt, dt<0? "ERROR": "OK");
 
-		FILE *fp_report = fopen("/etc/acq400/11/WRTD_REPORT", "w");
+		FILE *fp_report = fopen(report_fname, "w");
 		fprintf(fp_report, report);
 		fclose(fp_report);
 		if (G::verbose > 1){
@@ -598,6 +611,7 @@ protected:
 	}
 	TIGA_Receiver() : Receiver()
 	{
+		G::local_clkdiv = G::local_clkoffset = 0;		// stub clock adjust
 		if (G::verbose){
 			fprintf(stderr, "TIGA_Receiver()\n");
 		}
@@ -714,9 +728,9 @@ bool get_local_env(FILE* fp)
 
 void get_local_env(void)
 {
-	const char* ss = getenv("SITE");
+	G::site = Env::getenv("SITE", 11);
 	char envname[80];
-	sprintf(envname, "/dev/shm/wr%s.sh", ss? ss: "11");
+	sprintf(envname, "/dev/shm/wr%d.sh", G::site);
 	FILE* fp = fopen(envname, "r");
 	fp != 0 && get_local_env(fp);
 }
@@ -748,14 +762,9 @@ int tx() {
 
 int txq() {
 	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
-	for (unsigned im = 0; true; ++im){
-		comms.sendto(TS::ts_quick);
-		if (++im < G::max_tx){
-			usleep(G::dns/1000);
-		}else{
-			break;
-		}
-	}
+	G::ns_per_tick = 1;						// force ticks to go thru unchanged.
+	TS::ts_quick.mask = G::tx_mask;
+	comms.sendto(TS::ts_quick);
 	return 0;
 }
 int rx() {
