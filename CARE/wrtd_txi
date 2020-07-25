@@ -10,7 +10,8 @@ eval $(sed -e 's/^/export /' ${WRSH})
 if [ "${MAX_TX#[0-9]*}" != "$MAX_TX" ]; then
     ARGS="--max_tx $MAX_TX"
 else
-	 WRTD_ID=$MAX_TX   
+	 WRTD_ID=$MAX_TX 
+	 ARGS="--max_tx 1"  
 fi
 shift
 ARGS="$ARGS $@"
