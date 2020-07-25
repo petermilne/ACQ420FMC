@@ -706,7 +706,7 @@ void get_local_env(void)
 {
 	const char* ss = getenv("SITE");
 	char envname[80];
-	sprintf(envname, "/dev/sh/wr%s.sh", ss? ss: "11");
+	sprintf(envname, "/dev/shm/wr%s.sh", ss? ss: "11");
 	FILE* fp = fopen(envname, "r");
 	fp != 0 && get_local_env(fp);
 }
