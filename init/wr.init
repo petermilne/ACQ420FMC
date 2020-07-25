@@ -203,6 +203,7 @@ PIDF_SI=/var/run/si5326_tune_phase.pid
 
 # /mnt/local/sysconfig/wr.sh can override set values. be sure to export values that to the wrtd executable..
 start_wrtd() {
+	echo "+++ start_wrtd 01"
 	if [ "x$WRTD_DNS" != "x" ]; then
 		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS"
 		WRTD_DELTA_NS=$WRTD_DNS
@@ -221,8 +222,28 @@ start_wrtd() {
 	is_tiga || nc localhost 4282 -e logger -t si5326_tune_phase &
 	) &
 	is_tiga && start_wrtd_tiga
+	echo "+++ start_wrtd 99"
 }
 
+cold_start_wrtd() {
+	wait_ioc_ready; 
+	while [ $(caget -t $(hostname):0:WR:PPS:COUNT) -lt 10 ]; do
+	 	echo "+++ cold_start_wrtd waiting PPS"
+	 	sleep 1
+	 done
+	 start_wrtd
+}
+
+cold_start_wr() {
+	wr_reset --is_wr_present=1
+	if [ $? -ne 0 ]; then
+		echo +++ ERROR cold_start_wrtd .. WR not found
+		return
+	fi
+	
+	start_wr
+	cold_start_wrtd &
+}
 stop_wrtd() {
 	for pidf in /var/run/wrtd*; do
 		if [ -e $pidf ]; then
@@ -237,11 +258,7 @@ case "$1" in
 monitor)
 	monitor;;
 start|"")
-	wr_reset --is_wr_present=1
-	if [ $? -eq 0 ]; then
-		start_wr
-		start_wrtd
-	fi;;
+	cold_start_wr;;
 restart_wrtd)
 	stop_wrtd
 	start_wrtd;;
