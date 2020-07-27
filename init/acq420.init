@@ -391,7 +391,6 @@ build_knobs_device() {
 		fi
 		set_max_min_khz ${site} 2000 2000
 		echo "setting BOLO ${site} NCHAN 16 for MAIN/CUR ADC combo sample"
-		rm ${ek}/active_chan
 		echo 16 > ${ek}/active_chan
 		echo 16 > ${ek}/NCHAN
 		BOLO8_SITES="${BOLO8_SITES}$site"
