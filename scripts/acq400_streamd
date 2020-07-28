@@ -10,7 +10,7 @@ fi
 
 source /usr/local/bin/init_stream
 
-SITE=$1
+SITE=${1:-0}
 LOG=/var/log/acq400_streamd_$SITE.log
 
 init_stream $SITE >$LOG 2>&1
