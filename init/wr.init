@@ -223,14 +223,14 @@ start_wrtd() {
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
 	[ -e ${WRSH} ] && source ${WRSH} 
-    SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd $WRTD_OPTS rx	
-	SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd $WRTD_OPTS tx
+    SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_RX 42081 /usr/local/bin/wrtd $WRTD_OPTS rx	
+	SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_TX 42080 /usr/local/bin/wrtd $WRTD_OPTS tx
 	is_tiga || ${PS} -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
 
 	(
 	sleep 1
-	nc localhost 4281 -e logger -t wrtd_rx &
-	nc localhost 4280 -e logger -t wrtd_tx &
+	nc localhost 42081 -e logger -t wrtd_rx &
+	nc localhost 42080 -e logger -t wrtd_tx &
 	is_tiga || nc localhost 4282 -e logger -t si5326_tune_phase &
 	) &
 	is_tiga && start_wrtd_tiga
