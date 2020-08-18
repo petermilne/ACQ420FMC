@@ -79,7 +79,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
 	dump_regs \
 	soft_atd \
-	wr_reset wrtd wrtt_mon \
+	wr_reset wrtd wrtt_mon multicast \
 	mr_offload
 	
 # data_sink	
@@ -246,6 +246,9 @@ mgtdram_descgen: 	mgtdram_descgen.o
 wrtd: 	wrtd.o Multicast.o  knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 	
+multicast: 	multicast_client.o Multicast.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
+		
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
