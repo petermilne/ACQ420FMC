@@ -48,13 +48,19 @@ struct poptOption opt_table[] = {
 
 int receive()
 {
-       	char aline[80];
-        int rc = MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER).recvfrom(aline, 80);
+       	char* aline = new char[1024];
+        int rc = MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER).recvfrom(aline, 1024);
         aline[rc] = '\0';
         rc = strcspn(aline, "\r\n");
         aline[rc] = '\0';
         printf("%s\n", aline);
+        delete [] aline;
         return 0;
+}
+
+int send(const char* message)
+{
+	MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER).sendto(message, strlen(message));
 }
 
 int main(int argc, const char* argv[])
@@ -66,13 +72,17 @@ int main(int argc, const char* argv[])
                 switch(rc){
                 case 'r':
                 	return receive();
-
                 default:
                         ;
                 }
         }
         const char *message = poptGetArg(opt_context);
 
-        MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER).sendto(message, strlen(message));
+        if (message != 0){
+        	return send(message);
+        }else{
+        	fprintf(stderr, "ERROR: no message to send\n");
+        	return(-1);
+        }
 }
 

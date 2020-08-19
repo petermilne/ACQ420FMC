@@ -246,7 +246,7 @@ mgtdram_descgen: 	mgtdram_descgen.o
 wrtd: 	wrtd.o Multicast.o  knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 	
-multicast: 	multicast_client.o Multicast.o
+multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 		
 rtpackage:
