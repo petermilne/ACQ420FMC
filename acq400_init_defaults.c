@@ -315,7 +315,7 @@ static void acq420_init_defaults(struct acq400_dev *adev)
 	adev->data32 = data_32b;
 	adev->adc_18b = adc_18b;
 	adc_ctrl |= acq420_set_fmt(adev, adc_ctrl);
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN|adc_ctrl);
+	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_ES_EN|ADC_CTRL_MODULE_EN);
 	adev->nchan_enabled = IS_ACQ424(adev)? 32:
 			      IS_ACQ423(adev)? 32:
 			      IS_ACQ425(adev)? 16:
@@ -341,7 +341,7 @@ static void acq480_init_defaults(struct acq400_dev *adev)
 	adev->data32 = 0;
 	adev->adc_18b = 0;
 
-	acq400wr32(adev, ADC_CTRL, ADC_CTRL_MODULE_EN);
+	acq400wr32(adev, ADC_CTRL, ADC_CTRL_ES_EN|ADC_CTRL_MODULE_EN);
 	adev->nchan_enabled = 8;
 	adev->word_size = 2;
 	adev->hitide = hitide;
@@ -532,7 +532,7 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	adev->hitide = 128;
 	adev->lotide = adev->hitide - 4;
 	acq400wr32(adev, ADC_CLKDIV, 16);
-	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
+	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_ES_EN|ADC_CTRL_MODULE_EN);
 	adev->onStart = acq43X_onStart;
 	adev->onStop = acq420_disable_fifo;
 	if (HAS_XTD(adev)){
