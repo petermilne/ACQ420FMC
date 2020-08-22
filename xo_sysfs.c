@@ -1199,20 +1199,25 @@ static ssize_t store_byte_is_output(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	int bytes[4];
-	unsigned byte_is_output = 0;
 
-	if (sscanf(buf, "%d,%d,%d,%d", bytes+0, bytes+1, bytes+2, bytes+3) == 4){
-		int ib = 0;
-		for (ib = 0; ib <= 3; ++ib){
-			if (bytes[ib]){
-				byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
-			}
-		}
-		xo_dev->dio432.byte_is_output = byte_is_output;
-		return count;
+	if (xo_dev->dio432.mode != DIO432_DISABLE){
+		return -EBUSY;
 	}else{
-		return -1;
+		int bytes[4];
+
+		if (sscanf(buf, "%d,%d,%d,%d", bytes+0, bytes+1, bytes+2, bytes+3) == 4){
+			unsigned byte_is_output = 0;
+			int ib = 0;
+			for (ib = 0; ib <= 3; ++ib){
+				if (bytes[ib]){
+					byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
+				}
+			}
+			xo_dev->dio432.byte_is_output = byte_is_output;
+			return count;
+		}else{
+			return -EINVAL;
+		}
 	}
 }
 
