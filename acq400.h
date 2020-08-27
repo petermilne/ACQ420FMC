@@ -231,6 +231,7 @@
 #define ADC_CTRL_ADC_EN		(1 << 4)
 
 #define DAC_CTRL_AWG_ABORT	(1 << 12)
+#define DAC_CTRL_RTM_MODE	(1 <<10)
 #define DAC_CTRL_LL		(1 << 8)	/* AO420FMC, AO424ELF  */
 #define DAC_CTRL_TWOCMP		(1 << 9)	/* AO424ELF  */
 

@@ -1073,6 +1073,9 @@ const struct attribute *ao428_attrs[] = {
 	&dev_attr_delay66.attr,
 	NULL
 };
+
+MAKE_BITS(rtm, DAC_CTRL, 0, DAC_CTRL_RTM_MODE);
+
 const struct attribute *ao420_attrs[] = {
 	&dev_attr_G3.attr, &dev_attr_D3.attr, &dev_attr_AO_03.attr, &dev_attr_dac_range_03.attr,
 	&dev_attr_G4.attr, &dev_attr_D4.attr, &dev_attr_AO_04.attr, &dev_attr_dac_range_04.attr,
@@ -1089,6 +1092,7 @@ const struct attribute *ao420_attrs[] = {
 	&dev_attr_delay66.attr,
 	&dev_attr_read_latency.attr,
 	&dev_attr_dac_dec.attr,
+	&dev_attr_rtm.attr,
 	NULL
 };
 

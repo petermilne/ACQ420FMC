@@ -3124,10 +3124,11 @@ static DEVICE_ATTR(jettison_buffers_from, S_IRUGO|S_IWUSR,
 
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
-	&dev_attr_rtm_translen.attr,
 	&dev_attr_es_enable.attr,
+	&dev_attr_rtm_translen.attr,
 	NULL
 };
+#define ao420_transient_attrs (rgm_attrs+2)
 
 static ssize_t show_axi_buffers_after_event(
 	struct device * dev,
@@ -3662,6 +3663,9 @@ void acq400_createSysfs(struct device *dev)
 				specials[nspec++] = ao420_half_436_attrs;
 			}else{
 				specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
+			}
+			if (IS_AO420(adev)){
+				specials[nspec++] = ao420_transient_attrs;
 			}
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = playloop_attrs;
