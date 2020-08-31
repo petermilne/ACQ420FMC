@@ -1074,7 +1074,7 @@ const struct attribute *ao428_attrs[] = {
 	NULL
 };
 
-MAKE_BITS(rtm, DAC_CTRL, 0, DAC_CTRL_RTM_MODE);
+MAKE_BITS(rtm, DAC_CTRL, MAKE_BITS_FROM_MASK, DAC_CTRL_RTM_MODE);
 
 const struct attribute *ao420_attrs[] = {
 	&dev_attr_G3.attr, &dev_attr_D3.attr, &dev_attr_AO_03.attr, &dev_attr_dac_range_03.attr,

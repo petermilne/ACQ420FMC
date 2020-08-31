@@ -18,7 +18,7 @@ fi
 
 if [ "$PKG" != "$LATEST" ]; then
 	echo "WARNING $PKG != $LATEST are you sure y/n"
-	prompt yn
+	read yn
 	if [ "$yn" != "y" ]; then
 		echo "Quitting, good move"
 		exit 1
