@@ -19,10 +19,12 @@ fi
 DROOT=/sys/kernel/debug
 
 SYSCONF=/mnt/local/sysconfig
+ULB=$ULB
+
 
 if [ -e /mnt/local/acq400_stream ]; then
 	echo override from /mnt/local/acq400_stream
-	cp /mnt/local/acq400_stream /usr/local/bin
+	cp /mnt/local/acq400_stream $ULB
 fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
@@ -143,7 +145,7 @@ build_nodes() {
 		fi
 	done
 }
-# daemon /usr/local/bin/add_webpage_site acq400.${site} ${site}
+# daemon $ULB/add_webpage_site acq400.${site} ${site}
 
 export WEB_APPEND_JOB=/tmp/acq420-web-append.job
 
@@ -154,7 +156,7 @@ web_append()
 		echo '# created by acq420.init' >> $WEB_APPEND_JOB
 		chmod a+rx $WEB_APPEND_JOB
 	fi
-	echo "/usr/local/bin/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
+	echo "$ULB/add_webpage_site $1 $2" >> $WEB_APPEND_JOB
 }
 
 
@@ -378,7 +380,7 @@ build_knobs_device() {
 		esac
 		echo "ao420_init ${site}" >>/tmp/acq420.init-postpowerup-action
 		if [ -e ${ek}/dac_mux_master ]; then
-				ln -s /usr/local/bin/muxpattern ${ek}/
+				ln -s $ULB/muxpattern ${ek}/
 		fi
 		CLKDIV=250;;
 	41)	
@@ -402,7 +404,7 @@ build_knobs_device() {
 		*)
 			set_max_min_khz ${site} 1000 10;;
 		esac
-		ln -s /usr/local/bin/clocks_to_first_edge ${ek}/;;
+		ln -s $ULB/clocks_to_first_edge ${ek}/;;
 	67|68|69)
 		fake_fmc2_leds
 		return;;
@@ -449,13 +451,13 @@ build_site0() {
     fix_state
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel ${ek}
-	ln -s /usr/local/bin/run0 /usr/local/bin/play0 /usr/local/bin/get.xdt ${ek}
-	ln -s /usr/local/bin/get.site /usr/local/bin/set.site ${ek}
-	ln -s /usr/local/bin/set.site ${ek}/SS
-	ln -s /usr/local/bin/fit_rtm_translen_to_buffer /usr/local/bin/rgm_flush ${ek}
+	ln -s $ULB/run0 $ULB/play0 $ULB/get.xdt ${ek}
+	ln -s $ULB/get.site $ULB/set.site ${ek}
+	ln -s $ULB/set.site ${ek}/SS
+	ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush ${ek}
 	ln -s /dev/acq400.0.knobs/bufferlen ${ek}
-	ln -s /usr/local/bin/streamtonowhered ${ek}
-	ln -s /usr/local/bin/set.sync_role ${ek}
+	ln -s $ULB/streamtonowhered ${ek}
+	ln -s $ULB/set.sync_role ${ek}
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
 	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
@@ -469,7 +471,7 @@ build_site0() {
 	done
 	
 	
-	[ "x$REBOOT_KNOB" = "xy" ] && ln -s /usr/local/bin/reboot ${ek}
+	[ "x$REBOOT_KNOB" = "xy" ] && ln -s $ULB/reboot ${ek}
 	
 	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/fpctl* ${dk}/spad* \
@@ -488,8 +490,8 @@ build_site0() {
 		rm /etc/acq400/0/sync_out_cable_det
 		ln -s /dev/gpio/SYNC_CABLE_DET /etc/acq400/0/sync_out_cable_det
 		ls -l /etc/acq400/0/sync_out_cable_det
-		ln -s /usr/local/bin/load.si5326 /etc/acq400/0
-		ln -s /usr/local/bin/si5326_tune_phase /etc/acq400/0/
+		ln -s $ULB/load.si5326 /etc/acq400/0
+		ln -s $ULB/si5326_tune_phase /etc/acq400/0/
 	    if [ -e ${dk}/has_axi_dma_stack ] && [ $(cat ${dk}/has_axi_dma_stack) != "0" ]; then
 	       ln -s /usr/local/CARE/stack_480 /etc/acq400/0
 	    fi 
@@ -554,26 +556,26 @@ build_knobs() {
 	done
 	
 	if [ "x${ACQ423_SITES}" != "x" ]; then
-		/usr/local/bin/acq423.init ${ACQ423_SITES}
+		$ULB/acq423.init ${ACQ423_SITES}
 		# use /mnt/local/acq420_custom
 		#		BLEN=4194304
 		#		NBUF=128
 	fi
 	if [ "x${ACQ425_SITES}" != "x" ]; then
-		/usr/local/bin/acq425.init ${ACQ425_SITES}
+		$ULB/acq425.init ${ACQ425_SITES}
 		# use /mnt/local/acq420_custom
 		#		BLEN=4194304
 		#		NBUF=128
 	fi
 	if [ "x${ACQ427_SITES}" != "x" ]; then
-		/usr/local/bin/acq427.init ${ACQ427_SITES}
+		$ULB/acq427.init ${ACQ427_SITES}
 		# use /mnt/local/acq420_custom
 		#		BLEN=4194304
 		#		NBUF=128
 	fi
 
 	if [ "x${ACQ437_SITES}" != "x" ]; then
-		/usr/local/bin/acq437.init ${ACQ437_SITES}
+		$ULB/acq437.init ${ACQ437_SITES}
 		# use /mnt/local/acq420_custom
 		#		BLEN=4194304
 		#		NBUF=128
@@ -610,7 +612,7 @@ build_knobs() {
 			fi
 			break
 		done
-		/usr/local/bin/acq480.init ${ACQ480_SITES}
+		$ULB/acq480.init ${ACQ480_SITES}
 	else
 		case $MODEL in
 		acq1*)
@@ -621,8 +623,8 @@ build_knobs() {
 		esac
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
-		echo ACQ400T : "calling /usr/local/bin/acq400t.init ${ACQ400T_SITES}"
-		/usr/local/bin/acq400t.init ${ACQ400T_SITES}
+		echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
+		$ULB/acq400t.init ${ACQ400T_SITES}
 	fi
 	has_sfp=0
 	for dir in ${spd}/*mgt400; do
@@ -633,26 +635,26 @@ build_knobs() {
 }
 
 create_set_fanspeed() {
-cat - >/usr/local/bin/set.fanspeed <<EOF
+cat - >$ULB/set.fanspeed <<EOF
 #!/bin/sh
 # set fanspeed acq1001 style
 FSPERCENT=\${1:-10}
 set.sys /dev/acq400.0.knobs/fan_percent \$FSPERCENT
 EOF
-chmod a+rx /usr/local/bin/set.fanspeed
-echo /usr/local/bin/set.fanspeed created
+chmod a+rx $ULB/set.fanspeed
+echo $ULB/set.fanspeed created
 }
 
 
 set_fans() {
-	if [ ! -x /usr/local/bin/set.fanspeed ]; then
+	if [ ! -x $ULB/set.fanspeed ]; then
 		if [ -e /dev/acq400.0.knobs/fan_percent ]; then
 			create_set_fanspeed
 		fi	
 	fi
-	if [ -x /usr/local/bin/set.fanspeed ]; then
-		echo /usr/local/bin/set.fanspeed $1
-		/usr/local/bin/set.fanspeed $1
+	if [ -x $ULB/set.fanspeed ]; then
+		echo $ULB/set.fanspeed $1
+		$ULB/set.fanspeed $1
 	fi
 }
 
@@ -857,7 +859,7 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 			web_append  $file $bn
 		done
 		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
-		cp /usr/local/CARE/streamtonowhere.480 /usr/local/bin/streamtonowhere
+		cp /usr/local/CARE/streamtonowhere.480 $ULB/streamtonowhere
 	fi
 fi
 if [ $AXI_COUNT -eq 0 ]; then
