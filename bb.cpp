@@ -66,6 +66,8 @@
 
 #include "File.h"
 
+#include "tcp_server.h"
+
 
 using namespace std;
 
@@ -92,6 +94,9 @@ namespace G {
 	unsigned play_bufferlen;			// Change bufferlen on play
 
 	int nopad = 1;
+
+	char* port = 0;				// 0 no server (inetd), else make a server
+	char* host = 0;
 };
 
 #include "Buffer.h"
@@ -118,6 +123,12 @@ struct poptOption opt_table[] = {
 	{
 	  "nopad", 'n',  POPT_ARG_INT, &G::nopad, 0,
 	  	  	 "when set, do NOT pad to end of buffer"
+	},
+	{
+	  "port", 'p', POPT_ARG_STRING, &G::port, 0, "server port 0: no tcp server (using inetd)"
+	},
+	{
+	  "host", 'H', POPT_ARG_STRING, &G::host, 0, "server host 0: allow any host"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -497,6 +508,15 @@ RUN_MODE ui(int argc, const char** argv)
 	return M_DUMP;
 }
 
+
+int load_interpreter(FILE* fin, FILE* fout)
+{
+	close(0); dup(fileno(fin));
+	close(1); dup(fileno(fout));
+	close(2); dup(fileno(fout));
+	return load();
+}
+
 int main(int argc, const char** argv)
 {
 	RUN_MODE rm = ui(argc, argv);
@@ -505,7 +525,11 @@ int main(int argc, const char** argv)
 	case M_FILL:
 		return fill();
 	case M_LOAD:
-		return load();
+		if (G::port){
+			return tcp_server(G::host, G::port, load_interpreter);
+		}else{
+			return load();
+		}
 	default:
 		return dump();
 	}

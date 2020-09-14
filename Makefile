@@ -167,7 +167,7 @@ udp_client: udp_client.o
 acq400_stream: acq400_stream.o Buffer.o 
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-bb: bb.o Buffer.o
+bb: bb.o Buffer.o  tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
 multi_event: multi_event.o Buffer.o
