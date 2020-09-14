@@ -90,6 +90,8 @@ namespace G {
 	int load_threshold = 2;
 	unsigned load_bufferlen;			// Set bufferlen for load
 	unsigned play_bufferlen;			// Change bufferlen on play
+
+	int nopad = 1;
 };
 
 #include "Buffer.h"
@@ -112,6 +114,10 @@ struct poptOption opt_table[] = {
 	},
 	{ "minbufs", 'b', POPT_ARG_INT, &G::minbufs, 0,
 			"minimum buffers : 4 is safe with large buffers, 2 possible for small shots"
+	},
+	{
+	  "nopad", 'n',  POPT_ARG_INT, &G::nopad, 0,
+	  	  	 "when set, do NOT pad to end of buffer"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -192,10 +198,15 @@ int pad(int nsamples, int pad_samples)
 	char* end = base + nsamples*G::sample_size;
 	char* last = end - G::sample_size;
 
-	while(pad_samples--){
-		memcpy(end, last, G::sample_size);
-		end += G::sample_size;
-		nsamples++;
+	if (G::nopad){
+		end += G::sample_size*pad_samples;
+		nsamples += pad_samples;
+	}else{
+		while(pad_samples--){
+			memcpy(end, last, G::sample_size);
+			end += G::sample_size;
+			nsamples++;
+		}
 	}
 	return nsamples;
 }
