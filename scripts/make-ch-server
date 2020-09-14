@@ -20,7 +20,11 @@ EOF
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then
 	source /mnt/local/sysconfig/acq400.sh
 	if [ "x$ONESHOT_PORT" != "x" ]; then
+	    if [ "x$ONESHOT_PORT" = "xy" ]; then
+	    	ONESHOT_PORT=53999
+	    fi
 		echo $ONESHOT_PORT stream tcp nowait root oneshot oneshot dummy >> /etc/inetd.ch.conf
+		echo "acq400_oneshot	$ONESHOT_PORT/tcp # oneshot transient HIL" >>/etc/services
 	fi
 fi
 
@@ -47,7 +51,7 @@ done
 
 if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
 	echo >>/etc/inetd.ch.conf \
-	"53999 stream tcp nowait root bpaste bpaste /dev/acq400/data/2/01 /dev/acq400/data/2/02"
+	"52999 stream tcp nowait root bpaste bpaste /dev/acq400/data/2/01 /dev/acq400/data/2/02"
 	echo "acq400_qen	52999/tcp # qen data" >>/etc/services
 fi
 
