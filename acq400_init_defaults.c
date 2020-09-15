@@ -912,7 +912,7 @@ void measure_ao_fifo(struct acq400_dev *adev)
 
 void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output);
 
-void dio484_pg_init_defaults(struct acq400_dev* adev)
+void dio484_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 {
 	struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
@@ -920,6 +920,10 @@ void dio484_pg_init_defaults(struct acq400_dev* adev)
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
 	init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM, DIO482_PG_GPGDR);
+
+	if (gpg32){
+		init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM32, 0xffff);
+	}
 	dev_info(DEVP(adev), "direction set %x", DIO484_PG_OUTPUTS);
 	dio432_set_direction(adev, DIO484_PG_OUTPUTS);
 }
@@ -927,7 +931,7 @@ void dio484_pg_init_defaults(struct acq400_dev* adev)
 void dio482td_init_defaults(struct acq400_dev* adev)
 {
 	DIO484_PG_OUTPUTS = 0xf;
-	dio484_pg_init_defaults(adev);
+	dio484_pg_init_defaults(adev, 0);
 	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PG_PG_DOx);
 }
 void _acq400_mod_init_defaults(struct acq400_dev* adev)
@@ -944,7 +948,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		acq420_init_defaults(adev);
 	}else if (IS_DIO432X(adev)){
 		if (IS_DIO484ELF_PG(adev)){
-			dio484_pg_init_defaults(adev);
+			dio484_pg_init_defaults(adev, 1);
 		}else{
 			dio432_init_defaults(adev);
 		}

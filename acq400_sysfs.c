@@ -547,7 +547,7 @@ static ssize_t show_gpg_top_count(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, 0);
 	unsigned GPG_CR = IS_DIO482_PG(adev)? DIO482_PG_GPGCR: GPG_CONTROL;
 	u32 gpg_ctrl = acq400rd32(adev, GPG_CR);
 	u32 gpg_top = (gpg_ctrl&GPG_CTRL_TOPADDR) >> GPG_CTRL_TOPADDR_SHL;
@@ -582,7 +582,7 @@ static ssize_t show_gpg_debug(
 {
 
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, 0);
 	//dev_dbg(DEVP(adev), "gpg:%p base:%p buffer:%p cursor:%u dbgr:%x", gpg, gpg->gpg_base, gpg->gpg_buffer, gpg->gpg_cursor, gpg->gpg_dbgr);
 
 	u32 deb = acq400rd32(adev, gpg->gpg_dbgr);
@@ -603,7 +603,7 @@ static ssize_t show_gpg_timescaler(
 	char * buf)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, 0);
 	return sprintf(buf, "%u\n", gpg->gpg_timescaler);
 }
 
@@ -614,7 +614,7 @@ static ssize_t store_gpg_timescaler(
 	size_t count)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, 0);
 
 	if (sscanf(buf, "%u", &gpg->gpg_timescaler) == 1){
 		return count;
