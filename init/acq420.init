@@ -19,7 +19,7 @@ fi
 DROOT=/sys/kernel/debug
 
 SYSCONF=/mnt/local/sysconfig
-ULB=$ULB
+ULB=/usr/local/bin
 
 
 if [ -e /mnt/local/acq400_stream ]; then
