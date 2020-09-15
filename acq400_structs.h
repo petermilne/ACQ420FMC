@@ -373,6 +373,7 @@ struct PG_dev {
 	char id[16];
 	struct acq400_dev adev;
 	struct GPG_buffer gpg;
+	struct GPG_buffer gpg32;
 };
 
 #define MAXLBUF	  1024
@@ -770,6 +771,6 @@ extern void ao420_reset_fifo(struct acq400_dev *adev);
 extern int ao424_16;
 extern void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en);
 
-extern struct GPG_buffer* get_gpg(struct acq400_dev* adev);
+extern struct GPG_buffer* get_gpg(struct acq400_dev* adev, int gpg32);
 void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base, unsigned dbgr);
 #endif /* ACQ400_STRUCTS_H_ */

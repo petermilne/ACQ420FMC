@@ -131,6 +131,7 @@ build_nodes() {
 			61|62|6B)
 				if [ -e /dev/acq400.$ID.knobs/gpg_enable ]; then
 					mknod /dev/acq400.$ID.gpg c ${MAJOR} 5
+					mknod /dev/acq400.$ID.gpg32 c ${MAJOR} 28
 				else
 					mknod /dev/${NAME}.awg c  ${MAJOR} 9
 					mknod /dev/${NAME}.awgc c ${MAJOR} 10

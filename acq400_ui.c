@@ -431,23 +431,29 @@ int acq420_open_hb0(struct inode *inode, struct file *file)
 	}
 }
 
-struct GPG_buffer* get_gpg(struct acq400_dev* adev)
+struct GPG_buffer* get_gpg(struct acq400_dev* adev, int gpg32)
 {
 	if (IS_DIO482_PG(adev)){
 		struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
 		dev_dbg(DEVP(adev), "is:%s gpg_buffer:%p gpg_base:%p gpg_cursor:%u",
 				pg_dev->id, pg_dev->gpg.gpg_buffer, pg_dev->gpg.gpg_base, pg_dev->gpg.gpg_cursor);
-		return &pg_dev->gpg;
+		if (gpg32){
+			return &pg_dev->gpg32;
+		}else{
+			return &pg_dev->gpg;
+		}
 	}else{
 		struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 		return &sc_dev->gpg;
 	}
 }
 
+#define GPG32(file) (PD(file)->minor == ACQ420_MINOR_GPGMEM32)
+
 int acq400_gpgmem_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, GPG32(file));
 	if (file->f_flags & O_WRONLY) {
 		int iw;
 		for (iw = 0; iw < gpg->gpg_cursor; ++iw){
@@ -461,7 +467,7 @@ ssize_t acq400_gpgmem_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, GPG32(file));
 	int len = gpg->gpg_cursor*sizeof(u32);
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
@@ -487,7 +493,7 @@ ssize_t acq400_gpgmem_write(struct file *file, const char __user *buf, size_t co
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, GPG32(file));
 	int len = GPG_MEM_ACTUAL;
 	unsigned bcursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
@@ -533,29 +539,35 @@ int set_gpg_top(struct acq400_dev* adev, u32 gpg_count)
 int acq400_gpgmem_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	struct GPG_buffer* gpg = get_gpg(adev);
+	struct GPG_buffer* gpg = get_gpg(adev, GPG32(file));
 	int iw;
 	int rc;
 
-	gpg->gpg_used_bits = 0;
-
-	for (iw = 0; iw < gpg->gpg_cursor; ++iw){
-		unsigned stl_entry = gpg->gpg_buffer[iw];
-		unsigned stl_state = stl_entry &0x00000ff;
-
-		if (gpg->gpg_timescaler > 1){
-			unsigned stl_time  = stl_entry >> 8;
-			stl_time *= gpg->gpg_timescaler;
-			stl_entry = stl_time << 8 | stl_state;
+	if (GPG32(file)){
+		for (iw = 0; iw < gpg->gpg_cursor; ++iw){
+			iowrite32(gpg->gpg_buffer[iw], gpg->gpg_base+iw);
 		}
-		iowrite32(stl_entry, gpg->gpg_base+iw);
+	}else{
+		gpg->gpg_used_bits = 0;
 
-		gpg->gpg_final_state = stl_state;
-		gpg->gpg_used_bits  |= stl_state;
+		for (iw = 0; iw < gpg->gpg_cursor; ++iw){
+			unsigned stl_entry = gpg->gpg_buffer[iw];
+			unsigned stl_state = stl_entry &0x00000ff;
+
+			if (gpg->gpg_timescaler > 1){
+				unsigned stl_time  = stl_entry >> 8;
+				stl_time *= gpg->gpg_timescaler;
+				stl_entry = stl_time << 8 | stl_state;
+			}
+			iowrite32(stl_entry, gpg->gpg_base+iw);
+
+			gpg->gpg_final_state = stl_state;
+			gpg->gpg_used_bits  |= stl_state;
+		}
+		dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d used:%08x fin:%08x\n", iw, gpg->gpg_used_bits, gpg->gpg_final_state);
+		rc = set_gpg_top(adev, gpg->gpg_cursor);
+		gpg->gpg_timescaler = 1;
 	}
-	dev_dbg(DEVP(adev), "acq400_gpgmem_release() %d used:%08x fin:%08x\n", iw, gpg->gpg_used_bits, gpg->gpg_final_state);
-	rc = set_gpg_top(adev, gpg->gpg_cursor);
-	gpg->gpg_timescaler = 1;
 	acq400_release(inode, file);
 	return rc;
 }
@@ -1209,6 +1221,7 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
         		break;
         	case ACQ420_MINOR_GPGMEM:
+        	case ACQ420_MINOR_GPGMEM32:
         		rc = acq420_open_gpgmem(inode, file);
         		break;
         	case ACQ420_MINOR_BOLO_AWG:
