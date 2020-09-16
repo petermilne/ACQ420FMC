@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.507"
+#define REVID 			"3.508"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1815,6 +1815,8 @@ int xo_data_loop(void *data)
 			goto quit;
 		}
 		if (adev->stats.xo.dma_buffers_out >= shot_buffer_count){
+			xo_dev->AO_playloop.cycles++;
+
 			if (AO_CONTINUOUS || xo_dev->AO_playloop.repeats > 0){
 				shot_buffer_count += shot_buffer_count0;
 				IBRESET;

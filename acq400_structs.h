@@ -348,6 +348,7 @@ struct XO_dev {
 		unsigned maxlen;	/* max buffer (for concurrent update */
 		unsigned push_buf;	/* index of current push buffer */
 		unsigned pull_buf;	/* index of current pull buffer */
+		unsigned cycles;	/* output: number of cycles so far */
 	} AO_playloop;
 
 	struct DIO432 {

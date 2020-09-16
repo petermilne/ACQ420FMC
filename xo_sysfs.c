@@ -281,7 +281,7 @@ static ssize_t show_playloop_repeats(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	return sprintf(buf, "%u\n", xo_dev->AO_playloop.repeats);
+	return sprintf(buf, "%u\n", xo_dev->AO_playloop.cycles);
 }
 
 static ssize_t store_playloop_repeats(
