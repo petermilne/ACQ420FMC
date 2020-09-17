@@ -3363,6 +3363,8 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 	&dev_attr_scount_CLK_S6.attr,
 	&dev_attr_scount_TRG_S3.attr,
 	&dev_attr_scount_TRG_S4.attr,
+	&dev_attr_scount_TRG_S5.attr,
+	&dev_attr_scount_TRG_S6.attr,
 	&dev_attr_scount_EVT_S3.attr,
 	&dev_attr_scount_EVT_S4.attr,
 	&dev_attr_scount_SYN_S3.attr,
