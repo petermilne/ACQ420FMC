@@ -537,7 +537,8 @@ MAKE_SIGNAL(gpg_sync,GPG_CONTROL, GPG_CTRL_SYNC_SHL, GPG_CTRL_EXT_SYNC, EXT, SOF
 /* MUST set RGM as well */
 MAKE_SIGNAL(rgm, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
 		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS, 1);
-
+MAKE_SIGNAL(burst, ADC_CTRL, ADC_CTRL_RGM_GATE_SHL,
+		ADC_CTRL_RGM_MODE_MASK<<ADC_CTRL_RGM_MODE_SHL, ENA, DIS, 1);
 
 
 
@@ -3125,11 +3126,11 @@ static DEVICE_ATTR(jettison_buffers_from, S_IRUGO|S_IWUSR,
 
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
+	&dev_attr_burst.attr,
 	&dev_attr_es_enable.attr,
 	&dev_attr_rtm_translen.attr,
 	NULL
 };
-#define ao420_transient_attrs (rgm_attrs+2)
 
 static ssize_t show_axi_buffers_after_event(
 	struct device * dev,
@@ -3667,9 +3668,6 @@ void acq400_createSysfs(struct device *dev)
 				specials[nspec++] = ao420_half_436_attrs;
 			}else{
 				specials[nspec++] = IS_AO420(adev)? ao420_attrs: ao428_attrs;
-			}
-			if (IS_AO420(adev)){
-				specials[nspec++] = ao420_transient_attrs;
 			}
 		}else if (IS_AO424(adev)){
 			specials[nspec++] = playloop_attrs;

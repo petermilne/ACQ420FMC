@@ -524,7 +524,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
 
-#define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev))
+#define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev) || IS_AO424(adev) || IS_AO420(adev))
 
 #define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_IDV(adev) != 0)
 
@@ -1000,6 +1000,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define RAD_DDS_B		0x14
 #define RAD_DDS_AB		0x18	/* UPDATE ONLY */
 #define RAD_DDS_C		0x20
+#define RAD_CLK_PPS_LATCH	0x58
 
 #define RAD_CTL_TRG_A_OUT	(1<<15)
 #define RAD_CTL_TRG_B_OUT	(1<<14)

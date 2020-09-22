@@ -140,6 +140,8 @@ void acq400_spi_strobe(void *clidata, int cs, int mode)
 
 EXPORT_SYMBOL_GPL(acq400_spi_strobe);
 
+SCOUNT_KNOB_FIELD(clk_pps_latch, RAD_CLK_PPS_LATCH, 0x0fffffff);
+
 const struct attribute *sysfs_radcelf_attrs[] = {
 	&dev_attr_trgA_output.attr,
 	&dev_attr_trgB_output.attr,
@@ -170,6 +172,8 @@ const struct attribute *sysfs_radcelf_attrs[] = {
 	&dev_attr_strobeB.attr,
 	&dev_attr_strobeC.attr,
 	&dev_attr_strobeAB.attr,
+
+	&dev_attr_scount_clk_pps_latch.attr,
 	NULL
 };
 
