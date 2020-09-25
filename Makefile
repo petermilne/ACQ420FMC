@@ -249,7 +249,7 @@ wrtd: 	wrtd.o Multicast.o  knobs.o
 multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 		
-trigger_at: trigger_at.o
+trigger_at: trigger_at.o knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 			
 rtpackage:
