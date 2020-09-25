@@ -25,6 +25,7 @@
 #include "popt.h"
 #include <sys/time.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <signal.h>
 
 #include "local.h"
@@ -149,9 +150,22 @@ int schedule(time_t t2)
 	Knob(G::site, G::tknob).set(0);
 
 	if ((cpid = fork()) == 0){
-		wait_for(t2);
-	}else{
-		_set_pidf(cpid, t2, _gettimeofday(), 0);
+		int rc = setsid();
+		if (rc == -1){
+			perror("setsid");
+			return 0;
+		}
+		close(0);
+		open("/dev/null", O_RDONLY);
+		close(1);
+		open("/dev/console", O_WRONLY);
+		close(2);
+		open("/dev/console", O_WRONLY);
+		if ((cpid = fork()) == 0){
+			wait_for(t2);
+		}else{
+			_set_pidf(cpid, t2, _gettimeofday(), 0);
+		}
 	}
 	return 0;
 }
