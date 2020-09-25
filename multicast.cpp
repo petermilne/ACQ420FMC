@@ -60,7 +60,7 @@ int receive()
 
 int send(const char* message)
 {
-	MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER).sendto(message, strlen(message));
+	return MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER).sendto(message, strlen(message));
 }
 
 int main(int argc, const char* argv[])
