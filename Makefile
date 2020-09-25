@@ -80,7 +80,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dump_regs \
 	soft_atd \
 	wr_reset wrtd wrtt_mon multicast \
-	mr_offload
+	mr_offload trigger_at
 	
 # data_sink	
 # dropped
@@ -249,6 +249,9 @@ wrtd: 	wrtd.o Multicast.o  knobs.o
 multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 		
+trigger_at: trigger_at.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
+			
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
