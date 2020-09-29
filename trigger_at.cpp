@@ -38,11 +38,13 @@
 #define MINWAIT 2
 
 #define RADCELF_SITE 2
+#define DDSA_SITE	4
+#define DDSB_SITE	5
 
 #define PIDF  "/var/run/trigger_at.pid"
 namespace G {
 	int site = Env::getenv("SITE", RADCELF_SITE);
-	const char* tknob = "dds_gps_arm_pps";
+	const char* tknob = "gps_arm_pps";
 }
 
 struct poptOption opt_table[] = {
@@ -136,11 +138,12 @@ void wait_for(time_t t2)
 		_set_pidf(getpid(), t2, t1, usecs_adj);
 		usleep(usecs_adj);
 	}
-	Knob k(G::site, G::tknob);
-	k.set(1);
+	Knob kA(DDSA_SITE, G::tknob);
+	Knob kB(DDSB_SITE, G::tknob);
+	kA.set(1); kB.set(1);
 	_set_log(getpid(), t2, t1, usecs_late);
 	usleep(1000000);
-	k.set(0);
+	kA.set(0); kB.set(0);
 	unlink(PIDF);
 }
 int schedule(time_t t2)
