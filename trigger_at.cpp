@@ -38,19 +38,14 @@
 #define MINWAIT 2
 
 #define RADCELF_SITE 2
-#define DDSA_SITE	4
-#define DDSB_SITE	5
+#define DDSA_ARM_PPS "/etc/acq400/4/gps_arm_pps"
+#define DDSB_ARM_PPS "/etc/acq400/5/gps_arm_pps"
 
 #define PIDF  "/var/run/trigger_at.pid"
-namespace G {
-	int site = Env::getenv("SITE", RADCELF_SITE);
-	const char* tknob = "gps_arm_pps";
-}
+
 
 struct poptOption opt_table[] = {
-	{
-		"tknob", 0, POPT_ARG_INT, &G::tknob, 0, "trigger knob"
-	},
+
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -138,8 +133,8 @@ void wait_for(time_t t2)
 		_set_pidf(getpid(), t2, t1, usecs_adj);
 		usleep(usecs_adj);
 	}
-	Knob kA(DDSA_SITE, G::tknob);
-	Knob kB(DDSB_SITE, G::tknob);
+	Knob kA(DDSA_ARM_PPS);
+	Knob kB(DDSA_ARM_PPS);
 	kA.set(1); kB.set(1);
 	_set_log(getpid(), t2, t1, usecs_late);
 	usleep(1000000);
@@ -150,7 +145,8 @@ int schedule(time_t t2)
 {
 	pid_t cpid;
 
-	Knob(G::site, G::tknob).set(0);
+	Knob(DDSA_ARM_PPS).set(0);
+	Knob(DDSA_ARM_PPS).set(0);
 
 	if ((cpid = fork()) == 0){
 		int rc = setsid();
