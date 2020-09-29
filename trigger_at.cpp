@@ -134,7 +134,7 @@ void wait_for(time_t t2)
 		usleep(usecs_adj);
 	}
 	Knob kA(DDSA_ARM_PPS);
-	Knob kB(DDSA_ARM_PPS);
+	Knob kB(DDSB_ARM_PPS);
 	kA.set(1); kB.set(1);
 	_set_log(getpid(), t2, t1, usecs_late);
 	usleep(1000000);
@@ -146,7 +146,7 @@ int schedule(time_t t2)
 	pid_t cpid;
 
 	Knob(DDSA_ARM_PPS).set(0);
-	Knob(DDSA_ARM_PPS).set(0);
+	Knob(DDSB_ARM_PPS).set(0);
 
 	if ((cpid = fork()) == 0){
 		int rc = setsid();
