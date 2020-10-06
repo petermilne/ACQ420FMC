@@ -441,7 +441,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 	int site;
 	int sites =
 		IS_ACQ2X06SC(adev)? 6:
-		IS_ACQ1001SC(adev)? 4:	/* other counters used in special cases */
+		IS_ACQ1001SC(adev)? 6:	/* special case counters eg RADCELF */
 		IS_KMCx_SC(adev)  ? 2: 0;
 
 	dev_rc_init(DEVP(adev), &adev->reg_cache,
