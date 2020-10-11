@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 
 #include "local.h"
 #include "Env.h"
@@ -55,9 +56,10 @@ int report_job()
 	FILE* fp = fopen(PIDF, "r");
 	if (fp){
 		char buf[80];
-		fgets(buf, 80, fp);
+		while(fgets(buf, 80, fp)){
+			printf(buf);
+		}
 		fclose(fp);
-		printf(buf);
 	}else{
 		printf("nothing to report\n");
 	}
@@ -70,7 +72,7 @@ void _write_pid(FILE* pf, pid_t pid, time_t t2, time_t tnow, unsigned usecs)
 }
 void _set_pidf(pid_t pid, time_t t2, time_t tnow, unsigned usecs)
 {
-	FILE* pf = fopen(PIDF, "w");
+	FILE* pf = fopen(PIDF, "a");
 	_write_pid(pf, pid, t2, tnow, usecs);
 	fclose(pf);
 }
@@ -102,16 +104,16 @@ int _kill_job()
 		return 0;    // gone already, no worries
 	}else{
 		pid_t pid;
-		if (fscanf(fp, "%u", &pid) == 1){
+		char aline[128];
+		while(fgets(aline, 128, fp) && sscanf(aline, "%u", &pid) == 1){
 			int rc = kill(pid, SIGKILL);
 			if (rc != 0){
 				perror("kill");
 				exit(-1);
 			}
-		}else{
-			unlink(PIDF);
 		}
 		fclose(fp);
+		unlink(PIDF);
 		return 0;
 	}
 }
@@ -128,6 +130,9 @@ void wait_for(time_t t2)
 	unsigned usecs_late;
 	time_t t1;
 
+	if((t1 = _gettimeofday(&usecs_late)) < t2 - 10){
+		sleep(t2 - t1 - 10);
+	}
 	while((t1 = _gettimeofday(&usecs_late)) < t2 - 1){
 		unsigned usecs_adj = 1000000 - usecs_late;
 		_set_pidf(getpid(), t2, t1, usecs_adj);
@@ -214,6 +219,47 @@ int validate(const char* message)
 		return _validate(message);
 	}
 }
+int validate_today(struct tm trig_time, const char* at_time)
+{
+	printf("%s at_time %s\n", __FUNCTION__, at_time);
+	int hms[3];
+	int nscan;
+
+	nscan = sscanf(at_time, "%02d:%02d:%02d", hms, hms+1, hms+2);
+	switch(nscan){
+	case 3:
+		trig_time.tm_sec  = hms[2];	// fall thru
+	case 2:
+		trig_time.tm_min  = hms[1];     // fall thru
+	case 1:
+		trig_time.tm_hour = hms[0];
+		printf("%04d:%02d:%02d %02d:%02d:%02d\n",
+				trig_time.tm_year+1900, trig_time.tm_mon, trig_time.tm_mday, trig_time.tm_hour, trig_time.tm_min, trig_time.tm_sec);
+		schedule(mktime(&trig_time));
+		return 0;
+	default:
+		fprintf(stderr, "ERROR decoding \"%s\" H:M:S expected\n", at_time);
+		return -1;
+	}
+}
+int run_today(const char** times)
+{
+	time_t nowseconds = time(0);
+	struct tm now;
+	gmtime_r(&nowseconds, &now);
+
+	printf("%04d:%02d:%02d %02d:%02d:%02d\n",
+			now.tm_year+1900, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec);
+	now.tm_hour = now.tm_min = now.tm_sec = 0;
+
+	while(const char* cursor = *times++){
+		if (validate_today(now, cursor) != 0){
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int main(int argc, const char* argv[])
 {
 	poptContext opt_context =
@@ -225,8 +271,14 @@ int main(int argc, const char* argv[])
                         ;
                 }
         }
-
-        return validate(poptGetArg(opt_context));
+        const char* key = poptGetArg(opt_context);
+        if (key == 0){
+        	return validate(0);
+        }else if (strcmp(key, "today") == 0){
+        	return run_today(poptGetArgs(opt_context));
+        }else{
+        	return validate(key);
+        }
 }
 
 
