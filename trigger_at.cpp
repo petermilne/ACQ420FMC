@@ -34,6 +34,9 @@
 #include "File.h"
 #include "Knob.h"
 
+#include <vector>
+
+typedef std::vector<time_t> TTV;
 
 #define MAXWAIT	3600
 #define MINWAIT 2
@@ -144,8 +147,24 @@ void wait_for(time_t t2)
 	_set_log(getpid(), t2, t1, usecs_late);
 	usleep(1000000);
 	kA.set(0); kB.set(0);
-	unlink(PIDF);
 }
+
+int prepare_daemon()
+{
+	int rc = setsid();
+	if (rc == -1){
+		perror("setsid");
+		return -1;
+	}
+	close(0);
+	open("/dev/null", O_RDONLY);
+	close(1);
+	open("/dev/console", O_WRONLY);
+	close(2);
+	open("/dev/console", O_WRONLY);
+	return 0;
+}
+
 int schedule(time_t t2)
 {
 	pid_t cpid;
@@ -154,21 +173,37 @@ int schedule(time_t t2)
 	Knob(DDSB_ARM_PPS).set(0);
 
 	if ((cpid = fork()) == 0){
-		int rc = setsid();
-		if (rc == -1){
-			perror("setsid");
-			return 0;
+		if (prepare_daemon() != 0){
+			return -1;
 		}
-		close(0);
-		open("/dev/null", O_RDONLY);
-		close(1);
-		open("/dev/console", O_WRONLY);
-		close(2);
-		open("/dev/console", O_WRONLY);
 		if ((cpid = fork()) == 0){
 			wait_for(t2);
+			unlink(PIDF);
 		}else{
 			_set_pidf(cpid, t2, _gettimeofday(), 0);
+		}
+	}
+	return 0;
+}
+
+int schedule(TTV& times)
+{
+	pid_t cpid;
+
+	Knob(DDSA_ARM_PPS).set(0);
+	Knob(DDSB_ARM_PPS).set(0);
+
+	if ((cpid = fork()) == 0){
+		if (prepare_daemon() != 0){
+			return -1;
+		}
+		if ((cpid = fork()) == 0){
+			for (auto& t2: times){
+				wait_for(t2);
+			}
+			unlink(PIDF);
+		}else{
+			_set_pidf(cpid, times[0], _gettimeofday(), 0);
 		}
 	}
 	return 0;
@@ -219,11 +254,12 @@ int validate(const char* message)
 		return _validate(message);
 	}
 }
-int validate_today(struct tm trig_time, const char* at_time)
+int validate_today(TTV& ttv, time_t t_now, struct tm trig_time, const char* at_time)
 {
 	printf("%s at_time %s\n", __FUNCTION__, at_time);
 	int hms[3];
 	int nscan;
+	time_t t_trg;
 
 	nscan = sscanf(at_time, "%02d:%02d:%02d", hms, hms+1, hms+2);
 	switch(nscan){
@@ -235,8 +271,19 @@ int validate_today(struct tm trig_time, const char* at_time)
 		trig_time.tm_hour = hms[0];
 		printf("%04d:%02d:%02d %02d:%02d:%02d\n",
 				trig_time.tm_year+1900, trig_time.tm_mon, trig_time.tm_mday, trig_time.tm_hour, trig_time.tm_min, trig_time.tm_sec);
-		schedule(mktime(&trig_time));
-		return 0;
+		t_trg = mktime(&trig_time);
+		if (t_trg > t_now){
+			if (t_trg >= t_now + 60){
+				ttv.push_back(t_trg);
+				return 0;
+			}else{
+				fprintf(stderr, "ERROR: absolute time must be at least a minute ahead\n");
+			}
+		}else{
+			fprintf(stderr, "ERROR: trigger time EARLIER than current time\n");
+		}
+
+		return -1;
 	default:
 		fprintf(stderr, "ERROR decoding \"%s\" H:M:S expected\n", at_time);
 		return -1;
@@ -246,17 +293,23 @@ int run_today(const char** times)
 {
 	time_t nowseconds = time(0);
 	struct tm now;
+	struct tm tzero;
+
 	gmtime_r(&nowseconds, &now);
 
 	printf("%04d:%02d:%02d %02d:%02d:%02d\n",
 			now.tm_year+1900, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec);
-	now.tm_hour = now.tm_min = now.tm_sec = 0;
+	tzero = now;
+	tzero.tm_hour = tzero.tm_min = tzero.tm_sec = 0;
 
+	TTV ttv;
 	while(const char* cursor = *times++){
-		if (validate_today(now, cursor) != 0){
+		if (validate_today(ttv, nowseconds, tzero, cursor) != 0){
 			return 1;
 		}
 	}
+	printf("scheduling %d times\n", ttv.size());
+	schedule(ttv);
 	return 0;
 }
 
