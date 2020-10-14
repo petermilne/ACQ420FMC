@@ -7,33 +7,33 @@ do
 	if [ -e $file ]; then
 		source $file
 		PN=${FRU_PART_NUM%% *}
-		echo "# $file: FPN $FRU_PART_NUM PN $PN"
-		if [ "$PN" != "${PN#ACQ480*}" ]; then
+		case $PN in
+		ACQ480*)
+			echo "# $file: FPN $FRU_PART_NUM PN $PN"		
 			echo "# ACQ480 DETECTED set VRANGE LOW"
-			VRANGE=7
-			break
-		fi
-		if [ "$PN" != "${PN#ACQ424*}" ]; then
+			VRANGE=7;;
+		ACQ481*)
+			echo "# ACQ481 DETECTED set VRANGE 6V"
+			VRANGE=6;;
+		ACQ424*)
 			echo "# ACQ424 DETECTED set VRANGE HI"
-			VRANGE=13
-			break
-		fi		
-		if [ "$PN" != "${PN#BOLO*}" ]; then
+			VRANGE=13;;
+		BOLO*)
 			echo "# BOLO DETECTED set VRANGE 12"
-			VRANGE=12
-			break
-		fi
-		VSPEC=${PN##*-}
-		if [ ! -z $VSPEC ]; then
-			vrange=${VSPEC%*V}
-			if [ "$vrange" != "$VSPEC" ]; then
-				if [ $vrange -lt 10 ]; then
-					echo "#LOW VOLTAGE UNIT detected setting VRANGE=7"
-					VRANGE=7
-					break;
+			VRANGE=12;;
+		*)
+			VSPEC=${PN##*-}
+			if [ ! -z $VSPEC ]; then
+				vrange=${VSPEC%*V}
+				if [ "$vrange" != "$VSPEC" ]; then
+					if [ $vrange -lt 10 ]; then
+						echo "#LOW VOLTAGE UNIT detected setting VRANGE=7"
+						VRANGE=7
+					fi
 				fi
 			fi
-		fi
+		esac
+		break
 	fi
 done
 
