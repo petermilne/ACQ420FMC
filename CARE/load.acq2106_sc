@@ -7,10 +7,15 @@ if [ ! -d /sys/kernel/config/device-tree/overlays/acq2106_sc ]; then
 		/sys/kernel/config/device-tree/overlays/acq2106_sc/dtbo
 fi
 
+show() {
+	RESULT=$(cat $*)
+	echo $RESULT $(/usr/local/CARE/validate_acq2106_sc_rails $RESULT)
+}
+
 for BUS in 2 3 4 5 6 7; do
 	[ -e /sys/bus/i2c/devices/i2c-$BUS/$BUS-0029/hwmon/hwmon*/in1_input ] && 
 	[ $(cat /sys/bus/i2c/devices/i2c-$BUS/$BUS-0029/hwmon/hwmon*/temp1_input) -ne 0 ] &&
-		echo SITE $(($BUS-1)) $(cat /sys/bus/i2c/devices/i2c-$BUS/$BUS-0029/hwmon/hwmon*/*input)
+		echo SITE $(($BUS-1)) $(show /sys/bus/i2c/devices/i2c-$BUS/$BUS-0029/hwmon/hwmon*/*input)
 done
 
 
