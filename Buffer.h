@@ -171,7 +171,7 @@ class BufferManager {
 		for (unsigned ii = 0; ii < Buffer::nbuffers; ++ii){
 			Buffer::create(root, Buffer::bufferlen);
 		}
-		printf("BufferManager::init_buffers %d\n", Buffer::nbuffers);
+		fprintf(stderr, "BufferManager::init_buffers %d\n", Buffer::nbuffers);
 	}
 	void delete_buffers()
 	{
