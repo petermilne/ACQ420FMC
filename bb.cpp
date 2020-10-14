@@ -91,6 +91,7 @@ namespace G {
 	int TO = 1;					// Timeout, seconds
 	int load_threshold = 2;
 	unsigned play_bufferlen;			// Change bufferlen on play
+	unsigned initval = 0;				// M_INIT, set all mem this value
 
 	int nopad = 1;
 
@@ -136,7 +137,7 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
-enum RUN_MODE { M_FILL, M_LOAD, M_DUMP };
+enum RUN_MODE { M_FILL, M_LOAD, M_DUMP, M_INIT };
 
 char *getRoot(int devnum)
 {
@@ -431,6 +432,21 @@ int load() {
 
 	return 0;
 }
+
+int init() {
+	for (Buffer* buffer : Buffer::the_buffers){
+		printf("Buffer %d len:%d\n", buffer->ib(), buffer->bufferlen);
+		unsigned* cursor = (unsigned*)buffer->getBase();
+		unsigned* end = (unsigned*)buffer->getEnd();
+		unsigned value = G::initval;
+
+		while(cursor != end){
+			*cursor++ = value;
+		}
+	}
+	return 0;
+}
+
 int dump() {
 	unsigned nsamples;
 	getKnob(G::play_site, "playloop_length", &nsamples);
@@ -530,6 +546,10 @@ RUN_MODE ui(int argc, const char** argv)
 			return M_LOAD;
 		}else if (strcmp(mode, "fill") == 0){
 			return M_FILL;
+		}else if (strcmp(mode, "init") == 0){
+			const char* initval = poptGetArg(opt_context);
+			G::initval = initval? strtoul(initval, 0, 0): 0;
+			return M_INIT;
 		}
 	}
 	return M_DUMP;
@@ -557,6 +577,8 @@ int main(int argc, const char** argv)
 		}else{
 			return load();
 		}
+	case M_INIT:
+		init();
 	default:
 		return dump();
 	}
