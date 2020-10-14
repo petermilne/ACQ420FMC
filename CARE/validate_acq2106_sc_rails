@@ -1,0 +1,25 @@
+#!/usr/bin/expect
+
+set lbl { 7VN   7VP     12V     3V3  }
+set min { 1658	616	1058	1601 }
+set max { 1760	654	1124	1700 }
+
+
+
+set ii 0
+foreach arg $::argv {
+	if {$arg < [lindex $min $ii]} {
+		set status UNDER
+	} elseif {$arg > [lindex $max $ii]} {
+		set status OVER
+	} else {
+		set status PASS
+	}
+	puts "[lindex $lbl $ii]=$status"
+
+	incr ii
+	if {$ii == 4} {
+		break
+	}
+}
+
