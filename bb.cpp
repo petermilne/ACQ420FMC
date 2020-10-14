@@ -90,7 +90,6 @@ namespace G {
 	int max_samples;
 	int TO = 1;					// Timeout, seconds
 	int load_threshold = 2;
-	unsigned load_bufferlen;			// Set bufferlen for load
 	unsigned play_bufferlen;			// Change bufferlen on play
 	unsigned initval = 0;				// M_INIT, set all mem this value
 
@@ -168,22 +167,11 @@ int Buffer::create(const char* root, int _buffer_len)
 	return 0;
 }
 
-int G_nsamples;
-
 void set_playloop_length(int nsamples)
 {
 	char cmd[128];
-	if (G::play_bufferlen){
-		unsigned ll = G::load_bufferlen;
-		unsigned pl = G::play_bufferlen;
-		while ((pl&0x1) == 0){
-			ll >>= 1; pl >>= 1;
-		}
-		nsamples = nsamples * pl / ll;
-		setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen);
-	}
-	sprintf(cmd, "set.site %d playloop_length %d %d",
-			G::play_site, G_nsamples = nsamples, G::mode);
+	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen? G::play_bufferlen: Buffer::bufferlen);
+	sprintf(cmd, "set.site %d playloop_length %d %d", G::play_site, nsamples, G::mode);
 	system(cmd);
 
 	if (nsamples == 0){
@@ -394,12 +382,43 @@ int _load() {
 	return _load_pad(nsamples);
 }
 
+int _load_by_buffer() {
+	int spb = G::play_bufferlen/G::sample_size;
+	unsigned nsamples = 0;
+	unsigned buf;
+	for (buf = 0; buf < Buffer::nbuffers; ++buf){
+		unsigned nread = _fread(Buffer::the_buffers[buf]->getBase(),
+						G::sample_size, spb, G::fp_in);
+		if (nread > 0){
+			nsamples += nread;
+		}else{
+			if (ferror(G::fp_in)){
+				syslog(LOG_DEBUG, "bb fread ERROR exit");
+				exit(1);
+			}
+			fprintf(stderr, "load_pad buffers:%u nsamples:%u\n", buf+1, nsamples);
+			return _load_pad(nsamples);
+		}
+	}
+	syslog(LOG_DEBUG, "bb hit the buffers, going with buffers=%u samples=%u", buf, nsamples);
+	return _load_pad(nsamples);
+}
+
+
 int fill() {
-	_load();
-	printf("DONE %d\n", G_nsamples);
-	return 0;
+	int nsamples;
+	if (G::play_bufferlen != Buffer::bufferlen){
+		fprintf(stderr, "LOAD_BY_BUFFER: NEW\n");
+		syslog(LOG_DEBUG, "LOAD_BY_BUFFER: NEW\n");
+		nsamples = _load_by_buffer();
+	}else{
+		nsamples = _load();
+	}
+	printf("DONE %d\n", nsamples);
+	return nsamples;
 }
 int load() {
+	fprintf(stderr, "LOAD NEW\n");
 	openlog("bb", LOG_PID, LOG_USER);
 	set_playloop_length(0);
 
@@ -408,7 +427,7 @@ int load() {
 	if (G::concurrent){
 		_load_concurrent();
 	}else{
-		set_playloop_length(_load());
+		set_playloop_length(fill());
 	}
 
 	return 0;
@@ -416,7 +435,7 @@ int load() {
 
 int init() {
 	for (Buffer* buffer : Buffer::the_buffers){
-		printf("Buffer %d len:%d\n", buffer->ib(), buffer->bufferlen);
+		fprintf(stderr, "Buffer %d len:%d\n", buffer->ib(), buffer->bufferlen);
 		unsigned* cursor = (unsigned*)buffer->getBase();
 		unsigned* end = (unsigned*)buffer->getEnd();
 		unsigned value = G::initval;
@@ -459,6 +478,10 @@ unsigned getSpecificBufferlen(int ibuf)
 #define DFB	 MODPRAMS "distributor_first_buffer"
 #define BUFLEN	 MODPRAMS "bufferlen"
 #define NBUF	 MODPRAMS "nbuffers"
+
+#define PAGESZ	 4096
+#define PAGEM    (PAGESZ-1)
+
 RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -475,14 +498,18 @@ RUN_MODE ui(int argc, const char** argv)
 	getKnob(-1, DFB, 	&G::buffer0);
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
-	getKnob(-1, "/etc/acq400/0/dist_bufferlen_load", &G::load_bufferlen);
 
-	if (G::load_bufferlen){
-		setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::load_bufferlen);
+
+	fprintf(stderr, "%s: bl:%d\n", __FUNCTION__, Buffer::bufferlen);
+
+	if (G::play_bufferlen > Buffer::bufferlen){
+		fprintf(stderr, "ERROR play %d > buffer %d\n", G::play_bufferlen, Buffer::bufferlen);
+		exit(1);
 	}
-	if (G::buffer0 != 0){
-		Buffer::bufferlen = getSpecificBufferlen(G::buffer0);
-	}
+
+	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", Buffer::bufferlen);
+
+	fprintf(stderr, "%s: bl:%d play:%d\n", __FUNCTION__, Buffer::bufferlen, G::play_bufferlen);
 
 	Buffer::nbuffers -= G::buffer0;
 
@@ -543,7 +570,7 @@ int main(int argc, const char** argv)
 	BufferManager bm(getRoot(G::devnum), G::buffer0);
 	switch(rm){
 	case M_FILL:
-		return fill();
+		return fill() > 0? 0: -1;
 	case M_LOAD:
 		if (G::port){
 			return tcp_server(G::host, G::port, load_interpreter);
