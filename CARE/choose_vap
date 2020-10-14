@@ -13,6 +13,11 @@ do
 			VRANGE=7
 			break
 		fi
+		if [ "$PN" != "${PN#ACQ424*}" ]; then
+			echo "# ACQ424 DETECTED set VRANGE HI"
+			VRANGE=13
+			break
+		fi		
 		if [ "$PN" != "${PN#BOLO*}" ]; then
 			echo "# BOLO DETECTED set VRANGE 12"
 			VRANGE=12
