@@ -995,6 +995,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			pig_celf_init_defaults(adev);
 			break;
 		case MOD_ID_RAD_CELF:
+		case MOD_ID_DDS_WERA:
 			rad_celf_init_defaults(adev);
 			break;
 		case MOD_ID_DAC_CELF:

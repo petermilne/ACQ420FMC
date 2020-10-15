@@ -417,6 +417,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			pig_celf_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_RAD_CELF:
+		case MOD_ID_DDS_WERA:
 			rad_celf_createDebugfs(adev, pcursor);
 			break;
 		default:
