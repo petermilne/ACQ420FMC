@@ -137,7 +137,7 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
-enum RUN_MODE { M_FILL, M_LOAD, M_DUMP, M_INIT };
+enum RUN_MODE { M_NONE, M_FILL, M_LOAD, M_DUMP, M_INIT };
 
 char *getRoot(int devnum)
 {
@@ -224,31 +224,31 @@ int _load_pad(int nsamples)
 	if (G::verbose){\
 		fprintf(stderr, "%d playbuffs %d residue %d padsam %d\n", __LINE__, playbuffs, residue, padsam);\
 	}
-	int playbuffs = (nsamples*G::sample_size)/Buffer::bufferlen;
-	int residue = (nsamples*G::sample_size)%Buffer::bufferlen;
+	int playbuffs = (nsamples*G::sample_size)/G::play_bufferlen;
+	int residue = (nsamples*G::sample_size)%G::play_bufferlen;
 	int padsam = 0;
 
 	if (G::verbose){
 		fprintf(stderr, "nsamples:%d G::sample_size:%d BL:%d\n",
-				nsamples, G::sample_size, Buffer::bufferlen);
+				nsamples, G::sample_size, G::play_bufferlen);
 		fprintf(stderr, "nsamples:0x%x G::sample_size:0x%x BL:0x%x\n",
-						nsamples, G::sample_size, Buffer::bufferlen);
+						nsamples, G::sample_size, G::play_bufferlen);
 	}
 	MARK;
 	if (residue){
-		padsam = (Buffer::bufferlen - residue)/G::sample_size;
+		padsam = (G::play_bufferlen - residue)/G::sample_size;
 		playbuffs += 1;		/* partly into a buffer, round up */
 		MARK;
 	}
 	if (playbuffs&1){
 		/* PRI DMA MUST ping+pong, expand to even # buffers */
 		playbuffs += 1;
-		padsam += Buffer::bufferlen/G::sample_size;
+		padsam += G::play_bufferlen/G::sample_size;
 		MARK;
 	}
 	if (G::minbufs == 4 && playbuffs == 2){
 		playbuffs += 2;
-		padsam += 2 * Buffer::bufferlen/G::sample_size;
+		padsam += 2 * G::play_bufferlen/G::sample_size;
 	}
 
 	if (padsam){
@@ -500,11 +500,45 @@ RUN_MODE ui(int argc, const char** argv)
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
 
 
+	int rc;
+
+	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
+		switch(rc){
+		default:
+			;
+		}
+	}
+
+	const char* mode = poptGetArg(opt_context);
+	RUN_MODE rm = M_NONE;
+
 	fprintf(stderr, "%s: bl:%d\n", __FUNCTION__, Buffer::bufferlen);
 
 	if (G::play_bufferlen > Buffer::bufferlen){
 		fprintf(stderr, "ERROR play %d > buffer %d\n", G::play_bufferlen, Buffer::bufferlen);
 		exit(1);
+	}else if (G::play_bufferlen == 0){
+		G::play_bufferlen = Buffer::bufferlen;
+	}
+
+	if (mode != 0){
+		if (strcmp(mode, "load") == 0){
+			rm = M_LOAD;
+		}else if (strcmp(mode, "fill") == 0){
+			rm = M_FILL;
+		}else if (strcmp(mode, "init") == 0){
+			const char* initval = poptGetArg(opt_context);
+			G::initval = initval? strtoul(initval, 0, 0): 0;
+			rm = M_INIT;
+		}else if (strcmp(mode, "dump") == 0){
+			Buffer::bufferlen = G::play_bufferlen;
+			return M_DUMP;
+		}else{
+			fprintf(stderr, "ERROR bad pram \%s\"\n", mode);
+			return rm;
+		}
+	}else{
+		return rm;
 	}
 
 	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", Buffer::bufferlen);
@@ -531,28 +565,7 @@ RUN_MODE ui(int argc, const char** argv)
 	if (G::max_samples == 0){
 		G::max_samples = Buffer::nbuffers*Buffer::bufferlen/G::sample_size;
 	}
-	int rc;
-
-	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
-		switch(rc){
-		default:
-			;
-		}
-	}
-
-	const char* mode = poptGetArg(opt_context);
-	if (mode != 0){
-		if (strcmp(mode, "load") == 0){
-			return M_LOAD;
-		}else if (strcmp(mode, "fill") == 0){
-			return M_FILL;
-		}else if (strcmp(mode, "init") == 0){
-			const char* initval = poptGetArg(opt_context);
-			G::initval = initval? strtoul(initval, 0, 0): 0;
-			return M_INIT;
-		}
-	}
-	return M_DUMP;
+	return rm;
 }
 
 
@@ -579,6 +592,9 @@ int main(int argc, const char** argv)
 		}
 	case M_INIT:
 		init();
+	case M_NONE:
+		fprintf(stderr, "bb --help for info\n");
+		return 0;
 	default:
 		return dump();
 	}
