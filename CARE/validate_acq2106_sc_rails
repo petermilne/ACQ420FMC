@@ -1,24 +1,27 @@
 #!/usr/bin/expect
 
-set lbl { 7VN   7VP     12V     3V3  }
-set min { 1658	616	1058	1601 }
-set max { 1760	654	1124	1700 }
-
-
+set lbl { 6VN   6VP  12V     3V3  TEMP  }
+set min { 1805	529	1058	1601  10000 }
+set max { 1916	562	1124	1700  50000 }
 
 set ii 0
+set gstatus PASS
+
 foreach arg $::argv {
 	if {$arg < [lindex $min $ii]} {
 		set status UNDER
+		set gstatus FAIL
 	} elseif {$arg > [lindex $max $ii]} {
 		set status OVER
+		set gstatus FAIL
 	} else {
-		set status PASS
+		set status OK
 	}
 	puts "[lindex $lbl $ii]=$status"
 
 	incr ii
-	if {$ii == 4} {
+	if {$ii == 5} {
+		puts $gstatus
 		break
 	}
 }
