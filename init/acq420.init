@@ -407,7 +407,7 @@ build_knobs_device() {
 		esac
 		ln -s $ULB/clocks_to_first_edge ${ek}/;;
 	67|68|69|70)
-	    ln -s /usr/local/bin/trigger_at ${ek};;	    
+	    ln -s /usr/local/bin/trigger_at ${ek}
 		fake_fmc2_leds
 		return;;
 	*)
