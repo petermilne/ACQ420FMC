@@ -406,8 +406,8 @@ build_knobs_device() {
 			set_max_min_khz ${site} 1000 10;;
 		esac
 		ln -s $ULB/clocks_to_first_edge ${ek}/;;
-	67|68|69)
-	    [ "$mtype" = "69" ] && ln -s /usr/local/bin/trigger_at ${ek}
+	67|68|69|70)
+	    ln -s /usr/local/bin/trigger_at ${ek};;	    
 		fake_fmc2_leds
 		return;;
 	*)
