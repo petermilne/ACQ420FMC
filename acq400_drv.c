@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.518"
+#define REVID 			"3.519"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -230,9 +230,10 @@ module_param(xo_distributor_sample_size, int, 0644);
 MODULE_PARM_DESC(xo_distributor_sample_size, "sample size in distributor set");
 
 
-int continuous_reader;
-module_param(continuous_reader, int, 0444);
-MODULE_PARM_DESC(continuous_reader, "bitmask shows which sites have a reader");
+int continuous_readers[MAX_PHYSICAL_SITES+1];
+int max_continuous_readers = MAX_PHYSICAL_SITES+1;
+module_param_array(continuous_readers, int, &max_continuous_readers, 0444);
+MODULE_PARM_DESC(continuous_readers, "array index from 1 shows which sites have a reader");
 
 #define AO420_NBUFFERS 	2
 
@@ -347,24 +348,14 @@ int isGoodSite(int site)
 
 void set_continuous_reader(struct acq400_dev *adev)
 {
-	DEFINE_SPINLOCK(lock);
-	unsigned long flags;
-	spin_lock_irqsave(&lock, flags);
-	continuous_reader |= 1 << adev->of_prams.site;
-	spin_unlock_irqrestore(&lock, flags);
-
 	adev->continuous_reader = task_pid_nr(current);
+	continuous_readers[adev->of_prams.site] = adev->of_prams.site;
 }
 
 void clr_continuous_reader(struct acq400_dev *adev)
 {
-	DEFINE_SPINLOCK(lock);
-	unsigned long flags;
-	spin_lock_irqsave(&lock, flags);
-	continuous_reader &= ~(1 << adev->of_prams.site);
-	spin_unlock_irqrestore(&lock, flags);
-
 	adev->continuous_reader = 0;
+	continuous_readers[adev->of_prams.site] = 0;
 }
 
 
