@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.517"
+#define REVID 			"3.518"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -347,14 +347,24 @@ int isGoodSite(int site)
 
 void set_continuous_reader(struct acq400_dev *adev)
 {
-	adev->continuous_reader = task_pid_nr(current);
+	DEFINE_SPINLOCK(lock);
+	unsigned long flags;
+	spin_lock_irqsave(&lock, flags);
 	continuous_reader |= 1 << adev->of_prams.site;
+	spin_unlock_irqrestore(&lock, flags);
+
+	adev->continuous_reader = task_pid_nr(current);
 }
 
 void clr_continuous_reader(struct acq400_dev *adev)
 {
-	adev->continuous_reader = 0;
+	DEFINE_SPINLOCK(lock);
+	unsigned long flags;
+	spin_lock_irqsave(&lock, flags);
 	continuous_reader &= ~(1 << adev->of_prams.site);
+	spin_unlock_irqrestore(&lock, flags);
+
+	adev->continuous_reader = 0;
 }
 
 
