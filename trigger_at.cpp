@@ -48,8 +48,12 @@ typedef std::vector<time_t> TTV;
 #define PIDF  "/var/run/trigger_at.pid"
 
 
+char* G_trigger_string;
+
+// --trg=1,d5,rising
 struct poptOption opt_table[] = {
 
+	{ "trg", 0, POPT_ARG_STRING, &G_trigger_string, 0, "special trigger instruction for final second" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -128,6 +132,17 @@ int kill_job()
 	return 0;
 }
 
+static void _final_second_trigger_enable(char *trigger_string)
+{
+	Knob ts("/dev/acq400.1.knobs/_trg");
+	ts.set(trigger_string);
+}
+static void final_second_trigger_enable(char *trigger_string)
+{
+	if (trigger_string){
+		_final_second_trigger_enable(trigger_string);
+	}
+}
 void wait_for(time_t t2)
 {
 	unsigned usecs_late;
@@ -141,6 +156,7 @@ void wait_for(time_t t2)
 		_set_pidf(getpid(), t2, t1, usecs_adj);
 		usleep(usecs_adj);
 	}
+	final_second_trigger_enable(G_trigger_string);
 	Knob kA(DDSA_ARM_PPS);
 	Knob kB(DDSB_ARM_PPS);
 	kA.set(1); kB.set(1);
