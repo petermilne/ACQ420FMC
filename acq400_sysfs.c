@@ -526,6 +526,7 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUSR, 				\
 MAKE_SIGNAL(event1, TIM_CTRL, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS,	0);
 MAKE_SIGNAL(event0, TIM_CTRL, TIM_CTRL_EVENT0_SHL, TIM_CTRL_MODE_EV0_EN, ENA, DIS,	0);
 MAKE_SIGNAL(trg,    TIM_CTRL, TIM_CTRL_TRIG_SHL,   TIM_CTRL_MODE_HW_TRG_EN, EXT, DIS,	1);
+MAKE_SIGNAL(_trg,    TIM_CTRL, TIM_CTRL_TRIG_SHL,   TIM_CTRL_MODE_HW_TRG_EN, EXT, DIS,	0);
 MAKE_SIGNAL(clk,    TIM_CTRL, TIM_CTRL_CLK_SHL,	   TIM_CTRL_MODE_HW_CLK, EXT, INT,	1);
 MAKE_SIGNAL(sync,   TIM_CTRL, TIM_CTRL_SYNC_SHL,   TIM_CTRL_MODE_SYNC,   EXT, INT,	1);
 
@@ -2262,6 +2263,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
 	&dev_attr_trg.attr,
+	&dev_attr__trg.attr,
 	&dev_attr_clk.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,

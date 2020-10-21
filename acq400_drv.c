@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.520"
+#define REVID 			"3.522"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -41,6 +41,10 @@ static char* revid = REVID;
 
 module_param(revid, charp, 0666);
 */
+
+static char* revid = REVID;
+module_param(revid, charp, 0644);
+
 
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
