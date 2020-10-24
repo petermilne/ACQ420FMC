@@ -24,6 +24,7 @@
 
 #define ADC_BASE		0x0000
 #define MOD_ID			(ADC_BASE+0x00)
+
 #define MOD_CON			(ADC_BASE+0x04)
 #define MCR			MOD_CON
 #define ADC_CTRL		MOD_CON
@@ -213,6 +214,7 @@
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 /* ADC_CTRL Bitfields */
+#define ADC_CTRL_423_CLK_FROM_SYNC (1<<22)
 #define ADC_CTRL_424_EMUL_196	(1<<21)		/* output raw data in ACQ196 order for back-compatibility */
 #define ADC_CTRL_SYNC_TRG_N  	(1<<20)
 #define ADC_CTRL_480_TWO_LANE_MODE (1<<19)

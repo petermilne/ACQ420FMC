@@ -2234,6 +2234,8 @@ static DEVICE_ATTR(sod, S_IRUGO|S_IWUSR, show_sod, store_sod);
 
 MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
 
+MAKE_BITS(clk_from_sync, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_423_CLK_FROM_SYNC);
+
 static ssize_t show_is_adc(
 	struct device * dev,
 	struct device_attribute *attr,
