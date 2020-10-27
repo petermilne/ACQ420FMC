@@ -93,7 +93,7 @@ namespace G {
 	unsigned play_bufferlen;			// Change bufferlen on play
 	unsigned initval = 0;				// M_INIT, set all mem this value
 
-	int nopad = 1;
+	int pad = 1;
 
 	char* port = 0;				// 0 no server (inetd), else make a server
 	char* host = 0;
@@ -121,7 +121,7 @@ struct poptOption opt_table[] = {
 			"minimum buffers : 4 is safe with large buffers, 2 possible for small shots"
 	},
 	{
-	  "nopad", 'n',  POPT_ARG_INT, &G::nopad, 0,
+	  "pad", 'n',  POPT_ARG_INT, &G::pad, 0,
 	  	  	 "when set, do NOT pad to end of buffer"
 	},
 	{
@@ -198,7 +198,7 @@ int pad(int nsamples, int pad_samples)
 	char* end = base + nsamples*G::sample_size;
 	char* last = end - G::sample_size;
 
-	if (G::nopad){
+	if (G::pad){
 		end += G::sample_size*pad_samples;
 		nsamples += pad_samples;
 	}else{
