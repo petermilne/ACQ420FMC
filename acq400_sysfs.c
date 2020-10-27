@@ -1132,7 +1132,7 @@ MAKE_SPAD(6);
 MAKE_SPAD(7);
 
 
-MAKE_BITS(spad1_us_clk_d1, USEC_CCR, MAKE_BITS_FROM_MASK, USEC_CCR_CLK_SRC_D1);
+MAKE_BITS(spad1_us_clk_src, USEC_CCR, MAKE_BITS_FROM_MASK, USEC_CCR_CLK_SRC_DX);
 MAKE_SIGNAL(spad1_us,    USEC_CCR, USEC_CCR_SRC_SHL,   USEC_CCR_EN, ENA, DIS,	1);
 
 static ssize_t show_reg(
@@ -3239,7 +3239,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_spad7.attr,
 	&dev_attr_estop.attr,
 	&dev_attr_spad1_us.attr,
-	&dev_attr_spad1_us_clk_d1.attr,
+	&dev_attr_spad1_us_clk_src.attr,
 	&dev_attr_bq_overruns.attr,
 	&dev_attr_bq_max.attr,
 	&dev_attr_hb_last.attr,
