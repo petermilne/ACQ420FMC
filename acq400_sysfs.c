@@ -1231,7 +1231,22 @@ static ssize_t store_reg_rtm_translen(
 	const char * buf,
 	size_t count)
 {
-	return store_reg(dev, attr, buf, count, ADC_TRANSLEN, 0);
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	unsigned en;
+	if (sscanf(buf, "%u", &en) == 1){
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		int rc;
+
+		acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ADC_EN);
+
+		rc =  store_reg(dev, attr, buf, count, ADC_TRANSLEN, 0);
+
+		acq400wr32(adev, ADC_CTRL, ctrl);
+		return rc;
+	}else{
+		return -1;
+	}
+
 }
 static DEVICE_ATTR(rtm_translen, S_IRUGO|S_IWUSR,
 		show_reg_rtm_translen, store_reg_rtm_translen);

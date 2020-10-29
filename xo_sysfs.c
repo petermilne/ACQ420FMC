@@ -1076,39 +1076,6 @@ const struct attribute *ao428_attrs[] = {
 
 
 
-static ssize_t show_bits_rtm(
-	struct device *d,
-	struct device_attribute *a,
-	char *b)
-{
-	unsigned shl = getSHL(DAC_CTRL_RTM_MODE);
-	return acq400_show_bits(d, a, b, DAC_CTRL, shl, (DAC_CTRL_RTM_MODE)>>shl);
-}
-static ssize_t store_bits_rtm(
-	struct device * dev,
-	struct device_attribute *a,
-	const char * buf,
-	size_t count)
-{
-	u32 en;
-	if (sscanf(buf, "%x", &en) == 1){
-		u32 regval = acq400rd32(acq400_devices[dev->id], DAC_CTRL);
-		if (en){
-			regval |= DAC_CTRL_RTM_MODE;
-			regval &= ~DAC_CTRL_LL;
-		}else{
-			regval &= ~DAC_CTRL_RTM_MODE;
-			regval |= DAC_CTRL_LL;
-		}
-		acq400wr32(acq400_devices[dev->id], DAC_CTRL, regval);
-		return count;
-	}else{
-		return -1;
-	}
-}
-static DEVICE_ATTR(rtm, S_IRUGO|S_IWUSR, show_bits_rtm, store_bits_rtm);
-
-
 const struct attribute *ao420_attrs[] = {
 	&dev_attr_G3.attr, &dev_attr_D3.attr, &dev_attr_AO_03.attr, &dev_attr_dac_range_03.attr,
 	&dev_attr_G4.attr, &dev_attr_D4.attr, &dev_attr_AO_04.attr, &dev_attr_dac_range_04.attr,
@@ -1125,7 +1092,6 @@ const struct attribute *ao420_attrs[] = {
 	&dev_attr_delay66.attr,
 	&dev_attr_read_latency.attr,
 	&dev_attr_dac_dec.attr,
-	&dev_attr_rtm.attr,
 	NULL
 };
 
@@ -1180,7 +1146,6 @@ static const struct attribute *ao424_attrs[] = {
 	&dev_attr_sync_clk_to_sync.attr,
 	&dev_attr_read_latency.attr,
 	&dev_attr_dac_dec.attr,
-	&dev_attr_rtm.attr,
 
 	/*
 	&dev_attr_G1.attr, &dev_attr_D1.attr,
