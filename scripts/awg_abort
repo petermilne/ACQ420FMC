@@ -1,0 +1,8 @@
+#!/bin/sh
+
+for k in /dev/acq400.[123456].knobs/awg_abort; do
+	if [ -e $k ]; then
+		echo 1 > $k
+		exho 0 > $k
+	fi
+done

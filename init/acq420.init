@@ -456,7 +456,7 @@ build_site0() {
 	ln -s $ULB/run0 $ULB/play0 $ULB/get.xdt ${ek}
 	ln -s $ULB/get.site $ULB/set.site ${ek}
 	ln -s $ULB/set.site ${ek}/SS
-	ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush ${ek}
+	ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush $ULB/awg_abort ${ek}
 	ln -s /dev/acq400.0.knobs/bufferlen ${ek}
 	ln -s $ULB/streamtonowhered ${ek}
 	ln -s $ULB/set.sync_role ${ek}
