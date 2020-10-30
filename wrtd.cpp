@@ -43,16 +43,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 
 #include "split2.h"
 
 #include "popt.h"
 
+#include "local.h"
 #include "Env.h"
 #include "File.h"
 #include "Knob.h"
 #include "Multicast.h"
+
 
 #define M1 1000000
 #define NSPS	(1000*M1)		// nanoseconds per second
@@ -231,7 +234,7 @@ const char* ui(int argc, const char** argv)
 
         const char* mode = poptGetArg(opt_context);
         const char* tx_id = poptGetArg(opt_context);
-        if (tx_id){
+        if (tx_id && !isdigit(tx_id[0])){
         	G::tx_id = tx_id;
         }
         if (!mode){
@@ -382,12 +385,7 @@ protected:
 	}
 };
 TSCaster& TSCaster::factory(MultiCast& _mc) {
-	int use_wrtd_fullmessage = 1;
-	const char* value = getenv("WRTD_FULLMESSAGE");
-	if (value){
-		use_wrtd_fullmessage = atoi(value);
-	}
-	if (use_wrtd_fullmessage){
+	if (Env::getenv("WRTD_FULLMESSAGE", 1)){
 		return * new WrtdCaster(_mc, MessageFilter::factory());
 	}else{
 		return * new TSCaster(_mc);
@@ -515,10 +513,68 @@ int receiver(TSCaster& comms)
 	return 0;
 }
 
+bool get_local_env(FILE* fp)
+{
+	const int maxline = 80+256;
+	char newline[maxline];
+
+	G::verbose 	= Env::getenv("WRTD_VERBOSE", 0);
+	if (G::verbose){
+		fprintf(stderr, "get_local_env()\n");
+	}
+
+	while(fgets(newline, maxline, fp)){
+		char* key = new char[80];
+		char* value = new char[256];
+		chomp(newline);
+		int rc = sscanf(newline, "%80[^=#]=%255c", key, value);
+		if (G::verbose){
+			fprintf(stderr, "get_local_env(\"%s\") rc=%d\n", newline, rc);
+		}
+		switch(rc){
+		case 2:
+			if (key[0] == '#'){
+				break;
+			}
+			if (G::verbose){
+				fprintf(stderr, "::setenv(%s, %s, true)\n", key, value);
+			}
+			::setenv(key, value, true);
+			continue;			// deliberate memleak : setenv needs the variables to stick
+		default:
+			break;
+		}
+		delete [] key;
+		delete [] value;
+	}
+
+	fclose(fp);
+	return true;
+}
+
+void get_local_env(void)
+{
+	FILE* fp = fopen("/dev/shm/wr.sh", "r");
+	fp != 0 && get_local_env(fp);
+}
+
+int sleep_if_notenabled(const char* key)
+{
+	if (Env::getenv(key, 0) == 0){
+		if (G::verbose){
+			fprintf(stderr, "%s==0, sleep(9999)\n",key);
+		}
+		sleep(9999);
+		return 1;
+	}else{
+		return 0;
+	}
+}
 
 
 int main(int argc, const char* argv[])
 {
+	get_local_env();
 	const char* mode = ui(argc, argv);
 
 	if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
@@ -528,9 +584,11 @@ int main(int argc, const char* argv[])
 			goRealTime(G::rt_prio);
 		}
 		if (strcmp(mode, "tx") == 0){
-			return sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
+			return sleep_if_notenabled("WRTD_TX") ||
+				sender(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)));
 		}else{
-			return receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
+			return sleep_if_notenabled("WRTD_RX") ||
+				receiver(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 		}
 	}
 }

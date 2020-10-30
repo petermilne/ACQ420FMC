@@ -56,14 +56,19 @@ ie 10s until data.. for 2M samples, 192MB.
 #define BUFLEN 0x400000
 #define FOUT	stdout
 
+/** mr_offload: offload ALL data in one BLOB, comprising 3 sections:
+ * mr_offload header;
+ * char decims[nsamples];     // array with decimation factor in force at each sample.
+ * short chdata[NCHAN][NSAM]; // 2D array (or, concatenation of 1D arrays, raw channel data)
+ */
 struct mr_offload {
 	unsigned int shot;	// shot number, set automatically by the box
 	unsigned long long TAI;	// time in nsec at start trigger
-	float DT;	// sample clock period, nsec
-	int nsam;     	// total samples in the shot eg max 2M
-	int nchan;    	// number of channels, usually 48
-	float ESLO[NCHAN];        // SLOPE,
-	float EOFF[NCHAN];        // OFFSET   volts[ch][sam] = raw[ch][sam] * ESLO[ch] + EOFF[ch]
+	float DT;		// sample clock period, nsec
+	int nsam;     		// total samples in the shot eg max 2M
+	int nchan;    		// number of channels, usually 48
+	float ESLO[NCHAN];      // SLOPE,
+	float EOFF[NCHAN];      // OFFSET   volts[ch][sam] = raw[ch][sam] * ESLO[ch] + EOFF[ch]
 };
 /*
 	char decims[nsamples];    // array with decimation factor in force at each sample.
@@ -71,9 +76,14 @@ struct mr_offload {
 	short chdata[NCHAN][NSAM]; // 2D array (or, concatenation of 1D arrays, raw channel data)
 */
 
+const char* G_root = ".";
+
 struct poptOption opt_table[] = {
-		POPT_AUTOHELP
-		POPT_TABLEEND
+	{
+          "output", 'o', POPT_ARG_STRING, &G_root, 0, "output to directory [./]"
+	},
+	POPT_AUTOHELP
+	POPT_TABLEEND
 };
 
 
@@ -113,6 +123,16 @@ const char* init(int argc, const char** argv) {
 
 struct mr_offload mro = {};
 
+int get_nsam(void)
+{
+        FILE *pp = popen("get.site 0 TRANS_ACT:POST", "r");
+
+        int post = 0;
+        fscanf(pp, "TRANS_ACT:POST %d", &post);
+        pclose(pp);
+	return post;
+}
+
 void offload_header() {
 	unsigned tai, tai_vernier;
 
@@ -123,7 +143,7 @@ void offload_header() {
 	mro.TAI <<=32;
 	mro.TAI = tai_vernier;
 	mro.DT = 25;
-	mro.nsam = Env::getenv("NSAM", 100000);
+	mro.nsam = get_nsam();
 	mro.nchan = NCHAN;
 	for (int ii = 0; ii < NCHAN; ++ii){
 		mro.ESLO[ii] = 3.0517578e-5;
@@ -147,11 +167,11 @@ int offload(void) {
 	return 0;
 }
 
-int writebin(const char* fmt, const char* uutname, int shot, void* data, int len)
+int writebin(const char* fmt, const char* root, const char* uutname, int shot, void* data, int len)
 {
 	char fname[80];
 
-	sprintf(fname, fmt, uutname, shot);
+	sprintf(fname, fmt, root, uutname, shot);
 	FILE *fp = fopen(fname, "w");
 	assert(fp);
 	fwrite(data, len, 1, fp);
@@ -159,32 +179,48 @@ int writebin(const char* fmt, const char* uutname, int shot, void* data, int len
 	return 0;
 }
 
-int client(const char* uutname) {
+int client(const char* uutname, FILE* in) {
 	mr_offload header;
 
-	fread(&header, sizeof(mr_offload), 1, stdin);
+	fread(&header, sizeof(mr_offload), 1, in);
 
-	writebin("%s.%d.hdr", uutname, header.shot, &header, sizeof(mr_offload));
+	writebin("%s/%s.%d.hdr", G_root, uutname, header.shot, &header, sizeof(mr_offload));
 
 	char* decims = new char[header.nsam];
-	fread(decims, sizeof(char), header.nsam, stdin);
+	fread(decims, sizeof(char), header.nsam, in);
 
-	writebin("%s.%d.dec", uutname, header.shot, decims, header.nsam);
+	writebin("%s/%s.%d.dec", G_root, uutname, header.shot, decims, header.nsam);
 
 	const int len = header.nchan * header.nsam;
 	short* payload = new short[len];
-	fread(payload, sizeof(short), len, stdin);
+	fread(payload, sizeof(short), len, in);
 
-	writebin("%s.%d.dat", uutname, header.shot, payload, sizeof(short)*len);
+	writebin("%s/%s.%d.dat", G_root, uutname, header.shot, payload, sizeof(short)*len);
 
 	return 0;
 }
 
+#include "connect_to.h"
+int client(const char* uutname, const char* port)
+{
+	return client(uutname, connect_to_stream(uutname, port));
+}
+
+
 int main(int argc, const char** argv)
 {
 	const char* uutname = init(argc, argv);
-	if (uutname != 0){
-		return client(uutname);
+	if (uutname != 0 && strcmp(uutname, "server") != 0){
+		const char* colon = index(uutname, ':');
+		if (colon){
+			char* _uutname = new char[colon-uutname+1];
+			strncpy(_uutname, uutname, colon-uutname);
+			_uutname[colon-uutname] = '\0';
+			const char* port = colon+1;
+			return client(_uutname, port);
+		}else{
+			return client(uutname, stdin);
+		}
 	}else{
 		return offload();
 	}

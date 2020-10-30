@@ -14,7 +14,7 @@ cat - > /etc/inetd.ch.conf <<EOF
 # $NCHAN $(date)
 53000 stream tcp nowait root bigcat bigcat /dev/acq400/data/raw/0
 53333 stream tcp nowait root bigcat bigcat /dev/shm/decims
-53666 stream tcp nowait root mr_offload mr_offload dummy
+53334 stream tcp nowait root mr_offload mr_offload server
 EOF
 
 if [ -e /mnt/local/sysconfig/acq400.sh ]; then

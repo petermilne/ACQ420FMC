@@ -51,13 +51,33 @@ monitor() {
 }
 
 
-start_wr() {
-	if [ -e /mnt/local/wrc.le.bin ]; then
-		echo +++ wr load new firmware
-		wr_reset /mnt/local/wrc.le.bin
+init_wrtd() {
+ 	if [ -e /mnt/local/sysconfig/wr.sh ]; then
+		source /mnt/local/sysconfig/wr.sh
 	else
-		wr_reset
+		WRTD_DELTA_NS=50000000
+		WRTD_NICE=-10
+		WRTD_VERBOSE=0
+		WRTD_TICKNS=50000
+		WRTD_RTPRIO=10
+		WRTD_TX=1
+		WRTD_RX=1
+		WRTD_ID=$(hostname)
+		WRTD_RX_MATCHES=$(hostname)
+		WRTD_RX_MATCHES1=
+		WRTD_RX_DOUBLETAP=
+		WRTD_DELAY01=1000000
 	fi
+	set | grep WRTD | tr -d "'" > /dev/shm/wr.sh
+	for kb in WRTD_DELTA_NS WRTD_VERBOSE WRTD_TICKNS WRTD_TX WRTD_RX \
+		WRTD_ID WRTD_RX_MATCHES WRTD_RX_MATCHES1 WRTD_RX_DOUBLETAP WRTD_DELAY01; do
+		ln -s /usr/local/CARE/wrtd_env /etc/acq400/11/$kb
+	done
+ 
+}
+init_wr_onetime() {
+	[ -e /dev/${NAME}.wr_ts ] && return
+
 	NAME=acq400.0
 	MAJOR=$(grep ${NAME} /proc/devices | awk '{ print $1 }')
 	mknod /dev/${NAME}.wr_ts  c ${MAJOR} 20
@@ -76,45 +96,67 @@ start_wr() {
 	nice daemon $WEB_APPEND_JOB
 	nice daemon /usr/local/init/wr.init monitor
 	
+	(cd /etc/acq400; ln -s C 11)
+	
+	
 	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
+	
+	ln -s /usr/local/CARE/tai_date			/etc/acq400/11
+	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/11
+	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/11
+	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/11	
+	
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_tx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_reset_rx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_tx
+	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/11/wrtd_commit_rx
+	
+	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_tx
+	ln -s /usr/local/bin/acq4xx-console /usr/local/bin/wrtd_rx
+	
+	printf '%2d %20s %2d :%s\n' 0 ST_OFF 0 0 > /dev/shm/si5326_tune_phase.state
+	ln -s /dev/shm/si5326_tune_phase.state  /etc/acq400/11/
+	ln -s /usr/local/CARE/si5326_tune_phase_trigger  /etc/acq400/11/si5326_tune_phase
+	
+	init_wrtd
+}
+
+start_wr() {
+	if [ -e /mnt/local/wrc.le.bin ]; then
+		echo +++ wr load new firmware
+		wr_reset /mnt/local/wrc.le.bin
+	else
+		wr_reset
+	fi
+
+	init_wr_onetime
 }
 
 PIDF_TX=/var/run/wrtd_tx.pid
 PIDF_RX=/var/run/wrtd_rx.pid
+PIDF_SI=/var/run/si5326_tune_phase.pid
 
 # /mnt/local/sysconfig/wr.sh can override set values. be sure to export values that to the wrtd executable..
 start_wrtd() {
-	export WRTD_DELTA_NS=50000000
-	export WRTD_NICE=-10
-	export WRTD_VERBOSE=0
-	export WRTD_TICKNS=50000
-	export WRTD_RTPRIO=10
-	WRTD_TX=1
-	WRTD_RX=1
-	export WRTD_ID=$(hostname)
-	export WRTD_RX_MATCHES=$(hostname)
-	[ -e /mnt/local/sysconfig/wr.sh ] && source /mnt/local/sysconfig/wr.sh
-	
 	if [ "x$WRTD_DNS" != "x" ]; then
 		echo "WARNING: WRTD_DNS is deprecated in favour of WRTD_DELTA_NS"
 		WRTD_DELTA_NS=$WRTD_DNS
 	fi
 # may define WRTD_ID="--tx_id SOMETHING", default is $(hostname)"
 
-    if [ $WRTD_RX -ne 0 ]; then
-    	/usr/local/bin/procServ -c / -p $PIDF_RX 4280 /usr/local/bin/wrtd rx
-		sleep 1
-		nc localhost 4280 -e logger -t wrtd_rx &
-	fi
-		
-	if [ $WRTD_TX -ne 0 ]; then
-		/usr/local/bin/procServ -c / -p $PIDF_TX 4281 /usr/local/bin/wrtd tx
-		sleep 1
-		nc localhost 4281 -e logger -t wrtd_tx &
-	fi
+    /usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_RX 4281 /usr/local/bin/wrtd rx	
+	/usr/local/bin/procServ --holdoff=1 -c / -p $PIDF_TX 4280 /usr/local/bin/wrtd tx
+	/usr/local/bin/procServ -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
+
+	(
+	sleep 1
+	nc localhost 4281 -e logger -t wrtd_rx &
+	nc localhost 4280 -e logger -t wrtd_tx &
+	nc localhost 4282 -e logger -t si5326_tune_phase &
+	) &
 }
 
 stop_wrtd() {
