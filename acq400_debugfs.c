@@ -234,7 +234,6 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
-	DBG_REG_CREATE( DIO432_MOD_ID		);
 	DBG_REG_CREATE( DIO432_DIO_CTRL		);
 	DBG_REG_CREATE( DIO432_TIM_CTRL		);
 	if (!IS_DIO482_PG(adev)){
