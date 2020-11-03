@@ -611,8 +611,8 @@ build_knobs() {
 			if [ $? -eq 0 ]; then
 				export ACQ480_FIXED_TERM=1
 				export ACQ480_MODPARAMS="claim_0x20=0 claim_0x22=0"
+				break
 			fi
-			break
 		done
 		$ULB/acq480.init ${ACQ480_SITES}
 	else
