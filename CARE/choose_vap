@@ -1,12 +1,13 @@
 #!/bin/sh
 
-VRANGE=13
+VRANGE=7
 
 for file in /dev/sites/[1-6]/details
 do
 	if [ -e $file ]; then
 		source $file
 		PN=${FRU_PART_NUM%% *}
+		[ "x$PN" != "x" ] && VRANGE=13
 		case $PN in
 		ACQ480*)
 			echo "# $file: FPN $FRU_PART_NUM PN $PN"		
