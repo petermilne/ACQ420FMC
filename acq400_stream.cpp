@@ -2007,7 +2007,7 @@ public:
 int StreamHead::multi_event;
 const char* StreamHead::stream_fmt = "%s.c";
 
-#define TRG_POLL_MS 10
+#define TRG_POLL_MS 100
 
 class StreamHeadImpl: public StreamHead {
 
@@ -2084,6 +2084,7 @@ protected:
 	void soft_trigger_control() {
 		int repeat = 1;
 		do_soft_trigger();
+		usleep(TRG_POLL_MS*1000);
 		while (!is_triggered()){
 			if (repeat%100 == 0){
 				fprintf(stderr, "WARNING: failed to trigger in %d ms\n", repeat*TRG_POLL_MS);
@@ -2110,6 +2111,7 @@ protected:
 			ident("acq400_stream_st");
 			nice(7);
 			sched_yield();
+			goRealTime(10);
 			soft_trigger_control();
 			exit(0);
 		}
