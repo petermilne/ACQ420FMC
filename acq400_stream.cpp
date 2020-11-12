@@ -95,6 +95,19 @@
 
 #define STDOUT	1
 
+#include <sched.h>
+void goRealTime(int sched_fifo_priority)
+{
+        struct sched_param p = {};
+        p.sched_priority = sched_fifo_priority;
+
+        int rc = sched_setscheduler(0, SCHED_FIFO, &p);
+
+        if (rc){
+                perror("failed to set RT priority");
+        }
+}
+
 
 
 int getenv_default(const char* key, int def = 0){
@@ -4795,7 +4808,8 @@ void StreamHead::createMultiEventInstance(const char* def)
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
-	nice(-10);
+	goRealTime(10);
+	//nice(-10);
 	if (_instance == 0){
 		setEventCountLimit(
 				G::show_events? ECL_NOLIMIT:
