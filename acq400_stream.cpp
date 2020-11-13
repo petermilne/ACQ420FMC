@@ -2109,8 +2109,6 @@ protected:
 		pid_t child = fork();
 		if (child == 0){
 			ident("acq400_stream_st");
-			nice(7);
-			sched_yield();
 			goRealTime(10);
 			soft_trigger_control();
 			exit(0);
@@ -4597,7 +4595,6 @@ void waitHolders() {
 StreamHead* StreamHead::createLiveDataInstance()
 {
 	ident("acq400_stream_LDI");
-	nice(-10);
 
 	for (nb_cat = 1;
 	     nb_cat*Buffer::bufferlen/(G::nchan*G::wordsize) < G::nsam; ++nb_cat){
