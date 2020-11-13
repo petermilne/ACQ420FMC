@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.526"
+#define REVID 			"3.528"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2331,7 +2331,8 @@ int ai_data_loop(void *data)
 					dma_timeout) <= 0){
 				adev->rt.refill_error = 2;
 				wake_up_interruptible_all(&adev->refill_ready);
-				dev_err(DEVP(adev), "TIMEOUT %ld ticks waiting for DMA[%d] line:%d\n", dma_timeout, ic, __LINE__);
+				dev_err(DEVP(adev), "TIMEOUT %ld ticks waiting for DMA[%d] loop:%d aggsta:%08x line:%d\n",
+						dma_timeout, ic, nloop, acq400rd32(adev, AGGSTA), __LINE__);
 				goto quit;
 			}
 			--adev->dma_callback_done;

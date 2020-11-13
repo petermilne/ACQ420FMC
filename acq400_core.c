@@ -45,9 +45,19 @@ int axi_dma_agg32 = 0;
 module_param(axi_dma_agg32, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "transitional for AGG32 gaining AXI DMA");
 
+int trap_dump_stack = 0;
+module_param(trap_dump_stack, int, 0644);
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
-	if (adev->RW32_debug){
+//	int trap = adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
+	int trap = 0;
+
+	if (adev->RW32_debug || trap){
+		if (trap && trap_dump_stack){
+			dump_stack();
+			trap_dump_stack--;
+		}
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
 				adev->dev_virtaddr + offset, offset, value);
 	}else{
@@ -386,33 +396,52 @@ int fifo_monitor(void* data)
 	struct acq400_dev *devs[MAXDEVICES+1];
 	struct acq400_dev *adev = (struct acq400_dev *)data;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct acq400_dev *m1;		/* first module in agg set aka master */
 	int idev = 0;
 	int cursor;
 	int i1 = 0;		/* randomize start time */
+	int conv_active_detected = 0;
+
 
 	acq400_trigger_ns = 0;
 
 	devs[idev++] = adev;
 	adev->get_fifo_samples = aggregator_get_fifo_samples;
 	for (cursor = 0; cursor < MAXDEVICES; ++cursor){
-		struct acq400_dev* slave = sc_dev->aggregator_set[cursor];
-		if (slave){
-			devs[idev++] = slave;
-			slave->get_fifo_samples = acq420_get_fifo_samples;
+		struct acq400_dev* module = sc_dev->aggregator_set[cursor];
+		if (module){
+			devs[idev++] = module;
+			module->get_fifo_samples = acq420_get_fifo_samples;
 		}
 	}
 	histo_clear_all(devs, idev);
+	m1 = devs[idev>1?1:0];
+
+	dev_info(DEVP(adev), "fifo_monitor() 01 idev:%d adev->site_no %s", idev, adev->site_no);
 
 	while(!kthread_should_stop()) {
-		if (acq420_convActive(devs[idev>1?1:0])){
+		if (acq420_convActive(m1)){
 			if (acq400_trigger_ns == 0){
 				acq400_trigger_ns = ktime_get_real_ns();
 			}
 			histo_add_all(devs, idev, i1);
-			msleep(histo_poll_ms);
+			conv_active_detected = 1;
 		}else{
-			yield();
+			if (conv_active_detected){
+				if (conv_active_detected++ == 1){
+					unsigned aggsta, m1_cr, m1_sr;
+					m1_cr = acq400rd32(m1, ADC_CTRL);
+					m1_sr = acq400rd32(m1, ADC_FIFO_STA);
+					aggsta = acq400rd32(adev, AGGSTA);
+					dev_warn(DEVP(adev), "conv_active lost after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
+							(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
+				}
+			}else{
+				yield();
+				continue;
+			}
 		}
+		msleep(histo_poll_ms);
 	}
 
 	acq400_trigger_ns = 0;

@@ -1237,6 +1237,10 @@ static ssize_t store_reg_rtm_translen(
 		u32 ctrl = acq400rd32(adev, ADC_CTRL);
 		int rc;
 
+		if ((ctrl&ADC_CTRL_ADC_EN) != 0){
+			dev_warn(DEVP(adev), "store_reg_rtm_translen ADC_CTRL_ADC_EN up: STUB");
+			return -1;
+		}
 		acq400wr32(adev, ADC_CTRL, ctrl & ~ADC_CTRL_ADC_EN);
 
 		rc =  store_reg(dev, attr, buf, count, ADC_TRANSLEN, 0);
