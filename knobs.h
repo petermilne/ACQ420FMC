@@ -27,7 +27,7 @@
 #define KNOBS_H_
 
 
-int getKnob(int idev, const char* knob, unsigned* value);
+int getKnob(int idev, const char* knob, unsigned* value, const char* fmt = "%u");
 int getKnob(int idev, const char* knob, char* value);
 int setKnob(int idev, const char* knob, const char* value);
 int setKnob(int idev, const char* knob, int value);

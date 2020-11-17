@@ -89,7 +89,7 @@ int Knob::setX(unsigned value)
 	return fprintf(file(), "%x\n", value);
 }
 
-int getKnob(int idev, const char* knob, unsigned* value)
+int getKnob(int idev, const char* knob, unsigned* value, const char* fmt)
 {
 	char kpath[128];
 	if (knob[0] == '/'){
@@ -99,7 +99,7 @@ int getKnob(int idev, const char* knob, unsigned* value)
 	}
 	FILE *fp = fopen(kpath, "r");
 	if (fp){
-		int rc = fscanf(fp, "%u", value);
+		int rc = fscanf(fp, fmt, value);
 		fclose(fp);
 		return rc;
 	} else {

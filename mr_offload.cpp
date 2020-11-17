@@ -86,16 +86,22 @@ struct poptOption opt_table[] = {
 };
 
 
-void cat(const char* fn, void* buf)
+void cat(const char* fn, void* buf, int len)
 {
 	FILE *fp = fopen(fn, "r");
 	int nread;
+	int nwrite = 0;
+
 	if (fp == 0){
 		fprintf(stderr, "ERROR, failed to open \"%s\"\n", fn);
 		exit(1);
 	}
-	while((nread = fread(buf, 1, BUFLEN, fp)) > 0){
-		fwrite(buf, 1, nread, FOUT);
+	while((nread = fread(buf, 1, len, fp)) > 0){
+		nwrite += fwrite(buf, 1, nread, FOUT);
+	}
+	char speed = '\0';
+	while(nwrite < len){
+		nwrite += fwrite(&speed, 1, 1, FOUT);
 	}
 }
 
@@ -106,7 +112,7 @@ namespace G {
 }
 
 int dump_header(int ii, const char* hdr){
-	FILE* fp = fopen(hdr, "r");
+	FILE* fp = strcmp(hdr, "-") == 0? stdin: fopen(hdr, "r");
 	if (fp==0){
 		perror(hdr);
 		exit(1);
@@ -118,7 +124,7 @@ int dump_header(int ii, const char* hdr){
 		exit(1);
 	}
 	printf("%4d,%llu,%.0f,%7d,%d,%s\n", h.shot, h.TAI, h.DT, h.nsam, h.nchan, hdr);
-	fclose(fp);
+	strcmp(hdr, "-") == 0 || fclose(fp);
 	return 0;
 }
 int dump_headers(const char** hdrfiles)
@@ -170,7 +176,7 @@ void offload_header() {
 	unsigned tai, tai_vernier;
 
 	getKnob(0, "/dev/acq400.1.knobs/shot", &mro.shot);
-	getKnob(0, "/dev/acq400.0.knobs/wr_tai_trg", &tai_vernier);
+	getKnob(0, "/dev/acq400.0.knobs/wr_tai_trg", &tai_vernier, "0x%x");
 	getKnob(0, "/dev/acq400.0.knobs/wr_tai_cur", &tai);		// @@TODO : should be time at TRG time ..0
 	mro.TAI = tai;
 	mro.TAI <<=32;
@@ -186,15 +192,15 @@ void offload_header() {
 
 int offload(void) {
 	offload_header();
-	void* buf = new short* [BUFLEN];
-	cat("/dev/shm/decims", buf);
+	void* buf = new short* [mro.nsam];
+	cat("/dev/shm/decims", buf, mro.nsam);
 	char fname[80];
 
 	int maxsite = NCHAN/8;
 	for (int site = 1; site <= maxsite; ++site){
 		for (int ch = 1; ch <= 8; ++ch){
 			sprintf(fname, "/dev/acq400/data/%d/%02d", site, ch);
-			cat(fname, buf);
+			cat(fname, buf, mro.nsam*sizeof(short));
 		}
 	}
 	return 0;
