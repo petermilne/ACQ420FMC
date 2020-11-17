@@ -79,9 +79,8 @@ struct mr_offload {
 const char* G_root = ".";
 
 struct poptOption opt_table[] = {
-	{
-          "output", 'o', POPT_ARG_STRING, &G_root, 0, "output to directory [./]"
-	},
+	{ "output", 'o', POPT_ARG_STRING, &G_root, 0, "output to directory [./]" },
+	{ "show_headers", 's', POPT_ARG_NONE, 0, 's', "dump header files"          },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -106,18 +105,52 @@ namespace G {
 	int nsam;
 }
 
+int dump_header(int ii, const char* hdr){
+	FILE* fp = fopen(hdr, "r");
+	if (fp==0){
+		perror(hdr);
+		exit(1);
+	}
+	struct mr_offload h;
+//	printf("%3d dump_header %s\n", ii, hdr);
+	if (fread(&h, sizeof(struct mr_offload), 1, fp) != 1){
+		perror("fread");
+		exit(1);
+	}
+	printf("%4d,%llu,%.0f,%7d,%d,%s\n", h.shot, h.TAI, h.DT, h.nsam, h.nchan, hdr);
+	fclose(fp);
+	return 0;
+}
+int dump_headers(const char** hdrfiles)
+{
+	const char* hdr;
+	int ii;
+
+	for (ii = 0; (hdr = hdrfiles[ii]); ++ii){
+		dump_header(ii, hdr);
+	}
+	return 0;
+}
 const char* init(int argc, const char** argv) {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 
 	int rc;
+	bool _dump_headers = false;
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 's':
+			_dump_headers = true;
+			break;
 		default:
 			;
 		}
 	}
 
+	if (_dump_headers){
+	        exit(dump_headers(poptGetArgs(opt_context)));
+	}
+	
 	return poptGetArg(opt_context);
 }
 
