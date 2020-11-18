@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.530"
+#define REVID 			"3.531"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -601,10 +601,10 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		adev->h_task = kthread_run(fifo_monitor, adev, "%s.fm", adev->dev_name);
 	}
 	while(!adev->task_active){
-		yield();
-		if ((++pollcat&0x1ffff) == 0){
+		msleep(10);
+		if ((++pollcat&0x1f) == 0){
 			dev_warn(DEVP(adev), "Polling for task active");
-			if (pollcat > 0x60000){
+			if (pollcat > 200){
 				dev_err(DEVP(adev), "ERROR: task_active not happening return ERR do not set busy");
 				return -1;
 			}
@@ -2058,7 +2058,6 @@ int axi64_data_loop(void* data)
 	hbm = getEmpty(adev);
 	dev_info(DEVP(adev), "axi64_data_loop() holding hbm:%d", hbm->ix);
 
-	yield();
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
 
@@ -2168,24 +2167,28 @@ int axi64_dual_data_loop(void* data)
 
 	hbm0 = getEmpty(adev); hbm1 = getEmpty(adev);
 
-	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d,%d",
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d,%d",
 			hbm0->ix, hbm1->ix);
 
-	//yield();
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
 
 	for(; !kthread_should_stop(); ++nloop){
 		int ddone = 0;
-		if (wait_event_interruptible_timeout(
+		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
 			(ddone = dma_done(adev, hbm0)&&dma_done(adev, hbm1)) ||
 								kthread_should_stop(),
-			AXI_BUFFER_CHECK_TICKS) <= 0){
+			AXI_BUFFER_CHECK_TICKS);
+
+		dev_dbg(DEVP(adev), "axi64_dual_data_loop() %d wait rc :%d", nloop, rc);
+
+		if (rc <= 0){
 			if (kthread_should_stop()){
 				goto quit;
 			}
 		}
+
 		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
 		if (!ddone){
 			continue;
@@ -2249,7 +2252,7 @@ quit:
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
-	dev_info(DEVP(adev), "axi64_dual_data_loop() 99");
+	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 99");
 	return 0;
 }
 

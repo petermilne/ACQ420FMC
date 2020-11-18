@@ -3232,6 +3232,7 @@ static ssize_t show_hb_last(
 static DEVICE_ATTR(hb_last, S_IRUGO, \
 		show_hb_last, 0);
 
+extern struct device_attribute dev_attr_task_active;
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
@@ -3264,6 +3265,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_hb_last.attr,
 	&dev_attr_has_axi_dma.attr,
 	&dev_attr_has_axi_dma_stack.attr,
+	&dev_attr_task_active.attr,
 	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_jettison_buffers_from.attr,
 	&dev_attr_fpga_rev.attr,

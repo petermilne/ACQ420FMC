@@ -231,7 +231,7 @@ static ssize_t show_task_active(
 	return sprintf(buf, "%u\n", adev->task_active);
 }
 
-static DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
+DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
 
 static ssize_t show_pull_buf(
 	struct device * dev,
