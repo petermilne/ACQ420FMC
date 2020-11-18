@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.528"
+#define REVID 			"3.529"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -605,9 +605,8 @@ int _acq420_continuous_start_dma(struct acq400_dev *adev)
 		if ((++pollcat&0x1ffff) == 0){
 			dev_warn(DEVP(adev), "Polling for task active");
 			if (pollcat > 0x60000){
-				dev_err(DEVP(adev), "ERROR: task_active not happening");
-				rc = -1;
-				break;
+				dev_err(DEVP(adev), "ERROR: task_active not happening return ERR do not set busy");
+				return -1;
 			}
 		}
 	}
@@ -2052,6 +2051,7 @@ int axi64_data_loop(void* data)
 
 	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
+		dev_err(DEVP(adev), "axi64_dual_data_loop()#%d %s", __LINE__, kthread_should_stop()? "STOP": "FAIL");
 		goto quit;
 	}
 
@@ -2161,6 +2161,7 @@ int axi64_dual_data_loop(void* data)
 	}
 	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
+		dev_err(DEVP(adev), "axi64_dual_data_loop()#%d %s", __LINE__, kthread_should_stop()? "STOP": "FAIL");
 		goto quit;
 	}
 
@@ -2247,7 +2248,7 @@ quit:
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
-	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 99");
+	dev_info(DEVP(adev), "axi64_dual_data_loop() 99");
 	return 0;
 }
 
