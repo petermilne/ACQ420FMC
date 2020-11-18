@@ -14,6 +14,8 @@ handle_ext_modules() {
 handle_ext_modules ../DRIVERS/ISL22313
 handle_ext_modules ../DRIVERS/SI5326
 handle_ext_modules ../DRIVERS/AD5686
+handle_ext_modules ../DRIVERS/emlog
+
 
 cp $(find ../linux-xlnx -name \*.ko) modules_output
 cp *.ko modules_output

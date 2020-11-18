@@ -100,16 +100,15 @@ date:
 packageko:
 	./make.packageko $(DC)
 
-	
-	
-package: all packageko
-	mkdir -p release
-	echo do NOT rm -Rf opkg/*
+
+opkg:
 	mkdir -p opkg/usr/local/bin \
 		opkg/usr/share opkg/usr/local/CARE opkg/usr/local/map \
 		opkg/usr/local/init/pl330dbg opkg/usr/local/cal \
 		opkg/etc/profile.d opkg/etc/sysconfig opkg/etc/acq400 \
 		opkg/usr/local/lib
+
+opkgcp:
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
 	cp -a *.so* opkg/usr/local/lib
@@ -123,6 +122,16 @@ package: all packageko
 	cp sysconfig/* opkg/etc/sysconfig
 	rm -f opkg/usr/local/bin/mgt_offload
 	ln -s /usr/local/CARE/mgt_offload_groups opkg/usr/local/bin/mgt_offload
+	
+			
+emlog:
+	(cd ../DRIVERS/emlog;./make.zynq all)
+	cp ../DRIVERS/emlog/nbcat  opkg/usr/local/bin
+	cp ../DRIVERS/emlog/mkemlog opkg/usr/local/bin
+
+	
+package: all opkg opkgcp emlog packageko
+	echo do NOT rm -Rf opkg/*
 	mkdir -p release
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
