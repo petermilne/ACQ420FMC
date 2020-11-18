@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.529"
+#define REVID 			"3.530"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2161,7 +2161,8 @@ int axi64_dual_data_loop(void* data)
 	}
 	poison_all_buffers(adev);
 	if (check_all_buffers_are_poisoned(adev) || kthread_should_stop()){
-		dev_err(DEVP(adev), "axi64_dual_data_loop()#%d %s", __LINE__, kthread_should_stop()? "STOP": "FAIL");
+		dev_err(DEVP(adev), "axi64_dual_data_loop()#%d %s", __LINE__,
+				kthread_should_stop()? "STOP": "FAIL");
 		goto quit;
 	}
 
@@ -2170,7 +2171,7 @@ int axi64_dual_data_loop(void* data)
 	dev_info(DEVP(adev), "axi64_dual_data_loop() holding hbm:%d,%d",
 			hbm0->ix, hbm1->ix);
 
-	yield();
+	//yield();
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
 
