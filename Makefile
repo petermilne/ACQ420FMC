@@ -128,6 +128,7 @@ emlog:
 	(cd ../DRIVERS/emlog;./make.zynq all)
 	cp ../DRIVERS/emlog/nbcat  opkg/usr/local/bin
 	cp ../DRIVERS/emlog/mkemlog opkg/usr/local/bin
+	$(CROSS_COMPILE)strip --strip-debug opkg/usr/local/bin/nbcat opkg/usr/local/bin/mkemlog
 
 	
 package: all opkg opkgcp emlog packageko
