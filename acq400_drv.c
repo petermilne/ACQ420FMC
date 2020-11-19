@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.531"
+#define REVID 			"3.532"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2174,10 +2174,11 @@ int axi64_dual_data_loop(void* data)
 	adev->task_active = 1;
 
 	for(; !kthread_should_stop(); ++nloop){
+		int dd[2];
 		int ddone = 0;
 		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
-			(ddone = dma_done(adev, hbm0)&&dma_done(adev, hbm1)) ||
+			(ddone = (dd[0] = dma_done(adev, hbm0))||(dd[1] = dma_done(adev, hbm1))) ||
 								kthread_should_stop(),
 			AXI_BUFFER_CHECK_TICKS);
 
@@ -2192,6 +2193,9 @@ int axi64_dual_data_loop(void* data)
 		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
 		if (!ddone){
 			continue;
+		}else if (dd[0] != dd[1]){
+			dev_warn(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
+						dd[0], dd[1], hbm0->ix, hbm1->ix);
 		}
 
 		putFull(adev); putFull(adev);
