@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.532"
+#define REVID 			"3.534"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -149,6 +149,7 @@ int dma_ns[DMA_NS_MAX];
 int dma_ns_num = DMA_NS_MAX;
 module_param_array(dma_ns, int, &dma_ns_num, 0444);
 module_param_array(dma_ns_lines, int, &dma_ns_num, 0444);
+
 
 
 int good_sites[MAXDEVICES];
@@ -2136,6 +2137,15 @@ quit:
 	return 0;
 }
 
+int axi64_dual_int_stats[3];
+int axi64_dual_int_stats_len = 3;
+module_param_array(axi64_dual_int_stats, int, &axi64_dual_int_stats_len, 0644);
+MODULE_PARM_DESC(axi64_dual_int_stats, "dual_data_loop wait histo: [0]: signals, [1]: timeouts, [2] wakeups");
+
+int axi64_dual_poison_stats[4];
+int axi64_dual_poison_stats_len = 4;
+module_param_array(axi64_dual_poison_stats, int, &axi64_dual_poison_stats_len, 0644);
+MODULE_PARM_DESC(axi64_dual_poison_stats, "dual_data_loop hbuf histo: [0]: none, [1]: hbm0, [2] hbm1, [3] hbm0+hbm1 (Good)");
 
 int axi64_dual_data_loop(void* data)
 {
@@ -2174,28 +2184,36 @@ int axi64_dual_data_loop(void* data)
 	adev->task_active = 1;
 
 	for(; !kthread_should_stop(); ++nloop){
-		int dd[2];
 		int ddone = 0;
 		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
-			(ddone = (dd[0] = dma_done(adev, hbm0))||(dd[1] = dma_done(adev, hbm1))) ||
+			(ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1)) ||
 								kthread_should_stop(),
 			AXI_BUFFER_CHECK_TICKS);
 
 		dev_dbg(DEVP(adev), "axi64_dual_data_loop() %d wait rc :%d", nloop, rc);
 
-		if (rc <= 0){
-			if (kthread_should_stop()){
-				goto quit;
-			}
+
+		if (rc <= 0 && kthread_should_stop()){
+			goto quit;
 		}
 
+		axi64_dual_int_stats[rc<0? 0: rc==0? 1: 2]++;
+		axi64_dual_poison_stats[ddone&0x3]++;
+
 		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
-		if (!ddone){
+
+		switch (ddone){
+		case 0:
 			continue;
-		}else if (dd[0] != dd[1]){
+		case 3:
+			break;
+		case 1:
+		case 2:
 			dev_warn(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
-						dd[0], dd[1], hbm0->ix, hbm1->ix);
+								!!(ddone&1), !!(ddone&2), hbm0->ix, hbm1->ix);
+		default:
+			dev_err(DEVP(adev), "ERROR at line %d", __LINE__);
 		}
 
 		putFull(adev); putFull(adev);
