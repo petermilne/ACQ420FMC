@@ -2214,7 +2214,7 @@ int axi64_dual_data_loop(void* data)
 		case 1:
 		case 2:
 			if (axi64_dual_poison_udelay){
-				udelay(axi64_dual_poison_udelay);
+				usleep_range(axi64_dual_poison_udelay, 2*axi64_dual_poison_udelay);
 				ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1);
 			}
 			dev_dbg(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
