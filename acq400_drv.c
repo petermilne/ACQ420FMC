@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.534"
+#define REVID 			"3.535"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2147,6 +2147,9 @@ int axi64_dual_poison_stats_len = 4;
 module_param_array(axi64_dual_poison_stats, int, &axi64_dual_poison_stats_len, 0644);
 MODULE_PARM_DESC(axi64_dual_poison_stats, "dual_data_loop hbuf histo: [0]: none, [1]: hbm0, [2] hbm1, [3] hbm0+hbm1 (Good)");
 
+int axi64_dual_poison_udelay = 100;
+module_param(axi64_dual_poison_udelay, int, 0644);
+
 int axi64_dual_data_loop(void* data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
@@ -2210,8 +2213,13 @@ int axi64_dual_data_loop(void* data)
 			break;
 		case 1:
 		case 2:
-			dev_warn(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
+			if (axi64_dual_poison_udelay){
+				udelay(axi64_dual_poison_udelay);
+				ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1);
+			}
+			dev_dbg(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
 								!!(ddone&1), !!(ddone&2), hbm0->ix, hbm1->ix);
+			break;
 		default:
 			dev_err(DEVP(adev), "ERROR at line %d", __LINE__);
 		}
