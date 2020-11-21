@@ -42,7 +42,14 @@ old_state = "000"
 cal_pvs = [] 
     
 sitelist_pv = epics.PV("{}:SITELIST".format(hn))
-sitelist = [ x.split('=')[0] for x in sitelist_pv.get().split(',')[1:]]
+
+while True:
+    try:
+        sitelist = [ x.split('=')[0] for x in sitelist_pv.get().split(',')[1:]]
+        break
+    except AttributeError:
+        time.sleep(7)
+    
 
 cal_pvs.extend( [ epics.PV("{}:{}:AI:CAL:ESLO".format(hn, site)) for site in sitelist])
 cal_pvs.extend( [ epics.PV("{}:{}:AI:CAL:EOFF".format(hn, site)) for site in sitelist])
