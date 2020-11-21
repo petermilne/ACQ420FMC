@@ -12,14 +12,17 @@ fmt = "{}:{}:AI:CAL:ESLO"
 
 
 def record_cal(cal_pvs):
-#    print("record_cal len {}".format(len(cal_pvs)))
-    #for pv in cal_pvs:
-    #   print(pv)
     caldat = np.array([pv.get()[1:] for pv in cal_pvs])
     flat = caldat.reshape((caldat.size))
-    olddat = np.fromfile("/dev/shm/calblob", dtype=np.float32)
-    if not np.array_equal(olddat, caldat):
+    write_blob = False
+    try:
+        olddat = np.fromfile("/dev/shm/calblob", dtype=np.float32)
+        if not np.array_equal(olddat, caldat):
+            write_blob = True
+    except FileNotFoundError:
+        write_blob = True    
         #print("write calblob")
+    if write_blob:
         flat.tofile("/dev/shm/calblob")
         
 def onChangeFactory(_cal_pvs, _old_state):
