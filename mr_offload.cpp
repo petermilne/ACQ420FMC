@@ -48,6 +48,7 @@ ie 10s until data.. for 2M samples, 192MB.
 #include "knobs.h"
 #include "Env.h"
 #include "popt.h"
+#include <stdio.h>
 
 #include <assert.h>
 
@@ -77,10 +78,12 @@ struct mr_offload {
 */
 
 const char* G_root = ".";
+int G_verbose;
 
 struct poptOption opt_table[] = {
-	{ "output", 'o', POPT_ARG_STRING, &G_root, 0, "output to directory [./]" },
-	{ "show_headers", 's', POPT_ARG_NONE, 0, 's', "dump header files"          },
+	{ "output", 	'o', POPT_ARG_STRING, 	&G_root, 	0, "output to directory [./]" 	},
+	{ "show_headers", 's', POPT_ARG_NONE, 	0, 	      's', "dump header files"        	},
+	{ "verbose", 	'v', POPT_ARG_INT, 	&G_verbose, 	0, "set verbosity" 		},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -118,12 +121,24 @@ int dump_header(int ii, const char* hdr){
 		exit(1);
 	}
 	struct mr_offload h;
-//	printf("%3d dump_header %s\n", ii, hdr);
+
 	if (fread(&h, sizeof(struct mr_offload), 1, fp) != 1){
 		perror("fread");
 		exit(1);
 	}
-	printf("%4d,%llu,%.0f,%7d,%d,%s\n", h.shot, h.TAI, h.DT, h.nsam, h.nchan, hdr);
+	if (G_verbose){
+		printf("%4d,%llu,%.0f,%7d,%d,%s\n", h.shot, h.TAI, h.DT, h.nsam, h.nchan, hdr);
+		if (G_verbose > 1){
+			printf("ESLO:");
+			for (int ii = 0; ii < NCHAN; ++ii){
+				printf("%7.5f%c", h.ESLO[ii], ii+1==NCHAN? '\n': ',');
+			}
+			printf("EOFF:");
+			for (int ii = 0; ii < NCHAN; ++ii){
+				printf("%7.5f%c", h.EOFF[ii], ii+1==NCHAN? '\n': ',');
+			}
+		}
+	}
 	strcmp(hdr, "-") == 0 || fclose(fp);
 	return 0;
 }
@@ -172,6 +187,23 @@ int get_nsam(void)
 	return post;
 }
 
+void get_cal()
+{
+	bool read_ok = false;
+	FILE* fp = fopen("/dev/shm/calblob", "r");
+	if (fp){
+		read_ok =
+		    fread(mro.ESLO, sizeof(float), NCHAN, fp) == NCHAN &&
+		    fread(mro.EOFF, sizeof(float), NCHAN, fp) == NCHAN;
+
+		fclose(fp);
+	}
+	if (!read_ok){
+		for (int ii = 0; ii < NCHAN; ++ii){
+			mro.ESLO[ii] = 3.0517578e-5;
+		}
+	}
+}
 void offload_header() {
 	unsigned tai, tai_vernier;
 
@@ -184,9 +216,7 @@ void offload_header() {
 	mro.DT = 25;
 	mro.nsam = get_nsam();
 	mro.nchan = NCHAN;
-	for (int ii = 0; ii < NCHAN; ++ii){
-		mro.ESLO[ii] = 3.0517578e-5;
-	}
+	get_cal();
 	fwrite(&mro, sizeof(struct mr_offload), 1, stdout);
 }
 
