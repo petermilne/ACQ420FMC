@@ -19,7 +19,7 @@ def record_cal(cal_pvs):
     flat = caldat.reshape((caldat.size))
     olddat = np.fromfile("/dev/shm/calblob", dtype=np.float32)
     if not np.array_equal(olddat, caldat):
-        print("write calblob")
+        #print("write calblob")
         flat.tofile("/dev/shm/calblob")
         
 def onChangeFactory(_cal_pvs, _old_state):
