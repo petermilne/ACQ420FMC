@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.541"
+#define REVID 			"3.542"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -239,6 +239,10 @@ int continuous_readers[MAX_PHYSICAL_SITES+1];
 int max_continuous_readers = MAX_PHYSICAL_SITES+1;
 module_param_array(continuous_readers, int, &max_continuous_readers, 0444);
 MODULE_PARM_DESC(continuous_readers, "array index from 1 shows which sites have a reader");
+
+int axi_oneshot = 0;
+module_param(axi_oneshot, int, 0644);
+MODULE_PARM_DESC(axi_oneshot, "one-shot: don't poison recycled buffers");
 
 #define AO420_NBUFFERS 	2
 
@@ -2039,7 +2043,7 @@ int axi64_data_loop(void* data)
 
 	dev_dbg(DEVP(adev), "axi64_data_loop() 01");
 
-	adev->onPutEmpty = poison_one_buffer_fastidious;
+	adev->onPutEmpty = axi_oneshot? null_put_empty: poison_one_buffer_fastidious;
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev, CMASK0)) != 0){
@@ -2164,7 +2168,7 @@ int axi64_dual_data_loop(void* data)
 
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
 
-	adev->onPutEmpty = poison_one_buffer_fastidious;
+	adev->onPutEmpty = axi_oneshot? null_put_empty: poison_one_buffer_fastidious;
 
 	if (AXI_CALL_HELPER){
 		if ((rc = axi64_load_dmac(adev, CMASK0|CMASK1)) != 0){
