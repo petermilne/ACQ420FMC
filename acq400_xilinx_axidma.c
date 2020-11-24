@@ -600,7 +600,7 @@ void acq400_dma_on_ioc(unsigned long arg)
 	dma_chan->device->device_control(dma_chan, DMA_TERMINATE_ALL, 0);
 	*/
 	adev->rt.axi64_ints++;
-	if (xchan->id == 0) wake_up_interruptible(&adev->DMA_READY);
+	wake_up_interruptible(&adev->DMA_READY);
 	dev_dbg(DEVP(adev), "acq400_dma_on_ioc() chan:%d done pa:%08x\n", xchan->id, cursor_pa);
 }
 void _start_transfer(struct xilinx_dma_chan *chan)
