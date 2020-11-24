@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.538"
+#define REVID 			"3.541"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2150,7 +2150,7 @@ int axi64_dual_poison_stats1[4];
 module_param_array(axi64_dual_poison_stats1, int, &axi64_dual_poison_stats_len, 0644);
 MODULE_PARM_DESC(axi64_dual_poison_stats1, "dual_data_loop hbuf histo after delay: [0]: none, [1]: hbm0, [2] hbm1, [3] hbm0+hbm1 (Good)");
 
-int axi64_dual_poison_udelay = 1000;
+int axi64_dual_poison_udelay = 2000;
 module_param(axi64_dual_poison_udelay, int, 0644);
 
 int axi64_dual_data_loop(void* data)

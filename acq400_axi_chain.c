@@ -45,6 +45,32 @@ MODULE_PARM_DESC(AXI_INIT_BUFFERS, "initialise buffers before start .. see exact
 
 extern int AXI_DEBUG_LOOPBACK_INDEX;
 
+
+//#define NOPOISON 1
+
+#ifdef NOPOISON
+#warning NOPOISON variant handle with CARE
+void clear_poison_all_buffers(struct acq400_dev *adev)				{}
+int check_all_buffers_are_poisoned(struct acq400_dev *adev)
+{
+	return 1;
+}
+void poison_all_buffers(struct acq400_dev *adev)				{}
+
+int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm)
+{
+	return 1;
+}
+
+void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)		{}
+void poison_one_buffer_fastidious(struct acq400_dev *adev, struct HBM* hbm)	{}
+
+int dma_done(struct acq400_dev *adev, struct HBM* hbm)
+{
+	return 1;
+}
+
+#else
 void init_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 {
 	int ii;
@@ -77,9 +103,18 @@ void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 {
 	unsigned po_bytes = poison_offset(adev);
 	unsigned first_word = FIRST_POISON_WORD(po_bytes);
+	unsigned p0 = hbm->va[first_word+0];
+	unsigned p1 = hbm->va[first_word+1];
 
-	hbm->poison_data[0] = hbm->va[first_word+0];
-	hbm->poison_data[1] = hbm->va[first_word+1];
+	if (p0 != POISON0){
+		hbm->poison_data[0] = p0;
+	}else{
+		dev_warn(DEVP(adev), "%s refusing to stash poison buffer:%d", __FUNCTION__, hbm->ix);
+	}
+	if (p1 != POISON1){
+		hbm->poison_data[1] = p1;
+	}
+
 	hbm->va[first_word+0] = POISON0;
 	hbm->va[first_word+1] = POISON1;
 	dma_sync_single_for_device(DEVP(adev),
@@ -183,4 +218,4 @@ int dma_done(struct acq400_dev *adev, struct HBM* hbm)
 	dev_dbg(DEVP(adev), "poison_overwritten %d %s", hbm->ix, po? "YES": "NO <<<<<<<<<<<<<<<<<<");
 	return po;
 }
-
+#endif
