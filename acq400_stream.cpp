@@ -1460,7 +1460,7 @@ struct poptOption opt_table[] = {
 	{ "shuffle_test", 0, POPT_ARG_INT, &shuffle_test, 0,
 			"time buffer shuffle"
 	},
-	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data"},
+	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data, negitive means fill and drop out"},
 	{ "pre-demux-script", 0, POPT_ARG_STRING, &G::pre_demux_script, 0,
 			"breakout before demux"
 	},
@@ -1790,7 +1790,6 @@ void do_fill_ramp()
 	while(cursor < ba99){
 		*cursor++ = xx += fill_ramp_incr;
 	}
-	exit(0);
 }
 
 
@@ -1945,7 +1944,13 @@ void init(int argc, const char** argv) {
 		do_shuffle_test(shuffle_test);
 	}
 	if (fill_ramp){
+		bool quit_on_fill = fill_ramp_incr < 0;
+		fill_ramp_incr = abs(fill_ramp_incr);
+
 		do_fill_ramp();
+		if (quit_on_fill){
+			exit(0);
+		}
 	}
 
 }
