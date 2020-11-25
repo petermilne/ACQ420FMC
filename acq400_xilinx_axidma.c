@@ -168,10 +168,10 @@ static int acq400axi_proc_seq_show_descr(struct seq_file *s, void *v)
         struct AxiDescrWrapper * cursor = v;
 
 
-        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x g:%03d %c\n",
+        seq_printf(s, "i:%08x,%03d, n:0x%08x,%03d b:%08x l:%08x s:%08x g:%03d %c\n",
         		cursor->pa, pa2index(apool, acw->ichan, cursor->pa),
         		cursor->va->next_desc, pa2index(apool, acw->ichan, cursor->va->next_desc),
-        		cursor->va->buf_addr, cursor->va->control,
+        		cursor->va->buf_addr, cursor->va->control, cursor->va->status,
 			pa2buffer_index(adev, cursor->va->buf_addr),
 			apool->dump_pa==0? ' ':
 				cursor->va->buf_addr==apool->dump_pa? '-': '+');

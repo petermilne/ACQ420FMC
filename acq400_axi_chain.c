@@ -23,6 +23,12 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
+/* IDEA: instead of making a backup then poisoning,
+ * why not just make a backup, then check for differences ?
+ * NO POISON required! or use a crc32. 
+ * The problem is, this FAILS when data is completely repeatable (eg sim data).
+ * */
+
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
