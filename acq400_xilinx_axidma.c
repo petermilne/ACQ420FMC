@@ -213,7 +213,7 @@ static int acq400axi_proc_seq_show_trace(struct seq_file *s, void *v)
 	struct AxiChannelWrapper *acw = s->private;
 	struct acq400_dev *adev = acw->adev;
 	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[acw->ichan]);
-	unsigned cursor = *(unsigned*)v - 1;   /* cursor is +1 */
+	unsigned cursor = (unsigned)v - 1;   /* cursor is +1 */
 
 	unsigned entry = xchan->dTrace.buffer[cursor];
 
@@ -240,13 +240,19 @@ static void *acq400axi_proc_seq_trace_next(struct seq_file *s, void *v, loff_t *
 static void *acq400axi_proc_seq_trace_start(struct seq_file *s, loff_t *pos)
 {
 	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
+	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[acw->ichan]);
 	unsigned cursor = (unsigned)(*pos);
 
+	if (*pos == 0 && xchan == 0){
+		seq_printf(s, "# AXI TRACE[%d] no go, xchan is NULL\n", acw->ichan);
+		return NULL;
+	}
         if (*pos == 0) {
-        	seq_printf(s, "# AXI TRACE[%d]\n", acw->ichan);
+        	seq_printf(s, "# AXI TRACE[%d] xchan:%s\n", acw->ichan, xchan->devname);
         	seq_printf(s, "%3s,%10s,%2s,cursor\n", "ix", "descr", "sq");
         }
-        if (*pos < MAXTRACE){
+        if (xchan != 0 && *pos < MAXTRACE){
         	return (void*)(cursor+1);		/* cursor is +1, 0 is NULL is EOF */
         }
 

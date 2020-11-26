@@ -480,13 +480,14 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 	int update_cookie = 0;
 	int to_transfer = 0;
 	u32 stat, reg;
-	static u8 icount;
+	static u8 icount = 0;
 
-	icount = ++icount&0xf;
+	icount = (icount+1)&0xf;
 
 	reg = dma_read(chan, XILINX_DMA_CONTROL_OFFSET);
 
-	chan->dTrace.buffer[chan->dTrace.cursor] = dma_read(chan, XILINX_DMA_CDESC_OFFSET)|icount;
+	chan->dTrace.buffer[chan->dTrace.cursor] =
+			dma_read(chan, XILINX_DMA_CDESC_OFFSET)|icount;
 	chan->dTrace.cursor = (chan->dTrace.cursor+1)&(MAXTRACE-1);
 #if 0
 	/* Disable intr */
