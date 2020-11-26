@@ -206,6 +206,75 @@ static struct file_operations acq400_proc_ops_axi_descr = {
         .release = seq_release
 };
 
+
+
+static int acq400axi_proc_seq_show_trace(struct seq_file *s, void *v)
+{
+	struct AxiChannelWrapper *acw = s->private;
+	struct acq400_dev *adev = acw->adev;
+	struct xilinx_dma_chan *xchan = to_xilinx_chan(adev->dma_chan[acw->ichan]);
+	unsigned cursor = *(unsigned*)v - 1;   /* cursor is +1 */
+
+	unsigned entry = xchan->dTrace.buffer[cursor];
+
+        seq_printf(s, "%3d,0x%08x,%2d,%d %s\n",
+        		cursor, entry&0xfffffff0, entry&0x0f,
+			cursor>=xchan->dTrace.cursor,
+			cursor==xchan->dTrace.cursor? "====": "");
+
+        return 0;
+}
+
+static void *acq400axi_proc_seq_trace_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	unsigned cursor = (unsigned)(*pos);
+
+	if (++(*pos) < MAXTRACE){
+		return (void*)(cursor+1);			/* cursor is +1 */
+	}else{
+		return NULL;
+	}
+}
+
+
+static void *acq400axi_proc_seq_trace_start(struct seq_file *s, loff_t *pos)
+{
+	struct AxiChannelWrapper *acw = s->private;
+	unsigned cursor = (unsigned)(*pos);
+
+        if (*pos == 0) {
+        	seq_printf(s, "# AXI TRACE[%d]\n", acw->ichan);
+        	seq_printf(s, "%3s,%10s,%2s,cursor\n", "ix", "descr", "sq");
+        }
+        if (*pos < MAXTRACE){
+        	return (void*)(cursor+1);		/* cursor is +1, 0 is NULL is EOF */
+        }
+
+        return NULL;
+}
+
+
+static int acq400_proc_open_axi_trace(struct inode *inode, struct file *file)
+{
+	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
+	        .start = acq400axi_proc_seq_trace_start,
+	        .next = acq400axi_proc_seq_trace_next,
+	        .stop = acq400_proc_seq_stop,
+	        .show = acq400axi_proc_seq_show_trace
+	};
+
+	seq_open(file, &acq400_proc_seq_ops_channel_mapping);
+	((struct seq_file*)file->private_data)->private = PDE_DATA(inode);
+	return 0;
+}
+static struct file_operations acq400_proc_ops_axi_trace = {
+	        .owner = THIS_MODULE,
+	        .open = acq400_proc_open_axi_trace,
+		.read = seq_read,
+	        .llseek = seq_lseek,
+	        .release = seq_release
+};
+
 static void *axi_seg_proc_seq_start(struct seq_file *s, loff_t *pos)
 {
 	struct AxiChannelWrapper *acw = s->private;
@@ -646,12 +715,14 @@ void __axi64_init_procfs(
 	struct acq400_dev *adev, struct proc_dir_entry *root, int ic)
 {
 	const char* fn = ic==0? "AXI.0": "AXI.1";
+	const char* fn2 = ic==0? "AXI.0.trace": "AXI.1.trace";
 	struct AxiChannelWrapper* acw =
 		kzalloc(sizeof(struct AxiChannelWrapper), GFP_KERNEL);
 	acw->adev = adev;
 	acw->ichan = ic;
 	dev_info(DEVP(adev), "__axi64_init_procfs() acw:%p", acw);
 	proc_create_data(fn, 0, root, &acq400_proc_ops_axi_descr, acw);
+	proc_create_data(fn2, 0, root, &acq400_proc_ops_axi_trace, acw);
 }
 void _axi64_init_procfs(struct acq400_dev *adev)
 {
@@ -697,6 +768,7 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 	init_descriptor_cache(adev, cmask);
 
 	dev_dbg(DEVP(adev), "axi64_load_dmac() 03");
+	adev->rt.axi64_ints = 0;
 	for (ichan = 0; cmask != 0; cmask >>=1, ++ichan){
 		if ((cmask&1) != 0){
 			rc = _axi64_load_dmac(adev, ichan);

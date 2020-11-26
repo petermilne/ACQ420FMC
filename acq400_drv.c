@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.544"
+#define REVID 			"3.545"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2157,6 +2157,7 @@ MODULE_PARM_DESC(axi64_dual_poison_stats1, "dual_data_loop hbuf histo after dela
 int axi64_dual_poison_udelay = 2000;
 module_param(axi64_dual_poison_udelay, int, 0644);
 
+
 int axi64_dual_data_loop(void* data)
 {
 	struct acq400_dev *adev = (struct acq400_dev *)data;
@@ -2165,6 +2166,8 @@ int axi64_dual_data_loop(void* data)
 	struct HBM* hbm0;
 	struct HBM* hbm1;
 	int rc;
+	int oneshot_estop_threshold = adev->axi64[0].ndesc;
+	int oneshot_estop = 0;
 
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
 
@@ -2197,6 +2200,7 @@ int axi64_dual_data_loop(void* data)
 		int ddone = 0;
 		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
+			(oneshot_estop = (axi_oneshot && adev->rt.axi64_ints > oneshot_estop_threshold)) ||
 			(ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1)) ||
 								kthread_should_stop(),
 			AXI_BUFFER_CHECK_TICKS);
@@ -2207,6 +2211,11 @@ int axi64_dual_data_loop(void* data)
 
 		if (rc <= 0 && kthread_should_stop()){
 			goto quit;
+		}
+		if (oneshot_estop){
+			axi64_terminate(adev->dma_chan[0]);
+			axi64_terminate(adev->dma_chan[1]);
+			dev_warn(DEVP(adev), "axi64_dual_data_loop() oneshot_estop after %d ints", adev->rt.axi64_ints);
 		}
 
 		axi64_dual_int_stats[rc<0? 0: rc==0? 1: 2]++;
