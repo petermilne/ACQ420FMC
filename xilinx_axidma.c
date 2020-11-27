@@ -940,6 +940,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 		dev_err(xdev->dev, "unable to read device id property");
 		return err;
 	}
+	chan->id = device_id;
 
 	chan->has_sg = (xdev->feature & XILINX_DMA_FTR_HAS_SG) >>
 		       XILINX_DMA_FTR_HAS_SG_SHIFT;
@@ -957,7 +958,6 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	if (chan->direction == DMA_DEV_TO_MEM) {
 		dev_info(xdev->dev, "axi-dma-s2mm-channel offset regs _%08x", XILINX_DMA_RX_CHANNEL_OFFSET);
 		chan->regs = (xdev->regs + XILINX_DMA_RX_CHANNEL_OFFSET);
-		chan->id = 1;
 	}
 
 	/*
@@ -972,9 +972,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 		xdev->common.copy_align = fls(width - 1);
 
 	chan->dev = xdev->dev;
-	xdev->chan[chan->id] = chan;		/* id==1 is INBOUND ? */
-
-	chan->id = device_id;			/* PGMWASHERE .. unique id for debugfs, really */
+	xdev->chan[chan->id] = chan;
 
 	/* Initialize the channel */
 	err = dma_reset(chan);
