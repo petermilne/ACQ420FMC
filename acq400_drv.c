@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.547"
+#define REVID 			"3.548"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -240,6 +240,7 @@ int max_continuous_readers = MAX_PHYSICAL_SITES+1;
 module_param_array(continuous_readers, int, &max_continuous_readers, 0444);
 MODULE_PARM_DESC(continuous_readers, "array index from 1 shows which sites have a reader");
 
+/** @@TODO: chances are the below is a bogus duplicate of AXI_ONESHOT */
 int axi_oneshot = 0;
 module_param(axi_oneshot, int, 0644);
 MODULE_PARM_DESC(axi_oneshot, "one-shot: don't poison recycled buffers");

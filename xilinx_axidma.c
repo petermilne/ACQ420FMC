@@ -50,6 +50,10 @@ int th_max = 99;
 module_param(th_max, int, 0644);
 MODULE_PARM_DESC(th_max, "max interrupt threshold");
 
+int axi64_icount = 0;
+module_param(axi64_icount, int, 0644);
+MODULE_PARM_DESC(icount, "combined interrupt count, reset at start");
+
 #if defined(CONFIG_XILINX_DMATEST) || defined(CONFIG_XILINX_DMATEST_MODULE)
 # define TEST_DMA_WITH_LOOPBACK
 #endif
@@ -479,33 +483,23 @@ static irqreturn_t dma_intr_handler(int irq, void *data)
 	struct xilinx_dma_chan *chan = data;
 	int update_cookie = 0;
 	int to_transfer = 0;
-	u32 stat, reg;
-	static u8 icount = 0;
-
-	icount = (icount+1)&0xf;
-
-	reg = dma_read(chan, XILINX_DMA_CONTROL_OFFSET);
-
-	chan->dTrace.buffer[chan->dTrace.cursor] =
-			dma_read(chan, XILINX_DMA_CDESC_OFFSET)|icount;
-	chan->dTrace.cursor = (chan->dTrace.cursor+1)&(MAXTRACE-1);
-#if 0
-	/* Disable intr */
-	dma_write(chan, XILINX_DMA_CONTROL_OFFSET,
-		  reg & ~XILINX_DMA_XR_IRQ_ALL_MASK);
-#endif
-	stat = dma_read(chan, XILINX_DMA_STATUS_OFFSET);
-	dev_dbg(chan->dev, "dma_intr_handler() stat:%08x", stat);
+	u32 ctrl = dma_read(chan, XILINX_DMA_CONTROL_OFFSET);
+	u32 stat = dma_read(chan, XILINX_DMA_STATUS_OFFSET);
+	u32 cdesc = dma_read(chan, XILINX_DMA_CDESC_OFFSET);
 
 	if (!(stat & XILINX_DMA_XR_IRQ_ALL_MASK))
 		return IRQ_NONE;
 
 	/* Ack the interrupts */
-	dma_write(chan, XILINX_DMA_STATUS_OFFSET,
-		  XILINX_DMA_XR_IRQ_ALL_MASK);
-
+	dma_write(chan, XILINX_DMA_STATUS_OFFSET, XILINX_DMA_XR_IRQ_ALL_MASK);
 	/* Check for only the interrupts which are enabled */
-	stat &= (reg & XILINX_DMA_XR_IRQ_ALL_MASK);
+	stat &= (ctrl & XILINX_DMA_XR_IRQ_ALL_MASK);
+
+	axi64_icount = (axi64_icount+1)&0xf;
+	chan->dTrace.buffer[chan->dTrace.cursor] = cdesc|axi64_icount;
+	chan->dTrace.cursor = (chan->dTrace.cursor+1)&(MAXTRACE-1);
+
+	dev_dbg(chan->dev, "dma_intr_handler() stat:%08x curr:%08x", stat, cdesc);
 
 	if (stat & XILINX_DMA_XR_IRQ_ERROR_MASK) {
 		dev_err(chan->dev,

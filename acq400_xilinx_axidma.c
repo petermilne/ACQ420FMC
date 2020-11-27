@@ -710,6 +710,8 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 50");
 
+	xchan->dTrace.cursor = 0;
+
 	if (!wimp_out){
 		acq400_set_AXI_DMA_len(adev, adev->bufferlen);
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
