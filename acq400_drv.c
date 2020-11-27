@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.548"
+#define REVID 			"3.549"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2217,31 +2217,31 @@ int axi64_dual_data_loop(void* data)
 			axi64_terminate(adev->dma_chan[0]);
 			axi64_terminate(adev->dma_chan[1]);
 			dev_warn(DEVP(adev), "axi64_dual_data_loop() oneshot_estop after %d ints", adev->rt.axi64_ints);
-		}
+		}else{
+			axi64_dual_int_stats[rc<0? 0: rc==0? 1: 2]++;
+			axi64_dual_poison_stats0[ddone&0x3]++;
+			if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
 
-		axi64_dual_int_stats[rc<0? 0: rc==0? 1: 2]++;
-		axi64_dual_poison_stats0[ddone&0x3]++;
-		if (adev->rt.axi64_firstups) adev->rt.axi64_wakeups++;
-
-		switch (ddone){
-		case 0:
-			axi64_dual_poison_stats1[ddone&0x3]++;
-			continue;
-		case 3:
-			axi64_dual_poison_stats1[ddone&0x3]++;
-			break;
-		case 1:
-		case 2:
-			if (axi64_dual_poison_udelay){
-				usleep_range(axi64_dual_poison_udelay, 2*axi64_dual_poison_udelay);
-				ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1);
+			switch (ddone){
+			case 0:
+				axi64_dual_poison_stats1[ddone&0x3]++;
+				continue;
+			case 3:
+				axi64_dual_poison_stats1[ddone&0x3]++;
+				break;
+			case 1:
+			case 2:
+				if (axi64_dual_poison_udelay){
+					usleep_range(axi64_dual_poison_udelay, 2*axi64_dual_poison_udelay);
+					ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1);
+				}
+				axi64_dual_poison_stats1[ddone&0x3]++;
+				dev_dbg(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
+									!!(ddone&1), !!(ddone&2), hbm0->ix, hbm1->ix);
+				break;
+			default:
+				dev_err(DEVP(adev), "ERROR at line %d", __LINE__);
 			}
-			axi64_dual_poison_stats1[ddone&0x3]++;
-			dev_dbg(DEVP(adev), "axi64_dual_data_loop() mismatch %d,%d  hbm:%03d,%03d",
-								!!(ddone&1), !!(ddone&2), hbm0->ix, hbm1->ix);
-			break;
-		default:
-			dev_err(DEVP(adev), "ERROR at line %d", __LINE__);
 		}
 
 		putFull(adev); putFull(adev);
