@@ -74,6 +74,8 @@
 
 #define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
 
+
+
 #define DIO482_COS_STA         (ADC_BASE+0x60)
 #define DIO482_COS_EN          (ADC_BASE+0x64)
 
@@ -101,6 +103,7 @@
 #define ACQ480_TRAIN_LO_VAL	(ADC_BASE+0x30)
 
 #define ACQ480_ADC_MULTIRATE	(ADC_BASE+0x58)
+
 
 #define AO428_OFFSET_1		(ADC_BASE+0x80)
 #define AO428_OFFSET_2		(ADC_BASE+0x84)
@@ -578,6 +581,11 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 /* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
+
+#define AXI_DMA_DEBUG_0		(0x0060)
+#define AXI_DMA_DEBUG_1		(0x0064)
+#define AXI_DMA_DEBUG_2		(0x0068)
+#define AXI_DMA_DEBUG_3		(0x006C)
 
 #define WR_CTRL			(0x0200)
 #define WR_CLK_GEN		(0x0204)
