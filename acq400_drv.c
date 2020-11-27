@@ -2167,7 +2167,7 @@ int axi64_dual_data_loop(void* data)
 	struct HBM* hbm0;
 	struct HBM* hbm1;
 	int rc;
-	int oneshot_estop_threshold = adev->axi64[0].ndesc;
+
 	int oneshot_estop = 0;
 
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 01");
@@ -2199,9 +2199,11 @@ int axi64_dual_data_loop(void* data)
 
 	for(; !kthread_should_stop(); ++nloop){
 		int ddone = 0;
+		int oneshot_estop_threshold = adev->axi64[0].ndesc;
+
 		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
-			(oneshot_estop = (axi_oneshot && adev->rt.axi64_ints > oneshot_estop_threshold)) ||
+			(oneshot_estop = (axi_oneshot && oneshot_estop_threshold && adev->rt.axi64_ints > oneshot_estop_threshold)) ||
 			(ddone = dma_done(adev, hbm0)+2*dma_done(adev, hbm1)) ||
 								kthread_should_stop(),
 			AXI_BUFFER_CHECK_TICKS);
