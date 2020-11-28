@@ -711,6 +711,7 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	dev_dbg(DEVP(adev), "_axi64_load_dmac() 50");
 
 	xchan->dTrace.cursor = 0;
+	memset(xchan->dTrace.buffer, 0, sizeof(xchan->dTrace.buffer));
 
 	if (!wimp_out){
 		acq400_set_AXI_DMA_len(adev, adev->bufferlen);

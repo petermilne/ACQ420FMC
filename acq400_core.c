@@ -45,14 +45,23 @@ int axi_dma_agg32 = 0;
 module_param(axi_dma_agg32, int, 0644);
 MODULE_PARM_DESC(histo_poll_ms, "transitional for AGG32 gaining AXI DMA");
 
-int trap_dump_stack = 0;
+int trap_dump_stack = 3;
 module_param(trap_dump_stack, int, 0644);
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 //	int trap = adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
-	int trap = 0;
+	int trap = adev->of_prams.site==0 && offset==AGGREGATOR && (value&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0;
+//	int trap = 0;
 
+	if (trap){
+		u32 agg = acq400rd32(adev, offset);
+		if ((agg&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0){
+			// it's OK to clear sites because they are already clear ..
+			dev_info(DEVP(adev), "acq400wr32() avert agg trap was:%08x set:%08x already clear", agg, value);
+			trap = 0;
+		}
+	}
 	if (adev->RW32_debug || trap){
 		if (trap && trap_dump_stack){
 			dump_stack();

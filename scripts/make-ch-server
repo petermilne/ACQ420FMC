@@ -1,7 +1,12 @@
 #!/bin/sh
 
+if [ "x$1" = "x" ]; then
+	make-ch-server server &
+	exit 0
+fi
 
-OLDPID=$(ps | grep '[0-9] inetd /etc/inetd.ch.con' | awk '{ print $1 }')
+pkill -f 'inetd /etc/inetd.ch.conf'
+OLDPID=$(ps | grep '[0-9] inetd /etc/inetd.ch.conf' | awk '{ print $1 }')
 if [ "$OLDPID" != "" ]; then
 	kill $OLDPID
 fi 
@@ -30,10 +35,15 @@ fi
 
 
 
+sites=none
+
+while [ "$sites" = "none" ]; do
+	sleep 3
+	eval $(cat /etc/acq400/0/aggregator)
+	echo ++ make-ch-server $sites
+done
 
 let cix=1
-
-eval $(cat /etc/acq400/0/aggregator)
 IFS=,
 for site in $sites
 do
@@ -56,3 +66,4 @@ if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
 fi
 
 inetd /etc/inetd.ch.conf
+
