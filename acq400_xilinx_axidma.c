@@ -25,6 +25,9 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                */
 /* ------------------------------------------------------------------------- */
 
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
+
 #include "acq400.h"
 #include "bolo.h"
 #include "hbm.h"
@@ -55,6 +58,10 @@ module_param(DUAL_AXI_SWITCH_CHAN, int, 0444);
 int AXI_TASKLET_CHANNEL_MASK = 0x1;
 module_param(AXI_TASKLET_CHANNEL_MASK, int, 0644);
 MODULE_PARM_DESC(AXI_TASKLET_CHANNEL_MASK, "channel enables downstream, 1 is enough");
+
+int AXI64_DMA_HIPRIORITY = 0x80;
+module_param(AXI64_DMA_HIPRIORITY, int, 0644);
+MODULE_PARM_DESC(AXI64_DMA_HIPRIORITY, "sets priority arb value (low is hi) 0: no set");
 
 struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
@@ -751,6 +758,43 @@ void axi64_init_procfs(struct acq400_dev *adev)
 	_axi64_init_procfs(adev);
 }
 
+
+#define DDRC "xlnx,zynq-ddrc-a05"
+#define axi_priority_wr_port2 0x210
+#define axi_priority_wr_port3 0x214
+
+#define AXI_PRIORITY_SET (0x00080000|AXI64_DMA_HIPRIORITY)
+
+
+void _set_axi64_priority(struct acq400_dev *adev, unsigned reg, unsigned value)
+{
+	struct regmap *syscon = syscon_regmap_lookup_by_compatible(DDRC);
+	unsigned readv;
+
+	if (IS_ERR(syscon)) {
+		printk("ERROR: %s unable to get regmap for %s\n", __FUNCTION__, DDRC);
+		return;
+	}
+
+	if (regmap_read(syscon, reg, &readv) > 0){
+		dev_info(DEVP(adev), "%s %x ini: %08x", __FUNCTION__, reg, readv);
+	}else{
+		dev_err(DEVP(adev), "%s %x read fail", __FUNCTION__, reg);
+	}
+	if (regmap_write(syscon, reg, value) > 0){
+		regmap_read(syscon, reg, &readv);
+		dev_info(DEVP(adev), "%s %x new: %08x", __FUNCTION__, reg, readv);
+	}else{
+		dev_err(DEVP(adev), "%s %x read fail", __FUNCTION__, reg);
+	}
+}
+void set_axi64_priority(struct acq400_dev *adev)
+{
+	dev_info(DEVP(adev), "set axi64 high priority %08x\n", AXI_PRIORITY_SET);
+	_set_axi64_priority(adev, axi_priority_wr_port2, AXI_PRIORITY_SET);
+	_set_axi64_priority(adev, axi_priority_wr_port3, AXI_PRIORITY_SET);
+}
+
 int axi64_init_dmac(struct acq400_dev *adev)
 {
 	struct ACQ400_AXIPOOL* apool = kzalloc(ACQ400_AXIPOOL_SZ, GFP_KERNEL);
@@ -763,10 +807,15 @@ int axi64_init_dmac(struct acq400_dev *adev)
 	BUG_ON(apool->pool == 0);
 	adev->axi_private = apool;
 
+	if (AXI64_DMA_HIPRIORITY){
+		set_axi64_priority(adev);
+	}
 	axi64_init_procfs(adev);
 	dev_dbg(DEVP(adev), "axi64_init_dmac() 99");
 	return 0;
 }
+
+
 
 int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 {
