@@ -508,6 +508,10 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 			cursor->va->status = 0xd1ac0000;
 			dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
 		}
+	}else{
+		for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
+			cursor->va->status = 0xd1ac0000;
+		}
 	}
 	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg ichan:%d ndesc:%d", ichan, ndescriptors);
 
