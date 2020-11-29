@@ -201,6 +201,7 @@ static ssize_t acq480_activate(struct acq400_dev *adev, int goodrc)
 	}else{
 		u32 ctrl = acq400rd32(adev, ADC_CTRL);
 		acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_FIFO_EN);
+		dev_info(DEVP(adev), "acq480_activate GOOD");
 		a480_dev->train = ACQ480_ACTIVATE;
 		return goodrc;
 	}
