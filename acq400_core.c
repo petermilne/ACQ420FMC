@@ -278,7 +278,12 @@ void acq2106_aggregator_reset(struct acq400_dev *adev)
 		u32 agg2 = acq400rd32(adev, AGGREGATOR);
 		char sitelist[16];
 
-		acq400_read_aggregator_set(adev, sitelist, 16);
+		int cursor = acq400_read_aggregator_set(adev, sitelist, 16);
+
+		if (cursor){
+			sitelist[cursor-1] = '\0';   /* \n not helpful */
+		}
+
 		dev_warn(DEVP(adev), "acq2106_aggregator_reset() agg_set:%s zero aggregator spotted first read: %0x8 second: %08x",
 				sitelist, agg, agg2);
 
