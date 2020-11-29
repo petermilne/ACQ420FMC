@@ -284,8 +284,8 @@ void acq2106_aggregator_reset(struct acq400_dev *adev)
 		if ((agg2&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT)) != setmask){
 			dev_warn(DEVP(adev), "acq2106_aggregator_reset() emergency combover");
 			agg2 |= setmask;
-			agg = agg2;
 		}
+		agg = agg2;
 	}
 	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
 	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
