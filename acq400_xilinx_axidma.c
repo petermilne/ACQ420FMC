@@ -776,16 +776,16 @@ void _set_axi64_priority(struct acq400_dev *adev, unsigned reg, unsigned value)
 		return;
 	}
 
-	if (regmap_read(syscon, reg, &readv) > 0){
-		dev_info(DEVP(adev), "%s %x ini: %08x", __FUNCTION__, reg, readv);
+	if (regmap_read(syscon, reg, &readv) >= 0){
+		dev_info(DEVP(adev), "%s %s %x ini: %08x", __FUNCTION__, DDRC, reg, readv);
 	}else{
 		dev_err(DEVP(adev), "%s %x read fail", __FUNCTION__, reg);
 	}
-	if (regmap_write(syscon, reg, value) > 0){
+	if (regmap_write(syscon, reg, value) >= 0){
 		regmap_read(syscon, reg, &readv);
-		dev_info(DEVP(adev), "%s %x new: %08x", __FUNCTION__, reg, readv);
+		dev_info(DEVP(adev), "%s %s %x new: %08x", __FUNCTION__, DDRC, reg, readv);
 	}else{
-		dev_err(DEVP(adev), "%s %x read fail", __FUNCTION__, reg);
+		dev_err(DEVP(adev), "%s %x write fail", __FUNCTION__, reg);
 	}
 }
 void set_axi64_priority(struct acq400_dev *adev)
