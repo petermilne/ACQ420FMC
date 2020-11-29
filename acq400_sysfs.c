@@ -1675,7 +1675,7 @@ static ssize_t show_clk_count(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 counter = adev->reg_cache.data[ADC_CLK_CTR/sizeof(int)];
+	u32 counter = adev->clk_reg_cache.data[ADC_CLK_CTR/sizeof(int)];
 	return sprintf(buf, "%u\n", counter&ADC_SAMPLE_CTR_MASK);
 }
 
@@ -1688,7 +1688,7 @@ static ssize_t show_sample_count(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 count = adev->reg_cache.data[ADC_SAMPLE_CTR/sizeof(int)];
+	u32 count = adev->clk_reg_cache.data[ADC_SAMPLE_CTR/sizeof(int)];
 	return sprintf(buf, "%u\n", count&ADC_SAMPLE_CTR_MASK);
 }
 

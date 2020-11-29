@@ -226,7 +226,8 @@ struct acq400_dev {
 	unsigned clkdiv_mask;
 	void *axi_private;
 
-	struct RegCache reg_cache;
+	struct RegCache clk_reg_cache;
+	struct RegCache ctrl_reg_cache;
 };
 
 #define SC_REG_MAX	0x200
@@ -238,6 +239,10 @@ int dev_rc_init(struct device* dev,
 		int id, int reg_max_bytes);
 int dev_rc_finalize(struct device* dev, struct RegCache* reg_cache, int id);
 void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va);
+int dev_rc_read(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned* value);
+/** return 1 if NOT in cache, OUTPUT *value */
+int dev_rc_write(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned value);
+/** return 1 if NOT in cache */
 
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];

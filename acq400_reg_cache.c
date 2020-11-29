@@ -68,6 +68,36 @@ void dev_rc_update(struct device *dev, struct RegCache* reg_cache, unsigned* va)
 	}
 }
 
+int dev_rc_read(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned* value)
+{
+	int ix, bit;
+	int reg = offset/sizeof(unsigned);
+
+	reg2map(reg, ix, bit);
+
+	if ((reg_cache->map[ix] & 1<<bit) != 0){
+		*value = reg_cache->data[reg];
+		return 0;
+	}else{
+		return 1;
+	}
+}
+
+int dev_rc_write(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned value)
+{
+	int ix, bit;
+	int reg = offset/sizeof(unsigned);
+
+	reg2map(reg, ix, bit);
+
+	if ((reg_cache->map[ix] & 1<<bit) != 0){
+		reg_cache->data[reg] = value;
+		return 0;
+	}else{
+		return 1;
+	}
+}
+
 enum hrtimer_restart dev_rc_timer_update(struct hrtimer* hrt)
 {
 	struct RegCache* reg_cache =

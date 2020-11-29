@@ -99,9 +99,9 @@ void ao424_create_spans(struct acq400_dev* adev, char* pcursor)
 }
 void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
-	DBG_REG_CREATE(DAC_CTRL);
-	DBG_REG_CREATE(TIM_CTRL);
-	DBG_REG_CREATE(DAC_LOTIDE);
+	DBG_REG_CREATE_CTRL(DAC_CTRL);
+	DBG_REG_CREATE_CTRL(TIM_CTRL);
+	DBG_REG_CREATE_CTRL(DAC_LOTIDE);
 	DBG_REG_CREATE(DAC_FIFO_SAMPLES);
 	DBG_REG_CREATE_RW(DAC_FIFO_STA);
 	DBG_REG_CREATE(DAC_INT_CSR);
@@ -151,9 +151,9 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
-	DBG_REG_CREATE(ADC_CTRL);
-	DBG_REG_CREATE(TIM_CTRL);
-	DBG_REG_CREATE(ADC_HITIDE);
+	DBG_REG_CREATE_CTRL(ADC_CTRL);
+	DBG_REG_CREATE_CTRL(TIM_CTRL);
+	DBG_REG_CREATE_CTRL(ADC_HITIDE);
 	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
 	DBG_REG_CREATE_RW(ADC_FIFO_STA);
 	DBG_REG_CREATE(ADC_INT_CSR);
@@ -194,8 +194,8 @@ void acq420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 void acq480_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
-	DBG_REG_CREATE(ADC_TRANSLEN);
-	DBG_REG_CREATE(ACQ480_TRAIN_CTRL);
+	DBG_REG_CREATE_CTRL(ADC_TRANSLEN);
+	DBG_REG_CREATE_CTRL(ACQ480_TRAIN_CTRL);
 	DBG_REG_CREATE(ACQ480_TRAIN_HI_VAL);
 	DBG_REG_CREATE(ACQ480_TRAIN_LO_VAL);
 	DBG_REG_CREATE(ACQ480_ADC_MULTIRATE);
@@ -356,8 +356,10 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			return;
 		}
 	}
-	dev_rc_init(DEVP(adev), &adev->reg_cache,
+	dev_rc_init(DEVP(adev), &adev->clk_reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
+	dev_rc_init(DEVP(adev), &adev->ctrl_reg_cache,
+				adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
@@ -425,7 +427,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		}
 	}
 
-	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site);
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
@@ -444,7 +447,9 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		IS_ACQ1001SC(adev)? 6:	/* special case counters eg RADCELF */
 		IS_KMCx_SC(adev)  ? 2: 0;
 
-	dev_rc_init(DEVP(adev), &adev->reg_cache,
+	dev_rc_init(DEVP(adev), &adev->clk_reg_cache,
+			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
+	dev_rc_init(DEVP(adev), &adev->ctrl_reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
@@ -463,11 +468,11 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		return;
 	}
 	DBG_REG_CREATE(MOD_ID);
-	DBG_REG_CREATE(MOD_CON);
-	DBG_REG_CREATE(AGGREGATOR);
+	DBG_REG_CREATE_CTRL(MOD_CON);
+	DBG_REG_CREATE_CTRL(AGGREGATOR);
 	DBG_REG_CREATE(AGGSTA);
-	DBG_REG_CREATE(DATA_ENGINE_0);
-	DBG_REG_CREATE(DATA_ENGINE_1);
+	DBG_REG_CREATE_CTRL(DATA_ENGINE_0);
+	DBG_REG_CREATE_CTRL(DATA_ENGINE_1);
 	if (IS_ACQ2X06SC(adev)){
 		if (IS_AXI64(adev)){
 			DBG_REG_CREATE(AXI_DMA_ENGINE_DATA);
@@ -479,7 +484,7 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		DBG_REG_CREATE(AXI_DMA_ENGINE_DATA);
 	}
 
-	DBG_REG_CREATE(GPG_CONTROL);
+	DBG_REG_CREATE_CTRL(GPG_CONTROL);
 	DBG_REG_CREATE(HDMI_SYNC_DAT);
 	DBG_REG_CREATE(HDMI_SYNC_OUT_SRC);
 	DBG_REG_CREATE(EVT_BUS_SRC);
@@ -567,5 +572,6 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			DBG_REG_CREATE(WR_TIGA_CSR);
 		}
 	}
-	dev_rc_finalize(DEVP(adev), &adev->reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site);
 }

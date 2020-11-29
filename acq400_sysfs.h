@@ -243,7 +243,7 @@ static ssize_t show_clk_count_##name(						\
 	struct device_attribute *attr,						\
 	char * buf)								\
 {										\
-	u32 counter = acq400_devices[dev->id]->reg_cache.data[reg/sizeof(int)]; \
+	u32 counter = acq400_devices[dev->id]->clk_reg_cache.data[reg/sizeof(int)]; \
 	return sprintf(buf, "%u\n", counter);					\
 }										\
 static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
@@ -255,7 +255,7 @@ static ssize_t show_clk_count_##name(						\
 	char * buf)								\
 {										\
 	unsigned shl = getSHL(field);						\
-	u32 counter = acq400_devices[dev->id]->reg_cache.data[reg/sizeof(int)]; \
+	u32 counter = acq400_devices[dev->id]->clk_reg_cache.data[reg/sizeof(int)]; \
 	return sprintf(buf, "%u\n", (counter&field)>>shl);			\
 }										\
 static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)

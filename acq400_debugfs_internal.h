@@ -72,9 +72,9 @@ struct dentry* acq400_debug_root;
 
 
 #define DBG_REG_CREATE_NAME(name, reg) do {				\
-	int rc = dev_rc_register(DEVP(adev), &adev->reg_cache, reg);	\
-	void* va = rc==0? adev->reg_cache.data: adev->dev_virtaddr; 	\
-	sprintf(pcursor, "%s.0x%02x", name, reg);			\
+	int rc = dev_rc_register(DEVP(adev), &adev->clk_reg_cache, reg);	\
+	void* va = rc==0? adev->clk_reg_cache.data: adev->dev_virtaddr; 	\
+	sprintf(pcursor, "%s.CLK.0x%02x", name, reg);			\
 	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
 	pcursor += strlen(pcursor) + 1; 				\
 	} while(0)
@@ -104,6 +104,14 @@ struct dentry* acq400_debug_root;
 	pcursor += strlen(pcursor) + 1;					\
 	} while(0)
 #endif
+
+#define DBG_REG_CREATE_CTRL(reg) do {					\
+	void* va = adev->dev_virtaddr; 					\
+	dev_rc_register(DEVP(adev), &adev->ctrl_reg_cache, reg);	\
+	sprintf(pcursor, "%s.CTR.0x%02x", #reg, reg);			\
+	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
+	pcursor += strlen(pcursor) + 1;					\
+	} while(0)
 
 #define DBG_REG_CREATE_RW(reg) 					\
 	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
