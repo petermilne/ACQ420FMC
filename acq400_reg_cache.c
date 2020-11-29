@@ -38,6 +38,19 @@ int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_byte
 	}
 }
 
+int dev_rc_register_init(struct device* dev, struct RegCache* reg_cache, int reg_bytes, unsigned initval)
+{
+	unsigned ix, bit;
+	unsigned reg = reg_bytes/sizeof(unsigned);
+	if (reg < reg_cache->max_reg){
+		reg2map(reg, ix, bit);
+		reg_cache->map[ix] |= 1 << bit;
+		reg_cache->data[reg] = initval;
+	}else{
+		return -1;
+	}
+}
+
 int dev_rc_init(struct device* dev,
 		struct RegCache* reg_cache, void* va, int id, int reg_max_bytes)
 {
@@ -109,7 +122,7 @@ enum hrtimer_restart dev_rc_timer_update(struct hrtimer* hrt)
 	return HRTIMER_RESTART;
 }
 
-int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id)
+int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id, int has_timer)
 {
 	int ix, bit;
 	int last = 0;
@@ -121,15 +134,17 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id)
 			}
 		}
 	}
-	dev_info(dev, "%s site:%d max:%d last:%d map:%08x %08x %08x %08x",
+	dev_info(dev, "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],
-			reg_cache->map[2], reg_cache->map[3]);
+			reg_cache->map[2], reg_cache->map[3],
+			has_timer? "T": "");
 
-
-	hrtimer_init(&reg_cache->timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
-	reg_cache->timer.function = dev_rc_timer_update;
-	hrtimer_start(&reg_cache->timer, ktime_set(0, id*10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+	if (has_timer){
+		hrtimer_init(&reg_cache->timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+		reg_cache->timer.function = dev_rc_timer_update;
+		hrtimer_start(&reg_cache->timer, ktime_set(0, id*10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
+	}
 
 	dev_info(dev, "%s last cache entry %d", __FUNCTION__, last);
 	return last;

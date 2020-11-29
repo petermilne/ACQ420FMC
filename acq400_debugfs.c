@@ -427,8 +427,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		}
 	}
 
-	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site);
-	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
+	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
@@ -572,6 +572,6 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			DBG_REG_CREATE(WR_TIGA_CSR);
 		}
 	}
-	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site);
-	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site);
+	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
+	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
 }

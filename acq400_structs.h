@@ -233,11 +233,13 @@ struct acq400_dev {
 #define SC_REG_MAX	0x200
 #define MOD_REG_MAX	0x100
 int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_bytes);
+int dev_rc_register_init(struct device* dev, struct RegCache* reg_cache, int reg_bytes, unsigned initval);
 /* returns 0 on success, -1 on fail */
 int dev_rc_init(struct device* dev,
 		struct RegCache* reg_cache, void* va,
 		int id, int reg_max_bytes);
-int dev_rc_finalize(struct device* dev, struct RegCache* reg_cache, int id);
+#define RC_HAS_TIMER 1
+int dev_rc_finalize(struct device* dev, struct RegCache* reg_cache, int id, int has_timer);
 void dev_rc_update(struct device* dev, struct RegCache* reg_cache, unsigned *va);
 int dev_rc_read(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned* value);
 /** return 1 if NOT in cache, OUTPUT *value */
