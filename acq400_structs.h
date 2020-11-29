@@ -628,6 +628,7 @@ int acq400_read_set(struct acq400_dev* set[],
 		struct acq400_dev *adev, char *buf, int maxbuf);
 int acq400_add_aggregator_set(struct acq400_dev *adev, int site);
 int acq400_read_aggregator_set(struct acq400_dev *adev, char *buf, int maxbuf);
+unsigned acq400_convert_aggregator_set_to_register_mask(struct acq400_dev *adev);
 void acq400_clear_aggregator_set(struct acq400_dev *adev);
 int acq400_add_distributor_set(struct acq400_dev *adev, int site);
 void acq400_clear_distributor_set(struct acq400_dev *adev);

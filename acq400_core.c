@@ -276,20 +276,15 @@ void acq2106_aggregator_reset(struct acq400_dev *adev)
 	/* extreme sandtrap @@REMOVEME PLEASE! */
 	if ((agg&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0){
 		u32 agg2 = acq400rd32(adev, AGGREGATOR);
-		char sitelist[16];
+		u32 setmask = acq400_convert_aggregator_set_to_register_mask(adev);
 
-		int cursor = acq400_read_aggregator_set(adev, sitelist, 16);
+		dev_warn(DEVP(adev), "acq2106_aggregator_reset()zero aggregator spotted first read:%08x second:%08x demand:%08x",
+				agg, agg2, setmask);
 
-		if (cursor){
-			sitelist[cursor-1] = '\0';   /* \n not helpful */
-		}
-
-		dev_warn(DEVP(adev), "acq2106_aggregator_reset() agg_set:%s zero aggregator spotted first read: %08x second: %08x",
-				sitelist, agg, agg2);
-
-		if ((agg2&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0 && strcmp(sitelist, "1,2,3,4,5,6") == 0){
-			dev_warn(DEVP(adev), "acq2106_aggregator_reset() FLARE emergency combover");
-			agg |= 0x00ff0000;
+		if ((agg2&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT)) != setmask){
+			dev_warn(DEVP(adev), "acq2106_aggregator_reset() emergency combover");
+			agg2 |= setmask;
+			agg = agg2;
 		}
 	}
 	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
