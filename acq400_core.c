@@ -462,7 +462,7 @@ int fifo_monitor(void* data)
 							(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
 				}
 			}else{
-				yield();
+				msleep(1);
 				continue;
 			}
 		}
