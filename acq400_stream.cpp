@@ -204,6 +204,7 @@ namespace G {
 	int stream_sob_sig;            		// insert start of buffer signature
 	unsigned find_event_mask = 0x1;		// 1: EV0, 2:EV1, 3:EV0|EV1
 	char* multi_event;			// multi-event definintion [pre,]post
+	int live_instance = 1;			// clear if live_instance NOT required
 };
 
 
@@ -1483,6 +1484,10 @@ struct poptOption opt_table[] = {
         { "stream-sob-sig", 0, POPT_ARG_INT, &G::stream_sob_sig, 0,
                        "insert Start of Buffer signature in stream"
         },
+	{
+	  "live-instance", 0, POPT_ARG_INT, &G::live_instance, 0,
+	                "default:1 set 0 to cancel the live instance where it makes no sense (eg short, high intensity shot)"
+	},
 	{ "subset", 0, POPT_ARG_STRING, &G::subset, 0, "reduce output channel count" },
 	{ "sum",    0, POPT_ARG_STRING, &G::sum, 0, "sum N channels and output on another stream" },
 	POPT_AUTOHELP
@@ -4832,7 +4837,7 @@ StreamHead* StreamHead::instance() {
 			return _instance;
 		}
 
-		if (fork() == 0){
+		if (G::live_instance && fork() == 0){
 			_instance = createLiveDataInstance();
 			return _instance;
 		}
