@@ -59,7 +59,7 @@ int AXI_TASKLET_CHANNEL_MASK = 0x1;
 module_param(AXI_TASKLET_CHANNEL_MASK, int, 0644);
 MODULE_PARM_DESC(AXI_TASKLET_CHANNEL_MASK, "channel enables downstream, 1 is enough");
 
-int AXI64_DMA_HIPRIORITY = 0x80;
+int AXI64_DMA_HIPRIORITY = 0x0;
 module_param(AXI64_DMA_HIPRIORITY, int, 0644);
 MODULE_PARM_DESC(AXI64_DMA_HIPRIORITY, "sets priority arb value (low is hi) 0: no set");
 
@@ -763,9 +763,6 @@ void axi64_init_procfs(struct acq400_dev *adev)
 #define axi_priority_wr_port2 0x210
 #define axi_priority_wr_port3 0x214
 
-#define AXI_PRIORITY_SET (0x00080000|AXI64_DMA_HIPRIORITY)
-
-
 void _set_axi64_priority(struct acq400_dev *adev, unsigned reg, unsigned value)
 {
 	struct regmap *syscon = syscon_regmap_lookup_by_compatible(DDRC);
@@ -781,7 +778,7 @@ void _set_axi64_priority(struct acq400_dev *adev, unsigned reg, unsigned value)
 	}else{
 		dev_err(DEVP(adev), "%s %x read fail", __FUNCTION__, reg);
 	}
-	if (regmap_write(syscon, reg, value) >= 0){
+	if (value && regmap_write(syscon, reg, 0x00080000|value) >= 0){
 		regmap_read(syscon, reg, &readv);
 		dev_info(DEVP(adev), "%s %s %x new: %08x", __FUNCTION__, DDRC, reg, readv);
 	}else{
@@ -790,9 +787,9 @@ void _set_axi64_priority(struct acq400_dev *adev, unsigned reg, unsigned value)
 }
 void set_axi64_priority(struct acq400_dev *adev)
 {
-	dev_info(DEVP(adev), "set axi64 high priority %08x\n", AXI_PRIORITY_SET);
-	_set_axi64_priority(adev, axi_priority_wr_port2, AXI_PRIORITY_SET);
-	_set_axi64_priority(adev, axi_priority_wr_port3, AXI_PRIORITY_SET);
+	dev_info(DEVP(adev), "set axi64 high priority %08x\n", AXI64_DMA_HIPRIORITY);
+	_set_axi64_priority(adev, axi_priority_wr_port2, AXI64_DMA_HIPRIORITY);
+	_set_axi64_priority(adev, axi_priority_wr_port3, AXI64_DMA_HIPRIORITY);
 }
 
 int axi64_init_dmac(struct acq400_dev *adev)
