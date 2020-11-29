@@ -272,6 +272,21 @@ void acq2106_distributor_reset_enable(struct acq400_dev *adev)
 void acq2106_aggregator_reset(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
+
+	/* extreme sandtrap @@REMOVEME PLEASE! */
+	if ((agg&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0){
+		u32 agg2 = acq400rd32(adev, AGGREGATOR);
+		char sitelist[16];
+
+		acq400_read_aggregator_set(adev, sitelist, 16);
+		dev_warn(DEVP(adev), "acq2106_aggregator_reset() agg_set:%s zero aggregator spotted first read: %0x8 second: %08x",
+				sitelist, agg, agg2);
+
+		if ((agg2&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0 && strcmp(sitelist, "1,2,3,4,5,6") == 0){
+			dev_warn(DEVP(adev), "acq2106_aggregator_reset() FLARE emergency combover");
+			agg |= 0x00ff0000;
+		}
+	}
 	acq400wr32(adev, AGGREGATOR, agg &= ~(AGG_FIFO_RESET|AGG_ENABLE));
 	acq400wr32(adev, AGGREGATOR, agg | AGG_FIFO_RESET);
 	acq400wr32(adev, AGGREGATOR, agg);
