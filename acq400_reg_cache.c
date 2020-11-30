@@ -55,7 +55,7 @@ int dev_rc_init(struct device* dev,
 		struct RegCache* reg_cache, void* va, int id, int reg_max_bytes)
 {
 	int max_reg = reg_max_bytes/sizeof(unsigned);
-	if (max_reg > REG_CACHE_MAX) max_reg = REG_CACHE_MAP_REGS;
+	if (max_reg > REG_CACHE_MAX) max_reg = REG_CACHE_MAX;
 
 	cache_sites |= 1<<id;
 	reg_cache->id = id;
@@ -134,6 +134,9 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id, int 
 			}
 		}
 	}
+	/** @@TODO ... resize buffer to actual. kzalloc new map, copy old map, replace, free
+	 * probably worth it: 6 sites * 2 * 256*4 = 12k
+	 */
 	dev_info(dev, "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],
