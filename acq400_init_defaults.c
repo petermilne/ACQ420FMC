@@ -278,18 +278,22 @@ void acq420_onStart(struct acq400_dev *adev)
 	ctrl = acq400rd32(adev, ADC_CTRL);
 	acq400wr32(adev, ADC_CTRL, ctrl | ADC_CTRL_ADC_RST);
 	acq420_reset_fifo(adev);
-	acq400wr32(adev, ADC_CTRL, ctrl);
+	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ADC_EN);
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
 }
 
 void acq480_onStart(struct acq400_dev *adev)
 {
+	u32 ctrl;
 	dev_dbg(DEVP(adev), "acq480_onStart()");
 	acq400wr32(adev, ADC_HITIDE, 	adev->hitide);
 	acq420_enable_fifo(adev);
 
 	acq420_reset_fifo(adev);
+
+	ctrl = acq400rd32(adev, ADC_CTRL);
+	acq400wr32(adev, ADC_CTRL, ctrl |ADC_CTRL_ADC_EN);
 
 	adev->fifo_isr_done = 0;
 	//acq420_enable_interrupt(adev);
