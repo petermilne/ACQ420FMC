@@ -139,7 +139,7 @@ int acq420_convActive(struct acq400_dev *adev)
 int acq480_train_fail(struct acq400_dev *adev)
 {
 	if ((adev->mod_id&MOD_ID_REV_MASK) >= 0xa){
-		return (acq400rd32(adev, ADC_CTRL)&ADC480_CTRL_TRAIN_OK) == 0;
+		return (acq400rd32_nocache(adev, ADC_CTRL)&ADC480_CTRL_TRAIN_OK) == 0;
 	}else{
 		return -1;
 	}

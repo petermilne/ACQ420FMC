@@ -79,11 +79,11 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 	}
 }
 
-u32 acq400rd32(struct acq400_dev *adev, int offset)
+u32 _acq400rd32(struct acq400_dev *adev, int offset, int nocache)
 {
 	u32 rc;
 
-	if (dev_rc_read(&adev->ctrl_reg_cache, offset, &rc)){
+	if (nocache || dev_rc_read(&adev->ctrl_reg_cache, offset, &rc)){
 		rc = ioread32(adev->dev_virtaddr + offset);
 	}
 	if (adev->RW32_debug > 1){
@@ -94,6 +94,16 @@ u32 acq400rd32(struct acq400_dev *adev, int offset)
 			adev->dev_virtaddr + offset, offset, rc);
 	}
 	return rc;
+}
+
+u32 acq400rd32(struct acq400_dev *adev, int offset)
+{
+	return _acq400rd32(adev, offset, 0);
+}
+
+u32 acq400rd32_nocache(struct acq400_dev *adev, int offset)
+{
+	return _acq400rd32(adev, offset, 1);
 }
 
 

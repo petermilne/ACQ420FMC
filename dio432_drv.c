@@ -37,7 +37,7 @@ int dio432_always_immediate;
 module_param(dio432_always_immediate, int, 0644);
 MODULE_PARM_DESC(dio432_always_immediate, "ONLY allow DIO immediate mode.");
 
-void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
+static void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 	if (adev->RW32_debug){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
@@ -50,7 +50,7 @@ void _acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 	iowrite32(value, adev->dev_virtaddr + offset);
 }
 
-u32 _acq400rd32(struct acq400_dev *adev, int offset)
+static u32 _acq400rd32(struct acq400_dev *adev, int offset)
 {
 	u32 rc = ioread32(adev->dev_virtaddr + offset);
 	if (adev->RW32_debug > 1){

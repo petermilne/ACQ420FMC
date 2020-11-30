@@ -447,6 +447,7 @@ void acq400setbits(struct acq400_dev *adev, int offset, u32 bits);
 void acq400clrbits(struct acq400_dev *adev, int offset, u32 bits);
 
 u32 acq400rd32(struct acq400_dev *adev, int offset);
+u32 acq400rd32_nocache(struct acq400_dev *adev, int offset);
 u32 acq400rd32_upcount(struct acq400_dev *adev, int offset);
 
 u32 acq420_set_fmt(struct acq400_dev *adev, u32 adc_ctrl);
