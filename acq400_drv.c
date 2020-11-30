@@ -708,10 +708,6 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 
 	empty_lists(adev);
 	dev_dbg(DEVP(adev), "acq2006_continuous_start() 01");
-	rc = _onStart(adev);
-	if (rc){
-		return rc;
-	}
 	fiferr = FIFERR;
 	_onStart(adev);
 	adev->RW32_debug = agg_reset_dbg;
