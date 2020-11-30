@@ -25,7 +25,7 @@ MODULE_PARM_DESC(cache_sites_mask, "inhibit update on these sites");
 
 
 
-int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_bytes)
+int dev_rc_register(struct RegCache* reg_cache, int reg_bytes)
 {
 	unsigned ix, bit;
 	unsigned reg = reg_bytes/sizeof(unsigned);
@@ -38,7 +38,7 @@ int dev_rc_register(struct device* dev, struct RegCache* reg_cache, int reg_byte
 	}
 }
 
-int dev_rc_register_init(struct device* dev, struct RegCache* reg_cache, int reg_bytes, unsigned initval)
+int dev_rc_register_init(struct RegCache* reg_cache, int reg_bytes, unsigned initval)
 {
 	unsigned ix, bit;
 	unsigned reg = reg_bytes/sizeof(unsigned);
@@ -46,12 +46,13 @@ int dev_rc_register_init(struct device* dev, struct RegCache* reg_cache, int reg
 		reg2map(reg, ix, bit);
 		reg_cache->map[ix] |= 1 << bit;
 		reg_cache->data[reg] = initval;
+		return 0;
 	}else{
 		return -1;
 	}
 }
 
-int dev_rc_init(struct device* dev,
+int dev_rc_init(struct acq400_dev *adev,
 		struct RegCache* reg_cache, void* va, int id, int reg_max_bytes)
 {
 	int max_reg = reg_max_bytes/sizeof(unsigned);
@@ -59,14 +60,14 @@ int dev_rc_init(struct device* dev,
 
 	cache_sites |= 1<<id;
 	reg_cache->id = id;
-	reg_cache->dev = dev;
+	reg_cache->adev = adev;
 	reg_cache->va = va;
 	reg_cache->data = kzalloc(max_reg*sizeof(unsigned), GFP_KERNEL);
 	reg_cache->max_reg = max_reg;
 	return max_reg * sizeof(unsigned);
 }
 
-void dev_rc_update(struct device *dev, struct RegCache* reg_cache, unsigned* va)
+void dev_rc_update(struct RegCache* reg_cache, unsigned* va)
 {
 	int ix, bit;
 
@@ -81,7 +82,7 @@ void dev_rc_update(struct device *dev, struct RegCache* reg_cache, unsigned* va)
 	}
 }
 
-int dev_rc_read(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned* value)
+int dev_rc_read(struct RegCache* reg_cache, unsigned offset, unsigned* value)
 {
 	int ix, bit;
 	int reg = offset/sizeof(unsigned);
@@ -96,7 +97,7 @@ int dev_rc_read(struct device *dev, struct RegCache* reg_cache, unsigned offset,
 	}
 }
 
-int dev_rc_write(struct device *dev, struct RegCache* reg_cache, unsigned offset, unsigned value)
+int dev_rc_write(struct RegCache* reg_cache, unsigned offset, unsigned value)
 {
 	int ix, bit;
 	int reg = offset/sizeof(unsigned);
@@ -116,13 +117,13 @@ enum hrtimer_restart dev_rc_timer_update(struct hrtimer* hrt)
 	struct RegCache* reg_cache =
 			container_of(hrt, struct RegCache, timer);
 	if ((cache_sites_mask&(1<<reg_cache->id)) == 0){
-		dev_rc_update(reg_cache->dev, reg_cache, reg_cache->va);
+		dev_rc_update(reg_cache, reg_cache->va);
 	}
 	hrtimer_forward_now(hrt, ktime_set(1, 0));
 	return HRTIMER_RESTART;
 }
 
-int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id, int has_timer)
+int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 {
 	int ix, bit;
 	int last = 0;
@@ -137,7 +138,7 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id, int 
 	/** @@TODO ... resize buffer to actual. kzalloc new map, copy old map, replace, free
 	 * probably worth it: 6 sites * 2 * 256*4 = 12k
 	 */
-	dev_info(dev, "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
+	dev_info(DEVP(reg_cache->adev), "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],
 			reg_cache->map[2], reg_cache->map[3],
@@ -149,7 +150,7 @@ int dev_rc_finalize(struct device *dev, struct RegCache* reg_cache, int id, int 
 		hrtimer_start(&reg_cache->timer, ktime_set(0, id*10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 	}
 
-	dev_info(dev, "%s last cache entry %d", __FUNCTION__, last);
+	dev_info(DEVP(reg_cache->adev), "%s last cache entry %d", __FUNCTION__, last);
 	return last;
 }
 

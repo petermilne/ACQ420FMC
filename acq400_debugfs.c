@@ -356,9 +356,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 			return;
 		}
 	}
-	dev_rc_init(DEVP(adev), &adev->clk_reg_cache,
+	dev_rc_init(adev, &adev->clk_reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
-	dev_rc_init(DEVP(adev), &adev->ctrl_reg_cache,
+	dev_rc_init(adev, &adev->ctrl_reg_cache,
 				adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
@@ -427,8 +427,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		}
 	}
 
-	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
-	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
+	dev_rc_finalize(&adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
+	dev_rc_finalize(&adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
 }
 
 void acq400_removeDebugfs(struct acq400_dev* adev)
@@ -447,9 +447,9 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		IS_ACQ1001SC(adev)? 6:	/* special case counters eg RADCELF */
 		IS_KMCx_SC(adev)  ? 2: 0;
 
-	dev_rc_init(DEVP(adev), &adev->clk_reg_cache,
+	dev_rc_init(adev, &adev->clk_reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
-	dev_rc_init(DEVP(adev), &adev->ctrl_reg_cache,
+	dev_rc_init(adev, &adev->ctrl_reg_cache,
 			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
@@ -572,6 +572,6 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			DBG_REG_CREATE(WR_TIGA_CSR);
 		}
 	}
-	dev_rc_finalize(DEVP(adev), &adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
-	dev_rc_finalize(DEVP(adev), &adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
+	dev_rc_finalize(&adev->clk_reg_cache, adev->of_prams.site, RC_HAS_TIMER);
+	dev_rc_finalize(&adev->ctrl_reg_cache, adev->of_prams.site, !RC_HAS_TIMER);
 }
