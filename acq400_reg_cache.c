@@ -64,6 +64,7 @@ int dev_rc_init(struct acq400_dev *adev,
 	reg_cache->va = va;
 	reg_cache->data = kzalloc(max_reg*sizeof(unsigned), GFP_KERNEL);
 	reg_cache->max_reg = max_reg;
+	spin_lock_init(&reg_cache->lock);
 	return max_reg * sizeof(unsigned);
 }
 
@@ -105,7 +106,11 @@ int dev_rc_write(struct RegCache* reg_cache, unsigned offset, unsigned value)
 	reg2map(reg, ix, bit);
 
 	if ((reg_cache->map[ix] & 1<<bit) != 0){
+		unsigned long flags;
+		spin_lock_irqsave(&reg_cache->lock, flags);
 		reg_cache->data[reg] = value;
+		iowrite32(value, reg_cache->adev->dev_virtaddr + offset);
+		spin_unlock_irqrestore(&reg_cache->lock, flags);
 		return 0;
 	}else{
 		return 1;
@@ -135,9 +140,18 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 			}
 		}
 	}
-	/** @@TODO ... resize buffer to actual. kzalloc new map, copy old map, replace, free
-	 * probably worth it: 6 sites * 2 * 256*4 = 12k
-	 */
+
+	if (++last < reg_cache->max_reg/2){
+		unsigned* small_data = kzalloc(last*sizeof(unsigned), GFP_KERNEL);
+		unsigned* old = reg_cache->data;
+		memcpy(small_data, old, last*sizeof(unsigned));
+		reg_cache->data = small_data;
+		reg_cache->max_reg = last;
+		kfree(old);
+		dev_info(DEVP(reg_cache->adev), "dev_rc_finalize reduce cache from %d to %d bytes",
+				REG_CACHE_MAX*sizeof(unsigned), last*sizeof(unsigned));
+	}
+
 	dev_info(DEVP(reg_cache->adev), "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],

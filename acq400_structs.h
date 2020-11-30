@@ -97,6 +97,7 @@ struct RegCache {
 	unsigned map[REG_CACHE_MAP_REGS];
 	unsigned *data;
 	struct hrtimer timer;
+	spinlock_t lock;
 };
 
 /** acq400_dev one descriptor per device */
