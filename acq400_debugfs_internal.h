@@ -74,7 +74,7 @@ struct dentry* acq400_debug_root;
 #define DBG_REG_CREATE_NAME(name, reg) do {				\
 	int rc = dev_rc_register(&adev->clk_reg_cache, reg);\
 	void* va = rc==0? adev->clk_reg_cache.data: adev->dev_virtaddr; \
-	sprintf(pcursor, "%s.CLK.0x%02x", name, reg);			\
+	sprintf(pcursor, rc==0? "%s.CLK.0x%02x": "%s.0x%02x", name, reg);\
 	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
 	pcursor += strlen(pcursor) + 1; 				\
 	} while(0)

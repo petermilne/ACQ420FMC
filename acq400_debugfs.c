@@ -357,9 +357,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		}
 	}
 	dev_rc_init(adev, &adev->clk_reg_cache,
-			adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
+			adev->dev_virtaddr, adev->of_prams.site);
 	dev_rc_init(adev, &adev->ctrl_reg_cache,
-				adev->dev_virtaddr, adev->of_prams.site, MOD_REG_MAX);
+				adev->dev_virtaddr, adev->of_prams.site);
 	pcursor = adev->debug_names = kmalloc(4096, GFP_KERNEL);
 
 
@@ -448,9 +448,9 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 		IS_KMCx_SC(adev)  ? 2: 0;
 
 	dev_rc_init(adev, &adev->clk_reg_cache,
-			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
+			adev->dev_virtaddr, adev->of_prams.site);
 	dev_rc_init(adev, &adev->ctrl_reg_cache,
-			adev->dev_virtaddr, adev->of_prams.site, SC_REG_MAX);
+			adev->dev_virtaddr, adev->of_prams.site);
 	if (!acq400_debug_root){
 		acq400_debug_root = debugfs_create_dir("acq400", 0);
 		if (!acq400_debug_root){

@@ -52,11 +52,9 @@ int dev_rc_register_init(struct RegCache* reg_cache, int reg_bytes, unsigned ini
 	}
 }
 
-int dev_rc_init(struct acq400_dev *adev,
-		struct RegCache* reg_cache, void* va, int id, int reg_max_bytes)
+int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, int id)
 {
-	int max_reg = reg_max_bytes/sizeof(unsigned);
-	if (max_reg > REG_CACHE_MAX) max_reg = REG_CACHE_MAX;
+	int max_reg = REG_CACHE_MAX;
 
 	cache_sites |= 1<<id;
 	reg_cache->id = id;
@@ -75,9 +73,12 @@ void dev_rc_update(struct RegCache* reg_cache, unsigned* va)
 	for (ix = 0; ix < REG_CACHE_MAP_REGS; ++ix){
 		u32 map = reg_cache->map[ix];
 		for (bit = 0; map; ++bit, map >>= 1){
+			unsigned reg = map2reg(ix, bit);
+
 			if (map&1){
-				unsigned reg = map2reg(ix, bit);
 				reg_cache->data[reg] = ioread32(va + reg);
+			}else if (reg > reg_cache->max_reg){
+				break;
 			}
 		}
 	}
@@ -140,7 +141,6 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 			}
 		}
 	}
-
 	if (++last < reg_cache->max_reg/2){
 		unsigned* small_data = kzalloc(last*sizeof(unsigned), GFP_KERNEL);
 		unsigned* old = reg_cache->data;
