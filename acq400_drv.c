@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.559"
+#define REVID 			"3.560"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2195,7 +2195,7 @@ int axi64_dual_data_loop(void* data)
 
 	for(; !kthread_should_stop(); ++nloop){
 		int ddone = 0;
-		int oneshot_estop_threshold = adev->axi64[0].ndesc;
+		int oneshot_estop_threshold = adev->axi64[0].ndesc - 10;
 
 		int rc = wait_event_interruptible_timeout(
 			adev->DMA_READY,
