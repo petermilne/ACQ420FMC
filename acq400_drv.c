@@ -2295,8 +2295,10 @@ int axi64_dual_data_loop(void* data)
 	}
 quit:
 	dev_dbg(DEVP(adev), "axi64_dual_data_loop() 98 calling DMA_TERMINATE_ALL");
-	axi64_terminate(adev->dma_chan[0]);
-	axi64_terminate(adev->dma_chan[1]);
+	if (!oneshot_estop){
+		axi64_terminate(adev->dma_chan[0]);
+		axi64_terminate(adev->dma_chan[1]);
+	}
 
 	clear_poison_all_buffers(adev);
 	adev->task_active = 0;
