@@ -2547,7 +2547,7 @@ static ssize_t show_agg_reg(
 	if (mshift == DATA_ENGINE_MSHIFT){
 		sprintf(mod_group+strlen(mod_group), " %s%d",
 				offset==DATA_ENGINE_1? DIST_SEL: AGG_SEL,
-				regval&DATA_ENGINE_SELECT_AGG? 1: 0);
+				regval&DE_SELECT_AGG? 1: 0);
 	}else if(mshift == AGGREGATOR_MSHIFT){
 		sprintf(mod_group+strlen(mod_group), " %s%d", TH_SEL,
 				get_agg_threshold_bytes(adev, regval));
@@ -2651,9 +2651,9 @@ static ssize_t store_agg_reg(
 				if (sscanf(pv+1, "%d", &include_agg) == 1){
 					unsigned regval = acq400rd32(adev, offset);
 					if (include_agg){
-						regval |= DATA_ENGINE_SELECT_AGG;
+						regval |= DE_SELECT_AGG;
 					}else{
-						regval &= ~DATA_ENGINE_SELECT_AGG;
+						regval &= ~DE_SELECT_AGG;
 					}
 					acq400wr32(adev, offset, regval);
 					pass = 1;
@@ -3211,11 +3211,13 @@ static ssize_t show_axi_dma_fail(
 
 static DEVICE_ATTR(axi_dma_fail, S_IRUGO, show_axi_dma_fail, 0);
 
+MAKE_BITS(axi64_max_desc_limit, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_MAXDESCRIPTORS);
 
 static const struct attribute *axi64_attrs[] = {
 	&dev_attr_axi_dma_fail.attr,
 	&dev_attr_axi_buffers_over.attr,
 	&dev_attr_AXI_DMA_len.attr,
+	&dev_attr_axi64_max_desc_limit.attr,
 	NULL
 };
 
