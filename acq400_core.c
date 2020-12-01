@@ -441,6 +441,7 @@ int fifo_monitor(void* data)
 	int cursor;
 	int i1 = 0;		/* randomize start time */
 	int conv_active_detected = 0;
+	char message_from_active[132];
 
 
 	acq400_trigger_ns = 0;
@@ -460,19 +461,24 @@ int fifo_monitor(void* data)
 	dev_info(DEVP(adev), "fifo_monitor() 01 idev:%d adev->site_no %s", idev, adev->site_no);
 
 	while(!kthread_should_stop()) {
-		if (acq420_convActive(m1)){
+		unsigned aggsta, m1_cr, m1_sr;
+		m1_cr = acq400rd32(m1, ADC_CTRL);
+		m1_sr = acq400rd32(m1, ADC_FIFO_STA);
+		aggsta = acq400rd32(adev, AGGSTA);
+
+		//if (acq420_convActive(m1)){
+		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){
 			if (acq400_trigger_ns == 0){
 				acq400_trigger_ns = ktime_get_real_ns();
 			}
 			histo_add_all(devs, idev, i1);
 			conv_active_detected = 1;
+			snprintf(message_from_active, 132, "conv_active good after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
+					(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
 		}else{
 			if (conv_active_detected){
 				if (conv_active_detected++ == 1){
-					unsigned aggsta, m1_cr, m1_sr;
-					m1_cr = acq400rd32(m1, ADC_CTRL);
-					m1_sr = acq400rd32(m1, ADC_FIFO_STA);
-					aggsta = acq400rd32(adev, AGGSTA);
+					dev_warn(DEVP(adev), message_from_active);
 					dev_warn(DEVP(adev), "conv_active lost after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
 							(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
 				}
