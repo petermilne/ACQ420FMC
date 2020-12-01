@@ -48,13 +48,15 @@ MODULE_PARM_DESC(histo_poll_ms, "transitional for AGG32 gaining AXI DMA");
 int trap_dump_stack = 3;
 module_param(trap_dump_stack, int, 0644);
 
+int enable_adc_ctrl_trap = 0;
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
-//	int trap = adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
-	int trap = adev->of_prams.site==0 && offset==AGGREGATOR && (value&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0;
-//	int trap = 0;
+	int adc_ctrl_trap = enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
+	int agg_trap = adev->of_prams.site==0 && offset==AGGREGATOR && (value&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0;
+	int trap = adc_ctrl_trap||agg_trap;
 
-	if (trap){
+	if (agg_trap){
 		u32 agg = acq400rd32(adev, offset);
 		if ((agg&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0){
 			// it's OK to clear sites because they are already clear ..
@@ -64,12 +66,12 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		dev_err(DEVP(adev), "acq400wr32()  trap clearing sites: was %08x set:%08x", agg, value);
 	}
 	if (adev->RW32_debug || trap){
+		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
+				adev->dev_virtaddr + offset, offset, value);
 		if (trap && trap_dump_stack){
 			dump_stack();
 			trap_dump_stack--;
 		}
-		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
-				adev->dev_virtaddr + offset, offset, value);
 	}else{
 		dev_dbg(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
 				adev->dev_virtaddr + offset, offset, value);
@@ -468,6 +470,7 @@ int fifo_monitor(void* data)
 
 		//if (acq420_convActive(m1)){
 		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){
+			enable_adc_ctrl_trap = 1;
 			if (acq400_trigger_ns == 0){
 				acq400_trigger_ns = ktime_get_real_ns();
 			}
@@ -489,7 +492,7 @@ int fifo_monitor(void* data)
 		}
 		msleep(histo_poll_ms);
 	}
-
+	enable_adc_ctrl_trap = 0;
 	acq400_trigger_ns = 0;
 
 	return 0;
