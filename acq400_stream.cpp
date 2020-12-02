@@ -1628,16 +1628,16 @@ static void wait_and_cleanup(pid_t child)
 	sigaddset(&blockset, SIGTERM);
 	sigdelset(&blockset, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &blockset, NULL);
-	fprintf(stderr, "%s %d exterminate\n", _PFN, getpid());
-    Progress::instance().setState(ST_CLEANUP);
-    kill(0, SIGTERM);
+	verbose && fprintf(stderr, "%s %d exterminate\n", _PFN, getpid());
+	Progress::instance().setState(ST_CLEANUP);
+	kill(0, SIGTERM);
 
 	int nwait = 0;
 	pid_t wpid;
 	int status = 0;
 	while ((wpid = waitpid(-getpgrp(), &status, 0)) > 0){
 		++nwait;
-		fprintf(stderr, "%d waited for %d\n", nwait, wpid);
+		verbose && fprintf(stderr, "%d waited for %d\n", nwait, wpid);
 	}
 
     exit(0);
@@ -2858,8 +2858,8 @@ protected:
 		void init(int _ibuf) {
 			ibuf = _ibuf;
 			base = cursor = Buffer::the_buffers[ibuf]->getBase();
-			//if (verbose)
-			fprintf(stderr, "BufferCursor::init(%d) base:%p\n", ibuf, base);
+			if (verbose)
+				fprintf(stderr, "BufferCursor::init(%d) base:%p\n", ibuf, base);
 		}
 		BufferCursor(int _cbb) :
 			channel_buffer_bytes(_cbb)
@@ -4539,7 +4539,7 @@ protected:
 	}
 public:
 	virtual int bufferSkip(unsigned &ib) {
-		if (first){
+		if (first && verbose){
 			fprintf(stderr, "%s FIRST buffer %d\n", _PFN, ib);
 			first = false;
 		}
