@@ -108,7 +108,7 @@ struct dentry* acq400_debug_root;
 #define DBG_REG_CREATE_CTRL(reg) do {					\
 	void* va = adev->dev_virtaddr; 					\
 	dev_rc_register_init(&adev->ctrl_reg_cache, reg, acq400rd32(adev, reg));	\
-	sprintf(pcursor, "%s.CTR.0x%02x", #reg, reg);			\
+	sprintf(pcursor, "%s.CTL.0x%02x", #reg, reg);			\
 	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
 	pcursor += strlen(pcursor) + 1;					\
 	} while(0)
