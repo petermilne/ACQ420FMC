@@ -2023,7 +2023,7 @@ class StreamHeadImpl: public StreamHead {
 
 protected:
 	Progress& actual;
-	const int samples_buffer;
+	int samples_buffer;
 	int f_ev;
 	int nfds;
 	bool event_received;
@@ -4555,9 +4555,10 @@ public:
 		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post), bale_out(false)
 	{
 		bd_scale = 2;
+		samples_buffer *= 2;
 		char* bo = getenv("DemuxingStreamHeadPrePostDualBufferBaleOut");
 		if (bo) bale_out = atoi(bo);
-		fprintf(stderr, "%s %s\n", _PFN, bale_out? "bale_out": "");
+		fprintf(stderr, "%s %s samples_buffer %d\n", _PFN, bale_out? "bale_out": "", samples_buffer);
 	}
 };
 void checkHolders() {
