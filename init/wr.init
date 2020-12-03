@@ -224,8 +224,8 @@ start_wrtd() {
 
 	[ -e ${WRSH} ] && source ${WRSH} 
 	echo "+++ start wrtd rx"
-    SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_RX 42081 /usr/local/bin/wrtd $WRTD_OPTS rx
-    echo "+++ start wrtd tx"
+	SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_RX 42081 /usr/local/bin/wrtd $WRTD_OPTS rx
+	echo "+++ start wrtd tx"
 	SITE=11 ${PS} --holdoff=1 -c / -p $PIDF_TX 42080 /usr/local/bin/wrtd $WRTD_OPTS tx
 	is_tiga || ${PS} -w --noautorestart -c / -p $PIDF_SI 4282 /usr/local/bin/si5326_tune_phase
 
@@ -239,7 +239,16 @@ start_wrtd() {
 	[ ! -e  $PIDF_RX ] && echo "+++ WARNING: file does not exist $PIDF_RX"
 	[ ! -e  $PIDF_TX ] && echo "+++ WARNING: file does not exist $PIDF_TX"	
 	
+	backstop &
 	echo "+++ start_wrtd 99"
+}
+
+backstop() {
+	sleep 7
+	[ -e $PIDF_RX ] && return
+
+	echo backstop waking ALARM: no wrtd_rx restart
+	exec /usr/local/init/wr.init restart_wrtd
 }
 
 cold_start_wrtd() {
