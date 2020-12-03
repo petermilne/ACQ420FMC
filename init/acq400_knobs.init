@@ -18,10 +18,27 @@ stop_knob_servers() {
 }
 
 spawn_knob_servers() {
+	for k in has_mgt has_wr has_dsp special_sites; do
+		echo none > /etc/acq400/0/$k
+	done
+	specials=""
+	mgt_list=""
+	
 	for dir in /etc/acq400/[0-9]*
 	do
 		site=$(basename $dir)
 		pidf=/var/run/knobs$site.pid
+		case $site in
+		12|13)
+			specials="$specials $site"
+			mgt_list="$mgt_list $site";;
+		11)
+			specials="specials $site"
+			echo 11 > /etc/acq400/0/has_wr;;
+		14)
+			specials="specials $site"
+			echo 14 > /etc/acq400/0/has_dsp;;
+		esac
 		# sites at 4220 auto calc by acq400_knobs		
 		let lport=4820+$site
 		cmd="/usr/local/bin/procServ -p $pidf  \
@@ -30,6 +47,8 @@ spawn_knob_servers() {
 		echo $cmd
 		$cmd
 	done
+	echo $specials > /etc/acq400/0/special_sites
+	echo $mgt_list > /etc/acq400/0/has_mgt
 	
 	for dir in /etc/acq400/[0-9]*
 	do
