@@ -13,7 +13,15 @@ if [ "x$ACQ400_WR_MBCLK_FP" = "xy" ] ; then
 	set.site 0 SIG:SRC:SYNC:1 MBCLK
 	set.site 0 SIG:FP:SYNC=SYNC1
 fi
+# route PPS to AUX1 .. either RAW (from WRS) or Si5326 (default)
+if [ "x$ACQ400_WR_PPSRAW_FP" = "xy" ] ; then
+	set.site 0 SIG:SRC:SYNC:0 WRPPS
+	set.site 0 SIG:FP:SYNC SYNC0
+else
+	set.site 0 SIG:SRC:SYNC:1 WRPPS
+	set.site 0 SIG:FP:SYNC SYNC1
+fi
 # Route WRTT to front panel
-set.site 0 SIG:SRC:SYNC:0 WRPPS
+# AUX2 is EVT0 is TRG is WRTT
 set.site 0 SIG:SRC:TRG:0 WRTT0
 set.site 0 SIG:FP:GPIO=EVT0
