@@ -53,7 +53,7 @@ int enable_adc_ctrl_trap = 0;
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 #if 0
-	int adc_ctrl_trap = enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
+
 	int agg_trap = adev->of_prams.site==0 && offset==AGGREGATOR && (value&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0;
 	int trap = adc_ctrl_trap||agg_trap;
 
@@ -67,7 +67,8 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		dev_err(DEVP(adev), "acq400wr32()  trap clearing sites: was %08x set:%08x", agg, value);
 	}
 #else
-	int trap = 0;
+	int adc_ctrl_trap = enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
+	int trap = adc_ctrl_trap;
 #endif
 	if (adev->RW32_debug || trap){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
