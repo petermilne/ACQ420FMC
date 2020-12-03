@@ -529,6 +529,7 @@ build_mgt400() {
 	ln -s $1  $knobs
 	mkdir /etc/acq400/${site}
 
+	ln -s /etc/acq400/C/* /etc/acq400/${site}	;# MODEL MAN MTYPE
 	ln -s $knobs/* /etc/acq400/${site}
 	ch=$(cat /etc/acq400/${site}/name )
 	ch=${ch#*.}
@@ -639,7 +640,7 @@ build_knobs() {
 		if [ -e ${dir}/site ]; then
 			build_mgt400 ${dir}
 		fi
-        done
+    done
 }
 
 create_set_fanspeed() {
