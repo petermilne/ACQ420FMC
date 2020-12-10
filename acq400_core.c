@@ -49,6 +49,9 @@ int trap_dump_stack = 3;
 module_param(trap_dump_stack, int, 0644);
 
 int enable_adc_ctrl_trap = 0;
+module_param(enable_adc_ctrl_trap, int, 0644);
+
+int _enable_adc_ctrl_trap = 0;
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
@@ -67,7 +70,7 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		dev_err(DEVP(adev), "acq400wr32()  trap clearing sites: was %08x set:%08x", agg, value);
 	}
 #else
-	int adc_ctrl_trap = enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
+	int adc_ctrl_trap = _enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
 	int trap = adc_ctrl_trap;
 #endif
 	if (adev->RW32_debug || trap){
@@ -475,7 +478,7 @@ int fifo_monitor(void* data)
 
 		//if (acq420_convActive(m1)){
 		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){
-			enable_adc_ctrl_trap = 1;
+			if (enable_adc_ctrl_trap) _enable_adc_ctrl_trap = 1;
 			if (acq400_trigger_ns == 0){
 				acq400_trigger_ns = ktime_get_real_ns();
 			}
@@ -497,7 +500,7 @@ int fifo_monitor(void* data)
 		}
 		msleep(histo_poll_ms);
 	}
-	enable_adc_ctrl_trap = 0;
+	if (enable_adc_ctrl_trap) _enable_adc_ctrl_trap = 0;
 	acq400_trigger_ns = 0;
 
 	return 0;
