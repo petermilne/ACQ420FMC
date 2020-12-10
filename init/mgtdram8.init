@@ -47,6 +47,10 @@ cat - >/etc/mgtsh.env << EOF
 export HOME=/root
 EOF
 
+PS=/usr/local/bin/procServ
+PIDF=/var/run/mgtsh.pid
+
+${PS}  -w --noautorestart  -p ${PIDF} -l 53993 53992 /usr/local/bin/mgtsh
 
 
 
