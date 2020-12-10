@@ -451,8 +451,10 @@ int fifo_monitor(void* data)
 	int cursor;
 	int i1 = 0;		/* randomize start time */
 	int conv_active_detected = 0;
-	char message_from_active[132];
+	char message_from_active[2][132];
 
+	message_from_active[0][0] = '\0';
+	message_from_active[1][0] = '\0';
 
 	acq400_trigger_ns = 0;
 
@@ -484,18 +486,17 @@ int fifo_monitor(void* data)
 			}
 			histo_add_all(devs, idev, i1);
 			conv_active_detected = 1;
-			snprintf(message_from_active, 132, "conv_active good after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
+			snprintf(message_from_active[0], 132, "conv_active good after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
 					(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
 		}else{
-			if (conv_active_detected){
-				if (conv_active_detected++ == 1){
-					dev_warn(DEVP(adev), message_from_active);
-					dev_warn(DEVP(adev), "conv_active lost after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
+			if (conv_active_detected == 0){
+				;
+			}else if (conv_active_detected++ == 1){
+				snprintf(message_from_active[1], 132, "conv_active lost after %d ms aggsta %08x adc_cr:%08x adc_fsta:%08x",
 							(unsigned)(ktime_get_real_ns()-acq400_trigger_ns)/1000000, aggsta, m1_cr, m1_sr);
-				}
-			}else{
-				msleep(1);
-				continue;
+			}else if (conv_active_detected > 3){
+				dev_warn(DEVP(adev), message_from_active[0]);
+				dev_warn(DEVP(adev), message_from_active[1]);
 			}
 		}
 		msleep(histo_poll_ms);
