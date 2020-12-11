@@ -18,7 +18,7 @@ fi
 
 nb=${1:-99}
 nb=$(($nb+2))
-[ $nb -gt 2000 ] && $nb=2000
+[ $nb -gt 2000 ] && nb=2000
 
 mgt_load load 0 $nb
 streamtonowhered start
