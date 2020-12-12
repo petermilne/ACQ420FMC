@@ -25,11 +25,18 @@ streamtonowhered start
 
 while [ 1 ]; do
 	STATUS=$(mgt_load)
-	echo $STATUS $(get.site 1 SIG:SAMPLE_COUNT:COUNT)
+	SCOUNT=$(get.site 1 SIG:SAMPLE_COUNT:COUNT)
+	echo $STATUS $SCOUNT
 	if [ "$STATUS" = "IDLE" ]; then
 		break
 	else
-		sleep 1
+	    CSTATE=$(get.site 0 CONTINUOUS:STATE | awk '{ print $2 }')
+	    if [ "$CSTATE" = "IDLE" ]; then
+	    	echo $CSTATE $SCOUNT
+	    	break
+	    else
+			sleep 0.5
+		fi
 	fi
 done
 
