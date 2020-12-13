@@ -40,6 +40,6 @@ while [ 1 ]; do
 done
 
 streamtonowhered stop
-echo END
+
 
 
