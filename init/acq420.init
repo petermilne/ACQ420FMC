@@ -21,6 +21,7 @@ DROOT=/sys/kernel/debug
 SYSCONF=/mnt/local/sysconfig
 ULB=/usr/local/bin
 
+HAS_MGTDRAM=none
 
 if [ -e /mnt/local/acq400_stream ]; then
 	echo override from /mnt/local/acq400_stream
@@ -469,6 +470,7 @@ build_site0() {
 	ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
 	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
+	echo $HAS_MGTDRAM > ${ek}/has_mgtdram
 	
 	
 	lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
@@ -819,6 +821,7 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 			echo "set.site 0 distributor comms=2" \
 					>>/tmp/acq420.init-postpowerup-action
 			(sleep 7; nice mgtd_monitor_dsp1) &
+			HAS_MGTDRAM=14
 			echo +++ init MGT-DRAM;;
 		*)
 			if [ "x$cmd" = "x" ]; then
