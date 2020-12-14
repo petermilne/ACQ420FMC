@@ -471,6 +471,9 @@ build_site0() {
 	ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
 	ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
 	echo $HAS_MGTDRAM > ${ek}/has_mgtdram
+	IS_TIGA=none
+	[ -e /dev/acq400.0.knobs/wr_ts_s1_count] && IS_TIGA=1
+	echo $IS_TIGA > ${ek}/is_tiga
 	
 	
 	lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
