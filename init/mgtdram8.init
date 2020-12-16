@@ -33,6 +33,13 @@ else
 fi
 /usr/local/bin/mgtdram_init_gpio
 
+LOG=/var/log/mgt_offload_hostpull.log
+if [ ! -e $LOG ]; then
+	grep -q emlog /proc/modules; [ $? -ne 0 ] && /sbin/insmod /usr/local/lib/modules/emlog.ko
+        [ -e $LOG ] || mkemlog $LOG
+fi
+
+
 MGTD=/etc/acq400/14/
 mkdir $MGTD
 ln -s /dev/dsp1/* $MGTD
