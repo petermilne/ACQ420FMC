@@ -47,7 +47,7 @@ then
 fi
 set.sys $ETC0/sites 	${sitelist}
 set.sys $ETC0/ssb 		$SS
-set.sys $ETC0/spadstart	(($SS-$nspad*4))
+set.sys $ETC0/spadstart	$(($SS-$nspad*4))
 
 [ "x$NO_OPTIMISE_BUFFERLEN" = "xy" ] || set.sys $S0KB/optimise_bufferlen $SS 
 
