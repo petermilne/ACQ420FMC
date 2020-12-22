@@ -17,7 +17,8 @@ ACQ400_MAIN_PIDF=/var/run/acq400_stream.0.pid
 
 stop() {		
         if [ -r ${ACQ400_MAIN_PIDF} ]; then
-#        	echo 1 > /dev/acq400.0.knobs/estop			
+        	echo 1 > /dev/acq400.0.knobs/estop
+        	sleep 0.1			
             kill -${SIGTERM} $(cat ${ACQ400_MAIN_PIDF})
 #            echo $'\x14' | nc localhost $LPORT
             rm ${ACQ400_MAIN_PIDF}
