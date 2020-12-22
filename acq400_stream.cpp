@@ -2058,14 +2058,14 @@ protected:
         }
 
 	void close() {
+		if (fc){
+			::close(fc);
+			fc = 0;
+		}
 		kill_the_holders();
 		if (G::aggsem){
 		       	sem_close(G::aggsem);
 		       	sem_unlink(G::aggsem_name);
-		}
-		if (fc){
-			::close(fc);
-			fc = 0;
 		}
 	}
 	virtual ~StreamHeadImpl() {
