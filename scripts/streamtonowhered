@@ -27,7 +27,7 @@ stop() {
         
         if [ -r ${PDIF}]; then
 		sleep 1
-        	kill -${SIGTERM} $(cat ${PIDF})
+		[ -r ${PDIF}] && kill -${SIGTERM} $(cat ${PIDF})
         fi
 }
 
