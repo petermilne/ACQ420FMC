@@ -53,6 +53,12 @@ module_param(enable_adc_ctrl_trap, int, 0644);
 
 int _enable_adc_ctrl_trap = 0;
 
+int aggregator_enabled = 0;
+
+
+#define ADC_ENAX  (ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN)
+#define ADC_RSTX  (ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST)
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
 #if 0
@@ -70,8 +76,21 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		dev_err(DEVP(adev), "acq400wr32()  trap clearing sites: was %08x set:%08x", agg, value);
 	}
 #else
-	int adc_ctrl_trap = _enable_adc_ctrl_trap && adev->of_prams.site==1 && offset==ADC_CTRL && (value&ADC_CTRL_ADC_EN)==0;
-	int trap = adc_ctrl_trap;
+	int adc_ctrl_trap = _enable_adc_ctrl_trap && aggregator_enabled && offset==ADC_CTRL;
+	int trap = 0;
+
+	if (adc_ctrl_trap){
+		switch(adev->of_prams.site){
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+			trap = ((value&ADC_ENAX)!=ADC_ENAX||(value&ADC_RSTX)!=0);
+		break;
+		}
+	}
 #endif
 	if (adev->RW32_debug || trap){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
@@ -374,11 +393,13 @@ void acq2006_aggregator_enable(struct acq400_dev *adev)
 	}
  agg99:
 	acq400wr32(adev, AGGREGATOR, agg | AGG_ENABLE);
+	aggregator_enabled = 1;
 }
 void acq2006_aggregator_disable(struct acq400_dev *adev)
 {
 	u32 agg = acq400rd32(adev, AGGREGATOR);
 	acq400wr32(adev, AGGREGATOR, agg & ~AGG_ENABLE);
+	aggregator_enabled = 0;
 }
 
 void acq400_enable_trg_if_master(struct acq400_dev *adev)
