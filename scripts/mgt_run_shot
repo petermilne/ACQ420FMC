@@ -28,7 +28,7 @@ while [ 1 ]; do
 	if [ "$STATUS" = "IDLE" ]; then
 		break
 	else
-		STATE=$(statemon nowait)
+		STATE="$(statemon nowait)"
 		read CSTATE PRE POST SCOUNT XX <<EOF
 $STATE	
 EOF
