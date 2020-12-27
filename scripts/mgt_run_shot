@@ -23,25 +23,20 @@ nb=$(($nb+2))
 mgt_load load 0 $nb
 streamtonowhered start
 
-cstate_idle_timeout=3
-
 while [ 1 ]; do
 	STATUS=$(mgt_load)
-	SCOUNT=$(get.site 1 SIG:SAMPLE_COUNT:COUNT| awk '{ print $2 }')
-	echo $STATUS $SCOUNT
 	if [ "$STATUS" = "IDLE" ]; then
 		break
-	elif [ $SCOUNT -gt 0 ]; then
-	    	CSTATE=$(get.site 0 CONTINUOUS:STATE | awk '{ print $2 }')
-	    	if [ "$CSTATE" = "IDLE" ]; then
-	    		echo $CSTATE $SCOUNT
-	    		cstate_idle_timeout=$(($cstate_idle_timeout-1))
-	    		[ $cstate_idle_timeout -le 0 ] && break
-	    	else
-	    		cstate_idle_timeout=3
-	    	fi
+	else
+		STATE=$(statemon nowait)
+		read CSTATE PRE POST SCOUNT XX <<EOF
+$STATE	
+EOF
+		if [ $SCOUNT -gt 0 ] && [ "$CSTATE" = "0" ]; then
+			break
+		fi
 	fi
-	sleep 0.5
+	sleep 0.3
 done
 
 streamtonowhered stop
