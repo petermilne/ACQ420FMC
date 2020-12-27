@@ -1883,7 +1883,10 @@ void init(int argc, const char** argv) {
 			G::stream_mode = SM_TRANSIENT;
 			break;
 		case 'S':
-			G::state_fp = fopen(G::state_file, "w");
+			G::state_fp = fopen(G::state_file, "r+");
+			if (G::state_fp == 0){
+				G::state_fp = fopen(G::state_file, "w");
+			}
 			if (G::state_fp == 0){
 				perror(G::state_file);
 				exit(1);
@@ -2392,6 +2395,7 @@ public:
 				;
 			}
 			actual.elapsed += samples_buffer;
+			actual.print(PRINT_WHEN_YOU_CAN);
 		}
 		setState(ST_CLEANUP);
 	}
@@ -4077,9 +4081,10 @@ public:
 			case ST_ARM:
 				setState(ST_RUN_PRE);
 			default:
-				;
+			        ;
 			}
 			actual.elapsed += samples_buffer;
+			actual.print(PRINT_WHEN_YOU_CAN);
 		}
 		setState(ST_CLEANUP);
 
