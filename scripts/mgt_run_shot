@@ -36,7 +36,8 @@ EOF
 			break
 		fi
 	fi
-	sleep 0.3
+	echo $STATUS $SCOUNT
+	sleep 0.2
 done
 
 streamtonowhered stop
