@@ -25,18 +25,17 @@ streamtonowhered start
 
 while [ 1 ]; do
 	STATUS=$(mgt_load)
+	STATEMON="$(statemon nowait)"
+		read CSTATE PRE POST SCOUNT XX <<EOF
+$STATEMON	
+EOF
+	echo $STATUS $SCOUNT
+		
 	if [ "$STATUS" = "IDLE" ]; then
 		break
-	else
-		STATE="$(statemon nowait)"
-		read CSTATE PRE POST SCOUNT XX <<EOF
-$STATE	
-EOF
-		if [ $SCOUNT -gt 0 ] && [ "$CSTATE" = "0" ]; then
-			break
-		fi
+	elif [ $SCOUNT -gt 0 ] && [ "$CSTATE" = "0" ]; then
+		break	
 	fi
-	echo $STATUS $SCOUNT
 	sleep 0.2
 done
 
