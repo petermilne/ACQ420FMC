@@ -1356,7 +1356,6 @@ struct Progress {
 
 	}
 	virtual void print(bool ignore_ratelimit = true, int extra = 0) {
-
 	}
 	virtual void setState(enum STATE _state){
 
@@ -2376,6 +2375,15 @@ public:
 		fc = open_feed();
 		stream();
 	}
+	virtual void onStreamStart() {
+
+	}
+	virtual void onStream(int ib){
+		Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+	}
+	virtual void onStreamEnd() {
+
+	}
 	virtual void stream() {
 		int ib;
 		if (verbose) fprintf(stderr, "StreamHeadImpl::stream() :\n");
@@ -2385,9 +2393,10 @@ public:
 		if (G::soft_trigger){
 			schedule_soft_trigger();
 		}
+		onStreamStart();
 		while((ib = getBufferId()) >= 0){
 			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
-			Buffer::the_buffers[ib]->writeBuffer(1, Buffer::BO_NONE);
+			onStream(ib);
 			switch(actual.state){
 			case ST_ARM:
 				setState(ST_RUN_PRE);
@@ -2398,6 +2407,7 @@ public:
 			actual.print(PRINT_WHEN_YOU_CAN);
 		}
 		setState(ST_CLEANUP);
+		onStreamEnd();
 	}
 };
 
@@ -2411,26 +2421,10 @@ protected:
 		fflush(stdout);
 	}
 public:
-	virtual void stream() {
-		int ib;
-		setState(ST_ARM);
-		_println("000 ST_ARM");
-		if (G::soft_trigger){
-			schedule_soft_trigger();
-		}
-		while((ib = getBufferId()) >= 0){
-			switch(actual.state){
-			case ST_ARM:
-				setState(ST_RUN_PRE);
-			default:
-				;
-			}
-			_println("%3d\n", ib);
-			actual.elapsed += samples_buffer;
-		}
-		_println("999 ST_CLEANUP");
-		setState(ST_CLEANUP);
+	virtual void onStream(int ib) {
+		_println("%3d\n", ib);
 	}
+
 	NullStreamHead(Progress& progress) :
 		StreamHeadImpl(progress)
 	{}
@@ -4056,38 +4050,19 @@ public:
 		if (verbose) fprintf(stderr, "append %p\n", pp);
 		peers.push_back(pp);
 	}
-	virtual void stream() {
-		int ib;
-		if (verbose) fprintf(stderr, "StreamHeadImpl::stream() :\n");
 
-		ident("acq400_stream_headImpl");
-		setState(ST_ARM);
-
+	virtual void onStreamStart() {
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamStart();
 		}
-
-		if (G::soft_trigger){
-			schedule_soft_trigger();
+	}
+	virtual void onStream(int ib){
+		for (IT it = peers.begin(); it != peers.end(); ++it){
+			if (verbose > 1) fprintf(stderr, "call peer %p %p\n", *it, this);
+			(*it)->onStreamBufferStart(ib);
 		}
-		while((ib = getBufferId()) >= 0){
-			if (verbose) fprintf(stderr, "StreamHeadImpl::stream() : %d\n", ib);
-
-			for (IT it = peers.begin(); it != peers.end(); ++it){
-				if (verbose > 1) fprintf(stderr, "call peer %p %p\n", *it, this);
-				(*it)->onStreamBufferStart(ib);
-			}
-			switch(actual.state){
-			case ST_ARM:
-				setState(ST_RUN_PRE);
-			default:
-			        ;
-			}
-			actual.elapsed += samples_buffer;
-			actual.print(PRINT_WHEN_YOU_CAN);
-		}
-		setState(ST_CLEANUP);
-
+	}
+	virtual void onStreamEnd() {
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamEnd();
 		}
