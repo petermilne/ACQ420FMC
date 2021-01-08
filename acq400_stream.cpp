@@ -331,20 +331,12 @@ class DemuxBufferCommon: public Buffer {
 
 public:
 	DemuxBufferCommon(Buffer* cpy): Buffer(cpy) {}
-
-	static int demuxBufferVerbose() {
-		char *vfs = getenv("DemuxBufferVerbose");
-		if (vfs){
-			 return atoi(vfs);
-		}else{
-			return 0;
-		}
-	};
-
 	static int verbose;
+	static int show_es;
 };
 
-int DemuxBufferCommon::verbose = DemuxBufferCommon::demuxBufferVerbose();
+int DemuxBufferCommon::verbose = ::getenv_default("DemuxBufferVerbose");
+int DemuxBufferCommon::show_es = ::getenv_default("DemuxBufferShowES");
 
 template <class T, DemuxBufferType N>
 class DemuxBuffer: public DemuxBufferCommon {
@@ -586,10 +578,10 @@ bool DemuxBuffer<T, N>::demux(bool start, int start_off, int len) {
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
-	if (verbose) fprintf(stderr, "can skip ES");
+	if (verbose) fprintf(stderr, "%s will %s skip ES\n", _PFN, show_es? "NOT":"");
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
-		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+		if (! show_es) while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
@@ -648,10 +640,10 @@ bool DemuxBuffer<short, DB_REGULAR>::demux(bool start, int start_off, int len) {
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
-	if (verbose) fprintf(stderr, "can skip ES");
+	if (verbose) fprintf(stderr, "%s will %s skip ES\n", _PFN, show_es? "NOT":"");
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
-		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+		if (! show_es) while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
@@ -704,10 +696,10 @@ bool DemuxBuffer<short, DB_DOUBLE>::demux(bool start, int start_off, int len) {
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
-	if (verbose) fprintf(stderr, "can skip ES");
+	if (verbose) fprintf(stderr, "%s will %s skip ES\n", _PFN, show_es? "NOT":"");
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
-		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+		if (! show_es) while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
@@ -776,10 +768,11 @@ bool DemuxBuffer<short, DB_2D_REGULAR>::demux(bool start, int start_off, int len
 	/* run to the end of buffer. nsam could be rounded down,
 	 * so do not use it.
 	 */
-	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
+	if (verbose) fprintf(stderr, "%s will %s skip ES\n", _PFN, show_es? "NOT":"");
+
 
 	for (unsigned isam = 0; true; ++isam){
-		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+		if (! show_es) while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
@@ -839,10 +832,10 @@ bool DemuxBuffer<short, DB_2D_DOUBLE>::demux(bool start, int start_off, int len)
 
 	unsigned ichan = 0;
 	/* run to the end of buffer. nsam could be rounded down so do not use it.  */
-	if (verbose) fprintf(stderr, "%s can skip ES\n", _PFN);
+	if (verbose) fprintf(stderr, "%s will %s skip ES\n", _PFN, show_es? "NOT":"");
 
 	for (isam = startoff/nchan; true; ++isam, ichan = 0){
-		while (evX.isES(reinterpret_cast<unsigned*>(src))){
+		if (! show_es) while (evX.isES(reinterpret_cast<unsigned*>(src))){
 			if (verbose) fprintf(stderr, "skip ES\n");
 			src += nchan;
 		}
@@ -1990,7 +1983,7 @@ protected:
 			assert(ib <= Buffer::nbuffers);
 			return ib;
 		}else{
-			return rc;
+			return rc<0 ? rc: -1;
 		}
 	}
 	virtual char* findEvent(Buffer* the_buffer) {
