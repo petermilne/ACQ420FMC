@@ -90,34 +90,13 @@
 
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
+#include "acq-util.h"
 
 #define _PFN	__PRETTY_FUNCTION__
 
 #define STDOUT	1
 
-#include <sched.h>
-void goRealTime(int sched_fifo_priority)
-{
-        struct sched_param p = {};
-        p.sched_priority = sched_fifo_priority;
 
-        int rc = sched_setscheduler(0, SCHED_FIFO, &p);
-
-        if (rc){
-                perror("failed to set RT priority");
-        }
-}
-
-
-
-int getenv_default(const char* key, int def = 0){
-	const char* vs = getenv(key);
-	if (vs){
-		return atoi(vs);
-	}else{
-		return def;
-	}
-}
 
 using namespace std;
 int timespec_subtract (timespec *result, timespec *x, timespec *y) {
@@ -4791,7 +4770,7 @@ void StreamHead::createMultiEventInstance(const char* def)
 StreamHead* StreamHead::instance() {
 	static StreamHead* _instance;
 
-	goRealTime(10);
+
 	//nice(-10);
 	if (_instance == 0){
 		setEventCountLimit(
@@ -4799,6 +4778,7 @@ StreamHead* StreamHead::instance() {
 				G::stream_mode == SM_TRANSIENT? 1: ECL_NOLIMIT);
 
 		if (G::is_spy){
+			goRealTime(10);
 			return _instance = new StreamHead(
 					open("/dev/acq400.0.bqf", O_RDONLY), 1);
 		}
@@ -4816,6 +4796,7 @@ StreamHead* StreamHead::instance() {
 			return _instance;
 		}
 
+		goRealTime(10);
 		ident("acq400_stream_main");
 		if (G::stream_mode == SM_TRANSIENT){
 			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
