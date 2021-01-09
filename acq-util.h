@@ -38,6 +38,10 @@ int strsplit(char *str, char *argv[], int maxargs, const char* delim);
 
 void goRealTime(int sched_fifo_priority);
 
+char *getRoot(int devnum);
+int getBufferId(int fc);
+
+
 
 #if defined __cplusplus
 };

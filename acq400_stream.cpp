@@ -1469,24 +1469,7 @@ struct poptOption opt_table[] = {
 };
 
 
-char *getRoot(int devnum)
-{
-	char *_root = new char [128];
-	struct stat sb;
 
-	sprintf(_root, "/dev/acq420.%d", devnum);
-	if (stat(_root, &sb) == 0){
-		return _root;
-	}
-
-	sprintf(_root, "/dev/acq400.%d", devnum);
-	if (stat(_root, &sb) == 0){
-		return _root;
-	}
-
-	fprintf(stderr, "ERROR: /dev/acq4x0.%d NOT FOUND\n", devnum);
-	exit(1);
-}
 const char* root;
 
 void acq400_stream_getstate(void);

@@ -177,6 +177,16 @@ int MapBuffer::copyBuffer(void* dest) {
 	return buffer_len;
 }
 
+int Buffer::create(const char* root, int _buffer_len)
+{
+	char* fname = new char[128];
+	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
+
+	the_buffers.push_back(new MapBuffer(fname, _buffer_len));
+	return 0;
+}
+
+
 
 int Buffer::verbose;
 int Buffer::checkiten = 1;
@@ -194,6 +204,12 @@ char* MapBuffer::ba_lo = MAPBUFFER_BA0;		/* initial value, may move by reserve c
 char* MapBuffer::ba_hi;				/* tracks ba1 @@todo may be redundant */
 int MapBuffer::buffer_0_reserved;
 
+
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define BUFLEN	 MODPRAMS "bufferlen"
+#define NBUF	 MODPRAMS "nbuffers"
+
+
 class BufferInitializer {
 public:
 	BufferInitializer() {
@@ -201,6 +217,9 @@ public:
 		vs && (Buffer::verbose = atoi(vs));
 		const char* checkit = getenv("BufferCheckit");
 		checkit && (Buffer::checkiten = atoi(checkit));
+
+		getKnob(-1, NBUF,  &Buffer::nbuffers);
+		getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	}
 };
 

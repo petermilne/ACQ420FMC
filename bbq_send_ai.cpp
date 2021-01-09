@@ -72,6 +72,7 @@
 
 
 using namespace std;
+#include "acq-util.h"
 #include "Buffer.h"
 
 #include "Socket.h"
@@ -107,35 +108,6 @@ struct poptOption opt_table[] = {
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
-
-char *getRoot(int devnum)
-{
-	char *_root = new char [128];
-	struct stat sb;
-
-	sprintf(_root, "/dev/acq420.%d", devnum);
-	if (stat(_root, &sb) == 0){
-		return _root;
-	}
-
-	sprintf(_root, "/dev/acq400.%d", devnum);
-	if (stat(_root, &sb) == 0){
-		return _root;
-	}
-
-	fprintf(stderr, "ERROR: /dev/acq4x0.%d NOT FOUND\n", devnum);
-	exit(1);
-}
-
-int Buffer::create(const char* root, int _buffer_len)
-{
-	char* fname = new char[128];
-	sprintf(fname, "%s.hb/%03d", root, Buffer::last_buf);
-
-	the_buffers.push_back(new MapBuffer(fname, _buffer_len));
-	return 0;
-}
-
 
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"
 #define DFB	 MODPRAMS "distributor_first_buffer"

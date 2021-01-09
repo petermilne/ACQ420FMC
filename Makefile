@@ -154,7 +154,7 @@ modules:
 	
 clean:
 	@rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions $(LIBS) $(APPS) \
-		Module.symvers modules.order
+		Module.symvers modules.order *.so *.so.1*
 	
 mmap: mmap.o
 	$(CC) -o $@ $^ -L../lib -lpopt
@@ -177,20 +177,20 @@ udp_client: udp_client.o
 acq400_stream: acq400_stream.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-bb: bb.o Buffer.o  tcp_server.o
+bb: bb.o tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
-multi_event: multi_event.o Buffer.o
+multi_event: multi_event.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
 wr_reset: wr_reset.o Env.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 	
-bbq_send_ai: bbq_send_ai.o Socket.o Buffer.o
+bbq_send_ai: bbq_send_ai.o Socket.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 data_sink: data_sink.o Socket.o
 	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt
-phased_array: phased_array.o Buffer.o
+phased_array: phased_array.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 	
 dawg: dawg.o
@@ -269,6 +269,16 @@ $(LIBACQSONAME): acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp
 	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
 	-ln -s $(LIBACQSONAME) $(LIBACQSO)
 	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib
+	$(shell mkdir -p ../lib/linux-arm; cd ../lib/linux-arm/; ln -s $(LIBACQSONAME) $(LIBACQSO))
+	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib/linux-arm
+	
+
+$(LIBACQSONAME)-x86: acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp
+	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
+	$(shell mkdir -p ../lib/linux-x86_64; cd ../lib/linux-x86_64/; ln -s $(LIBACQSONAME) $(LIBACQSO))	
+	cp -a $(LIBACQSONAME)-x86 ../lib/linux-x86_64/$(LIBACQSONAME)
+	
+
 		
 zynq:
 	./make.zynq
