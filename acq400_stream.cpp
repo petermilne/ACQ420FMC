@@ -310,10 +310,12 @@ class DemuxBufferCommon: public Buffer {
 
 public:
 	DemuxBufferCommon(Buffer* cpy): Buffer(cpy) {}
+	static int demux_size;
 	static int verbose;
 	static int show_es;
 };
 
+int DemuxBufferCommon::demux_size = ::getenv_default("DemuxBufferSize");
 int DemuxBufferCommon::verbose = ::getenv_default("DemuxBufferVerbose");
 int DemuxBufferCommon::show_es = ::getenv_default("DemuxBufferShowES");
 
@@ -436,10 +438,11 @@ private:
 public:
 
 	virtual int writeBuffer(int out_fd, int b_opts) {
+		int demux_len = demux_size? demux_size: buffer_len;
 		if ((b_opts&BO_START) != 0){
 			start();
 		}
-		demux((b_opts&BO_START),0, buffer_len);
+		demux((b_opts&BO_START),0, demux_len);
 		if ((b_opts&BO_FINISH) != 0){
 			for (unsigned ic = 0; ic < nchan; ++ic){
 				if (writeChan(ic)){
@@ -449,7 +452,7 @@ public:
 			}
 			finish();
 		}
-		return buffer_len;
+		return demux_len;
 	}
 	virtual int writeBuffer(int out_fd, int b_opts, int start_off, int len)
 	{
