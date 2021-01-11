@@ -501,10 +501,10 @@ int fifo_monitor(void* data)
 
 		if ((aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
 			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
-			if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
-				kthread_stop(adev->w_task);
+			if (m1->task_active && !IS_ERR_OR_NULL(m1->w_task)){
+				kthread_stop(m1->w_task);
 			}else{
-				dev_err(DEVP(adev), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, adev->of_prams.site, adev->task_active);
+				dev_err(DEVP(m1), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, m1->of_prams.site, m1->task_active);
 			}
 		}
 		//if (acq420_convActive(m1)){
