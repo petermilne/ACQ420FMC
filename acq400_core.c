@@ -499,6 +499,10 @@ int fifo_monitor(void* data)
 		m1_sr = acq400rd32(m1, ADC_FIFO_STA);
 		aggsta = acq400rd32(adev, AGGSTA);
 
+		if ((aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
+			dev_err(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
+			kthread_stop(adev->w_task);
+		}
 		//if (acq420_convActive(m1)){
 		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){
 			if (enable_adc_ctrl_trap) _enable_adc_ctrl_trap = 1;
