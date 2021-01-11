@@ -500,8 +500,12 @@ int fifo_monitor(void* data)
 		aggsta = acq400rd32(adev, AGGSTA);
 
 		if ((aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
-			dev_err(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
-			kthread_stop(adev->w_task);
+			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
+			if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
+				kthread_stop(adev->w_task);
+			}else{
+				dev_err(DEVP(adev), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, adev->of_prams.site, adev->task_active);
+			}
 		}
 		//if (acq420_convActive(m1)){
 		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){
