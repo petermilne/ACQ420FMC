@@ -222,16 +222,7 @@ static ssize_t store_playloop_cursor(
 static DEVICE_ATTR(playloop_cursor,
 		S_IRUGO|S_IWUSR, show_playloop_cursor, store_playloop_cursor);
 
-static ssize_t show_task_active(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%u\n", adev->task_active);
-}
 
-DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
 
 static ssize_t show_pull_buf(
 	struct device * dev,
@@ -361,7 +352,6 @@ const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_push_buf.attr,
 	&dev_attr_playloop_pull_buf.attr,
 	&dev_attr_xo_buffers.attr,
-	&dev_attr_task_active.attr,
 	&dev_attr_awg_abort.attr,
 	&dev_attr_dac_fifo_sta.attr,
 	&dev_attr___reset_fifo.attr,

@@ -473,6 +473,7 @@ int fifo_monitor(void* data)
 	int i1 = 0;		/* randomize start time */
 	int conv_active_detected = 0;
 	char message_from_active[2][132];
+	int aggsta_skip_reported = 0;
 
 	message_from_active[0][0] = '\0';
 	message_from_active[1][0] = '\0';
@@ -499,13 +500,14 @@ int fifo_monitor(void* data)
 		m1_sr = acq400rd32(m1, ADC_FIFO_STA);
 		aggsta = acq400rd32(adev, AGGSTA);
 
-		if ((aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
+		if (!aggsta_skip_reported && (aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
 			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
-			if (m1->task_active && !IS_ERR_OR_NULL(m1->w_task)){
-				kthread_stop(m1->w_task);
+			if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
+				adev->rt.please_stop = 1;
 			}else{
-				dev_err(DEVP(m1), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, m1->of_prams.site, m1->task_active);
+				dev_err(DEVP(adev), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, adev->of_prams.site, adev->task_active);
 			}
+			aggsta_skip_reported = 1;
 		}
 		//if (acq420_convActive(m1)){
 		if ((m1_sr&ADC_FIFO_STA_ACTIVE) != 0){

@@ -2281,6 +2281,17 @@ static const struct attribute *sysfs_base_attrs[] = {
 	NULL
 };
 
+static ssize_t show_task_active(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	return sprintf(buf, "%u\n", adev->task_active);
+}
+
+DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
+
 static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
 	&dev_attr_trg.attr,
@@ -2301,6 +2312,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_is_adc.attr,
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
+	&dev_attr_task_active.attr,
 	NULL,
 };
 
