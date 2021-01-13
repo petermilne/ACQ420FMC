@@ -91,6 +91,7 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 #include "acq-util.h"
+#include "ES.h"
 
 #define _PFN	__PRETTY_FUNCTION__
 
@@ -203,85 +204,7 @@ unsigned b2s(unsigned bytes) {
 	return bytes/sample_size();
 }
 
-bool ISACQ480() {
-	char mval[80];
-	if (getKnob(0, "/etc/acq400/1/MODEL", mval) >= 0){
-		return strstr(mval, "ACQ480") != NULL ||
-				strstr(mval, "ACQ482") != NULL;
-	}
-	return false;
-}
-class AbstractES {
-public:
-	virtual bool isES(unsigned *cursor) = 0;
-	static AbstractES* evX_instance();
-	static AbstractES* ev0_instance();
-	static AbstractES* ev1_instance();
-};
 
-template <int MASK, unsigned PAT, unsigned MATCHES>
-class ES : public AbstractES {
-	bool is_es_word(unsigned word) {
-		return (word&MASK) == PAT;
-	}
-public:
-	bool isES(unsigned *cursor){
-		bool is_es = false;
-		unsigned matches = MATCHES;
-		for (int ic = 0; matches != 0; ++ic, matches >>= 1){
-			if ((matches&0x1) != 0){
-				if (is_es_word(cursor[ic])){
-					is_es = true;
-				}else{
-					return false;
-				}
-			}
-		}
-		return is_es;
-	}
-};
-
-#define SOB_MAGIC	0xaa55fbff
-#define EVX_MAGIC       0xaa55f150
-#define EVX_MASK	0xfffffff0
-#define EV0_MAGIC       0xaa55f151
-#define EV1_MAGIC       0xaa55f152
-#define EV0_MASK	0xffffffff
-#define EV1_MASK	0xffffffff
-
-AbstractES* AbstractES::evX_instance() {
-	static AbstractES* _instance;
-	if (!_instance){
-		if (ISACQ480()){
-			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0a>;
-		}else{
-			_instance = new ES<EVX_MASK, EVX_MAGIC, 0x0f>;
-		}
-	}
-	return _instance;
-}
-AbstractES* AbstractES::ev0_instance() {
-	static AbstractES* _instance;
-	if (!_instance){
-		if (ISACQ480()){
-			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0a>;
-		}else{
-			_instance = new ES<EV0_MASK, EV0_MAGIC, 0x0f>;
-		}
-	}
-	return _instance;
-}
-AbstractES* AbstractES::ev1_instance() {
-	static AbstractES* _instance;
-	if (!_instance){
-		if (ISACQ480()){
-			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0a>;
-		}else{
-			_instance = new ES<EV1_MASK, EV1_MAGIC, 0x0f>;
-		}
-	}
-	return _instance;
-}
 
 static int createOutfile(const char* fname) {
 	int fd = open(fname,

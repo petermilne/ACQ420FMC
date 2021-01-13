@@ -265,7 +265,8 @@ trigger_at: trigger_at.o knobs.o
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
-$(LIBACQSONAME): acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp
+LIBSRCS = acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp ES.cpp
+$(LIBACQSONAME): $(LIBSRCS)
 	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
 	-ln -s $(LIBACQSONAME) $(LIBACQSO)
 	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib
@@ -273,7 +274,7 @@ $(LIBACQSONAME): acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp
 	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib/linux-arm
 	
 
-$(LIBACQSONAME)-x86: acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp
+$(LIBACQSONAME)-x86: $(LIBSRCS)
 	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
 	$(shell mkdir -p ../lib/linux-x86_64; cd ../lib/linux-x86_64/; ln -s $(LIBACQSONAME) $(LIBACQSO))	
 	cp -a $(LIBACQSONAME)-x86 ../lib/linux-x86_64/$(LIBACQSONAME)
