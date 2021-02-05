@@ -1,6 +1,7 @@
 #!/usr/local/bin/expect
 
 log_user 0
+set timeout 1
 
 if { $argc > 0 } {
 	set wstate [lindex $argv 0]
@@ -23,6 +24,13 @@ while { 1 } {
 			if { $expect_out(1,string) == $wstate } {
 				exit 0
 			}			
+		}
+		timeout {
+			puts "timeout"
+			set newstate [lindex [split [exec cat /dev/shm/state]] 0 ]
+			if { $newstate == $wstate } {
+				exit 0
+			}
 		}
 	}
 }
