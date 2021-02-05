@@ -874,7 +874,6 @@ public:
 		T* src = reinterpret_cast<T*>(pdata);
 		int stride = nsam/over;
 
-
 		if (G::show_first_sample){
 			memset(sums, 0, G::nchan*sizeof(int));
 
