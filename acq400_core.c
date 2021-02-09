@@ -233,7 +233,7 @@ static void _release_dma_chan(struct acq400_dev *adev, int ic)
 {
 	if (adev->dma_chan[ic]){
 		dma_release_channel(adev->dma_chan[ic]);
-		//adev->dma_chan[ic] = 0;
+		adev->dma_chan[ic] = 0;
 	}
 }
 void release_dma_channels(struct acq400_dev *adev)
