@@ -124,7 +124,7 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "pad", 'n',  POPT_ARG_INT, &G::pad, 0,
-	  	  	 "when set, do NOT pad to end of buffer"
+	  	  	 "when set, pad to end of buffer"
 	},
 	{
 	  "port", 'p', POPT_ARG_STRING, &G::port, 0, "server port 0: no tcp server (using inetd)"
