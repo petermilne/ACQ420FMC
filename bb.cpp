@@ -173,14 +173,14 @@ int pad(int nsamples, int pad_samples)
 	char* last = end - G::sample_size;
 
 	if (G::pad){
-		end += G::sample_size*pad_samples;
-		nsamples += pad_samples;
-	}else{
 		while(pad_samples--){
 			memcpy(end, last, G::sample_size);
 			end += G::sample_size;
 			nsamples++;
 		}
+	}else{
+		end += G::sample_size*pad_samples;
+		nsamples += pad_samples;
 	}
 	return nsamples;
 }
