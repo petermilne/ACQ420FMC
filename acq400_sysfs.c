@@ -2519,6 +2519,55 @@ MODCON_KNOB(fan,	MCR_FAN_EN);
 MODCON_KNOB(soft_trig,  MCR_SOFT_TRIG);
 MODCON_KNOB(celf_power_en, ACQ1001_MCR_CELF_PSU_EN);
 
+
+/* not really a getter .. original script would exec one soft trigger, so do the same */
+static ssize_t show_soft_trigger(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 mod_con = acq400rd32(adev, MOD_CON);
+
+	acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
+	acq400wr32(adev, MOD_CON, mod_con | MCR_SOFT_TRIG);
+	acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
+
+
+	return sprintf(buf, "1\n");
+}
+
+#define MAXTRIG 500
+
+static ssize_t store_soft_trigger(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned mod_con = acq400rd32(adev, MOD_CON);
+	unsigned ntriggers;
+
+	if (sscanf(buf, "%u", &ntriggers) == 1){
+		if (ntriggers > MAXTRIG){
+			ntriggers = MAXTRIG;
+		}
+		acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
+
+		while(ntriggers--){
+			acq400wr32(adev, MOD_CON, mod_con | MCR_SOFT_TRIG);
+			acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
+		}
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(soft_trigger, S_IWUSR|S_IRUSR, show_soft_trigger, store_soft_trigger);
+
 int get_agg_threshold_bytes(struct acq400_dev *adev, u32 agg)
 {
 	return ((agg>>AGG_SIZE_SHL)&AGG_SIZE_MASK)*AGG_SIZE_UNIT(adev);
@@ -3260,6 +3309,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
 	&dev_attr_soft_trig.attr,
+	&dev_attr_soft_trigger.attr,
 	&dev_attr_celf_power_en.attr,
 	&dev_attr_axi_freq.attr,
 	&dev_attr_spad.attr,
