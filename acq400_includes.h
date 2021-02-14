@@ -102,7 +102,7 @@
 #define ACQ400_MINOR_WR_CUR_TRG1 26	// read : u32 WR_TAI_TRG1, no block.  write: u32 WR_TAI_TRG1
 #define ACQ400_MINOR_WRTT1	27
 #define ACQ420_MINOR_GPGMEM32	28
-#define ACQ400_MINOR_MAP_PAGE	32	// 32 : page 0, 33: page 1 .. 47: page 15
+#define ACQ400_MINOR_MAP_PAGE	64	// 32 : page 0, 33: page 1 .. 47: page 15
 
 #define ACQ400_MINOR_MAP_PAGE_OFFSET(minor) \
 	((minor-ACQ400_MINOR_MAP_PAGE)*PAGE_SIZE)
