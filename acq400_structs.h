@@ -231,6 +231,14 @@ int dev_rc_write(struct RegCache* reg_cache, unsigned offset, unsigned value);
 #define acq400_rc_read(adev, reg_bytes) \
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
+
+struct BQ {
+	unsigned *buf;
+	int head;
+	int tail;
+	int bq_len;
+};
+
 struct GPG_buffer {
 	unsigned *gpg_buffer;
 	unsigned *gpg_base;
@@ -248,11 +256,18 @@ struct acq400_sc_dev {
 
 	struct BQ_Wrapper {
 	/* bq Buffer Queue support */
-		struct mutex bq_clients_mutex;
+		struct mutex bq_clients_mutex;		/* BQ clients */
 		struct list_head bq_clients;
 		int bq_overruns;
 		int bq_max;
 	} bqw;
+
+	struct StreamDac {
+		struct BQ_Wrapper sd_bqw;		/* SD clients (1)! */
+		struct BQ refills;			/* fresh buffer Q belongs to driver */
+		wait_queue_head_t sd_waitq;
+		struct task_struct* sd_task;
+	} stream_dac;
 
 	struct SewFifo {
 		struct mutex sf_mutex;
@@ -390,12 +405,7 @@ struct acq400_path_descriptor {
 	struct list_head RESERVED;
 	struct list_head bq_list;
 	wait_queue_head_t waitq;
-	struct BQ {
-		unsigned *buf;
-		int head;
-		int tail;
-		int bq_len;
-	} bq;
+	struct BQ bq;
 	unsigned char lbuf[MAXLBUF];
 	u32 samples_at_event;
 	struct EventInfo eventInfo;

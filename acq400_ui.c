@@ -1120,36 +1120,45 @@ static unsigned int acq400_bq_poll(
 	}
 }
 
+static int bqw_init(struct acq400_path_descriptor* pdesc, struct BQ_Wrapper* bqw, int backlog)
+{
+        INIT_LIST_HEAD(&pdesc->bq_list);
+        pdesc->bq.bq_len = backlog;
+        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
+
+        if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+        list_add_tail(&pdesc->bq_list, &bqw->bq_clients);
+
+        mutex_unlock(&bqw->bq_clients_mutex);
+        return 0;
+}
+
+static int bqw_release(struct acq400_path_descriptor* pdesc, struct BQ_Wrapper* bqw)
+{
+	if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
+	       return -ERESTARTSYS;
+	}
+	list_del_init(&pdesc->bq_list);
+	mutex_unlock(&bqw->bq_clients_mutex);
+	kfree(pdesc->bq.buf);
+	return 0;
+}
 int acq400_bq_release(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct BQ_Wrapper* bqw = &sc_dev->bqw;
+	int rc = 0;
 
-	struct acq400_path_descriptor *cur;
-	int nelems = 0;
-
-
-        if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
-	       return -ERESTARTSYS;
+	if ((rc = bqw_release(pdesc, &sc_dev->bqw)) != 0){
+		return rc;
+	}else{
+		return acq400_release(inode, file);
 	}
-        list_del_init(&pdesc->bq_list);
-        /* diagnostic */
-        list_for_each_entry(cur, &bqw->bq_clients, bq_list){
-               	++nelems;
-        }
-        mutex_unlock(&bqw->bq_clients_mutex);
-
-        if (nelems){
-        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
-        }else{
-        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
-        }
-
-        kfree(pdesc->bq.buf);
-        return acq400_release(inode, file);
 }
+
 
 int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 {
@@ -1162,32 +1171,215 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct BQ_Wrapper* bqw = &sc_dev->bqw;
-	struct acq400_path_descriptor *cur;
-	int nelems = 0;
 
         file->f_op = &acq400_fops_bq;
 
-        INIT_LIST_HEAD(&pdesc->bq_list);
-        pdesc->bq.bq_len = backlog;
-        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
-
-        if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
-	       return -ERESTARTSYS;
-	}
-        list_add_tail(&pdesc->bq_list, &bqw->bq_clients);
-        list_for_each_entry(cur, &bqw->bq_clients, bq_list){
-        	++nelems;
-        }
-        mutex_unlock(&bqw->bq_clients_mutex);
-        if (nelems > 1){
-        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
-        }else{
-        	dev_dbg(DEVP(adev), "nelems:%d", nelems);
-        }
+        bqw_init(pdesc, &sc_dev->bqw, backlog);
 	return 0;
 }
 
+
+int streamdac_data_loop(void *data)
+{
+	struct acq400_path_descriptor* pdesc = (struct acq400_path_descriptor*)(data);
+	struct acq400_dev *adev = pdesc->dev;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ* bq_in = &sc_dev->stream_dac.refills;
+	struct BQ* bq_bk = &pdesc->bq;
+	int rc = 0;
+	int ab = 0;
+	int id;
+
+	dev_info(DEVP(adev), "streamdac_data_loop 01");
+
+	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
+	for (ab = 0; kthread_should_stop(); ab = !ab){
+		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
+		if (wait_event_interruptible(
+				sc_dev->stream_dac.sd_waitq,
+				CIRC_CNT(bq_in->head, bq_in->tail, bq_in->bq_len)>1 ||
+				adev->rt.please_stop)){
+			rc = -EINTR;
+			goto quit;
+		}
+		if (adev->rt.please_stop || kthread_should_stop()){
+			goto quit;
+		}
+		id = bq_in->buf[bq_in->tail];
+		smp_store_release(&bq_in->tail, (bq_in->tail+1)&(bq_in->bq_len-1));
+
+		msleep(100);   /* @@todo pass a, b to DMAC */
+
+
+		bq_bk->buf[bq_bk->head] = id;
+		smp_store_release(&bq_bk->head, (bq_bk->head + 1) & (bq_bk->bq_len-1));
+
+		wake_up_interruptible(&pdesc->waitq);
+	}
+quit:
+	dev_info(DEVP(adev), "streamdac_data_loop 99");
+	move_list_to_empty(adev, &adev->REFILLS);
+	move_list_to_empty(adev, &adev->INFLIGHT);
+	return rc;
+}
+
+
+/**
+ * streamdac:
+ * out: sc_dev->stream_dac.sd_bqw   : fresh data : belongs to driver
+ * ret: pdesc->bq                   : return buffers : belongs to app
+ *
+ * app gets a full set on return buffers to begin with.
+ */
+
+
+#define AWG_BACKLOG	64			// @@todo
+
+
+ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ* bq = &sc_dev->stream_dac.refills;
+	unsigned id;
+	int ii;
+	unsigned cursor = 0;
+	size_t rem = count;
+	ssize_t rc;
+
+	if (count < 2*sizeof(int)){
+		return -EINVAL;
+	}
+
+	while (rem >= 2*sizeof(int)){
+		if (wait_event_interruptible(
+			pdesc->waitq,
+			CIRC_SPACE(bq->head, bq->tail, bq->bq_len) > 3)){
+			return -EINTR;
+		}
+		for (ii = 0; ii < 2; ++ii){
+			unsigned long head = bq->head;
+			rc = copy_from_user(&id, buf+cursor, sizeof(int));
+			if (rc){
+				return -rc;
+			}else{
+				smp_store_release(&bq->head, (head + 1) & (bq->bq_len-1));
+				cursor += sizeof(int);
+				rem -= sizeof(int);
+			}
+			wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
+		}
+	}
+
+	return count-rem;
+}
+
+
+ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct BQ* bq = &pdesc->bq;
+	int bc = 0;
+	int rc;
+
+	if (count < 2*sizeof(int)){
+		return -EINVAL;
+	}
+
+	for (; count >=  2*sizeof(int); count += 4*sizeof(int)){
+		dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
+		if (bc > 0 && CIRC_CNT(bq->head, bq->tail, bq->bq_len) <= 1){
+			break;
+		}else if (wait_event_interruptible(
+			pdesc->waitq,
+			CIRC_CNT(bq->head, bq->tail, bq->bq_len) > 1)){
+			return -EINTR;
+		}
+
+		rc = copy_to_user(buf, &bq->buf[bq->tail], sizeof(int));
+		bc += sizeof(int);
+		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+		rc = copy_to_user(buf, &bq->buf[bq->tail], sizeof(int));
+		bc += sizeof(int);
+		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+
+		if (rc){
+			return -rc;
+		}
+	}
+	return bc;
+}
+
+
+
+int acq400_streamdac_open(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
+	struct BQ* bq = &pdesc->bq;
+	int ib = 0;		// @@todo probably not zero ..
+
+	if (!list_empty(&bqw->bq_clients)){
+		return -EBUSY;
+	}
+
+	bqw_init(pdesc, bqw, AWG_BACKLOG);
+	for (ib = 0; ib < AWG_BACKLOG; ++ib){
+		bq->buf[bq->head] = ib;
+		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
+	}
+
+	sc_dev->stream_dac.sd_task = kthread_run(
+		streamdac_data_loop, pdesc, "%s.dac", adev->dev_name);
+	return 0;
+}
+
+
+
+int acq400_streamdac_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	int rc;
+	dev_info(DEVP(adev), "acq400_streamdac_release()");
+	adev->rt.please_stop = 1;
+	kthread_stop(sc_dev->stream_dac.sd_task);
+	wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
+
+
+	if ((rc = bqw_release(pdesc, &sc_dev->stream_dac.sd_bqw)) != 0){
+		return rc;
+	}else{
+		return acq400_release(inode, file);
+	}
+}
+
+
+
+int acq400_open_streamdac(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_streamdac = {
+			.open = acq400_streamdac_open,
+			.read = acq400_streamdac_read,
+			.poll = acq400_bq_poll,
+			.write = acq400_streamdac_write,
+			.release = acq400_streamdac_release,
+	};
+	file->f_op = &acq400_fops_streamdac;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 
 
 
@@ -1216,6 +1408,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		break;
         	case ACQ400_MINOR_EVENT:
         		rc = acq400_open_event(inode, file);
+        		break;
+        	case ACQ400_MINOR_STREAMDAC:
+        		rc = acq400_open_streamdac(inode, file);
         		break;
         	case ACQ400_MINOR_BQ_NOWAIT:
         		rc = acq400_bq_open(inode, file, BQ_MIN_BACKLOG);

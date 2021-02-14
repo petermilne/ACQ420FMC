@@ -1130,81 +1130,10 @@ int acq420_open_sideported(struct inode *inode, struct file *file)
 
 
 
-int streamdac_data_loop(void *data)
-{
-	struct acq400_dev *adev = (struct acq400_dev *)data;
-	int rc = 0;
-	struct HBM* hbm_full;
-
-	dev_info(DEVP(adev), "streamdac_data_loop 01");
-
-	while(1){
-		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
-		if (wait_event_interruptible(
-				adev->w_waitq,
-				!list_empty(&adev->REFILLS) ||
-				adev->rt.please_stop)){
-			rc = -EINTR;
-			goto quit;
-		}
-		if (adev->rt.please_stop || kthread_should_stop()){
-			goto quit;
-		}
-
-		/** @@todo : FIFO filling happens here */
-		hbm_full = ao_getFull(adev);
-
-		dev_dbg(DEVP(adev), "streamdac_data_loop() after ao_getFull(), hbm:%p", hbm_full);
-		if (hbm_full == 0){
-			goto quit;
-		}
-		dev_dbg(DEVP(adev), "streamdac_data_loop() ao_putEmpty %p", hbm_full);
-		ao_putEmpty(adev, hbm_full);
-
-		dev_dbg(DEVP(adev), "streamdac_data_loop() after ao_putEmpty(), hbm:%p", hbm_full);
-		wake_up_interruptible(&adev->w_waitq);
-	}
-quit:
-	dev_info(DEVP(adev), "streamdac_data_loop 99");
-	move_list_to_empty(adev, &adev->REFILLS);
-	move_list_to_empty(adev, &adev->INFLIGHT);
-	return rc;
-}
-int acq400_streamdac_open(struct inode *inode, struct file *file)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-
-	adev->w_task = kthread_run(
-		streamdac_data_loop, adev, "%s.dac", adev->dev_name);
-	return 0;
-}
 
 
 
 
-int acq400_streamdac_release(struct inode *inode, struct file *file)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	dev_info(DEVP(adev), "acq400_streamdac_release()");
-	adev->rt.please_stop = 1;
-	wake_up_interruptible(&adev->w_waitq);
-	return acq400_release(inode, file);
-}
-
-
-int acq400_open_streamdac(struct inode *inode, struct file *file)
-{
-	static struct file_operations acq400_fops_streamdac = {
-			.open = acq400_streamdac_open,
-			.release = acq400_streamdac_release,
-	};
-	file->f_op = &acq400_fops_streamdac;
-	if (file->f_op->open){
-		return file->f_op->open(inode, file);
-	}else{
-		return 0;
-	}
-}
 
 
 int acq400_init_descriptor(struct acq400_path_descriptor** pd)
@@ -1247,9 +1176,7 @@ int acq400_open(struct inode *inode, struct file *file)
 	case ACQ420_MINOR_0:
 		rc = acq400_open_main(inode, file);
 		break;
-	case ACQ400_MINOR_STREAMDAC:
-		rc = acq400_open_streamdac(inode, file);
-		break;
+
 	default:
 		rc = acq400_open_ui(inode, file);
 	}
@@ -2733,6 +2660,7 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 			SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
 		}
 	        INIT_LIST_HEAD(&sc_dev->bqw.bq_clients);
+	        init_waitqueue_head(&sc_dev->stream_dac.sd_waitq);
 	        mutex_init(&sc_dev->bqw.bq_clients_mutex);
 		mutex_init(&sc_dev->sewFifo[0].sf_mutex);
 		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
