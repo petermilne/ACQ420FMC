@@ -911,11 +911,11 @@ int acq400_event_open(struct inode *inode, struct file *file)
 			ADC_INT_CSR_COS_EN_ALL;
 
 	PD(file)->samples_at_event = adev->rt.samples_at_event;
-	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -ERESTARTSYS;
 	}else{
 		++adev->event_client_count;
-		mutex_unlock(&adev->bq_clients_mutex);
+		mutex_unlock(&adev->mutex);
 	}
 	int_csr = x400_get_interrupt(adev);
 
@@ -1039,7 +1039,7 @@ int acq400_event_release(struct inode *inode, struct file *file)
 	u32 enable = IS_DIO482FMC(adev)? (DIO_INT_CSR_COS|DIO_INT_CSR_COS_EN) :
 			ADC_INT_CSR_COS_EN_ALL;
 
-	if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -ERESTARTSYS;
 	}else{
 		if (--adev->event_client_count == 0){
@@ -1048,7 +1048,7 @@ int acq400_event_release(struct inode *inode, struct file *file)
 			int_csr &= ~enable;
 			x400_set_interrupt(adev, int_csr);
 		}
-		mutex_unlock(&adev->bq_clients_mutex);
+		mutex_unlock(&adev->mutex);
 	}
 	return acq400_release(inode, file);
 }
@@ -1124,20 +1124,22 @@ int acq400_bq_release(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->bqw;
 
 	struct acq400_path_descriptor *cur;
 	int nelems = 0;
 
 
-        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+        if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
         list_del_init(&pdesc->bq_list);
         /* diagnostic */
-        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+        list_for_each_entry(cur, &bqw->bq_clients, bq_list){
                	++nelems;
         }
-        mutex_unlock(&adev->bq_clients_mutex);
+        mutex_unlock(&bqw->bq_clients_mutex);
 
         if (nelems){
         	dev_dbg(DEVP(adev), "nelems:%d", nelems);
@@ -1159,7 +1161,8 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
-
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->bqw;
 	struct acq400_path_descriptor *cur;
 	int nelems = 0;
 
@@ -1169,14 +1172,14 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
         pdesc->bq.bq_len = backlog;
         pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
 
-        if (mutex_lock_interruptible(&adev->bq_clients_mutex)) {
+        if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
 	}
-        list_add_tail(&pdesc->bq_list, &adev->bq_clients);
-        list_for_each_entry(cur, &adev->bq_clients, bq_list){
+        list_add_tail(&pdesc->bq_list, &bqw->bq_clients);
+        list_for_each_entry(cur, &bqw->bq_clients, bq_list){
         	++nelems;
         }
-        mutex_unlock(&adev->bq_clients_mutex);
+        mutex_unlock(&bqw->bq_clients_mutex);
         if (nelems > 1){
         	dev_dbg(DEVP(adev), "nelems:%d", nelems);
         }else{

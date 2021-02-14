@@ -3129,8 +3129,11 @@ static ssize_t show_bq_overruns(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int rc = sprintf(buf, "%u\n", adev->bq_overruns);
-	adev->bq_overruns = 0;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->bqw;
+
+	int rc = sprintf(buf, "%u\n", bqw->bq_overruns);
+	bqw->bq_overruns = 0;
 	return rc;
 }
 
@@ -3143,8 +3146,11 @@ static ssize_t show_bq_max(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int rc = sprintf(buf, "%u\n", adev->bq_max);
-	adev->bq_max = 0;
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->bqw;
+
+	int rc = sprintf(buf, "%u\n", bqw->bq_max);
+	bqw->bq_max = 0;
 	return rc;
 }
 

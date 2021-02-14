@@ -626,7 +626,7 @@ int _onStart(struct acq400_dev *adev)
 	if (mutex_lock_interruptible(&adev->mutex)) {
 		return -EINTR;
 	}
-	adev->oneshot = 0;
+
 	adev->stats.shot++;
 	adev->stats.run = 1;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
@@ -738,29 +738,31 @@ int acq2006_continuous_start(struct inode *inode, struct file *file)
 
 void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 {
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct BQ_Wrapper* bqw = &sc_dev->bqw;
 	struct acq400_path_descriptor *cur;
 	struct acq400_path_descriptor *tmp;
 	int ix = hbm->ix;
 	int nelems = 0;
 	int th = nbuffers - 2;
 
-	mutex_lock(&adev->bq_clients_mutex);
+	mutex_lock(&sc_dev->bqw.bq_clients_mutex);
 
 	/* _safe should not be needed since we're mutexed, but .. */
-	list_for_each_entry_safe(cur, tmp, &adev->bq_clients, bq_list){
+	list_for_each_entry_safe(cur, tmp, &bqw->bq_clients, bq_list){
 		struct BQ* bq = &cur->bq;
 		int nq = CIRC_CNT(bq->head, bq->tail, bq->bq_len);
 		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len) < 1 || nq > th){
 			bq->head = bq->tail = 0;
-			++adev->bq_overruns;
+			++bqw->bq_overruns;
 		}
 		bq->buf[bq->head] = ix;
 		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
 		wake_up_interruptible(&cur->waitq);
 		++nelems;
-		if (nq > adev->bq_max) adev->bq_max = nq;
+		if (nq > bqw->bq_max) bqw->bq_max = nq;
 	}
-	mutex_unlock(&adev->bq_clients_mutex);
+	mutex_unlock(&bqw->bq_clients_mutex);
 	dev_dbg(DEVP(adev), "acq400_bq_notify() nelems:%d", nelems);
 }
 
@@ -1193,6 +1195,7 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 int acq400_open_streamdac(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_streamdac = {
+			.open = acq400_streamdac_open,
 			.release = acq400_streamdac_release,
 	};
 	file->f_op = &acq400_fops_streamdac;
@@ -2690,15 +2693,12 @@ static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
         INIT_LIST_HEAD(&adev->STASH);
         INIT_LIST_HEAD(&adev->GRESV);
         mutex_init(&adev->list_mutex);
-        INIT_LIST_HEAD(&adev->bq_clients);
-        mutex_init(&adev->bq_clients_mutex);
+
         init_waitqueue_head(&adev->w_waitq);
         init_waitqueue_head(&adev->event_waitq);
         adev->onStart = acqXXX_onStartNOP;
         adev->onStop = acqXXX_onStopNOP;
         adev->clkdiv_mask = ADC_CLK_DIV_MASK;
-
-
 
         return adev;
 }
@@ -2732,6 +2732,8 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 		}else{
 			SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
 		}
+	        INIT_LIST_HEAD(&sc_dev->bqw.bq_clients);
+	        mutex_init(&sc_dev->bqw.bq_clients_mutex);
 		mutex_init(&sc_dev->sewFifo[0].sf_mutex);
 		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
 	}else if (IS_ACQ480(adev)){

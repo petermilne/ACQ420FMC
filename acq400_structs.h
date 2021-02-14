@@ -133,10 +133,6 @@ struct acq400_dev {
 
 	wait_queue_head_t event_waitq;
 
-
-	/* fake event isr @@removeme */
-	struct timer_list event_timer;
-
 	/* Current DMA buffer information */
 	/*dma_addr_t buffer_d_addr;
 	void *buffer_v_addr;*/
@@ -155,8 +151,6 @@ struct acq400_dev {
 	struct STATS stats;
 
 	int ramp_en;
-
-
 	int data32;
 	int adc_18b;			/* @@todo set on probe() */
 	int nchan_enabled;		/* @@todo crude, assumes 1..N */
@@ -188,7 +182,6 @@ struct acq400_dev {
 	int axi_buffers_after_event;	/* run on this long if set */
 	int sod_mode;			/* Sample On Demand: no trigger */
 
-	int oneshot;
 	struct proc_dir_entry *proc_entry;
 	struct CURSOR {
 		struct HBM** hb;
@@ -208,15 +201,10 @@ struct acq400_dev {
 	void (*onPutEmpty)(struct acq400_dev *adev, struct HBM* hb);
 	int (*isFifoError)(struct acq400_dev *adev);
 
-
-
-	/* bq Buffer Queue support */
-	struct mutex bq_clients_mutex;
-	struct list_head bq_clients;
 	int event_client_count;
 
-	int bq_overruns;
-	int bq_max;
+
+
 	pid_t continuous_reader;
 
 	unsigned clkdiv_mask;
@@ -257,6 +245,15 @@ struct acq400_sc_dev {
 	struct acq400_dev adev;
 	struct acq400_dev* aggregator_set[MAXDEVICES];
 	struct acq400_dev* distributor_set[MAXDEVICES];
+
+	struct BQ_Wrapper {
+	/* bq Buffer Queue support */
+		struct mutex bq_clients_mutex;
+		struct list_head bq_clients;
+		int bq_overruns;
+		int bq_max;
+	} bqw;
+
 	struct SewFifo {
 		struct mutex sf_mutex;
 		struct circ_buf sf_buf;
