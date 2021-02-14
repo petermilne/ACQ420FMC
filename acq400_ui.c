@@ -448,7 +448,7 @@ struct GPG_buffer* get_gpg(struct acq400_dev* adev, int gpg32)
 	}
 }
 
-#define GPG32(file) (PD(file)->minor == ACQ420_MINOR_GPGMEM32)
+#define GPG32(file) (PD(file)->minor == ACQ400_MINOR_GPGMEM32)
 
 int acq400_gpgmem_open(struct inode *inode, struct file *file)
 {
@@ -689,7 +689,7 @@ ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t 
         loff_t *f_pos)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	int ix = PD(file)->minor - ACQ400_MINOR_SEW1_FIFO;
 
 	int rc = acq400_sew_fifo_write_bytes(adev, ix, buf, count);
 
@@ -701,7 +701,7 @@ ssize_t acq420_sew_fifo_write(struct file *file, const char __user *buf, size_t 
 int acq420_sew_fifo_release(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	int ix = PD(file)->minor - ACQ400_MINOR_SEW1_FIFO;
 	return acq400_sew_fifo_destroy(adev, ix);
 }
 
@@ -713,7 +713,7 @@ int acq420_sew_fifo_open(struct inode *inode, struct file *file)
 	};
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	int ix = PD(file)->minor - ACQ420_MINOR_SEW1_FIFO;
+	int ix = PD(file)->minor - ACQ400_MINOR_SEW1_FIFO;
 	int busy;
 
 	if (mutex_lock_interruptible(&adev->awg_mutex)) {
@@ -1199,7 +1199,7 @@ int acq400_open_ui(struct inode *inode, struct file *file)
 
         dev_dbg(DEVP(adev), "hello: minor:%d\n", minor);
 
-        if (minor >= ACQ420_MINOR_BUF && minor <= ACQ420_MINOR_BUF2){
+        if (minor >= ACQ400_MINOR_BUF && minor <= ACQ400_MINOR_BUF2){
         	rc = acq400_open_hb(inode, file);
         } else if (minor >= ACQ420_MINOR_CHAN && minor <= ACQ420_MINOR_CHAN2){
         	rc = -ENODEV;  	// @@todo maybe later0
@@ -1208,10 +1208,10 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case ACQ420_MINOR_HISTO:
         		rc = acq400_open_histo(inode, file);
         		break;
-        	case ACQ420_MINOR_HB0:
+        	case ACQ400_MINOR_HB0:
         		rc = acq420_open_hb0(inode, file);
         		break;
-        	case ACQ420_MINOR_EVENT:
+        	case ACQ400_MINOR_EVENT:
         		rc = acq400_open_event(inode, file);
         		break;
         	case ACQ400_MINOR_BQ_NOWAIT:
@@ -1220,11 +1220,11 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case ACQ400_MINOR_BQ_FULL:
         		rc = acq400_bq_open(inode, file, BQ_MAX_BACKLOG);
         		break;
-        	case ACQ420_MINOR_GPGMEM:
-        	case ACQ420_MINOR_GPGMEM32:
+        	case ACQ400_MINOR_GPGMEM:
+        	case ACQ400_MINOR_GPGMEM32:
         		rc = acq420_open_gpgmem(inode, file);
         		break;
-        	case ACQ420_MINOR_BOLO_AWG:
+        	case ACQ400_MINOR_BOLO_AWG:
         		rc = bolo_open_awg(inode, file);
         		break;
         	case AO420_MINOR_HB0_AWG_ONCE:
@@ -1232,14 +1232,14 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case AO420_MINOR_HB0_AWG_ONCE_RETRIG:
         		rc = xo400_open_awg(inode, file);
         		break;
-        	case ACQ420_MINOR_RESERVE_BLOCKS:
+        	case ACQ400_MINOR_RESERVE_BLOCKS:
         		rc = acq420_reserve_open(inode, file);
         		break;
         	case ACQ400_MINOR_RSV_DIST:
         		rc = acq420_reserve_dist_open(inode, file);
         		break;
-        	case ACQ420_MINOR_SEW1_FIFO:
-        	case ACQ420_MINOR_SEW2_FIFO:
+        	case ACQ400_MINOR_SEW1_FIFO:
+        	case ACQ400_MINOR_SEW2_FIFO:
         		rc = acq420_sew_fifo_open(inode, file);
         		break;
         	case ACQ400_MINOR_ATD:

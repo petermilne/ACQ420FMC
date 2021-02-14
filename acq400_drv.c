@@ -1293,7 +1293,7 @@ int acq400_open(struct inode *inode, struct file *file)
 	case ACQ420_MINOR_0:
 		rc = acq400_open_main(inode, file);
 		break;
-	case ACQ420_MINOR_STREAMDAC:
+	case ACQ400_MINOR_STREAMDAC:
 		rc = acq400_open_streamdac(inode, file);
 		break;
 	default:
