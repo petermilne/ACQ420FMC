@@ -202,11 +202,6 @@ struct acq400_dev {
 
 	struct RUN_TIME rt;
 
-
-
-	struct CURSOR stream_dac_producer;	/* acq400_streamdac_write */
-	struct CURSOR stream_dac_consumer;	/* ao420_isr 		  */
-
 	u32 (*get_fifo_samples)(struct acq400_dev *adev);
 	void (*onStart)(struct acq400_dev *adev);
 	void (*onStop)(struct acq400_dev *adev);

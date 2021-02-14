@@ -629,7 +629,6 @@ int _onStart(struct acq400_dev *adev)
 	adev->oneshot = 0;
 	adev->stats.shot++;
 	adev->stats.run = 1;
-	adev->cursor.offset = 0;
 	memset(&adev->rt, 0, sizeof(struct RUN_TIME));
 	acq400_clear_histo(adev);
 	mutex_unlock(&adev->mutex);
@@ -1172,57 +1171,13 @@ quit:
 int acq400_streamdac_open(struct inode *inode, struct file *file)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
-	adev->stream_dac_consumer.hb = 0;
-	adev->stream_dac_consumer.offset = 0;
+
 	adev->w_task = kthread_run(
 		streamdac_data_loop, adev, "%s.dac", adev->dev_name);
 	return 0;
 }
 
 
-ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t count,
-        loff_t *f_pos)
-{
-	struct acq400_dev* adev = ACQ400_DEV(file);
-	int len = adev->bufferlen;
-	char* va;
-	int headroom;
-
-	dev_dbg(DEVP(adev), "write 01");
-
-	if (!adev->stream_dac_producer.hb){
-		while((adev->stream_dac_producer.hb[0] = ao_getEmpty(adev)) == 0){
-			dev_dbg(DEVP(adev), "ao_getEmpty() fail");
-			if (wait_event_interruptible(
-				adev->w_waitq,
-				!list_empty(&adev->EMPTIES)) ){
-				return -EINTR;
-			}
-		}
-		adev->stream_dac_producer.offset = 0;
-	}
-	va = (char*)adev->stream_dac_producer.hb[0]->va;
-	headroom = len - adev->stream_dac_producer.offset;
-	if (count > headroom){
-		count = headroom;
-	}
-
-	dev_dbg(DEVP(adev), "write copy %d", count);
-
-	if(copy_from_user(va+adev->stream_dac_producer.offset, buf, count)){
-		return -1;
-	}
-	adev->stream_dac_producer.offset += count;
-	if (adev->stream_dac_producer.offset >= len){
-		dev_dbg(DEVP(adev), "putFull %p", adev->stream_dac_producer.hb);
-		ao_putFull(adev, adev->stream_dac_producer.hb[0]);
-		adev->stream_dac_producer.hb = 0;
-	}
-
-	*f_pos += count;
-	dev_dbg(DEVP(adev), "write 99 return %d", count);
-	return count;
-}
 
 
 int acq400_streamdac_release(struct inode *inode, struct file *file)
@@ -1231,8 +1186,6 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 	dev_info(DEVP(adev), "acq400_streamdac_release()");
 	adev->rt.please_stop = 1;
 	wake_up_interruptible(&adev->w_waitq);
-	move_list_to_empty(adev, &adev->REFILLS);
-	move_list_to_empty(adev, &adev->INFLIGHT);
 	return acq400_release(inode, file);
 }
 
@@ -1240,8 +1193,6 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 int acq400_open_streamdac(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_streamdac = {
-			.open = acq400_streamdac_open,
-			.write = acq400_streamdac_write,
 			.release = acq400_streamdac_release,
 	};
 	file->f_op = &acq400_fops_streamdac;
