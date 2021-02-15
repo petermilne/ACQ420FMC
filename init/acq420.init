@@ -109,6 +109,7 @@ build_nodes() {
 			mknod /dev/${NAME}.cs 		c ${MAJOR} 4
 			if [ $ID -eq 0 ]; then
 				mknod /dev/${NAME}.gpg	c ${MAJOR}  5
+				mknod /dev/${NAME}.dac c  ${MAJOR} 7
 				mknod /dev/${NAME}.rsv  c ${MAJOR} 11
 				mknod /dev/${NAME}.rsvd c ${MAJOR} 18
 				mknod /dev/${NAME}.bq   c ${MAJOR} 15	
@@ -122,8 +123,7 @@ build_nodes() {
 			build_hb ${MAJOR} ${NAME}
 			
 			case $(cat /dev/acq400.$ID.knobs/module_type) in			
-			40|41)							
-				mknod /dev/${NAME}.dac c  ${MAJOR} 7
+			40|41)											
 				mknod /dev/${NAME}.awg c  ${MAJOR} 9
 				mknod /dev/${NAME}.awgc c ${MAJOR} 10
 				mknod /dev/${NAME}.awgr c ${MAJOR} 14;;
