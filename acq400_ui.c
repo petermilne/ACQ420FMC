@@ -1088,8 +1088,8 @@ ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
 		return -EINTR;
 	}
 
-	bc = snprintf(lbuf, 32, "%03d\n", bq->buf[bq->tail]);
-	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+
+	bc = snprintf(lbuf, 32, "%03d\n", BQ_get(bq));
 
 	if (bc > count){
 		return -ENOSPC;
@@ -1108,11 +1108,11 @@ static unsigned int acq400_bq_poll(
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct BQ* bq = &pdesc->bq;
 
-	if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+	if (BQ_space(bq)){
 		return POLLIN|POLLRDNORM;
 	}else{
 		poll_wait(file, &pdesc->waitq, poll_table);
-		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len)){
+		if (BQ_space(bq)){
 			return POLLIN|POLLRDNORM;
 		}else{
 			return 0;
@@ -1123,8 +1123,7 @@ static unsigned int acq400_bq_poll(
 static int bqw_init(struct acq400_path_descriptor* pdesc, struct BQ_Wrapper* bqw, int backlog)
 {
         INIT_LIST_HEAD(&pdesc->bq_list);
-        pdesc->bq.bq_len = backlog;
-        pdesc->bq.buf = kzalloc(pdesc->bq.bq_len*sizeof(unsigned), GFP_KERNEL);
+        BQ_init(&pdesc->bq, backlog);
 
         if (mutex_lock_interruptible(&bqw->bq_clients_mutex)) {
 	       return -ERESTARTSYS;
@@ -1197,21 +1196,17 @@ int streamdac_data_loop(void *data)
 		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
 		if (wait_event_interruptible(
 				sc_dev->stream_dac.sd_waitq,
-				CIRC_CNT(bq_in->head, bq_in->tail, bq_in->bq_len)>1 || kthread_should_stop())){
+				BQ_count(bq_in)>1 || kthread_should_stop())){
 			dev_err(DEVP(adev), "streamdac_data_loop %d", __LINE__);
 			rc = -EINTR;
 			goto quit;
 		}
 		if (!kthread_should_stop()){
-			id = bq_in->buf[bq_in->tail];
-			smp_store_release(&bq_in->tail, (bq_in->tail+1)&(bq_in->bq_len-1));
+			id = BQ_get(bq_in);
 
 			msleep(100);   /* @@todo pass a, b to DMAC */
 
-
-			bq_bk->buf[bq_bk->head] = id;
-			smp_store_release(&bq_bk->head, (bq_bk->head + 1) & (bq_bk->bq_len-1));
-
+			BQ_put(bq_bk, id);
 			wake_up_interruptible(&pdesc->waitq);
 		}
 	}
@@ -1261,15 +1256,13 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 			return -EINTR;
 		}
 		for (ii = 0; ii < 2; ++ii){
-			unsigned long head = bq->head;
 			rc = copy_from_user(&id, buf+cursor, sizeof(int));
 			if (rc){
 				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 				return -rc;
 			}else{
 				dev_dbg(DEVP(adev), "%s %d store id:%d", __FUNCTION__, __LINE__, id);
-				bq->buf[bq->head] = id;
-				smp_store_release(&bq->head, (head + 1) & (bq->bq_len-1));
+				BQ_put(bq, id);
 				cursor += sizeof(int);
 				rem -= sizeof(int);
 			}
@@ -1288,6 +1281,7 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct BQ* bq = &pdesc->bq;
+	unsigned tmp;
 	int bc = 0;
 	int rc;
 
@@ -1313,15 +1307,15 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 
 		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, bq->tail, bq->buf[bq->tail]);
 
-		rc = copy_to_user(buf+bc, &bq->buf[bq->tail], sizeof(int));
+		tmp = BQ_get(bq);
+		rc = copy_to_user(buf+bc, &tmp, sizeof(int));
 		bc += sizeof(int);
-		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
 
 		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, bq->tail, bq->buf[bq->tail]);
 
-		rc = copy_to_user(buf+bc, &bq->buf[bq->tail], sizeof(int));
+		tmp = BQ_get(bq);
+		rc = copy_to_user(buf+bc, &tmp, sizeof(int));
 		bc += sizeof(int);
-		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
 
 		if (rc){
 			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
@@ -1352,8 +1346,8 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 
 	bqw_init(pdesc, bqw, AWG_BACKLOG);
 	for (ib = 0; ib < AWG_BACKLOG-1; ++ib){
-		bq->buf[bq->head] = (0xbb<<16)|ib;
-		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
+		BQ_put(bq, ib);
+
 		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
 					ib, CIRC_CNT(bq->head, bq->tail, bq->bq_len));
 	}

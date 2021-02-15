@@ -241,6 +241,33 @@ struct BQ {
 	int bq_len;
 };
 
+static inline void BQ_init(struct BQ* bq, int len)
+{
+        bq->bq_len = len;
+        bq->buf = kzalloc(len*sizeof(unsigned), GFP_KERNEL);
+}
+static inline unsigned BQ_get(struct BQ* bq)
+{
+	unsigned item = bq->buf[bq->tail];
+	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+	return item;
+}
+static inline void BQ_put(struct BQ* bq, unsigned item)
+{
+	bq->buf[bq->head] = item;
+	smp_store_release(&bq->head, (bq->head + 1) & (bq->bq_len-1));
+}
+
+static inline int BQ_space(struct BQ* bq)
+{
+	return CIRC_SPACE(bq->head, bq->tail, bq->bq_len);
+}
+
+static inline int BQ_count(struct BQ* bq)
+{
+	return CIRC_CNT(bq->head, bq->tail, bq->bq_len);
+}
+
 struct GPG_buffer {
 	unsigned *gpg_buffer;
 	unsigned *gpg_base;

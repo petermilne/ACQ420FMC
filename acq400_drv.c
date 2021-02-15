@@ -752,12 +752,12 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	list_for_each_entry_safe(cur, tmp, &bqw->bq_clients, bq_list){
 		struct BQ* bq = &cur->bq;
 		int nq = CIRC_CNT(bq->head, bq->tail, bq->bq_len);
-		if (CIRC_SPACE(bq->head, bq->tail, bq->bq_len) < 1 || nq > th){
+		if (BQ_space(bq) < 1 || nq > th){
 			bq->head = bq->tail = 0;
 			++bqw->bq_overruns;
 		}
-		bq->buf[bq->head] = ix;
-		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
+		BQ_put(bq, ix);
+
 		wake_up_interruptible(&cur->waitq);
 		++nelems;
 		if (nq > bqw->bq_max) bqw->bq_max = nq;
@@ -1139,7 +1139,6 @@ int acq420_open_sideported(struct inode *inode, struct file *file)
 int acq400_init_descriptor(struct acq400_path_descriptor** pd)
 {
 	struct acq400_path_descriptor* pdesc = kzalloc(PDSZ, GFP_KERNEL);
-	INIT_LIST_HEAD(&pdesc->bq_list);
 	init_waitqueue_head(&pdesc->waitq);
 
 	*pd = pdesc;
@@ -2666,8 +2665,7 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
 
 	        INIT_LIST_HEAD(&sc_dev->stream_dac.sd_bqw.bq_clients);
-	        sc_dev->stream_dac.refills.bq_len = AWG_BACKLOG;
-	        sc_dev->stream_dac.refills.buf = kzalloc(AWG_BACKLOG*sizeof(unsigned), GFP_KERNEL);
+	        BQ_init(&sc_dev->stream_dac.refills, AWG_BACKLOG);
 	        init_waitqueue_head(&sc_dev->stream_dac.sd_waitq);
 
 	}else if (IS_ACQ480(adev)){
