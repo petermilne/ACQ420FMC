@@ -1190,6 +1190,7 @@ int streamdac_data_loop(void *data)
 	int id;
 
 	dev_info(DEVP(adev), "streamdac_data_loop 01");
+	go_rt(MAX_RT_PRIO-4);
 
 	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
 	for (ab = 0; !kthread_should_stop(); ab = !ab){

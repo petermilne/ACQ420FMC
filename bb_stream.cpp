@@ -13,6 +13,12 @@ inline int inc(int cursor, int max)
 	}
 }
 
+
+void read_buffers(unsigned descriptors[], int ndesc)
+/* fake it */
+{
+	usleep(100000);
+}
 int main(int argc, char* argv[]) {
 	unsigned descriptors[128];
 
@@ -27,6 +33,8 @@ int main(int argc, char* argv[]) {
 	int put = 0;
 	int get = 0;
 	while(1){
+		read_buffers(descriptors+get, 2);
+
 		int nw = fwrite(descriptors+get, sizeof(unsigned), 2, fp);
 		if (nw == 2){
 			printf("wr %08x %08x\n", descriptors[get], descriptors[get+1]);
@@ -35,7 +43,7 @@ int main(int argc, char* argv[]) {
 		}
 		get = inc(get, nbuf);
 		get = inc(get, nbuf);
-		usleep(100000);
+
 		int nr = fread(descriptors+put, sizeof(unsigned), 2, fp);
 		if (nr == 2){
 			printf("rd %08x %08x\n", descriptors[put], descriptors[put+1]);
