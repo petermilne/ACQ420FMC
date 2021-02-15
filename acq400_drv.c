@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.575"
+#define REVID 			"3.582"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2660,10 +2660,16 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 			SPECIALIZE(sc_dev, adev, struct acq400_sc_dev, "SC");
 		}
 	        INIT_LIST_HEAD(&sc_dev->bqw.bq_clients);
-	        init_waitqueue_head(&sc_dev->stream_dac.sd_waitq);
 	        mutex_init(&sc_dev->bqw.bq_clients_mutex);
+
 		mutex_init(&sc_dev->sewFifo[0].sf_mutex);
 		mutex_init(&sc_dev->sewFifo[1].sf_mutex);
+
+	        INIT_LIST_HEAD(&sc_dev->stream_dac.sd_bqw.bq_clients);
+	        sc_dev->stream_dac.refills.bq_len = AWG_BACKLOG;
+	        sc_dev->stream_dac.refills.buf = kzalloc(AWG_BACKLOG*sizeof(unsigned), GFP_KERNEL);
+	        init_waitqueue_head(&sc_dev->stream_dac.sd_waitq);
+
 	}else if (IS_ACQ480(adev)){
 		struct ACQ480_dev *a480_dev;
 		SPECIALIZE(a480_dev, adev, struct ACQ480_dev, "ACQ480");

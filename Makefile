@@ -80,7 +80,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dump_regs \
 	soft_atd \
 	wr_reset wrtd wrtt_mon multicast \
-	mr_offload trigger_at
+	mr_offload trigger_at bb_stream
 	
 # data_sink	
 # dropped
@@ -178,6 +178,9 @@ acq400_stream: acq400_stream.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
 bb: bb.o tcp_server.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
+
+bb_stream: bb_stream.o tcp_server.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 
 multi_event: multi_event.o

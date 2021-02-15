@@ -1193,33 +1193,30 @@ int streamdac_data_loop(void *data)
 	dev_info(DEVP(adev), "streamdac_data_loop 01");
 
 	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
-	for (ab = 0; kthread_should_stop(); ab = !ab){
+	for (ab = 0; !kthread_should_stop(); ab = !ab){
 		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
 		if (wait_event_interruptible(
 				sc_dev->stream_dac.sd_waitq,
-				CIRC_CNT(bq_in->head, bq_in->tail, bq_in->bq_len)>1 ||
-				adev->rt.please_stop)){
+				CIRC_CNT(bq_in->head, bq_in->tail, bq_in->bq_len)>1 || kthread_should_stop())){
+			dev_err(DEVP(adev), "streamdac_data_loop %d", __LINE__);
 			rc = -EINTR;
 			goto quit;
 		}
-		if (adev->rt.please_stop || kthread_should_stop()){
-			goto quit;
+		if (!kthread_should_stop()){
+			id = bq_in->buf[bq_in->tail];
+			smp_store_release(&bq_in->tail, (bq_in->tail+1)&(bq_in->bq_len-1));
+
+			msleep(100);   /* @@todo pass a, b to DMAC */
+
+
+			bq_bk->buf[bq_bk->head] = id;
+			smp_store_release(&bq_bk->head, (bq_bk->head + 1) & (bq_bk->bq_len-1));
+
+			wake_up_interruptible(&pdesc->waitq);
 		}
-		id = bq_in->buf[bq_in->tail];
-		smp_store_release(&bq_in->tail, (bq_in->tail+1)&(bq_in->bq_len-1));
-
-		msleep(100);   /* @@todo pass a, b to DMAC */
-
-
-		bq_bk->buf[bq_bk->head] = id;
-		smp_store_release(&bq_bk->head, (bq_bk->head + 1) & (bq_bk->bq_len-1));
-
-		wake_up_interruptible(&pdesc->waitq);
 	}
 quit:
 	dev_info(DEVP(adev), "streamdac_data_loop 99");
-	move_list_to_empty(adev, &adev->REFILLS);
-	move_list_to_empty(adev, &adev->INFLIGHT);
 	return rc;
 }
 
@@ -1233,7 +1230,7 @@ quit:
  */
 
 
-#define AWG_BACKLOG	64			// @@todo
+
 
 
 ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t count,
@@ -1250,6 +1247,8 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 	size_t rem = count;
 	ssize_t rc;
 
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+
 	if (count < 2*sizeof(int)){
 		return -EINVAL;
 	}
@@ -1258,14 +1257,18 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 		if (wait_event_interruptible(
 			pdesc->waitq,
 			CIRC_SPACE(bq->head, bq->tail, bq->bq_len) > 3)){
+			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -EINTR;
 		}
 		for (ii = 0; ii < 2; ++ii){
 			unsigned long head = bq->head;
 			rc = copy_from_user(&id, buf+cursor, sizeof(int));
 			if (rc){
+				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 				return -rc;
 			}else{
+				dev_dbg(DEVP(adev), "%s %d store id:%d", __FUNCTION__, __LINE__, id);
+				bq->buf[bq->head] = id;
 				smp_store_release(&bq->head, (head + 1) & (bq->bq_len-1));
 				cursor += sizeof(int);
 				rem -= sizeof(int);
@@ -1273,6 +1276,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 			wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
 		}
 	}
+	dev_dbg(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, count-rem);
 
 	return count-rem;
 }
@@ -1287,31 +1291,44 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 	int bc = 0;
 	int rc;
 
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+
 	if (count < 2*sizeof(int)){
+		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 		return -EINVAL;
 	}
 
-	for (; count >=  2*sizeof(int); count += 4*sizeof(int)){
-		dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
+	for (; count >=  2*sizeof(int); count -= 2*sizeof(int)){
+		dev_dbg(DEVP(adev), "wait_event_interruptible(%p) bc:%d count:%d",
+				&pdesc->waitq, bc, count);
+
 		if (bc > 0 && CIRC_CNT(bq->head, bq->tail, bq->bq_len) <= 1){
 			break;
 		}else if (wait_event_interruptible(
 			pdesc->waitq,
 			CIRC_CNT(bq->head, bq->tail, bq->bq_len) > 1)){
+			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -EINTR;
 		}
 
-		rc = copy_to_user(buf, &bq->buf[bq->tail], sizeof(int));
+		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, bq->tail, bq->buf[bq->tail]);
+
+		rc = copy_to_user(buf+bc, &bq->buf[bq->tail], sizeof(int));
 		bc += sizeof(int);
 		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
-		rc = copy_to_user(buf, &bq->buf[bq->tail], sizeof(int));
+
+		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, bq->tail, bq->buf[bq->tail]);
+
+		rc = copy_to_user(buf+bc, &bq->buf[bq->tail], sizeof(int));
 		bc += sizeof(int);
 		smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
 
 		if (rc){
+			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -rc;
 		}
 	}
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 	return bc;
 }
 
@@ -1326,18 +1343,26 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	struct BQ* bq = &pdesc->bq;
 	int ib = 0;		// @@todo probably not zero ..
 
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+
 	if (!list_empty(&bqw->bq_clients)){
+		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 		return -EBUSY;
 	}
 
 	bqw_init(pdesc, bqw, AWG_BACKLOG);
-	for (ib = 0; ib < AWG_BACKLOG; ++ib){
-		bq->buf[bq->head] = ib;
+	for (ib = 0; ib < AWG_BACKLOG-1; ++ib){
+		bq->buf[bq->head] = (0xbb<<16)|ib;
 		smp_store_release(&bq->head, (bq->head+1)&(bq->bq_len-1));
+		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
+					ib, CIRC_CNT(bq->head, bq->tail, bq->bq_len));
 	}
 
 	sc_dev->stream_dac.sd_task = kthread_run(
 		streamdac_data_loop, pdesc, "%s.dac", adev->dev_name);
+
+	dev_dbg(DEVP(adev), "%s %d bq:%d task:%p", __FUNCTION__, __LINE__,
+			CIRC_CNT(bq->head, bq->tail, bq->bq_len), sc_dev->stream_dac.sd_task);
 	return 0;
 }
 
@@ -1349,8 +1374,7 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int rc;
-	dev_info(DEVP(adev), "acq400_streamdac_release()");
-	adev->rt.please_stop = 1;
+	dev_info(DEVP(adev), "acq400_streamdac_release() %p", sc_dev->stream_dac.sd_task);
 	kthread_stop(sc_dev->stream_dac.sd_task);
 	wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
 

@@ -232,6 +232,8 @@ int dev_rc_write(struct RegCache* reg_cache, unsigned offset, unsigned value);
 	adev->reg_cache.data[(regbytes)/sizeof(unsigned)];
 
 
+#define AWG_BACKLOG	32			// @@todo
+
 struct BQ {
 	unsigned *buf;
 	int head;
