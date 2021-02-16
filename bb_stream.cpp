@@ -17,6 +17,7 @@ namespace G {
 	char* port = 0;				// 0 no server (inetd), else make a server
 	char* host = 0;
 	int verbose = 0;
+	const char *dev = "/dev/acq400.0.dac";
 };
 
 struct poptOption opt_table[] = {
@@ -27,24 +28,20 @@ struct poptOption opt_table[] = {
 	  "host", 'H', POPT_ARG_STRING, &G::host, 0, "server host 0: allow any host"
 	},
 	{
+          "dev",  'd', POPT_ARG_STRING, &G::dev, 0, "device"
+	},
+	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
-inline int inc(int cursor, int max)
-{
-	if (++cursor == max){
-		return 0;
-	}else{
-		return cursor;
-	}
-}
-
 
 int read_buffers(unsigned descriptors[], int ndesc)
 {
 	int totbytes = 0;
+
+	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 	for (int id = 0; id < ndesc; ++id){
 		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
 		int nb = fread(bp, 1, G::play_bufferlen, stdin);
@@ -55,45 +52,45 @@ int read_buffers(unsigned descriptors[], int ndesc)
 			totbytes += nb;
 		}
 	}
+	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 	return totbytes;
 }
 
 int playloop() {
-	unsigned descriptors[128];
+	unsigned descriptors[2];
 
-	FILE* fp = fopen("/dev/acq400.0.dac", "a+");
+	FILE* fp = fopen(G::dev, "a+");
 	if (fp == 0){
 		fprintf(stderr, "ERROR failed to open file\n");
 		return -1;
 	}
-	int nbuf = fread(descriptors, sizeof(unsigned), 30, fp);
-	printf("nbuf:%d\n", nbuf);
+	setvbuf(fp, NULL, _IONBF, 0);
 
-	int put = 0;
-	int get = 0;
+	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
+
 	while(1){
-		int nbytes = read_buffers(descriptors+get, 2);
+		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
+		int nr = fread(descriptors, sizeof(unsigned), 2, fp);
+		if (nr == 2){
+			printf("rd %08x %08x\n", descriptors[0], descriptors[1]);
+		}else{
+			printf("read returned %d\n", nr);
+			return -1;
+		}
+
+		int nbytes = read_buffers(descriptors, 2);
 		if (nbytes <= 0){
 			return nbytes;
 		}
 
-		int nw = fwrite(descriptors+get, sizeof(unsigned), 2, fp);
+		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
+		int nw = fwrite(descriptors, sizeof(unsigned), 2, fp);
 		if (nw == 2){
-			printf("wr %08x %08x\n", descriptors[get], descriptors[get+1]);
+			printf("wr %08x %08x\n", descriptors[0], descriptors[1]);
 		}else{
-			printf("write %d returned %d\n", get, nw);
+			printf("write returned %d\n", nw);
+			return -1;
 		}
-		get = inc(get, nbuf);
-		get = inc(get, nbuf);
-
-		int nr = fread(descriptors+put, sizeof(unsigned), 2, fp);
-		if (nr == 2){
-			printf("rd %08x %08x\n", descriptors[put], descriptors[put+1]);
-		}else{
-			printf("read %d returned %d\n", put, nr);
-		}
-		put = inc(put, nbuf);
-		put = inc(put, nbuf);
 	}
 	return 0;
 }
@@ -101,8 +98,6 @@ int playloop() {
 int playloop_redirect(FILE* fin, FILE* fout)
 {
 	close(0); dup(fileno(fin));
-//	close(1); dup(fileno(fout));
-//	close(2); dup(fileno(fout));
 	return playloop();
 }
 

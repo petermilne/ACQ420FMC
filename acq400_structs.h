@@ -739,6 +739,7 @@ extern int acq400_get_AXI_DMA_len(struct acq400_dev *adev);
 
 #define NSEC_PER_MSEC	1000000L
 
+#define XO400_PLAYCONTINUOUS  0xFFFFFFFF
 int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length);
 
 void acq400_enable_adc(struct acq400_dev* adev);
@@ -834,4 +835,7 @@ int dma_memcpy(
 	struct acq400_dev* adev, dma_addr_t dest, dma_addr_t src, size_t len);
 
 extern void acq400_dma_callback(void *param);
+extern void xo400_getDMA(struct acq400_dev* adev);
+extern int xo_data_loop(void *data);
+
 #endif /* ACQ400_STRUCTS_H_ */

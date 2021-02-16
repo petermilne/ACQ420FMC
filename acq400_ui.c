@@ -1286,7 +1286,7 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 	int bc = 0;
 	int rc;
 
-	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+	dev_dbg(DEVP(adev), "%s %d available:%d count:%d", __FUNCTION__, __LINE__, BQ_count(bq), count);
 
 	if (count < 2*sizeof(int)){
 		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
@@ -1297,11 +1297,10 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 		dev_dbg(DEVP(adev), "wait_event_interruptible(%p) bc:%d count:%d",
 				&pdesc->waitq, bc, count);
 
-		if (bc > 0 && CIRC_CNT(bq->head, bq->tail, bq->bq_len) <= 1){
+		if (bc > 0 && BQ_count(bq) <= 1){
 			break;
 		}else if (wait_event_interruptible(
-			pdesc->waitq,
-			CIRC_CNT(bq->head, bq->tail, bq->bq_len) > 1)){
+			pdesc->waitq, BQ_count(bq) > 1)){
 			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -EINTR;
 		}
@@ -1323,11 +1322,13 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 			return -rc;
 		}
 	}
-	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+	dev_dbg(DEVP(adev), "%s %d bc:%d", __FUNCTION__, __LINE__, bc);
 	return bc;
 }
 
 
+extern int distributor_first_buffer;
+extern int nbuffers;
 
 int acq400_streamdac_open(struct inode *inode, struct file *file)
 {
@@ -1337,6 +1338,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
 	struct BQ* bq = &pdesc->bq;
 	int ib = 0;		// @@todo probably not zero ..
+	int limit = min(nbuffers-1, distributor_first_buffer+AWG_BACKLOG-1);
 
 	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 
@@ -1346,15 +1348,19 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	}
 
 	bqw_init(pdesc, bqw, AWG_BACKLOG);
-	for (ib = 0; ib < AWG_BACKLOG-1; ++ib){
+	for (ib = distributor_first_buffer; ib < limit; ++ib){
 		BQ_put(bq, ib);
 
 		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
 					ib, CIRC_CNT(bq->head, bq->tail, bq->bq_len));
 	}
 
+	dev_dbg(DEVP(adev), "%s %d available:%d", __FUNCTION__, __LINE__, BQ_count(bq));
+
 	sc_dev->stream_dac.sd_task = kthread_run(
-		streamdac_data_loop, pdesc, "%s.dac", adev->dev_name);
+		MINOR(inode->i_rdev) == ACQ400_MINOR_STREAMDAC?
+				streamdac_data_loop: streamdac_data_loop_dummy,
+				pdesc, "%s.dac", adev->dev_name);
 
 	dev_dbg(DEVP(adev), "%s %d bq:%d task:%p", __FUNCTION__, __LINE__,
 			CIRC_CNT(bq->head, bq->tail, bq->bq_len), sc_dev->stream_dac.sd_task);
@@ -1429,6 +1435,7 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		rc = acq400_open_event(inode, file);
         		break;
         	case ACQ400_MINOR_STREAMDAC:
+        	case ACQ400_MINOR_STREAMDAC_DUMMY:
         		rc = acq400_open_streamdac(inode, file);
         		break;
         	case ACQ400_MINOR_BQ_NOWAIT:

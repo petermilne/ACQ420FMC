@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.582"
+#define REVID 			"3.588"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1077,6 +1077,25 @@ int acq400_release(struct inode *inode, struct file *file)
 
 
 
+void xo400_getDMA(struct acq400_dev* adev)
+{
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	if (adev->dma_chan[0] == 0 &&
+	    (xo_use_distributor || ao420_dma_threshold < xo_dev->xo.max_fifo_samples)){
+		if (get_dma_channels(adev)){
+			dev_err(DEVP(adev), "no dma chan");
+			ao420_dma_threshold = xo_dev->xo.max_fifo_samples;
+		}else{
+			if (adev->dma_chan[0] == 0){
+				dev_err(DEVP(adev), "BAD DMA CHAN!");
+			}else{
+				dev_dbg(DEVP(adev),
+					"ao420_reset_playloop() channel %d",
+					adev->dma_chan[0]->chan_id);
+			}
+		}
+	}
+}
 
 
 /* minimum PL330 size
@@ -1328,32 +1347,11 @@ static irqreturn_t xo400_dma(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void xo400_getDMA(struct acq400_dev* adev)
-{
-	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	if (adev->dma_chan[0] == 0 &&
-	    (xo_use_distributor || ao420_dma_threshold < xo_dev->xo.max_fifo_samples)){
-		if (get_dma_channels(adev)){
-			dev_err(DEVP(adev), "no dma chan");
-			ao420_dma_threshold = xo_dev->xo.max_fifo_samples;
-		}else{
-			if (adev->dma_chan[0] == 0){
-				dev_err(DEVP(adev), "BAD DMA CHAN!");
-			}else{
-				dev_dbg(DEVP(adev),
-					"ao420_reset_playloop() channel %d",
-					adev->dma_chan[0]->chan_id);
-			}
-		}
-	}
-}
 
 
 
 
 
-
-extern int xo_data_loop(void *data);
 
 void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 {
@@ -1446,8 +1444,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		msleep(100);
 	}
 
-
-	xo_dev->AO_playloop.length = playloop_length;
+	if (playloop_length != XO400_PLAYCONTINUOUS){
+		xo_dev->AO_playloop.length = playloop_length;
+	}
 
 	if (playloop_length != 0){
 		if (IS_DIO432X(adev)){
@@ -1460,10 +1459,12 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 
 		if (first_in_set){
 			xo400_getDMA(adev);
-			xo400_distributor_feeder_control(adev, 1);
-			while(!adev->task_active){
-				dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
-				msleep(100);
+			if (playloop_length != XO400_PLAYCONTINUOUS){
+				xo400_distributor_feeder_control(adev, 1);
+				while(!adev->task_active){
+					dev_dbg(DEVP(adev), "xo400_reset_playloop wait task_active -> 0 ");
+					msleep(100);
+				}
 			}
 			acq400_visit_set(sc_dev->distributor_set, adev->onStart);
 		}else if (use_frontside){

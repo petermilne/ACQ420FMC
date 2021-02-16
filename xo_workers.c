@@ -124,6 +124,60 @@ static const unsigned xflags[2] = { DMA_WAIT_EV0|DMA_SET_EV1,  DMA_WAIT_EV1|DMA_
 #define WFST xflags		/* Wait For EV, Set EV */
 
 
+#define DMA_ASYNC_PUSH(lvar, adev, chan, hbm, flags)	do {		\
+	unsigned _flags = DMA_DS0_FLAGS|(flags[chan]);			\
+	lvar = dma_async_memcpy_callback(adev->dma_chan[chan], 		\
+			FIFO_PA(adev0), hbm->pa, hbm->len, 	\
+			_flags, acq400_dma_callback, adev);		\
+	dev_dbg(DEVP(adev), "DMA_ASYNC_PUSH #%d [%d] ix:%d pa:0x%08x len:0x%08x %s",\
+		__LINE__, chan, hbm->ix, hbm->pa, hbm->len, flags2str(_flags)); \
+	} while(0)
+
+#define DMA_ASYNC_ISSUE_PENDING(chan) _dma_async_issue_pending(adev, chan, __LINE__)
+
+#define DMA_COUNT_IN do { 				\
+		++adev->stats.xo.dma_buffers_in;	\
+		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
+	} while(0)
+
+
+void xo_data_loop_stats_init(struct acq400_dev *adev)
+{
+	adev->stats.shot++;
+	adev->stats.run = 1;
+	adev->stats.xo.dma_buffers_out =
+			adev->stats.xo.dma_buffers_in = 0;
+}
+void xo_data_loop_cleanup(struct acq400_dev *adev, long dma_timeout)
+{
+	struct acq400_dev *adev0 = acq400_devices[0];
+
+	if (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
+		if (wait_event_interruptible_timeout(
+			adev->DMA_READY,
+			adev->dma_callback_done, dma_timeout) <= 0){
+			dev_err(DEVP(adev), "TIMEOUT waiting for DMA %d\n", __LINE__);
+		}
+	}
+	if (adev->dma_callback_done){
+		--adev->dma_callback_done;
+		DMA_COUNT_IN;
+	}
+	waitXoFifoEmpty(adev);
+	waitOtherSiteStop(adev);
+
+	{
+		struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
+		acq400_visit_set(sc_dev->distributor_set, adev->onStop);
+	}
+
+
+	adev->stats.completed_shot = adev->stats.shot;
+	adev->stats.run = 0;
+	adev->task_active = 0;
+}
+
+
 int xo_data_loop(void *data)
 /** xo_data_loop() : outputs using distributor and PRI on SC, but loop is
  * actually associated with the master site
@@ -164,29 +218,7 @@ int xo_data_loop(void *data)
 		dev_dbg(DEVP(adev), "ao play data buffer overspill");
 	}
 	IBRESET;
-	adev->stats.shot++;
-	adev->stats.run = 1;
-	adev->stats.xo.dma_buffers_out =
-			adev->stats.xo.dma_buffers_in = 0;
-
-
-#define DMA_ASYNC_PUSH(lvar, adev, chan, hbm, flags)	do {		\
-	unsigned _flags = DMA_DS0_FLAGS|(flags[chan]);			\
-	lvar = dma_async_memcpy_callback(adev->dma_chan[chan], 		\
-			FIFO_PA(adev0), hbm->pa, hbm->len, 	\
-			_flags, acq400_dma_callback, adev);		\
-	dev_dbg(DEVP(adev), "DMA_ASYNC_PUSH #%d [%d] ix:%d pa:0x%08x len:0x%08x %s",\
-		__LINE__, chan, hbm->ix, hbm->pa, hbm->len, flags2str(_flags)); \
-	} while(0)
-
-#define DMA_ASYNC_ISSUE_PENDING(chan) _dma_async_issue_pending(adev, chan, __LINE__)
-
-#define DMA_COUNT_IN do { 				\
-		++adev->stats.xo.dma_buffers_in;	\
-		dev_dbg(DEVP(adev), "DMA_COUNT_IN %d", adev->stats.xo.dma_buffers_in); \
-	} while(0)
-
-
+	xo_data_loop_stats_init(adev);
 
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
@@ -286,29 +318,7 @@ quit:
 			adev->stats.xo.dma_buffers_out, adev->stats.xo.dma_buffers_in,
 			xo_dev->AO_playloop.oneshot);
 
-	if (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
-		if (wait_event_interruptible_timeout(
-			adev->DMA_READY,
-			adev->dma_callback_done, dma_timeout) <= 0){
-			dev_err(DEVP(adev), "TIMEOUT waiting for DMA %d\n", __LINE__);
-		}
-	}
-	if (adev->dma_callback_done){
-		--adev->dma_callback_done;
-		DMA_COUNT_IN;
-	}
-	waitXoFifoEmpty(adev);
-	waitOtherSiteStop(adev);
-
-	{
-		struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
-		acq400_visit_set(sc_dev->distributor_set, adev->onStop);
-	}
-
-
-	adev->stats.completed_shot = adev->stats.shot;
-	adev->stats.run = 0;
-	adev->task_active = 0;
+	xo_data_loop_cleanup(adev, dma_timeout);
 
 	dev_dbg(DEVP(adev), "88 oneshot:%d", xo_dev->AO_playloop.oneshot);
 
@@ -330,45 +340,95 @@ quit:
 int streamdac_data_loop(void *data)
 {
 	struct acq400_path_descriptor* pdesc = (struct acq400_path_descriptor*)(data);
-	struct acq400_dev *adev = pdesc->dev;
-	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct acq400_dev *module = sc_dev->distributor_set[0];
-	struct XO_dev* xo_dev = container_of(module, struct XO_dev, adev);
+	struct acq400_dev *adev0 = acq400_devices[0];
+	struct acq400_sc_dev* sc_dev = container_of(adev0, struct acq400_sc_dev, adev);
+	struct acq400_dev *adev = sc_dev->distributor_set[0];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct HBM** hbm0 = adev0->hb;
+	struct HBM* hbm;
 
 	struct BQ* bq_in = &sc_dev->stream_dac.refills;
 	struct BQ* bq_bk = &pdesc->bq;
 	int rc = 0;
-	int ab = 0;
+	int ic = 0;
 	int running = 0;
-	int id;
+	int ab[2];				/* buffer num, index by ic */
+	long dma_timeout = START_TIMEOUT;
 
-	dev_info(DEVP(adev), "streamdac_data_loop 01");
+	dev_info(DEVP(adev0), "streamdac_data_loop 01");
+	xo400_reset_playloop(adev, XO400_PLAYCONTINUOUS);
+	xo400_getDMA(adev);
+
+	xo_data_loop_stats_init(adev);
+
 	go_rt(MAX_RT_PRIO-4);
 
 	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
-	for (ab = 0; !kthread_should_stop(); ab = !ab){
-		dev_dbg(DEVP(adev), "streamdac_data_loop() wait_event");
+	for (ic = 0; !kthread_should_stop(); ic = !ic){
+		dev_dbg(DEVP(adev0), "streamdac_data_loop() wait_event");
 		if (!running){
 			if (wait_event_interruptible(
 				sc_dev->stream_dac.sd_waitq,
 				BQ_count(bq_in)>1 || kthread_should_stop())){
-				dev_err(DEVP(adev), "streamdac_data_loop %d", __LINE__);
+				dev_err(DEVP(adev0), "streamdac_data_loop %d", __LINE__);
 				rc = -EINTR;
 				goto quit;
 			}
-			if (!kthread_should_stop()){
-			id = BQ_get(bq_in);
-
-			msleep(100);   /* @@todo pass a, b to DMAC */
-
-			BQ_put(bq_bk, id);
-			wake_up_interruptible(&pdesc->waitq);
+			if (kthread_should_stop()){
+				goto quit;
 			}
-			//running = 1;
+			ab[0] = BQ_get(bq_in); hbm = hbm0[ab[0]];
+			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
+
+			ab[1] = BQ_get(bq_in); hbm = hbm0[ab[1]];
+			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
+
+			DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[ab[1]], WFST);
+			DMA_ASYNC_PUSH(adev->dma_cookies[0], adev, 0, hbm0[ab[0]], STEV);
+			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[1]);
+			sc_data_engine_reset_enable(DATA_ENGINE_1);
+			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
+			running = 1;
 		}
+		if (wait_event_interruptible_timeout(
+				adev->DMA_READY,
+				adev->dma_callback_done || kthread_should_stop(),
+				dma_timeout) <= 0){
+			dev_err(DEVP(adev0), "TIMEOUT waiting for DMA %d\n", __LINE__);
+			goto quit;
+		}else if (kthread_should_stop()){
+			dev_info(DEVP(adev0), "kthread_should_stop");
+			goto quit;
+		}else{
+			if (adev->dma_callback_done){
+				--adev->dma_callback_done;
+				DMA_COUNT_IN;
+			}
+		}
+
+		if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
+			dev_err(DEVP(adev0), "dma_sync_wait TIMEOUT chan:%d timeout:%ld",
+					ic, dma_timeout);
+			goto quit;
+		}
+
+		while (BQ_count(bq_in)<=0){
+			dev_err(DEVP(adev0), "STALL waiting for DMA buffer %d\n", __LINE__);
+			msleep(10);
+		}
+
+		BQ_put(bq_bk, ab[ic]);
+		ab[ic] = BQ_get(bq_in); hbm = hbm0[ab[ic]];
+		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
+
+		DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFST);
+		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
+		wake_up_interruptible(&pdesc->waitq);
 	}
 quit:
-	dev_info(DEVP(adev), "streamdac_data_loop 99");
+	xo_data_loop_cleanup(adev, dma_timeout);
+	xo400_reset_playloop(adev, 0);
+	dev_info(DEVP(adev0), "streamdac_data_loop 99");
 	return rc;
 }
 
