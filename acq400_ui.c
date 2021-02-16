@@ -1177,8 +1177,8 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
-
-int streamdac_data_loop(void *data)
+extern int streamdac_data_loop(void *data);
+int streamdac_data_loop_dummy(void *data)
 {
 	struct acq400_path_descriptor* pdesc = (struct acq400_path_descriptor*)(data);
 	struct acq400_dev *adev = pdesc->dev;
