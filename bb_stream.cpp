@@ -3,7 +3,35 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <vector>
+#include "popt.h"
 
+using namespace std;
+
+#include "Buffer.h"
+#include "knobs.h"
+#include "tcp_server.h"
+
+namespace G {
+	unsigned play_bufferlen;		// Change bufferlen on play
+	char* port = 0;				// 0 no server (inetd), else make a server
+	char* host = 0;
+	int verbose = 0;
+};
+
+struct poptOption opt_table[] = {
+	{
+	  "port", 'p', POPT_ARG_STRING, &G::port, 0, "server port 0: no tcp server (using inetd)"
+	},
+	{
+	  "host", 'H', POPT_ARG_STRING, &G::host, 0, "server host 0: allow any host"
+	},
+	{
+	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
+	},
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
 inline int inc(int cursor, int max)
 {
 	if (++cursor == max){
@@ -14,12 +42,22 @@ inline int inc(int cursor, int max)
 }
 
 
-void read_buffers(unsigned descriptors[], int ndesc)
-/* fake it */
+int read_buffers(unsigned descriptors[], int ndesc)
 {
-	usleep(100000);
+	int totbytes = 0;
+	for (int id = 0; id < ndesc; ++id){
+		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
+		int nb = fread(bp, 1, G::play_bufferlen, stdin);
+		if (nb <= 0){
+			return 0;
+		}else{
+			totbytes += nb;
+		}
+	}
+	return totbytes;
 }
-int main(int argc, char* argv[]) {
+
+int playloop() {
 	unsigned descriptors[128];
 
 	FILE* fp = fopen("/dev/acq400.0.dac", "a+");
@@ -33,7 +71,10 @@ int main(int argc, char* argv[]) {
 	int put = 0;
 	int get = 0;
 	while(1){
-		read_buffers(descriptors+get, 2);
+		int nbytes = read_buffers(descriptors+get, 2);
+		if (nbytes <= 0){
+			return nbytes;
+		}
 
 		int nw = fwrite(descriptors+get, sizeof(unsigned), 2, fp);
 		if (nw == 2){
@@ -54,4 +95,42 @@ int main(int argc, char* argv[]) {
 		put = inc(put, nbuf);
 	}
 	return 0;
+}
+
+int playloop_redirect(FILE* fin, FILE* fout)
+{
+	close(0); dup(fileno(fin));
+	close(1); dup(fileno(fout));
+	close(2); dup(fileno(fout));
+	return playloop();
+}
+
+#define MODPRAMS "/sys/module/acq420fmc/parameters/"
+#define BUFLEN	 MODPRAMS "bufferlen"
+#define NBUF	 MODPRAMS "nbuffers"
+
+void ui(int argc, const char** argv)
+{
+	poptContext opt_context =
+			poptGetContext(argv[0], argc, argv, opt_table, 0);
+
+	int rc;
+
+	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
+		switch(rc){
+		default:
+			;
+		}
+	}
+	getKnob(-1, BUFLEN, &Buffer::bufferlen);
+	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
+}
+int main(int argc, const char* argv[]) {
+	ui(argc, argv);
+	BufferManager bm(0, 0);
+	if (G::port){
+		return tcp_server(G::host, G::port, playloop_redirect);
+	}else{
+		return playloop();
+	}
 }
