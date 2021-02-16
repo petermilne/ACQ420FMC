@@ -49,6 +49,7 @@ int read_buffers(unsigned descriptors[], int ndesc)
 		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
 		int nb = fread(bp, 1, G::play_bufferlen, stdin);
 		if (nb <= 0){
+			fprintf(stderr, "read_buffers fread returned %d\n", nb);
 			return 0;
 		}else{
 			totbytes += nb;
@@ -100,8 +101,8 @@ int playloop() {
 int playloop_redirect(FILE* fin, FILE* fout)
 {
 	close(0); dup(fileno(fin));
-	close(1); dup(fileno(fout));
-	close(2); dup(fileno(fout));
+//	close(1); dup(fileno(fout));
+//	close(2); dup(fileno(fout));
 	return playloop();
 }
 
@@ -124,10 +125,13 @@ void ui(int argc, const char** argv)
 	}
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
+	if (G::play_bufferlen == 0){
+		G::play_bufferlen = Buffer::bufferlen;
+	}
 }
 int main(int argc, const char* argv[]) {
 	ui(argc, argv);
-	BufferManager bm(0, 0);
+	BufferManager bm("/dev/acq400.0", 0);
 	if (G::port){
 		return tcp_server(G::host, G::port, playloop_redirect);
 	}else{
