@@ -152,18 +152,22 @@ void xo_data_loop_cleanup(struct acq400_dev *adev, long dma_timeout)
 {
 	struct acq400_dev *adev0 = acq400_devices[0];
 
-	if (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+
+	while (adev->stats.xo.dma_buffers_in < adev->stats.xo.dma_buffers_out){
 		if (wait_event_interruptible_timeout(
 			adev->DMA_READY,
 			adev->dma_callback_done, dma_timeout) <= 0){
 			dev_err(DEVP(adev), "TIMEOUT waiting for DMA %d\n", __LINE__);
 		}
-	}
-	if (adev->dma_callback_done){
 		--adev->dma_callback_done;
 		DMA_COUNT_IN;
+		dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 	}
+
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 	waitXoFifoEmpty(adev);
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 	waitOtherSiteStop(adev);
 
 	{
@@ -171,6 +175,7 @@ void xo_data_loop_cleanup(struct acq400_dev *adev, long dma_timeout)
 		acq400_visit_set(sc_dev->distributor_set, adev->onStop);
 	}
 
+	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 
 	adev->stats.completed_shot = adev->stats.shot;
 	adev->stats.run = 0;

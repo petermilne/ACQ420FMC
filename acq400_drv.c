@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.588"
+#define REVID 			"3.590"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1444,7 +1444,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 		msleep(100);
 	}
 
-	if (playloop_length != XO400_PLAYCONTINUOUS){
+	if (playloop_length == XO400_PLAYCONTINUOUS){
+		xo_dev->AO_playloop.oneshot = AO_continuous;
+	}else{
 		xo_dev->AO_playloop.length = playloop_length;
 	}
 

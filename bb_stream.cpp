@@ -72,7 +72,7 @@ int playloop() {
 		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 		int nr = fread(descriptors, sizeof(unsigned), 2, fp);
 		if (nr == 2){
-			printf("rd %08x %08x\n", descriptors[0], descriptors[1]);
+			if (G::verbose) printf("rd %08x %08x\n", descriptors[0], descriptors[1]);
 		}else{
 			printf("read returned %d\n", nr);
 			return -1;
@@ -86,7 +86,7 @@ int playloop() {
 		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 		int nw = fwrite(descriptors, sizeof(unsigned), 2, fp);
 		if (nw == 2){
-			printf("wr %08x %08x\n", descriptors[0], descriptors[1]);
+			if (G::verbose) printf("wr %08x %08x\n", descriptors[0], descriptors[1]);
 		}else{
 			printf("write returned %d\n", nw);
 			return -1;
@@ -123,6 +123,7 @@ void ui(int argc, const char** argv)
 	if (G::play_bufferlen == 0){
 		G::play_bufferlen = Buffer::bufferlen;
 	}
+	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen);
 }
 int main(int argc, const char* argv[]) {
 	ui(argc, argv);
