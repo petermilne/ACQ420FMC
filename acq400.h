@@ -185,7 +185,7 @@
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
 
-#define MOD_ID_TIMBUS		0x6e
+
 
 #define MOD_ID_DDS_WERA		0x70
 
@@ -197,6 +197,7 @@
 
 
 #define MOD_ID_ACQ436ELF	0x6d
+#define MOD_ID_TIMBUS		0x6e
 
 #define MOD_ID_DIO482TD_PG	0x7b
 
