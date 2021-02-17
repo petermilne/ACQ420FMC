@@ -185,6 +185,8 @@
 #define MOD_ID_DAC_CELF		0x6a
 #define MOD_ID_DIO482FMC	0x6b
 
+#define MOD_ID_TIMBUS		0x6e
+
 #define MOD_ID_DDS_WERA		0x70
 
 #define MOD_IDV_PWM		0x01
@@ -426,8 +428,10 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_ACQ430(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ430FMC)
 #define IS_ACQ436(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ436ELF)
 #define IS_ACQ437(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ437ELF)
+#define IS_TIMBUS(adev) (GET_MOD_ID(adev) == MOD_ID_TIMBUS)
+
 #define IS_ACQ43X(adev)	\
-	(IS_ACQ435(adev) || IS_ACQ430(adev) || IS_ACQ437(adev) || IS_ACQ436(adev))
+	(IS_ACQ435(adev) || IS_ACQ430(adev) || IS_ACQ437(adev) || IS_ACQ436(adev) || IS_TIMBUS(adev))
 
 #define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC)
 

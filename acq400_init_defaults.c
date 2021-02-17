@@ -520,6 +520,9 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 		adev->nchan_enabled = 24;
 		banksel = ACQ436_BANKSEL;
 		devname = "ACQ436";
+	}else if (IS_TIMBUS(adev)){
+		adev->nchan_enabled = 1;
+		devname = "TIMBUS";
 	}else{
 		adev->nchan_enabled = 32;	// 32 are you sure?.
 		devname = "ACQ435";
@@ -958,6 +961,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		case MOD_ID_ACQ435ELF:
 		case MOD_ID_ACQ436ELF:
 		case MOD_ID_ACQ437ELF:
+		case MOD_ID_TIMBUS:
 			acq43X_init_defaults(adev);
 			break;
 		case MOD_ID_AO420FMC:
