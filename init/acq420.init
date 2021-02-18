@@ -324,6 +324,18 @@ build_knobs_device() {
 	CLKDIV="noset"
 		
 	case $mtype in
+	6A)
+		fake_fmc2_leds;;
+	69|70)
+		fake_fmc2_leds
+	    ln -s /usr/local/bin/trigger_at ${ek}
+		return;;	
+	67|68|6E)
+		fake_fmc2_leds
+		return;;
+	esac
+	
+	case $mtype in
 	7|A7)
 		if [ "x$ACQ427_SITES" != "x" ]; then
 			ACQ427_SITES="${ACQ427_SITES} "	
@@ -375,7 +387,6 @@ build_knobs_device() {
 	40|42|6A)	
 		case $mtype in
 		6A)
-			fake_fmc2_leds
 			set_max_min_khz ${site} 250 10;;
 		*)
 			set_max_min_khz ${site} 1000 10;;
@@ -407,10 +418,6 @@ build_knobs_device() {
 			set_max_min_khz ${site} 1000 10;;
 		esac
 		ln -s $ULB/clocks_to_first_edge ${ek}/;;
-	67|68|69|70)
-	    ln -s /usr/local/bin/trigger_at ${ek}
-		fake_fmc2_leds
-		return;;
 	*)
 		CLKDIV=200;;
 	esac
