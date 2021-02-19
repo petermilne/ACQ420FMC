@@ -8,6 +8,7 @@
 #ifndef TCP_SERVER_H_
 #define TCP_SERVER_H_
 
+int inetd_tcp_wait(int (*interpreter)(FILE* fin, FILE* fout));
 
 int tcp_server(const char* host, const char* port,
 		int (*interpreter)(FILE* fin, FILE* fout));

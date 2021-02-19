@@ -108,7 +108,23 @@ static SOCKET build_socket(void)
         return s;
 }
 
+int inetd_tcp_wait(int (*interpreter)(FILE* fin, FILE* fout))
+{
+	struct sockaddr_in peer;
+	socklen_t peerlen = sizeof peer;
 
+	printf("accept\n");
+
+	SOCKET s1 = accept(0, (struct sockaddr *)&peer, &peerlen);
+
+	if (!isvalidsock( s1 )){
+	       perror("accept failed");
+	}
+
+	interpreter(fdopen(s1, "r"), fdopen(s1, "w"));
+	shutdown(s1, SHUT_RDWR);
+	exit(0);
+}
 
 int tcp_server(const char* host, const char* port,
 		int (*interpreter)(FILE* fin, FILE* fout))

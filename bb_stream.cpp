@@ -18,6 +18,7 @@ namespace G {
 	char* host = 0;
 	int verbose = 0;
 	const char *dev = "/dev/acq400.0.dac";
+	int inetd_tcp_wait = 0;
 };
 
 struct poptOption opt_table[] = {
@@ -26,6 +27,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "host", 'H', POPT_ARG_STRING, &G::host, 0, "server host 0: allow any host"
+	},
+	{
+	  "inetd_tcp_wait", 'T', POPT_ARG_INT, &G::inetd_tcp_wait, 0, "run from inetd stream wait"
 	},
 	{
           "dev",  'd', POPT_ARG_STRING, &G::dev, 0, "device"
@@ -98,6 +102,7 @@ int playloop() {
 int playloop_redirect(FILE* fin, FILE* fout)
 {
 	close(0); dup(fileno(fin));
+	close(1); dup(fileno(fout));
 	return playloop();
 }
 
@@ -128,7 +133,9 @@ void ui(int argc, const char** argv)
 int main(int argc, const char* argv[]) {
 	ui(argc, argv);
 	BufferManager bm("/dev/acq400.0", 0);
-	if (G::port){
+	if (G::inetd_tcp_wait){
+		return inetd_tcp_wait(playloop_redirect);
+	}else if (G::port){
 		return tcp_server(G::host, G::port, playloop_redirect);
 	}else{
 		return playloop();
