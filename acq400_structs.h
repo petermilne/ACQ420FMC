@@ -837,5 +837,8 @@ int dma_memcpy(
 extern void acq400_dma_callback(void *param);
 extern void xo400_getDMA(struct acq400_dev* adev);
 extern int xo_data_loop(void *data);
+extern int streamdac_data_loop(void *data);
+#define WORKER_DONE(pdesc)	(pdesc->client_private)
+
 
 #endif /* ACQ400_STRUCTS_H_ */

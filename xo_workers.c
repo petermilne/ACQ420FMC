@@ -341,6 +341,16 @@ quit:
 	return 0;
 }
 
+unsigned distributor_underrun(struct acq400_dev *adev0)
+{
+	unsigned dissta = acq400rd32(adev0, DISTRIBUTOR_STA);
+	if ((dissta&DISSTA_FIFO_ANYSKIP) != 0){
+		dev_err(DEVP(adev0), "AWG LOSS OF DATA DETECTED %d 0x%08x\n", __LINE__, dissta);
+		return 1;
+	}else{
+		return 0;
+	}
+}
 
 int streamdac_data_loop(void *data)
 {
@@ -359,6 +369,7 @@ int streamdac_data_loop(void *data)
 	int running = 0;
 	int ab[2];				/* buffer num, index by ic */
 	long dma_timeout = START_TIMEOUT;
+	int last_push_done = 0;
 
 	dev_info(DEVP(adev0), "streamdac_data_loop 01");
 	xo400_reset_playloop(adev, XO400_PLAYCONTINUOUS);
@@ -369,7 +380,7 @@ int streamdac_data_loop(void *data)
 	go_rt(MAX_RT_PRIO-4);
 
 	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
-	for (ic = 0; !kthread_should_stop(); ic = !ic){
+	for (ic = 0; !last_push_done; ic = !ic){
 		dev_dbg(DEVP(adev0), "streamdac_data_loop() wait_event");
 		if (!running){
 			if (wait_event_interruptible(
@@ -397,12 +408,9 @@ int streamdac_data_loop(void *data)
 		}
 		if (wait_event_interruptible_timeout(
 				adev->DMA_READY,
-				adev->dma_callback_done || kthread_should_stop(),
+				adev->dma_callback_done,
 				dma_timeout) <= 0){
 			dev_err(DEVP(adev0), "TIMEOUT waiting for DMA %d\n", __LINE__);
-			goto quit;
-		}else if (kthread_should_stop()){
-			dev_info(DEVP(adev0), "kthread_should_stop");
 			goto quit;
 		}else{
 			if (adev->dma_callback_done){
@@ -426,14 +434,22 @@ int streamdac_data_loop(void *data)
 		ab[ic] = BQ_get(bq_in); hbm = hbm0[ab[ic]];
 		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
-		DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFST);
+		if (kthread_should_stop() || distributor_underrun(adev0)){
+			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[IB], WFEV);
+			last_push_done = 1;
+		}else{
+			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFST);
+		}
 		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		wake_up_interruptible(&pdesc->waitq);
 	}
 quit:
 	xo_data_loop_cleanup(adev, dma_timeout);
 	xo400_reset_playloop(adev, 0);
-	dev_info(DEVP(adev0), "streamdac_data_loop 99");
+	WORKER_DONE(pdesc) = 1;
+	wake_up_interruptible(&pdesc->waitq);
+
+	dev_info(DEVP(adev0), "streamdac_data_loop 99 last_push_done:%d", last_push_done);
 	return rc;
 }
 

@@ -1177,7 +1177,7 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
-extern int streamdac_data_loop(void *data);
+
 int streamdac_data_loop_dummy(void *data)
 {
 	struct acq400_path_descriptor* pdesc = (struct acq400_path_descriptor*)(data);
@@ -1369,16 +1369,23 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 
 
 
+
 int acq400_streamdac_release(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int rc;
-	dev_info(DEVP(adev), "acq400_streamdac_release() %p", sc_dev->stream_dac.sd_task);
+	dev_dbg(DEVP(adev), "acq400_streamdac_release() %p", sc_dev->stream_dac.sd_task);
 	kthread_stop(sc_dev->stream_dac.sd_task);
 	wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
 
+	dev_dbg(DEVP(adev), "acq400_streamdac_release() wait WORKER_DONE");
+	if (wait_event_interruptible(pdesc->waitq, WORKER_DONE(pdesc)) > 0){
+		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+	}
+
+	dev_dbg(DEVP(adev), "acq400_streamdac_release() WORKER_DONE");
 
 	if ((rc = bqw_release(pdesc, &sc_dev->stream_dac.sd_bqw)) != 0){
 		return rc;

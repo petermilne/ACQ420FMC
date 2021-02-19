@@ -55,13 +55,21 @@ int _enable_adc_ctrl_trap = 0;
 
 int aggregator_enabled = 0;
 
+int enable_write_trap = 0;
+module_param(enable_write_trap, int, 0644);
 
 #define ADC_ENAX  (ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN)
 #define ADC_RSTX  (ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST)
 
+#define AGG_TRAP 	0
+#define ADC_CTRL_TRAP 	0
+#define DAC_TRAP 	0
+
+
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 {
-#if 0
+	int trap = 0;
+#if AGG_TRAP
 
 	int agg_trap = adev->of_prams.site==0 && offset==AGGREGATOR && (value&(AGG_SITES_MASK<<AGGREGATOR_MSHIFT))==0;
 	int trap = adc_ctrl_trap||agg_trap;
@@ -75,9 +83,10 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		}
 		dev_err(DEVP(adev), "acq400wr32()  trap clearing sites: was %08x set:%08x", agg, value);
 	}
-#else
+#endif
+#if ADC_CTRL_TRAP
 	int adc_ctrl_trap = _enable_adc_ctrl_trap && aggregator_enabled && offset==ADC_CTRL;
-	int trap = 0;
+
 
 	if (adc_ctrl_trap){
 		switch(adev->of_prams.site){
@@ -92,6 +101,24 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		}
 	}
 #endif
+#if DAC_TRAP
+#warning "DAC_TRAP ENABLED"
+	if (enable_write_trap){
+		switch(adev->of_prams.site){
+		case 0:
+			trap = offset == DATA_ENGINE_1; break;
+		case 1:
+			trap = offset == DAC_CTRL; break;
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		break;
+		}
+	}
+#endif
+
 	if (adev->RW32_debug || trap){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
 				adev->dev_virtaddr + offset, offset, value);
