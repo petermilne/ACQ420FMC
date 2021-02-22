@@ -178,7 +178,7 @@ module_param(is_acq2106B, int, 0444);
 MODULE_PARM_DESC(is_acq2106B, "boolean indicator set on load");
 
 
-int AXI_BUFFER_COUNT = 500;
+int AXI_BUFFER_COUNT = 512;
 module_param(AXI_BUFFER_COUNT, int, 0644);
 MODULE_PARM_DESC(AXI_BUFFER_COUNT, "number of buffers in AXI cycle");
 
