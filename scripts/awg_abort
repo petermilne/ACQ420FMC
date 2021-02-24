@@ -16,4 +16,5 @@ done
 if [ "$DO32" != "0" ] && [ "x$do32_knob" != "x" ]; then
 	set.sys /dev/acq400.0.knobs/distributor 0
 	set.sys $do32_knob $DO32
+	set.sys /dev/acq400.0.knobs/distributor 1
 fi
