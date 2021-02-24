@@ -1,6 +1,7 @@
 #!/bin/sh
 
 DO32=${1:-0}
+DIST=$(get.site 0 distributor)
 
 do32_knob=""
 
@@ -16,5 +17,5 @@ done
 if [ "$DO32" != "0" ] && [ "x$do32_knob" != "x" ]; then
 	set.sys /dev/acq400.0.knobs/distributor 0
 	set.sys $do32_knob $DO32
-	set.sys /dev/acq400.0.knobs/distributor 1
+	set.sys /dev/acq400.0.knobs/distributor $DIST
 fi
