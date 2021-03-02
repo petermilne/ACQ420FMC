@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <vector>
 #include "popt.h"
 
@@ -110,12 +111,20 @@ int playloop_redirect(FILE* fin, FILE* fout)
 #define BUFLEN	 MODPRAMS "bufferlen"
 #define NBUF	 MODPRAMS "nbuffers"
 
+void set_dist_awg(unsigned dist_s1)
+{
+	char cmd[80];
+	snprintf(cmd, 80, "/etc/acq400/%u/AWG:DIST AWG", dist_s1);
+	system(cmd);
+}
+
 void ui(int argc, const char** argv)
 {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 
 	int rc;
+	unsigned dist_s1;
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -129,6 +138,13 @@ void ui(int argc, const char** argv)
 		G::play_bufferlen = Buffer::bufferlen;
 	}
 	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen);
+	getKnob(0, "/etc/acq400/0/play_0_ready", &dist_s1);
+	if (dist_s1){
+		set_dist_awg(dist_s1);
+	}else{
+		fprintf(stderr, "ERROR: distributor not set");
+		exit(-1);
+	}
 }
 int main(int argc, const char* argv[]) {
 	ui(argc, argv);

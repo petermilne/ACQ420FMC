@@ -456,6 +456,13 @@ unsigned getSpecificBufferlen(int ibuf)
 #define PAGESZ	 4096
 #define PAGEM    (PAGESZ-1)
 
+void set_dist_awg(unsigned dist_s1)
+{
+	char cmd[80];
+	snprintf(cmd, 80, "/etc/acq400/%u/AWG:DIST AWG", dist_s1);
+	system(cmd);
+}
+
 RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
@@ -522,13 +529,18 @@ RUN_MODE ui(int argc, const char** argv)
 	Buffer::nbuffers -= G::buffer0;
 
 	unsigned dist_s1;
-	getKnob(0, "dist_s1", &dist_s1);
+	getKnob(0, "/etc/acq400/0/play_0_ready", &dist_s1);
+
 	if (dist_s1){
+		set_dist_awg(dist_s1);
 		unsigned playloop_maxlen;
 		G::play_site = dist_s1;
+
 		getKnob(0, "/etc/acq400/0/dssb", &G::sample_size);
 		//fprintf(stderr, "s1:%d size:%d\n", dist_s1, G::sample_size);
 		getKnob(dist_s1, "playloop_maxlen", &playloop_maxlen);
+
+
 		if (playloop_maxlen){
 			unsigned playloop_maxbytes = playloop_maxlen*G::sample_size;
 			if (playloop_maxbytes < Buffer::nbuffers*Buffer::bufferlen){
