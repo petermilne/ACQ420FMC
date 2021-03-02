@@ -378,6 +378,7 @@ int streamdac_data_loop(void *data)
 	xo_data_loop_stats_init(adev);
 
 	go_rt(MAX_RT_PRIO-4);
+	adev->task_active = 1;
 
 	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
 	for (ic = 0; !last_push_done; ic = !ic){

@@ -318,6 +318,23 @@ static ssize_t show_dac_fifo_sta(
 static DEVICE_ATTR(dac_fifo_sta, S_IRUGO, show_dac_fifo_sta, 0);
 
 
+static ssize_t show_awg_state_arm(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	unsigned dac_en =
+		acq400rd32(adev, DAC_CTRL)&DAC_CTRL_DAC_EN;
+	unsigned conv_active =
+		acq400rd32(adev, DAC_FIFO_STA)&ADC_FIFO_STA_ACTIVE;
+
+
+	return sprintf(buf, "%d\n", dac_en && !conv_active);
+}
+static DEVICE_ATTR(awg_state_arm, S_IRUGO, show_awg_state_arm, 0);
+
+
 
 
 static ssize_t store_ao_reset_fifo(
@@ -353,6 +370,7 @@ const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_pull_buf.attr,
 	&dev_attr_xo_buffers.attr,
 	&dev_attr_awg_abort.attr,
+	&dev_attr_awg_state_arm.attr,
 	&dev_attr_dac_fifo_sta.attr,
 	&dev_attr___reset_fifo.attr,
 	NULL
