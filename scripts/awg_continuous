@@ -1,0 +1,7 @@
+#!/bin/sh
+files="${*:--}"
+
+while [ 1 ]; do cat $files; done | bb_stream
+
+
+
