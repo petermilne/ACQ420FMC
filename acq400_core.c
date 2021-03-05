@@ -527,7 +527,7 @@ int fifo_monitor(void* data)
 		m1_sr = acq400rd32(m1, ADC_FIFO_STA);
 		aggsta = acq400rd32(adev, AGGSTA);
 
-		if (!aggsta_skip_reported && (aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
+		if (!m1->sod_mode && !aggsta_skip_reported && (aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
 			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
 			if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
 				adev->rt.please_stop = 1;
