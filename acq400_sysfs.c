@@ -2538,7 +2538,7 @@ static ssize_t show_soft_trigger(
 	return sprintf(buf, "1\n");
 }
 
-#define MAXTRIG 500
+#define MAXTRIG 200
 
 static ssize_t store_soft_trigger(
 	struct device * dev,
@@ -2559,6 +2559,7 @@ static ssize_t store_soft_trigger(
 		while(ntriggers--){
 			acq400wr32(adev, MOD_CON, mod_con | MCR_SOFT_TRIG);
 			acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
+			usleep_range(5, 20);
 		}
 
 		return count;
