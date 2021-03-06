@@ -434,7 +434,7 @@ int streamdac_data_loop(void *data)
 			if (++stall_count > MAX_STALL_RETRIES || kthread_should_stop()){
 				dev_err(DEVP(adev0), "STALL quitting %s\n",
 						kthread_should_stop()? "STOP REQUEST": "RETRIES");
-				goto quit;
+				break;
 			}
 			if (stall_count == 1){
 				dev_warn(DEVP(adev0), "STALL waiting for DMA buffer %d\n", __LINE__);
@@ -449,7 +449,7 @@ int streamdac_data_loop(void *data)
 		ab[ic] = BQ_get(bq_in); hbm = hbm0[ab[ic]];
 		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
-		if (kthread_should_stop() || distributor_underrun(adev0)){
+		if (stall_count > MAX_STALL_RETRIES || kthread_should_stop() || distributor_underrun(adev0)){
 			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[IB], WFEV);
 			last_push_done = 1;
 		}else{
