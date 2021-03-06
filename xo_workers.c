@@ -352,6 +352,9 @@ unsigned distributor_underrun(struct acq400_dev *adev0)
 	}
 }
 
+#define MAX_STALL_RETRIES	10
+#define STALL_TO_MS		10
+
 int streamdac_data_loop(void *data)
 {
 	struct acq400_path_descriptor* pdesc = (struct acq400_path_descriptor*)(data);
@@ -370,6 +373,7 @@ int streamdac_data_loop(void *data)
 	int ab[2];				/* buffer num, index by ic */
 	long dma_timeout = START_TIMEOUT;
 	int last_push_done = 0;
+	int stall_count = 0;
 
 	dev_info(DEVP(adev0), "streamdac_data_loop 01");
 	xo400_reset_playloop(adev, XO400_PLAYCONTINUOUS);
@@ -427,9 +431,17 @@ int streamdac_data_loop(void *data)
 		}
 
 		while (BQ_count(bq_in)<=0){
-			dev_err(DEVP(adev0), "STALL waiting for DMA buffer %d\n", __LINE__);
-			msleep(10);
+			if (++stall_count > MAX_STALL_RETRIES || kthread_should_stop()){
+				dev_err(DEVP(adev0), "STALL quitting %s\n",
+						kthread_should_stop()? "STOP REQUEST": "RETRIES");
+				goto quit;
+			}
+			if (stall_count == 1){
+				dev_warn(DEVP(adev0), "STALL waiting for DMA buffer %d\n", __LINE__);
+			}
+			msleep(STALL_TO_MS);
 		}
+		stall_count = 0;
 
 		xo_dev->AO_playloop.pull_buf = ab[ic];
 
