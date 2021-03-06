@@ -26,6 +26,6 @@ public:
 	const char* operator() (void);
 };
 
-
+bool get_local_env(const char* fname, bool verbose = false);
 
 #endif /* KNOB_H_ */

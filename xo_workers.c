@@ -431,6 +431,8 @@ int streamdac_data_loop(void *data)
 			msleep(10);
 		}
 
+		xo_dev->AO_playloop.pull_buf = ab[ic];
+
 		BQ_put(bq_bk, ab[ic]);
 		ab[ic] = BQ_get(bq_in); hbm = hbm0[ab[ic]];
 		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);

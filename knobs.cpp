@@ -150,3 +150,46 @@ int setKnob(int idev, const char* knob, int value)
 }
 
 
+bool get_local_env(const char* fname, bool verbose)
+{
+	const int maxline = 80+256;
+	char newline[maxline];
+
+	if (verbose){
+		fprintf(stderr, "get_local_env(%s)\n", fname);
+	}
+
+	FILE* fp = fopen(fname, "r");
+	if (fp == 0){
+		return false;
+	}
+	while(fgets(newline, maxline, fp)){
+		char* key = new char[80];
+		char* value = new char[256];
+		chomp(newline);
+		int rc = sscanf(newline, "%80[^=#]=%255c", key, value);
+		if (verbose){
+			fprintf(stderr, "get_local_env(\"%s\") rc=%d\n", newline, rc);
+		}
+		switch(rc){
+		case 2:
+			if (key[0] == '#'){
+				break;
+			}
+			if (verbose){
+				fprintf(stderr, "::setenv(%s, %s, true)\n", key, value);
+			}
+			::setenv(key, value, true);
+			continue;			// deliberate memleak : setenv needs the variables to stick
+		default:
+			break;
+		}
+		delete [] key;
+		delete [] value;
+	}
+	fclose(fp);
+	return true;
+}
+
+
+

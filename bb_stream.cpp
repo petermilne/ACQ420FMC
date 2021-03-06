@@ -10,6 +10,8 @@
 using namespace std;
 
 #include "Buffer.h"
+#include "Env.h"
+#include "Knob.h"
 #include "knobs.h"
 #include "tcp_server.h"
 
@@ -20,6 +22,7 @@ namespace G {
 	int verbose = 0;
 	const char *dev = "/dev/acq400.0.dac";
 	int inetd_tcp_wait = 0;
+	int auto_soft_trigger = false;
 };
 
 struct poptOption opt_table[] = {
@@ -34,6 +37,9 @@ struct poptOption opt_table[] = {
 	},
 	{
           "dev",  'd', POPT_ARG_STRING, &G::dev, 0, "device"
+	},
+	{
+          "auto_soft_trigger",  't', POPT_ARG_INT, &G::auto_soft_trigger, 0, "trigger auto"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -73,7 +79,10 @@ int playloop() {
 
 	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 
-	while(1){
+	int nw = 0;
+	bool soft_trigger_requested = G::auto_soft_trigger;
+
+	for (int totbuf = 0; ; totbuf += nw){
 		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 		int nr = fread(descriptors, sizeof(unsigned), 2, fp);
 		if (nr == 2){
@@ -88,8 +97,13 @@ int playloop() {
 			return nbytes;
 		}
 
+		if (soft_trigger_requested && totbuf >= soft_trigger_requested){
+			Knob("/etc/acq400/0/soft_trigger").set(1);
+			soft_trigger_requested = false;
+		}
+
 		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
-		int nw = fwrite(descriptors, sizeof(unsigned), 2, fp);
+		nw = fwrite(descriptors, sizeof(unsigned), 2, fp);
 		if (nw == 2){
 			if (G::verbose) printf("wr %08x %08x\n", descriptors[0], descriptors[1]);
 		}else{
@@ -125,6 +139,9 @@ void ui(int argc, const char** argv)
 
 	int rc;
 	unsigned dist_s1 = 0;
+
+	get_local_env("/dev/shm/awg_settings");
+	G::auto_soft_trigger = Env::getenv("SOFT_TRIGGER", 0);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){

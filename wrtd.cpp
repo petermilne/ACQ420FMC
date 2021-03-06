@@ -686,53 +686,13 @@ public:
 	}
 };
 
-bool get_local_env(FILE* fp)
-{
-	const int maxline = 80+256;
-	char newline[maxline];
-
-	G::verbose = Env::getenv("WRTD_VERBOSE", 0);
-
-	if (G::verbose){
-		fprintf(stderr, "get_local_env()\n");
-	}
-
-	while(fgets(newline, maxline, fp)){
-		char* key = new char[80];
-		char* value = new char[256];
-		chomp(newline);
-		int rc = sscanf(newline, "%80[^=#]=%255c", key, value);
-		if (G::verbose){
-			fprintf(stderr, "get_local_env(\"%s\") rc=%d\n", newline, rc);
-		}
-		switch(rc){
-		case 2:
-			if (key[0] == '#'){
-				break;
-			}
-			if (G::verbose){
-				fprintf(stderr, "::setenv(%s, %s, true)\n", key, value);
-			}
-			::setenv(key, value, true);
-			continue;			// deliberate memleak : setenv needs the variables to stick
-		default:
-			break;
-		}
-		delete [] key;
-		delete [] value;
-	}
-
-	fclose(fp);
-	return true;
-}
-
 void get_local_env(void)
 {
+	G::verbose = Env::getenv("WRTD_VERBOSE", 0);
 	G::site = Env::getenv("SITE", 11);
 	char envname[80];
 	sprintf(envname, "/dev/shm/wr%d.sh", G::site);
-	FILE* fp = fopen(envname, "r");
-	fp != 0 && get_local_env(fp);
+	get_local_env(envname, G::verbose);
 }
 
 int sleep_if_notenabled(const char* key)

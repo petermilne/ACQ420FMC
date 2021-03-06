@@ -1237,6 +1237,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	struct BQ* bq = &sc_dev->stream_dac.refills;
+	struct XO_dev* xo_dev = container_of(sc_dev->distributor_set[0], struct XO_dev, adev);
 	unsigned id;
 	int ii;
 	unsigned cursor = 0;
@@ -1264,6 +1265,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 			}else{
 				dev_dbg(DEVP(adev), "%s %d store id:%d", __FUNCTION__, __LINE__, id);
 				BQ_put(bq, id);
+				xo_dev->AO_playloop.push_buf = id;
 				cursor += sizeof(int);
 				rem -= sizeof(int);
 			}
@@ -1335,8 +1337,9 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
-	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
+	struct XO_dev* xo_dev = container_of(sc_dev->distributor_set[0], struct XO_dev, adev);
 	struct BQ* bq = &pdesc->bq;
+	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
 	int ib = 0;		// @@todo probably not zero ..
 	int limit = min(nbuffers-1, distributor_first_buffer+AWG_BACKLOG-1);
 
@@ -1354,6 +1357,11 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
 					ib, CIRC_CNT(bq->head, bq->tail, bq->bq_len));
 	}
+	xo_dev->AO_playloop.push_buf =
+	xo_dev->AO_playloop.pull_buf =
+	xo_dev->AO_playloop.first_buf = distributor_first_buffer;
+	xo_dev->AO_playloop.last_buf = limit;
+
 
 	dev_dbg(DEVP(adev), "%s %d available:%d", __FUNCTION__, __LINE__, BQ_count(bq));
 

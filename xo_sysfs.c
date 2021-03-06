@@ -358,6 +358,19 @@ static DEVICE_ATTR(__reset_fifo, S_IWUSR, 0, store_ao_reset_fifo);
 
 MAKE_BITS(awg_abort, DAC_CTRL, MAKE_BITS_FROM_MASK, DAC_CTRL_AWG_ABORT);
 
+static ssize_t show_awg_stream_buffers(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct AOPlayloop* pl = &xo_dev->AO_playloop;
+
+	return sprintf(buf, "awg_stream:%d,%d,%d,%d\n", pl->push_buf, pl->pull_buf, pl->first_buf, pl->last_buf);
+}
+static DEVICE_ATTR(awg_stream_buffers, S_IRUGO, show_awg_stream_buffers, 0);
+
 
 const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_length.attr,
@@ -368,6 +381,7 @@ const struct attribute *playloop_attrs[] = {
 	&dev_attr_playloop_maxlen.attr,
 	&dev_attr_playloop_push_buf.attr,
 	&dev_attr_playloop_pull_buf.attr,
+	&dev_attr_awg_stream_buffers.attr,
 	&dev_attr_xo_buffers.attr,
 	&dev_attr_awg_abort.attr,
 	&dev_attr_awg_state_arm.attr,
