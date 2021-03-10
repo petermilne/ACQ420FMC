@@ -365,8 +365,8 @@ int streamdac_data_loop(void *data)
 	struct HBM** hbm0 = adev0->hb;
 	struct HBM* hbm;
 
-	struct BQ* bq_in = &sc_dev->stream_dac.refills;
-	struct BQ* bq_bk = &pdesc->bq;
+	struct BQ* refills = &sc_dev->stream_dac.refills;
+	struct BQ* empties = &pdesc->bq;
 	int rc = 0;
 	int ic = 0;
 	int running = 0;
@@ -390,7 +390,7 @@ int streamdac_data_loop(void *data)
 		if (!running){
 			if (wait_event_interruptible(
 				sc_dev->stream_dac.sd_waitq,
-				BQ_count(bq_in)>1 || kthread_should_stop())){
+				BQ_count(refills)>1 || kthread_should_stop())){
 				dev_err(DEVP(adev0), "streamdac_data_loop %d", __LINE__);
 				rc = -EINTR;
 				goto quit;
@@ -398,10 +398,10 @@ int streamdac_data_loop(void *data)
 			if (kthread_should_stop()){
 				goto quit;
 			}
-			ab[0] = BQ_get(bq_in); hbm = hbm0[ab[0]];
+			ab[0] = BQ_get(refills); hbm = hbm0[ab[0]];
 			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
-			ab[1] = BQ_get(bq_in); hbm = hbm0[ab[1]];
+			ab[1] = BQ_get(refills); hbm = hbm0[ab[1]];
 			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
 			DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[ab[1]], WFST);
@@ -430,7 +430,7 @@ int streamdac_data_loop(void *data)
 			goto quit;
 		}
 
-		while (BQ_count(bq_in)<=0){
+		while (BQ_count(refills)<=0){
 			if (++stall_count > MAX_STALL_RETRIES || kthread_should_stop()){
 				dev_err(DEVP(adev0), "STALL quitting %s\n",
 						kthread_should_stop()? "STOP REQUEST": "RETRIES");
@@ -445,8 +445,8 @@ int streamdac_data_loop(void *data)
 
 		xo_dev->AO_playloop.pull_buf = ab[ic];
 
-		BQ_put(bq_bk, ab[ic]);
-		ab[ic] = BQ_get(bq_in); hbm = hbm0[ab[ic]];
+		BQ_put(empties, ab[ic]);
+		ab[ic] = BQ_get(refills); hbm = hbm0[ab[ic]];
 		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
 		if (stall_count > MAX_STALL_RETRIES || kthread_should_stop() || distributor_underrun(adev0)){
@@ -459,6 +459,7 @@ int streamdac_data_loop(void *data)
 		wake_up_interruptible(&pdesc->waitq);
 	}
 quit:
+	BQ_clear(refills);
 	xo_data_loop_cleanup(adev, dma_timeout);
 	xo400_reset_playloop(adev, 0);
 	WORKER_DONE(pdesc) = 1;

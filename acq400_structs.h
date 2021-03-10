@@ -258,6 +258,11 @@ static inline void BQ_put(struct BQ* bq, unsigned item)
 	smp_store_release(&bq->head, (bq->head + 1) & (bq->bq_len-1));
 }
 
+static inline void BQ_clear(struct BQ* bq)
+{
+	bq->head = bq->tail = 0;
+}
+
 static inline int BQ_space(struct BQ* bq)
 {
 	return CIRC_SPACE(bq->head, bq->tail, bq->bq_len);
