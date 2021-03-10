@@ -142,7 +142,7 @@ int playloop() {
 			return nbytes;
 		}
 
-		if (soft_trigger_requested && totbuf >= soft_trigger_requested){
+		if (soft_trigger_requested && totbuf >= G::auto_soft_trigger){
 			Knob("/etc/acq400/0/soft_trigger").set(1);
 			soft_trigger_requested = false;
 		}
