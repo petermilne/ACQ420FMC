@@ -1339,6 +1339,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	struct XO_dev* xo_dev = container_of(sc_dev->distributor_set[0], struct XO_dev, adev);
 	struct BQ* empties = &pdesc->bq;
+	struct BQ* refills = &sc_dev->stream_dac.refills;
 	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
 	int ib = 0;		// @@todo probably not zero ..
 	int limit = min(nbuffers-1, distributor_first_buffer+AWG_BACKLOG-1);
@@ -1361,7 +1362,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	xo_dev->AO_playloop.pull_buf =
 	xo_dev->AO_playloop.first_buf = distributor_first_buffer;
 	xo_dev->AO_playloop.last_buf = limit;
-
+	BQ_clear(refills);
 
 	dev_dbg(DEVP(adev), "%s %d available:%d", __FUNCTION__, __LINE__, BQ_count(empties));
 
