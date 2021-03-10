@@ -15,6 +15,8 @@ using namespace std;
 #include "knobs.h"
 #include "tcp_server.h"
 
+#include "local.h"
+
 namespace G {
 	unsigned play_bufferlen;		// Change bufferlen on play
 	char* port = 0;				// 0 no server (inetd), else make a server
@@ -23,6 +25,7 @@ namespace G {
 	const char *dev = "/dev/acq400.0.dac";
 	int inetd_tcp_wait = 0;
 	int auto_soft_trigger = false;
+	int ab_swap;
 };
 
 struct poptOption opt_table[] = {
@@ -42,6 +45,9 @@ struct poptOption opt_table[] = {
           "auto_soft_trigger",  't', POPT_ARG_INT, &G::auto_soft_trigger, 0, "trigger auto"
 	},
 	{
+	  "ab_swap", 'a', POPT_ARG_INT, &G::ab_swap, 0, "reverse buffer order"
+	},
+	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
 	POPT_AUTOHELP
@@ -52,7 +58,6 @@ int read_buffers(unsigned descriptors[], int ndesc)
 {
 	int totbytes = 0;
 
-	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 	for (int id = 0; id < ndesc; ++id){
 		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
 		int nb = fread(bp, 1, G::play_bufferlen, stdin);
@@ -63,12 +68,47 @@ int read_buffers(unsigned descriptors[], int ndesc)
 			totbytes += nb;
 		}
 	}
-	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 	return totbytes;
 }
 
+class SUCC {
+	int max_val;
+	int min_val;
+	int previous;
+
+public:
+	SUCC() : max_val(-1), min_val(-1), previous(-1) {
+
+	}
+	bool operator() (int next){
+		if (next == 0){
+			return false;
+		}
+		if (min_val == -1){
+			min_val = next;
+		}else if (next > max_val){
+			max_val = next;
+		}
+		if (previous == -1){
+			previous = next;
+			return true;
+		}else{
+			if (next == previous+1){
+				previous = next;
+				return true;
+			}else if (previous+1 > max_val && next==min_val){
+				previous = next;
+				return true;
+			}else{
+				previous = next;
+				return false;
+			}
+		}
+	}
+};
 int playloop() {
 	unsigned descriptors[2];
+	unsigned tmp;
 
 	FILE* fp = fopen(G::dev, "a+");
 	if (fp == 0){
@@ -77,16 +117,21 @@ int playloop() {
 	}
 	setvbuf(fp, NULL, _IONBF, 0);
 
-	if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
+	if (G::verbose) fprintf(stderr, "%s %d\n", __FUNCTION__, __LINE__);
 
 	int nw = 0;
 	bool soft_trigger_requested = G::auto_soft_trigger;
+	SUCC succ;
 
 	for (int totbuf = 0; ; totbuf += nw){
-		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
+		if (G::verbose>1) fprintf(stderr, "%s %d\n", __FUNCTION__, __LINE__);
 		int nr = fread(descriptors, sizeof(unsigned), 2, fp);
 		if (nr == 2){
-			if (G::verbose) printf("rd %08x %08x\n", descriptors[0], descriptors[1]);
+			bool status0 = succ(descriptors[0]);
+			bool status1 = succ(descriptors[1]);
+
+			if (G::verbose) printf("%s rd %03d %03d %s %s\n", __FUNCTION__,
+					descriptors[0], descriptors[1], status0? "OK": "FAIL", status1? "OK":"FAIL");
 		}else{
 			printf("read returned %d\n", nr);
 			return -1;
@@ -101,11 +146,13 @@ int playloop() {
 			Knob("/etc/acq400/0/soft_trigger").set(1);
 			soft_trigger_requested = false;
 		}
+		if (G::ab_swap){
+			SWAP(descriptors[0], descriptors[1], tmp);
+		}
 
-		if (G::verbose) fprintf(stderr, "%s %d\b", __FUNCTION__, __LINE__);
 		nw = fwrite(descriptors, sizeof(unsigned), 2, fp);
 		if (nw == 2){
-			if (G::verbose) printf("wr %08x %08x\n", descriptors[0], descriptors[1]);
+			if (G::verbose>1) printf("%s wr %03d %03d\n", __FUNCTION__, descriptors[0], descriptors[1]);
 		}else{
 			printf("write returned %d\n", nw);
 			return -1;
