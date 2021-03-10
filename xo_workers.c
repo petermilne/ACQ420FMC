@@ -450,7 +450,7 @@ int streamdac_data_loop(void *data)
 		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
 		if (stall_count > MAX_STALL_RETRIES || kthread_should_stop() || distributor_underrun(adev0)){
-			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[IB], WFEV);
+			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFEV);
 			last_push_done = 1;
 		}else{
 			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFST);
