@@ -80,7 +80,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dump_regs \
 	soft_atd \
 	wr_reset wrtd wrtt_mon multicast \
-	mr_offload trigger_at bb_stream
+	mr_offload trigger_at bb_stream reduce
 	
 # data_sink	
 # dropped

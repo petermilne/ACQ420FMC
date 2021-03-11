@@ -1,7 +1,10 @@
 #!/bin/sh
 files="${*:--}"
 
-while [ 1 ]; do cat $files; done | bb_stream
+if [ "x$VERBOSE" != "" ]; then
+	ARGS=-v1
+fi
+while [ 1 ]; do cat $files; done | bb_stream $ARGS
 
 
 
