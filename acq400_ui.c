@@ -1226,7 +1226,7 @@ quit:
  */
 
 
-
+#define TWO_INT	(2*sizeof(int))
 
 
 ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t count,
@@ -1241,40 +1241,37 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 	unsigned id;
 	int ii;
 	unsigned cursor = 0;
-	size_t rem = count;
 	ssize_t rc;
 
 	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 
-	if (count < 2*sizeof(int)){
+	if (count < TWO_INT){
 		return -EINVAL;
 	}
 
-	while (rem >= 2*sizeof(int)){
+	while ((count-cursor) >= TWO_INT){
 		if (wait_event_interruptible(
 			pdesc->waitq,
 			BQ_space(refills) > 2)){
 			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -EINTR;
 		}
-		for (ii = 0; ii < 2; ++ii){
+		for (ii = 0; ii < 2; ++ii, cursor += sizeof(int)){
 			rc = copy_from_user(&id, buf+cursor, sizeof(int));
-			if (rc){
-				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
-				return -rc;
-			}else{
+			if (likely(rc == 0)){
 				dev_dbg(DEVP(adev), "%s %d store id:%d", __FUNCTION__, __LINE__, id);
 				BQ_put(refills, id);
 				xo_dev->AO_playloop.push_buf = id;
-				cursor += sizeof(int);
-				rem -= sizeof(int);
+			}else{
+				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+				return -rc;
 			}
 			wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
 		}
 	}
-	dev_dbg(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, count-rem);
+	dev_dbg(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, cursor);
 
-	return count-rem;
+	return cursor;
 }
 
 
@@ -1284,48 +1281,45 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct BQ* empties = &pdesc->bq;
-	unsigned tmp;
-	int bc = 0;
-	int rc;
+
+	unsigned cursor = 0;
+
+
 
 	dev_dbg(DEVP(adev), "%s %d available:%d count:%d", __FUNCTION__, __LINE__, BQ_count(empties), count);
 
-	if (count < 2*sizeof(int)){
+	if (count < TWO_INT){
 		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 		return -EINVAL;
 	}
 
-	for (; count >=  2*sizeof(int); count -= 2*sizeof(int)){
-		dev_dbg(DEVP(adev), "wait_event_interruptible(%p) bc:%d count:%d",
-				&pdesc->waitq, bc, count);
+	while((count-cursor) >=  TWO_INT){
+		int ii;
+		dev_dbg(DEVP(adev), "wait_event_interruptible(%p) cursor:%d count:%d",
+				&pdesc->waitq, cursor, count);
 
-		if (bc > 0 && BQ_count(empties) <= 1){
+		if (cursor > 0 && BQ_count(empties) < 2){
 			break;
 		}else if (wait_event_interruptible(
-			pdesc->waitq, BQ_count(empties) > 1)){
+			pdesc->waitq, BQ_count(empties) >= 2)){
 			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 			return -EINTR;
 		}
 
 		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, empties->tail, empties->buf[empties->tail]);
 
-		tmp = BQ_get(empties);
-		rc = copy_to_user(buf+bc, &tmp, sizeof(int));
-		bc += sizeof(int);
+		for (ii = 0; ii < 2; ++ii, cursor += sizeof(int)){
+			unsigned tmp = BQ_get(empties);
+			int rc = copy_to_user(buf+cursor, &tmp, sizeof(int));
 
-		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, empties->tail, empties->buf[empties->tail]);
-
-		tmp = BQ_get(empties);
-		rc = copy_to_user(buf+bc, &tmp, sizeof(int));
-		bc += sizeof(int);
-
-		if (rc){
-			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
-			return -rc;
+			if (rc){
+				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+				return -rc;
+			}
 		}
 	}
-	dev_dbg(DEVP(adev), "%s %d bc:%d", __FUNCTION__, __LINE__, bc);
-	return bc;
+	dev_dbg(DEVP(adev), "%s %d cursor:%d", __FUNCTION__, __LINE__, cursor);
+	return cursor;
 }
 
 

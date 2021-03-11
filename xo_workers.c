@@ -23,6 +23,9 @@ int xo_wait_site_stop = -1;
 module_param(xo_wait_site_stop, int, 0644);
 MODULE_PARM_DESC(xo_wait_site_stop, "hold off xo stop until this site has stopped");
 
+int xo_verbose = 0;
+module_param(xo_verbose, int, 0644);
+MODULE_PARM_DESC(xo_verbose, "print detail debug");
 
 extern int distributor_first_buffer;
 extern int ao_auto_rearm(void *clidat);
@@ -352,6 +355,36 @@ unsigned distributor_underrun(struct acq400_dev *adev0)
 	}
 }
 
+
+void dump_buffer(struct acq400_dev *adev, struct BQ* bq, char *id)
+{
+
+	int cursor = bq->tail;
+	int bx[32];
+	int nb;
+
+	for (nb = 0; cursor != bq->head; cursor = BQ_incr(bq, cursor), ++nb){
+		if (nb >= 32){
+			break;
+		}else{
+			bx[nb] = bq->buf[cursor];
+		}
+	}
+
+	{
+		static char text[132];
+		char* cc = text;
+		int ii;
+
+		text[0] = '\0';
+
+		for (ii = 0; ii < nb; ++ii){
+			cc += snprintf(cc, 132, "%03d ", bx[ii] );
+		}
+		dev_info(DEVP(adev), "%s [%d] %s", id, nb, text);
+	}
+
+}
 #define MAX_STALL_RETRIES	10
 #define STALL_TO_MS		10
 
@@ -363,17 +396,16 @@ int streamdac_data_loop(void *data)
 	struct acq400_dev *adev = sc_dev->distributor_set[0];
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	struct HBM** hbm0 = adev0->hb;
-	struct HBM* hbm;
-
 	struct BQ* refills = &sc_dev->stream_dac.refills;
 	struct BQ* empties = &pdesc->bq;
 	int rc = 0;
 	int ic = 0;
 	int running = 0;
-	int ab[2];				/* buffer num, index by ic */
 	long dma_timeout = START_TIMEOUT;
-	int last_push_done = 0;
+	enum { LP_IDLE, LP_REQUEST, LP_DONE } last_push = LP_IDLE;
 	int stall_count = 0;
+	int ab[2];				/* buffer num, index by ic */
+	struct HBM* hbm;
 
 	dev_info(DEVP(adev0), "streamdac_data_loop 01");
 	xo400_reset_playloop(adev, XO400_PLAYCONTINUOUS);
@@ -384,8 +416,7 @@ int streamdac_data_loop(void *data)
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
 
-	// @@todo .. don't dequeue in two's, dequeue in ones to feed DMAC in ones. Except init ..
-	for (ic = 0; !last_push_done; ic = !ic){
+	for (ic = 0; last_push != LP_DONE; ic = !ic){
 		dev_dbg(DEVP(adev0), "streamdac_data_loop() wait_event");
 		if (!running){
 			if (wait_event_interruptible(
@@ -394,8 +425,7 @@ int streamdac_data_loop(void *data)
 				dev_err(DEVP(adev0), "streamdac_data_loop %d", __LINE__);
 				rc = -EINTR;
 				goto quit;
-			}
-			if (kthread_should_stop()){
+			}else if (kthread_should_stop()){
 				goto quit;
 			}
 			ab[0] = BQ_get(refills); hbm = hbm0[ab[0]];
@@ -411,10 +441,14 @@ int streamdac_data_loop(void *data)
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
 			running = 1;
 		}
+		if (xo_verbose){
+			dump_buffer(adev, refills, "refills");
+			dev_info(DEVP(adev), "%s [%d] %03d %03d", "inflite", 2, ab[ic], ab[!ic]);
+			dump_buffer(adev, empties, "empties");
+		}
+
 		if (wait_event_interruptible_timeout(
-				adev->DMA_READY,
-				adev->dma_callback_done,
-				dma_timeout) <= 0){
+				adev->DMA_READY, adev->dma_callback_done, dma_timeout) <= 0){
 			dev_err(DEVP(adev0), "TIMEOUT waiting for DMA %d\n", __LINE__);
 			goto quit;
 		}else{
@@ -430,30 +464,34 @@ int streamdac_data_loop(void *data)
 			goto quit;
 		}
 
-		while (BQ_count(refills)<=0){
+		while (BQ_count(refills) < 1){
 			if (++stall_count > MAX_STALL_RETRIES || kthread_should_stop()){
 				dev_err(DEVP(adev0), "STALL quitting %s\n",
 						kthread_should_stop()? "STOP REQUEST": "RETRIES");
+				last_push = LP_REQUEST;
 				break;
-			}
-			if (stall_count == 1){
-				dev_warn(DEVP(adev0), "STALL waiting for DMA buffer %d\n", __LINE__);
 			}
 			msleep(STALL_TO_MS);
 		}
-		stall_count = 0;
+		if (stall_count){
+			dev_warn(DEVP(adev0), "STALLs waiting for DMA buffer %d %d\n", stall_count, last_push);
+			stall_count = 0;
+		}
 
 		xo_dev->AO_playloop.pull_buf = ab[ic];
-
 		BQ_put(empties, ab[ic]);
-		ab[ic] = BQ_get(refills); hbm = hbm0[ab[ic]];
-		dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
-		if (stall_count > MAX_STALL_RETRIES || kthread_should_stop() || distributor_underrun(adev0)){
-			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFEV);
-			last_push_done = 1;
+		if (last_push == LP_IDLE){
+			/* BQ_get ONLY if data .. test last_push is a faster proxy for BQ_count(refills) */
+			ab[ic] = BQ_get(refills); hbm = hbm0[ab[ic]];
+			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
+		}
+
+		if (last_push == LP_REQUEST || kthread_should_stop() || distributor_underrun(adev0)){
+			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm, WFEV);
+			last_push = LP_DONE;
 		}else{
-			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm0[ab[ic]], WFST);
+			DMA_ASYNC_PUSH(adev->dma_cookies[ic], adev, ic, hbm, WFST);
 		}
 		DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		wake_up_interruptible(&pdesc->waitq);
@@ -465,7 +503,7 @@ quit:
 	WORKER_DONE(pdesc) = 1;
 	wake_up_interruptible(&pdesc->waitq);
 
-	dev_info(DEVP(adev0), "streamdac_data_loop 99 last_push_done:%d", last_push_done);
+	dev_info(DEVP(adev0), "streamdac_data_loop 99 last_push:%d", last_push);
 	return rc;
 }
 

@@ -241,6 +241,10 @@ struct BQ {
 	int bq_len;
 };
 
+static inline int BQ_incr(struct BQ* bq, int cursor){
+	return (cursor+1)&(bq->bq_len-1);
+}
+
 static inline void BQ_init(struct BQ* bq, int len)
 {
         bq->bq_len = len;
@@ -249,11 +253,19 @@ static inline void BQ_init(struct BQ* bq, int len)
 static inline unsigned BQ_get(struct BQ* bq)
 {
 	unsigned item = bq->buf[bq->tail];
+	if (item == 0){
+		dev_warn(0, "BQ_get zero");
+		dump_stack();
+	}
 	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
 	return item;
 }
 static inline void BQ_put(struct BQ* bq, unsigned item)
 {
+	if (item == 0){
+		dev_warn(0, "BQ_put zero");
+		dump_stack();
+	}
 	bq->buf[bq->head] = item;
 	smp_store_release(&bq->head, (bq->head + 1) & (bq->bq_len-1));
 }
