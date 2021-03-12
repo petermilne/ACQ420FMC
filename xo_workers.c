@@ -385,8 +385,15 @@ void dump_buffer(struct acq400_dev *adev, struct BQ* bq, char *id)
 	}
 
 }
-#define MAX_STALL_RETRIES	10
+#define MAX_STALL_RETRIES	20
 #define STALL_TO_MS		10
+#define STALL_BIN_WIDTH		2
+
+
+int streamdac_stalls[MAX_STALL_RETRIES/STALL_BIN_WIDTH+1];
+int streamdac_stalls_count = MAX_STALL_RETRIES/STALL_BIN_WIDTH+1;
+module_param_array(streamdac_stalls, int, &streamdac_stalls_count, 0444);
+
 
 int streamdac_data_loop(void *data)
 {
@@ -412,6 +419,7 @@ int streamdac_data_loop(void *data)
 	xo400_getDMA(adev);
 
 	xo_data_loop_stats_init(adev);
+	memset(streamdac_stalls, 0, sizeof(streamdac_stalls));
 
 	go_rt(MAX_RT_PRIO-4);
 	adev->task_active = 1;
@@ -465,18 +473,17 @@ int streamdac_data_loop(void *data)
 		}
 
 		while (BQ_count(refills) < 1){
-			if (++stall_count > MAX_STALL_RETRIES || kthread_should_stop()){
+			if (++stall_count == MAX_STALL_RETRIES || kthread_should_stop()){
 				dev_err(DEVP(adev0), "STALL quitting %s\n",
 						kthread_should_stop()? "STOP REQUEST": "RETRIES");
 				last_push = LP_REQUEST;
 				break;
 			}
-			msleep(STALL_TO_MS);
+			msleep(STALL_TO_MS+stall_count*2);
 		}
-		if (stall_count){
-			dev_warn(DEVP(adev0), "STALLs waiting for DMA buffer %d %d\n", stall_count, last_push);
-			stall_count = 0;
-		}
+		streamdac_stalls[stall_count/STALL_BIN_WIDTH]++;
+		stall_count = 0;
+
 
 		xo_dev->AO_playloop.pull_buf = ab[ic];
 		BQ_put(empties, ab[ic]);
