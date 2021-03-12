@@ -198,8 +198,10 @@ void ui(int argc, const char** argv)
 	}
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
-	if (G::play_bufferlen == 0){
+	if (G::play_bufferlen == 0 || G::play_bufferlen > Buffer::bufferlen){
 		G::play_bufferlen = Buffer::bufferlen;
+	}else{
+		Buffer::bufferlen = G::play_bufferlen;
 	}
 	setKnob(-1, "/dev/acq400.0.knobs/dist_bufferlen", G::play_bufferlen);
 	getKnob(0, "/etc/acq400/0/play0_ready", &dist_s1);
