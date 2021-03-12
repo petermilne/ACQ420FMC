@@ -58,6 +58,9 @@ int aggregator_enabled = 0;
 int enable_write_trap = 0;
 module_param(enable_write_trap, int, 0644);
 
+int aggsta_skip_ok = 0;
+module_param(aggsta_skip_ok, int, 0644);
+
 #define ADC_ENAX  (ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN)
 #define ADC_RSTX  (ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST)
 
@@ -529,7 +532,9 @@ int fifo_monitor(void* data)
 
 		if (!m1->sod_mode && !aggsta_skip_reported && (aggsta&AGGSTA_FIFO_ANYSKIP) != 0){
 			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
-			if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
+			if (aggsta_skip_ok){
+				;
+			}else if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){
 				adev->rt.please_stop = 1;
 			}else{
 				dev_err(DEVP(adev), "%s unable to stop work adev: s:%d ta:%d", __FUNCTION__, adev->of_prams.site, adev->task_active);
