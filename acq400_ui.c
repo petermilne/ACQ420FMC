@@ -40,6 +40,10 @@ module_param(acq400_event_count_limit, int, 0644);
 MODULE_PARM_DESC(acq400_event_count_limit, "limit number of events per shot 0: no limit");
 
 
+int defer_stream_dac_task_init = 1;
+module_param(defer_stream_dac_task_init, int, 0644);
+MODULE_PARM_DESC(defer_stream_dac_task_init, "delay starting stream_dac task until we have data in buffer");
+
 int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
@@ -1271,6 +1275,13 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 	}
 	dev_dbg(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, cursor);
 
+	if (*f_pos == 0 && defer_stream_dac_task_init){
+		sc_dev->stream_dac.sd_task = kthread_run(
+			pdesc->minor == ACQ400_MINOR_STREAMDAC?
+				streamdac_data_loop: streamdac_data_loop_dummy,
+				pdesc, "%s.dac", adev->dev_name);
+	}
+	*f_pos += cursor;
 	return cursor;
 }
 
@@ -1360,10 +1371,12 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 
 	dev_dbg(DEVP(adev), "%s %d available:%d", __FUNCTION__, __LINE__, BQ_count(empties));
 
-	sc_dev->stream_dac.sd_task = kthread_run(
-		MINOR(inode->i_rdev) == ACQ400_MINOR_STREAMDAC?
+	if (!defer_stream_dac_task_init){
+		sc_dev->stream_dac.sd_task = kthread_run(
+			pdesc->minor == ACQ400_MINOR_STREAMDAC?
 				streamdac_data_loop: streamdac_data_loop_dummy,
 				pdesc, "%s.dac", adev->dev_name);
+	}
 
 	dev_dbg(DEVP(adev), "%s %d bq:%d task:%p", __FUNCTION__, __LINE__,
 			CIRC_CNT(empties->head, empties->tail, empties->bq_len), sc_dev->stream_dac.sd_task);
@@ -1379,14 +1392,18 @@ int acq400_streamdac_release(struct inode *inode, struct file *file)
 	struct acq400_dev* adev = pdesc->dev;
 	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
 	int rc;
-	dev_dbg(DEVP(adev), "acq400_streamdac_release() %p", sc_dev->stream_dac.sd_task);
-	kthread_stop(sc_dev->stream_dac.sd_task);
-	wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
+
+	if (!WORKER_DONE(pdesc) && sc_dev->stream_dac.sd_task){
+		dev_dbg(DEVP(adev), "acq400_streamdac_release() %p", sc_dev->stream_dac.sd_task);
+		kthread_stop(sc_dev->stream_dac.sd_task);
+		wake_up_interruptible(&sc_dev->stream_dac.sd_waitq);
+	}
 
 	dev_dbg(DEVP(adev), "acq400_streamdac_release() wait WORKER_DONE");
 	if (wait_event_interruptible(pdesc->waitq, WORKER_DONE(pdesc)) > 0){
 		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 	}
+	sc_dev->stream_dac.sd_task = 0;
 
 	dev_dbg(DEVP(adev), "acq400_streamdac_release() WORKER_DONE");
 
