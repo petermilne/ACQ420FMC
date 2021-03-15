@@ -106,6 +106,19 @@ public:
 		}
 	}
 };
+
+void doSoftTrigger(void)
+{
+	Knob("/etc/acq400/0/soft_trigger").set(1);
+
+	pid_t cpid = fork();
+	if (cpid == 0){
+		usleep(200000);
+		Knob("/etc/acq400/0/soft_trigger").set(1);
+	}
+}
+
+
 int playloop() {
 	unsigned descriptors[2];
 	unsigned tmp;
@@ -143,7 +156,7 @@ int playloop() {
 		}
 
 		if (soft_trigger_requested && totbuf >= G::auto_soft_trigger){
-			Knob("/etc/acq400/0/soft_trigger").set(1);
+			doSoftTrigger();
 			soft_trigger_requested = false;
 		}
 		if (G::ab_swap){
