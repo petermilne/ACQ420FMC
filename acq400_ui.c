@@ -588,6 +588,61 @@ int acq420_open_gpgmem(struct inode *inode, struct file *file)
 	return file->f_op->open(inode, file);
 }
 
+
+ssize_t acq400_aofifo_write(struct file *file, const char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pd = PD(file);
+	int rc;
+
+	if (count > MAXLBUF){
+		count = MAXLBUF;
+	}
+	rc = copy_from_user(pd->lbuf, buf, count);
+
+	if (rc){
+		return rc;
+	}
+
+	write32(pd->dev->dev_virtaddr+AXI_FIFO, (volatile u32*)pd->lbuf, count/sizeof(unsigned));
+
+	return count;
+
+}
+
+int acq400_aofifo_mmap(struct file* file, struct vm_area_struct* vma)
+{
+	struct acq400_dev *adev = ACQ400_DEV(file);
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	unsigned long psize = 0x1000;
+	unsigned long pa = adev->dev_physaddr + AXI_FIFO;
+	unsigned pfn = pa >> PAGE_SHIFT;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	dev_dbg(DEVP(adev), "acq400_aofifo_mmap pa:0x%08lx vsize %lu psize %lu %s",
+		pa, vsize, psize, vsize>psize? "EINVAL": "OK");
+
+	if (vsize > psize){
+		return -EINVAL;                   /* request too big */
+	}
+	if (io_remap_pfn_range(
+		vma, vma->vm_start, pfn, vsize, vma->vm_page_prot)){
+		return -EAGAIN;
+	}else{
+		return 0;
+	}
+}
+
+int acq400_minor_aofifo_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_aofifo = {
+			.write = acq400_aofifo_write,
+			.mmap = acq400_aofifo_mmap
+	};
+	file->f_op = &acq400_fops_aofifo;
+	return 0;
+}
+
 ssize_t acq400_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 {
@@ -1508,6 +1563,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         	case ACQ400_MINOR_WRTT:
         	case ACQ400_MINOR_WRTT1:
         		rc = acq400_wr_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_AOFIFO:
+        		rc = acq400_minor_aofifo_open(inode, file);
         		break;
             	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
