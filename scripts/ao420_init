@@ -14,7 +14,7 @@ vset_sys() {
 echo "dac_range_ALL=dac_range_??" >/etc/acq400/${SITE}/groups	
 echo +++ initializing DACs for $MODEL
 
-EN=$(get.sys ${KNOBS}/dac_enable
+EN=$(get.sys ${KNOBS}/dac_enable)
 vset_sys ${KNOBS}/dac_enable 0
 vset_sys ${KNOBS}/dacreset 1
 vset_sys ${KNOBS}/dacreset 0
