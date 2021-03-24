@@ -882,8 +882,14 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
 			bn=${fn#adma*}
 			web_append  $file $bn
 		done
-		echo "STREAM_OPTS=--null-copy" >> /etc/sysconfig/acq400_streamd.conf
-		cp /usr/local/CARE/streamtonowhere.480 $ULB/streamtonowhere
+
+		if [ "x$ACQ480_SITES" != "x" ]; then
+			cp /usr/local/CARE/streamtonowhere.480 $ULB/streamtonowhere 
+			SO="STREAM_OPTS=--null-copy"
+		else
+			SO="STREAM_OPTS=--fill-scale"
+		fi
+		echo $SO >> /etc/sysconfig/acq400_streamd.conf
 	fi
 fi
 if [ $AXI_COUNT -eq 0 ]; then
