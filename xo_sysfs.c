@@ -855,22 +855,24 @@ MAKE_BITS(sync_clk_to_sync, DAC_CTRL, MAKE_BITS_FROM_MASK, AO424_DAC_CTRL_SYNC_C
 
 #define DAC_CTRL_RESET(adev)	(IS_BOLO8(adev)? B8_DAC_CON: DAC_CTRL)
 
-static ssize_t show_dacreset(
+static ssize_t show_dac_ctrl(
 	struct device * dev,
 	struct device_attribute *attr,
-	char * buf)
+	char * buf,
+	unsigned bit)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL_RESET(adev));
 
-	return sprintf(buf, "%u\n", (dac_ctrl&ADC_CTRL_ADC_RST) != 0);
+	return sprintf(buf, "%u\n", (dac_ctrl&bit) != 0);
 }
 
-static ssize_t store_dacreset(
+static ssize_t store_dac_ctrl(
 	struct device * dev,
 	struct device_attribute *attr,
 	const char * buf,
-	size_t count)
+	size_t count,
+	unsigned bit)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned dac_ctrl = acq400rd32(adev, DAC_CTRL_RESET(adev));
@@ -880,9 +882,9 @@ static ssize_t store_dacreset(
 
 	if (sscanf(buf, "%d", &dacreset) == 1){
 		if (dacreset){
-			dac_ctrl |= ADC_CTRL_ADC_RST;
+			dac_ctrl |= bit;
 		}else{
-			dac_ctrl &= ~ADC_CTRL_ADC_RST;
+			dac_ctrl &= ~bit;
 		}
 		acq400wr32(adev, DAC_CTRL_RESET(adev), dac_ctrl);
 		return count;
@@ -891,7 +893,27 @@ static ssize_t store_dacreset(
 	}
 }
 
-static DEVICE_ATTR(dacreset, S_IWUSR|S_IRUGO, show_dacreset, store_dacreset);
+#define MAKE_DAC_CTRL_BIT(NAME, BIT)							\
+static ssize_t show_dac_ctrl_##NAME(							\
+	struct device * dev,								\
+	struct device_attribute *attr,							\
+	char * buf)									\
+{											\
+	return show_dac_ctrl(dev, attr, buf, BIT);					\
+}											\
+static ssize_t store_dac_ctrl_##NAME(							\
+	struct device * dev,								\
+	struct device_attribute *attr,							\
+	const char * buf,								\
+	size_t count)									\
+{											\
+	return store_dac_ctrl(dev, attr, buf, count, BIT);				\
+}											\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dac_ctrl_##NAME, store_dac_ctrl_##NAME)
+
+MAKE_DAC_CTRL_BIT(dac_reset, 	ADC_CTRL_ADC_RST);
+MAKE_DAC_CTRL_BIT(dacreset, 	ADC_CTRL_ADC_RST);
+MAKE_DAC_CTRL_BIT(dac_enable, 	ADC_CTRL_ADC_EN);
 
 static ssize_t show_dacreset_device(
 	struct device * dev,
@@ -1016,6 +1038,8 @@ static DEVICE_ATTR(twos_comp_encoding,
 const struct attribute* dacspi_attrs[] = {
 	&dev_attr_dacspi.attr,
 	&dev_attr_dacreset.attr,
+	&dev_attr_dac_reset.attr,
+	&dev_attr_dac_enable.attr,
 	NULL
 };
 
