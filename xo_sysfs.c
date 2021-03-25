@@ -716,7 +716,7 @@ static int poll_dacspi_complete(struct acq400_dev *adev, u32 wv)
 {
 	unsigned pollcat = 0;
 	while( ++pollcat < TIMEOUT){
-		u32 rv = acq400rd32(adev, DACSPI(adev));
+		u32 rv = acq400rd32_nocache(adev, DACSPI(adev));
 		if ((rv&AO420_DACSPI_WC) != 0){
 			dev_dbg(DEVP(adev),
 			"poll_dacspi_complete() success after %d\n", pollcat);
