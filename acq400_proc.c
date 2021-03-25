@@ -136,7 +136,7 @@ static int intDevFromProcFile(struct file* file, struct seq_operations *seq_ops)
 	}
 	return 0;
 }
-static int acq400_proc_open_channel_mappingc(struct inode *inode, struct file *file)
+static int acq400_proc_open_channel_mapping(struct inode *inode, struct file *file)
 {
 	static struct seq_operations acq400_proc_seq_ops_channel_mapping = {
 	        .start = acq400_proc_seq_single_start,
@@ -289,9 +289,9 @@ DEF_PROC_OPSQ(STASH);
 DEF_PROC_OPSQ(GRESV);
 
 
-static struct file_operations acq400_proc_ops_channel_mappingc = {
+static struct file_operations acq400_proc_ops_channel_mapping = {
         .owner = THIS_MODULE,
-        .open = acq400_proc_open_channel_mappingc,
+        .open = acq400_proc_open_channel_mapping,
         .read = seq_read,
         .llseek = seq_lseek,
         .release = seq_release
@@ -330,7 +330,7 @@ void acq400_init_proc(struct acq400_dev* acq400_dev)
 {
 	acq400_dev->proc_entry = proc_mkdir(acq400_dev->site_no, acq400_proc_root);
 
-	proc_create("channel_mapping", 0, acq400_dev->proc_entry, &acq400_proc_ops_channel_mappingc);
+	proc_create("channel_mapping", 0, acq400_dev->proc_entry, &acq400_proc_ops_channel_mapping);
 	proc_create("buffers", 0, acq400_dev->proc_entry, &acq400_proc_ops_buffers);
 	proc_create("EMPTIES", 0, acq400_dev->proc_entry, &acq400_proc_ops_EMPTIES);
 	proc_create("INFLIGHT", 0, acq400_dev->proc_entry, &acq400_proc_ops_INFLIGHT);
