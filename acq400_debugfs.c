@@ -45,7 +45,7 @@ void bolo8_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(B8_DAC_WAVE_TOP);
 	DBG_REG_CREATE(B8_DAC_FIFO_STA);
 	DBG_REG_CREATE(B8_DAC_SAMPLE_CNT);
-	DBG_REG_CREATE(B8_DAC_SPI);
+	DBG_REG_CREATE_RW(B8_DAC_SPI);
 	DBG_REG_CREATE(B8_DAC_SPI_RBK);
 /* Current ADc */
 	DBG_REG_CREATE(B8_CAD_CON);
@@ -110,7 +110,7 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(DAC_CLKDIV);
 	if (IS_AO420(adev)||IS_AO428(adev)){
 		DBG_REG_CREATE(AO420_RANGE);
-		DBG_REG_CREATE(AO420_DACSPI);
+		DBG_REG_CREATE_RW(AO420_DACSPI);
 	}
 	if (IS_AO420(adev)||IS_AO424(adev)){
 		DBG_REG_CREATE(ADC_TRANSLEN);
