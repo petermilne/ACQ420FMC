@@ -69,24 +69,25 @@ static int acq400_proc_seq_show_channel_mapping(struct seq_file *s, void *v)
 
 static int acq400_proc_seq_show_xxx_reg_cache(struct seq_file *s, void *v, struct RegCache* rc)
 {
-	int ii;
-
-
 	seq_printf(s, "id:%d va:%p data:%p max_reg:%d\n", rc->id, rc->va, rc->data, rc->max_reg);
-	for (ii = 0; ii < REG_CACHE_MAP_REGS; ++ii){
-		seq_printf(s, "reg [%d] %08x\n", ii, rc->map[ii]);
-	}
-	for (ii = 0; ii < rc->max_reg; ++ii){
-		char delim = ((ii&7)==7 || ii+1==rc->max_reg)? '\n': ' ';
-		unsigned xx;
+	if (rc->max_reg){
+		int ii;
 
-		if (ii%8 == 0){
-			seq_printf(s, "[%04x] ", ii*sizeof(int));
+		for (ii = 0; ii < REG_CACHE_MAP_REGS; ++ii){
+			seq_printf(s, "reg [%d] %08x\n", ii, rc->map[ii]);
 		}
-		if (dev_rc_read(rc, ii*sizeof(int), &xx)){
-			seq_printf(s, "%8s%c", "", delim);
-		}else{
-			seq_printf(s, "%08x%c", xx, delim);
+		for (ii = 0; ii < rc->max_reg; ++ii){
+			char delim = ((ii&7)==7 || ii+1==rc->max_reg)? '\n': ' ';
+			unsigned xx;
+
+			if (ii%8 == 0){
+				seq_printf(s, "[%04x] ", ii*sizeof(int));
+			}
+			if (dev_rc_read(rc, ii*sizeof(int), &xx)){
+				seq_printf(s, "%8s%c", "", delim);
+			}else{
+				seq_printf(s, "%08x%c", xx, delim);
+			}
 		}
 	}
 	return 0;
