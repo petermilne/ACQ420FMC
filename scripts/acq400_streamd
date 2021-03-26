@@ -13,10 +13,12 @@ source /usr/local/bin/init_stream
 SITE=${1:-0}
 LOG=/var/log/acq400_streamd_$SITE.log
 
+(
 if [ ! -e $LOG ]; then
         grep -q emlog /proc/modules; [ $? -ne 0 ] && /sbin/insmod /usr/local/lib/modules/emlog.ko
         [ -e $LOG ] || mkemlog $LOG
 fi
+) 2>&1 >/dev/null
 
 
 init_stream $SITE >$LOG 2>&1
