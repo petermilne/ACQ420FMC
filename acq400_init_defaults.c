@@ -940,6 +940,8 @@ void dio482td_init_defaults(struct acq400_dev* adev)
 void _acq400_mod_init_defaults(struct acq400_dev* adev)
 {
 	adev->sysclkhz = SYSCLK_M100;
+	adev->clk_ctr_reg = ADC_CLK_CTR/sizeof(int);
+	adev->sample_ctr_reg = ADC_SAMPLE_CTR/sizeof(int);
 }
 
 

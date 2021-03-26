@@ -157,6 +157,8 @@ struct acq400_dev {
 	int word_size;
 	int is_slave;			/** @@todo how does this get set? */
 	int RW32_debug;
+	unsigned clk_ctr_reg;
+	unsigned sample_ctr_reg;
 
 	struct mutex list_mutex;
 	struct list_head EMPTIES;	/* empties waiting isr       */
