@@ -72,7 +72,7 @@ static int acq400_proc_seq_show_xxx_reg_cache(struct seq_file *s, void *v, struc
 	int ii;
 
 
-	seq_printf(s, "id:%d va:%p\n", rc->id, rc->va);
+	seq_printf(s, "id:%d va:%p data:%p max_reg:%d\n", rc->id, rc->va, rc->data, rc->max_reg);
 	for (ii = 0; ii < REG_CACHE_MAP_REGS; ++ii){
 		seq_printf(s, "reg [%d] %08x\n", ii, rc->map[ii]);
 	}

@@ -141,15 +141,21 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 			}
 		}
 	}
-	if (++last < reg_cache->max_reg/2){
-		unsigned* small_data = kzalloc(last*sizeof(unsigned), GFP_KERNEL);
+	if (last <= reg_cache->max_reg/2){
 		unsigned* old = reg_cache->data;
-		memcpy(small_data, old, last*sizeof(unsigned));
-		reg_cache->data = small_data;
-		reg_cache->max_reg = last;
+
+		if (last != 0){
+			unsigned* small_data = kzalloc(++last*sizeof(unsigned), GFP_KERNEL);
+			memcpy(small_data, old, last*sizeof(unsigned));
+			reg_cache->data = small_data;
+			reg_cache->max_reg = last;
+			dev_info(DEVP(reg_cache->adev), "dev_rc_finalize reduce cache from %d to %d bytes",
+							REG_CACHE_MAX*sizeof(unsigned), last*sizeof(unsigned));
+		}else{
+			reg_cache->data = 0;
+			reg_cache->max_reg = last;
+		}
 		kfree(old);
-		dev_info(DEVP(reg_cache->adev), "dev_rc_finalize reduce cache from %d to %d bytes",
-				REG_CACHE_MAX*sizeof(unsigned), last*sizeof(unsigned));
 	}
 
 	dev_info(DEVP(reg_cache->adev), "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
@@ -164,7 +170,6 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 		hrtimer_start(&reg_cache->timer, ktime_set(0, id*10*NSEC_PER_MSEC), HRTIMER_MODE_REL);
 	}
 
-	dev_info(DEVP(reg_cache->adev), "%s last cache entry %d", __FUNCTION__, last);
 	return last;
 }
 
