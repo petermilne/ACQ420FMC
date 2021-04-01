@@ -8,6 +8,8 @@ if { [exec get.site 1 NCHAN] == 24 } {
 	exit 1
 }
 
+exec ao420_init all
+
 set dacoff 1fff
 if { $argc > 0 } {
     set arg1 [lindex $argv 0]
