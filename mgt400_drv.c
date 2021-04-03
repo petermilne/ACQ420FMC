@@ -186,6 +186,35 @@ static void _mgt400_buffer_counter(struct mgt400_dev* mdev)
 		_update_histograms(mdev, push, pull);
 	}
 }
+
+static void _mgt400_dma_status_check1(struct mgt400_dev* mdev, int id, int stat)
+{
+	if (stat != mdev->dma_enable_status[id].status){
+		mdev->dma_enable_status[id].status = stat;
+		wake_up_interruptible(&mdev->dma_enable_status[id].status_change);
+	}
+}
+
+static void _mgt400_dma_status_check(struct mgt400_dev* mdev)
+{
+	unsigned dma_ctrl = mgt400rd32(mdev, DMA_CTRL);
+	_mgt400_dma_status_check1(mdev, ID_PUSH, (dma_ctrl>>DMA_DATA_PUSH_SHL)&1);
+	_mgt400_dma_status_check1(mdev, ID_PULL, (dma_ctrl>>DMA_DATA_PULL_SHL)&1);
+}
+
+
+static void _mgt_status_init(struct mgt400_dev* mdev, int id, int stat)
+{
+        init_waitqueue_head(&mdev->dma_enable_status[id].status_change);
+        mdev->dma_enable_status[id].status = stat;
+}
+static void mgt_status_init(struct mgt400_dev* mdev)
+{
+	unsigned dma_ctrl = mgt400rd32(mdev, DMA_CTRL);
+	_mgt_status_init(mdev, ID_PUSH, (dma_ctrl>>DMA_DATA_PUSH_SHL)&1);
+	_mgt_status_init(mdev, ID_PULL, (dma_ctrl>>DMA_DATA_PULL_SHL)&1);
+}
+
 static ktime_t kt_period;
 
 enum hrtimer_restart mgt400_buffer_counter(struct hrtimer* hrt)
@@ -194,6 +223,7 @@ enum hrtimer_restart mgt400_buffer_counter(struct hrtimer* hrt)
 		container_of(hrt, struct mgt400_dev, buffer_counter_timer);
 
 	_mgt400_buffer_counter(mdev);
+	_mgt400_dma_status_check(mdev);
 	counter_updates++;
 	hrtimer_forward_now(hrt, kt_period);
 	return HRTIMER_RESTART;
@@ -429,12 +459,58 @@ int mgt400_dma_descr_open(struct inode *inode, struct file *file)
 		return 0;
 	}
 }
+
+#define MGT_STATUS_OLD  (PD(file)->buffer[0])
+#define MGT_STATUS_ID	(PD(file)->minor - MINOR_PULL_STATUS)
+
+ssize_t mgt400_status_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct mgt400_dev *mdev = PD(file)->dev;
+	unsigned id = MGT_STATUS_ID;
+	char lbuf[4];
+	int rc;
+	if (count < 2){
+		return -EINVAL;
+	}
+	if (wait_event_interruptible(
+		mdev->dma_enable_status[id].status_change,
+		mdev->dma_enable_status[id].status != MGT_STATUS_OLD)){
+		return -EINTR;
+	}
+	MGT_STATUS_OLD = mdev->dma_enable_status[id].status;
+	snprintf(lbuf, 4, "%d\n", PD(file)->buffer[0]&1);
+	rc = copy_to_user(buf, lbuf, 2);
+	if (rc != 0){
+		return -rc;
+	}else{
+		return 2;
+	}
+}
+int mgt400_status_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations _fops = {
+		.read = mgt400_status_read
+	};
+	struct mgt400_dev *mdev = PD(file)->dev;
+	unsigned id = MGT_STATUS_ID;
+	dev_dbg(DEVP(mdev), "%s 01", __FUNCTION__);
+
+	MGT_STATUS_OLD = mdev->dma_enable_status[id].status;
+	file->f_op = &_fops;
+
+	return 0;
+}
+
 int mgt400_open(struct inode *inode, struct file *file)
 {
 	SETPD(file, kzalloc(PDSZ, GFP_KERNEL));
 	PD(file)->dev = container_of(inode->i_cdev, struct mgt400_dev, cdev);
 	PD(file)->minor = MINOR(inode->i_rdev);
 	switch(MINOR(inode->i_rdev)){
+	case MINOR_PULL_STATUS:
+	case MINOR_PUSH_STATUS:
+		return mgt400_status_open(inode, file);
 	case MINOR_PUSH_DESC_FIFO:
 	case MINOR_PULL_DESC_FIFO:
 		return mgt400_dma_descr_open(inode, file);
@@ -590,6 +666,8 @@ static int mgt400_probe(struct platform_device *pdev)
 
         mgt400_start_buffer_counter(mdev);
 
+
+        mgt_status_init(mdev);
         mgt400_createSysfs(&mdev->pdev->dev);
         mgt400_createDebugfs(mdev);
 
