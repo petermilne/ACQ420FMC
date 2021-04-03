@@ -208,12 +208,6 @@ static void _mgt_status_init(struct mgt400_dev* mdev, int id, int stat)
         init_waitqueue_head(&mdev->dma_enable_status[id].status_change);
         mdev->dma_enable_status[id].status = stat;
 }
-static void mgt_status_init(struct mgt400_dev* mdev)
-{
-	unsigned dma_ctrl = mgt400rd32(mdev, DMA_CTRL);
-	_mgt_status_init(mdev, ID_PUSH, (dma_ctrl>>DMA_DATA_PUSH_SHL)&1);
-	_mgt_status_init(mdev, ID_PULL, (dma_ctrl>>DMA_DATA_PULL_SHL)&1);
-}
 
 static ktime_t kt_period;
 
@@ -250,6 +244,15 @@ void mgt400_clear_counters(struct mgt400_dev* mdev)
 	dev_info(DEVP(mdev), "mgt400_clear_counters :%p  %d %lu",
 			&mdev->push, sizeof(struct DMA_CHANNEL), mdev->push.buffer_count);
 	memset(&mdev->pull, 0, sizeof(struct DMA_CHANNEL));
+	mgt400_start_buffer_counter(mdev);
+}
+
+
+static void mgt_status_init(struct mgt400_dev* mdev)
+{
+	unsigned dma_ctrl = mgt400rd32(mdev, DMA_CTRL);
+	_mgt_status_init(mdev, ID_PUSH, (dma_ctrl>>DMA_DATA_PUSH_SHL)&1);
+	_mgt_status_init(mdev, ID_PULL, (dma_ctrl>>DMA_DATA_PULL_SHL)&1);
 	mgt400_start_buffer_counter(mdev);
 }
 
@@ -470,6 +473,9 @@ ssize_t mgt400_status_read(
 	unsigned id = MGT_STATUS_ID;
 	char lbuf[4];
 	int rc;
+
+	dev_dbg(DEVP(mdev), "%s 01", __FUNCTION__);
+
 	if (count < 2){
 		return -EINVAL;
 	}
@@ -481,6 +487,9 @@ ssize_t mgt400_status_read(
 	MGT_STATUS_OLD = mdev->dma_enable_status[id].status;
 	snprintf(lbuf, 4, "%d\n", PD(file)->buffer[0]&1);
 	rc = copy_to_user(buf, lbuf, 2);
+
+	dev_dbg(DEVP(mdev), "%s 99 rc:%d", __FUNCTION__, rc);
+
 	if (rc != 0){
 		return -rc;
 	}else{
@@ -490,7 +499,8 @@ ssize_t mgt400_status_read(
 int mgt400_status_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations _fops = {
-		.read = mgt400_status_read
+		.read = mgt400_status_read,
+		.release = mgt400_release,
 	};
 	struct mgt400_dev *mdev = PD(file)->dev;
 	unsigned id = MGT_STATUS_ID;
@@ -663,9 +673,6 @@ static int mgt400_probe(struct platform_device *pdev)
         if (rc < 0){
         	goto fail;
         }
-
-        mgt400_start_buffer_counter(mdev);
-
 
         mgt_status_init(mdev);
         mgt400_createSysfs(&mdev->pdev->dev);
