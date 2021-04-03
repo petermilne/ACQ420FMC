@@ -534,6 +534,8 @@ build_mgt400_node() {
 	mknod /dev/${NAME}.init_pull_desc c ${MAJOR} 5
 	mknod /dev/${NAME}.push_desc c ${MAJOR} 6
 	mknod /dev/${NAME}.pull_desc c ${MAJOR} 7
+	mknod /dev/${NAME}.push_status c ${MAJOR} 8
+	mknod /dev/${NAME}.pull_status c ${MAJOR} 9
 }
 build_mgt400() {
 	name=$(cat $1/name)

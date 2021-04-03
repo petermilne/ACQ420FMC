@@ -574,6 +574,26 @@ static ssize_t store_ident(
 static DEVICE_ATTR(ident, S_IRUGO|S_IWUSR, show_ident, store_ident);
 
 
+static ssize_t show_pull_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%d\n", mdev->dma_enable_status[ID_PULL].status);
+}
+static DEVICE_ATTR(pull_status, S_IRUGO, show_pull_status, 0);
+
+static ssize_t show_push_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	return sprintf(buf, "%d\n", mdev->dma_enable_status[ID_PUSH].status);
+}
+static DEVICE_ATTR(push_status, S_IRUGO, show_push_status, 0);
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
@@ -597,6 +617,8 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_pull_buffer_count.attr,
 	&dev_attr_push_buffer_count_lw.attr,
 	&dev_attr_pull_buffer_count_lw.attr,
+	&dev_attr_push_status.attr,
+	&dev_attr_pull_status.attr,
 	&dev_attr_clear_stats.attr,
 	&dev_attr_aggregator.attr,
 	&dev_attr_spad.attr,

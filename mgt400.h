@@ -42,6 +42,10 @@ struct mgt400_dev {
 	} push, pull;
 	struct RegCache clk_reg_cache;
 	struct hrtimer buffer_counter_timer;
+	struct StatusClient {
+		unsigned status;
+		wait_queue_head_t status_change;
+	} dma_enable_status[2];			/* PULL, PUSH */
 };
 
 #define dev_virtaddr	va
@@ -139,6 +143,8 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define DMA_PULL_DESC_FIFO	(0x2080)
 
 
+#define ID_PUSH				0
+#define ID_PULL				1
 #define DMA_DATA_PULL_SHL		16
 #define DMA_DATA_PUSH_SHL		0
 
@@ -165,7 +171,9 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MINOR_PULL_DESC_LIST	5
 #define MINOR_PUSH_DESC_FIFO	6
 #define MINOR_PULL_DESC_FIFO	7
-#define MGT_MINOR_COUNT		8
+#define MINOR_PUSH_STATUS	8
+#define MINOR_PULL_STATUS	9
+#define MGT_MINOR_COUNT	       10
 
 #define PD_FIFO_SHL(file)	\
     ( PD(file)->minor==MINOR_PUSH_DESC_FIFO? \
