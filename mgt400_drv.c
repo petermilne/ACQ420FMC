@@ -464,7 +464,7 @@ int mgt400_dma_descr_open(struct inode *inode, struct file *file)
 }
 
 #define MGT_STATUS_OLD  (PD(file)->buffer[0])
-#define MGT_STATUS_ID	(PD(file)->minor == MINOR_PULL_STATUS? ID_PUSH: ID_PULL)
+#define MGT_STATUS_ID	(PD(file)->minor == MINOR_PULL_STATUS? ID_PULL: ID_PUSH)
 
 ssize_t mgt400_status_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
