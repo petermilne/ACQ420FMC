@@ -71,6 +71,8 @@ using namespace std;
 
 #include "Buffer.h"
 
+#define PAGE_SIZE 0x1000
+#define PAGE_MASK (PAGE_SIZE-1)
 
 Buffer::Buffer(const char* _fname, int _buffer_len):
 	fname(_fname),
@@ -114,18 +116,21 @@ int MapBuffer::includes(void *cursor)
 MapBuffer::MapBuffer(const char* _fname, int _buffer_len) :
 				Buffer(_fname, _buffer_len)
 {
-
-	pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), bufferlen,
+	if ((_buffer_len&PAGE_MASK) != 0){
+		_buffer_len = (_buffer_len&~(PAGE_MASK)) + PAGE_SIZE;
+		contiguous = false;
+	}
+	pdata = static_cast<char*>(mmap(static_cast<void*>(ba1), _buffer_len,
 			PROT_READ|PROT_WRITE, MAP_SHARED|MAP_FIXED, fd, 0));
 
 	if (pdata != ba1){
-		fprintf(stderr, "mmap() failed to get the hint:%p actual %p\n", ba1, pdata);
+		fprintf(stderr, "mmap() failed to get the hint:%p actual %p errno:%d\n", ba1, pdata, errno);
 		exit(1);
 	}
 	if (verbose > 2) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
 			the_buffers.size()-1, fname, pdata);
 
-	ba_hi = ba1 += bufferlen;
+	ba_hi = ba1 += _buffer_len;
 	assert(pdata != MAP_FAILED);
 }
 
@@ -203,6 +208,7 @@ char* MapBuffer::ba1   = MAPBUFFER_BA0;		/* initial value increments to top */
 char* MapBuffer::ba_lo = MAPBUFFER_BA0;		/* initial value, may move by reserve count */
 char* MapBuffer::ba_hi;				/* tracks ba1 @@todo may be redundant */
 int MapBuffer::buffer_0_reserved;
+bool MapBuffer::contiguous = true;
 
 
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"

@@ -117,6 +117,7 @@ protected:
 	static char* ba_lo;		/* lo end of data set */
 	static char* ba_hi;		/* hi end of data set likely == ba1 */
 	static int buffer_0_reserved;
+	static bool contiguous;		/* contiguous mapping not always possible */
 
 public:
 	virtual int writeBuffer(int out_fd, int b_opts, unsigned start_off, unsigned len);
@@ -161,6 +162,9 @@ public:
 
 	static char* ba(int ibuf){
 		return reinterpret_cast<MapBuffer*>(Buffer::the_buffers[ibuf])->pdata;
+	}
+	bool isContiguous() {
+		return contiguous;
 	}
 };
 
