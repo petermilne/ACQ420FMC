@@ -1581,7 +1581,7 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         }
 
         if (rc != 0){
-        	dev_err(DEVP(adev), "acq400_open FAIL minor:%d rc:%d", minor, rc);
+        	dev_err(DEVP(adev), "acq400_open_ui FAIL minor:%d rc:%d", minor, rc);
         	if (PD(file)) kfree(PD(file));
         	SETPD(file, 0);
         }
