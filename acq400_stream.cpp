@@ -3993,10 +3993,10 @@ protected:
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
 
-	void notify_result() {
+	void notify_result(int nsamples) {
 		char resbuf[128];
 		sprintf(resbuf, "COOKED=%d NSAMPLES=%d NCHAN=%d TYPE=%s\n",
-				cooked? 1:0, G::pre+G::post, G::nchan,
+				cooked? 1:0, nsamples, G::nchan,
 				G::wordsize==2? "SHORT": "LONG");
 		if (verbose) fprintf(stderr, "%s \"%s\"\n", _PFN, resbuf);
 		FILE* fp = fopen(NOTIFY_HOOK, "w");
@@ -4006,6 +4006,9 @@ protected:
 		}
 		fprintf(fp, resbuf);
 		fclose(fp);
+	}
+	void notify_result() {
+		notify_result(G::pre+G::post);
 	}
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
@@ -4144,6 +4147,7 @@ protected:
 
 			switch(actual.state){
 			case ST_ARM:
+				notify_result(0);
 				setState(pre? ST_RUN_PRE: ST_RUN_POST);
 			default:
 				;
