@@ -216,6 +216,16 @@ u32 get_spadN(struct acq400_dev* adev, int n)
 	return acq400rd32(adev, SPADN(n));
 }
 
+void set_XOspadN(struct acq400_dev* adev, int n, u32 value)
+{
+	acq400wr32(adev, XO_SPADN(n), value);
+
+}
+u32 get_XOspadN(struct acq400_dev* adev, int n)
+{
+	return acq400rd32(adev, XO_SPADN(n));
+}
+
 static bool filter_true(struct dma_chan *chan, void *param)
 {
 	return true;

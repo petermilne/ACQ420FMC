@@ -544,6 +544,10 @@ void acq2006_createDebugfs(struct acq400_dev* adev)
 			snprintf(name, 16, "spad%d", ii);
 			DBG_REG_CREATE_NAME_NC(name, SPADN(ii));
 		}
+		for (ii = 0; ii < SPADMAX; ++ii){
+			snprintf(name, 16, "xo_spad%d", ii);
+			DBG_REG_CREATE_NAME_NC(name, XO_SPADN(ii));
+		}
 	}
 	if (IS_ACQ2X06SC(adev) && IS_ACQ2106_WR(adev)){
 		DBG_REG_CREATE(WR_CTRL);

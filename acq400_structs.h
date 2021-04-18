@@ -560,6 +560,8 @@ int ao420_getFifoHeadroom(struct acq400_dev* adev);
 
 void set_spadN(struct acq400_dev* adev, int n, u32 value);
 u32 get_spadN(struct acq400_dev* adev, int n);
+void set_XOspadN(struct acq400_dev* adev, int n, u32 value);
+u32 get_XOspadN(struct acq400_dev* adev, int n);
 
 struct acq400_dev* acq400_lookupSite(int site);
 

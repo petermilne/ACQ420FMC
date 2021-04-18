@@ -130,6 +130,8 @@
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define SPADMAX			8
 
+#define XO_SPADN(ix)		(ADC_BASE+0xC0+(ix)*sizeof(u32))
+
 #define ADC_FIFO_SAMPLE_MASK	0xff
 
 #define FIFO_HISTO_SZ	      	(1<<8)

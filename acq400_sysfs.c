@@ -1049,10 +1049,11 @@ static ssize_t show_spadN(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
-	const int ix)
+	const int ix,
+	u32 (*getter)(struct acq400_dev* adev, int n))
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
-	u32 spad = get_spadN(adev, ix);
+	u32 spad = getter(adev, ix);
 	return sprintf(buf, "0x%08x\n", spad);
 }
 
@@ -1061,7 +1062,10 @@ static ssize_t store_spadN(
 	struct device_attribute *attr,
 	const char * buf,
 	size_t count,
-	const int ix)
+	const int ix,
+	u32 (*getter)(struct acq400_dev* adev, int n),
+	void (*setter)(struct acq400_dev* adev, int n, u32 value)
+	)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	int rc = count;
@@ -1083,7 +1087,7 @@ static ssize_t store_spadN(
 		return -EINTR;
 	}
 	if (mode != ASSIGN){
-		u32 rspad = get_spadN(adev, ix);
+		u32 rspad = getter(adev, ix);
 		switch(mode){
 		case SETBITS:
 			rspad |= spad; spad = rspad; break;
@@ -1094,7 +1098,7 @@ static ssize_t store_spadN(
 			goto store_spadN_99;
 		}
 	}
-	set_spadN(adev, ix, spad);
+	setter(adev, ix, spad);
 
 store_spadN_99:
 	mutex_unlock(&adev->mutex);
@@ -1108,7 +1112,7 @@ static ssize_t show_spad##IX(						\
 	struct device_attribute *attr,					\
 	char * buf)							\
 {									\
-	return show_spadN(dev, attr, buf, IX);				\
+	return show_spadN(dev, attr, buf, IX, get_spadN);		\
 }									\
 									\
 static ssize_t store_spad##IX(						\
@@ -1117,7 +1121,7 @@ static ssize_t store_spad##IX(						\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_spadN(dev, attr, buf, count, IX);			\
+	return store_spadN(dev, attr, buf, count, IX, get_spadN, set_spadN); \
 }									\
 static DEVICE_ATTR(spad##IX, S_IRUGO|S_IWUSR, 				\
 		show_spad##IX, store_spad##IX)
@@ -1130,6 +1134,37 @@ MAKE_SPAD(4);
 MAKE_SPAD(5);
 MAKE_SPAD(6);
 MAKE_SPAD(7);
+
+
+#define MAKE_XO_SPAD(IX)						\
+static ssize_t show_XO_spad##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_spadN(dev, attr, buf, IX, get_XOspadN);		\
+}									\
+									\
+static ssize_t store_XO_spad##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_spadN(dev, attr, buf, count, IX, get_XOspadN, set_XOspadN); \
+}									\
+static DEVICE_ATTR(xo_spad##IX, S_IRUGO|S_IWUSR, 				\
+		show_XO_spad##IX, store_XO_spad##IX)
+
+MAKE_XO_SPAD(0);
+MAKE_XO_SPAD(1);
+MAKE_XO_SPAD(2);
+MAKE_XO_SPAD(3);
+MAKE_XO_SPAD(4);
+MAKE_XO_SPAD(5);
+MAKE_XO_SPAD(6);
+MAKE_XO_SPAD(7);
+
 
 
 MAKE_BITS(spad1_us_clk_src, USEC_CCR, MAKE_BITS_FROM_MASK, USEC_CCR_CLK_SRC_DX);
@@ -3329,6 +3364,14 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_spad5.attr,
 	&dev_attr_spad6.attr,
 	&dev_attr_spad7.attr,
+	&dev_attr_xo_spad0.attr,
+	&dev_attr_xo_spad1.attr,
+	&dev_attr_xo_spad2.attr,
+	&dev_attr_xo_spad3.attr,
+	&dev_attr_xo_spad4.attr,
+	&dev_attr_xo_spad5.attr,
+	&dev_attr_xo_spad6.attr,
+	&dev_attr_xo_spad7.attr,
 	&dev_attr_estop.attr,
 	&dev_attr_spad1_us.attr,
 	&dev_attr_spad1_us_clk_src.attr,
