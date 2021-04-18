@@ -97,6 +97,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MGT_DRAM_TX_CNT (0x0088)
 
 
+#define ZDMA_CR_KILL_COMMS      (1<<3)
 #define ZDMA_CR_AUTO_PUSH_DMA	(1<<1)
 #define ZDMA_CR_ENABLE		(1<<0)
 

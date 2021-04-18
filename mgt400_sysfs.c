@@ -413,6 +413,33 @@ static ssize_t store_auto_dma(
 
 static DEVICE_ATTR(auto_dma, S_IRUGO|S_IWUSR, show_auto_dma, store_auto_dma);
 
+static ssize_t store_kill_comms(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+
+	unsigned enable;
+
+	if (sscanf(buf, "%u", &enable) > 0){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 zdma_cr = mgt400rd32(mdev, ZDMA_CR);
+		zdma_cr |= ZDMA_CR_KILL_COMMS;
+		mgt400wr32(mdev, ZDMA_CR, zdma_cr);
+		zdma_cr &= ~ZDMA_CR_KILL_COMMS;
+		mgt400wr32(mdev, ZDMA_CR, zdma_cr);
+	}else{
+		count = -1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(kill_comms, S_IRUGO|S_IWUSR, 0, store_kill_comms);
+
+
+
 #define AGG_SEL	"aggregator="
 
 static ssize_t show_agg_reg(
@@ -623,6 +650,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_aggregator.attr,
 	&dev_attr_spad.attr,
 	&dev_attr_auto_dma.attr,
+	&dev_attr_kill_comms.attr,
 	&dev_attr_ident.attr,
 	&dev_attr_RW32_debug.attr,
 	NULL
