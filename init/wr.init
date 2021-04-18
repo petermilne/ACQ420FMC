@@ -192,7 +192,11 @@ start_wr() {
 	else
 		wr_reset
 	fi
-
+	wr_reset --is_wr_present=1
+	if [ $? -ne 0 ]; then
+		echo +++ ERROR cold_start_wrtd .. WR not found
+		return
+    fi
 	init_wr_onetime
 }
 
@@ -259,11 +263,7 @@ cold_start_wrtd() {
 }
 
 cold_start_wr() {
-	wr_reset --is_wr_present=1
-	if [ $? -ne 0 ]; then
-		echo +++ ERROR cold_start_wrtd .. WR not found
-		return
-	fi
+
 	
 	start_wr
 	cold_start_wrtd &

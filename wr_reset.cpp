@@ -239,7 +239,7 @@ int restore_cal(char* wrbase)
 }
 struct poptOption opt_table[] = {
 	{ "save_cal", 's', POPT_ARG_INT, &G::save_cal, 's', "save calibration and quit" },
-	{ "is_wr_present", 'w', POPT_ARG_INT, &G::is_wr_present, 'w', "report if WRC present in systemi and quit" },
+	{ "is_wr_present", 'w', POPT_ARG_INT, &G::is_wr_present, 'w', "report if WRC present in system and quit" },
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
