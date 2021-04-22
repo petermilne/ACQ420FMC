@@ -2333,6 +2333,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_trg.attr,
 	&dev_attr__trg.attr,
 	&dev_attr_clk.attr,
+	&dev_attr_sync.attr,
 	&dev_attr_clk_count.attr,
 	&dev_attr_clk_counter_src.attr,
 	&dev_attr_sample_count.attr,
@@ -2355,7 +2356,6 @@ static const struct attribute *sysfs_device_attrs[] = {
 static const struct attribute *sysfs_adc_device_attrs[] = {
 	&dev_attr_event1.attr,
 	&dev_attr_event0.attr,
-	&dev_attr_sync.attr,
 	&dev_attr_sod.attr,
 	&dev_attr_nacc.attr,
 	&dev_attr_ACC.attr,
