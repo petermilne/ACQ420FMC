@@ -598,6 +598,9 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 	{
 		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 		dac_ctrl |= ADC_CTRL_MODULE_EN;
+		if (data32){
+			dac_ctrl |= ADC_CTRL32B_data;
+		}
 		acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	}
 	measure_ao_fifo(adev);
