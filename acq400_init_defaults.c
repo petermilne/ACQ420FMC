@@ -61,7 +61,7 @@ int act_on_fiferr = 1;
 module_param(act_on_fiferr, int, 0644);
 MODULE_PARM_DESC(act_on_fiferr, "0: log, don't act. 1: abort on error");
 
-int ao420_mapping[AO_CHAN] = { 4, 3, 2, 1 };
+int ao420_mapping[AO_CHAN] = { 1, 2, 3, 4 };
 int ao420_mapping_count = 4;
 module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 
@@ -581,6 +581,7 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 {
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 
 	adev->data32 = data32;
 	adev->nchan_enabled = IS_AO420_HALF436(adev)? 2: 4;
@@ -595,14 +596,13 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 	adev->lotide = 16384;
 
 	dev_info(DEVP(adev), "AO420 device init NCHAN %d", adev->nchan_enabled);
-	{
-		u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
-		dac_ctrl |= ADC_CTRL_MODULE_EN;
-		if (data32){
-			dac_ctrl |= ADC_CTRL32B_data;
-		}
-		acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
+	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	if (data32){
+		dac_ctrl |= ADC_CTRL32B_data;
 	}
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
 	measure_ao_fifo(adev);
 }
 
