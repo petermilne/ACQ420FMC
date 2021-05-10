@@ -378,7 +378,7 @@ build_knobs_device() {
 		echo 4 >${ek}/SAMPLE_SIZE
 		set_max_min_khz ${site} 128 4
 		CLKDIV=8;;
-	7|8)
+	8)
 		# space deliberate
 		set_max_min_khz ${site} 80000 10000
 		ACQ480_SITES="${ACQ480_SITES} $site";;
@@ -627,14 +627,18 @@ build_knobs() {
 		
 		for site in $ACQ480_SITES
 		do
-			grep -q 482 /etc/acq400/$site/MODEL
-			[ $? -eq 0 ] && set.sys /etc/acq400/$site/acq482_cmap 1
-			
-			grep -q 481 /etc/acq400/$site/MODEL
-			if [ $? -eq 0 ]; then
-				export ACQ480_FIXED_TERM=1
-				export ACQ480_MODPARAMS="claim_0x20=0 claim_0x22=0"
-				break
+			acq48_model=$(cat /etc/acq400/$site/MODEL)
+			echo inspecting ACQ480_SITE $site $acq48_model
+			echo acq48_model | grep -q 482
+			if [ $? -eq 0 ]; then			    
+				set.sys /etc/acq400/$site/acq482_cmap 1
+			else			
+				echo acq48_model | grep -q 481
+				if [ $? -eq 0 ]; then
+					export ACQ480_FIXED_TERM=1
+					export ACQ480_MODPARAMS="claim_0x20=0 claim_0x22=0"
+					break
+				fi
 			fi
 		done
 		$ULB/acq480.init ${ACQ480_SITES}

@@ -49,7 +49,9 @@ void acq480wr32(struct acq400_dev *adev, int offset, u32 value)
 				adev->dev_virtaddr + offset, offset, value);
 	}
 
-	iowrite32(value, adev->dev_virtaddr + offset);
+	if (dev_rc_write(&adev->ctrl_reg_cache, offset, value)){
+		iowrite32(value, adev->dev_virtaddr + offset);
+	}
 }
 
 u32 acq480rd32(struct acq400_dev *adev, int offset)
