@@ -517,7 +517,7 @@ static ssize_t store_ao_GO(
 		struct device * dev,
 		struct device_attribute *attr,
 		const char * buf,
-		size_t count)
+		size_t count, int ao_min, int ao_max)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	int gx;
@@ -525,8 +525,8 @@ static ssize_t store_ao_GO(
 	if (sscanf(buf, "%d", &gx) == 1 || sscanf(buf, "0x%x", &gx) == 1){
 		u32 go = acq400rd32(acq400_devices[dev->id], DAC_GAIN_OFF(CH));
 
-		if (gx > 32767)  gx =  32767;
-		if (gx < -32767) gx = -32767;
+		if (gx > ao_max)  gx =  ao_max;
+		if (gx < -ao_min) gx = -ao_min;
 
 		go &= ~(0x0000ffff << SHL);
 		go |= (gx&0x0000ffff) << SHL;
@@ -543,7 +543,7 @@ static ssize_t store_ao_GO(
 	}
 }
 
-#define _MAKE_AO_GO(NAME, SHL, CHAN)					\
+#define _MAKE_AO_GO(NAME, SHL, CHAN, AO_MIN, AO_MAX)			\
 static ssize_t show_ao_GO##NAME(					\
 	struct device * dev,						\
 	struct device_attribute *attr,					\
@@ -558,14 +558,14 @@ static ssize_t store_ao_GO##NAME(					\
 	const char * buf,						\
 	size_t count)							\
 {									\
-	return store_ao_GO(CHAN, SHL, dev, attr, buf, count);		\
+	return store_ao_GO(CHAN, SHL, dev, attr, buf, count, AO_MIN, AO_MAX);\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, 			        \
 		show_ao_GO##NAME, store_ao_GO##NAME)
 
 #define MAKE_AO_GO(CHAN) \
-	_MAKE_AO_GO(G##CHAN, DAC_MATH_GAIN_SHL, CHAN); \
-	_MAKE_AO_GO(D##CHAN, DAC_MATH_OFFS_SHL, CHAN)
+	_MAKE_AO_GO(G##CHAN, DAC_MATH_GAIN_SHL, CHAN, 0, 32768);    \
+	_MAKE_AO_GO(D##CHAN, DAC_MATH_OFFS_SHL, CHAN, -32767, 32768)
 
 MAKE_AO_GO(1);
 MAKE_AO_GO(2);
