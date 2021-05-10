@@ -67,6 +67,7 @@ module_param(aggsta_skip_ok, int, 0644);
 #define AGG_TRAP 	0
 #define ADC_CTRL_TRAP 	0
 #define DAC_TRAP 	0
+#define ACQ482_CMAP_TRAP 0
 
 
 void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
@@ -121,7 +122,13 @@ void acq400wr32(struct acq400_dev *adev, int offset, u32 value)
 		}
 	}
 #endif
-
+#if ACQ482_CMAP_TRAP
+	if (offset == ADC_CTRL && adev->of_prams.site>=1 && adev->of_prams.site<=6){
+		u32 old = acq400rd32(adev, offset)&ADC_CTRL_482_CMAP;
+		u32 new = value&ADC_CTRL_482_CMAP;
+		trap = old && !new;
+	}
+#endif
 	if (adev->RW32_debug || trap){
 		dev_info(DEVP(adev), "acq400wr32 %p [0x%02x] = %08x\n",
 				adev->dev_virtaddr + offset, offset, value);

@@ -104,7 +104,7 @@ struct dentry* acq400_debug_root;
 	pcursor += strlen(pcursor) + 1;					\
 	} while(0)
 #endif
-
+#if 0
 #define DBG_REG_CREATE_CTRL(reg) do {					\
 	void* va = adev->dev_virtaddr; 					\
 	dev_rc_register_init(&adev->ctrl_reg_cache, reg, acq400rd32(adev, reg));	\
@@ -112,7 +112,14 @@ struct dentry* acq400_debug_root;
 	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
 	pcursor += strlen(pcursor) + 1;					\
 	} while(0)
-
+#else
+#define DBG_REG_CREATE_CTRL(reg) do {					\
+	void* va = adev->dev_virtaddr; 					\
+	sprintf(pcursor, "%s.0x%02x", #reg, reg);			\
+	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
+	pcursor += strlen(pcursor) + 1;					\
+	} while(0)
+#endif
 #define DBG_REG_CREATE_RW(reg) 					\
 	sprintf(pcursor, "%s.0x%02x", #reg, reg);		\
 	debugfs_create_x32(pcursor, S_IRUGO|S_IWUGO,		\
