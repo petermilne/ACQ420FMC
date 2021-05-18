@@ -2290,6 +2290,18 @@ static DEVICE_ATTR(sod, S_IRUGO|S_IWUSR, show_sod, store_sod);
 MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 0);
 
 
+const char* adc_id(struct acq400_dev *adev)
+{
+	if (IS_ADC(adev)){
+		if (IS_ACQ43X(adev)){
+			return "ds";
+		}else{
+			return "sar";
+		}
+	}else{
+		return "";
+	}
+}
 
 static ssize_t show_is_adc(
 	struct device * dev,
@@ -2297,7 +2309,7 @@ static ssize_t show_is_adc(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%d\n", IS_ADC(adev));
+	return sprintf(buf, "%d %s\n", IS_ADC(adev), adc_id(adev));
 }
 
 static DEVICE_ATTR(is_adc, S_IRUGO, show_is_adc, 0);
