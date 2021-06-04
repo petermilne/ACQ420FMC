@@ -152,7 +152,7 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 			dev_info(DEVP(reg_cache->adev), "dev_rc_finalize reduce cache from %d to %d bytes",
 							REG_CACHE_MAX*sizeof(unsigned), last*sizeof(unsigned));
 		}else{
-			reg_cache->data = 0;
+			reg_cache->data = has_timer? (unsigned*)empty_zero_page: 0;  // readonly .. just give it zeros.
 			reg_cache->max_reg = last;
 		}
 		kfree(old);
