@@ -8,6 +8,7 @@ fi
 pkill -f 'inetd /etc/inetd.ch.conf'
 OLDPID=$(ps | grep '[0-9] inetd /etc/inetd.ch.conf' | awk '{ print $1 }')
 if [ "$OLDPID" != "" ]; then
+	rm /etc/inetd.ch.conf
 	kill $OLDPID
 fi 
 
@@ -44,19 +45,22 @@ while [ "$sites" = "none" ]; do
 done
 
 let cix=1
-IFS=,
-for site in $sites
+sitesp="$(echo $sites | tr , \  )" 
+for site in $sitesp
 do
-#	echo site $site  /dev/acq400/data/$site/
-	for ch in /dev/acq400/data/$site/??
+	nchan=$(get.site $site NCHAN)
+	for chs in $(seq 1 $nchan)
 	do
-        	let px=$P0+$cix        
-        	echo >>/etc/inetd.ch.conf \
+		ch0s=$(printf "%02d" $chs)
+		ch=/dev/acq400/data/$site/$ch0s
+		[ ! -e $ch ] && (echo "ERROR file $ch not found"; exit 1)
+ 		let px=$P0+$cix        
+		echo >>/etc/inetd.ch.conf \
         		"$px stream tcp nowait root cat cat $ch"
 		chl=$(printf "%02d" $cix)
 		echo "acq400_ch$chl $px/tcp	# ch $ch transient data" >>/etc/services
-        	let cix=$cix+1
-        done
+        let cix=$cix+1
+	done
 done
 
 if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
