@@ -536,14 +536,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	IS_ACQ480(adev) || IS_BOLO8(adev) || IS_PIG_CELF(adev) || IS_QEN(adev) )
 
 #define HAS_ATD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x1) != 0)
-#if 1
-#warning HAS_XTD stubbed due to strange alias with DAC20
-#define HAS_DTD(adev) 	0
-#define HAS_XTD(adev)	0
-#else
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
-#endif
 
 #define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev) || IS_AO424(adev) || IS_AO420(adev))
 
@@ -589,11 +583,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define DISTRIBUTOR_STA		(0x0044)
 #define GPG_DEBUG		(0x0048)
 #define USEC_CCR		(0x004c)
-
-
-
-/* scratchpad */
 #define SPI_PERIPHERAL_CS	(0x0050)
+#define DIST_DBG		(0x0054)
 
 #define AXI_DMA_DEBUG_0		(0x0060)
 #define AXI_DMA_DEBUG_1		(0x0064)

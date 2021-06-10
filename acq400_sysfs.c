@@ -3327,6 +3327,22 @@ static ssize_t show_axi_dma_fail(
 
 static DEVICE_ATTR(axi_dma_fail, S_IRUGO, show_axi_dma_fail, 0);
 
+
+static ssize_t show_distributor_stats(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 stats = acq400rd32(adev, DIST_DBG);
+
+	return sprintf(buf, "%d %d\n", stats>>16, stats&0x0ffff);
+}
+
+
+static DEVICE_ATTR(distributor_stats, S_IRUGO, show_distributor_stats, 0);
+
+
 MAKE_BITS(axi64_max_desc_limit, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_MAXDESCRIPTORS);
 
 static const struct attribute *axi64_attrs[] = {
@@ -3415,6 +3431,7 @@ static const struct attribute *acq2006sc_attrs[] = {
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_data_engine_2.attr,
 	&dev_attr_data_engine_3.attr,
+	&dev_attr_distributor_stats.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
