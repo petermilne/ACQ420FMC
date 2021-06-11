@@ -89,16 +89,14 @@ init_wrsh() {
 		WRTD_DELAY01=1000000
 		WRTD_TX_MASK=0
 	fi
-	cat - <<EOF
+	cat - > ${WRSH} <<EOF
 	# wr.sh defaults created by wr.init $(date)
 	# correct values for WRTD_TICKNS
 	# WRTD_TICKNS=25.0     ;# 40MHz : most ACQ48x
 	# WRTD_TICKNS=50.0     ;# 20MHz
 	# WRTD_TICKNS=48.83	   ;# ACQ435 at 20.000 kSPS
 	# WRTD_TICKNS=100.0    ;# TIGA at 10MHz
-EOF > ${WRSH}
-	
-	
+EOF
 	set | grep WRTD | tr -d "'" >> ${WRSH}
 }
 
