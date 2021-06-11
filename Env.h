@@ -31,6 +31,14 @@ public:
 			return def;
 		}
 	}
+	static double getenv(const char* key, double def) {
+		const char* sv = ::getenv(key);
+		if (sv){
+			return strtod(sv, 0);
+		}else{
+			return def;
+		}
+	}
 	static const char* getenv(const char* key, const char* def) {
 		const char* sv = ::getenv(key);
 		if (sv){

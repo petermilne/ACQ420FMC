@@ -105,7 +105,7 @@ namespace G {
         unsigned ticks_per_sec = 80000000;
         int verbose = 0;
         unsigned dns = 40*M1;				// delta nsec
-        unsigned ns_per_tick = 50;			// ticks per nsec
+        double ns_per_tick = 50.0;			// ticks per nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
         unsigned max_tx = MAX_TX_INF;			// send max this many trigs
@@ -254,7 +254,7 @@ const char* ui(int argc, const char** argv)
         Knob clkdiv(1, "clkdiv");
         Knob modname(1, "module_name");
 
-        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 	50	);
+        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 	50.0	);
         G::dns 		= Env::getenv("WRTD_DELTA_NS", 	50000000);
         G::tx_id 	= Env::getenv("WRTD_ID", 	"WRTD0"	);
         G::verbose 	= Env::getenv("WRTD_VERBOSE", 	0	);
@@ -284,7 +284,7 @@ const char* ui(int argc, const char** argv)
         G::ticks_per_sec = NSPS / G::ns_per_tick;
         G::delta_ticks = G::dns / G::ns_per_tick;
 
-        if (G::verbose) fprintf(stderr, "ns per tick: %u ticks per s: %u delta_ticks %u\n",
+        if (G::verbose) fprintf(stderr, "ns per tick: %.3f ticks per s: %u delta_ticks %u\n",
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
         const char* mode = poptGetArg(opt_context);
