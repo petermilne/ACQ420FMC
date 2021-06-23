@@ -1,6 +1,8 @@
 #!/bin/sh
 files="${*:--}"
 
+pkill awg_continuous
+
 if [ "x$VERBOSE" != "" ]; then
 	ARGS=-v1
 fi
