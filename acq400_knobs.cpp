@@ -360,9 +360,12 @@ int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
 				"ERROR: failed to open \"%s\"\n", name);
 	}
 	char* cursor = buf;
-	for (; (cursor = fgets(cursor, maxbuf-(cursor-buf), knob.fp)) != NULL;
-		cursor += strlen(cursor)){
-		;
+	for (; (cursor = fgets(cursor, maxbuf-(cursor-buf), knob.fp)) != NULL; ){
+		int ll = strlen(cursor);
+		if (ll == 1 && *cursor == '\n'){
+			continue;
+		}
+		cursor += ll;
 	}
 
 	return cursor-buf;
