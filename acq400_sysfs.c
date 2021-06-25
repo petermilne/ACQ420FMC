@@ -2386,6 +2386,11 @@ static const struct attribute *acq424_attrs[] = {
 	&dev_attr_emulate_acq196.attr,
 	NULL
 };
+
+static const struct attribute *acq423_emulate_attrs[] = {
+	&dev_attr_emulate_acq196.attr,
+	NULL
+};
 static const struct attribute *acq425_attrs[] = {
 	&dev_attr_bank_mask.attr,
 	&dev_attr_adc_nobt.attr,
@@ -3832,6 +3837,7 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = gpg_attrs;
 			specials[nspec++] = dio484_pg_attrs;
 		}else if (IS_ACQ423(adev)){
+			specials[nspec++] = acq423_emulate_attrs;
 			specials[nspec++] = acq423_attrs;
 		}else if (IS_ACQ424(adev)){
 			specials[nspec++] = acq424_attrs;
