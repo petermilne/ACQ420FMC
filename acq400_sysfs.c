@@ -3731,15 +3731,54 @@ MAKE_STORE_DO32(DO32_immediate_mask, 	DIO482_PG_IMM_MASK, DIO482_PG_IMM_MASK);
 extern const struct device_attribute dev_attr_byte_is_output;
 
 SCOUNT_KNOB(FPTRG, DIO482_PG_FPTRG_COUNT);
-MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_PG_TRGOUT_PG4);
+
+static ssize_t show_num_pg(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, DIO432_CTRL);
+
+	return sprintf(buf, "%d\n", ctrl&DIO432_CTRL_PG_CLK_IS_DO? 5: 4);
+}
+
+static ssize_t store_num_pg(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	u32 ctrl = acq400rd32(adev, DIO432_CTRL);
+	unsigned num_pg;
+
+	if (sscanf(buf, "%u", &num_pg) == 1){
+		if (num_pg == 5){
+			ctrl |= DIO432_CTRL_PG_CLK_IS_DO;
+		}else{
+			ctrl &= ~DIO432_CTRL_PG_CLK_IS_DO;
+		}
+		acq400wr32(adev, DIO432_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(num_pg, S_IRUGO|S_IWUSR, show_num_pg, store_num_pg);
+
+MAKE_BITS(chain_PG,   DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
+MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
 
 const struct attribute *dio484_pg_attrs[] = {
-		&dev_attr_sync.attr,
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_byte_is_output.attr,
 		&dev_attr_scount_FPTRG.attr,
 		&dev_attr_trgout_PG4.attr,
+		&dev_attr_chain_PG.attr,
+		&dev_attr_num_pg.attr,
 		NULL
 };
 
@@ -3834,8 +3873,9 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 		if (IS_DIO482_PG(adev)) {
-			specials[nspec++] = gpg_attrs;
+			dev_info(dev, "IS_DIO482_PG count PG_attrs %d", sizeof(dio484_pg_attrs)/sizeof(int*));
 			specials[nspec++] = dio484_pg_attrs;
+			specials[nspec++] = gpg_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_emulate_attrs;
 			specials[nspec++] = acq423_attrs;
@@ -3885,8 +3925,9 @@ void acq400_createSysfs(struct device *dev)
 
 	BUG_ON(nspec >= MAXSPEC);
 	while(nspec--){
-		if (sysfs_create_files(&dev->kobj, specials[nspec])){
-			dev_err(dev, "failed to create sysfs %d", nspec);
+		int rc;
+		if ((rc = sysfs_create_files(&dev->kobj, specials[nspec]))){
+			dev_err(dev, "failed to create sysfs %d err:%d", nspec, rc);
 		}
 	}
 
