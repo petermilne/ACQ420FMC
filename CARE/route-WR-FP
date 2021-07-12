@@ -13,13 +13,14 @@ if [ "x$ACQ400_WR_MBCLK_FP" = "xy" ] ; then
 	set.site 0 SIG:SRC:SYNC:1 MBCLK
 	set.site 0 SIG:FP:SYNC=SYNC1
 fi
-# route PPS to AUX1 .. either RAW (from WRS) or Si5326 (default)
-if [ "x$ACQ400_WR_PPSRAW_FP" = "xy" ] ; then
-	set.site 0 SIG:SRC:SYNC:0 WRPPS
-	set.site 0 SIG:FP:SYNC SYNC0
-else
+# all processsing uses SYNC:0 cooked PPS
+set.site 0 SIG:SRC:SYNC:0 WRPPS
+# route PPS to AUX1 .. either raw (default) or cooked LOCALCLOCK (very short)
+if [ "x$ACQ400_WR_PPSRAW_FP" != "xy" ] ; then
 	set.site 0 SIG:SRC:SYNC:1 WRPPS
 	set.site 0 SIG:FP:SYNC SYNC1
+else
+	set.site 0 SIG:FP:SYNC SYNC0
 fi
 # Route WRTT to front panel
 # AUX2 is EVT0 is TRG is WRTT
