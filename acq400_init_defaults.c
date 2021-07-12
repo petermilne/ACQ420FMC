@@ -939,6 +939,7 @@ void dio482td_init_defaults(struct acq400_dev* adev)
 	DIO484_PG_OUTPUTS = 0xf;
 	dio484_pg_init_defaults(adev, 0);
 	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PG_PG_DOx);
+	adev->clkdiv_mask = 0xffffffff;
 }
 void _acq400_mod_init_defaults(struct acq400_dev* adev)
 {
