@@ -174,6 +174,7 @@ init_wr_onetime() {
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
+	cat ${WRSH}	>/dev/shm/wr0.sh
 	
 
 	
