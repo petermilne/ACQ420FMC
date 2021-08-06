@@ -247,29 +247,37 @@ static inline int BQ_incr(struct BQ* bq, int cursor){
 	return (cursor+1)&(bq->bq_len-1);
 }
 
+static inline int BQ_empty(struct BQ* bq){
+	return bq->head == bq->tail;
+}
+
+static inline int BQ_full(struct BQ* bq){
+	return BQ_incr(bq, bq->tail) == bq->head;
+}
+
 static inline void BQ_init(struct BQ* bq, int len)
 {
         bq->bq_len = len;
         bq->buf = kzalloc(len*sizeof(unsigned), GFP_KERNEL);
 }
-static inline unsigned BQ_get(struct BQ* bq)
+static inline unsigned BQ_get(struct device* dev, struct BQ* bq)
 {
 	unsigned item = bq->buf[bq->tail];
-	if (item == 0){
-		dev_warn(0, "BQ_get zero");
+	if (BQ_empty(bq)){
+		dev_warn(dev, "BQ_get EMPTY");
 		dump_stack();
 	}
-	smp_store_release(&bq->tail, (bq->tail+1)&(bq->bq_len-1));
+	smp_store_release(&bq->tail, BQ_incr(bq, bq->tail));
 	return item;
 }
-static inline void BQ_put(struct BQ* bq, unsigned item)
+static inline void BQ_put(struct device* dev, struct BQ* bq, unsigned item)
 {
-	if (item == 0){
-		dev_warn(0, "BQ_put zero");
+	if (BQ_full(bq)){
+		dev_warn(dev, "BQ_put FULL");
 		dump_stack();
 	}
 	bq->buf[bq->head] = item;
-	smp_store_release(&bq->head, (bq->head + 1) & (bq->bq_len-1));
+	smp_store_release(&bq->head, BQ_incr(bq, bq->head));
 }
 
 static inline void BQ_clear(struct BQ* bq)

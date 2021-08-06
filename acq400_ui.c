@@ -1148,7 +1148,7 @@ ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
 	}
 
 
-	bc = snprintf(lbuf, 32, "%03d\n", BQ_get(bq));
+	bc = snprintf(lbuf, 32, "%03d\n", BQ_get(DEVP(adev), bq));
 
 	if (bc > count){
 		return -ENOSPC;
@@ -1262,11 +1262,11 @@ int streamdac_data_loop_dummy(void *data)
 			goto quit;
 		}
 		if (!kthread_should_stop()){
-			id = BQ_get(bq_in);
+			id = BQ_get(DEVP(adev), bq_in);
 
 			msleep(100);   /* @@todo pass a, b to DMAC */
 
-			BQ_put(bq_bk, id);
+			BQ_put(DEVP(adev), bq_bk, id);
 			wake_up_interruptible(&pdesc->waitq);
 		}
 	}
@@ -1319,7 +1319,7 @@ ssize_t acq400_streamdac_write(struct file *file, const char __user *buf, size_t
 			rc = copy_from_user(&id, buf+cursor, sizeof(int));
 			if (likely(rc == 0)){
 				dev_dbg(DEVP(adev), "%s %d store id:%d", __FUNCTION__, __LINE__, id);
-				BQ_put(refills, id);
+				BQ_put(DEVP(adev), refills, id);
 				xo_dev->AO_playloop.push_buf = id;
 			}else{
 				dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
@@ -1375,7 +1375,7 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 		dev_dbg(DEVP(adev), "%s %d %d 0x%08x", __FUNCTION__, __LINE__, empties->tail, empties->buf[empties->tail]);
 
 		for (ii = 0; ii < 2; ++ii, cursor += sizeof(int)){
-			unsigned tmp = BQ_get(empties);
+			unsigned tmp = BQ_get(DEVP(adev), empties);
 			int rc = copy_to_user(buf+cursor, &tmp, sizeof(int));
 
 			if (rc){
@@ -1413,7 +1413,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 
 	bqw_init(pdesc, bqw, AWG_BACKLOG);
 	for (ib = distributor_first_buffer; ib < limit; ++ib){
-		BQ_put(empties, ib);
+		BQ_put(DEVP(adev), empties, ib);
 
 		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
 					ib, CIRC_CNT(empties->head, empties->tail, empties->bq_len));

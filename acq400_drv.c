@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.629"
+#define REVID 			"3.630"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -612,7 +612,7 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 			bq->head = bq->tail = 0;
 			++bqw->bq_overruns;
 		}
-		BQ_put(bq, ix);
+		BQ_put(DEVP(adev), bq, ix);
 
 		wake_up_interruptible(&cur->waitq);
 		++nelems;

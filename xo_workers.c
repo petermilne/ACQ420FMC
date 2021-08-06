@@ -436,10 +436,10 @@ int streamdac_data_loop(void *data)
 			}else if (kthread_should_stop()){
 				goto quit;
 			}
-			ab[0] = BQ_get(refills); hbm = hbm0[ab[0]];
+			ab[0] = BQ_get(DEVP(adev), refills); hbm = hbm0[ab[0]];
 			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
-			ab[1] = BQ_get(refills); hbm = hbm0[ab[1]];
+			ab[1] = BQ_get(DEVP(adev), refills); hbm = hbm0[ab[1]];
 			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 
 			DMA_ASYNC_PUSH(adev->dma_cookies[1], adev, 1, hbm0[ab[1]], WFST);
@@ -486,11 +486,11 @@ int streamdac_data_loop(void *data)
 
 
 		xo_dev->AO_playloop.pull_buf = ab[ic];
-		BQ_put(empties, ab[ic]);
+		BQ_put(DEVP(adev), empties, ab[ic]);
 
 		if (last_push == LP_IDLE){
 			/* BQ_get ONLY if data .. test last_push is a faster proxy for BQ_count(refills) */
-			ab[ic] = BQ_get(refills); hbm = hbm0[ab[ic]];
+			ab[ic] = BQ_get(DEVP(adev), refills); hbm = hbm0[ab[ic]];
 			dma_sync_single_for_device(DEVP(adev), hbm->pa, hbm->len, DMA_TO_DEVICE);
 		}
 
