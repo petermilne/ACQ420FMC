@@ -81,7 +81,7 @@ public:
 
 	}
 	bool operator() (int next){
-		if (next == 0){
+		if (next == -1){
 			return false;
 		}
 		if (min_val == -1){

@@ -252,7 +252,7 @@ static inline int BQ_empty(struct BQ* bq){
 }
 
 static inline int BQ_full(struct BQ* bq){
-	return BQ_incr(bq, bq->tail) == bq->head;
+	return BQ_incr(bq, bq->head) == bq->tail;
 }
 
 static inline void BQ_init(struct BQ* bq, int len)
