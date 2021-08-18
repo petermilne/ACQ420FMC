@@ -3,22 +3,29 @@
 export SITE=${SITE:-2}
 TSCALE=${TSCALE:-1}
 MODE=${1:-2}
-
-[ $TSCALE -ne 1 ] && echo Loading with timescaler=$TSCALE
+TSCALE=${2:-0}
 
 set.site $SITE gpg_enable 0
-set.site $SITE gpg_timescaler $TSCALE
 /usr/local/epics/scripts/gpg_monitor 1
 
-stl2gpg  /dev/acq400.$SITE.gpg <<EOF
-1000,1
-2000,0
-3000,2
-4000,0
-5000,4
-6000,0
-7000,1f
-8000,1
+if [ $TSCALE -ne 0 ]; then
+	echo Loading with timescaler=$TSCALE
+	set.site $SITE gpg_timescaler $TSCALE
+else
+	echo Using timescaler $(get.site $SITE gpg_timescaler)
+fi
+
+
+stl2gpg --cscale=/etc/acq400/$SITE/gpg_timescaler /dev/acq400.$SITE.gpg <<EOF
+10,1
+20,0
+30,2
+40,0
+50,4
+60,0
+70,1f
+80,1
+90,0
 EOF
 
 # Set GPG to LOOP and Enable GPG
