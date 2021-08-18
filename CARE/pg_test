@@ -6,7 +6,6 @@ MODE=${1:-2}
 TSCALE=${2:-0}
 
 set.site $SITE gpg_enable 0
-/usr/local/epics/scripts/gpg_monitor 1
 
 if [ $TSCALE -ne 0 ]; then
 	echo Loading with timescaler=$TSCALE
