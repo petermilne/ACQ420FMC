@@ -916,7 +916,7 @@ int axi64_claim_dmac_channels(struct acq400_dev *adev)
 	dma_cap_mask_t mask;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
-	adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
+	adev->dma_chan0 = adev->dma_chan[0] = dma_request_channel(mask, filter_axi, adev);
 	adev->dma_chan[1] = dma_request_channel(mask, filter_axi, adev);
 	if (adev->dma_chan[0] && adev->dma_chan[1]){
 		if (DUAL_AXI_SWITCH_CHAN){
