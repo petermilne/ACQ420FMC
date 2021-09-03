@@ -648,6 +648,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define DE_AXI_DMA_FAIL		(1<<16)
 #define DE_SELECT_AGG		(1<<14)			/* PRI only */
 #define DE_MAXDESCRIPTORS	(0x0ff0)			/* limit the number of descriptors in run */
+#define DE_FORCE_SINGLE_DMA	(1<<1)			/* when we have 2 channels but only want to use one, eg MGTDRAM offload */
 #define DE_ENABLE		(1<<0)
 
 

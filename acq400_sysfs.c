@@ -3349,12 +3349,14 @@ static DEVICE_ATTR(distributor_stats, S_IRUGO, show_distributor_stats, 0);
 
 
 MAKE_BITS(axi64_max_desc_limit, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_MAXDESCRIPTORS);
+MAKE_BITS(force_dma0_only, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_FORCE_SINGLE_DMA);
 
 static const struct attribute *axi64_attrs[] = {
 	&dev_attr_axi_dma_fail.attr,
 	&dev_attr_axi_buffers_over.attr,
 	&dev_attr_AXI_DMA_len.attr,
 	&dev_attr_axi64_max_desc_limit.attr,
+	&dev_attr_force_dma0_only.attr,
 	NULL
 };
 
