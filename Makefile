@@ -80,7 +80,8 @@ APPS := mmap acq400_stream permute acq435_decode \
 	dump_regs \
 	soft_atd \
 	wr_reset wrtd wrtt_mon multicast \
-	mr_offload trigger_at bb_stream reduce
+	mr_offload trigger_at bb_stream reduce \
+	channel_mapping
 	
 # data_sink	
 # dropped
@@ -244,6 +245,9 @@ lilmac: lilmac.o
 mr_offload: mr_offload.o knobs.o connect_to.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
+channel_mapping: channel_mapping.o knobs.o 
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+	
 muxdec: muxdec.o
 	$(CXX) -O3 -o muxdec muxdec.o -L../lib -lacq
 
