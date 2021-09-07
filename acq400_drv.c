@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.633"
+#define REVID 			"3.634"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1437,6 +1437,9 @@ int xo400_reset_playloop(struct acq400_dev* adev, unsigned playloop_length)
 			xo400_distributor_feeder_control(adev, 0);
 		}
 		mutex_unlock(&adev->awg_mutex);
+	}
+	if (xo_use_distributor){
+		acq2106_distributor_reset_enable(adev0);
 	}
 
 	while(adev->task_active){
