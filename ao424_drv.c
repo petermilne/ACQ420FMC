@@ -32,7 +32,7 @@ int set_spans_timeout = 10;
 module_param(set_spans_timeout, int, 0644);
 MODULE_PARM_DESC(set_spans_timeout, "timeout on setting spans pollcount 10*.1 = 1s");
 
-int allow_spans_in_odds_mode = 0;
+int allow_spans_in_odds_mode = 1;
 module_param(allow_spans_in_odds_mode, int, 0644);
 
 
