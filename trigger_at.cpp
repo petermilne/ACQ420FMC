@@ -163,6 +163,9 @@ void wait_for(time_t t2)
 	unsigned usecs_late;
 	time_t t1;
 
+	if (G_delay_ticks){
+		tee_gpg();
+	}
 	if((t1 = _gettimeofday(&usecs_late)) < t2 - 10){
 		sleep(t2 - t1 - 10);
 	}
@@ -208,9 +211,6 @@ int schedule(time_t t2)
 			return -1;
 		}
 		if ((cpid = fork()) == 0){
-			if (G_delay_ticks){
-				tee_gpg();
-			}
 			wait_for(t2);
 			unlink(PIDF);
 		}else{
