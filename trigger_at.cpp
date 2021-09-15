@@ -44,16 +44,19 @@ typedef std::vector<time_t> TTV;
 #define RADCELF_SITE 2
 #define DDSA_ARM_PPS "/etc/acq400/4/gps_arm_pps"
 #define DDSB_ARM_PPS "/etc/acq400/5/gps_arm_pps"
+#define GPG_ENABLE   "/etc/acq400/0/gpg_enable"
 
 #define PIDF  "/var/run/trigger_at.pid"
 
 
 char* G_trigger_string;
+int G_delay_ticks;
 
 // --trg=1,d5,rising
 struct poptOption opt_table[] = {
 
 	{ "trg", 0, POPT_ARG_STRING, &G_trigger_string, 0, "special trigger instruction for final second" },
+	{ "delay_ticks", 0, POPT_ARG_INT, &G_delay_ticks, 0, "delay chirp start by N*100nsec ticks" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -71,6 +74,14 @@ int report_job()
 		printf("nothing to report\n");
 	}
 	return 0;
+}
+
+void tee_gpg()
+{
+	setenv("GPG_IMMEDIATE", "0", 1);
+	char cmd[128];
+	snprintf(cmd, 127, "/usr/local/CARE/delay_from_pps %d 0", G_delay_ticks);
+	system(cmd);
 }
 
 void _write_pid(FILE* pf, pid_t pid, time_t t2, time_t tnow, unsigned usecs)
@@ -142,6 +153,10 @@ static void final_second_trigger_enable(char *trigger_string)
 	if (trigger_string){
 		_final_second_trigger_enable(trigger_string);
 	}
+	if (G_delay_ticks){
+		Knob kG(GPG_ENABLE);
+		kG.set(1);
+	}
 }
 void wait_for(time_t t2)
 {
@@ -193,6 +208,9 @@ int schedule(time_t t2)
 			return -1;
 		}
 		if ((cpid = fork()) == 0){
+			if (G_delay_ticks){
+				tee_gpg();
+			}
 			wait_for(t2);
 			unlink(PIDF);
 		}else{
