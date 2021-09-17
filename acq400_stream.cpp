@@ -4223,6 +4223,11 @@ protected:
 		verbose = getenv_default("StreamHeadPrePostVerbose");
 		if (verbose) fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 	}
+
+	void set_axi_oneshot(int value){
+		setKnob(0, "/sys/module/acq420fmc/parameters/AXI_ONESHOT", value);
+	}
+
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
 		StreamHeadWithClients(progress),
@@ -4267,7 +4272,16 @@ public:
 		}
 		peers.push_back(this);
 
+		if (G::naxi && pre == 0){
+			set_axi_oneshot(1);
+		}
+
 		startEventWatcher();
+	}
+	virtual ~StreamHeadPrePost() {
+		if (G::naxi && pre == 0){
+			set_axi_oneshot(0);
+		}
 	}
 
 

@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.635"
+#define REVID 			"3.638"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -215,8 +215,7 @@ module_param(dtd_pulse_nsec, int, 0644);
 int dtd_display_pulse_nsec = 200000000;
 module_param(dtd_display_pulse_nsec, int, 0644);
 
-int wimp_out;
-module_param(wimp_out, int, 0644);
+
 
 int xo_use_distributor = 1;
 module_param(xo_use_distributor, int, 0644);

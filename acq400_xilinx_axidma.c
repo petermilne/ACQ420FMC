@@ -63,6 +63,9 @@ int AXI64_DMA_HIPRIORITY = 0x0;
 module_param(AXI64_DMA_HIPRIORITY, int, 0644);
 MODULE_PARM_DESC(AXI64_DMA_HIPRIORITY, "sets priority arb value (low is hi) 0: no set");
 
+int axi64_wimp_out;
+module_param(axi64_wimp_out, int, 0644);
+
 struct AxiDescrWrapper {
 	struct xilinx_dma_desc_hw* va;
 	unsigned pa;
@@ -512,7 +515,7 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 			cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 			cursor->va->control = adev->bufferlen;
-			cursor->va->status = 0xd1ac0000;
+			cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
 			dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
 		}
 	}else{
@@ -639,7 +642,7 @@ static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 
 	for (ic = 0; ic < 2; ++ic){
 		if ((1<<ic)&cmask){
-			init_cache(adev, ic, ndescriptors, new_pool);
+			init_cache(adev, ic, ndescriptors, new_pool||AXI_ONESHOT);
 		}
 	}
 }
@@ -675,7 +678,7 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 // put marker in reg to show we were there ...
 #define SHOTID(adev)	(((adev->stats.shot&0x00ff)<<8)|0xcafe0000)
 
-extern int wimp_out;
+extern int axi64_wimp_out;
 
 void acq400_dma_on_ioc(unsigned long arg)
 {
@@ -706,7 +709,8 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	int itail = -1;
 
 	u32 tail_pa = AXI_ONESHOT? wrappers[itail = apool->ndescriptors-2].pa: SHOTID(adev);
-	u32 head_pa = AXI_ONESHOT>=1? wrappers[ihead = apool->ndescriptors-2-AXI_ONESHOT].pa: wrappers[0].pa;
+	//u32 head_pa = AXI_ONESHOT>=1? wrappers[ihead = apool->ndescriptors-2-AXI_ONESHOT].pa: wrappers[0].pa;
+	u32 head_pa = wrappers[0].pa;
 
 	if (AXI_ONESHOT >=1){
 		dev_info(DEVP(adev), "AXI_ONESHOT %d head %d tail %d", AXI_ONESHOT, ihead, itail);
@@ -724,7 +728,7 @@ int _axi64_load_dmac(struct acq400_dev *adev, int ichan)
 	xchan->dTrace.cursor = 0;
 	memset(xchan->dTrace.buffer, 0, sizeof(xchan->dTrace.buffer));
 
-	if (!wimp_out){
+	if (!axi64_wimp_out){
 		acq400_set_AXI_DMA_len(adev, adev->bufferlen);
 		axi64_arm_dmac(xchan, head_pa, tail_pa, AXI_ONESHOT);
 	}
