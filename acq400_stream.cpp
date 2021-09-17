@@ -180,7 +180,7 @@ namespace G {
 	int is_spy;				// spy task runs independently of main capture
 	int show_events;
 	bool double_up;				// channel data appears 2 in a row (ACQ480/4)
-	unsigned dualaxi;			// 0: none, 1=1 channel, 2= 2channels
+	unsigned naxi;				// 0: none, 1=1 channel, 2= 2channels
 	int stream_sob_sig;            		// insert start of buffer signature
 	unsigned find_event_mask = 0x1;		// 1: EV0, 2:EV1, 3:EV0|EV1
 	char* multi_event;			// multi-event definintion [pre,]post
@@ -1147,7 +1147,7 @@ class DemuxBufferCloner: public BufferCloner {
 	{
 		switch(G::wordsize){
 		case sizeof(short):
-			if (G::dualaxi==2){
+			if (G::naxi==2){
 				if(G::double_up){
 					if (verbose) fprintf(stderr, "createDemuxBuffer DB_2D_DOUBLE\n");
 					return new DemuxBuffer<short, DB_2D_DOUBLE>(cpy, G::mask);
@@ -1735,7 +1735,7 @@ void init(int argc, const char** argv) {
 		getKnob(G::devnum, "nbuffers",  &Buffer::nbuffers);
 	}
 	getKnob(G::devnum, "bufferlen", &Buffer::bufferlen);
-	getKnob(G::devnum, "has_axi_dma", &G::dualaxi);
+	getKnob(G::devnum, "has_axi_dma", &G::naxi);
 
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -1817,7 +1817,7 @@ void init(int argc, const char** argv) {
 	root = getRoot(G::devnum);
 
 	if (ISACQ480()){
-		if (G::nchan == 4 || (G::nchan==8 && G::dualaxi==2)){
+		if (G::nchan == 4 || (G::nchan==8 && G::naxi==2)){
 			G::double_up = true;
 			if (verbose) fprintf(stderr, "G::double_up set true\n");
 		}
@@ -4714,7 +4714,7 @@ StreamHead* StreamHead::instance() {
 			if (G::buffer_mode == BM_PREPOST && G::demux > 0){
 				Demuxer *demuxer;
 
-				if (G::dualaxi == 2){
+				if (G::naxi == 2){
 					demuxer = Demuxer::instance(G::double_up? DB_2D_DOUBLE: DB_2D_REGULAR);
 					_instance = new DemuxingStreamHeadPrePostDualBuffer(
 						Progress::instance(), *demuxer, G::pre, G::post);
