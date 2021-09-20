@@ -104,7 +104,7 @@ struct dentry* acq400_debug_root;
 	pcursor += strlen(pcursor) + 1;					\
 	} while(0)
 #endif
-#if 0
+#if 1
 #define DBG_REG_CREATE_CTRL(reg) do {					\
 	void* va = adev->dev_virtaddr; 					\
 	dev_rc_register_init(&adev->ctrl_reg_cache, reg, acq400rd32(adev, reg));	\
