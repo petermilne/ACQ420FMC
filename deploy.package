@@ -43,7 +43,7 @@ if [ -e $PKO ]; then
 	ssh ${ACT} rm -f /mnt/ko/packageko*
 	scp $PKO ${ACT}:/mnt/ko
 fi
-ssh ${ACT} rm -f ${ROOT}/$PKGNAME\*
+ssh ${ACT} 'rm -f ${ROOT}/$PKGNAME\* /mnt/local/acq420fmc.ko'
 scp ${PKG} ${ACT}:${ROOT}
 ssh ${ACT} ls -l ${ROOT}
 
