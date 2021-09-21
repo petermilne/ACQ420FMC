@@ -266,7 +266,6 @@ static inline unsigned BQ_get(struct device* dev, struct BQ* bq)
 	unsigned item = bq->buf[bq->tail];
 	if (BQ_empty(bq)){
 		dev_warn(dev, "BQ_get EMPTY");
-		dump_stack();
 	}
 	smp_store_release(&bq->tail, BQ_incr(bq, bq->tail));
 	return item;
@@ -275,7 +274,6 @@ static inline void BQ_put(struct device* dev, struct BQ* bq, unsigned item)
 {
 	if (BQ_full(bq)){
 		dev_warn(dev, "BQ_put FULL");
-		dump_stack();
 	}
 	bq->buf[bq->head] = item;
 	smp_store_release(&bq->head, BQ_incr(bq, bq->head));
