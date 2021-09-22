@@ -1138,7 +1138,7 @@ ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
 	struct BQ* bq = &pdesc->bq;
 	char lbuf[32];
 	int bc;
-	int rc = 0;
+	int rc = -99;
 	unsigned bn = 0;
 	int retry;
 
