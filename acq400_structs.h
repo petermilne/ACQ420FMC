@@ -270,6 +270,18 @@ static inline unsigned BQ_get(struct device* dev, struct BQ* bq)
 	smp_store_release(&bq->tail, BQ_incr(bq, bq->tail));
 	return item;
 }
+
+static inline int BQ_get_st(struct device* dev, struct BQ* bq, unsigned* p_item)
+{
+	unsigned item = bq->buf[bq->tail];
+	if (BQ_empty(bq)){
+		return -1;
+	}
+	smp_store_release(&bq->tail, BQ_incr(bq, bq->tail));
+	*p_item = item;
+	return 0;
+}
+
 static inline void BQ_put(struct device* dev, struct BQ* bq, unsigned item)
 {
 	if (BQ_full(bq)){

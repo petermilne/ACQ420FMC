@@ -1138,17 +1138,24 @@ ssize_t acq400_bq_read(struct file *file, char __user *buf, size_t count,
 	struct BQ* bq = &pdesc->bq;
 	char lbuf[32];
 	int bc;
-	int rc;
+	int rc = 0;
+	unsigned bn = 0;
+	int retry;
 
-	dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
-	if (wait_event_interruptible(
-		pdesc->waitq,
-		CIRC_CNT(bq->head, bq->tail, bq->bq_len))){
-		return -EINTR;
+	for (retry = 0; rc != 0; ++retry){
+		dev_dbg(DEVP(adev), "wait_event_interruptible(%p)", &pdesc->waitq);
+		if (wait_event_interruptible(
+				pdesc->waitq,
+				CIRC_CNT(bq->head, bq->tail, bq->bq_len))){
+			return -EINTR;
+		}
+		rc = BQ_get_st(DEVP(adev), bq, &bn);
+		if (rc != 0){
+			dev_info(DEVP(adev), "BQ_get EMPTY retries %d", retry);
+		}
 	}
 
-
-	bc = snprintf(lbuf, 32, "%03d\n", BQ_get(DEVP(adev), bq));
+	bc = snprintf(lbuf, 32, "%03u\n", bn);
 
 	if (bc > count){
 		return -ENOSPC;
