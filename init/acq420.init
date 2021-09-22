@@ -465,7 +465,7 @@ build_site0() {
 	echo "MOTHERBOARD" > $ek/module_role
 	ln -s $1 ${dk}
 	web_append acq400.0 0
-    fix_state
+	echo 0 > /dev/shm/state; fix_state
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
 		${dk}/soft_trigger ${dk}/bufferlen ${ek}
@@ -482,7 +482,7 @@ build_site0() {
 	ln -s /usr/local/bin/channel_mapping ${ek}
 	echo $HAS_MGTDRAM > ${ek}/has_mgtdram
 	IS_TIGA=none
-	[ -e /dev/acq400.0.knobs/wr_ts_s1_count] && IS_TIGA=1
+	[ -e /dev/acq400.0.knobs/wr_ts_s1_count ] && IS_TIGA=1
 	echo $IS_TIGA > ${ek}/is_tiga
 	
 	
