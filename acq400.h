@@ -9,6 +9,7 @@
 #define ACQ420FMC_H_
 
 #include "acq400_includes.h"
+#include "acq400_mod_id.h"
 
 
 /* Offsets for control registers in the AXI MM2S FIFO */
@@ -145,81 +146,7 @@
 #define MOD_ID_REV_SHL		0
 #define MOD_ID_REV_MASK		0x0000ffff
 
-#define MOD_ID_ACQ420FMC	1
-#define MOD_ID_ACQ420FMC_2000	0xa1
-#define MOD_ID_ACQ435ELF	2
-#define MOD_ID_ACQ430FMC	3
-#define MOD_ID_ACQ424ELF	4
-#define MOD_ID_ACQ480FMC	8
-#define MOD_ID_ACQ425ELF	5
-#define MOD_ID_ACQ425ELF_2000	0xa5
-#define MOD_ID_ACQ437ELF	6
 
-#define MOD_ID_ACQ427ELF	0x07
-#define MOD_ID_ACQ427ELF_2000   0xa7
-
-#define MOD_ID_DUMMY		0x00ff
-
-#define MOD_ID_AO420FMC		0x40
-#define MOD_ID_AO424ELF		0x41
-#define MOD_ID_AO420FMC_CS2	0x42
-
-#define MOD_ID_BOLO8		0x60
-#define MOD_ID_DIO432FMC	0x61
-#define MOD_ID_DIO432PMOD	0x62
-#define MOD_ID_PMODADC1		0x63
-#define MOD_ID_BOLO8B		0x64
-#define MOD_ID_PMODGPS_CELF	0x65
-#define MOD_ID_PMODGPS_FMC	0x66
-
-#define MOD_ID_DIO_BISCUIT	0x67
-/* known Biscuit Variants, switch on MOD_ID_VERSION */
-
-
-
-#define MOD_IDV_V2F		0x0
-#define MOD_IDV_DIO		0x1
-#define MOD_IDV_QEN		0x2
-#define MOD_IDV_ACQ1014		0x14
-
-#define MOD_ID_PIG_CELF		0x68
-#define MOD_ID_RAD_CELF		0x69
-#define MOD_ID_DAC_CELF		0x6a
-#define MOD_ID_DIO482FMC	0x6b
-
-
-
-#define MOD_ID_DDS_WERA		0x70
-
-#define MOD_IDV_PWM		0x01
-#define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
-#define MOD_IDV_PG		0x0f	/* DIO482-PG */
-
-
-
-
-#define MOD_ID_ACQ436ELF	0x6d
-#define MOD_ID_TIMBUS		0x6e
-
-#define MOD_ID_DIO482TD_PG	0x7b
-
-#define MOD_ID_ACQ2006SC	0x80
-#define MOD_ID_ACQ1001SC	0x81
-#define MOD_ID_ACQ2106SC	0x82
-#define MOD_ID_KMCU		0x83
-#define MOD_ID_KMCU30		0x84
-
-
-
-#define MOD_ID_ACQ423ELF	0x09
-
-
-#define MOD_ID_MTCA_ADAP	0xfc
-#define MOD_ID_ACQ400T_FMC	0xfd
-#define MOD_ID_ACQ400T_ELF	0xfe
-
-#define MOD_ID_TYPE_ACQ480DIV4	0x1
-#define MOD_ID_TYPE_ACQ480DIV10 0x2
 
 /* ADC_CTRL Bitfields */
 #define ADC_CTRL_423_CLK_FROM_SYNC (1<<22)
