@@ -403,6 +403,13 @@ int acq400_get_AXI_DMA_len(struct acq400_dev *adev)
 	u32 blocks = acq400rd32(adev, AXI_DMA_ENGINE_DATA) + 1;
 	return blocks*AXI_DMA_BLOCK;
 }
+
+void sc_data_engine_disable(unsigned dex)
+{
+	struct acq400_dev *adev = acq400_devices[0];
+	u32 DEX = acq400rd32(adev, dex);
+	acq400wr32(adev, dex, DEX &= ~(DE_ENABLE));
+}
 void sc_data_engine_reset_enable(unsigned dex)
 {
 	struct acq400_dev *adev = acq400_devices[0];

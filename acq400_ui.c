@@ -917,6 +917,7 @@ int acq400_axi_once_release(struct inode *inode, struct file *file)
 
 	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 
+	sc_data_engine_disable(DATA_ENGINE_0);
 	acq2106_distributor_reset_enable(adev);
 	acq2106_aggregator_reset(adev);
 	return acq400_release(inode, file);
