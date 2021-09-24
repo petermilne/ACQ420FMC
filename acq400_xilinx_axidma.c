@@ -598,6 +598,10 @@ static void delete_pool(struct ACQ400_AXIPOOL* apool)
 	_delete_pool(apool, 1);			// @@todo what if no wrappers ichan==1 ?
 	apool->ndescriptors = 0;
 }
+
+// might as well init the cache every time .. 128 elements, C code => time is negligible
+#define INIT_ALWAYS 1
+
 static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
@@ -642,7 +646,7 @@ static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 
 	for (ic = 0; ic < 2; ++ic){
 		if ((1<<ic)&cmask){
-			init_cache(adev, ic, ndescriptors, new_pool||AXI_ONESHOT);
+			init_cache(adev, ic, ndescriptors, INIT_ALWAYS);
 		}
 	}
 }
@@ -651,6 +655,8 @@ void axi64_arm_dmac(struct xilinx_dma_chan *xchan, unsigned headpa, unsigned tai
 	unsigned cr = dma_read(xchan, XILINX_DMA_CONTROL_OFFSET);
 	unsigned halted, not_halted;
 	unsigned rs_check;
+
+	dev_dbg(xchan->dev, "axi64_arm_dmac()");
 
 	xilinx_dma_reset(xchan);
 	halted = dma_read(xchan, XILINX_DMA_STATUS_OFFSET);
