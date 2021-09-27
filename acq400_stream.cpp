@@ -4036,7 +4036,10 @@ protected:
 		if (verbose>1) fprintf(stderr, "%s onStreamBufferStart %d\n", _PFN, ib);
 	}
 	virtual void onStreamEnd() {
-		verbose = getenv_default("ACQ400_STREAM_DEBUG_STREAM_END");
+		int verbose2 = getenv_default("ACQ400_STREAM_DEBUG_STREAM_END");
+		if (verbose2 > verbose){
+			verbose = verbose2;
+		}
 
 		setState(ST_POSTPROCESS); actual.print();
 		Demuxer::_msync(MapBuffer::get_ba_lo(),
@@ -4273,15 +4276,16 @@ public:
 		peers.push_back(this);
 
 		if (G::naxi && pre == 0){
+			if (verbose){
+				fprintf(stderr, "set_axi_oneshot(%d)\n", 1);
+			}
 			set_axi_oneshot(1);
 		}
 
 		startEventWatcher();
 	}
 	virtual ~StreamHeadPrePost() {
-		if (G::naxi && pre == 0){
-			set_axi_oneshot(0);
-		}
+		// destructor is NOT called ?? @todo
 	}
 
 
@@ -4295,13 +4299,47 @@ public:
 		if (G::soft_trigger){
 			schedule_soft_trigger();
 		}
+		if (verbose){
+			fprintf(stderr, "%s call streamCore\n", _PFN);
+		}
 		streamCore();
+		if (verbose){
+			fprintf(stderr, "%s back streamCore\n", _PFN);
+		}
 		estop();
+		if (verbose){
+			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+			fprintf(stderr, "%s peers %d\n", _PFN, peers.size());
+		}
 		for (IT it = peers.begin(); it != peers.end(); ++it){
+			if (verbose){
+				fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+			}
 			(*it)->onStreamEnd();
+			if (verbose){
+				fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+			}
+		}
+		if (verbose){
+			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
 		}
 		setState(ST_CLEANUP);
+		if (verbose){
+			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+		}
+		if (G::naxi && pre == 0){
+			if (verbose){
+				fprintf(stderr, "%s set_axi_oneshot(%d)\n", _PFN, 0);
+			}
+			set_axi_oneshot(0);
+		}
+		if (verbose){
+			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+		}
 		close();
+		if (verbose){
+			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
+		}
 	}
 };
 
