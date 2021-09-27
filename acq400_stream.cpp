@@ -4299,47 +4299,21 @@ public:
 		if (G::soft_trigger){
 			schedule_soft_trigger();
 		}
-		if (verbose){
-			fprintf(stderr, "%s call streamCore\n", _PFN);
-		}
+
 		streamCore();
-		if (verbose){
-			fprintf(stderr, "%s back streamCore\n", _PFN);
-		}
 		estop();
-		if (verbose){
-			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-			fprintf(stderr, "%s peers %d\n", _PFN, peers.size());
-		}
+
+		// NB first peer is myself:
 		for (IT it = peers.begin(); it != peers.end(); ++it){
-			if (verbose){
-				fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-			}
 			(*it)->onStreamEnd();
-			if (verbose){
-				fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-			}
 		}
-		if (verbose){
-			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-		}
+
 		setState(ST_CLEANUP);
-		if (verbose){
-			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-		}
+
 		if (G::naxi && pre == 0){
-			if (verbose){
-				fprintf(stderr, "%s set_axi_oneshot(%d)\n", _PFN, 0);
-			}
 			set_axi_oneshot(0);
 		}
-		if (verbose){
-			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-		}
 		close();
-		if (verbose){
-			fprintf(stderr, "%s %d\n", _PFN, __LINE__);
-		}
 	}
 };
 
