@@ -42,7 +42,7 @@ let nspad=$(spad2nchan $spad3)
 
 source get_site_total_size
 
-if [ ! -e $ETC0/NCHAN ] || [ $nchan -ne $(cat $ETC0/NCHAN) ]
+if [ ! -e $ETC0/NCHAN ] || [ $NCHAN -ne $(cat $ETC0/NCHAN) ]
 then
 	echo setting NCHAN:$NCHAN data32:$D32
 	set.sys $ETC0/NCHAN $NCHAN
@@ -53,7 +53,7 @@ set.sys $ETC0/sites 	${sitelist}
 set.sys $ETC0/ssb 		$SSB
 set.sys $ETC0/spadstart	$(($SSB-$nspad*4))
 
-[ "x$NO_OPTIMISE_BUFFERLEN" = "xy" ] || set.sys $S0KB/optimise_bufferlen $SS 
+[ "x$NO_OPTIMISE_BUFFERLEN" = "xy" ] || set.sys $S0KB/optimise_bufferlen $SSB 
 
 DECIM=$(get.sys $S0KB/decimate)
 set.sys $S0KB/aggregator 	0

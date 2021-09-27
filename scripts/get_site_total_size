@@ -46,10 +46,10 @@ if [ -z $D32 ]; then
 	NCHAN=0
 elif [ $D32 -eq 1 ]; then
 	NCHAN=$(($d32c+$d16c/2))
-	SSB=$(($nchan*4))
+	SSB=$(($NCHAN*4))
 else
 	NCHAN=$(($d16c+$d32c*2))
-	SSB=$(($nchan*2))
+	SSB=$(($NCHAN*2))
 fi
 
 echo "get_site_total_size D32:$D32 NCHAN:$NCHAN d32c:$d32c d16c:$d16c SSB:$SSB"
