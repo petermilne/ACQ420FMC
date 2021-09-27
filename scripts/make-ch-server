@@ -46,21 +46,22 @@ done
 
 let cix=1
 sitesp="$(echo $sites | tr , \  )" 
-for site in $sitesp
-do
-	nchan=$(get.site $site NCHAN)
-	for chs in $(seq 1 $nchan)
-	do
-		ch0s=$(printf "%02d" $chs)
-		ch=/dev/acq400/data/$site/$ch0s
-		[ ! -e $ch ] && (echo "ERROR file $ch not found"; exit 1)
- 		let px=$P0+$cix        
-		echo >>/etc/inetd.ch.conf \
-        		"$px stream tcp nowait root cat cat $ch"
-		chl=$(printf "%02d" $cix)
-		echo "acq400_ch$chl $px/tcp	# ch $ch transient data" >>/etc/services
-        let cix=$cix+1
-	done
+for site in $sitesp; do
+	IS_ADC=$(get.site 4 is_adc | awk '{ print $1 }')
+	if [ $IS_ADC -eq 1 ]; then
+		nchan=$(get.site $site NCHAN)
+		for chs in $(seq 1 $nchan); do
+			ch0s=$(printf "%02d" $chs)
+			ch=/dev/acq400/data/$site/$ch0s
+			[ ! -e $ch ] && (echo "ERROR file $ch not found"; exit 1)
+ 			let px=$P0+$cix        
+			echo >>/etc/inetd.ch.conf \
+        			"$px stream tcp nowait root cat cat $ch"
+			chl=$(printf "%02d" $cix)
+			echo "acq400_ch$chl $px/tcp	# ch $ch transient data" >>/etc/services
+		        let cix=$cix+1
+		done
+	fi
 done
 
 if [ -d /etc/acq400/2 ] && [ $(get.site 2 module_name) = "qen" ]; then
