@@ -31,7 +31,7 @@ echo sites: $sites
 
 nspad=$pad
 source get_site_total_size
-echo $SS > /etc/acq400/0/dssb
+echo $SSB > /etc/acq400/0/dssb
 
 set.sys /dev/acq400.0.knobs/distributor 0
 set.sys /dev/acq400.0.knobs/data_engine_1 0
