@@ -58,7 +58,7 @@ int aggregator_enabled = 0;
 int enable_write_trap = 0;
 module_param(enable_write_trap, int, 0644);
 
-int aggsta_skip_ok = 0;
+int aggsta_skip_ok = 1;
 module_param(aggsta_skip_ok, int, 0644);
 
 #define ADC_ENAX  (ADC_CTRL_ADC_EN|ADC_CTRL_FIFO_EN)
@@ -555,7 +555,10 @@ int fifo_monitor(void* data)
 		aggsta = acq400rd32(adev, AGGSTA);
 
 		if (!m1->sod_mode && !aggsta_skip_reported && (aggsta&AGGSTA_FIFO_ANYSKIP) != 0 && (aggsta&AGGSTA_FIFO_EMPTY) == 0){
-			dev_warn(DEVP(adev), "%s loss of data detected: AGGSTA:%08x", __FUNCTION__, aggsta);
+			sc_dev->adev.rt.status = -10;
+			snprintf(sc_dev->status_message, MAX_RT_STATUS_MESSAGE, "%s loss of data detected: AGGSTA:%08x AXI wakeups:%d",
+					__FUNCTION__, aggsta, sc_dev->adev.rt.axi64_wakeups);
+			dev_warn(DEVP(adev), sc_dev->status_message);
 			if (aggsta_skip_ok){
 				;
 			}else if (adev->task_active && !IS_ERR_OR_NULL(adev->w_task)){

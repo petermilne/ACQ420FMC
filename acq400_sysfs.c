@@ -2340,6 +2340,20 @@ static ssize_t show_task_active(
 
 DEVICE_ATTR(task_active, S_IRUGO, show_task_active, 0);
 
+static ssize_t show_rt_status(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	int st = adev->rt.status;
+	return sprintf(buf, "%d %s\n", st, st? sc_dev->status_message: "");
+}
+
+DEVICE_ATTR(rt_status, S_IRUGO, show_rt_status, 0);
+
+
 static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_clkdiv.attr,
 	&dev_attr_trg.attr,
@@ -2362,6 +2376,7 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
 	&dev_attr_task_active.attr,
+	&dev_attr_rt_status.attr,
 	NULL,
 };
 

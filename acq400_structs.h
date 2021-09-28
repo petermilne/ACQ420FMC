@@ -50,6 +50,7 @@ struct STATS {
 	int run;
 	int fifo_errors;
 
+
 	struct XO_STATS {
 		int dma_buffers_out;
 		int dma_buffers_in;
@@ -60,6 +61,8 @@ struct RT_QUEUE_REPORT {
 	int report_active;
 	int errors;
 };
+
+#define MAX_RT_STATUS_MESSAGE 80
 struct RUN_TIME {			/** stats, cleared onStart */
 	int refill_error;
 	int buffers_dropped;		/* a warning, error if quit_on_buffer_exhaustion set*/
@@ -68,6 +71,9 @@ struct RUN_TIME {			/** stats, cleared onStart */
 	unsigned ngetr;
 	unsigned nput;
 	unsigned hb0_count;
+
+	int status;
+
 
 	unsigned hb0_ix[2];		/* [0]: previous, [1] : crnt  */
 	unsigned long hb0_last;
@@ -317,6 +323,7 @@ struct GPG_buffer {
 };
 struct acq400_sc_dev {
 	char id[16];
+	char status_message[MAX_RT_STATUS_MESSAGE];
 	struct acq400_dev adev;
 	struct acq400_dev* aggregator_set[MAXDEVICES];
 	struct acq400_dev* distributor_set[MAXDEVICES];
