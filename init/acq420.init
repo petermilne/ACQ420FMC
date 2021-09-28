@@ -499,7 +499,7 @@ build_site0() {
 	
 	for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/fpctl* ${dk}/spad* \
 		${dk}/di4_? ${dk}/do4_? ${dk}/data32 ${dk}/bq* ${dk}/dist_s1 \
-		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route* ${dk}/wr*; do
+		${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route* ${dk}/wr* ${dk}/rt_status; do
 		[ -e $k ] && ln -s $k ${ek}
 	done
 	for knob in NCHAN data32 shot shot_complete; do
