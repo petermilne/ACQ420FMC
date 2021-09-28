@@ -27,6 +27,7 @@ obj-m += ad9510.o
 obj-m += ads62p49.o
 obj-m += ao428.o
 obj-m += z7_eth1_1000X_en.o
+obj-m += acq465.o
 
 #obj-m += acq400-spi-bytebang.o
 
@@ -59,6 +60,8 @@ mgt400-objs := mgt400_drv.o mgt400_sysfs.o mgt400_procfs.o mgt400_debugfs.o \
  		acq400_reg_cache.o
 
 acq480-objs := acq480_drv.o hbm.o zynq_peripheral_spi_shim.o
+
+acq465-objs := acq465_drv.o hbm.o zynq_peripheral_spi_shim.o
 
 pigcelf-objs := pigcelf_drv.o zynq_peripheral_spi_shim.o
 
