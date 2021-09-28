@@ -2376,7 +2376,6 @@ static const struct attribute *sysfs_device_attrs[] = {
 	&dev_attr_simulate.attr,
 	&dev_attr_stats.attr,
 	&dev_attr_task_active.attr,
-	&dev_attr_rt_status.attr,
 	NULL,
 };
 
@@ -3434,6 +3433,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_dist_bufferlen.attr,
 	&dev_attr_jettison_buffers_from.attr,
 	&dev_attr_fpga_rev.attr,
+	&dev_attr_rt_status.attr,
 	NULL
 };
 
