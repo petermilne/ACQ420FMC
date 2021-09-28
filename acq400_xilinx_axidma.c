@@ -487,45 +487,45 @@ static void _finalize_descriptor_chain(struct acq400_dev *adev, int ichan, int n
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
 	struct AxiDescrWrapper* base = apool->channelWrappers[ichan];
-	int ii;
+	struct AxiDescrWrapper * last = base+ndescriptors-1;
+	struct AxiDescrWrapper * cursor;
 
-	for (ii = 1; ii < ndescriptors; ++ii){
-		base[ii-1].va->next_desc = base[ii].pa;
+	for (cursor = base; cursor != last; ++cursor){
+		cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
+		cursor->va->next_desc = cursor[1].pa;
 	}
 
-	if (AXI_DEBUG_LOOPBACK_INDEX > 0){
+	cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
+	// tie off
+	if (AXI_ONESHOT){
+		cursor->va->next_desc = cursor->pa;
+	}else if (AXI_DEBUG_LOOPBACK_INDEX > 0){
 		dev_info(DEVP(adev), "AXI_DEBUG_LOOPBACK_INDEX %d", AXI_DEBUG_LOOPBACK_INDEX);
-		base[ndescriptors-1].va->next_desc = base[AXI_DEBUG_LOOPBACK_INDEX].pa;
+		cursor->va->next_desc = base[AXI_DEBUG_LOOPBACK_INDEX].pa;
 	}else{
-		base[ndescriptors-1].va->next_desc = base[0].pa;
+		cursor->va->next_desc = base[0].pa;
 	}
 	apool->active_descriptors = ndescriptors;
+	adev->axi64[ichan].ndesc = ndescriptors;
 }
+
 static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int ndescriptors, int new_pool)
 {
-	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
-	int ii;
-	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
-
 	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d %d new_pool %d", ichan, ndescriptors, new_pool);
 	if (new_pool){
+		struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
+		struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
+
+		int ii;
 		for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
 			cursor->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &cursor->pa);
 			BUG_ON(cursor->va == 0);
 			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 			cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
 			cursor->va->control = adev->bufferlen;
-			cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
 			dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
 		}
-	}else{
-		for (ii = 0; ii < ndescriptors; ++ii, ++cursor){
-			cursor->va->status = 0xd1ac0000;
-		}
 	}
-	dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg ichan:%d ndesc:%d", ichan, ndescriptors);
-
-	adev->axi64[ichan].ndesc = ndescriptors;
 	_finalize_descriptor_chain(adev, ichan, ndescriptors);
 }
 
@@ -547,8 +547,7 @@ static void init_descriptor_cache_segmented(struct acq400_dev *adev, int ichan, 
 			int ib;
 			for (ib = 0; ib < segment->nblocks; ++ib, ++wrapper){
 				if (wrapper->va == 0){
-					wrapper->va =
-							dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
+					wrapper->va = dma_pool_alloc(apool->pool, GFP_KERNEL, &wrapper->pa);
 				}
 				memset(wrapper->va, 0, sizeof(struct xilinx_dma_desc_hw));
 
@@ -599,9 +598,6 @@ static void delete_pool(struct ACQ400_AXIPOOL* apool)
 	apool->ndescriptors = 0;
 }
 
-// might as well init the cache every time .. 128 elements, C code => time is negligible
-#define INIT_ALWAYS 1
-
 static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 {
 	struct ACQ400_AXIPOOL* apool = GET_ACQ400_AXIPOOL(adev);
@@ -646,7 +642,7 @@ static void init_descriptor_cache(struct acq400_dev *adev, unsigned cmask)
 
 	for (ic = 0; ic < 2; ++ic){
 		if ((1<<ic)&cmask){
-			init_cache(adev, ic, ndescriptors, INIT_ALWAYS);
+			init_cache(adev, ic, ndescriptors, new_pool);
 		}
 	}
 }
