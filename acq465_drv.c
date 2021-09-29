@@ -36,6 +36,7 @@
  *
  * acq465_knobs app mmaps this buffer and updates it.
  * a task on a poll loop in this driver monitors changes and sends them to SPI
+ * We have one linux device per site, but we have to be aware of the 8 physical devices..
  */
 #include <linux/kernel.h>
 #include <linux/cdev.h>
@@ -68,10 +69,26 @@ module_param(n_acq465, int, 0444);
 static int spi_bus_num = 1;
 module_param(spi_bus_num, int, 0444);
 
-
-#define SPI_BUFFER_LEN	4096	/* 1 page */
+static int set_ident = 1;
+module_param(set_ident, int, 0444);
 
 #define REGS_LEN	0x80
+#define NCHIPS		8
+#define MODULE_SPI_BUFFER_LEN 	(NCHIPS*REGS_LEN)					// 1K
+#define TOTAL_SPI_BUFFER_LEN	((acq465_sites_count&~0x3)+4)*MODULE_SPI_BUFFER_LEN
+// round up to integer pages
+// 6 sites -> 2 pages, but if there is only 2 sites eg ACQ1002, we can save a PAGE..
+
+
+
+static struct HBM* driver_spi_buffer;     // single buffer for all devices.
+static struct HBM* client_spi_buffer;     // single buffer for all devices.
+
+#define DRV_PA(devnum) 	(driver_spi_buffer->pa+MODULE_SPI_BUFFER_LEN*((devnum)-1))
+#define DRV_VA(devnum) 	((unsigned char*)driver_spi_buffer->va+MODULE_SPI_BUFFER_LEN*((devnum)-1))
+
+#define CLI_PA(devnum) 	(client_spi_buffer->pa+MODULE_SPI_BUFFER_LEN*((devnum)-1))
+#define CLI_VA(devnum) 	((unsigned char*)client_spi_buffer->va+MODULE_SPI_BUFFER_LEN*((devnum)-1))
 
 int site2cs(int site)
 {
@@ -91,11 +108,14 @@ struct acq465_dev {
 	/* client stores to cli_buffer. dev_buffer caches device values
 	 * update flushes client changes to to device
 	 */
-	struct HBM* cli_buf;
-	struct HBM* dev_buf;
+	struct BUF {
+		unsigned char* va;
+		unsigned pa;
+	} cli_buf, dev_buf;
 
 	struct spi_device *spi;
 };
+
 
 #define DEVP(adev) (&adev->pdev->dev)
 
@@ -105,14 +125,31 @@ static struct acq465_dev* acq465_devs[7];	/* 6 sites index from 1 */
 /* we're ASSUMING that ad7134 doesn't mind access to non-existant regs ..
  * otherwise we have to have a sparse reg table
  */
-#define ADS5294_MAXREG	0xff				/* address in shorts */
-#define ADS5294_REGSLEN	((ADS5294_MAXREG+1)*sizeof(short))
+#define AD7134_MAXREG	0x48				/* address in bytes */
+#define AD7134_REGSLEN	((AD7134_MAXREG+1))            /* register set length in bytes */
 
-unsigned short *getShortBuffer(struct HBM* buf)
-{
-	return (short*)buf->va;
+static void print_hbm(struct HBM* hbm){
+	dev_info(0, "hbm: pa: 0x%08x va: %p len:%d\n", hbm->pa, hbm->va, hbm->len);
 }
+static void _ident(unsigned char* drv_buf, int site, int id)
+{
+	unsigned char* pb = drv_buf + (site-1)*MODULE_SPI_BUFFER_LEN;
+	int chip;
+	int ii;
+	for (chip = 0; chip < NCHIPS; ++chip, pb += REGS_LEN){
+		for (ii = 0; ii < REGS_LEN; ++ii){
+			pb[ii] = ii < AD7134_REGSLEN? ii+id: chip|(site<<4);
+		}
+	}
+}
+static void ident(unsigned char* drv_buf, int id)
+{
+	int nn;
 
+	for (nn = 0; nn < acq465_sites_count; ++nn){
+		_ident(drv_buf, acq465_sites[nn], id);
+	}
+}
 int get_site(struct acq465_dev *adev)
 {
 	return adev->pdev->id;
@@ -130,7 +167,8 @@ static void ad7134_setReadout(struct acq465_dev* adev, int readout)
 static void ad7134_cache_invalidate(struct acq465_dev* adev)
 /* read back cache from device */
 {
-	short *cache = getShortBuffer(adev->dev_buf);
+/* change to bytes, chipselect for individual chips
+	short *cache = adev->dev_buf->va;
 	int reg;
 	ad7134_setReadout(adev, 1);
 	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
@@ -143,12 +181,14 @@ static void ad7134_cache_invalidate(struct acq465_dev* adev)
 	ad7134_setReadout(adev, 0);
 
 	memcpy(adev->cli_buf->va, adev->dev_buf->va, ADS5294_REGSLEN);
+*/
 }
 static void ad7134_cache_flush(struct acq465_dev* adev)
 /* flush changes in cache to device */
 {
-	short *cache = getShortBuffer(adev->dev_buf);
-	short *clibuf = getShortBuffer(adev->cli_buf);
+/*
+	short *cache = getByteBuffer(adev->dev_buf);
+	short *clibuf = getByteBuffer(adev->cli_buf);
 
 	int reg;
 	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
@@ -164,6 +204,7 @@ static void ad7134_cache_flush(struct acq465_dev* adev)
 			spi_write(adev->spi, &cmd, 3);
 		}
 	}
+*/
 }
 
 static void ad7134_reset(struct acq465_dev* adev)
@@ -211,10 +252,9 @@ int acq465_cli_buffer_mmap(struct file* file, struct vm_area_struct* vma)
 {
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
 
-	struct HBM *hb = adev->cli_buf;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = hb->len;
-	unsigned pfn = hb->pa >> PAGE_SHIFT;
+	unsigned long psize = PAGE_SIZE; // maybe 2 pages?
+	unsigned pfn = adev->cli_buf.pa >> PAGE_SHIFT;
 
 	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
 		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
@@ -260,7 +300,10 @@ static void *acq465_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
         	struct acq465_dev *adev = s->private;
-        	return adev->cli_buf->va;
+        	dev_info(DEVP(adev), "acq465_proc_seq_start_buffers() %s adev:%p clibuf:%p",
+        			adev->devname, adev, adev->cli_buf.va);
+        	seq_printf(s, "chip:%c\n", 'A'+0);
+        	return adev->cli_buf.va;
         }
 
         return NULL;
@@ -270,17 +313,20 @@ static void *acq465_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 static int acq465_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
 {
 	struct acq465_dev *adev = s->private;
-	unsigned short* regs = (unsigned short*)v;
-	unsigned short* base = getShortBuffer(adev->cli_buf);
-	unsigned offregs = regs - base;
-
+	unsigned char* regs = (unsigned char*)v;
+	unsigned char* base = adev->cli_buf.va;
+	unsigned offregs;
 	int ir;
 
-	seq_printf(s, "%02x:", offregs);
-	for (ir = 0; ir < BUFREAD-1; ++ir){
-		seq_printf(s, "%04x ", regs[ir]);
+	while ((offregs = (regs - base)) > AD7134_MAXREG){
+		base += REGS_LEN;
 	}
-	seq_printf(s, "%04x\n", regs[ir]);
+
+	seq_printf(s, "%02x:", offregs%AD7134_MAXREG);
+	for (ir = 0; ir < BUFREAD-1; ++ir){
+		seq_printf(s, "%02x ", regs[ir]);
+	}
+	seq_printf(s, "%02x\n", regs[ir]);
 	return 0;
 }
 
@@ -288,8 +334,22 @@ static void* acq465_proc_seq_next_buffers(
 		struct seq_file *s, void* v, loff_t *pos)
 {
 	*pos += BUFREAD;
-	if (*pos  < BUFMAX){
-		return v + BUFREAD * sizeof(short);
+	if (*pos < MODULE_SPI_BUFFER_LEN){
+		loff_t offset = *pos%REGS_LEN;
+		if (offset  < AD7134_REGSLEN){
+			return v + BUFREAD;
+		}else{
+			struct acq465_dev *adev = s->private;
+
+			int chip = *pos/REGS_LEN + 1;
+			if (chip > 7){
+				return NULL;
+			}else{
+				seq_printf(s, "chip:%c\n", 'A'+chip);
+				*pos = chip * REGS_LEN;
+				return adev->cli_buf.va + *pos;
+			}
+		}
 	}else{
 		return NULL;
 	}
@@ -310,7 +370,10 @@ static int acq465_proc_open_spibuf(struct inode *inode, struct file *file)
 	int rc = seq_open(file, &proc_seq_ops_spi_buf);
 	if (rc == 0){
 		struct seq_file *m = file->private_data;
+		struct acq465_dev* adev = PDE_DATA(inode);
 		m->private = PDE_DATA(inode);
+
+		dev_info(DEVP(adev), "acq465_proc_open_spibuf() %s adev:%p", adev->devname, adev);
 	}
 	return rc;
 }
@@ -344,15 +407,30 @@ static int acq465_probe(struct platform_device *pdev)
         	goto fail;
         }
 
-        /* there's no actual DMA, we're after the pa, but DMA_NONE BUGs */
-        adev->cli_buf = hbm_allocate1(dev,  SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
-        memset(adev->cli_buf->va, 0, SPI_BUFFER_LEN);
+        if (driver_spi_buffer == 0){
+        	driver_spi_buffer = hbm_allocate1(dev, TOTAL_SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
+        	client_spi_buffer = hbm_allocate1(dev, TOTAL_SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
 
-        adev->dev_buf = hbm_allocate1(dev,  SPI_BUFFER_LEN, 0, DMA_BIDIRECTIONAL);
+        	if (set_ident){
+        		ident(DRV_VA(1), 0);
+        		ident(CLI_VA(1), 1);
+        	}
+        }
+        /* there's no actual DMA, we're after the pa, but DMA_NONE BUGs */
+        adev->cli_buf.pa = CLI_PA(pdev->id);
+        adev->cli_buf.va = CLI_VA(pdev->id);
+
+        if (!set_ident){
+        	memset(adev->cli_buf.va, 0, MODULE_SPI_BUFFER_LEN);
+        }
+
+        adev->dev_buf.pa = DRV_PA(pdev->id);
+        adev->dev_buf.va = DRV_VA(pdev->id);
 
         if (acq465_proc_root == 0){
         	acq465_proc_root = proc_mkdir("driver/acq465", 0);
         }
+
         proc_create_data("spibuf", 0,
         		proc_mkdir(adev->devname, acq465_proc_root),
         		&acq465_proc_fops, adev);
