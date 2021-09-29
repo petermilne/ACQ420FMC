@@ -116,6 +116,16 @@ struct acq465_dev {
 	struct spi_device *spi;
 };
 
+const unsigned char cmap[8][4] = {
+	/*A*/ { 16, 15, 17, 18 },
+	/*B*/ { 14, 13, 19, 20 },
+	/*C*/ { 12, 11, 21, 22 },
+	/*D*/ { 10,  9, 23, 24 },
+	/*E*/ {  8,  7, 25, 26 },
+	/*F*/ {  6,  5, 27, 28 },
+	/*G*/ {  4,  3, 29, 30 },
+	/*H*/ {  2,  1, 31, 32 }
+};
 
 #define DEVP(adev) (&adev->pdev->dev)
 
@@ -164,7 +174,7 @@ static void ad7134_setReadout(struct acq465_dev* adev, int readout)
 						cmd[0], cmd[1], cmd[2]);
 	spi_write(adev->spi, &cmd, 3);
 }
-static void ad7134_cache_invalidate(struct acq465_dev* adev)
+static void ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 /* read back cache from device */
 {
 /* change to bytes, chipselect for individual chips
@@ -179,19 +189,19 @@ static void ad7134_cache_invalidate(struct acq465_dev* adev)
 			reg, cache[reg]>>8, cache[reg]&0x0ff);
 	}
 	ad7134_setReadout(adev, 0);
-
-	memcpy(adev->cli_buf->va, adev->dev_buf->va, ADS5294_REGSLEN);
 */
+	memcpy(adev->cli_buf.va+chip*REGS_LEN, adev->dev_buf.va+chip*REGS_LEN, REGS_LEN);
 }
-static void ad7134_cache_flush(struct acq465_dev* adev)
+
+//static void ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
+static void ad7134_cache_flush(struct acq465_dev* adev, int chip)
 /* flush changes in cache to device */
 {
-/*
-	short *cache = getByteBuffer(adev->dev_buf);
-	short *clibuf = getByteBuffer(adev->cli_buf);
+	unsigned char *cache = adev->dev_buf.va + chip*REGS_LEN;
+	unsigned char *clibuf = adev->cli_buf.va + chip*REGS_LEN;
 
 	int reg;
-	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
+	for (reg = 0; reg <= AD7134_MAXREG; ++reg){
 		if (cache[reg] != clibuf[reg]){
 			char cmd[3];
 			cache[reg] = clibuf[reg];
@@ -201,13 +211,12 @@ static void ad7134_cache_flush(struct acq465_dev* adev)
 			dev_dbg(DEVP(adev),
 				"ad7134_cache_flush() spi_write %02x %02x %02x",
 				cmd[0], cmd[1], cmd[2]);
-			spi_write(adev->spi, &cmd, 3);
+			//spi_write(adev->spi, &cmd, 3);
 		}
 	}
-*/
 }
 
-static void ad7134_reset(struct acq465_dev* adev)
+static void ad7134_reset(struct acq465_dev* adev, int chip)
 {
 	char cmd[3] = { 0x0, 0, 0x1 };
 
@@ -274,19 +283,25 @@ static long
 acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
-	switch(cmd){
-	case ACQ465_CACHE_INVALIDATE:
-		ad7134_cache_invalidate(adev);
-		return 0;
-	case ACQ465_CACHE_FLUSH:
-		ad7134_cache_flush(adev);
-		return 0;
-	case ACQ465_RESET:
-		ad7134_reset(adev);
-		return 0;
-	default:
-		return -ENODEV;
+	int chip;
+	for (chip = 0; chip < NCHIPS; ++chip){
+		if ((1<<chip)&arg){
+			switch(cmd){
+			case ACQ465_CACHE_INVALIDATE:
+				ad7134_cache_invalidate(adev, chip);
+				break;
+			case ACQ465_CACHE_FLUSH:
+				ad7134_cache_flush(adev, chip);
+				break;
+			case ACQ465_RESET:
+				ad7134_reset(adev, chip);
+				break;
+			default:
+				return -ENODEV;
+			}
+		}
 	}
+	return 0;
 }
 struct file_operations acq465_fops = {
         .owner = THIS_MODULE,
@@ -457,7 +472,7 @@ static int ad7134spi_probe(struct spi_device *spi)
 	dev_info(&spi->dev, "ad7134spi_probe() bus:%d cs:%d",
 			spi->master->bus_num, spi->chip_select);
 
-	ad7134_cache_invalidate(adev);
+	//ad7134_cache_invalidate(adev);
 	return 0;
 }
 static int ad7134spi_remove(struct spi_device *spi)
