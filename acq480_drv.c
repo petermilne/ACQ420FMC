@@ -127,7 +127,7 @@ static void ads5294_setReadout(struct acq480_dev* adev, int readout)
 
 	dev_dbg(DEVP(adev), "ads5294_setReadout () spi_write %02x %02x %02x",
 						cmd[0], cmd[1], cmd[2]);
-	spi_write(adev->spi, &cmd, 3);
+	spi_write(adev->spi, cmd, 3);
 }
 static void ads5294_cache_invalidate(struct acq480_dev* adev)
 /* read back cache from device */
