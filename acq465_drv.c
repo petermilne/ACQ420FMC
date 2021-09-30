@@ -59,7 +59,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.0.5"
+#define REVID 		"0.0.7"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -194,11 +194,17 @@ int acq465_spi_write(struct acq465_dev* adev, unsigned chip, unsigned char cmd[]
 	char buf[16];
 	char rxbuf[8];
 	int status;
+	struct spi_transfer xfers[1] = {};
+
+	xfers[0].tx_buf = cmd;
+	xfers[0].rx_buf = rxbuf;
+	xfers[0].len = ncmd;
+
 	dev_dbg(DEVP(adev), "%s %s lcs:%02x txb: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
 
 	if (HW){
 		acq465_lcs(get_site(adev), chip);
-		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, 0);
+		status = spi_sync_transfer(adev->spi, xfers, 1);
 		if (clear_lcs){
 			acq465_lcs(get_site(adev), 0);
 		}
@@ -213,13 +219,19 @@ int acq465_spi_read(struct acq465_dev* adev, unsigned chip, unsigned char cmd[],
 {
 	char buf[16];
 	int status = 0;
+	struct spi_transfer xfers[1] = {};
+
+	xfers[0].tx_buf = cmd;
+	xfers[0].rx_buf = rxbuf;
+	xfers[0].len = ncmd;
+
 	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
 
 	rxbuf[0] = 0x0a; rxbuf[1] = 0x0b; rxbuf[2] = 0x0c;
 
 	if (HW){
 		acq465_lcs(get_site(adev), chip);
-		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, 0);
+		status = spi_sync_transfer(adev->spi, xfers, 1);
 		if (clear_lcs){
 			acq465_lcs(get_site(adev), 0);
 		}
@@ -267,14 +279,15 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 	unsigned char *clibuf = adev->cli_buf.va + chip*REGS_LEN;
 	char buf[16];
 	int status = 0;
+	int reg;
 
 	dev_dbg(DEVP(adev), "%s chip %x", __FUNCTION__, chip);
 
-	int reg;
 	for (reg = 0; reg <= AD7134_MAXREG; ++reg){
 		if (cache[reg] != clibuf[reg]){
 			unsigned char cmd[3];
 
+			cache[reg] = clibuf[reg];
 			cmd[0] = reg;
 			cmd[1] = cache[reg];
 			cmd[2] = CRC3(cmd);
@@ -282,7 +295,7 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 				status = acq465_spi_write(adev, chip, cmd, 3);
 			}
 			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, 3), status);
-			cache[reg] = clibuf[reg];
+
 		}
 	}
 	return status;
