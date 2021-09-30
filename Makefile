@@ -76,7 +76,7 @@ dmatest_pgm-objs := dmatest.o zynq-timer.o
 APPS := mmap acq400_stream permute acq435_decode \
 	acq400_knobs udp_client is_ramp mmaptest wavegen \
 	dsp_coprocessor ramp acq400_stream_disk \
-	acq480_knobs transition_counter acq435_rtm_trim anatrg \
+	acq480_knobs acq465_knobs transition_counter acq435_rtm_trim anatrg \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai  \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
@@ -223,6 +223,10 @@ multisitecheckramp: multisitecheckramp.cpp
 	
 acq480_knobs: acq480_knobs.o ads5294.o  knobs.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+	
+acq465_knobs: acq465_knobs.o knobs.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
+		
 wavegen: wavegen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt -lacq -lm
 	

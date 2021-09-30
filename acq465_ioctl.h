@@ -12,7 +12,7 @@
 
 #define MAGIC	0xa465
 
-#define CMASK	u32			/* Chip mask 0x80 .. 0x01 .. select any of 8 */
+#define CMASK	unsigned			/* Chip mask 0x80 .. 0x01 .. select any of 8 */
 
 #define ACQ465_RESET		_IOW(MAGIC, 1, CMASK)
 #define ACQ465_CACHE_INVALIDATE	_IOW(MAGIC, 2, CMASK)
