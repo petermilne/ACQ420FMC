@@ -59,7 +59,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.0.0"
+#define REVID 		"0.0.5"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -81,10 +81,7 @@ module_param(clear_lcs, int, 0644);
 static int HW = 1;
 module_param(HW, int, 0644);
 
-#define REGS_LEN	0x80
-#define NCHIPS		8
-#define MODULE_SPI_BUFFER_LEN 	(NCHIPS*REGS_LEN)					// 1K
-#define TOTAL_SPI_BUFFER_LEN	((acq465_sites_count&~0x3)+4)*MODULE_SPI_BUFFER_LEN
+
 // round up to integer pages
 // 6 sites -> 2 pages, but if there is only 2 sites eg ACQ1002, we can save a PAGE..
 
@@ -178,7 +175,7 @@ char* make_cmd_string(char buf[], unsigned char cmd[], int ncmd)
 	char* pb = buf;
 	int ic;
 	for (ic = 0; ic < ncmd; ++ic){
-		pb += sprintf(buf, "%02x,", cmd[ic]);
+		pb += sprintf(pb, "%02x,", cmd[ic]);
 	}
 	return buf;
 }
@@ -197,17 +194,17 @@ int acq465_spi_write(struct acq465_dev* adev, unsigned chip, unsigned char cmd[]
 	char buf[16];
 	char rxbuf[8];
 	int status;
-	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x txb: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
 
 	if (HW){
 		acq465_lcs(get_site(adev), chip);
-		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, ncmd);
+		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, 0);
 		if (clear_lcs){
 			acq465_lcs(get_site(adev), 0);
 		}
 	}
 
-	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x rxb: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
 
 	return status;
 }
@@ -218,15 +215,18 @@ int acq465_spi_read(struct acq465_dev* adev, unsigned chip, unsigned char cmd[],
 	int status = 0;
 	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
 
+	rxbuf[0] = 0x0a; rxbuf[1] = 0x0b; rxbuf[2] = 0x0c;
+
 	if (HW){
 		acq465_lcs(get_site(adev), chip);
-		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, ncmd);
+		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, 0);
 		if (clear_lcs){
 			acq465_lcs(get_site(adev), 0);
 		}
 	}
 
-	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x txb: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd), status);
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x rxb: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
 
 	return status;
 }
@@ -234,8 +234,10 @@ int acq465_spi_read(struct acq465_dev* adev, unsigned chip, unsigned char cmd[],
 static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 /* fill cache by readback from device */
 {
-	unsigned char *cache = adev->dev_buf.va;
+	unsigned char *cache = adev->dev_buf.va + chip*REGS_LEN;
 	int status = 0;
+
+	dev_dbg(DEVP(adev), "%s chip %x", __FUNCTION__, chip);
 
 	if (HW){
 		unsigned addr;
@@ -266,6 +268,8 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 	char buf[16];
 	int status = 0;
 
+	dev_dbg(DEVP(adev), "%s chip %x", __FUNCTION__, chip);
+
 	int reg;
 	for (reg = 0; reg <= AD7134_MAXREG; ++reg){
 		if (cache[reg] != clibuf[reg]){
@@ -284,13 +288,14 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 	return status;
 }
 
-static void ad7134_reset(struct acq465_dev* adev, int chip)
+static int ad7134_reset(struct acq465_dev* adev, int chip)
 {
-	char cmd[3] = { 0x0, 0, 0x1 };
+	char lock[3] = { 0xff, 0xff, 0xff };
+	char unlock[3] = { 0xff, 0xff, 0xfe };
 
-	dev_dbg(DEVP(adev), "ad7134_reset () spi_write %02x %02x %02x",
-						cmd[0], cmd[1], cmd[2]);
-	spi_write(adev->spi, &cmd, 3);
+	acq465_spi_write(adev, chip, lock, 3);
+	acq465_spi_write(adev, chip, unlock, 3);
+	return 0;
 }
 
 
@@ -330,8 +335,8 @@ int acq465_cli_buffer_mmap(struct file* file, struct vm_area_struct* vma)
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
 
 	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = PAGE_SIZE; // maybe 2 pages?
-	unsigned pfn = adev->cli_buf.pa >> PAGE_SHIFT;
+	unsigned long psize = 2*PAGE_SIZE;
+	unsigned pfn = client_spi_buffer->pa >> PAGE_SHIFT;
 
 	dev_dbg(&adev->pdev->dev, "%c vsize %lu psize %lu %s",
 		'D', vsize, psize, vsize>psize? "EINVAL": "OK");
@@ -351,26 +356,20 @@ static long
 acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
-	int chip;
-	for (chip = 0; chip < NCHIPS; ++chip){
-		if ((1<<chip)&arg){
-			switch(cmd){
-			case ACQ465_CACHE_INVALIDATE:
-				ad7134_cache_invalidate(adev, chip);
-				break;
-			case ACQ465_CACHE_FLUSH:
-				ad7134_cache_flush(adev, chip);
-				break;
-			case ACQ465_RESET:
-				ad7134_reset(adev, chip);
-				break;
-			default:
-				return -ENODEV;
-			}
-		}
+	unsigned chip = arg;
+
+	switch(cmd){
+	case ACQ465_CACHE_INVALIDATE:
+		return ad7134_cache_invalidate(adev, chip);
+	case ACQ465_CACHE_FLUSH:
+		return ad7134_cache_flush(adev, chip);
+	case ACQ465_RESET:
+		return ad7134_reset(adev, chip);
+	default:
+		return -ENODEV;
 	}
-	return 0;
 }
+
 struct file_operations acq465_fops = {
         .owner = THIS_MODULE,
         .open = acq465_open,
@@ -383,7 +382,7 @@ static void *acq465_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
         if (*pos == 0) {
         	struct acq465_dev *adev = s->private;
-        	dev_info(DEVP(adev), "acq465_proc_seq_start_buffers() %s adev:%p clibuf:%p",
+        	dev_dbg(DEVP(adev), "acq465_proc_seq_start_buffers() %s adev:%p clibuf:%p",
         			adev->devname, adev, adev->cli_buf.va);
         	seq_printf(s, "chip:%c\n", 'A'+0);
         	return adev->cli_buf.va;
@@ -456,7 +455,7 @@ static int acq465_proc_open_spibuf(struct inode *inode, struct file *file)
 		struct acq465_dev* adev = PDE_DATA(inode);
 		m->private = PDE_DATA(inode);
 
-		dev_info(DEVP(adev), "acq465_proc_open_spibuf() %s adev:%p", adev->devname, adev);
+		dev_dbg(DEVP(adev), "acq465_proc_open_spibuf() %s adev:%p", adev->devname, adev);
 	}
 	return rc;
 }
