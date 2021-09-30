@@ -543,6 +543,23 @@ static void acq43X_init_defaults(struct acq400_dev *adev)
 	}
 }
 
+
+static void acq465_init_defaults(struct acq400_dev *adev)
+{
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+	adev->nchan_enabled = 32;
+	dev_info(DEVP(adev), "%s device init", "acq465elf");
+
+	adev->data32 = 1;
+	adev->word_size = 4;
+	adev->hitide = 128;
+	adev->lotide = adev->hitide - 4;
+	acq400wr32(adev, ADC_CLKDIV, 16);
+	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_ES_EN|ADC_CTRL_MODULE_EN);
+	adev->onStart = acq43X_onStart;
+	adev->onStop = acq420_disable_fifo;
+}
+
 int _ao420_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
 }
@@ -984,6 +1001,9 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		case MOD_ID_PMODADC1:
 			pmodadc1_init_defaults(adev);
 			break;
+		case MOD_ID_ACQ465ELF:
+			acq465_init_defaults(adev);
+			break;
 		case MOD_ID_ACQ480FMC:
 			acq480_init_defaults(adev);
 			break;
@@ -1021,6 +1041,16 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 	}
 }
 
+void acq465_lcs(int site, unsigned value)
+{
+	struct acq400_dev* adev = acq400_sites[site];
+	BUG_ON(adev == 0);
 
+	u32 lcs = acq400rd32(adev, ACQ465_LCS);
+	lcs &=~ ACQ465_LCS_MASK;
+	lcs |= value;
+	acq400wr32(adev, ACQ465_LCS, lcs);
+}
+EXPORT_SYMBOL_GPL(acq465_lcs);
 
 

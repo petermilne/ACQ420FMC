@@ -2002,6 +2002,7 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_ACQ435ELF,	"acq435elf"	},
 		{ MOD_ID_ACQ436ELF,	"acq436elf"	},
 		{ MOD_ID_ACQ437ELF,	"acq437elf"	},
+		{ MOD_ID_ACQ465ELF,     "acq465elf"	},
 		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
 		{ MOD_ID_AO420FMC,	"ao420fmc"	},
 		{ MOD_ID_AO420FMC_CS2,	"ao420fmc"	},
@@ -2431,6 +2432,10 @@ static const struct attribute *acq435_attrs[] = {
 	NULL
 };
 
+
+static const struct attribute *acq465_attrs[] = {
+	NULL
+};
 
 SCOUNT_KNOB(CLK_EXT, 	ACQ2006_CLK_COUNT(0));
 SCOUNT_KNOB(CLK_MB, 	ACQ2006_CLK_COUNT(1));
@@ -3905,6 +3910,8 @@ void acq400_createSysfs(struct device *dev)
 				IS_ACQ425(adev) ? acq425_attrs: ACQ420_ATTRS;
 		}else if (IS_ACQ43X(adev)){
 			specials[nspec++] = acq435_attrs;
+		}else if (IS_ACQ465(adev)){
+			specials[nspec++] = acq465_attrs;
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;

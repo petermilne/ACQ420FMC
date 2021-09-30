@@ -232,6 +232,13 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ATD_MASK_OR);
 }
 
+void acq465_createDebugfs(struct acq400_dev* adev, char* pcursor)
+{
+	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(ACQ465_LCS);
+	DBG_REG_CREATE(ADC_TRANSLEN);
+}
+
 void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE( DIO432_DIO_CTRL		);
@@ -393,6 +400,9 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		case MOD_ID_ACQ430FMC:
 		case MOD_ID_TIMBUS:
 			acq43x_createDebugfs(adev, pcursor);
+			break;
+		case MOD_ID_ACQ465ELF:
+			acq465_createDebugfs(adev, pcursor);
 			break;
 		case MOD_ID_ACQ480FMC:
 			acq480_createDebugfs(adev, pcursor);

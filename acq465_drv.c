@@ -56,6 +56,9 @@
 
 #include "acq465_ioctl.h"
 
+
+extern void acq465_lcs(int site, unsigned value);
+
 #define REVID 		"0.0.0"
 #define MODULE_NAME	"acq465"
 
@@ -71,6 +74,12 @@ module_param(spi_bus_num, int, 0444);
 
 static int set_ident = 1;
 module_param(set_ident, int, 0444);
+
+static int clear_lcs = 1;
+module_param(clear_lcs, int, 0644);
+
+static int HW = 1;
+module_param(HW, int, 0644);
 
 #define REGS_LEN	0x80
 #define NCHIPS		8
@@ -138,9 +147,8 @@ static struct acq465_dev* acq465_devs[7];	/* 6 sites index from 1 */
 #define AD7134_MAXREG	0x48				/* address in bytes */
 #define AD7134_REGSLEN	((AD7134_MAXREG+1))            /* register set length in bytes */
 
-static void print_hbm(struct HBM* hbm){
-	dev_info(0, "hbm: pa: 0x%08x va: %p len:%d\n", hbm->pa, hbm->va, hbm->len);
-}
+#define AD7134_RD	0x80
+
 static void _ident(unsigned char* drv_buf, int site, int id)
 {
 	unsigned char* pb = drv_buf + (site-1)*MODULE_SPI_BUFFER_LEN;
@@ -165,55 +173,115 @@ int get_site(struct acq465_dev *adev)
 	return adev->pdev->id;
 }
 
-static void ad7134_setReadout(struct acq465_dev* adev, int readout)
+char* make_cmd_string(char buf[], unsigned char cmd[], int ncmd)
 {
-	char cmd[3] = { 0x1, 0, 0x1 };
-	if (!readout) cmd[2] = 0;
-
-	dev_dbg(DEVP(adev), "ad7134_setReadout () spi_write %02x %02x %02x",
-						cmd[0], cmd[1], cmd[2]);
-	spi_write(adev->spi, &cmd, 3);
-}
-static void ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
-/* read back cache from device */
-{
-/* change to bytes, chipselect for individual chips
-	short *cache = adev->dev_buf->va;
-	int reg;
-	ad7134_setReadout(adev, 1);
-	for (reg = 2; reg <= ADS5294_MAXREG; ++reg){
-		unsigned short tmp = spi_w8r16(adev->spi, reg);
-		cache[reg] = tmp>>8 | ((tmp&0x00ff)<<8);
-		dev_dbg(DEVP(adev),
-			"ad7134_cache_invalidate() spi_w8r16 %02x %02x %02x",
-			reg, cache[reg]>>8, cache[reg]&0x0ff);
+	char* pb = buf;
+	int ic;
+	for (ic = 0; ic < ncmd; ++ic){
+		pb += sprintf(buf, "%02x,", cmd[ic]);
 	}
-	ad7134_setReadout(adev, 0);
-*/
-	memcpy(adev->cli_buf.va+chip*REGS_LEN, adev->dev_buf.va+chip*REGS_LEN, REGS_LEN);
+	return buf;
 }
 
-//static void ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
-static void ad7134_cache_flush(struct acq465_dev* adev, int chip)
+unsigned char CRC3(unsigned char cmd[])
+{
+	/* CRC WORKTODO :
+	 * The SPI CRC is calculated with the x8 + x2 + x + 1 polynomial
+	 * with an initial seed value of 0xA5.
+	 */
+
+	return cmd[2] = 0;
+}
+int acq465_spi_write(struct acq465_dev* adev, unsigned chip, unsigned char cmd[], int ncmd)
+{
+	char buf[16];
+	char rxbuf[8];
+	int status;
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
+
+	if (HW){
+		acq465_lcs(get_site(adev), chip);
+		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, ncmd);
+		if (clear_lcs){
+			acq465_lcs(get_site(adev), 0);
+		}
+	}
+
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
+
+	return status;
+}
+
+int acq465_spi_read(struct acq465_dev* adev, unsigned chip, unsigned char cmd[], int ncmd, unsigned char rxbuf[])
+{
+	char buf[16];
+	int status = 0;
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, ncmd));
+
+	if (HW){
+		acq465_lcs(get_site(adev), chip);
+		status = spi_write_then_read(adev->spi, cmd, ncmd, rxbuf, ncmd);
+		if (clear_lcs){
+			acq465_lcs(get_site(adev), 0);
+		}
+	}
+
+	dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, rxbuf, ncmd), status);
+
+	return status;
+}
+
+static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
+/* fill cache by readback from device */
+{
+	unsigned char *cache = adev->dev_buf.va;
+	int status = 0;
+
+	if (HW){
+		unsigned addr;
+		for (addr = 0; addr <= AD7134_MAXREG; ++addr){
+			unsigned char txd[3] = { AD7134_RD|addr, 0, 0 };
+			unsigned char rxd[3];
+			CRC3(txd);
+			status = acq465_spi_read(adev, chip, txd, 3, rxd);
+			if (status != 0){
+				char buf[16];
+				dev_err(DEVP(adev), "%s %s fail %d", __FUNCTION__, make_cmd_string(buf, txd, 3), status);
+				return status;
+			}
+			cache[addr] = rxd[2];
+		}
+	}
+	memcpy(adev->cli_buf.va+chip*REGS_LEN, cache, REGS_LEN);
+	return status;
+}
+
+
+
+static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 /* flush changes in cache to device */
 {
 	unsigned char *cache = adev->dev_buf.va + chip*REGS_LEN;
 	unsigned char *clibuf = adev->cli_buf.va + chip*REGS_LEN;
+	char buf[16];
+	int status = 0;
 
 	int reg;
 	for (reg = 0; reg <= AD7134_MAXREG; ++reg){
 		if (cache[reg] != clibuf[reg]){
-			char cmd[3];
-			cache[reg] = clibuf[reg];
+			unsigned char cmd[3];
+
 			cmd[0] = reg;
-			cmd[1] = cache[reg] >> 8;
-			cmd[2] = cache[reg] &0x0ff;
-			dev_dbg(DEVP(adev),
-				"ad7134_cache_flush() spi_write %02x %02x %02x",
-				cmd[0], cmd[1], cmd[2]);
-			//spi_write(adev->spi, &cmd, 3);
+			cmd[1] = cache[reg];
+			cmd[2] = CRC3(cmd);
+			if (HW){
+				status = acq465_spi_write(adev, chip, cmd, 3);
+			}
+			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, 3), status);
+			cache[reg] = clibuf[reg];
 		}
 	}
+	return status;
 }
 
 static void ad7134_reset(struct acq465_dev* adev, int chip)

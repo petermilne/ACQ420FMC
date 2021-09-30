@@ -250,6 +250,11 @@
 #define ADC_INT_CSR_EVENT0_EN	(1<<1)
 #define ADC_INT_CSR_HITIDE_EN	(1<<0)
 
+
+#define ACQ465_LCS		(ADC_BASE+0x2c)
+
+#define ACQ465_LCS_MASK		0x000000ff
+
 /* enable both event sources, clear both status, ready to run .. */
 #define ADC_INT_CSR_COS_EN_ALL \
 	(ADC_INT_CSR_EVENT1|ADC_INT_CSR_EVENT0|\
@@ -352,6 +357,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 	 GET_MOD_ID(adev) == MOD_ID_ACQ427ELF_2000)
 #define IS_ACQ423(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ423ELF)
 
+#define IS_ACQ465(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ465ELF)
+
 #define IS_ACQ42X(adev) _is_acq42x(adev)
 
 #define IS_ACQ435(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ435ELF)
@@ -365,7 +372,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_ACQ480(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ480FMC)
 
-#define IS_ADC(adev)	(IS_ACQ43X(adev)||IS_ACQ42X(adev)||IS_ACQ480(adev))
+#define IS_ADC(adev)	(IS_ACQ43X(adev)||IS_ACQ42X(adev)||IS_ACQ480(adev)||IS_ACQ465(adev))
 
 #define IS_AO420(adev)  \
 	(GET_MOD_ID(adev)==MOD_ID_AO420FMC || GET_MOD_ID(adev)==MOD_ID_AO420FMC_CS2)
@@ -466,7 +473,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define HAS_DTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x2) != 0)
 #define HAS_XTD(adev)	(IS_ACQ430(adev) && (GET_MOD_ID_VERSION(adev)&0x3) != 0)
 
-#define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev) || IS_AO424(adev) || IS_AO420(adev))
+#define HAS_RGM(adev) 	(IS_ACQ43X(adev) || IS_ACQ42X(adev) || IS_ACQ480(adev) || IS_ACQ465(adev) || IS_AO424(adev) || IS_AO420(adev))
 
 #define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_IDV(adev) != 0)
 
