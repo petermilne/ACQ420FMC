@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <assert.h>
+#include <math.h>
 
 using namespace std;
 
@@ -36,6 +37,11 @@ class Ad7134 {
 	unsigned char* regs;
 public:
 	enum REGS {
+		DIGITAL_INTERFACE_CONFIG = 0x12,
+
+		ODR_VAL_INT_LSB = 0x16,	 // 3 bytes
+		ODR_VAL_FLT_LSB = 0x19,  // 4 bytes
+
 		CH0_GAIN_LSB 	= 0x27,  // 3 bytes
 		CH0_OFFSET_LSB 	= 0x2a,  // 3 bytes
 		CH1_GAIN_LSB 	= 0x2d,  // 3 bytes
@@ -86,6 +92,23 @@ public:
 			gain = -gain;
 		}
 		return gain;
+	}
+
+	void ODR(double dr){
+		double intpart;
+		double frac = modf(dr, &intpart);
+
+		unsigned val_int = (unsigned)intpart;
+		unsigned val_flt = (unsigned)(frac*0x100000000ULL);
+
+		regs[ODR_VAL_INT_LSB+0] = val_int	& 0x00ff;
+		regs[ODR_VAL_INT_LSB+1] = (val_int>>=8)	& 0x00ff;
+		regs[ODR_VAL_INT_LSB+2] = (val_int>>=8) & 0x00ff;
+
+		regs[ODR_VAL_FLT_LSB+0] = val_flt	& 0x00ff;
+		regs[ODR_VAL_FLT_LSB+1] = (val_flt>>=8)	& 0x00ff;
+		regs[ODR_VAL_FLT_LSB+2] = (val_flt>>=8)	& 0x00ff;
+		regs[ODR_VAL_FLT_LSB+3] = (val_flt>>=8)	& 0x00ff;
 	}
 };
 
@@ -147,6 +170,10 @@ public:
 
 	static const unsigned char cmap[8][4];
 
+	Ad7134* chip()
+	{
+		return new Ad7134(cache());
+	}
 	Ad7134* chip(int channel, unsigned& chx){
 		assert(channel >=1 && channel <= 32);
 		for (int chip = 0; chip < 8; ++chip){
@@ -296,6 +323,79 @@ public:
 	}
 };
 
+class DclkFreqCommand: public Command {
+public:
+	DclkFreqCommand() :
+		Command("dclkFreq", "[sel 0x0 .. 0xf ]") {}
+
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		unsigned char reg = module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG];
+
+		if (argc == 1){
+			printf("%x\n", reg&0x0f);
+		}else{
+			unsigned sel = strtoul(argv[1], 0, 16);
+			if (sel > 0xf){
+				return -1;
+			}
+
+			reg &=~ 0x0f;
+			reg |= sel;
+
+			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
+		}
+		return 0;
+	}
+};
+
+class WordSizeCommand: public Command {
+public:
+	WordSizeCommand() :
+		Command("dclkFreq", "[16|32 [CRC]]") {}
+
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		unsigned char reg = module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG];
+
+		if (argc == 1){
+			printf("%x\n", reg>>4 & 0x3);
+		}else{
+			unsigned ws = strtoul(argv[1], 0, 16);
+			unsigned sel = 0;
+
+			if (ws == 32){
+				sel = 2;
+			}
+			if (argc > 2 && strcmp(argv[2], "CRC") == 0){
+				sel |= 1;
+			}
+
+			reg &=~ 0x03 <<4;
+			reg |= sel << 4;
+
+			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
+		}
+		return 0;
+	}
+};
+
+#define MCLK 	24000
+
+class ODR_Command: public Command {
+public:
+	ODR_Command():
+		Command("ODR", "[n.nn kHz]") {}
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		if (argc == 1){
+			printf("%.4f kHz\n", 3.1415926);
+		}else{
+			double odr = strtod(argv[1], 0);
+			double dr = MCLK/odr;
+			module.chip()->ODR(dr);
+		}
+		return 0;
+	}
+};
+
 class SetReg: public Command {
 public:
 	SetReg() :
@@ -325,6 +425,9 @@ public:
 
 void Acq465ELF::init_commands()
 {
+	commands.push_back(new ODR_Command);
+	commands.push_back(new WordSizeCommand);
+	commands.push_back(new DclkFreqCommand);
 	commands.push_back(new GainCommand);
 	commands.push_back(new OffsetCommand);
 	commands.push_back(new SetReg);
