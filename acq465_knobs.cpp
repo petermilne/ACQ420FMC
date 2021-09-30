@@ -16,6 +16,7 @@
 #include <libgen.h>
 #include <unistd.h>
 
+#include <assert.h>
 
 using namespace std;
 
@@ -31,6 +32,69 @@ void die(const char *fmt)
 struct Command;
 
 
+class Ad7134 {
+	unsigned char* regs;
+public:
+	enum REGS {
+		CH0_GAIN_LSB 	= 0x27,  // 3 bytes
+		CH0_OFFSET_LSB 	= 0x2a,  // 3 bytes
+		CH1_GAIN_LSB 	= 0x2d,  // 3 bytes
+		CH1_OFFSET_LSB 	= 0x30,  // 3 bytes
+		CH2_GAIN_LSB 	= 0x33,  // 3 bytes
+		CH2_OFFSET_LSB 	= 0x36,  // 3 bytes
+		CH3_GAIN_LSB 	= 0x39,  // 3 bytes
+		CH3_OFFSET_LSB 	= 0x3c,  // 3 bytes
+	};
+
+	static const unsigned char ch_gain_lut[4];
+	static const unsigned char ch_offset_lut[4];
+	Ad7134(unsigned char* _regs): regs(_regs)
+	{}
+
+	void offset(unsigned ch, int offset) {
+		assert(ch >=0 && ch < 4);
+
+		regs[ch_offset_lut[ch]+0] =   offset	 & 0x00ff;
+		regs[ch_offset_lut[ch]+1] =  (offset>>=8)& 0x00ff;
+		regs[ch_offset_lut[ch]+2] = ((offset>>=8)& 0x007f) | 1<<7;
+	}
+	int offset(unsigned ch) {
+		assert(ch >=0 && ch < 4);
+		int offset = 0;
+		offset |= regs[ch_offset_lut[ch]+0];
+		offset |= regs[ch_offset_lut[ch]+1]<<8;
+		offset |= regs[ch_offset_lut[ch]+2]<<16;
+		if (offset&0x400000){
+			offset = -offset;
+		}
+		return offset;
+	}
+	void gain(unsigned ch, int gain) {
+		assert(ch >=0 && ch < 4);
+
+		regs[ch_gain_lut[ch]+0] =   gain     & 0x00ff;
+		regs[ch_gain_lut[ch]+1] =  (gain>>=8)& 0x00ff;
+		regs[ch_gain_lut[ch]+2] = ((gain>>=8)& 0x000f) | 1<<4;
+	}
+	int gain(unsigned ch) {
+		assert(ch >=0 && ch < 4);
+		int gain = 0;
+		gain |= regs[ch_gain_lut[ch]+0];
+		gain |= regs[ch_gain_lut[ch]+1]<<8;
+		gain |= regs[ch_gain_lut[ch]+2]<<16;
+		if (gain&0x80000){
+			gain = -gain;
+		}
+		return gain;
+	}
+};
+
+const unsigned char Ad7134::ch_gain_lut[4] = {
+	CH0_GAIN_LSB, CH1_GAIN_LSB, CH2_GAIN_LSB, CH3_GAIN_LSB
+};
+const unsigned char Ad7134::ch_offset_lut[4] = {
+	CH0_OFFSET_LSB, CH1_OFFSET_LSB, CH2_OFFSET_LSB, CH3_OFFSET_LSB
+};
 class Acq465ELF {
 	int site;
 	unsigned lcs;
@@ -40,6 +104,7 @@ class Acq465ELF {
 	FILE* fp;
 
 	void init_commands();
+
 public:
 	Acq465ELF(int _site, unsigned _lcs) : site(_site), lcs(_lcs)
 	{
@@ -73,9 +138,39 @@ public:
 	unsigned char* cache() {
 		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + lcs*REGS_LEN;
 	}
+	unsigned char* cache(int chx) {
+		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + chx*REGS_LEN;
+	}
 
 	friend class HelpCommand;
 	friend class MakeLinksCommand;
+
+	static const unsigned char cmap[8][4];
+
+	Ad7134* chip(int channel, unsigned& chx){
+		assert(channel >=1 && channel <= 32);
+		for (int chip = 0; chip < 8; ++chip){
+			for (int _chx = 0; _chx < 4; ++_chx){
+				if (channel == cmap[chip][_chx]){
+					chx = _chx;
+					return new Ad7134(cache(_chx));
+				}
+			}
+		}
+		assert(0);
+		return 0;
+	}
+};
+
+const unsigned char Acq465ELF::cmap[8][4] = {
+	/*A*/ { 16, 15, 17, 18 },
+	/*B*/ { 14, 13, 19, 20 },
+	/*C*/ { 12, 11, 21, 22 },
+	/*D*/ { 10,  9, 23, 24 },
+	/*E*/ {  8,  7, 25, 26 },
+	/*F*/ {  6,  5, 27, 28 },
+	/*G*/ {  4,  3, 29, 30 },
+	/*H*/ {  2,  1, 31, 32 }
 };
 
 
@@ -150,6 +245,57 @@ public:
 	}
 };
 
+
+class GainCommand: public Command {
+public:
+	GainCommand() :
+		Command("gain", "CH [VALUE]") {}
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		if (argc < 2) die(help());
+		unsigned ch = strtoul(argv[1], 0, 0);
+
+		if (ch < 1 || ch > 32){
+			return -1;
+		}
+
+		unsigned chx;
+		Ad7134 *ad7134 = module.chip(ch, chx);
+
+		if (argc == 2){
+			printf("%02d=%d\n", ch, ad7134->gain(chx));
+		}else{
+			ad7134->gain(chx, atoi(argv[2]));
+		}
+		return 0;
+	}
+};
+
+class OffsetCommand: public Command {
+public:
+	OffsetCommand() :
+		Command("offset", "CH [VALUE]") {}
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		if (argc < 2) die(help());
+		unsigned ch = strtoul(argv[1], 0, 0);
+
+		if (ch < 1 || ch > 32){
+			return -1;
+		}
+
+		unsigned chx;
+		Ad7134 *ad7134 = module.chip(ch, chx);
+
+		printf("chx set :%u\n", chx);
+
+		if (argc == 2){
+			printf("%02d=%d\n", ch, ad7134->offset(chx));
+		}else{
+			ad7134->offset(chx, atoi(argv[2]));
+		}
+		return 0;
+	}
+};
+
 class SetReg: public Command {
 public:
 	SetReg() :
@@ -179,7 +325,8 @@ public:
 
 void Acq465ELF::init_commands()
 {
-
+	commands.push_back(new GainCommand);
+	commands.push_back(new OffsetCommand);
 	commands.push_back(new SetReg);
 	commands.push_back(new FlushCommand);
 	commands.push_back(new ReadAllCommand);

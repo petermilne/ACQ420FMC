@@ -122,16 +122,7 @@ struct acq465_dev {
 	struct spi_device *spi;
 };
 
-const unsigned char cmap[8][4] = {
-	/*A*/ { 16, 15, 17, 18 },
-	/*B*/ { 14, 13, 19, 20 },
-	/*C*/ { 12, 11, 21, 22 },
-	/*D*/ { 10,  9, 23, 24 },
-	/*E*/ {  8,  7, 25, 26 },
-	/*F*/ {  6,  5, 27, 28 },
-	/*G*/ {  4,  3, 29, 30 },
-	/*H*/ {  2,  1, 31, 32 }
-};
+
 
 #define DEVP(adev) (&adev->pdev->dev)
 
