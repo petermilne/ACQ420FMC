@@ -292,6 +292,7 @@ public:
 			printf("%02d=%d\n", ch, ad7134->gain(chx));
 		}else{
 			ad7134->gain(chx, strtol(argv[2], 0, 0));
+			return 1;
 		}
 		return 0;
 	}
@@ -318,6 +319,7 @@ public:
 			printf("%02d=%d\n", ch, ad7134->offset(chx));
 		}else{
 			ad7134->offset(chx, strtol(argv[2], 0, 0));
+			return 1;
 		}
 		return 0;
 	}
@@ -343,6 +345,7 @@ public:
 			reg |= sel;
 
 			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
+			return 1;
 		}
 		return 0;
 	}
@@ -373,6 +376,7 @@ public:
 			reg |= sel << 4;
 
 			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
+			return 1;
 		}
 		return 0;
 	}
@@ -391,6 +395,7 @@ public:
 			double odr = strtod(argv[1], 0);
 			double dr = MCLK/odr;
 			module.chip()->ODR(dr);
+			return 1;
 		}
 		return 0;
 	}
@@ -418,6 +423,7 @@ public:
 				return -2;
 			}
 			module.cache()[reg] = regval;
+			return 1;
 		}
 		return 0;
 	}
