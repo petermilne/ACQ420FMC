@@ -161,8 +161,8 @@ public:
 	unsigned char* cache() {
 		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + lcs*REGS_LEN;
 	}
-	unsigned char* cache(int chx) {
-		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + chx*REGS_LEN;
+	unsigned char* cache(int chip) {
+		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + chip*REGS_LEN;
 	}
 
 	friend class HelpCommand;
@@ -180,7 +180,7 @@ public:
 			for (int _chx = 0; _chx < 4; ++_chx){
 				if (channel == cmap[chip][_chx]){
 					chx = _chx;
-					return new Ad7134(cache(_chx));
+					return new Ad7134(cache(chip));
 				}
 			}
 		}
@@ -291,7 +291,7 @@ public:
 		if (argc == 2){
 			printf("%02d=%d\n", ch, ad7134->gain(chx));
 		}else{
-			ad7134->gain(chx, atoi(argv[2]));
+			ad7134->gain(chx, strtol(argv[2], 0, 0));
 		}
 		return 0;
 	}
@@ -312,12 +312,12 @@ public:
 		unsigned chx;
 		Ad7134 *ad7134 = module.chip(ch, chx);
 
-		printf("chx set :%u\n", chx);
+		printf("ch:%d chx set:%u\n", ch, chx);
 
 		if (argc == 2){
 			printf("%02d=%d\n", ch, ad7134->offset(chx));
 		}else{
-			ad7134->offset(chx, atoi(argv[2]));
+			ad7134->offset(chx, strtol(argv[2], 0, 0));
 		}
 		return 0;
 	}
