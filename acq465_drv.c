@@ -59,7 +59,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.0.7"
+#define REVID 		"0.0.8"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -254,7 +254,7 @@ static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 				dev_err(DEVP(adev), "%s %s fail %d", __FUNCTION__, make_cmd_string(buf, txd, 3), status);
 				return status;
 			}
-			cache[addr] = rxd[2];
+			cache[addr] = rxd[1];
 		}
 	}
 	memcpy(adev->cli_buf.va+chip*REGS_LEN, cache, REGS_LEN);
@@ -299,6 +299,12 @@ static int ad7134_reset(struct acq465_dev* adev, int chip)
 
 	acq465_spi_write(adev, chip, lock, 3);
 	acq465_spi_write(adev, chip, unlock, 3);
+
+	char soft_reset[3] = { 0x00, 0x98, 0x0 };
+	char soft_reset_release[3] { 0x00, 0x18, 0x0 };
+
+	acq465_spi_write(adev, chip, soft_reset, 3);
+	acq465_spi_write(adev, chip, soft_reset_release, 3);
 	return 0;
 }
 
