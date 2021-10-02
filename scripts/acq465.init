@@ -30,6 +30,17 @@ build_nodes() {
 		MAJOR=${M_DEV% *}                             
 		NAME=${M_DEV#* }
 		mknod /dev/${NAME} c ${MAJOR} 0
+
+		DIR=/proc/driver/acq465/$name
+		retry=0
+		while [ ! -e $DIR ]; do
+			echo ERROR $DIR not there yet!
+			sleep 1
+			retry=$(($retry+1))
+			[ $retry -gt 2 ] && break
+		done
+		echo run /usr/local/bin/monitor_acq480_spi $name  
+
 		daemon /bin/nice /usr/local/bin/monitor_acq480_spi $name 
 	done
 }
