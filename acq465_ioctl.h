@@ -14,9 +14,17 @@
 
 #define LCS	unsigned			/* local chip select 0..7 */
 
+
+struct MCM {
+	unsigned char lcs;		// W : chip select
+	unsigned char sec;		// W : sec to hold for
+	unsigned count;			// R : MCLK count for period
+};
+
 #define ACQ465_RESET		_IOW(MAGIC, 1, LCS)
 #define ACQ465_CACHE_INVALIDATE	_IOW(MAGIC, 2, LCS)
 #define ACQ465_CACHE_FLUSH	_IOW(MAGIC, 3, LCS)
+#define ACQ465_MCLK_MONITOR	_IOWR(MAGIC, 4, struct MCM)   /* LCS out, count back */
 
 #define REGS_LEN	0x80
 #define NCHIPS		8

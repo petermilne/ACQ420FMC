@@ -39,6 +39,8 @@ public:
 	enum REGS {
 		DIGITAL_INTERFACE_CONFIG = 0x12,
 
+		SCRATCHPAD = 0x0a,	// 1 byte
+
 		ODR_VAL_INT_LSB = 0x16,	 // 3 bytes
 		ODR_VAL_FLT_LSB = 0x19,  // 4 bytes
 
@@ -119,16 +121,17 @@ const unsigned char Ad7134::ch_offset_lut[4] = {
 	CH0_OFFSET_LSB, CH1_OFFSET_LSB, CH2_OFFSET_LSB, CH3_OFFSET_LSB
 };
 class Acq465ELF {
-	int site;
-	unsigned lcs;
 	unsigned char* clibuf;
 
 	vector<Command*> commands;
-	FILE* fp;
+
 
 	void init_commands();
 
 public:
+	FILE* fp;
+	int site;
+	unsigned lcs;
 	Acq465ELF(int _site, unsigned _lcs) : site(_site), lcs(_lcs)
 	{
 		char fname[80];
@@ -148,18 +151,44 @@ public:
 
 	int operator() (int argc, char* argv[]);
 
+	int invalidate(unsigned chip) {
+		return ioctl(fileno(fp), ACQ465_CACHE_INVALIDATE, chip);
+	}
+	int invalidate(const char chip) {
+			return ioctl(fileno(fp), ACQ465_CACHE_INVALIDATE, chip-'A');
+	}
 	int invalidate() {
-		return ioctl(fileno(fp), ACQ465_CACHE_INVALIDATE, lcs);
+		return invalidate(lcs);
+	}
+	int flush(unsigned chip) {
+		return ioctl(fileno(fp), ACQ465_CACHE_FLUSH, chip);
+	}
+	int flush(const char chip) {
+		return ioctl(fileno(fp), ACQ465_CACHE_FLUSH, chip-'A');
 	}
 	int flush() {
-		return ioctl(fileno(fp), ACQ465_CACHE_FLUSH, lcs);
+		unsigned chx;
+		int rc;
+		for (chx = 0; chx < NCHIPS; ++chx){
+			rc = flush(chx);
+			if (rc != 0){
+				return rc;
+			}
+		}
+		return 0;
+	}
+	int reset(unsigned chx) {
+		return ioctl(fileno(fp), ACQ465_RESET, chx);
 	}
 	int reset() {
-		return ioctl(fileno(fp), ACQ465_RESET, lcs);
+		return reset(lcs);
 	}
 
 	unsigned char* cache() {
 		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + lcs*REGS_LEN;
+	}
+	unsigned char* cache(const char chip) {
+			return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + (chip-'A')*REGS_LEN;
 	}
 	unsigned char* cache(int chip) {
 		return clibuf + (site-1)*MODULE_SPI_BUFFER_LEN + chip*REGS_LEN;
@@ -249,24 +278,42 @@ public:
 };
 class ResetCommand: public Command {
 public:
-	ResetCommand() : Command("reset") {}
+	ResetCommand() : Command("reset", "reset [ABCDEFGH]") {}
 
 	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
-		return module.reset();
+		if (argc < 2){
+			return module.reset();
+		}else{
+			const char* chips = argv[1];
+			for (; *chips; ++chips){
+				assert(*chips >= 'A' && *chips <= 'H');
+				module.reset(*chips-'A');
+			}
+		}
+		return 0;
 	}
 };
 
 class ReadAllCommand: public Command {
 public:
-	ReadAllCommand() : Command("readall") {}
+	ReadAllCommand() : Command("readall", "readall [ABCDEFGH]") {}
 
 	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
-		return module.invalidate();
+		if (argc < 2){
+			return module.invalidate();
+		}else{
+			const char* chips = argv[1];
+			for (; *chips; ++chips){
+				assert(*chips >= 'A' && *chips <= 'H');
+				module.invalidate(*chips);
+			}
+		}
+		return 0;
 	}
 };
 class FlushCommand: public Command {
 public:
-	FlushCommand() : Command("flush") {}
+	FlushCommand() : Command("flush", "flush :: flushes all dirty data") {}
 	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
 		return module.flush();
 	}
@@ -401,6 +448,83 @@ public:
 	}
 };
 
+class ScratchpadTest: public Command {
+public:
+	ScratchpadTest():
+		Command("scratchpad", "[N] [ABCDEFGH]") {}
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		int nloops = 1;
+		const char* chips = "ABCDEFGH";
+		if (argc > 1){
+			nloops = atoi(argv[1]);
+			if (argc > 2){
+				chips = argv[2];
+				for (const char* pc = chips; *pc; ++pc){
+					assert(*pc >= 'A' && *pc <= 'H');
+				}
+			}
+		}
+
+		for (int loop = 0; loop++ < nloops; ){
+			fprintf(stderr, "scratchpad:loop %d/%d\n", loop, nloops);
+
+			for (int test = 0; test < 256; ++test){
+				for (const char* pc = chips; *pc; ++pc){
+					module.cache(*pc)[Ad7134::SCRATCHPAD] = (test+(pc-chips))&0x0ff;
+					module.flush(*pc);
+					module.cache(*pc)[Ad7134::SCRATCHPAD] = ~(test+(pc-chips))&0x0ff;
+				}
+
+				for (const char* pc = chips; *pc; ++pc){
+					module.invalidate(*pc);
+					if (module.cache(*pc)[Ad7134::SCRATCHPAD] != ((test+(pc-chips))&0x0ff)){
+						fprintf(stderr, "scratchpad %c.%d.%d fail %02x != %0x2\n",
+								*pc, loop, test,
+								module.cache(*pc)[Ad7134::SCRATCHPAD],
+								(test+(pc-chips))&0x0ff);
+					}
+				}
+			}
+		}
+
+		return 0;
+	}
+};
+
+class MCLK_Monitor: public Command {
+public:
+	MCLK_Monitor():
+		Command("mclkmon", "[seconds] [ABCDEFGH]") {}
+	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		int sec = 1;
+		char defchips[2];
+		sprintf(defchips, "%c", 'A' + module.lcs);
+		const char* chips = defchips; 		// default: use LCS
+
+		if (argc > 1){
+			sec = atoi(argv[1]);
+			if (argc > 2){
+				chips = argv[2];
+			}
+		}
+
+		for (const char* chip = chips; *chip; ++chip){
+			struct MCM mcm;
+			mcm.lcs = *chip-'A';
+			mcm.sec = sec;
+			mcm.count = 0;
+
+			int rc = ioctl(fileno(module.fp), ACQ465_MCLK_MONITOR, &mcm);
+			if (rc != 0){
+				fprintf(stderr, "%s ERROR ioctl fail %d\n", __FUNCTION__, rc);
+				exit(rc);
+			}
+			printf("MCLK: chip=%c count=%u freq=%.3e\n", *chip, mcm.count, (double)mcm.count*12000/sec);
+		}
+		return 0;
+	}
+};
+
 class SetReg: public Command {
 public:
 	SetReg() :
@@ -431,6 +555,7 @@ public:
 
 void Acq465ELF::init_commands()
 {
+	commands.push_back(new MCLK_Monitor);
 	commands.push_back(new ODR_Command);
 	commands.push_back(new WordSizeCommand);
 	commands.push_back(new DclkFreqCommand);
@@ -440,6 +565,7 @@ void Acq465ELF::init_commands()
 	commands.push_back(new FlushCommand);
 	commands.push_back(new ReadAllCommand);
 	commands.push_back(new ResetCommand);
+	commands.push_back(new ScratchpadTest);
 
 	commands.push_back(new HelpCommand);
 	commands.push_back(new MakeLinksCommand);

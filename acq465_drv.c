@@ -39,27 +39,36 @@
  * We have one linux device per site, but we have to be aware of the 8 physical devices..
  */
 #include <linux/kernel.h>
+
 #include <linux/cdev.h>
+#include <linux/dma-mapping.h>
+#include <linux/delay.h>
+#include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
+#include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-
+#include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/uaccess.h>
 
-#include <linux/platform_device.h>
 
-#include <linux/dma-mapping.h>
+
 #include "hbm.h"
 
 #include "acq465_ioctl.h"
 
+#define COPY_FROM_USER(to, from, len) \
+        if (copy_from_user(to, from, len)) { return -EFAULT; }
+
+#define COPY_TO_USER(to, from, len) \
+        if (copy_to_user(to, from, len)) { return -EFAULT; }
+
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.0"
+#define REVID 		"0.1.1"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -84,6 +93,10 @@ module_param(HW, int, 0644);
 static int USE_CRC = 0;
 module_param(USE_CRC, int, 0444);
 
+int mclk_counts[2] = { 0,  };
+int mclk_counts_entries = 2;
+module_param_array(mclk_counts, int, &mclk_counts_entries, 0644);
+MODULE_PARM_DESC(mclk_counts, "[0] rollover_counts [1] regular_counts expect [1] = [0]*3 or better");
 
 #define CMDLEN (USE_CRC? 3: 2)
 
@@ -141,6 +154,8 @@ static struct acq465_dev* acq465_devs[7];	/* 6 sites index from 1 */
 #define AD7134_REGSLEN	((AD7134_MAXREG+1))            /* register set length in bytes */
 
 #define AD7134_RD	0x80
+
+#define AD7413_MCLK_COUNTER	0x3f
 
 static void _ident(unsigned char* drv_buf, int site, int id)
 {
@@ -266,22 +281,6 @@ static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 	return status;
 }
 
-static int read_all_chips(void* data)
-{
-	struct acq465_dev* adev = data;
-	int chx;
-	int status;
-	int nfail = 0;
-	for (chx = 0; chx < 9; ++chx){
-		status = ad7134_cache_invalidate(adev, chx);
-		if (status != 0){
-			++nfail;
-			dev_err(DEVP(adev), "cache_invalidate %d fail\n", chx);
-		}
-	}
-	return nfail;
-}
-
 static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 /* flush changes in cache to device */
 {
@@ -329,6 +328,48 @@ static int ad7134_reset(struct acq465_dev* adev, int chip)
 }
 
 
+#define MCM_POLL_RATE_HZ	25
+
+static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
+// MCLK=24MHz. CTR=MCLK/12000 = 2,000 Hz. 8 overflows/sec.
+// poll at 25Hz, accumulate over period.
+{
+
+	const unsigned max_step = mcm->sec * MCM_POLL_RATE_HZ;
+	const unsigned sleepms = 1000/MCM_POLL_RATE_HZ;
+
+	unsigned char tx[3] = {AD7134_RD|AD7413_MCLK_COUNTER, };
+	unsigned char rx[3] = {};
+
+	unsigned total_count = 0;
+	unsigned char this_count, last_count;
+	unsigned step = 0;
+
+	int rc = 0;
+
+	for(; step < max_step; ++step){
+		rc = acq465_spi_read(adev, mcm->lcs, tx, CMDLEN, rx);
+		if (rc != 0){
+			dev_err(DEVP(adev), "%s acq465_spi_read fail", __FUNCTION__);
+			return rc;
+		}
+		this_count = rx[1];
+
+		if (step != 0){
+			if (this_count < last_count){
+				total_count += 0x100-last_count + this_count;
+				mclk_counts[0]++;
+			}else{
+				total_count += this_count - last_count;
+				mclk_counts[1]++;
+			}
+		}
+		last_count = this_count;
+		msleep(sleepms);
+	}
+	mcm->count = total_count;
+	return rc;
+}
 
 
 
@@ -386,7 +427,8 @@ static long
 acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
-	unsigned chip = arg;
+	unsigned chip = arg;		// for ioctls taking a single unsigned arg LCS
+	void* varg = (void*)arg;        // for ioctls with structure arg
 
 	switch(cmd){
 	case ACQ465_CACHE_INVALIDATE:
@@ -395,6 +437,15 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return ad7134_cache_flush(adev, chip);
 	case ACQ465_RESET:
 		return ad7134_reset(adev, chip);
+	case ACQ465_MCLK_MONITOR: {
+		struct MCM mcm;
+		long rc;
+		COPY_FROM_USER(&mcm, varg, sizeof(struct MCM));
+		rc = ad7134_monitor_mclk(adev, &mcm);
+		COPY_TO_USER(varg, &mcm, sizeof(struct MCM));
+		return rc;
+	}
+
 	default:
 		return -ENODEV;
 	}
