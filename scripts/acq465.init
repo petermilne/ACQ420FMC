@@ -28,6 +28,7 @@ build_nodes() {
 		MAJOR=${M_DEV% *}                             
 		NAME=${M_DEV#* }
 		mknod /dev/${NAME} c ${MAJOR} 0
+		daemon /bin/nice /usr/local/bin/monitor_acq480_spi $name 
 	done
 }
 grep acq465 /proc/devices | build_nodes
