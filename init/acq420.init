@@ -272,6 +272,7 @@ ACQ425_SITES=""
 ACQ427_SITES=""
 ACQ437_SITES=""
 ACQ400T_SITES=""
+ACQ465_SITES=""
 
 start_knob_services()
 {
@@ -385,6 +386,9 @@ build_knobs_device() {
 	9)
 		set_max_min_khz ${site} 200 10
 		ACQ423_SITES="${ACQ423_SITES} $site";;	
+	A)
+		set_max_min_khz ${site} 1400 1
+		ACQ465_SITES="${ACQ465_SITES} $site";;
 	40|42|6A)	
 		case $mtype in
 		6A)
@@ -652,6 +656,9 @@ build_knobs() {
 				echo "WARNING ACQ1001 non ACQ480 : BUS SPEED $bs check BOOT.bin"
 			fi;;
 		esac
+	fi
+	if [ "x${ACQ465_SITES}" != "x" ]; then
+		$ULB/acq465.init ${ACQ465_SITES}
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
 		echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
