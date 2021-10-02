@@ -35,7 +35,7 @@ grep acq465 /proc/devices | build_nodes
 
 acq465_knobs makeLinks >/tmp/makeLinks
 for s in $*; do
-	(cd /etc/acq400/$site;source /tmp/makeLinks)
+	(cd /etc/acq400/$s;source /tmp/makeLinks)
 done
 
 for s in $*; do
