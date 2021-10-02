@@ -68,7 +68,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.2"
+#define REVID 		"0.1.3"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -335,6 +335,9 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 // MCLK=24MHz. CTR=MCLK/12000 = 2,000 Hz. 8 overflows/sec.
 // poll at 25Hz, accumulate over period.
 {
+	unsigned chip = mcm->lcs;
+	unsigned char *cache = adev->dev_buf.va + chip*REGS_LEN + AD7413_MCLK_COUNTER;
+	unsigned char *clibuf = adev->cli_buf.va + chip*REGS_LEN + AD7413_MCLK_COUNTER;
 
 	const unsigned max_step = mcm->sec * MCM_POLL_RATE_HZ;
 	const unsigned sleepms = 1000/MCM_POLL_RATE_HZ;
@@ -365,7 +368,7 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 				mclk_counts[1]++;
 			}
 		}
-		last_count = this_count;
+		*clibuf = *cache = last_count = this_count;
 		msleep(sleepms);
 	}
 	mcm->count = total_count;
