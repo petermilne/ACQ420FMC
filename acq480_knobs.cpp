@@ -15,6 +15,8 @@
 #include <libgen.h>
 #include <unistd.h>
 
+#include <algorithm>    // std::sort
+
 
 using namespace std;
 
@@ -534,6 +536,14 @@ public:
 		}
 	}
 };
+
+struct CompareCommands {
+	bool operator() (Command* a, Command *b) {
+		return strcmp(a->cmd, b->cmd);
+	}
+} compareCommands;
+
+
 void Acq480FMC::init_commands()
 {
 	commands.push_back(new SetInvertCommand);
@@ -561,6 +571,7 @@ void Acq480FMC::init_commands()
 	commands.push_back(new ResetCommand);
 	commands.push_back(new HelpCommand);
 	commands.push_back(new MakeLinksCommand);
+	std::sort(commands.begin(), commands.end(), compareCommands);
 }
 
 int  Acq480FMC::operator() (int argc, char* argv[])

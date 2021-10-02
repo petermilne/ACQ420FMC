@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <algorithm>    // std::sort
 
 using namespace std;
 
@@ -401,7 +402,7 @@ public:
 class WordSizeCommand: public Command {
 public:
 	WordSizeCommand() :
-		Command("dclkFreq", "[16|32 [CRC]]") {}
+		Command("wordsize", "[16|32 [CRC]]") {}
 
 	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
 		unsigned char reg = module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG];
@@ -553,6 +554,13 @@ public:
 	}
 };
 
+struct CompareCommands {
+	bool operator() (Command* a, Command *b) {
+		return strcmp(a->cmd, b->cmd) < 0;
+	}
+} compareCommands;
+
+
 void Acq465ELF::init_commands()
 {
 	commands.push_back(new MCLK_Monitor);
@@ -569,6 +577,7 @@ void Acq465ELF::init_commands()
 
 	commands.push_back(new HelpCommand);
 	commands.push_back(new MakeLinksCommand);
+	std::sort(commands.begin(), commands.end(), compareCommands);
 }
 
 int  Acq465ELF::operator() (int argc, char* argv[])
