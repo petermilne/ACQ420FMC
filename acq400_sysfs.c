@@ -2294,7 +2294,7 @@ MAKE_BIT_N(sync_trg_to_clk, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_SYNC_TRG_N, 
 const char* adc_id(struct acq400_dev *adev)
 {
 	if (IS_ADC(adev)){
-		if (IS_ACQ43X(adev)){
+		if (IS_ACQ43X(adev) || IS_ACQ465(adev)){
 			return "ds";
 		}else{
 			return "sar";

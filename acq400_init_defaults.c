@@ -1045,11 +1045,12 @@ void acq465_lcs(int site, unsigned value)
 {
 	struct acq400_dev* adev = acq400_sites[site];
 	BUG_ON(adev == 0);
-
-	u32 lcs = acq400rd32(adev, ACQ465_LCS);
-	lcs &=~ ACQ465_LCS_MASK;
-	lcs |= value;
-	acq400wr32(adev, ACQ465_LCS, lcs);
+	{
+		u32 lcs = acq400rd32(adev, ACQ465_LCS);
+		lcs &=~ ACQ465_LCS_MASK;
+		lcs |= value;
+		acq400wr32(adev, ACQ465_LCS, lcs);
+	}
 }
 EXPORT_SYMBOL_GPL(acq465_lcs);
 
