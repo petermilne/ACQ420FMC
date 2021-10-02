@@ -16,8 +16,8 @@
 
 
 struct MCM {
-	unsigned char lcs;		// W : chip select
-	unsigned char sec;		// W : sec to hold for
+	unsigned short lcs;		// W : chip select
+	unsigned short sec;		// W : sec to hold for
 	unsigned count;			// R : MCLK count for period
 };
 
