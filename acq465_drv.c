@@ -68,7 +68,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.1"
+#define REVID 		"0.1.2"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -138,6 +138,7 @@ struct acq465_dev {
 	} cli_buf, dev_buf;
 
 	struct spi_device *spi;
+	struct mutex sem;
 };
 
 
@@ -388,6 +389,7 @@ struct acq465_dev* acq465_allocate_dev(struct platform_device *pdev)
 
 	adev->pdev = pdev;
 	snprintf(adev->devname, 16, "%s.%d", pdev->name, pdev->id);
+	mutex_init(&adev->sem);
 
 	return adev;
 }
@@ -429,26 +431,39 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
 	unsigned chip = arg;		// for ioctls taking a single unsigned arg LCS
 	void* varg = (void*)arg;        // for ioctls with structure arg
+	long rc;
 
+	rc = mutex_lock_interruptible(&adev->sem);
+
+	if (rc){
+		return rc;
+	}
+	/* inside mutex */
 	switch(cmd){
 	case ACQ465_CACHE_INVALIDATE:
-		return ad7134_cache_invalidate(adev, chip);
+		rc = ad7134_cache_invalidate(adev, chip);
+		break;
 	case ACQ465_CACHE_FLUSH:
-		return ad7134_cache_flush(adev, chip);
+		rc = ad7134_cache_flush(adev, chip);
+		break;
 	case ACQ465_RESET:
-		return ad7134_reset(adev, chip);
+		rc = ad7134_reset(adev, chip);
+		break;
 	case ACQ465_MCLK_MONITOR: {
 		struct MCM mcm;
 		long rc;
 		COPY_FROM_USER(&mcm, varg, sizeof(struct MCM));
 		rc = ad7134_monitor_mclk(adev, &mcm);
 		COPY_TO_USER(varg, &mcm, sizeof(struct MCM));
-		return rc;
+		break;
+	}
+	default:
+		rc = -ENODEV;
+		break;
 	}
 
-	default:
-		return -ENODEV;
-	}
+	mutex_unlock(&adev->sem);
+	return rc;
 }
 
 struct file_operations acq465_fops = {
