@@ -68,7 +68,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.3"
+#define REVID 		"0.1.4"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -503,7 +503,7 @@ static int acq465_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
 		base += REGS_LEN;
 	}
 
-	seq_printf(s, "%02x:", offregs%AD7134_MAXREG);
+	seq_printf(s, "| %02x: ", offregs%AD7134_MAXREG);
 	for (ir = 0; ir < BUFREAD-1; ++ir){
 		seq_printf(s, "%02x ", regs[ir]);
 	}
