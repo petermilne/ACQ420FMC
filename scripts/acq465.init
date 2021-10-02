@@ -32,6 +32,10 @@ build_nodes() {
 }
 grep acq465 /proc/devices | build_nodes
 
+acq465_knobs makeLinks >/tmp/makeLinks
+for s in $*; do
+	(cd /etc/acq400/$site;source /tmp/makeLinks)
+done
 
 for s in $*; do
 	SITE=$s acq465_knobs readall ABCDEFGH

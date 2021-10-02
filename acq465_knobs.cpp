@@ -272,7 +272,9 @@ public:
 
 	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
-			printf("ln -s %s acq465_%s\n", "/usr/local/bin/acq465_knobs", (*it)->cmd);
+			if ((*it)->cmd != cmd){
+				printf("ln -s %s acq465_%s\n", "/usr/local/bin/acq465_knobs", (*it)->cmd);
+			}
 		}
 		return 0;
 	}
@@ -607,10 +609,11 @@ int  Acq465ELF::operator() (int argc, char* argv[])
 			if (command(*this, argc, arg0) > 0){
 				flush();
 			}
-			break;
+			return 0;
 		}
 	}
-	return 0;
+	fprintf(stderr, "ERROR: command \"%s\" not found\n", verb);
+	return -1;
 }
 
 int main(int argc, char* argv[])
