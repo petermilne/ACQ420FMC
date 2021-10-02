@@ -9,6 +9,8 @@ for s in $*; do
     fi
 done
 
+
+
 if [ -e /mnt/local/acq465.ko ]; then
 	MODFILE=/mnt/local/acq465.ko
 else
