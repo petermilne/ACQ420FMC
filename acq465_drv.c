@@ -59,7 +59,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.0.8"
+#define REVID 		"0.1.0"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -81,6 +81,11 @@ module_param(clear_lcs, int, 0644);
 static int HW = 1;
 module_param(HW, int, 0644);
 
+static int USE_CRC = 0;
+module_param(USE_CRC, int, 0444);
+
+
+#define CMDLEN (USE_CRC? 3: 2)
 
 // round up to integer pages
 // 6 sites -> 2 pages, but if there is only 2 sites eg ACQ1002, we can save a PAGE..
@@ -248,10 +253,10 @@ static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 			unsigned char txd[3] = { AD7134_RD|addr, 0, 0 };
 			unsigned char rxd[3];
 			CRC3(txd);
-			status = acq465_spi_read(adev, chip, txd, 3, rxd);
+			status = acq465_spi_read(adev, chip, txd, CMDLEN, rxd);
 			if (status != 0){
 				char buf[16];
-				dev_err(DEVP(adev), "%s %s fail %d", __FUNCTION__, make_cmd_string(buf, txd, 3), status);
+				dev_err(DEVP(adev), "%s %s fail %d", __FUNCTION__, make_cmd_string(buf, txd, CMDLEN), status);
 				return status;
 			}
 			cache[addr] = rxd[1];
@@ -261,7 +266,21 @@ static int ad7134_cache_invalidate(struct acq465_dev* adev, int chip)
 	return status;
 }
 
-
+static int read_all_chips(void* data)
+{
+	struct acq465_dev* adev = data;
+	int chx;
+	int status;
+	int nfail = 0;
+	for (chx = 0; chx < 9; ++chx){
+		status = ad7134_cache_invalidate(adev, chx);
+		if (status != 0){
+			++nfail;
+			dev_err(DEVP(adev), "cache_invalidate %d fail\n", chx);
+		}
+	}
+	return nfail;
+}
 
 static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 /* flush changes in cache to device */
@@ -283,9 +302,9 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 			cmd[1] = cache[reg];
 			cmd[2] = CRC3(cmd);
 			if (HW){
-				status = acq465_spi_write(adev, chip, cmd, 3);
+				status = acq465_spi_write(adev, chip, cmd, CMDLEN);
 			}
-			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, 3), status);
+			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, CMDLEN), status);
 
 		}
 	}
@@ -294,17 +313,18 @@ static int ad7134_cache_flush(struct acq465_dev* adev, int chip)
 
 static int ad7134_reset(struct acq465_dev* adev, int chip)
 {
-	char lock[3] = { 0xff, 0xff, 0xff };
-	char unlock[3] = { 0xff, 0xff, 0xfe };
+/*
+	char lock[3] 	= { 0xff, 0xff, 0xff };
+	char unlock[3] 	= { 0xff, 0xff, 0xfe };
 
 	acq465_spi_write(adev, chip, lock, 3);
 	acq465_spi_write(adev, chip, unlock, 3);
+*/
+	char soft_reset[3] 		= { 0x00, 0x98, 0x0 };
+	char soft_reset_release[3] 	= { 0x00, 0x18, 0x0 };
 
-	char soft_reset[3] = { 0x00, 0x98, 0x0 };
-	char soft_reset_release[3] { 0x00, 0x18, 0x0 };
-
-	acq465_spi_write(adev, chip, soft_reset, 3);
-	acq465_spi_write(adev, chip, soft_reset_release, 3);
+	acq465_spi_write(adev, chip, soft_reset, CMDLEN);
+	acq465_spi_write(adev, chip, soft_reset_release, CMDLEN);
 	return 0;
 }
 
@@ -526,6 +546,7 @@ static int acq465_probe(struct platform_device *pdev)
         proc_create_data("spibuf", 0,
         		proc_mkdir(adev->devname, acq465_proc_root),
         		&acq465_proc_fops, adev);
+
 	return 0;
 
 fail:
@@ -549,7 +570,7 @@ static int ad7134spi_probe(struct spi_device *spi)
 	dev_info(&spi->dev, "ad7134spi_probe() bus:%d cs:%d",
 			spi->master->bus_num, spi->chip_select);
 
-	//ad7134_cache_invalidate(adev);
+	//kthread_run(read_all_chips, adev, "%s.readall", adev->devname);
 	return 0;
 }
 static int ad7134spi_remove(struct spi_device *spi)
