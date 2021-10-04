@@ -539,7 +539,7 @@ public:
 
 struct CompareCommands {
 	bool operator() (Command* a, Command *b) {
-		return strcmp(a->cmd, b->cmd);
+		return strcmp(a->cmd, b->cmd) < 0;
 	}
 } compareCommands;
 
