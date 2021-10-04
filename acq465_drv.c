@@ -68,7 +68,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.4"
+#define REVID 		"0.1.5"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -507,7 +507,7 @@ static int acq465_proc_seq_show_spibuf_row(struct seq_file *s, void *v)
 	for (ir = 0; ir < BUFREAD-1; ++ir){
 		seq_printf(s, "%02x ", regs[ir]);
 	}
-	seq_printf(s, "%02x\n", regs[ir]);
+	seq_printf(s, "%02x |\n", regs[ir]);
 	return 0;
 }
 
@@ -526,7 +526,7 @@ static void* acq465_proc_seq_next_buffers(
 			if (chip > 7){
 				return NULL;
 			}else{
-				seq_printf(s, "chip:%c\n", 'A'+chip);
+				seq_printf(s, "- - - - - - - chip:%c - - - - - -\n", 'A'+chip);
 				*pos = chip * REGS_LEN;
 				return adev->cli_buf.va + *pos;
 			}
