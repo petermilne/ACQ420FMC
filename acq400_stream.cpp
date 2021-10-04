@@ -1856,7 +1856,6 @@ protected:
 	StreamHead(int _fc, int _fout = 1) : fc(_fc), fout(_fout) {
 		assert(fc >= 0);
 		assert(fout >= 0);
-		set_axi_oneshot(0);
 	}
 	virtual ~StreamHead() {}
 
@@ -1881,9 +1880,7 @@ protected:
 	static void multiEventServer(int fd_in);
 	static void createMultiEventInstance(const char* def);
 
-	void set_axi_oneshot(int value){
-		setKnob(0, "/sys/module/acq420fmc/parameters/AXI_ONESHOT", value);
-	}
+
 public:
 	virtual void stream() {
 		int ib;
@@ -2224,6 +2221,9 @@ protected:
 		}
 		return ib;
 	}
+	static void set_axi_oneshot(int value){
+		setKnob(0, "/sys/module/acq420fmc/parameters/AXI_ONESHOT", value);
+	}
 public:
 	StreamHeadImpl(Progress& progress) : StreamHead(1234),
 		actual(progress),
@@ -2293,6 +2293,7 @@ public:
 		setState(ST_CLEANUP);
 		onStreamEnd();
 	}
+	friend class StreamHead;
 };
 
 
@@ -4710,6 +4711,7 @@ StreamHead* StreamHead::instance() {
 
 	//nice(-10);
 	if (_instance == 0){
+		StreamHeadImpl::set_axi_oneshot(0);
 		setEventCountLimit(
 				G::show_events? ECL_NOLIMIT:
 				G::stream_mode == SM_TRANSIENT? 1: ECL_NOLIMIT);
