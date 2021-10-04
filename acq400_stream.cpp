@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1038"
+#define VERID	"B1039"
 
 #define NCHAN	4
 
@@ -1856,6 +1856,7 @@ protected:
 	StreamHead(int _fc, int _fout = 1) : fc(_fc), fout(_fout) {
 		assert(fc >= 0);
 		assert(fout >= 0);
+		set_axi_oneshot(0);
 	}
 	virtual ~StreamHead() {}
 
@@ -1880,6 +1881,9 @@ protected:
 	static void multiEventServer(int fd_in);
 	static void createMultiEventInstance(const char* def);
 
+	void set_axi_oneshot(int value){
+		setKnob(0, "/sys/module/acq420fmc/parameters/AXI_ONESHOT", value);
+	}
 public:
 	virtual void stream() {
 		int ib;
@@ -4227,9 +4231,7 @@ protected:
 		if (verbose) fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 	}
 
-	void set_axi_oneshot(int value){
-		setKnob(0, "/sys/module/acq420fmc/parameters/AXI_ONESHOT", value);
-	}
+
 
 public:
 	StreamHeadPrePost(Progress& progress, int _pre, int _post) :
@@ -4310,9 +4312,6 @@ public:
 
 		setState(ST_CLEANUP);
 
-		if (G::naxi && pre == 0){
-			set_axi_oneshot(0);
-		}
 		close();
 	}
 };
