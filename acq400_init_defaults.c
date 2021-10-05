@@ -179,7 +179,7 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 	}else{
 		ctrl &= ~ADC_CTRL_RAMP_EN;
 	}
-	if (IS_ACQ42X(adev)){
+	if (IS_ACQ42X(adev) || IS_ACQ465(adev)){
 		ctrl = acq420_set_fmt(adev, ctrl);
 	}
 	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_FIFO);
@@ -556,7 +556,7 @@ static void acq465_init_defaults(struct acq400_dev *adev)
 	adev->lotide = adev->hitide - 4;
 	acq400wr32(adev, ADC_CLKDIV, 16);
 	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_ES_EN|ADC_CTRL_MODULE_EN);
-	adev->onStart = acq43X_onStart;
+	adev->onStart = acq420_onStart;
 	adev->onStop = acq420_disable_fifo;
 }
 

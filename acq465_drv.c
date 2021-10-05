@@ -329,7 +329,7 @@ static int ad7134_reset(struct acq465_dev* adev, int chip)
 }
 
 
-#define MCM_POLL_RATE_HZ	25
+#define MCM_POLL_RATE_HZ	50
 
 static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 // MCLK=24MHz. CTR=MCLK/12000 = 2,000 Hz. 8 overflows/sec.
@@ -476,6 +476,12 @@ struct file_operations acq465_fops = {
         .unlocked_ioctl = acq465_unlocked_ioctl
 };
 
+#define CHIPFMT	" - - - - - - - - - - - - chip:%c - - - - - - - - - - - -\n"
+
+static void print_header(struct seq_file *s, char chip)
+{
+	seq_printf(s, CHIPFMT, chip+0);
+}
 /* read 0x100 bytes, 0x10 bytes at a time */
 static void *acq465_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
 {
@@ -483,7 +489,7 @@ static void *acq465_proc_seq_start_buffers(struct seq_file *s, loff_t *pos)
         	struct acq465_dev *adev = s->private;
         	dev_dbg(DEVP(adev), "acq465_proc_seq_start_buffers() %s adev:%p clibuf:%p",
         			adev->devname, adev, adev->cli_buf.va);
-        	seq_printf(s, "chip:%c\n", 'A'+0);
+        	print_header(s, 'A');
         	return adev->cli_buf.va;
         }
 
@@ -526,7 +532,7 @@ static void* acq465_proc_seq_next_buffers(
 			if (chip > 7){
 				return NULL;
 			}else{
-				seq_printf(s, "- - - - - - - chip:%c - - - - - -\n", 'A'+chip);
+				print_header(s, 'A'+chip);
 				*pos = chip * REGS_LEN;
 				return adev->cli_buf.va + *pos;
 			}
