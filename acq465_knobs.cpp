@@ -22,8 +22,10 @@
 
 using namespace std;
 
+#include "popt.h"
 #include "acq465_ioctl.h"
 
+int G_verbose = 0;
 
 void die(const char *fmt)
 {
@@ -133,7 +135,9 @@ public:
 	FILE* fp;
 	int site;
 	unsigned lcs;
-	Acq465ELF(int _site, unsigned _lcs) : site(_site), lcs(_lcs)
+	const char* chips;
+
+	Acq465ELF(int _site, const char* _chips) : site(_site), chips(_chips)
 	{
 		char fname[80];
 		snprintf(fname, 80, "/dev/acq465.%d", site);
@@ -150,7 +154,7 @@ public:
 		init_commands();
 	}
 
-	int operator() (int argc, char* argv[]);
+	int operator() (int argc, const char** argv);
 
 	int invalidate(unsigned chip) {
 		return ioctl(fileno(fp), ACQ465_CACHE_INVALIDATE, chip);
@@ -231,12 +235,13 @@ const unsigned char Acq465ELF::cmap[8][4] = {
 };
 
 
+
 struct Command {
 	const char* cmd;
 	const char* args_help;
 
 	char* _help;
-	virtual int operator() (class Acq465ELF& module, int argc, char* argv[]) = 0;
+	virtual int operator() (class Acq465ELF& module, int argc, const char** argv) = 0;
 	/* return > 0 if flush recommended */
 
 	Command(const char* _cmd, const char* _args_help = "") :
@@ -257,7 +262,7 @@ class HelpCommand: public Command {
 public:
 	HelpCommand() : Command("help") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			printf("%s\n", (*it)->help());
 		}
@@ -270,7 +275,7 @@ class MakeLinksCommand: public Command {
 public:
 	MakeLinksCommand() : Command("makeLinks") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			if ((*it)->cmd != cmd){
 				printf("ln -s %s acq465_%s\n", "/usr/local/bin/acq465_knobs", (*it)->cmd);
@@ -281,43 +286,25 @@ public:
 };
 class ResetCommand: public Command {
 public:
-	ResetCommand() : Command("reset", "reset [ABCDEFGH]") {}
+	ResetCommand() : Command("reset", "reset") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
-		if (argc < 2){
-			return module.reset();
-		}else{
-			const char* chips = argv[1];
-			for (; *chips; ++chips){
-				assert(*chips >= 'A' && *chips <= 'H');
-				module.reset(*chips-'A');
-			}
-		}
-		return 0;
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		return module.reset();
 	}
 };
 
 class ReadAllCommand: public Command {
 public:
-	ReadAllCommand() : Command("readall", "readall [ABCDEFGH]") {}
+	ReadAllCommand() : Command("readall", "readall") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
-		if (argc < 2){
-			return module.invalidate();
-		}else{
-			const char* chips = argv[1];
-			for (; *chips; ++chips){
-				assert(*chips >= 'A' && *chips <= 'H');
-				module.invalidate(*chips);
-			}
-		}
-		return 0;
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		return module.invalidate();
 	}
 };
 class FlushCommand: public Command {
 public:
 	FlushCommand() : Command("flush", "flush :: flushes all dirty data") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		return module.flush();
 	}
 };
@@ -327,7 +314,7 @@ class GainCommand: public Command {
 public:
 	GainCommand() :
 		Command("gain", "CH [VALUE]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
 		unsigned ch = strtoul(argv[1], 0, 0);
 
@@ -352,7 +339,7 @@ class OffsetCommand: public Command {
 public:
 	OffsetCommand() :
 		Command("offset", "CH [VALUE]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
 		unsigned ch = strtoul(argv[1], 0, 0);
 
@@ -380,7 +367,7 @@ public:
 	DclkFreqCommand() :
 		Command("dclkFreq", "[sel 0x0 .. 0xf ]") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		unsigned char reg = module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG];
 
 		if (argc == 1){
@@ -406,7 +393,7 @@ public:
 	WordSizeCommand() :
 		Command("wordsize", "[16|32 [CRC]]") {}
 
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		unsigned char reg = module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG];
 
 		if (argc == 1){
@@ -438,7 +425,7 @@ class ODR_Command: public Command {
 public:
 	ODR_Command():
 		Command("ODR", "[n.nn kHz]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc == 1){
 			printf("%.4f kHz\n", 3.1415926);
 		}else{
@@ -454,37 +441,30 @@ public:
 class ScratchpadTest: public Command {
 public:
 	ScratchpadTest():
-		Command("scratchpad", "[N] [ABCDEFGH]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		Command("scratchpad", "[N]") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		int nloops = 1;
-		const char* chips = "ABCDEFGH";
 		if (argc > 1){
 			nloops = atoi(argv[1]);
-			if (argc > 2){
-				chips = argv[2];
-				for (const char* pc = chips; *pc; ++pc){
-					assert(*pc >= 'A' && *pc <= 'H');
-				}
-			}
 		}
 
 		for (int loop = 0; loop++ < nloops; ){
 			fprintf(stderr, "scratchpad:loop %d/%d\n", loop, nloops);
 
 			for (int test = 0; test < 256; ++test){
-				for (const char* pc = chips; *pc; ++pc){
-					module.cache(*pc)[Ad7134::SCRATCHPAD] = (test+(pc-chips))&0x0ff;
+				for (const char* pc = module.chips; *pc; ++pc){
+					module.cache(*pc)[Ad7134::SCRATCHPAD] = (test+(pc-module.chips))&0x0ff;
 					module.flush(*pc);
-					module.cache(*pc)[Ad7134::SCRATCHPAD] = ~(test+(pc-chips))&0x0ff;
+					module.cache(*pc)[Ad7134::SCRATCHPAD] = ~(test+(pc-module.chips))&0x0ff;
 				}
 
-				for (const char* pc = chips; *pc; ++pc){
+				for (const char* pc = module.chips; *pc; ++pc){
 					module.invalidate(*pc);
-					if (module.cache(*pc)[Ad7134::SCRATCHPAD] != ((test+(pc-chips))&0x0ff)){
+					if (module.cache(*pc)[Ad7134::SCRATCHPAD] != ((test+(pc-module.chips))&0x0ff)){
 						fprintf(stderr, "scratchpad %c.%d.%d fail %02x != %0x2\n",
 								*pc, loop, test,
 								module.cache(*pc)[Ad7134::SCRATCHPAD],
-								(test+(pc-chips))&0x0ff);
+								(test+(pc-module.chips))&0x0ff);
 					}
 				}
 			}
@@ -497,33 +477,25 @@ public:
 class MCLK_Monitor: public Command {
 public:
 	MCLK_Monitor():
-		Command("mclkmon", "[seconds] [ABCDEFGH]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+		Command("mclkmon", "[seconds]") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		int sec = 1;
-		char defchips[2];
-		sprintf(defchips, "%c", 'A' + module.lcs);
-		const char* chips = defchips; 		// default: use LCS
 
 		if (argc > 1){
 			sec = atoi(argv[1]);
-			if (argc > 2){
-				chips = argv[2];
-			}
 		}
 
-		for (const char* chip = chips; *chip; ++chip){
-			struct MCM mcm;
-			mcm.lcs = *chip-'A';
-			mcm.sec = sec;
-			mcm.count = 0;
+		struct MCM mcm;
+		mcm.lcs = module.lcs;
+		mcm.sec = sec;
+		mcm.count = 0;
 
-			int rc = ioctl(fileno(module.fp), ACQ465_MCLK_MONITOR, &mcm);
-			if (rc != 0){
-				fprintf(stderr, "%s ERROR ioctl fail %d\n", __FUNCTION__, rc);
-				exit(rc);
-			}
-			printf("MCLK: chip=%c count=%u freq=%.3e\n", *chip, mcm.count, (double)mcm.count*12000/sec);
+		int rc = ioctl(fileno(module.fp), ACQ465_MCLK_MONITOR, &mcm);
+		if (rc != 0){
+			fprintf(stderr, "%s ERROR ioctl fail %d\n", __FUNCTION__, rc);
+			exit(rc);
 		}
+		printf("MCLK: chip=%c count=%u freq=%.3e\n", module.lcs+'A', mcm.count, (double)mcm.count*12000/sec);
 		return 0;
 	}
 };
@@ -532,7 +504,7 @@ class SetReg: public Command {
 public:
 	SetReg() :
 		Command("reg", "REG [VALUE]") {}
-	int operator() (class Acq465ELF& module, int argc, char* argv[]) {
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
 		unsigned reg = strtoul(argv[1], 0, 0);
 		unsigned regval;
@@ -582,10 +554,12 @@ void Acq465ELF::init_commands()
 	std::sort(commands.begin(), commands.end(), compareCommands);
 }
 
-int  Acq465ELF::operator() (int argc, char* argv[])
+int  Acq465ELF::operator() (int argc, const char** argv)
 {
-	char** arg0 = argv;
-	char* verb = basename(argv[0]);
+	const char** arg0 = argv;
+	char argv0[80];
+	strncpy(argv0, argv[0], 80);
+	const char* verb = basename(argv0);
 
 	if (strcmp(verb, "acq465_knobs") == 0){
 		arg0 = &argv[1];
@@ -603,11 +577,16 @@ int  Acq465ELF::operator() (int argc, char* argv[])
 		verb += 7;
 	}
 
+
+
 	for (VCI it = commands.begin(); it != commands.end(); ++it){
 		Command &command = *(*it);
 		if (strcmp(verb, command.cmd) == 0){
-			if (command(*this, argc, arg0) > 0){
-				flush();
+			for (const char* cursor = chips; *cursor; ++cursor){
+				lcs = *cursor - 'A';
+				if (command(*this, argc, arg0) > 0){
+					flush();
+				}
 			}
 			return 0;
 		}
@@ -616,19 +595,56 @@ int  Acq465ELF::operator() (int argc, char* argv[])
 	return -1;
 }
 
-int main(int argc, char* argv[])
+
+const char* G_chips = "A";
+
+
+struct poptOption opt_table[] = {
+	{ "all", 	'A', POPT_ARG_NONE, 	0, 		'A', 	"access all chips"    			},
+	{ "chips", 	'c', POPT_ARG_STRING, 	&G_chips, 	0, 	"access selected chips [ABCDEFG]"	},
+	{ "verbose",   	'v', POPT_ARG_INT, 	&G_verbose, 	0,	"set verbosity"	    			},
+	POPT_AUTOHELP
+	POPT_TABLEEND
+};
+
+int main(int argc, const char** argv)
 {
 	int site = 1;
-	unsigned lcs = 0x0;
 	if (getenv("SITE")){
 		site = atoi(getenv("SITE"));
 	}
 	if (getenv("LCS")){
-		lcs = strtoul(getenv("LCS"), 0, 0);
+		fprintf(stderr, "SORRY, LCS has been dropped, use --chips=[ABCDEFG] or --all\n");
+		exit(1);
+	}
+	poptContext opt_context = poptGetContext(argv[0], argc, argv, opt_table, 0);
+	int rc;
+	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
+		switch(rc){
+		case 'A':
+			G_chips = "ABCDEFGH";
+			break;
+		}
 	}
 
-	Acq465ELF module(site, lcs);
+	int argc2;
+	const char** argv2 = new const char*[argc+1];  // it will be no bigger and perhaps smaller. Add one for a null
+	argv2[0] = argv[0];
+	for (argc2 = 1; (argv2[argc2] = poptGetArg(opt_context)); ++argc2){
+		;
+	}
+	argv2[argc2] = 0;
+
+#if 0
+	printf("chips: %s\n", G_chips);
+	for (int ii = 0; ii < argc2; ++ii){
+		printf("%d: %s\n", ii, argv2[ii]);
+	}
+	//exit(0);
+#endif
+
+	Acq465ELF module(site, G_chips);
 
 
-	return module(argc, argv);
+	return module(argc2, argv2);
 }
