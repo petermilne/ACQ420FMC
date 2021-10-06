@@ -508,16 +508,31 @@ public:
 		if (argc < 2) die(help());
 		unsigned reg = strtoul(argv[1], 0, 0);
 		unsigned regval;
+		bool setter = false;
 
+		int pair = sscanf(argv[1], "%x=%x", &reg, &regval);
+		switch(pair){
+		case 2:
+			setter = true;
+		case 1:
+			break;
+		case 0:
+			reg = strtoul(argv[1], 0, 0);
+			break;
+		default:
+			assert(0);
+		}
 		if (reg >= REGS_LEN){
 			return -1;
 		}
-
-		if (argc == 2){
+		if (argc > 2){
+			regval = strtoul(argv[2], 0, 0);
+			setter = true;
+		}
+		if (!setter){
 			regval = module.cache()[reg];
 			printf("%02x=%04x\n", reg, regval);
 		}else{
-			regval = strtoul(argv[2], 0, 0);
 			if (regval >= 256){
 				return -2;
 			}
