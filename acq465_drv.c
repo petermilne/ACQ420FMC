@@ -68,7 +68,7 @@
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.5"
+#define REVID 		"0.1.6"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -92,6 +92,10 @@ module_param(HW, int, 0644);
 
 static int USE_CRC = 0;
 module_param(USE_CRC, int, 0444);
+
+static int dummy_mclk;
+module_param(dummy_mclk, int, 0644);
+MODULE_PARM_DESC(dummy_mclk, "no spi transaction, just msleep: timing test");
 
 int mclk_counts[2] = { 0,  };
 int mclk_counts_entries = 2;
@@ -352,7 +356,9 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 	int rc = 0;
 
 	for(; step < max_step; ++step){
-		rc = acq465_spi_read(adev, mcm->lcs, tx, CMDLEN, rx);
+		if (!dummy_mclk){
+			rc = acq465_spi_read(adev, mcm->lcs, tx, CMDLEN, rx);
+		}
 		if (rc != 0){
 			dev_err(DEVP(adev), "%s acq465_spi_read fail", __FUNCTION__);
 			return rc;
@@ -372,6 +378,9 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 		msleep(sleepms);
 	}
 	mcm->count = total_count;
+	if (dummy_mclk){
+		mcm->count = max_step+sleepms;
+	}
 	return rc;
 }
 
@@ -736,6 +745,6 @@ module_exit(acq465_exit);
 
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("D-TACQ ACQ465ELF i2c Driver");
+MODULE_DESCRIPTION("D-TACQ ACQ465ELF SPI Driver");
 MODULE_AUTHOR("D-TACQ Solutions.");
 MODULE_VERSION(REVID);
