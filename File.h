@@ -64,6 +64,9 @@ public:
 	FILE* fp() {
 		return _fp;
 	}
+	bool exists() {
+		return fp() != 0;
+	}
 	int fd() {
 		return fileno(_fp);
 	}

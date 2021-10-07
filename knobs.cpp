@@ -54,6 +54,11 @@ Knob::~Knob()
 	delete [] kpath;
 }
 
+bool Knob::exists()
+{
+	File file(kpath, "r");
+	return file.exists();
+}
 int Knob::get(unsigned *value)
 {
 	File file(kpath, "r");

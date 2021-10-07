@@ -16,6 +16,7 @@ public:
 	Knob(int site, const char* knob);
 	virtual ~Knob();
 
+	bool exists();
 	int get(unsigned *value);
 	int get(char *value);
 

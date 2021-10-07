@@ -245,34 +245,43 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
+
+bool is_tiga()
+{
+	Knob k(0, "wr_tai_trg_s1");
+	return k.exists();
+}
 const char* ui(int argc, const char** argv)
 {
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
         int rc;
 
-        Knob clkdiv(1, "clkdiv");
-        Knob modname(1, "module_name");
-
-        G::ns_per_tick 	= Env::getenv("WRTD_TICKNS", 	50.0	);
-        G::dns 		= Env::getenv("WRTD_DELTA_NS", 	50000000);
-        G::tx_id 	= Env::getenv("WRTD_ID", 	"WRTD0"	);
-        G::verbose 	= Env::getenv("WRTD_VERBOSE", 	0	);
-        G::rt_prio	= Env::getenv("WRTD_RTPRIO", 	0	);
-        G::delay01	= Env::getenv("WRTD_DELAY01", 	1000000	);
-        G::tx_mask	= Env::getenv("WRTD_TX_MASK", 	0	);
-        G::dev_ts	= Env::getenv("WRTD_DEV_TS",    DEV_TS	);
+        G::ns_per_tick 	= 	Env::getenv("WRTD_TICKNS", 	50.0	);
+        G::dns 		= 	Env::getenv("WRTD_DELTA_NS", 	50000000);
+        G::tx_id 	= 	Env::getenv("WRTD_ID", 	"WRTD0"	);
+        G::verbose 	= 	Env::getenv("WRTD_VERBOSE", 	0	);
+        G::rt_prio	= 	Env::getenv("WRTD_RTPRIO", 	0	);
+        G::delay01	= 	Env::getenv("WRTD_DELAY01", 	1000000	);
+        G::tx_mask	= 	Env::getenv("WRTD_TX_MASK", 	0	);
+        G::dev_ts	= 	Env::getenv("WRTD_DEV_TS",    DEV_TS	);
+        G::local_clkoffset = 	Env::getenv("WRTD_LOCAL_CLKOFFSET",	0);
+        G::local_clkdiv = 	Env::getenv("WRTD_LOCAL_CLKDIV",    	1);
 
         const char* ip_multicast_if = ::getenv("WRTD_MULTICAST_IF");
         if (ip_multicast_if){
         	MultiCast::set_IP_MULTICAST_IF(ip_multicast_if);
         }
-        if (strstr(modname(), "acq48")){
-        	G::local_clkdiv = 1;
-        	G::local_clkoffset = 0;
-        }else{
-        	clkdiv.get((unsigned*)&G::local_clkdiv);
-        	G::local_clkoffset = 2;
+        if (!is_tiga()){
+        	Knob clkdiv(1, "clkdiv");
+        	Knob modname(1, "module_name");
+        	if (strstr(modname(), "acq48")){
+        		G::local_clkdiv = 1;
+        		G::local_clkoffset = 0;
+        	}else{
+        		clkdiv.get((unsigned*)&G::local_clkdiv);
+        		G::local_clkoffset = 2;
+        	}
         }
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
