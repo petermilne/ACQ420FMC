@@ -582,7 +582,7 @@ int get_segmented_descriptor_total(struct acq400_dev *adev)
 	return ndesc;
 }
 
-static void _delete_pool(struct ACQ400_AXIPOOL* apool, int ichan)
+static void __delete_pool(struct ACQ400_AXIPOOL* apool, int ichan)
 {
 	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
 	int iw = 0;
@@ -591,10 +591,18 @@ static void _delete_pool(struct ACQ400_AXIPOOL* apool, int ichan)
 	}
 	kfree(apool->channelWrappers[ichan]);
 }
+
+static void _delete_pool(struct ACQ400_AXIPOOL* apool, int ichan)
+{
+	struct AxiDescrWrapper * cursor = apool->channelWrappers[ichan];
+	if (cursor != 0){
+		__delete_pool(apool, ichan);
+	}
+}
 static void delete_pool(struct ACQ400_AXIPOOL* apool)
 {
 	_delete_pool(apool, 0);
-	_delete_pool(apool, 1);			// @@todo what if no wrappers ichan==1 ?
+	_delete_pool(apool, 1);
 	apool->ndescriptors = 0;
 }
 
