@@ -11,7 +11,7 @@
 #define MAX_PHYSICAL_SITES	 6
 #define MAXDEVICES 		12	/* includes virtual devices 101..106 */
 
-
+#define MARK(dev) 	dev_dbg((dev), "%s MARK %d", __FUNCTION__, __LINE__)
 
 inline static const char* dio32mode2str(enum DIO432_MODE mode)
 {

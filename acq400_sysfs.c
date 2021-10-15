@@ -2590,6 +2590,7 @@ MODCON_KNOB(psu_sync, 	MCR_PSU_SYNC);
 MODCON_KNOB(fan,	MCR_FAN_EN);
 MODCON_KNOB(soft_trig,  MCR_SOFT_TRIG);
 MODCON_KNOB(celf_power_en, ACQ1001_MCR_CELF_PSU_EN);
+MODCON_KNOB(counter_latch, MCR_COUNTER_LATCH);
 
 
 /* not really a getter .. original script would exec one soft trigger, so do the same */
@@ -3511,6 +3512,7 @@ static const struct attribute *acq1014sc_attrs[] = {
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_fan.attr,
 	&dev_attr_fan_percent.attr,
+	&dev_attr_counter_latch.attr,
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,
