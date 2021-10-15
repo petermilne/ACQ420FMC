@@ -835,6 +835,10 @@ int axi64_load_dmac(struct acq400_dev *adev, unsigned cmask)
 
 	dev_dbg(DEVP(adev), "axi64_load_dmac() 01");
 
+	if (adev->dma_chan[0] == 0){
+		dev_err(DEVP(adev), "%s NO AXI DMA AVAILABLE", __FUNCTION__);
+		return -1;
+	}
 	if (adev->axi_private == 0){
 		axi64_init_dmac(adev);
 	}
