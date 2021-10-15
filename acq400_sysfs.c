@@ -3406,6 +3406,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggsta_engine_stat.attr,
 	&dev_attr_mod_en.attr,
 	&dev_attr_psu_sync.attr,
+	&dev_attr_counter_latch.attr,
 	&dev_attr_soft_trig.attr,
 	&dev_attr_soft_trigger.attr,
 	&dev_attr_celf_power_en.attr,
@@ -3512,7 +3513,7 @@ static const struct attribute *acq1014sc_attrs[] = {
 	&dev_attr_data_engine_1.attr,
 	&dev_attr_fan.attr,
 	&dev_attr_fan_percent.attr,
-	&dev_attr_counter_latch.attr,
+
 
 	&dev_attr_scount_CLK_EXT.attr,
 	&dev_attr_scount_CLK_MB.attr,

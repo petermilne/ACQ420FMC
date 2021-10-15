@@ -473,6 +473,8 @@ build_site0() {
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
 		${dk}/soft_trigger ${dk}/bufferlen ${ek}
+		
+	[ -e ${dk}/counter_latch ] && ln -s ${dk}/counter_latch ${ek}
 
 	ln -s $ULB/get.site $ULB/set.site ${ek}
 	ln -s $ULB/set.site ${ek}/SS
