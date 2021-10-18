@@ -527,15 +527,19 @@ void _write_trg(FILE* fp, TS ts)
 class Receiver {
 
 protected:
+	const int ntriggers;
 	const long dms;
-	FILE *fp_trg[2];
+
+	FILE **fp_trg;
 	FILE *fp_cur;
 
 	char* report_fname;
 	char* report;
 
-	Receiver() :  dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
+	Receiver(int _ntriggers = 2) :  ntriggers(_ntriggers), dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
 		sprintf(report_fname, "/etc/acq400/%d/WRTD_REPORT", G::site);
+		fp_trg = new FILE* [ntriggers];
+		memset(fp_trg, 0, ntriggers*sizeof(FILE*));
 		fp_trg[0] = fopen_safe(DEV_TRG0, "w");
 		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 		fp_cur = fopen_safe(DEV_CUR, "r");
@@ -544,7 +548,16 @@ protected:
 		if (G::verbose){
 			fprintf(stderr, "%s mask:%x\n", PFN, ts.mask);
 		}
-		if (G::trg < 2){
+		if (ts.mask != 0){
+			unsigned char mask = ts.mask;
+			FILE *fp;
+
+			for (int ii = 0; (ii < ntriggers) && mask; mask >>= 1, ++ii){
+				if ((mask&1) && (fp = fp_trg[ii])){
+					_write_trg(fp, ts_adj);
+				}
+			}
+		}else if (G::trg < 2){
 			_write_trg(fp_trg[G::trg], ts_adj);
 		}else{
 			/* DOUBLE TAP */
@@ -553,7 +566,6 @@ protected:
 		}
 
 	}
-
 public:
 	virtual ~Receiver() {
 		fclose(fp_trg[0]);
@@ -599,34 +611,14 @@ public:
 
 
 class TIGA_Receiver: public Receiver {
-	FILE *fp_trg8[8];
-protected:
-	virtual void onAction(TS ts, TS ts_adj){
-		if (G::verbose){
-			fprintf(stderr, "%s mask:%x\n", PFN, ts.mask);
-		}
-		if (ts.mask == 0){
-			Receiver::onAction(ts, ts_adj);
-		}else{
-			unsigned char mask = ts.mask;
-			FILE *fp;
 
-			for (int ii = 0; mask; mask >>= 1, ++ii){
-				if ((mask&1) && (fp = fp_trg8[ii])){
-					_write_trg(fp, ts_adj);
-				}
-			}
-		}
-	}
-	TIGA_Receiver() : Receiver()
+protected:
+	TIGA_Receiver() : Receiver(8)
 	{
 		G::local_clkdiv = G::local_clkoffset = 0;		// stub clock adjust
 		if (G::verbose){
 			fprintf(stderr, "TIGA_Receiver()\n");
 		}
-		memset(fp_trg8, 0, sizeof(fp_trg8));
-		fp_trg8[0] = fp_trg[0];
-		fp_trg8[1] = fp_trg[1];
 
 		glob_t globbuf;
 		glob("/dev/acq400.0.wr_tiga_tt_s?", 0, NULL, &globbuf);
@@ -639,7 +631,7 @@ protected:
 			}
 
 			if (site >= 1 && site <= 6){
-				fp_trg8[site+1] = fopen_safe(fn, "w");		/* site1 => [2] */
+				fp_trg[site+1] = fopen_safe(fn, "w");		/* site1 => [2] */
 			}
 		}
 		globfree(&globbuf);
