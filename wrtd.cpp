@@ -253,6 +253,7 @@ bool is_tiga()
 }
 const char* ui(int argc, const char** argv)
 {
+	const char* cmd_name = basename(argv[0]);
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
         int rc;
@@ -296,7 +297,12 @@ const char* ui(int argc, const char** argv)
         if (G::verbose) fprintf(stderr, "ns per tick: %.3f ticks per s: %u delta_ticks %u\n",
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
-        const char* mode = poptGetArg(opt_context);
+        const char* mode = wrtd_rx;
+
+        if (strcmp(cmd_name, "wrtd") == 0){
+        	 mode = poptGetArg(opt_context);
+        }
+
 
         printf("mode %s\n", mode);
         if (strcmp(mode, "ts_diff") == 0){
@@ -308,10 +314,7 @@ const char* ui(int argc, const char** argv)
         if (tx_id && !isdigit(tx_id[0])){
         	G::tx_id = tx_id;
         }
-        if (!mode){
-        	fprintf(stderr, "ERROR: please specify mode tx|tx_immediate|rx");
-        	exit(1);
-        }
+
         G::delay01 /= G::ns_per_tick;
 
 	if (G::rt_prio){
