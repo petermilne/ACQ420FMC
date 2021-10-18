@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.131"
+#define REVID "0.132"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -37,7 +37,7 @@ int ndevices;
 module_param(ndevices, int, 0444);
 MODULE_PARM_DESC(ndevices, "number of devices found in probe");
 #undef MAXDEVICES
-#define MAXDEVICES 3
+#define MAXDEVICES 4
 
 char* MODEL = "";
 module_param(MODEL, charp, 0444);

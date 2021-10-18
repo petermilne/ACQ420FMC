@@ -831,6 +831,13 @@ load_mgt() {
 		echo "using override module $MGTMOD"
 	fi
 	/sbin/insmod $MGTMOD MODEL=$1
+	COMMS4=$(grep filename /tmp/fpga_status | awk '{ print $5 } ' | awk -F _ '{ print $9 }')
+	case $COMMS4 in
+	909*)
+		/usr/local/CARE/load.acq2106_quadcomms;;
+	*)
+		;;
+	esac
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
