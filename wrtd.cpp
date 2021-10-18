@@ -251,9 +251,18 @@ bool is_tiga()
 	Knob k(0, "wr_tai_trg_s1");
 	return k.exists();
 }
+
+const char* ui_get_cmd_name(const char* path)
+{
+	char* cmd_name = new char[strlen(path)+1];
+	strcpy(cmd_name, path);
+	return basename(cmd_name);
+}
+
 const char* ui(int argc, const char** argv)
 {
-	const char* cmd_name = basename(argv[0]);
+	const char* cmd_name = ui_get_cmd_name(argv[0]);
+
         poptContext opt_context =
                         poptGetContext(argv[0], argc, argv, opt_table, 0);
         int rc;
@@ -297,7 +306,7 @@ const char* ui(int argc, const char** argv)
         if (G::verbose) fprintf(stderr, "ns per tick: %.3f ticks per s: %u delta_ticks %u\n",
         		G::ns_per_tick, G::ticks_per_sec, G::delta_ticks);
 
-        const char* mode = wrtd_rx;
+        const char* mode = "wrtd_rx";
 
         if (strcmp(cmd_name, "wrtd") == 0){
         	 mode = poptGetArg(opt_context);
