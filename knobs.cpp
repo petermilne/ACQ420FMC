@@ -56,7 +56,7 @@ Knob::~Knob()
 
 bool Knob::exists()
 {
-	File file(kpath, "r");
+	File file(kpath, "r", false);
 	return file.exists();
 }
 int Knob::get(unsigned *value)
