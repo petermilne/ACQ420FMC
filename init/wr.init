@@ -272,8 +272,7 @@ cold_start_wrtd() {
 }
 
 cold_start_wr() {
-
-	
+	/usr/local/CARE/load.ttyPS1
 	start_wr
 	cold_start_wrtd &
 }

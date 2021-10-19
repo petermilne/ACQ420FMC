@@ -1,3 +1,6 @@
+#!/bin/sh
+
+[ -e /dev/ttyPS1 ] && exit 0
 
 echo before:
 ls -l /dev/ttyPS*
