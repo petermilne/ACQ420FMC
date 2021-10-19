@@ -125,8 +125,8 @@ namespace G {
 #define TICKS_MASK	0x0fffffff
 #define TS_EN		(1<<31)
 
-#define TS_QUICK	0xffffffff			// trigger right away, no timing ..
-#define TS_QUICK_TICKS	0x0fffffff			// trigger right away, no timing ..
+#define TS_QUICK	0xffffffffU			// trigger right away, no timing ..
+#define TS_QUICK_TICKS	0x0fffffffU			// trigger right away, no timing ..
 
 struct TS {
 
@@ -174,6 +174,12 @@ public:
 	}
 	TS operator+ (unsigned dticks) {
 		return add(0, dticks);
+	}
+	bool operator== (TS& ts2) const {
+		return ticks() == ts2.ticks() && secs() == ts2.secs();
+	}
+	bool operator!= (TS& ts2) const {
+		return ticks() != ts2.ticks() || secs() != ts2.secs();
 	}
 	long diff(TS& ts2){
 		unsigned _ticks = ticks();
@@ -470,7 +476,7 @@ protected:
 				exit(1);
 			}
 			if (is_for_us(msg)){
-				if (msg.ts_ns == TS_QUICK_TICKS){
+				if (msg.ts_ns == TS_QUICK){
 					TS ts(TS_QUICK);
 					ts.mask = msg.event_id[IMASK()];
 					return ts;
@@ -571,10 +577,15 @@ protected:
 			}
 		}else if (G::trg < 2){
 			_write_trg(fp_trg[G::trg], ts_adj);
-		}else{
-			/* DOUBLE TAP */
-			_write_trg(fp_trg[0], ts_adj);
-			_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
+		}else{							/* DOUBLE TAP */
+			if (ts_adj != TS::ts_quick){
+				_write_trg(fp_trg[0], ts_adj);
+				_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
+			}else{
+				_write_trg(fp_trg[0], TS_QUICK);
+				usleep(G::delay01/1000);
+				_write_trg(fp_trg[1], TS_QUICK);
+			}
 		}
 
 	}
