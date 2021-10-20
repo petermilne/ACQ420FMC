@@ -317,9 +317,6 @@ const char* ui(int argc, const char** argv)
         if (strcmp(cmd_name, "wrtd") == 0){
         	 mode = poptGetArg(opt_context);
         }
-
-
-        printf("mode %s\n", mode);
         if (strcmp(mode, "ts_diff") == 0){
         	TS::do_ts_diff(poptGetArg(opt_context), poptGetArg(opt_context));
         	exit(0);
@@ -349,6 +346,9 @@ protected:
 public:
 	virtual void sendto(const TS& ts) {
 		mc.sendto(&ts, sizeof(unsigned));
+	}
+	virtual void sendraw(unsigned raw) {
+		mc.sendto(&raw, sizeof(unsigned));
 	}
 	virtual TS recvfrom() {
 		if (mc.recvfrom(&ts.raw, sizeof(ts.raw)) != sizeof(ts.raw)){
@@ -453,6 +453,18 @@ protected:
 	}
 	friend class TSCaster;
 
+	virtual void sendraw(unsigned raw) {
+		msg.hw_detect[0] = 'L';
+		msg.hw_detect[1] = 'X';
+		msg.hw_detect[2] = 'I';
+		msg.seq = seq++;
+		msg.ts_sec = 0;			// truncated at 7.. worktodo use TAI
+		msg.ts_ns = raw;
+		//msg.event_id is pre-cooked, all other fields are zero
+		msg.event_id[IMASK()] = ts.mask;
+		mc.sendto(&msg, sizeof(msg));
+		if (G::verbose) printLast();
+	}
 	virtual void sendto(const TS& ts) {
 	        msg.hw_detect[0] = 'L';
 	        msg.hw_detect[1] = 'X';
@@ -476,11 +488,21 @@ protected:
 				exit(1);
 			}
 			if (is_for_us(msg)){
+				if (G::verbose){
+					fprintf(stderr, "%s FOR US %08x %08x\n", PFN, msg.ts_ns, TS_QUICK);
+					printLast();
+				}
 				if (msg.ts_ns == TS_QUICK){
 					TS ts(TS_QUICK);
 					ts.mask = msg.event_id[IMASK()];
+					if (G::verbose){
+						fprintf(stderr, "%s TS_QUICK ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
+					}
 					return ts;
 				}else{
+					if (G::verbose){
+						fprintf(stderr, "%s TS TIME ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
+					}
 					TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
 					ts.mask = msg.event_id[IMASK()];
 					return ts;
@@ -525,7 +547,7 @@ TS _adjust_ts(TS ts0)
 }
 TS adjust_ts(TS ts0)
 {
-	if (G::local_clkdiv > 1 || G::local_clkoffset != 0){
+	if (ts0 != TS::ts_quick && (G::local_clkdiv > 1 || G::local_clkoffset != 0)){
 		return _adjust_ts(ts0);
 	}else{
 		return ts0;
@@ -564,7 +586,7 @@ protected:
 	}
 	virtual void onAction(TS ts, TS ts_adj){
 		if (G::verbose){
-			fprintf(stderr, "%s mask:%x\n", PFN, ts.mask);
+			fprintf(stderr, "%s ts:%s ts_adj:%s mask:%x\n", PFN, ts.toStr(), ts_adj.toStr(), ts.mask);
 		}
 		if (ts.mask != 0){
 			unsigned char mask = ts.mask;
@@ -583,7 +605,7 @@ protected:
 				_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
 			}else{
 				_write_trg(fp_trg[0], TS_QUICK);
-				usleep(G::delay01/1000);
+				usleep(G::delay01*G::ns_per_tick/1000);
 				_write_trg(fp_trg[1], TS_QUICK);
 			}
 		}
@@ -624,7 +646,10 @@ public:
 	}
 	int event_loop(TSCaster& comms) {
 		for (unsigned nrx = 0;; ++nrx){
-			action(comms.recvfrom(), nrx);
+			TS ts = comms.recvfrom();
+			if (G::verbose) comms.printLast();
+			if (G::verbose) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
+			action(ts, nrx);
 			if (G::verbose) comms.printLast();
 		}
 		return 0;
@@ -739,16 +764,20 @@ int txi() {
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 int tx() {
+	if (G::verbose){
+		fprintf(stderr, "%s\n", PFN);
+	}
 	Transmitter t(G::dev_ts);
 	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 
 int txq() {
+	if (G::verbose){
+		fprintf(stderr, "%s\n", PFN);
+	}
 	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
-	G::ns_per_tick = 1;						// force ticks to go thru unchanged.
-	TS::ts_quick.mask = G::tx_mask;
-	comms.sendto(TS::ts_quick);
+	comms.sendraw(TS_QUICK);
 	return 0;
 }
 int rx() {
