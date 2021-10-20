@@ -115,8 +115,10 @@ init_wrtd() {
  	ln -s /usr/local/CARE/tai_date			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/${site}
-	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}
-	ln -s /usr/local/CARE/wrtd_txq 			/etc/acq400/${site}
+#	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}
+#	ln -s /usr/local/CARE/wrtd_txq 			/etc/acq400/${site}
+	ln -s /usr/local/bin/wrtd				/etc/acq400/${site}/wrtd_txq
+	ln -s /usr/local/bin/wrtd				/etc/acq400/${site}/wrtd_txi
 	
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_reset_tx
 	ln -s /usr/local/CARE/wrtd_commit 		/etc/acq400/${site}/wrtd_commit_tx
@@ -176,7 +178,8 @@ init_wr_onetime() {
 	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
-	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/0
+	ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txi
+	ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txq
 	cat ${WRSH}	>/dev/shm/wr0.sh
 	
 

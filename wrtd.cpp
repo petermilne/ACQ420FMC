@@ -770,14 +770,13 @@ int sleep_if_notenabled(const char* key)
 }
 
 
-int txi() {
-	if (G::verbose){
-		fprintf(stderr, "%s\n", PFN);
-	}
-	Transmitter t(DEV_CUR, 2*G::dns/1000);
-	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
-	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
+int rx() {
+       return Receiver::instance()->event_loop(
+                       TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
+
+
+
 int tx() {
 	if (!G::max_tx_specified){
 		G::max_tx = MAX_TX_INF;
@@ -790,6 +789,15 @@ int tx() {
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 
+int txi() {
+	if (G::verbose){
+		fprintf(stderr, "%s\n", PFN);
+	}
+	Transmitter t(DEV_CUR, 2*G::dns/1000);
+	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
+	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
+}
+
 int txq() {
 	if (G::verbose){
 		fprintf(stderr, "%s\n", PFN);
@@ -798,19 +806,16 @@ int txq() {
 	comms.sendraw(TS_QUICK);
 	return 0;
 }
-int rx() {
-	return Receiver::instance()->event_loop(
-			TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
-}
 
 int main(int argc, const char* argv[])
 {
 	get_local_env();
 	const char* mode = ui(argc, argv);
+	const char* bn = basename((char*)argv[0]);
 
-	if (strcmp(basename((char*)argv[0]), "wrtd_txq") == 0 || strcmp(mode, "txq") == 0){
+	if (strcmp(bn, "wrtd_txq") == 0 || strcmp(mode, "txq") == 0){
 		return txq();
-	}else if (strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
+	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
 	}else if (strcmp(mode, "tx") == 0){
 		return sleep_if_notenabled("WRTD_TX") || tx();
