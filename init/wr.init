@@ -31,7 +31,7 @@ monitor() {
                 	get_knob $k; 
                 done
                 echo
-				for k in wr_cur_vernier wr_tai_stamp wr_tai_trg; do 
+				for k in wr_tai_cur_raw wr_cur_vernier wr_tai_stamp wr_tai_trg wr_tai_trg1; do 
                 	get_knob $k; 
                 done                
                 echo
@@ -42,8 +42,11 @@ monitor() {
                 done
                 echo; echo ------------------------------
                 
-                if ! is_tiga; then
- 
+                if is_tiga; then
+					for k in /etc/acq400/0/wr_tai_*_s?; do
+						[ -e $k ] && get_knob $(basename $k) 
+					done
+                else
         			if [ -e $TPL ]; then        			
         				echo si5326_tune_phase ..
         				tail -n 20 $TPL

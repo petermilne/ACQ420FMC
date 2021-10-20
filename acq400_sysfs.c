@@ -659,6 +659,19 @@ static ssize_t show_wr_tai_cur(
 
 static DEVICE_ATTR(wr_tai_cur, S_IRUGO, show_wr_tai_cur, 0);
 
+static ssize_t show_wr_tai_cur_raw(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 tl = acq400rd32(adev, WR_TAI_CUR_L);
+
+	return sprintf(buf, "0x%08x %x\n", tl, (tl>>28)&0x7);
+}
+
+static DEVICE_ATTR(wr_tai_cur_raw, S_IRUGO, show_wr_tai_cur_raw, 0);
+
 static ssize_t _store_wr_tai_trg(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -793,6 +806,7 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_clk_pv3.attr,
 	&dev_attr_wr_trg_src.attr,
 	&dev_attr_wr_tai_cur.attr,
+	&dev_attr_wr_tai_cur_raw.attr,
 	&dev_attr_wr_tai_trg.attr,
 	&dev_attr_wr_tai_trg1.attr,
 	&dev_attr_wr_tai_stamp.attr,
