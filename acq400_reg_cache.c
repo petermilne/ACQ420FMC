@@ -89,6 +89,10 @@ int dev_rc_read(struct RegCache* reg_cache, unsigned offset, unsigned* value)
 	int ix, bit;
 	int reg = offset/sizeof(unsigned);
 
+	if (reg > reg_cache->max_reg){
+		return 1;
+	}
+
 	reg2map(reg, ix, bit);
 
 	if ((reg_cache->map[ix] & 1<<bit) != 0){
@@ -103,6 +107,10 @@ int dev_rc_write(struct RegCache* reg_cache, unsigned offset, unsigned value)
 {
 	int ix, bit;
 	int reg = offset/sizeof(unsigned);
+
+	if (reg > reg_cache->max_reg){
+		return 1;
+	}
 
 	reg2map(reg, ix, bit);
 
