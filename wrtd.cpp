@@ -473,7 +473,7 @@ protected:
 		msg.ts_sec = 0;			// truncated at 7.. worktodo use TAI
 		msg.ts_ns = raw;
 		//msg.event_id is pre-cooked, all other fields are zero
-		msg.event_id[IMASK()] = ts.mask;
+		msg.event_id[IMASK()] = G::tx_mask;	// use global default, NOT member ts ..
 		mc.sendto(&msg, sizeof(msg));
 		if (G::verbose) printLast();
 	}
