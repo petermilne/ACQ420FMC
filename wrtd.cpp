@@ -108,7 +108,8 @@ namespace G {
         double ns_per_tick = 50.0;			// ticks per nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
-        unsigned max_tx = MAX_TX_INF;			// send max this many trigs
+        unsigned max_tx = 1;				// send max this many trigs
+        bool max_tx_specified;				// TRUE if UI changed max_tx
         const char* tx_id;				// transmit id
         int rt_prio = 0;
         int trg = 0;					// trg 0 or 1, 2, decoded from message
@@ -233,7 +234,7 @@ struct poptOption opt_table[] = {
 	  "local_clkoffset", 'L', POPT_ARG_INT, &G::local_clkoffset, 0, "local clock offset"
 	},
 	{
-	  "max_tx", 0, POPT_ARG_INT, &G::max_tx, 0, "maximum transmit count"
+	  "max_tx", 0, POPT_ARG_INT, &G::max_tx, 'm', "maximum transmit count"
 	},
 	{
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
@@ -301,7 +302,9 @@ const char* ui(int argc, const char** argv)
         }
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
-                case 's':
+                case 'm':
+                	G::max_tx_specified = true;
+                	break;
                 default:
                         ;
                 }
@@ -323,10 +326,19 @@ const char* ui(int argc, const char** argv)
         }
 
         const char* tx_id = poptGetArg(opt_context);
-        if (tx_id && !isdigit(tx_id[0])){
-        	G::tx_id = tx_id;
+        if (tx_id){
+        	if (isdigit(tx_id[0])){
+        		G::max_tx = atoi(tx_id);		// args N TXID
+        		G::max_tx_specified = true;
+        		tx_id = poptGetArg(opt_context);
+        		if (tx_id && !isdigit(tx_id[0])){
+        			G::tx_id = tx_id;
+        		}
+        	}else{
+        		G::tx_id = tx_id;			// args TXID
+        	}
         }
-
+        							// else use defaults
         G::delay01 /= G::ns_per_tick;
 
 	if (G::rt_prio){
@@ -759,11 +771,17 @@ int sleep_if_notenabled(const char* key)
 
 
 int txi() {
+	if (G::verbose){
+		fprintf(stderr, "%s\n", PFN);
+	}
 	Transmitter t(DEV_CUR, 2*G::dns/1000);
 	Receiver* r = Env::getenv("WRTD_LOCAL_RX_ACTION", 0)? Receiver::instance(): 0;
 	return t.event_loop(TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER)), r);
 }
 int tx() {
+	if (!G::max_tx_specified){
+		G::max_tx = MAX_TX_INF;
+	}
 	if (G::verbose){
 		fprintf(stderr, "%s\n", PFN);
 	}
