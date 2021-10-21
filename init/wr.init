@@ -175,12 +175,12 @@ init_wr_onetime() {
 	(cd /etc/acq400; ln -s C 11)
 	ln -s /usr/local/bin/wr_reset /etc/acq400/11
 	
-	#ln -s /usr/local/CARE/tai_date			/etc/acq400/0
-	#ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
-	#ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
-	#ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txi
-	#ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txq
-	#cat ${WRSH}	>/dev/shm/wr0.sh
+	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
+	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
+	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
+	ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txi
+	ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txq
+	cat ${WRSH}	>/dev/shm/wr0.sh
 	
 
 	
