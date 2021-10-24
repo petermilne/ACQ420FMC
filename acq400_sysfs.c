@@ -2446,8 +2446,31 @@ static const struct attribute *acq435_attrs[] = {
 	NULL
 };
 
+static ssize_t store_adc_reset(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int reset;
+
+	if (sscanf(buf, "%d", &reset) == 1 && reset == 1){
+		u32 ctrl;
+		acq400wr32(adev, ADC_CTRL, ctrl = 0);
+		acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
+		acq400wr32(adev, ADC_CTRL, ctrl |  ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST);
+		acq400wr32(adev, ADC_CTRL, ctrl);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(adc_reset, S_IWUSR, 0, store_adc_reset);
 
 static const struct attribute *acq465_attrs[] = {
+	&dev_attr_adc_reset.attr,
 	NULL
 };
 

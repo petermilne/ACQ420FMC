@@ -51,8 +51,25 @@ for s in $*; do
 	(cd /etc/acq400/$s;source /tmp/makeLinks)
 done
 
-for s in $*; do
-	SITE=$s acq465_knobs readall ABCDEFGH
+for site in $*; do
+	SITE=$site /usr/local/CARE/acq465_adc.init
+	ek=/etc/acq400/${site}	
+	dk=/dev/acq400.${site}.knobs
+	rm $ek/data32
+	cat - >$ek/data32 <<EOF
+#!/bin/sh
+if [ "x\$1"  = "x"]; then
+	cat $dk/data32
+else
+	echo \$1 > $dk/data/32
+	if [ \$1 -eq 1 ]; then
+		kcode=0x20
+	else
+		kcode=0x00
+	fi
+	acq465_knobs --all reg 0x11 \$kcode
+EOF
+chmod a+rx $ek/data32
 done
 
 
