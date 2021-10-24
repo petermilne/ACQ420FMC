@@ -1,0 +1,85 @@
+#!/bin/sh
+
+# --all is handy for humans, but CHIPS is easier to script ..
+CHIPS=${CHIPS:-ADBCDEFGH}
+VERBOSE=${VERBOSE:-0}
+LIVE=${LIVE:-1}
+
+if [ "x$1" == "--all" ]; then
+	export args="--all"
+elif [ "x$1" != x${1#--chips*} ]; then
+	export args="$1"
+else
+	export args="--chips=$CHIPS"
+fi
+
+export SITE=${SITE:-1}
+
+reset=${2:-1}
+
+set.site 1 clk 1,0,1
+set.site 1 CLKDIV 8
+
+[ $reset -eq 1 ] && set.site ${SITE} adc_reset 1
+
+acq465_reg() {
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_reg $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_reg $args $*
+}
+acq465_mclkmon() {
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_mclkmon $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_mclkmon $args $*
+}
+
+acq465_readall() {
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_readall $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_readall $args $*
+}
+
+# Read all the registers, this initial read seems to ensure the first writes are successful
+acq465_readall
+
+# Initial values to registers
+
+#acq465_reg 0x2 0xd10 # Low Power Mode
+acq465_reg 0x2 0xd1 # High Performance Mode
+acq465_reg 0x10 0x02 # Enable Input Ref Gain Correction
+acq465_reg 0x12 0x01 # Dual channel mode. D0 and D1
+#acq465_reg 0x12 0x02 # Quad channel parallel
+acq465_reg 0x24 0x01 # VCM = AVDD/2 = 2.5 V
+acq465_reg 0x25 0x28 # Switch on MCLK_CNT and Overvoltage monitor
+
+#acq465_reg 0x1e 0x55 # All channels to Sinc6
+acq465_reg 0x1e 0x00 # All channels to Wideband
+
+
+
+# Data bitwidth
+#acq465_reg 0x11 0x00; set.site 1 data32 0; # 16-bit
+acq465_reg 0x11 0x20;set.site 1 data32 1; # 24-bit
+
+
+sleep 1
+
+# Read all the registers
+acq465_knobs $arg_expand readall
+
+echo -e "\nOutput Mode; 1=Dual, 2=Quad"
+acq465_reg 0x12
+
+echo -e "\nBitwidth; 00=16, 20=24"
+acq465_reg 0x11
+
+# Read DEVICE_STATUS
+echo -e "\nLook for LOCK"
+acq465_reg 0x15
+
+# Read DEVICE_STATUS
+echo -e "\nLook for errors"
+acq465_reg 0x42
+
+# MCLK Monitor
+echo -e "\n"
+acq465_mclkmon
+
+
