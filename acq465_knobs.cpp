@@ -20,6 +20,8 @@
 #include <math.h>
 #include <algorithm>    // std::sort
 
+#include <ctype.h>
+
 using namespace std;
 
 #include "popt.h"
@@ -27,6 +29,8 @@ using namespace std;
 
 int G_verbose = 0;
 int G_terse = 0;
+
+#define PRSEP	 putchar(G_terse? ' ': '\n')
 
 void die(const char *fmt)
 {
@@ -47,6 +51,8 @@ public:
 
 		ODR_VAL_INT_LSB = 0x16,	 // 3 bytes
 		ODR_VAL_FLT_LSB = 0x19,  // 4 bytes
+
+		CHAN_DIG_FILTER_SEL = 0x1e, // 1 byte
 
 		CH0_GAIN_LSB 	= 0x27,  // 3 bytes
 		CH0_OFFSET_LSB 	= 0x2a,  // 3 bytes
@@ -421,6 +427,43 @@ public:
 	}
 };
 
+class FilterCommand: public Command {
+public:
+	FilterCommand() :
+		Command("filter", "[0,1,2,3] : all WB, S6, S3, S3R all chans or 0x02x for individual chan select")
+	{}
+
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		unsigned char reg = module.cache()[Ad7134::CHAN_DIG_FILTER_SEL];
+
+		if (argc == 1){
+			bool all_for_one = true;
+			for (int shl = 2; shl <= 6; shl += 1){
+				if ((reg&3) != (reg&(3<<shl))){
+					all_for_one = false;
+					break;
+				}
+			}
+			if (all_for_one){
+				printf("%d", reg & 0x3); PRSEP;
+			}else{
+				printf("0x%02x", reg); 	 PRSEP;
+			}
+		}else if (strlen(argv[1]) == 1 && isdigit(argv[1][0])){
+			unsigned sel = argv[0][0] - '0';
+			reg = sel | sel<<2 | sel<<4 | sel<<6;
+			module.cache()[Ad7134::CHAN_DIG_FILTER_SEL] = reg;
+			return 1;
+		}else{
+			reg = strtoul(argv[1], 0, 16);
+			module.cache()[Ad7134::CHAN_DIG_FILTER_SEL] = reg;
+			return 1;
+		}
+		return 0;
+	}
+
+};
+
 #define MCLK 	24000
 
 class ODR_Command: public Command {
@@ -533,7 +576,7 @@ public:
 		}
 		if (!setter){
 			regval = module.cache()[reg];
-			printf("%02x=%04x%c", reg, regval, G_terse? ' ': '\n');
+			printf("%02x=%04x", reg, regval); PRSEP;
 		}else{
 			if (regval >= 256){
 				return -2;
@@ -556,6 +599,7 @@ void Acq465ELF::init_commands()
 {
 	commands.push_back(new MCLK_Monitor);
 	commands.push_back(new ODR_Command);
+	commands.push_back(new FilterCommand);
 	commands.push_back(new WordSizeCommand);
 	commands.push_back(new DclkFreqCommand);
 	commands.push_back(new GainCommand);
