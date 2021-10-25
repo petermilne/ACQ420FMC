@@ -42,6 +42,11 @@ int TIM_CTRL_LOCK;
 module_param(TIM_CTRL_LOCK, int, 0644);
 MODULE_PARM_DESC(dds_strobe_msec, "disable usr access when set");
 
+
+int acq465_reset_msleep = 1000;
+module_param(acq465_reset_msleep, int, 0644);
+MODULE_PARM_DESC(acq465_reset_msleep, "slows down reset to suit AD7134");
+
 MAKE_TRIPLET(fmc_clk_out_src, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
 MAKE_TRIPLET(fmc_trg_out_src, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
 
@@ -2460,7 +2465,9 @@ static ssize_t store_adc_reset(
 		acq400wr32(adev, ADC_CTRL, ctrl = 0);
 		acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 		acq400wr32(adev, ADC_CTRL, ctrl |  ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST);
+		msleep(acq465_reset_msleep);
 		acq400wr32(adev, ADC_CTRL, ctrl);
+		msleep(acq465_reset_msleep);
 		return count;
 	}else{
 		return -1;

@@ -26,6 +26,7 @@ using namespace std;
 #include "acq465_ioctl.h"
 
 int G_verbose = 0;
+int G_terse = 0;
 
 void die(const char *fmt)
 {
@@ -531,7 +532,7 @@ public:
 		}
 		if (!setter){
 			regval = module.cache()[reg];
-			printf("%02x=%04x\n", reg, regval);
+			printf("%02x=%04x%c", reg, regval, G_terse? ' ': '\n');
 		}else{
 			if (regval >= 256){
 				return -2;
@@ -603,6 +604,9 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 					flush();
 				}
 			}
+			if (G_terse){
+
+			}
 			return 0;
 		}
 	}
@@ -618,6 +622,7 @@ struct poptOption opt_table[] = {
 	{ "all", 	'A', POPT_ARG_NONE, 	0, 		'A', 	"access all chips"    			},
 	{ "chips", 	'c', POPT_ARG_STRING, 	&G_chips, 	0, 	"access selected chips [ABCDEFG]"	},
 	{ "verbose",   	'v', POPT_ARG_INT, 	&G_verbose, 	0,	"set verbosity"	    			},
+	{ "terse",      't', POPT_ARG_INT,      &G_terse,       0,      "limit output lines"                    },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };

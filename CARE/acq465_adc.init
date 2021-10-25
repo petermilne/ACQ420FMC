@@ -13,6 +13,8 @@ else
 	export args="--chips=$CHIPS"
 fi
 
+args="$args -t1"
+
 export SITE=${SITE:-1}
 
 reset=${2:-1}
@@ -62,7 +64,7 @@ acq465_reg 0x11 0x20;set.site 1 data32 1; # 24-bit
 sleep 1
 
 # Read all the registers
-acq465_knobs $arg_expand readall
+acq465_knobs readall
 
 echo -e "\nOutput Mode; 1=Dual, 2=Quad"
 acq465_reg 0x12
@@ -71,11 +73,11 @@ echo -e "\nBitwidth; 00=16, 20=24"
 acq465_reg 0x11
 
 # Read DEVICE_STATUS
-echo -e "\nLook for LOCK"
+echo -e "\nLook for LOCK 0001: success"
 acq465_reg 0x15
 
 # Read DEVICE_STATUS
-echo -e "\nLook for errors"
+echo -e "\nLook for errors 0000: good"
 acq465_reg 0x42
 
 # MCLK Monitor
