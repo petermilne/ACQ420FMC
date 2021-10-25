@@ -450,7 +450,7 @@ public:
 				printf("0x%02x", reg); 	 PRSEP;
 			}
 		}else if (strlen(argv[1]) == 1 && isdigit(argv[1][0])){
-			unsigned sel = argv[0][0] - '0';
+			unsigned sel = argv[1][0] - '0';
 			reg = sel | sel<<2 | sel<<4 | sel<<6;
 			module.cache()[Ad7134::CHAN_DIG_FILTER_SEL] = reg;
 			return 1;
@@ -660,7 +660,7 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 }
 
 
-const char* G_chips = "A";
+const char* G_chips = "ABCDEFGH";
 
 
 struct poptOption opt_table[] = {
