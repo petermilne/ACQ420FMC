@@ -117,6 +117,7 @@ namespace G {
         unsigned tx_mask;
         const char* dev_ts = DEV_TS;
         unsigned site;
+        int ons;					// on next second
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -205,6 +206,14 @@ public:
 		fprintf(stderr, "ts1:%s ts2:%s diff:%ld\n", ts1.toStr(), ts2.toStr(), ts1.diff(ts2));
 		return 0;
 	}
+	TS& next_second() {
+		int add_sec = 1;
+		if (ticks() + G::delta_ticks >= TICKS_MASK){
+			add_sec += 1;
+		}
+		raw = (secs() + add_sec) << SECONDS_SHL;
+		return *this;
+	}
 
 	static TS ts_quick;
 };
@@ -223,6 +232,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "rt_prio", 'p', POPT_ARG_INT, &G::rt_prio, 0, "real time priority"
+	},
+	{
+	  "on_next_second", 'n', POPT_ARG_INT, &G::ons, 0, "trigger next second, on the second, for comparison with PPS"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -729,7 +741,7 @@ public:
 		}
 		TS ts;
 		for (unsigned ntx = 0; fread(&ts.raw, sizeof(unsigned), 1, fp) == 1; ++ntx){
-			TS ts_tx = ts + G::delta_ticks;
+			TS ts_tx = G::ons? ts.next_second(): ts + G::delta_ticks;
 			ts_tx.mask = G::tx_mask;
 			comms.sendto(ts_tx);
 			if (local_rx){
