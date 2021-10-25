@@ -267,6 +267,7 @@ public:
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			printf("%s\n", (*it)->help());
 		}
+		exit(0);	// so that --all doesn't force a repeat 8x!
 		return 0;
 	}
 };
