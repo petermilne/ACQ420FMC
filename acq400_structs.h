@@ -865,7 +865,8 @@ extern void ao424_set_odd_channels(struct acq400_dev *adev, int odd_chan_en);
 extern struct GPG_buffer* get_gpg(struct acq400_dev* adev, int gpg32);
 void init_gpg_buffer(struct acq400_dev* adev, struct GPG_buffer *gpg, unsigned mem_base, unsigned dbgr);
 
-#define DMA_TIMEOUT 		msecs_to_jiffies(10000)
+extern int DMA_TIMEOUT;
+#define DEFAULT_DMA_TIMEOUT 		msecs_to_jiffies(10000)
 /* first time : infinite timeout .. we probably won't live this many jiffies */
 #define START_TIMEOUT		0x7fffffff
 

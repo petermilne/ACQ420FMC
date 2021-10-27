@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.665"
+#define REVID 			"3.666"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -129,6 +129,11 @@ MODULE_PARM_DESC(event1_feeds_ev_device, "report event1 to clients");
 unsigned event_status_mask;
 module_param(event_status_mask, int, 0444);
 MODULE_PARM_DESC(event_status_mask, "actual mask used in event_action()");
+
+int DMA_TIMEOUT = 10001;
+module_param(DMA_TIMEOUT, int, 0644);
+MODULE_PARM_DESC(DMA_TIMEOUT, "default DMA TIMEOUT in jiffies");
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -2612,6 +2617,7 @@ static int __init acq400_init(void)
 {
         int status;
 
+        DMA_TIMEOUT = DEFAULT_DMA_TIMEOUT;
 	printk("D-TACQ ACQ400 FMC Driver %s\n", REVID);
 	acq400_module_init_proc();
 	a400fs_init();
