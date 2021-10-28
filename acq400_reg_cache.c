@@ -52,7 +52,11 @@ int dev_rc_register_init(struct RegCache* reg_cache, int reg_bytes, unsigned ini
 	}
 }
 
-int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, int id)
+unsigned* dev_rc_alloc_cache()
+{
+	return kzalloc(REG_CACHE_MAX*sizeof(unsigned), GFP_KERNEL);
+}
+int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, int id, unsigned* the_cache)
 {
 	int max_reg = REG_CACHE_MAX;
 
@@ -60,7 +64,7 @@ int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, i
 	reg_cache->id = id;
 	reg_cache->adev = adev;
 	reg_cache->va = va;
-	reg_cache->data = kzalloc(max_reg*sizeof(unsigned), GFP_KERNEL);
+	reg_cache->data = the_cache;
 	reg_cache->max_reg = max_reg;
 	spin_lock_init(&reg_cache->lock);
 	return max_reg * sizeof(unsigned);
@@ -149,6 +153,7 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 			}
 		}
 	}
+#if 0
 	if (last <= reg_cache->max_reg/2){
 		unsigned* old = reg_cache->data;
 
@@ -165,7 +170,7 @@ int dev_rc_finalize(struct RegCache* reg_cache, int id, int has_timer)
 		}
 		kfree(old);
 	}
-
+#endif
 	dev_info(DEVP(reg_cache->adev), "%s site:%d max:%d last:%d map:%08x %08x %08x %08x %s",
 			__FUNCTION__, id, reg_cache->max_reg, last,
 			reg_cache->map[0], reg_cache->map[1],

@@ -223,8 +223,8 @@ struct acq400_dev {
 	struct RegCache ctrl_reg_cache;
 };
 
-
-int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, int id);
+unsigned* dev_rc_alloc_cache(void);
+int dev_rc_init(struct acq400_dev *adev, struct RegCache* reg_cache, void* va, int id, unsigned* the_cache);
 int dev_rc_register(struct RegCache* reg_cache, int reg_bytes);
 int dev_rc_register_init(struct RegCache* reg_cache, int reg_bytes, unsigned initval);
 /* returns 0 on success, -1 on fail */
