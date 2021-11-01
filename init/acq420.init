@@ -662,7 +662,7 @@ build_knobs() {
 	if [ "x${ACQ465_SITES}" != "x" ]; then
 	    for site in $ACQ465_SITES; do
 			web_append acq465.$site nomon
-		done
+		done		
 		$ULB/acq465.init ${ACQ465_SITES}
 	fi
 	if [ "x${ACQ400T_SITES}" != "x" ]; then
