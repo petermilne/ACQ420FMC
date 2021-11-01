@@ -19,9 +19,6 @@ export SITE=${SITE:-1}
 
 reset=${2:-1}
 
-set.site 1 clk 1,0,1
-set.site 1 CLKDIV 8
-
 [ $reset -eq 1 ] && set.site ${SITE} adc_reset 1
 
 acq465_reg() {
