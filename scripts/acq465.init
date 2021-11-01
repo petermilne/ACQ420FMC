@@ -47,6 +47,7 @@ build_nodes() {
 grep acq465 /proc/devices | build_nodes
 
 acq465_knobs makeLinks >/tmp/makeLinks
+
 (cd /usr/local/bin; /tmp/makeLinks)
 
 cat - >/tmp/acq465_init.job <<EOF
@@ -78,6 +79,7 @@ fi
 EOF
 
 	chmod a+rx $ek/data32
+	ln -s /usr/local/CARE/acq465_adc.init ${ek} 
 	(cd ${ek};source /tmp/makeLinks)
 	echo "SITE=$site /usr/local/CARE/acq465_adc.init" >>/tmp/acq465_init.job
 done
