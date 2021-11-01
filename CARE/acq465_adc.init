@@ -78,7 +78,7 @@ echo -e "\nLook for errors 0000: good"
 acq465_reg 0x42
 
 # MCLK Monitor
-echo -e "\n"
-acq465_mclkmon
+#echo -e "\n"
+#acq465_mclkmon
 
 
