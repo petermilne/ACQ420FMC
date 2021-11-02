@@ -12,6 +12,10 @@ SITE=${1:-0}
 KNOBS=/dev/acq400.${SITE}.knobs
 MODEL=$(cat $KNOBS/module_name)
 
+EK=/etc/acq400/$SITE
+
+mkdir -p ${EK}
+
 
 vset_sys() {
 	echo set.sys $1 $2
@@ -44,6 +48,9 @@ for gx in ${KNOBS}/G?; do
 	[ -e $gx ] && set.sys $gx 32767
 done
 
+for rch in 1 2 3 4; do
+	[ ! -e ${EK}/dac_range_0${rch} ] && ln -s $KNOBS/dac_range_0${rch} ${EK}/dac_range_0${rch}
+done
 
 case $MODEL in
 ao428elf)
