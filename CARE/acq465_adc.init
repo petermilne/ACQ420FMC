@@ -22,17 +22,22 @@ reset=${2:-1}
 [ $reset -eq 1 ] && set.site ${SITE} adc_reset 1
 
 acq465_reg() {
-	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_reg $args $*
-	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_reg $args $*
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/${SITE}/acq465_reg $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/${SITE}/acq465_reg $args $*
 }
 acq465_mclkmon() {
-	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_mclkmon $args $*
-	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_mclkmon $args $*
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/${SITE}/acq465_mclkmon $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/${SITE}/acq465_mclkmon $args $*
 }
 
 acq465_readall() {
-	[ $VERBOSE -eq 1 ] && echo /etc/acq400/1/acq465_readall $args $*
-	[ $LIVE -ne 0 ] && /etc/acq400/1/acq465_readall $args $*
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/${SITE}/acq465_readall $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/${SITE}/acq465_readall $args $*
+}
+
+acq465_filter_all() {
+	[ $VERBOSE -eq 1 ] && echo /etc/acq400/${SITE}/acq465_filter $args $*
+	[ $LIVE -ne 0 ] && /etc/acq400/${SITE}/acq465_filter $args $*
 }
 
 # Read all the registers, this initial read seems to ensure the first writes are successful
@@ -51,6 +56,11 @@ acq465_reg 0x25 0x28 # Switch on MCLK_CNT and Overvoltage monitor
 #acq465_reg 0x1e 0x55 # All channels to Sinc6
 acq465_reg 0x1e 0x00 # All channels to Wideband
 
+FILTER=0
+if [ -e /etc/acq400/${SITE}/acq465_filter_default ]; then
+	FILTER=$(cat /etc/acq400/${SITE}/acq465_filter_default)
+fi
+acq465_filter_all $FILTER
 
 
 # Data bitwidth

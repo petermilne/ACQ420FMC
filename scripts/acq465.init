@@ -80,6 +80,7 @@ EOF
 
 	chmod a+rx $ek/data32
 	ln -s /usr/local/CARE/acq465_adc.init ${ek} 
+	echo 0 > ${ek}/acq465_filter_default
 	(cd ${ek};source /tmp/makeLinks)
 	echo "SITE=$site /usr/local/CARE/acq465_adc.init" >>/tmp/acq465_init.job
 done
