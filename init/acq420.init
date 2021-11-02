@@ -326,7 +326,7 @@ build_knobs_device() {
 	CLKDIV="noset"
 		
 	case $mtype in
-	6A)
+	7|6A)
 		fake_fmc2_leds;;
 	69|70)
 		fake_fmc2_leds
