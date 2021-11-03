@@ -49,7 +49,7 @@ monitor() {
                 else
         			if [ -e $TPL ]; then        			
         				echo si5326_tune_phase ..
-        				tail -n 20 $TPL
+        				tail -n 12 $TPL
         			else
 	        			echo "WARNING: si5326 has not been tuned"
     	    		fi
