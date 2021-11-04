@@ -33,13 +33,22 @@
  *   	"Quick packet: all receivers action immediately on receipt
  *   txa --at TSPEC
  *   	Trigger at time
- *   		+s[.ns]  : relative round up to coming second, add seconds [, nsec]
- *   		@s[.ns]  : absolute time from epoch
- *   			see
- *   			 acq2106_319> date +%s
-				1636025317
-				acq2106_319> date @1636025317
-				Thu Nov  4 11:28:37 UTC 2021
+ *   		+s[:ns]  : relative round up to coming second, add seconds [, nsec]
+ *   		Ts[:ns]  : absolute time from epoch TAI
+ *   		Us[:ns]  : absolute time from epoch UTC (for convenience)
+ *
+ *   		alt  [+UT]s.fractional_sec
+ *   		eg
+ *   			+10.5 => relative, +10s + 500000000 ns
+ *
+ *   		acq2106_319> date +%s
+		1636025317
+		acq2106_319> date @1636025317
+		Thu Nov  4 11:28:37 UTC 2021
+
+		wrtd_txi --at U$(($(date +%s)+10) 1      # trigger at calendar time now + 10s
+		wrtd_txi --at U$(($(date +%s)+10) 1      # trigger at calendar time now + 10s
+		wrtd_txi --at U$((1636025317) 1      	# trigger at calendar Thu Nov  4 11:28:37 UTC 2021
  *
  *   wrtd rx
  *   	receives network triggers and configures WRTT to fire at specified time
@@ -884,14 +893,8 @@ int txq() {
 }
 
 
-TS txa_validate_rel()
+TS txa_validate_rel(unsigned sec, unsigned ns)
 {
-	unsigned sec;
-	unsigned ns = 0;
-	if (sscanf(G::tx_at, "+%u.%u", &sec, &ns) < 1){
-		fprintf(stderr, "ERROR: --tx_at=\"%s\" bad format %d\n", G::tx_at, __LINE__);
-		exit(1);
-	}
 	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
 	unsigned tai_sec;
 	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 1){
@@ -903,15 +906,8 @@ TS txa_validate_rel()
 	return TS(tai_sec+1+sec, ns/G::ns_per_tick);
 }
 
-TS txa_validate_abs()
+TS txa_validate_abs(unsigned sec, unsigned ns)
 {
-	unsigned sec;
-	unsigned ns = 0;
-	if (sscanf(G::tx_at, "@%u.%u", &sec, &ns) < 1){
-		fprintf(stderr, "ERROR: --tx_at=\"%s\" bad format %d\n", G::tx_at, __LINE__);
-		exit(1);
-	}
-
 	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
 	unsigned tai_sec;
 	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 1){
@@ -931,14 +927,41 @@ TS txa_validate() {
 	}else if (G::tx_at == 0){
 		fprintf(stderr, "ERROR: tx_at not set. please set either +s[.ns] or @abs[.ns]\n");
 		exit(1);
-	}else if (G::tx_at[0] == '+'){
-		return txa_validate_rel();
-	}else if (G::tx_at[0] == '@'){
-		return txa_validate_abs();
 	}else{
-		fprintf(stderr, "ERROR: tx_at \"%s\" not valid, must begin with \'+\' or \'@\'\n", G::tx_at);
-		exit(1);
+		char mode;
+		unsigned sec;
+		unsigned nsec = 0;
+
+		switch (sscanf(G::tx_at, "%c%u:%u", &mode, &sec, &nsec)){
+		case 3:
+			break;
+		default:
+			float fractional_sec;
+			switch (sscanf(G::tx_at, "%c%u.%F", &mode, &sec, &fractional_sec)){
+			case 3:
+				nsec = NSPS * fractional_sec;
+				break;
+			case 2:
+				nsec = 0;
+				break;
+			default:
+				fprintf(stderr, "ERROR: failed to scan \"%s\"\n", G::tx_at);
+				exit(1);
+			}
+		}
+		switch(mode){
+		case '+':
+			return txa_validate_rel(sec, nsec);		// time relative.
+		case 'T':
+			return txa_validate_abs(sec, nsec);		// time TAI
+		case 'A':
+			return txa_validate_abs(sec+37, nsec);		// time UTC
+		default:
+			fprintf(stderr, "ERROR: bad mode \"%s\" : \'%c\' wanted \'[+@]\'\n", G::tx_at, mode);
+			exit(1);
+		}
 	}
+	// not reached, but keeping compiler happy..
 	return TS();
 }
 
