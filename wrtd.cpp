@@ -27,8 +27,20 @@
  * - Usage
  *   wrtd tx
  *   	waits for incoming external trigger, sends wrtd trigger packet set for a [near] future time
- *   wrtx tx_immediate
+ *   wrtx tx_immediate txi
  *   	sends trigger packet immediately (test mode) .. this is a soft trigger, really
+ *   txq
+ *   	"Quick packet: all receivers action immediately on receipt
+ *   txa --at TSPEC
+ *   	Trigger at time
+ *   		+s[.ns]  : relative round up to coming second, add seconds [, nsec]
+ *   		@s[.ns]  : absolute time from epoch
+ *   			see
+ *   			 acq2106_319> date +%s
+				1636025317
+				acq2106_319> date @1636025317
+				Thu Nov  4 11:28:37 UTC 2021
+ *
  *   wrtd rx
  *   	receives network triggers and configures WRTT to fire at specified time
  *
@@ -40,6 +52,7 @@
  */
 
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +61,9 @@
 #include <libgen.h>
 
 #include <assert.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "split2.h"
 
@@ -84,7 +100,8 @@ void goRealTime(int sched_fifo_priority)
 
 
 #define DEV_TS		"/dev/acq400.0.wr_ts"	// blocking device returns TIMESTAMP
-#define DEV_CUR		"/dev/acq400.0.wr_cur"	// noblock device returns current TAI
+#define DEV_CUR		"/dev/acq400.0.wr_cur"	// noblock device returns current TAI in 7:ticks format
+#define DEV_TAI		"/dev/acq400.0.wr_tai"	// noblock device returns current TAI in s
 #define DEV_TRG0	"/dev/acq400.0.wr_trg0" // write trigger0 definition here
 #define DEV_TRG1	"/dev/acq400.0.wr_trg1" // write trigger1 definition here
 
@@ -118,6 +135,7 @@ namespace G {
         const char* dev_ts = DEV_TS;
         unsigned site;
         int ons;					// on next second
+        const char* tx_at;					// send message at +s[.nsec] or @secs-since-epoch[.nsec]
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -134,6 +152,7 @@ struct TS {
 
 private:
 	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
+		tai_s = _secs>SECONDS_MASK? _secs: 0;
 		mask = 0;
 		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
 	}
@@ -144,11 +163,13 @@ private:
 		return --s&SECONDS_MASK;
 	}
 public:
+	unsigned tai_s;			/* if non-zero, we have an absolute TS */
 	unsigned raw;
 	char repr[16];
 	unsigned char mask;		/* possible, multiple receivers */
 
-	TS(unsigned _raw = 0): raw(_raw), mask(0) {}
+	TS(unsigned _raw = 0): tai_s(0), raw(_raw), mask(0)
+	{}
 	TS(unsigned _secs, unsigned _ticks, bool en=true) {
 		make_raw(_secs, _ticks, en);
 	}
@@ -159,7 +180,7 @@ public:
 		 make_raw(strtoul(tsx[0].c_str(), 0, 10), strtoul(tsx[1].c_str(), 0, 10));
 	}
 
-	unsigned secs() const { return (raw& ~TS_EN) >> SECONDS_SHL; }
+	unsigned secs() const { return tai_s? tai_s: (raw& ~TS_EN) >> SECONDS_SHL; }
 	unsigned ticks() const { return raw&TICKS_MASK; }
 	unsigned nsec() const { return ticks() * G::ns_per_tick; }
 
@@ -182,6 +203,12 @@ public:
 	}
 	bool operator!= (TS& ts2) const {
 		return ticks() != ts2.ticks() || secs() != ts2.secs();
+	}
+	void strip() {			/* convert to relative (HW) timestamp */
+		tai_s = 0;
+	}
+	bool is_abs_tai() {
+		return tai_s != 0;
 	}
 	long diff(TS& ts2){
 		unsigned _ticks = ticks();
@@ -250,6 +277,9 @@ struct poptOption opt_table[] = {
 	},
 	{
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
+	},
+	{
+	  "at", 0, POPT_ARG_STRING, &G::tx_at, 0, "at: tx at +s[.nsec] (relative) or @sec-since-epoch[.nsec] (absolute)"
 	},
 	{
 	  "delay01", 0, POPT_ARG_INT, &G::delay01, 0, "in double tap, delay to second trigger"
@@ -482,7 +512,7 @@ protected:
 		msg.hw_detect[1] = 'X';
 		msg.hw_detect[2] = 'I';
 		msg.seq = seq++;
-		msg.ts_sec = 0;			// truncated at 7.. worktodo use TAI
+		msg.ts_sec = 0;
 		msg.ts_ns = raw;
 		//msg.event_id is pre-cooked, all other fields are zero
 		msg.event_id[IMASK()] = G::tx_mask;	// use global default, NOT member ts ..
@@ -635,6 +665,32 @@ protected:
 		}
 
 	}
+
+	void deferredAction(TS ts, int nrx = 0)
+	{
+		if (fork() == 0){
+			/* read wr_wait, tick up to within 1s, call action() */
+			FILE* fp_tai = fopen_safe(DEV_TAI, "r");
+			unsigned tai_sec;
+
+			while (true){
+				if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 0){
+					fprintf(stderr, "ERROR, fread fail at line %d\n", __LINE__);
+					exit(1);
+				}
+				if (ts.secs() > tai_sec && ts.secs() - tai_sec < 7){
+					ts.strip();
+					action(ts, nrx);
+					return;
+				}
+				sleep(1);
+			}
+		}else{
+			int status;
+			/* reap any (previous) child */
+			waitpid(-1, &status, WNOHANG);
+		}
+	}
 public:
 	virtual ~Receiver() {
 		fclose(fp_trg[0]);
@@ -644,6 +700,9 @@ public:
 		delete [] report_fname;
 	}
 	void action(TS ts, int nrx = 0){
+		if (ts.is_abs_tai()){
+			return deferredAction(ts, nrx);
+		}
 		TS ts_adj = adjust_ts(ts);
 		onAction(ts, ts_adj);
 		TS ts_cur;
@@ -819,6 +878,75 @@ int txq() {
 	return 0;
 }
 
+
+TS txa_validate_rel()
+{
+	unsigned sec;
+	unsigned ns = 0;
+	if (sscanf(G::tx_at, "+%u.%u", &sec, &ns) < 1){
+		fprintf(stderr, "ERROR: --tx_at=\"%s\" bad format %d\n", G::tx_at, __LINE__);
+		exit(1);
+	}
+	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
+	unsigned tai_sec;
+	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 0){
+		fprintf(stderr, "ERROR, fread fail at line %d\n", __LINE__);
+		exit(1);
+	}
+	tai_sec += 1; 		// round up to next second
+
+	return TS(tai_sec+1+sec, ns/G::ns_per_tick);
+}
+
+TS txa_validate_abs()
+{
+	unsigned sec;
+	unsigned ns = 0;
+	if (sscanf(G::tx_at, "@%u.%u", &sec, &ns) < 1){
+		fprintf(stderr, "ERROR: --tx_at=\"%s\" bad format %d\n", G::tx_at, __LINE__);
+		exit(1);
+	}
+
+	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
+	unsigned tai_sec;
+	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 0){
+		fprintf(stderr, "ERROR, fread fail at line %d\n", __LINE__);
+		exit(1);
+	}
+	if (sec < tai_sec){
+		fprintf(stderr, "ERROR specified time @%u is less than current TAI @%u\n", sec, tai_sec);
+		exit(1);
+	}
+	return TS(sec, ns/G::ns_per_tick);
+}
+TS txa_validate() {
+	if (G::max_tx != 1){
+		fprintf(stderr, "ERROR: max_tx must be 1\n");
+		exit(1);
+	}else if (G::tx_at == 0){
+		fprintf(stderr, "ERROR: tx_at not set. please set either +s[.ns] or @abs[.ns]\n");
+		exit(1);
+	}else if (G::tx_at[0] == '+'){
+		return txa_validate_rel();
+	}else if (G::tx_at[0] == '@'){
+		return txa_validate_abs();
+	}else{
+		fprintf(stderr, "ERROR: tx_at \"%s\" not valid, must begin with \'+\' or \'@\'\n", G::tx_at);
+		exit(1);
+	}
+	return TS();
+}
+
+int txa() {
+	if (G::verbose){
+		fprintf(stderr, "%s trigger at [--at=@abs or --at=+rel]\n", PFN);
+	}
+	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+
+	comms.sendto(txa_validate());
+	return 0;
+}
+
 int main(int argc, const char* argv[])
 {
 	get_local_env();
@@ -829,6 +957,8 @@ int main(int argc, const char* argv[])
 		return txq();
 	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
+	}else if (strcmp(bn, "wrtd_txa") == 0){
+		return txa();
 	}else if (strcmp(mode, "tx") == 0){
 		return sleep_if_notenabled("WRTD_TX") || tx();
 	}else{
