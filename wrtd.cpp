@@ -308,6 +308,8 @@ const char* ui_get_cmd_name(const char* path)
 	return basename(cmd_name);
 }
 
+#define LOCAL_CLKDIV_AUTO	77777777
+
 const char* ui(int argc, const char** argv)
 {
 	const char* cmd_name = ui_get_cmd_name(argv[0]);
@@ -325,13 +327,13 @@ const char* ui(int argc, const char** argv)
         G::tx_mask	= 	Env::getenv("WRTD_TX_MASK", 	0	);
         G::dev_ts	= 	Env::getenv("WRTD_DEV_TS",    DEV_TS	);
         G::local_clkoffset = 	Env::getenv("WRTD_LOCAL_CLKOFFSET",	0);
-        G::local_clkdiv = 	Env::getenv("WRTD_LOCAL_CLKDIV",    	1);
+        G::local_clkdiv = 	Env::getenv("WRTD_LOCAL_CLKDIV",    	LOCAL_CLKDIV_AUTO);
 
         const char* ip_multicast_if = ::getenv("WRTD_MULTICAST_IF");
         if (ip_multicast_if){
         	MultiCast::set_IP_MULTICAST_IF(ip_multicast_if);
         }
-        if (!is_tiga()){
+        if (!is_tiga() && G::local_clkdiv == LOCAL_CLKDIV_AUTO){
         	Knob clkdiv(1, "clkdiv");
         	Knob modname(1, "module_name");
         	if (strstr(modname(), "acq48")){
@@ -341,6 +343,9 @@ const char* ui(int argc, const char** argv)
         		clkdiv.get((unsigned*)&G::local_clkdiv);
         		G::local_clkoffset = 2;
         	}
+        }
+        if (G::local_clkdiv == LOCAL_CLKDIV_AUTO){
+        	G::local_clkdiv = 1;
         }
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
