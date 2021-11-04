@@ -308,6 +308,8 @@ const char* ui_get_cmd_name(const char* path)
 	return basename(cmd_name);
 }
 
+#define LOCAL_CLKDIV_AUTO	0xdeadc0de
+
 const char* ui(int argc, const char** argv)
 {
 	const char* cmd_name = ui_get_cmd_name(argv[0]);
@@ -331,7 +333,7 @@ const char* ui(int argc, const char** argv)
         if (ip_multicast_if){
         	MultiCast::set_IP_MULTICAST_IF(ip_multicast_if);
         }
-        if (!is_tiga()){
+        if (!is_tiga() && G::local_clkdiv == LOCAL_CLKDIV_AUTO){
         	Knob clkdiv(1, "clkdiv");
         	Knob modname(1, "module_name");
         	if (strstr(modname(), "acq48")){
@@ -341,6 +343,9 @@ const char* ui(int argc, const char** argv)
         		clkdiv.get((unsigned*)&G::local_clkdiv);
         		G::local_clkoffset = 2;
         	}
+        }
+        if (G::local_clkdiv == LOCAL_CLKDIV_AUTO){
+        	G::local_clkdiv = 1;
         }
         while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
                 switch(rc){
