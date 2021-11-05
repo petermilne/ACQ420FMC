@@ -182,9 +182,34 @@ const char* ui(int argc, const char** argv)
         return mode;
 }
 
+
+Receiver* Receiver::instance()
+{
+	static Receiver* _instance;
+
+	if (!_instance){
+		_instance = new Receiver;
+	}
+	return _instance;
+}
+
 void get_local_env(void)
 {
 	G::verbose = Env::getenv("WRTD_VERBOSE", 0);
+}
+
+int txq() {
+	if (G::verbose){
+		fprintf(stderr, "%s\n", PFN);
+	}
+	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+	comms.sendraw(TS_QUICK);
+	return 0;
+}
+
+int rx() {
+       return Receiver::instance()->event_loop(
+                       TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
 
 
@@ -193,7 +218,18 @@ int main(int argc, const char* argv[])
 	get_local_env();
 	const char* mode = ui(argc, argv);
 	const char* bn = basename((char*)argv[0]);
-	return 0;
+
+	if (strcmp(bn, "wrtd_txq") == 0 || strcmp(mode, "txq") == 0){
+		return txq();
+/*
+	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
+		return txi();
+	}else if (strcmp(bn, "wrtd_txa") == 0){
+		return txa();
+*/
+	}else{
+		return rx();
+	}
 }
 
 

@@ -204,6 +204,33 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 }
 
 
+class Receiver {
+public:
+	Receiver()
+	{}
+	virtual ~Receiver()
+	{}
+	virtual void onAction(TS ts, TS ts_adj)
+	{}
+
+	virtual void action(TS ts, int nrx = 0) {
+		fprintf(stderr, "%s ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
+	}
+	virtual int event_loop(TSCaster& comms) {
+		for (unsigned nrx = 0;; ++nrx){
+			TS ts = comms.recvfrom();
+			if (G::verbose > 1) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
+			action(ts, nrx);
+			if (G::verbose) comms.printLast();
+		}
+		return 0;
+	}
+
+	static Receiver* instance();
+};
+
+
+
 
 
 

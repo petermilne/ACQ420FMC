@@ -311,7 +311,8 @@ void _write_trg(FILE* fp, TS ts)
 }
 
 
-class Receiver {
+
+class ACQ400Receiver: public Receiver {
 
 protected:
 	const int ntriggers;
@@ -323,7 +324,7 @@ protected:
 	char* report_fname;
 	char* report;
 
-	Receiver(int _ntriggers = 2) :  ntriggers(_ntriggers), dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
+	ACQ400Receiver(int _ntriggers = 2) :  ntriggers(_ntriggers), dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
 		sprintf(report_fname, "/etc/acq400/%d/WRTD_REPORT", G::site);
 		fp_trg = new FILE* [ntriggers];
 		memset(fp_trg, 0, ntriggers*sizeof(FILE*));
@@ -382,14 +383,14 @@ protected:
 		}
 	}
 public:
-	virtual ~Receiver() {
+	virtual ~ACQ400Receiver() {
 		fclose(fp_trg[0]);
 		fclose(fp_trg[1]);
 		fclose(fp_cur);
 		delete [] report;
 		delete [] report_fname;
 	}
-	void action(TS ts, int nrx = 0){
+	virtual void action(TS ts, int nrx = 0){
 		if (ts.is_abs_tai()){
 			return deferredAction(ts, nrx);
 		}
@@ -417,23 +418,15 @@ public:
 			fprintf(stderr, "wrtd rx WARNING threshold %ld msec under limit %ld\n", dt/M1, dms);
 		}
 	}
-	int event_loop(TSCaster& comms) {
-		for (unsigned nrx = 0;; ++nrx){
-			TS ts = comms.recvfrom();
-			if (G::verbose > 1) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
-			action(ts, nrx);
-			if (G::verbose) comms.printLast();
-		}
-		return 0;
-	}
-	static Receiver* instance();
+
+	friend class Receiver;
 };
 
 
-class TIGA_Receiver: public Receiver {
+class TIGA_Receiver: public ACQ400Receiver {
 
 protected:
-	TIGA_Receiver() : Receiver(8)
+	TIGA_Receiver() : ACQ400Receiver(8)
 	{
 		G::local_clkdiv = G::local_clkoffset = 0;		// stub clock adjust
 		if (G::verbose){
@@ -457,7 +450,7 @@ protected:
 		globfree(&globbuf);
 	}
 
-friend class Receiver;
+	friend class Receiver;
 };
 
 Receiver* Receiver::instance()
@@ -468,7 +461,7 @@ Receiver* Receiver::instance()
 		if (Env::getenv("WRTD_TIGA", 0)){
 			_instance = new TIGA_Receiver;
 		}else{
-			_instance = new Receiver;
+			_instance = new ACQ400Receiver;
 		}
 	}
 	return _instance;
@@ -531,7 +524,7 @@ int sleep_if_notenabled(const char* key)
 
 
 int rx() {
-       return Receiver::instance()->event_loop(
+       return ACQ400Receiver::instance()->event_loop(
                        TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
 
