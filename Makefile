@@ -273,6 +273,9 @@ wrtd: 	wrtd.o Multicast.o  knobs.o
 soft_wrtd: 	soft_wrtd.o Multicast.o  knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq	
 	
+soft_wrtd_x86: 	soft_wrtd.cpp Multicast.cpp  knobs.cpp
+	$(CXX) -std=c++11 -O3 -o $@ $^ -lpopt
+		
 multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 		
