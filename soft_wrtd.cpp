@@ -157,7 +157,7 @@ const char* ui(int argc, const char** argv)
 
         const char* mode = "wrtd_rx";
 
-        if (strcmp(cmd_name, "wrtd") == 0){
+        if (strncmp(cmd_name, "soft_wrtd", 9) == 0){
         	 mode = poptGetArg(opt_context);
         }
         if (strcmp(mode, "ts_diff") == 0){
