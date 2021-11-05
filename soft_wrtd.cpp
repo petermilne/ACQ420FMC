@@ -217,7 +217,7 @@ int rx() {
 unsigned get_tai()
 {
 	time_t utc_sec = time(0);
-	return utc_sec - 37;
+	return utc_sec + 37;
 }
 
 int txi() {
