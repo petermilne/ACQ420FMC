@@ -140,6 +140,9 @@ const char* ui(int argc, const char** argv)
         G::tx_mask	= 	Env::getenv("WRTD_TX_MASK", 	0	);
 
 
+        if (! ::getenv("WRTD_FULL_MESSAGE")){
+        	::setenv("WRTD_FULL_MESSAGE", "1", 1);
+        }
         const char* ip_multicast_if = ::getenv("WRTD_MULTICAST_IF");
         if (ip_multicast_if){
         	MultiCast::set_IP_MULTICAST_IF(ip_multicast_if);
