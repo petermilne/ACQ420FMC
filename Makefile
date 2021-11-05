@@ -268,7 +268,7 @@ mgtdram_descgen: 	mgtdram_descgen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 wrtd: 	wrtd.o Multicast.o  knobs.o
-	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq
 	
 multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt

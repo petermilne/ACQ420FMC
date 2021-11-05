@@ -84,28 +84,11 @@
 #include "Knob.h"
 #include "Multicast.h"
 
-
-#define M1 1000000
-#define NSPS	(1000*M1)		// nanoseconds per second
-
-#define MAX_TX_INF	0xFFFFFFFF
+#include "wrtd_TS.h"
 
 
-typedef std::vector<std::string> VS;
+#include "acq-util.h"
 
-
-#include <sched.h>
-void goRealTime(int sched_fifo_priority)
-{
-        struct sched_param p = {};
-        p.sched_priority = sched_fifo_priority;
-
-        int rc = sched_setscheduler(0, SCHED_FIFO, &p);
-
-        if (rc){
-                perror("failed to set RT priority");
-        }
-}
 
 
 #define DEV_TS		"/dev/acq400.0.wr_ts"	// blocking device returns TIMESTAMP
@@ -114,24 +97,11 @@ void goRealTime(int sched_fifo_priority)
 #define DEV_TRG0	"/dev/acq400.0.wr_trg0" // write trigger0 definition here
 #define DEV_TRG1	"/dev/acq400.0.wr_trg1" // write trigger1 definition here
 
-FILE *fopen_safe(const char* fname, const char* mode = "r")
-{
-	FILE *fp = fopen(fname, mode);
-	if (fp == 0){
-		perror(fname);
-		exit(errno);
-	}
-	return fp;
-}
-
 namespace G {
 	const char* group = "224.0.23.159";
 	int port = 5044;
-	int delta_ticks;
-        unsigned ticks_per_sec = 80000000;
         int verbose = 0;
         unsigned dns = 40*M1;				// delta nsec
-        double ns_per_tick = 50.0;			// ticks per nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
         unsigned max_tx = 1;				// send max this many trigs
@@ -149,112 +119,6 @@ namespace G {
 
 #define REPORT_THRESHOLD (G::dns/4)
 
-#define SECONDS_SHL	28
-#define SECONDS_MASK	0x7
-#define TICKS_MASK	0x0fffffff
-#define TS_EN		(1<<31)
-
-#define TS_QUICK	0xffffffffU			// trigger right away, no timing ..
-#define TS_QUICK_TICKS	0x0fffffffU			// trigger right away, no timing ..
-
-struct TS {
-
-private:
-	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
-		tai_s = _secs>SECONDS_MASK? _secs: 0;
-		mask = 0;
-		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
-	}
-	unsigned inc(unsigned s){
-		return ++s&SECONDS_MASK;
-	}
-	unsigned dec(unsigned s){
-		return --s&SECONDS_MASK;
-	}
-public:
-	unsigned tai_s;			/* if non-zero, we have an absolute TS */
-	unsigned raw;
-	char repr[16];
-	unsigned char mask;		/* possible, multiple receivers */
-
-	TS(unsigned _raw = 0): tai_s(0), raw(_raw), mask(0)
-	{}
-	TS(unsigned _secs, unsigned _ticks, bool en=true) {
-		make_raw(_secs, _ticks, en);
-	}
-	TS(const char* def){
-		 VS tsx;
-		 split2<VS>(def, tsx, ':');
-		 assert(tsx.size() == 2);
-		 make_raw(strtoul(tsx[0].c_str(), 0, 10), strtoul(tsx[1].c_str(), 0, 10));
-	}
-
-	unsigned secs() const { return tai_s? tai_s: (raw& ~TS_EN) >> SECONDS_SHL; }
-	unsigned ticks() const { return raw&TICKS_MASK; }
-	unsigned nsec() const { return ticks() * G::ns_per_tick; }
-
-	TS add (unsigned dsecs, unsigned dticks = 0) {
-		unsigned ss = secs();
-		unsigned tt = ticks();
-		tt += dticks;
-		if (tt > G::ticks_per_sec){
-			tt -= G::ticks_per_sec;
-			ss += 1;
-		}
-		ss += dsecs;
-		return TS(ss, tt);
-	}
-	TS operator+ (unsigned dticks) {
-		return add(0, dticks);
-	}
-	bool operator== (TS& ts2) const {
-		return ticks() == ts2.ticks() && secs() == ts2.secs();
-	}
-	bool operator!= (TS& ts2) const {
-		return ticks() != ts2.ticks() || secs() != ts2.secs();
-	}
-	void strip() {			/* convert to relative (HW) timestamp */
-		tai_s = 0;
-	}
-	bool is_abs_tai() {
-		return tai_s != 0;
-	}
-	long diff(TS& ts2){
-		unsigned _ticks = ticks();
-		unsigned _secs = secs();
-		if (ts2.ticks() > ticks()){
-			_ticks += G::ticks_per_sec;
-			_ticks -= ts2.ticks();
-			_secs = dec(_secs);
-		}else{
-			_ticks -= ts2.ticks();
-		}
-		return (_secs - ts2.secs())*NSPS + _ticks*G::ns_per_tick;
-	}
-
-	const char* toStr(void) {
-		sprintf(repr, "%d:%07d", secs(), ticks());
-		return repr;
-	}
-	static int do_ts_diff(const char* _ts1, const char* _ts2){
-		TS ts1(_ts1);
-		TS ts2(_ts2);
-		fprintf(stderr, "ts1:%s ts2:%s diff:%ld\n", ts1.toStr(), ts2.toStr(), ts1.diff(ts2));
-		return 0;
-	}
-	TS& next_second() {
-		int add_sec = 1;
-		if (ticks() + G::delta_ticks >= TICKS_MASK){
-			add_sec += 1;
-		}
-		raw = (secs() + add_sec) << SECONDS_SHL;
-		return *this;
-	}
-
-	static TS ts_quick;
-};
-
-TS TS::ts_quick = TS_QUICK;
 
 struct poptOption opt_table[] = {
 	{
@@ -684,14 +548,11 @@ protected:
 	{
 		if (fork() == 0){
 			/* read wr_wait, tick up to within 1s, call action() */
-			FILE* fp_tai = fopen_safe(DEV_TAI, "r");
+			File tai_file(DEV_TAI);
 			unsigned tai_sec;
 
 			while (true){
-				if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 1){
-					fprintf(stderr, "ERROR, fread fail at line %d\n", __LINE__);
-					exit(1);
-				}
+				tai_sec = getvalue<unsigned>(tai_file);
 				if (ts.secs() > tai_sec && ts.secs() - tai_sec < 7){
 					ts.strip();
 					action(ts, nrx);
@@ -744,8 +605,7 @@ public:
 	int event_loop(TSCaster& comms) {
 		for (unsigned nrx = 0;; ++nrx){
 			TS ts = comms.recvfrom();
-			if (G::verbose) comms.printLast();
-			if (G::verbose) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
+			if (G::verbose > 1) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
 			action(ts, nrx);
 			if (G::verbose) comms.printLast();
 		}
@@ -895,25 +755,15 @@ int txq() {
 
 TS txa_validate_rel(unsigned sec, unsigned ns)
 {
-	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
-	unsigned tai_sec;
-	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 1){
-		fprintf(stderr, "ERROR: fread fail at line %d\n", __LINE__);
-		exit(1);
-	}
-	tai_sec += 1; 		// round up to next second
+	unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r") + 1; // round up to next second
 
 	return TS(tai_sec+1+sec, ns/G::ns_per_tick);
 }
 
 TS txa_validate_abs(unsigned sec, unsigned ns)
 {
-	FILE* fp_tai = fopen_safe(DEV_TAI, "r");
-	unsigned tai_sec;
-	if (fread(&tai_sec, sizeof(unsigned), 1, fp_tai) != 1){
-		fprintf(stderr, "ERROR: fread fail at line %d\n", __LINE__);
-		exit(1);
-	}
+	unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r");
+
 	if (sec < tai_sec){
 		fprintf(stderr, "ERROR: specified time @%u is less than current TAI @%u\n", sec, tai_sec);
 		exit(1);
