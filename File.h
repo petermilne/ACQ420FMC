@@ -34,6 +34,9 @@
 #include <stdarg.h>
 #include <unistd.h>
 
+#include "local.h"
+
+
 class File {
 	FILE *_fp;
 
@@ -127,10 +130,11 @@ template <class T>
 static
 T getvalue(const char* fname, const char* mode = "r")
 {
-	FILE* fp = File(fname, mode)();
+	File f(fname, mode);
+	FILE* fp = f();
 	T value = 0;
 	if (fread(&value, sizeof(T), 1, fp) != 1){
-		fprintf(stderr, "ERROR: fread \"%s\" fail\n", fname);
+		fprintf(stderr, "ERROR: %s fread \"%s\" fail\n", PFN, fname);
 		exit(1);
 	}
 	return value;
@@ -143,7 +147,7 @@ T getvalue(File& file)
 	FILE* fp = file();
 	T value = 0;
 	if (fread(&value, sizeof(T), 1, fp) != 1){
-		fprintf(stderr, "ERROR: fread \"%s\" fail\n", file.fname);
+		fprintf(stderr, "ERROR: %s fread \"%s\" fail\n", PFN, file.fname);
 		exit(1);
 	}
 	return value;

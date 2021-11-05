@@ -284,7 +284,7 @@ protected:
 				return txa_validate_rel(sec, nsec);		// time relative.
 			case 'T':
 				return txa_validate_abs(sec, nsec);		// time TAI
-			case 'A':
+			case 'U':
 				return txa_validate_abs(sec+37, nsec);		// time UTC
 			default:
 				fprintf(stderr, "ERROR: bad mode \"%s\" : \'%c\' wanted \'[+@]\'\n", G::tx_at, mode);

@@ -596,7 +596,7 @@ int main(int argc, const char* argv[])
 		return txq();
 	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
-	}else if (strcmp(bn, "wrtd_txa") == 0){
+	}else if (strcmp(bn, "wrtd_txa") == 0 || strcmp(mode, "txa") == 0){
 		return Txa::factory()();
 	}else if (strcmp(mode, "tx") == 0){
 		return sleep_if_notenabled("WRTD_TX") || tx();

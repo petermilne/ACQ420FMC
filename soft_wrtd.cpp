@@ -230,7 +230,6 @@ class SoftTxa : public Txa {
 protected:
 	TS txa_validate_rel(unsigned sec, unsigned ns)
 	{
-
 		return TS(get_tai()+1+sec, ns/G::ns_per_tick);
 	}
 
@@ -262,7 +261,7 @@ int main(int argc, const char* argv[])
 		return txq();
 	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
-	}else if (strcmp(bn, "wrtd_txa") == 0){
+	}else if (strcmp(bn, "wrtd_txa") == 0 || strcmp(mode, "txa") == 0){
 		return Txa::factory()();
 	}else{
 		return rx();
