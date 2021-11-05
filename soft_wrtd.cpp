@@ -63,18 +63,13 @@
 #include "wrtd_message.h"
 
 namespace G {
-	const char* group = "224.0.23.159";
-	int port = 5044;
-
         unsigned dns = 40*M1;				// delta nsec
-        unsigned max_tx = 1;				// send max this many trigs
         bool max_tx_specified;				// TRUE if UI changed max_tx
 
         int rt_prio = 0;
 
         int delay01;					// tr==2? trg0 at time t, trg1 at t+delay01
         int ons;					// on next second
-        const char* tx_at;					// send message at +s[.nsec] or @secs-since-epoch[.nsec]
 }
 
 const char* ui_get_cmd_name(const char* path)
@@ -216,6 +211,46 @@ int rx() {
                        TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_RECEIVER)));
 }
 
+#include <time.h>
+
+
+unsigned get_tai()
+{
+	time_t utc_sec = time(0);
+	return utc_sec - 37;
+}
+
+int txi() {
+	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+	comms.sendto(TS(get_tai()+1, 0));
+	return 0;
+}
+
+class SoftTxa : public Txa {
+protected:
+	TS txa_validate_rel(unsigned sec, unsigned ns)
+	{
+
+		return TS(get_tai()+1+sec, ns/G::ns_per_tick);
+	}
+
+	TS txa_validate_abs(unsigned sec, unsigned ns)
+	{
+		unsigned tai_sec = get_tai() ;
+
+		if (sec < tai_sec){
+			fprintf(stderr, "ERROR: specified time @%u is less than current TAI @%u\n", sec, tai_sec);
+			exit(1);
+		}
+		return TS(sec, ns/G::ns_per_tick);
+	}
+};
+
+Txa& Txa::factory()
+{
+	return *new SoftTxa;
+}
+
 
 int main(int argc, const char* argv[])
 {
@@ -225,12 +260,10 @@ int main(int argc, const char* argv[])
 
 	if (strcmp(bn, "wrtd_txq") == 0 || strcmp(mode, "txq") == 0){
 		return txq();
-/*
 	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
 	}else if (strcmp(bn, "wrtd_txa") == 0){
-		return txa();
-*/
+		return Txa::factory()();
 	}else{
 		return rx();
 	}

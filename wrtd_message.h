@@ -10,10 +10,17 @@
 
 
 namespace G {
+	const char* group = "224.0.23.159";
+	int port = 5044;
+
 	int verbose = 0;
         int trg = 0;					// trg 0 or 1, 2, decoded from message
         const char* tx_id;				// transmit id
         unsigned tx_mask;
+
+        unsigned max_tx = 1;				// send max this many trigs
+        const char* tx_at;					// send message at +s[.nsec] or @secs-since-epoch[.nsec]
+
 }
 
 
@@ -236,6 +243,74 @@ public:
 };
 
 
+class Txa {
+
+protected:
+	virtual TS txa_validate_rel(unsigned sec, unsigned ns) = 0;
+
+	virtual TS txa_validate_abs(unsigned sec, unsigned ns) = 0;
+
+	TS txa_validate() {
+		if (G::max_tx != 1){
+			fprintf(stderr, "ERROR: max_tx must be 1\n");
+			exit(1);
+		}else if (G::tx_at == 0){
+			fprintf(stderr, "ERROR: tx_at not set. please set either +s[.ns] or @abs[.ns]\n");
+			exit(1);
+		}else{
+			char mode;
+			unsigned sec;
+			unsigned nsec = 0;
+
+			switch (sscanf(G::tx_at, "%c%u:%u", &mode, &sec, &nsec)){
+			case 3:
+				break;
+			default:
+				float fractional_sec;
+				switch (sscanf(G::tx_at, "%c%u.%F", &mode, &sec, &fractional_sec)){
+				case 3:
+					nsec = NSPS * fractional_sec;
+					break;
+				case 2:
+					nsec = 0;
+					break;
+				default:
+					fprintf(stderr, "ERROR: failed to scan \"%s\"\n", G::tx_at);
+					exit(1);
+				}
+			}
+			switch(mode){
+			case '+':
+				return txa_validate_rel(sec, nsec);		// time relative.
+			case 'T':
+				return txa_validate_abs(sec, nsec);		// time TAI
+			case 'A':
+				return txa_validate_abs(sec+37, nsec);		// time UTC
+			default:
+				fprintf(stderr, "ERROR: bad mode \"%s\" : \'%c\' wanted \'[+@]\'\n", G::tx_at, mode);
+				exit(1);
+			}
+		}
+		// not reached, but keeping compiler happy..
+		return TS();
+	}
+public:
+	Txa()
+	{}
+	virtual ~Txa()
+	{}
+
+	int operator() () {
+		if (G::verbose){
+			fprintf(stderr, "%s trigger at [--at=@abs or --at=+rel]\n", PFN);
+		}
+		TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
+
+		comms.sendto(txa_validate());
+		return 0;
+	}
+	static Txa& factory();
+};
 
 
 

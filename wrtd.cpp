@@ -100,13 +100,10 @@
 #define DEV_TRG1	"/dev/acq400.0.wr_trg1" // write trigger1 definition here
 
 namespace G {
-	const char* group = "224.0.23.159";
-	int port = 5044;
-
         unsigned dns = 40*M1;				// delta nsec
         unsigned local_clkdiv;				// Site 1 clock divider, set at start
         unsigned local_clkoffset;			// local_clk_offset eg 2 x 50nsec for ACQ42x
-        unsigned max_tx = 1;				// send max this many trigs
+
         bool max_tx_specified;				// TRUE if UI changed max_tx
 
         int rt_prio = 0;
@@ -116,7 +113,7 @@ namespace G {
         const char* dev_ts = DEV_TS;
         unsigned site;
         int ons;					// on next second
-        const char* tx_at;					// send message at +s[.nsec] or @secs-since-epoch[.nsec]
+
 }
 
 #define REPORT_THRESHOLD (G::dns/4)
@@ -563,76 +560,30 @@ int txq() {
 }
 
 
-TS txa_validate_rel(unsigned sec, unsigned ns)
-{
-	unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r") + 1; // round up to next second
+class Acq400Txa : public Txa {
+protected:
+	TS txa_validate_rel(unsigned sec, unsigned ns)
+	{
+		unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r") + 1; // round up to next second
 
-	return TS(tai_sec+1+sec, ns/G::ns_per_tick);
-}
-
-TS txa_validate_abs(unsigned sec, unsigned ns)
-{
-	unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r");
-
-	if (sec < tai_sec){
-		fprintf(stderr, "ERROR: specified time @%u is less than current TAI @%u\n", sec, tai_sec);
-		exit(1);
+		return TS(tai_sec+1+sec, ns/G::ns_per_tick);
 	}
-	return TS(sec, ns/G::ns_per_tick);
-}
-TS txa_validate() {
-	if (G::max_tx != 1){
-		fprintf(stderr, "ERROR: max_tx must be 1\n");
-		exit(1);
-	}else if (G::tx_at == 0){
-		fprintf(stderr, "ERROR: tx_at not set. please set either +s[.ns] or @abs[.ns]\n");
-		exit(1);
-	}else{
-		char mode;
-		unsigned sec;
-		unsigned nsec = 0;
 
-		switch (sscanf(G::tx_at, "%c%u:%u", &mode, &sec, &nsec)){
-		case 3:
-			break;
-		default:
-			float fractional_sec;
-			switch (sscanf(G::tx_at, "%c%u.%F", &mode, &sec, &fractional_sec)){
-			case 3:
-				nsec = NSPS * fractional_sec;
-				break;
-			case 2:
-				nsec = 0;
-				break;
-			default:
-				fprintf(stderr, "ERROR: failed to scan \"%s\"\n", G::tx_at);
-				exit(1);
-			}
-		}
-		switch(mode){
-		case '+':
-			return txa_validate_rel(sec, nsec);		// time relative.
-		case 'T':
-			return txa_validate_abs(sec, nsec);		// time TAI
-		case 'A':
-			return txa_validate_abs(sec+37, nsec);		// time UTC
-		default:
-			fprintf(stderr, "ERROR: bad mode \"%s\" : \'%c\' wanted \'[+@]\'\n", G::tx_at, mode);
+	TS txa_validate_abs(unsigned sec, unsigned ns)
+	{
+		unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r");
+
+		if (sec < tai_sec){
+			fprintf(stderr, "ERROR: specified time @%u is less than current TAI @%u\n", sec, tai_sec);
 			exit(1);
 		}
+		return TS(sec, ns/G::ns_per_tick);
 	}
-	// not reached, but keeping compiler happy..
-	return TS();
-}
+};
 
-int txa() {
-	if (G::verbose){
-		fprintf(stderr, "%s trigger at [--at=@abs or --at=+rel]\n", PFN);
-	}
-	TSCaster& comms = TSCaster::factory(MultiCast::factory(G::group, G::port, MultiCast::MC_SENDER));
-
-	comms.sendto(txa_validate());
-	return 0;
+Txa& Txa::factory()
+{
+	return *new Acq400Txa;
 }
 
 int main(int argc, const char* argv[])
@@ -646,7 +597,7 @@ int main(int argc, const char* argv[])
 	}else if (strcmp(bn, "wrtd_txi") == 0 || strcmp(mode, "tx_immediate") == 0 || strcmp(mode, "txi") == 0){
 		return txi();
 	}else if (strcmp(bn, "wrtd_txa") == 0){
-		return txa();
+		return Txa::factory()();
 	}else if (strcmp(mode, "tx") == 0){
 		return sleep_if_notenabled("WRTD_TX") || tx();
 	}else{
