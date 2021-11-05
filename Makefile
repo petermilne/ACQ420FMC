@@ -82,7 +82,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
 	dump_regs \
 	soft_atd \
-	wr_reset wrtd wrtt_mon multicast \
+	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
 	channel_mapping
 	
@@ -269,6 +269,9 @@ mgtdram_descgen: 	mgtdram_descgen.o
 
 wrtd: 	wrtd.o Multicast.o  knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq
+	
+soft_wrtd: 	soft_wrtd.o Multicast.o  knobs.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq	
 	
 multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
