@@ -453,7 +453,7 @@ protected:
 	friend class Receiver;
 };
 
-Receiver* Receiver::instance()
+Receiver* Receiver::instance(bool chatty)
 {
 	static Receiver* _instance;
 
@@ -463,6 +463,8 @@ Receiver* Receiver::instance()
 		}else{
 			_instance = new ACQ400Receiver;
 		}
+		chatty = Env::getenv("WRTD_RX_CHATTY", 0);
+		_instance->chatty = chatty;
 	}
 	return _instance;
 }

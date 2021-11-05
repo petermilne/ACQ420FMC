@@ -183,12 +183,13 @@ const char* ui(int argc, const char** argv)
 }
 
 
-Receiver* Receiver::instance()
+Receiver* Receiver::instance(bool chatty)
 {
 	static Receiver* _instance;
 
 	if (!_instance){
 		_instance = new Receiver;
+		_instance->chatty = true;
 	}
 	return _instance;
 }

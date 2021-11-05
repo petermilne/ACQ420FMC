@@ -133,7 +133,7 @@ protected:
 	{
 		memset(&msg, 0, sizeof(msg));
 		if (G::tx_id){
-			strncpy((char*)msg.event_id, G::tx_id, WRTD_ID_LEN);
+			strncpy((char*)msg.event_id, G::tx_id, WRTD_ID_LEN-1);
 		}else{
 			gethostname(hn, sizeof(hn));
 			snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
@@ -187,6 +187,11 @@ protected:
 					ts.mask = msg.event_id[IMASK()];
 					return ts;
 				}
+			}else{
+				if (G::verbose){
+					fprintf(stderr, "%s NOT FOR US %08x\n", PFN, msg.ts_ns);
+					printLast();
+				}
 			}
 		}
 	}
@@ -205,8 +210,9 @@ TSCaster& TSCaster::factory(MultiCast& _mc) {
 
 
 class Receiver {
+	bool chatty;
 public:
-	Receiver()
+	Receiver(): chatty(false)
 	{}
 	virtual ~Receiver()
 	{}
@@ -221,12 +227,12 @@ public:
 			TS ts = comms.recvfrom();
 			if (G::verbose > 1) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
 			action(ts, nrx);
-			if (G::verbose) comms.printLast();
+			if (chatty) comms.printLast();
 		}
 		return 0;
 	}
 
-	static Receiver* instance();
+	static Receiver* instance(bool chatty = false);
 };
 
 

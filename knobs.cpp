@@ -94,13 +94,14 @@ int Knob::setX(unsigned value)
 	return fprintf(file(), "%x\n", value);
 }
 
+#define MAXPATH 128
 int getKnob(int idev, const char* knob, unsigned* value, const char* fmt)
 {
-	char kpath[128];
+	char kpath[MAXPATH+1];
 	if (knob[0] == '/'){
-		strncpy(kpath, knob, 128);
+		strncpy(kpath, knob, MAXPATH);
 	}else{
-		snprintf(kpath, 128, "/dev/acq400.%d.knobs/%s", idev, knob);
+		snprintf(kpath, MAXPATH, "/dev/acq400.%d.knobs/%s", idev, knob);
 	}
 	FILE *fp = fopen(kpath, "r");
 	if (fp){
