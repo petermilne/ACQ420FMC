@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.667"
+#define REVID 			"3.668"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -146,7 +146,9 @@ struct acq400_dev* acq400_devices[MAXDEVICES+1];
 struct acq400_dev* acq400_sites[MAXDEVICES+1];
 
 
-
+int OPEN_BACKLOG = 0;
+module_param(OPEN_BACKLOG, int, 0644);
+MODULE_PARM_DESC(OPEN_BACKLOG, "allow backlog of open descriptors before put eg for SPY task to operate");
 
 
 int good_sites[MAXDEVICES];
@@ -626,6 +628,9 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 	dev_dbg(DEVP(adev), "acq400_bq_notify() nelems:%d", nelems);
 }
 
+
+
+
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 /* NB: waits for a full buffer to ARRIVE, but only returns the 2 char ID */
@@ -646,7 +651,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
 	}
-	while (!list_empty(&adev->OPENS)){
+	while (!list_empty(&adev->OPENS) && OPEN_BACKLOG && list_depth(&adev->OPENS) < OPEN_BACKLOG){
 		putEmpty(adev);
 	}
 
