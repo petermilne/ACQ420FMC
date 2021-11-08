@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.668"
+#define REVID 			"3.669"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -629,6 +629,16 @@ void acq400_bq_notify(struct acq400_dev *adev, struct HBM *hbm)
 }
 
 
+int over_open_backlog(struct acq400_dev *adev)
+{
+	if (list_empty(&adev->OPENS)){
+		return 0;
+	}else if (OPEN_BACKLOG == 0){
+		return 1;
+	}else{
+		return list_depth(&adev->OPENS) >= OPEN_BACKLOG;
+	}
+}
 
 
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
@@ -651,7 +661,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
 	}
-	while (!list_empty(&adev->OPENS) && OPEN_BACKLOG && list_depth(&adev->OPENS) < OPEN_BACKLOG){
+	while (over_open_backlog(adev)){
 		putEmpty(adev);
 	}
 
@@ -1590,6 +1600,10 @@ int axi64_data_loop(void* data)
 				adev->rt.refill_error = 1;
 				wake_up_interruptible_all(&adev->refill_ready);
 				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+				if (adev->h_task != 0){
+					kthread_stop(adev->h_task);
+					adev->h_task = 0;
+				}
 				goto quit;
 			}else{
 				hbm = getEmpty(adev);
@@ -1754,6 +1768,10 @@ int axi64_dual_data_loop(void* data)
 				adev->rt.refill_error = 1;
 				wake_up_interruptible_all(&adev->refill_ready);
 				dev_warn(DEVP(adev), "quit_on_buffer_exhaustion\n");
+				if (adev->h_task != 0){
+					kthread_stop(adev->h_task);
+					adev->h_task = 0;
+				}
 				goto quit;
 			}else{
 				hbm0 = getEmpty(adev);
