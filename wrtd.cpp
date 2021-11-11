@@ -151,7 +151,10 @@ struct poptOption opt_table[] = {
           "tx_id", 0, POPT_ARG_STRING, &G::tx_id, 0, "txid: default is $(hostname)"
 	},
 	{
-	  "at", 0, POPT_ARG_STRING, &G::tx_at, 0, "at: tx at +s[.nsec] (relative) or @sec-since-epoch[.nsec] (absolute)"
+	  "at", 0, POPT_ARG_STRING, &G::tx_at, 0, "at [+UT]sss[:.]ttt\n"
+	  "at: +: relative, U: absolute UTC T: absolute TAI\n"
+	  "at: tx at +s[:nsec] or [UT]sec-since-epoch[:nsec]\n"
+	  "at: tx at +s[.frac] or [UT]sec-since-epoch[.frac]\n"
 	},
 	{
 	  "delay01", 0, POPT_ARG_INT, &G::delay01, 0, "in double tap, delay to second trigger"

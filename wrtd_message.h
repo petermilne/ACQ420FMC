@@ -8,6 +8,7 @@
 #ifndef WRTD_MESSAGE_H_
 #define WRTD_MESSAGE_H_
 
+#include <math.h>
 
 namespace G {
 	const char* group = "224.0.23.159";
@@ -266,10 +267,18 @@ protected:
 			case 3:
 				break;
 			default:
-				float fractional_sec;
-				switch (sscanf(G::tx_at, "%c%u.%F", &mode, &sec, &fractional_sec)){
+				float fsec;
+				switch (sscanf(G::tx_at, "%c%u.%F", &mode, &sec, &fsec)){
 				case 3:
-					nsec = NSPS * fractional_sec;
+					if (sscanf(G::tx_at+1, "%F", &fsec) == 1){
+						double int_part;
+						double fract_part = modf(fsec, &int_part);
+						nsec = static_cast<unsigned>(NSPS * fract_part);
+						assert(sec == static_cast<unsigned>(int_part));
+					}else{
+						fprintf(stderr, "ERROR: failed to scan \"%s\" %d\n", G::tx_at, __LINE__);
+						exit(1);
+					}
 					break;
 				case 2:
 					nsec = 0;
