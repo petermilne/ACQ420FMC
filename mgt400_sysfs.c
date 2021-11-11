@@ -26,6 +26,7 @@
 
 #include "acq400.h"
 #include "mgt400.h"
+#include "acq400_sysfs.h"
 
 static ssize_t show_module_type(
 	struct device * dev,
@@ -621,6 +622,8 @@ static ssize_t show_push_status(
 }
 static DEVICE_ATTR(push_status, S_IRUGO, show_push_status, 0);
 
+MAKE_DNUM(decimate, ZDMA_CR, AGG_DECIM_MASK<<AGG_DECIM_SHL);
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
@@ -653,6 +656,7 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_kill_comms.attr,
 	&dev_attr_ident.attr,
 	&dev_attr_RW32_debug.attr,
+	&dev_attr_decimate.attr,
 	NULL
 };
 
