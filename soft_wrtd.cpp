@@ -160,6 +160,10 @@ const char* ui(int argc, const char** argv)
 
         if (strncmp(cmd_name, "soft_wrtd", 9) == 0){
         	 mode = poptGetArg(opt_context);
+        	 if (mode == 0){
+        		 fprintf(stderr, "setting default txa\n");
+        		 mode = "txa";
+        	 }
         }
         if (strcmp(mode, "ts_diff") == 0){
         	TS::do_ts_diff(poptGetArg(opt_context), poptGetArg(opt_context));
