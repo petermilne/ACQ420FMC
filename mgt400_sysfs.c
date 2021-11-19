@@ -622,7 +622,40 @@ static ssize_t show_push_status(
 }
 static DEVICE_ATTR(push_status, S_IRUGO, show_push_status, 0);
 
-MAKE_DNUM(decimate, ZDMA_CR, AGG_DECIM_MASK<<AGG_DECIM_SHL);
+static ssize_t show_decim(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 zdma_cr = mgt400rd32(mdev, ZDMA_CR);
+	return sprintf(buf, "%u\n", ((zdma_cr>>AGG_DECIM_SHL)&AGG_DECIM_MASK)+1);
+}
+
+static ssize_t store_decim(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	unsigned decimate;
+
+	if (sscanf(buf, "%u", &decimate) == 1 && decimate){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 zdma_cr = mgt400rd32(mdev, ZDMA_CR);
+		zdma_cr &= ~(AGG_DECIM_MASK<<AGG_DECIM_SHL);
+
+		if (--decimate > AGG_DECIM_MASK) decimate = AGG_DECIM_MASK;
+		zdma_cr |= (decimate&AGG_DECIM_MASK) << AGG_DECIM_SHL;
+		mgt400wr32(mdev, ZDMA_CR, zdma_cr);
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(decimate, S_IRUGO|S_IWUSR, show_decim, store_decim);
 
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,

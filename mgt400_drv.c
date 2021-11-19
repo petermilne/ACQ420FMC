@@ -26,12 +26,16 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.132"
+#define REVID "0.134"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
 #endif
 #define MODULE_NAME 	"mgt400"
+
+
+static char* revid = REVID;
+module_param(revid, charp, 0644);
 
 int ndevices;
 module_param(ndevices, int, 0444);
