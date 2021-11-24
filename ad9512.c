@@ -86,6 +86,7 @@
 
 #define CMD		0
 #define ADDR		1
+#define IHL		2		// Instruction Header Len
 /* easiest to work in bytes ..
  * tx[0] = cmd byte
  * tx[1] = addr byte
@@ -192,7 +193,7 @@ ssize_t store_multibytes(
 		}
 
 
-		if (ad9512_spi_write_then_read(dev, data, LEN+2, 0, 0) == 0){
+		if (ad9512_spi_write_then_read(dev, data, IHL+LEN, 0, 0) == 0){
 			return count;
 		}else{
 			dev_err(dev, "ad9854_spi_write_then_read failed");
@@ -218,7 +219,7 @@ static ssize_t show_multibytes(
 	cmd[ADDR] = REG;
 
 	dev_dbg(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
-	if (ad9512_spi_write_then_read(dev, cmd, 2, data, LEN) == 0){
+	if (ad9512_spi_write_then_read(dev, cmd, IHL, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
 		for (ib = 0; ib < LEN; ++ib){
