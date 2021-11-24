@@ -173,7 +173,7 @@ ssize_t store_multibytes(
 	size_t count,
 	const int REG, const int LEN)
 {
-	char data[MAX_DATA+2];
+	char data[IHL+MAX_DATA];
 
 	dev_dbg(dev, "store_multibytes REG:%d LEN:%d \"%s\"", REG, LEN, buf);
 
@@ -216,12 +216,17 @@ static ssize_t show_multibytes(
 	char data[MAX_DATA];
 
 	cmd[CMD] = AD9512RnW | (LEN==2? AD9512_WX2: AD9512_WX1);
-	cmd[ADDR] = REG;
+	cmd[ADDR] = LEN==2? REG+1: REG;
 
 	dev_dbg(dev, "show_multibytes REG:%d LEN:%d", REG, LEN);
 	if (ad9512_spi_write_then_read(dev, cmd, IHL, data, LEN) == 0){
 		int ib;
 		char* cursor = buf;
+
+		if (LEN==2){
+			char t;
+			SWAP(data[0], data[1], t);
+		}
 		for (ib = 0; ib < LEN; ++ib){
 			cursor += sprintf(cursor, "%02x", data[ib]);
 		}
