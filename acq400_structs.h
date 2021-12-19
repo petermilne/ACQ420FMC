@@ -115,6 +115,7 @@ struct acq400_dev {
 	struct platform_device *pdev;
 	struct dentry* debug_dir;
 	char *debug_names;
+	struct proc_dir_entry *proc_entry;
 
 	char site_no[4];		/* string, %d 3 chars, \0 */
 	char dev_name[16];		/* string, acq400.%d 7+3 chars \0 */
@@ -174,11 +175,6 @@ struct acq400_dev {
 
 	struct HBM** hb;
 
-	struct AXI64_Buffers {
-		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
-		int ndesc;
-	}
-		axi64[MAX_AXIDMA];
 
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
@@ -188,7 +184,7 @@ struct acq400_dev {
 	int axi_buffers_after_event;	/* run on this long if set */
 	int sod_mode;			/* Sample On Demand: no trigger */
 
-	struct proc_dir_entry *proc_entry;
+
 	struct CURSOR {
 		struct HBM** hb;
 		int offset;
@@ -209,11 +205,16 @@ struct acq400_dev {
 
 	int event_client_count;
 
-
-
 	pid_t continuous_reader;
 
 	unsigned clkdiv_mask;
+
+	struct AXI64_Buffers {
+		struct HBM** axi64_hb;		/* reduced set of HB's for AXI64 */
+		int ndesc;
+	}
+		axi64[MAX_AXIDMA];
+
 	void *axi_private;
 
 	struct RegCache clk_reg_cache;
