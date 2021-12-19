@@ -139,7 +139,7 @@ struct acq400_dev {
 
 	wait_queue_head_t event_waitq;
 
-	int busy;
+
 
 	/* Hardware device constants */
 	u32 dev_physaddr;
@@ -151,12 +151,15 @@ struct acq400_dev {
 
 	struct STATS stats;
 
-	int ramp_en;
-	int data32;
-	int adc_18b;			/* @@todo set on probe() */
-	int nchan_enabled;		/* @@todo crude, assumes 1..N */
-	int word_size;
-	int RW32_debug;
+	u8 busy;
+	u8 ramp_en;
+	u8 data32;
+	u8 adc_18b;			/* @@todo set on probe() */
+	u8 nchan_enabled;		/* @@todo crude, assumes 1..N */
+	u8 word_size;
+	u8 RW32_debug;
+	u8 sod_mode;			/* Sample On Demand: no trigger */
+
 	unsigned clk_ctr_reg;
 	unsigned sample_ctr_reg;
 
@@ -170,14 +173,13 @@ struct acq400_dev {
 
 	struct HBM** hb;
 
-
 	int nbuffers;			/* number of buffers available */
 	int bufferlen;
 	int hitide;
 	int lotide;
 	int sysclkhz;			/* system clock rate */
 	int axi_buffers_after_event;	/* run on this long if set */
-	int sod_mode;			/* Sample On Demand: no trigger */
+
 
 
 	struct CURSOR {
