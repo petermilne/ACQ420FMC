@@ -73,6 +73,8 @@
 #define ADC_ACC_DEC		(ADC_BASE+0x54)
 #define DAC_DEC			ADC_ACC_DEC
 
+#define ADC_NACC_SAMPLES	(ADC_BASE+0x100)
+
 #define PWM_SOURCE_CLK_CTRL	(ADC_BASE+0x58)
 
 

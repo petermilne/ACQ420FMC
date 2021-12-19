@@ -118,6 +118,7 @@ build_nodes() {
 			else
 				mknod /dev/${NAME}.ev   c ${MAJOR}  6
 				mknod /dev/${NAME}.atd  c ${MAJOR} 16
+				mkdir /dev/${NAME}.subr c ${MAJOR} 40
 			fi
 			
 			build_hb ${MAJOR} ${NAME}

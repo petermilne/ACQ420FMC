@@ -1229,9 +1229,9 @@ int acq400_bq_release(struct inode *inode, struct file *file)
 int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 {
 	static struct file_operations acq400_fops_bq = {
-			.read = acq400_bq_read,
-			.release = acq400_bq_release,
-			.poll = acq400_bq_poll
+		.read = acq400_bq_read,
+		.release = acq400_bq_release,
+		.poll = acq400_bq_poll
 	};
 
 	struct acq400_path_descriptor* pdesc = PD(file);
@@ -1244,6 +1244,21 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
+int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_subrate = {
+/*
+		.read = acq400_subrate_read,
+		.release = acq400_subrate_release,
+		.poll = acq400_subrate_poll
+*/
+	};
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+
+	file->f_op = &acq400_fops_subrate;
+	return 0;
+}
 
 int streamdac_data_loop_dummy(void *data)
 {
@@ -1574,6 +1589,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		break;
         	case ACQ400_MINOR_AOFIFO:
         		rc = acq400_minor_aofifo_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_ADC_NACC_SUBRATE:
+        		rc = acq400_nacc_subrate_open(inode, file);
         		break;
             	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
