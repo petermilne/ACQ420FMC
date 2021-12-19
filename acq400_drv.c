@@ -2605,10 +2605,7 @@ static int acq400_remove(struct platform_device *pdev)
 			release_mem_region(adev->dev_physaddr,
 					adev->dev_addrsize);
 		}
-		/* Free the PL330 buffer client data descriptors */
-		if (adev->client_data) {
-			kfree(adev->client_data);
-		}
+
 		if (sc_dev->gpg.gpg_buffer){
 			kfree(sc_dev->gpg.gpg_buffer);
 		}

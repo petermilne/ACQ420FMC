@@ -121,8 +121,6 @@ struct acq400_dev {
 	u32 mod_id;
 	wait_queue_head_t waitq;
 
-	struct pl330_client_data *client_data;
-
 	struct OF_PRAMS of_prams;
 
 	wait_queue_head_t DMA_READY;
