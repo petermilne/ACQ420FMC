@@ -139,11 +139,6 @@ struct acq400_dev {
 
 	wait_queue_head_t event_waitq;
 
-	/* Current DMA buffer information */
-	/*dma_addr_t buffer_d_addr;
-	void *buffer_v_addr;*/
-	size_t count;
-	size_t this_count;
 	int busy;
 
 	/* Hardware device constants */

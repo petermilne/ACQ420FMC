@@ -654,8 +654,7 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 
 
 	adev->stats.reads++;
-	adev->count = count;
-	adev->this_count = 0;
+
 	set_continuous_reader(adev);
 
 	if (adev->rt.please_stop){
