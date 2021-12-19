@@ -220,7 +220,7 @@ void acq43x_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(ACQ435_SW_EMB_WORD2);
 		break;
 	case MOD_ID_ACQ430FMC:
-		if (!adev->is_slave){
+		if (!(adev->mod_id&MOD_ID_IS_SLAVE)){
 			DBG_REG_CREATE(FMC_DSR);
 		}
 	}

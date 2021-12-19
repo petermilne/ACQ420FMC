@@ -162,7 +162,6 @@ struct acq400_dev {
 	int adc_18b;			/* @@todo set on probe() */
 	int nchan_enabled;		/* @@todo crude, assumes 1..N */
 	int word_size;
-	int is_slave;			/** @@todo how does this get set? */
 	int RW32_debug;
 	unsigned clk_ctr_reg;
 	unsigned sample_ctr_reg;
