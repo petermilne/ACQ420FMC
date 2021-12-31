@@ -1244,17 +1244,80 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
+void acq400_nacc_service(struct acq400_dev* adev)
+{
+	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
+	struct Subrate* subrate = &adc_dev->subrate;
+	int ii;
+	int ac = adev->nchan_enabled;
+	int imax = ac;
+	if (!adev->data32){
+		imax >>= 1;
+	}
+	for (ii = 0; ii < imax; ++ii){
+		subrate->raw[ii] = acq400rd32(adev, ADC_NACC_SAMPLES+ii);
+	}
+	if (adev->data32){
+		for (ii = 0; ii < imax; ++ii){
+			subrate->sums[ii] += subrate->raw[ii] >> 8;  // assume NACC output is <<8 with id at 0
+		}
+	}else{
+		for (ii = 0; ii < imax; ++ii){
+			subrate->sums[ii*2] += (short)subrate->raw[ii]&0x0ffff;
+			subrate->sums[ii*2+1] += (short)(subrate->raw[ii] >> 16);
+		}
+	}
+	if (++subrate->nm == subrate->nmax){
+		for (ii = 0; ii < ac; ++ii){
+			subrate->mean[ii] = subrate->sums[ii] >> subrate->shr;
+			subrate->sums[ii] = 0;
+			subrate->nm = 0;
+			wake_up_interruptible(&subrate->sr_waitq);
+		}
+	}
+}
+
+/** @todo .. direct read, no timer yet, no block */
+ssize_t acq400_nacc_subrate_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
+	int ss = adev->nchan_enabled*(adev->data32? sizeof(int): sizeof(short));
+	struct Subrate* subrate = &adc_dev->subrate;
+	int rc;
+
+	if (count < ss){
+		dev_err(DEVP(adev), "ERROR: count %d less than ss %d", count, ss);
+		return -1;
+	}
+	if ((count&ss) != 0){
+		dev_err(DEVP(adev), "ERROR: count %d not a multiple of ss %d", count, ss);
+		return -1;
+	}
+	acq400_nacc_service(adev);
+	rc = copy_to_user(buf, subrate->mean, count);
+	if (rc){
+		return -1;
+	}
+
+	*f_pos += count;
+	return count;
+}
+
 int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_subrate = {
+
+		.read = acq400_nacc_subrate_read,
 /*
-		.read = acq400_subrate_read,
 		.release = acq400_subrate_release,
 		.poll = acq400_subrate_poll
 */
 	};
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
+	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
 
 	file->f_op = &acq400_fops_subrate;
 	return 0;

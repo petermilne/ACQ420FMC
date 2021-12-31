@@ -134,6 +134,10 @@ int DMA_TIMEOUT = 10001;
 module_param(DMA_TIMEOUT, int, 0644);
 MODULE_PARM_DESC(DMA_TIMEOUT, "default DMA TIMEOUT in jiffies");
 
+int subrate_nmax = 1;
+module_param(subrate_nmax, int, 0444);
+MODULE_PARM_DESC(subrate_nmax, "number of subrate outputs to average over [max 256]");
+
 /* GLOBALS */
 
 /* driver supports multiple devices.
@@ -2250,6 +2254,15 @@ static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
 		adev = &sdev->adev; \
 	} while(0)
 
+
+void acq400_subrate_init(struct Subrate* subrate)
+{
+	subrate->nmax = subrate_nmax;;
+	for (; (1<<subrate->shr) < subrate->nmax; ++subrate->shr)
+		;
+	init_waitqueue_head(&subrate->sr_waitq);
+	/* timer init */
+}
 static struct acq400_dev*
 acq400_allocate_module_device(struct acq400_dev* adev)
 /* subclass adev for module specific device, where required.
@@ -2280,9 +2293,10 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 	        BQ_init(&sc_dev->stream_dac.refills, AWG_BACKLOG);
 	        init_waitqueue_head(&sc_dev->stream_dac.sd_waitq);
 
-	}else if (IS_ACQ480(adev)){
-		struct ACQ480_dev *a480_dev;
-		SPECIALIZE(a480_dev, adev, struct ACQ480_dev, "ACQ480");
+	}else if (IS_ADC(adev)){
+		struct ADC_dev *adc_dev;
+		SPECIALIZE(adc_dev, adev, struct ADC_dev, IS_ACQ480(adev)? "ACQ480": "ACQ400");
+		acq400_subrate_init(&adc_dev->subrate);
 	}else if (IS_DIO482_PG(adev)){
 		struct PG_dev *pg_dev;
 		SPECIALIZE(pg_dev, adev, struct PG_dev, "PG");

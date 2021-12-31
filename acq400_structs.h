@@ -106,6 +106,38 @@ struct RegCache {
 	spinlock_t lock;
 };
 
+#define SITE_MAX_AI	32
+
+/* NACC max = 256
+ * SR MAX=2M
+ * maxpoll = 4K
+ * EPICS AI 10Hz
+ * => max mean of 400 entries...  too many let's keep to 256 for >>8 adjust
+ *
+ * init:
+ *     sums = 0
+ *     nm = 0
+ *
+ * on poll:
+ * if nm < nmax:
+ *     sums += raw >> SCALE;
+ *     nm += 1
+ * if nm == nmax:
+ *     mean = sums
+ *     init()
+ */
+struct Subrate {
+	struct acq400_dev* adev;
+	int raw[SITE_MAX_AI];		/** latest raw value (could/should be DMA @@todo) */
+	int mean[SITE_MAX_AI];		/** current mean				  */
+	int sums[SITE_MAX_AI];          /** current summation                             */
+	int nm;
+	int nmax;
+	int shr;
+	struct hrtimer sr_timer;
+	wait_queue_head_t sr_waitq;
+};
+
 /** acq400_dev one descriptor per device */
 struct acq400_dev {
 	dev_t devno;
@@ -216,6 +248,7 @@ struct acq400_dev {
 
 	struct RegCache clk_reg_cache;
 	struct RegCache ctrl_reg_cache;
+	struct Subrate* sr;
 };
 
 unsigned* dev_rc_alloc_cache(void);
@@ -394,11 +427,13 @@ struct XTD_dev {
 	struct ATD atd, atd_display;
 };
 
-struct ACQ480_dev {
+struct ADC_dev {
 	char id[16];
 	struct acq400_dev adev;
 
-	int train;
+	struct Subrate subrate;
+
+	int acq480_train;
 };
 
 struct XO_dev {
