@@ -1287,13 +1287,17 @@ ssize_t acq400_nacc_subrate_read(
 	struct Subrate* subrate = &adc_dev->subrate;
 	int rc;
 
-	if (count < ss){
-		dev_err(DEVP(adev), "ERROR: count %d less than ss %d", count, ss);
-		return -1;
-	}
-	if ((count&ss) != 0){
-		dev_err(DEVP(adev), "ERROR: count %d not a multiple of ss %d", count, ss);
-		return -1;
+	if (count != ss){
+		if (count < ss){
+			dev_err(DEVP(adev), "ERROR: count %d less than ss %d", count, ss);
+			return -1;
+		}
+		if (count > ss){
+			count = ss;
+			if (*f_pos == 0){
+				dev_warn(DEVP(adev), "ERROR: count %d not a multiple of ss %d", count, ss);
+			}
+		}
 	}
 	acq400_nacc_service(adev);
 	rc = copy_to_user(buf, subrate->mean, count);

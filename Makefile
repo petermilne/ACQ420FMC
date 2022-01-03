@@ -80,7 +80,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	muxdec dmadescfs_test tblock2file acq400_sls bb bbq_send_ai  \
 	fix_state bpaste clocks_to_first_edge \
 	mgtdram_descgen bigcat egu2int dawg watchdog_PIL \
-	dump_regs \
+	dump_regs subr \
 	soft_atd \
 	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
@@ -197,6 +197,10 @@ bbq_send_ai: bbq_send_ai.o Socket.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 data_sink: data_sink.o Socket.o
 	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt
+	
+subr: subr.o
+	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt -lacq
+		
 phased_array: phased_array.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt
 	
