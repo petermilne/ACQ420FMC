@@ -151,6 +151,7 @@
 
 
 /* ADC_CTRL Bitfields */
+#define ADC_CTRL_DIRECT_NOT_ACC (1<<23)
 #define ADC_CTRL_423_CLK_FROM_SYNC (1<<22)
 #define ADC_CTRL_424_EMUL_196	(1<<21)		/* output raw data in ACQ196 order for back-compatibility */
 #define ADC_CTRL_SYNC_TRG_N  	(1<<20)

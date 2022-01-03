@@ -2158,6 +2158,8 @@ static ssize_t store_nacc(
 static DEVICE_ATTR(nacc, S_IRUGO|S_IWUSR, show_nacc, store_nacc);
 static DEVICE_ATTR(ACC, S_IRUGO|S_IWUSR, show_nacc, store_nacc);
 
+MAKE_BITS(dna, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_DIRECT_NOT_ACC);
+
 static ssize_t store_dec(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -2404,6 +2406,7 @@ static const struct attribute *sysfs_adc_device_attrs[] = {
 	&dev_attr_event0.attr,
 	&dev_attr_sod.attr,
 	&dev_attr_nacc.attr,
+	&dev_attr_dna.attr,
 	&dev_attr_ACC.attr,
 	&dev_attr_DEC.attr,
 	&dev_attr_event0_count.attr,

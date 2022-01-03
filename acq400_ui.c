@@ -1315,10 +1315,11 @@ int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
 		.poll = acq400_subrate_poll
 */
 	};
+/*
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
-
+*/
 	file->f_op = &acq400_fops_subrate;
 	return 0;
 }
