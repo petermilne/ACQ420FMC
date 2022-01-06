@@ -111,6 +111,7 @@ init_wrtd() {
 		WRTD_ID WRTD_TX_MASK ${S11KNOBS}; do
 		ln -s /usr/local/CARE/wrtd_env /etc/acq400/${site}/$kb
 	done
+	[ $site -eq 11 ] && ln -s /dev/gpio/MGT482/SFP3/TX_DISABLE /etc/acq400/11/sfp_tx_disable
  
  	ln -s /usr/local/CARE/tai_date			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/${site}
