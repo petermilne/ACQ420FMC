@@ -1244,7 +1244,7 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
-void acq400_nacc_service(struct acq400_dev* adev)
+int acq400_nacc_service(struct acq400_dev* adev)
 {
 	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
 	struct Subrate* subrate = &adc_dev->subrate;
@@ -1271,10 +1271,13 @@ void acq400_nacc_service(struct acq400_dev* adev)
 		for (ii = 0; ii < ac; ++ii){
 			subrate->mean[ii] = subrate->sums[ii] >> subrate->shr;
 			subrate->sums[ii] = 0;
-			subrate->nm = 0;
-			wake_up_interruptible(&subrate->sr_waitq);
 		}
+		subrate->nm = 0;
+		subrate->sr_result_ready = 1;
+		wake_up_interruptible(&subrate->sr_waitq);
+		return 1;
 	}
+	return 0;
 }
 
 /** @todo .. direct read, no timer yet, no block */
@@ -1299,34 +1302,100 @@ ssize_t acq400_nacc_subrate_read(
 			}
 		}
 	}
-	acq400_nacc_service(adev);
-	rc = copy_to_user(buf, subrate->mean, count);
-	if (rc){
-		return -1;
-	}
+	if (wait_event_interruptible(subrate->sr_waitq, subrate->sr_result_ready)){
+		return -EINTR;
+	}else{
+		rc = copy_to_user(buf, subrate->mean, count);
 
+		if (rc){
+			return -1;
+		}
+		subrate->sr_result_ready = 0;
+	}
 	*f_pos += count;
 	return count;
 }
 
+#define SUBRATE_TO_MS 10
+
+
+int subrate_params[3];
+int subrate_params_count = 3;
+module_param_array(subrate_params, int, &subrate_params_count, 0644);
+MODULE_PARM_DESC(subrate_params, "subrate: nmax,shr,update_us");
+
+enum hrtimer_restart subrate_timer_action(struct hrtimer* hrt)
+{
+	struct Subrate *sr = container_of(hrt, struct Subrate, sr_timer);
+	sr->sr_timer_done = 1;
+	wake_up_interruptible(&sr->sr_tq);
+	hrtimer_forward_now(hrt, sr->kt_period);
+	return HRTIMER_RESTART;
+}
+int subrate_harvester(void *data)
+{
+	struct acq400_dev *adev = (struct acq400_dev *)data;
+	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
+	struct Subrate* sr = &adc_dev->subrate;
+
+	sr->nmax = subrate_params[0];
+	sr->shr = subrate_params[1];
+	sr->kt_period = subrate_params[2]*1000;
+	if (sr->kt_period){
+		hrtimer_init(&sr->sr_timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+		sr->sr_timer.function = subrate_timer_action;
+		hrtimer_start(&sr->sr_timer, sr->kt_period, HRTIMER_MODE_REL);
+	}
+
+	while(!kthread_should_stop()){
+		if (sr->kt_period){
+			if (wait_event_interruptible(sr->sr_tq, sr->sr_result_ready)){
+				return -EINTR;
+			}else{
+				sr->sr_timer_done = 1;
+			}
+		}
+		acq400_nacc_service(adev);
+		if (!sr->kt_period){
+			msleep(SUBRATE_TO_MS);
+		}
+	}
+	hrtimer_cancel(&sr->sr_timer);
+	return 0;
+}
+
+int acq400_subrate_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
+
+	kthread_stop(adc_dev->subrate.sr_task);
+
+	return acq400_release(inode, file);
+}
 int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_subrate = {
 
 		.read = acq400_nacc_subrate_read,
-/*
 		.release = acq400_subrate_release,
+/*
 		.poll = acq400_subrate_poll
 */
 	};
-/*
+
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = pdesc->dev;
 	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
-*/
+
+	adc_dev->subrate.sr_task = kthread_run(
+			subrate_harvester, adev, "%s.sr", adev->dev_name);
 	file->f_op = &acq400_fops_subrate;
 	return 0;
 }
+
+
 
 int streamdac_data_loop_dummy(void *data)
 {

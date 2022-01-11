@@ -199,7 +199,8 @@ data_sink: data_sink.o Socket.o
 	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt
 	
 subr: subr.o
-	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt -lacq
+	$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt
+	#$(CXX) -O3 -o $@ $^ -L../lib  -lpopt -lpthread -lrt -lacq
 		
 phased_array: phased_array.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lacq  -lpopt -lpthread -lrt

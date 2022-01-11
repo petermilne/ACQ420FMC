@@ -134,8 +134,13 @@ struct Subrate {
 	int nm;
 	int nmax;
 	int shr;
+	ktime_t kt_period;
 	struct hrtimer sr_timer;
-	wait_queue_head_t sr_waitq;
+	wait_queue_head_t sr_tq;	/* signal on timeout */
+	int sr_result_ready;
+	int sr_timer_done;
+	wait_queue_head_t sr_waitq;	/* signal on final data */
+	struct task_struct* sr_task;
 };
 
 /** acq400_dev one descriptor per device */

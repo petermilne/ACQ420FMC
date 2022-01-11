@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "popt.h"
-#include "acq-util.h"
+//#include "acq-util.h"
 
 using namespace std;
 
@@ -51,9 +51,11 @@ void ui(int argc, const char** argv)
 		}
 	}
 	G::site = atoi(poptGetArg(opt_context));
+	/*
 	if (G::priority){
 		goRealTime(G::priority);
 	}
+	*/
 }
 
 int main(int argc, const char** argv)
@@ -68,8 +70,10 @@ int main(int argc, const char** argv)
 		perror(fname);
 		exit(1);
 	}
-	while(fread(buf, sizeof(unsigned), G::nchan, stdin) == G::nchan){
+	setvbuf(fp, NULL, _IONBF, 0);
+	while(fread(buf, sizeof(unsigned), G::nchan, fp) == G::nchan){
 		fwrite(buf, sizeof(unsigned), G::nchan, stdout);
+		fflush(stdout);
 		if (G::usleep){
 			usleep(G::usleep);
 		}

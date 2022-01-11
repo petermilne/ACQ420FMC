@@ -2261,6 +2261,7 @@ void acq400_subrate_init(struct Subrate* subrate)
 	for (; (1<<subrate->shr) < subrate->nmax; ++subrate->shr)
 		;
 	init_waitqueue_head(&subrate->sr_waitq);
+	init_waitqueue_head(&subrate->sr_tq);
 	/* timer init */
 }
 static struct acq400_dev*
