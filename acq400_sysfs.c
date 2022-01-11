@@ -1375,6 +1375,7 @@ static ssize_t _store_optimise_bufferlen(
 	acq400_set_bufferlen(adev, newbl);
 
 	if (IS_ACQ480(acq400_devices[1])){
+		dev_warn(DEVP(adev), "%s:%d REMOVEME probably redundant", __FUNCTION__, __LINE__);
 		acq400_set_AXI_DMA_len(adev, newbl);
 	}
 	return count;
