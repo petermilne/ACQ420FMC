@@ -2106,7 +2106,7 @@ static ssize_t show_nacc(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
 	if (acc_dec == ADC_NACC_PASSTHRU){
-		return sprintf(buf, "0,0,0\n");
+		return sprintf(buf, "0,0,0,0\n");
 	}else{
 		unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
 					getSHL(ADC_ACC_DEC_SHIFT_MASK);
@@ -3352,10 +3352,16 @@ static DEVICE_ATTR(jettison_buffers_from, S_IRUGO|S_IWUSR,
 static const struct attribute *rgm_attrs[] = {
 	&dev_attr_rgm.attr,
 	&dev_attr_burst.attr,
-	&dev_attr_es_enable.attr,
 	&dev_attr_rtm_translen.attr,
+	&dev_attr_es_enable.attr,
 	NULL
 };
+
+static const struct attribute *es_enable_attrs[] = {
+	&dev_attr_es_enable.attr,
+	NULL
+};
+
 
 static ssize_t show_axi_buffers_after_event(
 	struct device * dev,
@@ -3880,6 +3886,7 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_QEN(adev)){
 			dev_info(dev, "IS_QEN");
 			specials[nspec++] = sysfs_qen_attrs;
+			specials[nspec++] = es_enable_attrs;
 		}
 	}else if (IS_RAD_CELF(adev)){
 		sysfs_radcelf_create_files(dev);
