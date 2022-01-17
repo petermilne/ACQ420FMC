@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.669"
+#define REVID 			"3.670"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -244,6 +244,16 @@ int axi_oneshot = 0;
 module_param(axi_oneshot, int, 0644);
 MODULE_PARM_DESC(axi_oneshot, "one-shot: don't poison recycled buffers");
 
+
+int firstDistributorBuffer(void)
+{
+	return distributor_first_buffer + reserve_buffers;
+}
+int lastDistributorBuffer(void)
+{
+	return nbuffers - 1;
+}
+
 #define AO420_NBUFFERS 	2
 
 
@@ -259,6 +269,7 @@ MODULE_PARM_DESC(axi_oneshot, "one-shot: don't poison recycled buffers");
 	 DMA_SRC_NO_INCR | \
 	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_STARTS_WFP_SHL | \
 	 PRI_TO_CTRL_FLAGS(SC_PRI) << DMA_CHANNEL_ENDS_FLUSHP_SHL)
+
 
 
 

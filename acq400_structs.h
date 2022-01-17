@@ -926,5 +926,7 @@ extern int xo_data_loop(void *data);
 extern int streamdac_data_loop(void *data);
 #define WORKER_DONE(pdesc)	(pdesc->client_private)
 
+extern int firstDistributorBuffer(void);
+extern int lastDistributorBuffer(void);
 
 #endif /* ACQ400_STRUCTS_H_ */

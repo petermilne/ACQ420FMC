@@ -27,7 +27,6 @@ int xo_verbose = 0;
 module_param(xo_verbose, int, 0644);
 MODULE_PARM_DESC(xo_verbose, "print detail debug");
 
-extern int distributor_first_buffer;
 extern int ao_auto_rearm(void *clidat);
 
 static char* flags2str(unsigned flags)
@@ -202,9 +201,9 @@ int xo_data_loop(void *data)
 
 	int ic = 0;
 #define IB 	(xo_dev->AO_playloop.pull_buf)
-	int ao_samples_per_hb = hbm0[distributor_first_buffer]->len / xo_distributor_sample_size;
+	int ao_samples_per_hb = hbm0[firstDistributorBuffer()]->len / xo_distributor_sample_size;
 #define IBINCR	incr_push(adev, xo_dev)
-#define IBRESET do { IB = distributor_first_buffer; } while(0)
+#define IBRESET do { IB = firstDistributorBuffer(); } while(0)
 
 	long dma_timeout = START_TIMEOUT;
 	int maxlen = max(xo_dev->AO_playloop.maxlen, xo_dev->AO_playloop.length);

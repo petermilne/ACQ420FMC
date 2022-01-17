@@ -1549,9 +1549,6 @@ ssize_t acq400_streamdac_read(struct file *file, char __user *buf, size_t count,
 }
 
 
-extern int distributor_first_buffer;
-extern int nbuffers;
-
 int acq400_streamdac_open(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
@@ -1562,7 +1559,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	struct BQ* refills = &sc_dev->stream_dac.refills;
 	struct BQ_Wrapper* bqw = &sc_dev->stream_dac.sd_bqw;
 	int ib = 0;		// @@todo probably not zero ..
-	int limit = min(nbuffers-1, distributor_first_buffer+AWG_BACKLOG-1);
+	int limit = min(lastDistributorBuffer(), firstDistributorBuffer()+AWG_BACKLOG-1);
 
 	dev_dbg(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 
@@ -1572,7 +1569,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	}
 
 	bqw_init(pdesc, bqw, AWG_BACKLOG);
-	for (ib = distributor_first_buffer; ib < limit; ++ib){
+	for (ib = firstDistributorBuffer(); ib < limit; ++ib){
 		BQ_put(DEVP(adev), empties, ib);
 
 		dev_dbg(DEVP(adev), "%s %d ib:%d bq:%d", __FUNCTION__, __LINE__,
@@ -1580,7 +1577,7 @@ int acq400_streamdac_open(struct inode *inode, struct file *file)
 	}
 	xo_dev->AO_playloop.push_buf =
 	xo_dev->AO_playloop.pull_buf =
-	xo_dev->AO_playloop.first_buf = distributor_first_buffer;
+	xo_dev->AO_playloop.first_buf = firstDistributorBuffer();
 	xo_dev->AO_playloop.last_buf = limit;
 	BQ_clear(refills);
 
