@@ -2105,16 +2105,15 @@ static ssize_t show_nacc(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 acc_dec = acq400rd32(adev, ADC_ACC_DEC);
-	if (acc_dec == ADC_NACC_PASSTHRU){
-		return sprintf(buf, "0,0,0,0\n");
-	}else{
-		unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
-					getSHL(ADC_ACC_DEC_SHIFT_MASK);
-		unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
-					getSHL(ADC_ACC_DEC_START_MASK);
-		return sprintf(buf, "%u,%u,%u\n",
-			(acc_dec&ADC_ACC_DEC_LEN)+1, shift, start);
-	}
+
+	unsigned shift = (acc_dec&ADC_ACC_DEC_SHIFT_MASK)>>
+				getSHL(ADC_ACC_DEC_SHIFT_MASK);
+	unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
+				getSHL(ADC_ACC_DEC_START_MASK);
+	unsigned prescale = (acc_dec&ADC_ACC_DEC_PRESCALE_MASK)>>
+				getSHL(ADC_ACC_DEC_PRESCALE_MASK);
+	return sprintf(buf, "%u,%u,%u,%u\n",
+			(acc_dec&ADC_ACC_DEC_LEN)+1, shift, start, prescale);
 }
 
 static ssize_t store_nacc(
@@ -2127,8 +2126,9 @@ static ssize_t store_nacc(
 	unsigned nacc;
 	unsigned shift = 999;
 	unsigned start = 0;
+	unsigned prescale = 0;
 
-	if (sscanf(buf, "%u,%u,%u", &nacc, &shift, &start) >= 1){
+	if (sscanf(buf, "%u,%u,%u,%u", &nacc, &shift, &start, &prescale) >= 1){
 		u32 acdc = 0;
 
 		if (nacc > 0){
@@ -2148,6 +2148,7 @@ static ssize_t store_nacc(
 			acdc = nacc-1;
 			acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
 			acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
+			acdc |= prescale<<getSHL(ADC_ACC_DEC_PRESCALE_MASK);
 		}
 		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;

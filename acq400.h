@@ -315,8 +315,18 @@
 #define ADC_ACC_DEC_SHIFT_MASK	0x00000f00
 #define ADC_ACC_DEC_START_MASK	0x00ff0000
 
+
+#define ADC_ACC_DEC_PRESCALE_MASK	0x07000000		/* 0: /1  1:/2 .. 7:/128 */
+/** prescale for full data coverage at SW poll rate < 200Hz
+ /1    : 1*256*100 = 25kHz		// acq435 going slow
+ /16   : 16*256*100 = 400kHz		// acq435, acq465, acq423 : all covered
+ /32   : 32*256*122 = 1MHz              // acq424, acq425-18
+ /128  : 128*256*61 = 2MHz              // acq425,
+* ACQ48x does not support NACC at this time.
+*/
+
 #define ADC_MAX_NACC		256U
-#define ADC_NACC_PASSTHRU	0
+
 
 #define ADC_ACC_DEC_SHIFT_MAX   15U
 
@@ -998,6 +1008,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_DIO_CTRL		0x5c
 #define QEN_ENC_COUNT		0x60
 
+#define QEN_DIO_CTRL_MSBDIRECT	(1<<13)		// Count MSB is DI2, DI4 respectively
 #define QEN_DIO_CTRL_ZCOUNT	(1<<12)		// Include Z input as a separate counter
 #define QEN_DIO_CTRL_ZSEL	(3<<10)
 #define QEN_DIO_CTRL_PB_EN	(1<<9)
