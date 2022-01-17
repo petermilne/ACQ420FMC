@@ -300,8 +300,17 @@ get_mtype() {
 		source /dev/sites/$1/details
 		eval ${FRU_PART_NUM#* }
 		echo $M
-	fi	
+	fi
 }
+
+get_nchan() {
+	if [ -f /dev/sites/$1/details ]; then
+		source /dev/sites/$1/details
+		eval ${FRU_PART_NUM#* }
+		echo $N
+	fi
+}
+
 
 fake_fmc2_leds() 
 {
@@ -795,7 +804,7 @@ if [ "$acq2106_sn" != "$dtsn" ]; then
 	if [ $snx -ge 20 ]; then
 		DRVR_CUSTOM="$DRVR_CUSTOM is_acq2106B=1"
 	fi
-fi		
+fi	
 
 has_acq48x=0
 vsites=
@@ -806,6 +815,11 @@ for s in $(echo $good_sites | tr , \  ); do
 		echo "+++ has_acq48x"
 		
 		has_acq48x=1;;
+	41)
+	    if [ $(get_nchan $s) = 16 ]; then
+	        echo "+++ AO424-16 detected in site $s";
+	    	DRVR_CUSTOM="$DRVR_CUSTOM ao424_16=1"
+	    fi;;
 	6D)
 		vs=$(($s+100))
 		echo "+++ has acq436 in site $s, create virtual site $vs"		
