@@ -319,9 +319,18 @@ protected:
 		if (!isValid(buf, maxbuf, args)){
 			return -1;
 		}
-		char cmd[128];
-		snprintf(cmd, 128, "%s %s", name, args);
-		return runcmd(cmd, buf, maxbuf);
+		int maxlen = strlen(name) + strlen(args) + 1;
+		if (maxlen < 128){
+			char cmd[128];
+			snprintf(cmd, 128, "%s %s", name, args);
+			return runcmd(cmd, buf, maxbuf);
+		}else{
+			char* cmd = new char[max(4096, maxlen)];
+			snprintf(cmd, maxlen, "%s %s", name, args);
+			int rc = runcmd(cmd, buf, maxbuf);
+			delete [] cmd;
+			return rc;
+		}
 
 	}
 public:
