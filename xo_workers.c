@@ -274,14 +274,14 @@ int xo_data_loop(void *data)
 			dev_err(DEVP(adev), "here with no callback int should not happen ..");
 		}
 
-		dev_dbg(DEVP(adev), "calling dma_sync_wait() ..");
+		if (xo_verbose) dev_dbg(DEVP(adev), " 22 calling dma_sync_wait() ..");
 
 		if(dma_sync_wait(adev->dma_chan[ic], adev->dma_cookies[ic]) != DMA_SUCCESS){
 			dev_err(DEVP(adev), "dma_sync_wait TIMEOUT cursor:%d chan:%d timeout:%ld",
 					xo_dev->AO_playloop.cursor, ic, dma_timeout);
 			goto quit;
 		}
-		dev_dbg(DEVP(adev), "44 back from dma_sync_wait() oneshot:%d", xo_dev->AO_playloop.oneshot);
+		if (xo_verbose) dev_dbg(DEVP(adev), "44 back from dma_sync_wait() oneshot:%d", xo_dev->AO_playloop.oneshot);
 
 		xo_dev->AO_playloop.cursor += ao_samples_per_hb;
 
@@ -317,7 +317,7 @@ int xo_data_loop(void *data)
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[ic]);
 		}
 		yield();
-		dev_dbg(DEVP(adev), "66 oneshot:%d", xo_dev->AO_playloop.oneshot);
+		if (xo_verbose) dev_dbg(DEVP(adev), "66 oneshot:%d", xo_dev->AO_playloop.oneshot);
 	}
 
 quit:
@@ -448,7 +448,7 @@ int streamdac_data_loop(void *data)
 			DMA_ASYNC_ISSUE_PENDING(adev->dma_chan[0]);
 			running = 1;
 		}
-		if (xo_verbose){
+		if (xo_verbose > 1){
 			dump_buffer(adev, refills, "refills");
 			dev_info(DEVP(adev), "%s [%d] %03d %03d", "inflite", 2, ab[ic], ab[!ic]);
 			dump_buffer(adev, empties, "empties");
