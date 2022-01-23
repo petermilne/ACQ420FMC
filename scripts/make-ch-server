@@ -47,8 +47,8 @@ done
 let cix=1
 sitesp="$(echo $sites | tr , \  )" 
 for site in $sitesp; do
-	IS_ADC=$(get.site $site is_adc | awk '{ print $1 }')
-	if [ $IS_ADC -eq 1 ]; then
+	kadc=/etc/acq400/$site/is_adc	
+	if [ -e $kadc ] && [ $(cat $kadc | awk '{ print $1 }') -eq 1 ]; then
 		nchan=$(get.site $site NCHAN)
 		for chs in $(seq 1 $nchan); do
 			ch0s=$(printf "%02d" $chs)
