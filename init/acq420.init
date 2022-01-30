@@ -187,6 +187,8 @@ set_max_min_khz() {
 	echo $2 >/etc/acq400/$1/MAX_KHZ
 	echo $3 >/etc/acq400/$1/MIN_KHZ
 }
+
+IS_ACQ427=0
 customize_acq420()
 {
 	source 	/dev/sites/$1/details
@@ -196,7 +198,7 @@ customize_acq420()
 	knobd=/dev/acq400.$1.knobs
 	set_max_min_khz $1 1000 10
 
-	is_acq427=0
+	IS_ACQ427=0
 	for field in $PN
 	do
 		case $ix in
@@ -205,13 +207,14 @@ customize_acq420()
 			ACQ420FMC)	echo ACQ420FMC detected;;
 			ACQ425?LF)	echo $field detected;;
 			ACQ427ELF)	
-						is_acq427=1
+						IS_ACQ427=1
 						echo ACQ427ELF detected NEW;;
 			*)
 				echo "ERROR: model $field not recognized";;
 			esac;;
 		1)
-			if [ $is_acq427 -ne 0 ]; then
+			if [ $IS_ACQ427 -ne 0 ]; then
+				IS_ACQ427=$field
 				case $field in
 				01) echo "AI=8";;					
 				03)	echo "AI=8 AO=4";;
@@ -613,11 +616,15 @@ build_knobs() {
 		$ULB/acq427.init ${ACQ427_SITES}
 		for a427s in ${ACQ427_SITES}; do
 			if [ $a427s -eq 1 ]; then
-				echo "link dac_range from ACQ427.1 to AO420.2"
-				for dac in 1 2 3 4; do
-					rm -f /etc/acq400/2/dac_range_0${dac}
-					ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
-				done
+				if [ "$IS_ACQ427" = "01" ]; then
+					echo "model 01, no DAC"
+				else 
+					echo "link dac_range from ACQ427.1 to AO420.2"
+					for dac in 1 2 3 4; do
+						rm -f /etc/acq400/2/dac_range_0${dac}
+						ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
+					done
+				fi
 			fi
 		done
 		# use /mnt/local/acq420_custom
