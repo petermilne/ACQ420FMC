@@ -491,10 +491,12 @@ static void _finalize_descriptor_chain(struct acq400_dev *adev, int ichan, int n
 	struct AxiDescrWrapper * cursor;
 
 	for (cursor = base; cursor != last; ++cursor){
+		cursor->va->control = adev->bufferlen;
 		cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
 		cursor->va->next_desc = cursor[1].pa;
 	}
 
+	cursor->va->control = adev->bufferlen;
 	cursor->va->status = AXI_ONESHOT? 0x00000000: 0xd1ac0000;
 	// tie off
 	if (AXI_ONESHOT){
@@ -522,7 +524,6 @@ static void init_descriptor_cache_nonseg(struct acq400_dev *adev, int ichan, int
 			BUG_ON(cursor->va == 0);
 			memset(cursor->va, 0, sizeof(struct xilinx_dma_desc_hw));
 			cursor->va->buf_addr = adev->axi64[ichan].axi64_hb[ii]->pa;
-			cursor->va->control = adev->bufferlen;
 			dev_dbg(DEVP(adev), "init_descriptor_cache_nonseg() %d/%d", ii, ndescriptors);
 		}
 	}
