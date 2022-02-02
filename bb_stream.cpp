@@ -26,6 +26,8 @@ namespace G {
 	int inetd_tcp_wait = 0;
 	int auto_soft_trigger = false;
 	int ab_swap;
+	char* file_loop;
+	FILE* fp;
 };
 
 struct poptOption opt_table[] = {
@@ -50,6 +52,9 @@ struct poptOption opt_table[] = {
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
+	{
+	  "file_loop", 'f', POPT_ARG_STRING, &G::file_loop, 0, "loop over this file"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -60,8 +65,12 @@ int read_buffers(unsigned descriptors[], int ndesc)
 
 	for (int id = 0; id < ndesc; ++id){
 		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
-		int nb = fread(bp, 1, G::play_bufferlen, stdin);
+		int nb = fread(bp, 1, G::play_bufferlen, G::fp);
 		if (nb <= 0){
+			if (G::file_loop){
+				rewind(G::fp);
+				continue;
+			}
 			fprintf(stderr, "read_buffers fread returned %d\n", nb);
 			return 0;
 		}else{
@@ -194,6 +203,15 @@ void ui(int argc, const char** argv)
 		switch(rc){
 		default:
 			;
+		}
+	}
+	G::fp = stdin;
+
+	if (G::file_loop){
+		G::fp = fopen(G::file_loop, "r");
+		if (G::fp == 0){
+			fprintf(stderr, "ERROR failed to open file \"%s\"\n", G::file_loop);
+			exit(1);
 		}
 	}
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
