@@ -624,6 +624,7 @@ build_knobs() {
 						rm -f /etc/acq400/2/dac_range_0${dac}
 						ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
 					done
+					echo 1 > /dev/acq400.2.knobs/dac_range_REF
 				fi
 			fi
 		done
