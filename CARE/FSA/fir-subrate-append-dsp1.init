@@ -1,6 +1,7 @@
 #!/bin/sh
 # custom_qds.init
 
+WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 cat /usr/local/CARE/FSA/fsa-dsp-regdef >/dev/dsp1/.create
 mkdir -p /etc/acq400/14/
@@ -25,5 +26,8 @@ EOF
 inetd /etc/inetd.dsp.conf
 
 
-
+cat - >> $WEB_APPEND_JOB <<EOF
+/usr/local/bin/add_webpage_site acq400.14 14
+EOF
+chmod a+rx $WEB_APPEND_JOB
 
