@@ -935,10 +935,11 @@ void measure_ao_fifo(struct acq400_dev *adev)
 
 void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output);
 
-void dio484_pg_init_defaults(struct acq400_dev* adev, int gpg32)
+void dio482_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 {
 	struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	dac_ctrl |= DIO432_CTRL_PG_CLK_IS_DO;  /* avoid possible bogus CLK output on PG5 line */
 	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
@@ -954,7 +955,7 @@ void dio484_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 void dio482td_init_defaults(struct acq400_dev* adev)
 {
 	DIO484_PG_OUTPUTS = 0xf;
-	dio484_pg_init_defaults(adev, 0);
+	dio482_pg_init_defaults(adev, 0);
 	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PG_PG_DOx);
 	adev->clkdiv_mask = 0xffffffff;
 }
@@ -974,7 +975,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		acq420_init_defaults(adev);
 	}else if (IS_DIO432X(adev)){
 		if (IS_DIO482ELF_PG(adev)){
-			dio484_pg_init_defaults(adev, 1);
+			dio482_pg_init_defaults(adev, 1);
 		}else{
 			dio432_init_defaults(adev);
 		}
