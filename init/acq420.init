@@ -1004,7 +1004,7 @@ fi
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
 
-case /usr/local/CARE/get-fpga-extra in
+case $(/usr/local/CARE/get-fpga-extra) in
 9802)
 	/usr/local/init/anatrg.init 14;;
 9804)
