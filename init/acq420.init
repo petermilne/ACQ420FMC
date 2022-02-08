@@ -1003,9 +1003,14 @@ fi
 
 [ -e /mnt/local/sysconfig/acq400_streamd.conf ] && \
 	cp /mnt/local/sysconfig/acq400_streamd* /etc/sysconfig/
-	
-[ "x$(/usr/local/CARE/get-fpga-extra)" = "x9802" ] &&
-	/usr/local/init/anatrg.init 14
+
+case $(/usr/local/CARE/get-fpga-extra) in
+9802)
+	/usr/local/init/anatrg.init 14;;
+9804)
+	/usr/local/init/fir-subrate-append.init 14;;
+esac
+
 start_knob_services
 
 ls -l /etc/acq400/0/sync_out_cable_det
