@@ -3852,10 +3852,9 @@ MAKE_BITS(chain_PG,   DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
 MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
 MAKE_BITS(bypass_trg_debounce, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_BYPASS_TRG);
 
-const struct attribute *dio484_pg_attrs[] = {
+const struct attribute *dio482_pg_attrs[] = {
 		&dev_attr_DO32.attr,
 		&dev_attr_DO32_immediate_mask.attr,
-		&dev_attr_byte_is_output.attr,
 		&dev_attr_scount_FPTRG.attr,
 		&dev_attr_trgout_PG4.attr,
 		&dev_attr_chain_PG.attr,
@@ -3956,8 +3955,8 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 		if (IS_DIO482_PG(adev)) {
-			dev_info(dev, "IS_DIO482_PG count PG_attrs %d", sizeof(dio484_pg_attrs)/sizeof(int*));
-			specials[nspec++] = dio484_pg_attrs;
+			dev_info(dev, "IS_DIO482_PG count PG_attrs %d", sizeof(dio482_pg_attrs)/sizeof(int*));
+			specials[nspec++] = dio482_pg_attrs;
 			specials[nspec++] = gpg_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_emulate_attrs;

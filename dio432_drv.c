@@ -65,16 +65,18 @@ static u32 _acq400rd32(struct acq400_dev *adev, int offset)
 
 void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output)
 {
-	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
-	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL,
+	if (!IS_DIO482FMC(adev)){
+		_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
+		_acq400wr32(adev, DIO432_DIO_CPLD_CTRL,
 				DIO432_CPLD_CTRL_COMMAND_WRITE|byte_is_output);
 
 	/* @@todo doxygen indicates poll for complete, but SR example sets it
 	 * following the SR example
 	 */
-	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL,
+		_acq400wr32(adev, DIO432_DIO_CPLD_CTRL,
 			DIO432_CPLD_CTRL_COMMAND_COMPLETE|
 			DIO432_CPLD_CTRL_COMMAND_WRITE|byte_is_output);
+	}
 	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
 }
 

@@ -973,7 +973,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 	if (IS_ACQ42X(adev)){
 		acq420_init_defaults(adev);
 	}else if (IS_DIO432X(adev)){
-		if (IS_DIO484ELF_PG(adev)){
+		if (IS_DIO482ELF_PG(adev)){
 			dio484_pg_init_defaults(adev, 1);
 		}else{
 			dio432_init_defaults(adev);
