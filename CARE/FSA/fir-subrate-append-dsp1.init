@@ -8,6 +8,7 @@ mkdir -p /etc/acq400/14/
 echo 1 > /etc/acq400/14/data32
 
 sed -ie 's/$/,14/' /etc/sites
+sed -ie 's/$/,14=FSA/' /etc/acq400/0/SITELIST 
 
 nchan=0
 for site in 1 2; do
