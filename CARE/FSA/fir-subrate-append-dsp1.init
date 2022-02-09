@@ -6,11 +6,7 @@ WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 cat /usr/local/CARE/FSA/fsa-dsp-regdef >/dev/dsp1/.create
 mkdir -p /etc/acq400/14/
 ln -s /dev/dsp1/* /etc/acq400/14/
-for file in status status_latch group_*; do
-	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/14
-# temporary: locate in site 1	
-#	ln -s /sys/bus/platform/devices/80000000.dsp1/$file /etc/acq400/1
-done
+
 
 # MODULE ENABLE
 echo 0x11 > /dev/dsp1/FSA_CSR
