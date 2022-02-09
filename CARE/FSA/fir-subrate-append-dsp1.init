@@ -19,6 +19,7 @@ for site in 1 2; do
 done
 echo $nchan > /etc/acq400/14/NCHAN
 echo $nchan > /etc/acq400/14/active_chan
+echo FSA > /etc/acq400/14/module_name
 
 ln -s /dev/dsp1/* /etc/acq400/14/
 
