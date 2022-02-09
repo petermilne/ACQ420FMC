@@ -7,6 +7,8 @@ cat /usr/local/CARE/FSA/fsa-dsp-regdef >/dev/dsp1/.create
 mkdir -p /etc/acq400/14/
 echo 1 > /etc/acq400/14/data32
 
+sed -ie 's/$/,14/' /etc/sites
+
 nchan=0
 for site in 1 2; do
 	if [ -e /etc/acq400/$site/MODEL ] && [ "$(cat /etc/acq400/$site/MODEL)" = "ACQ435ELF" ]; then
@@ -18,7 +20,7 @@ echo $nchan > /etc/acq400/14/NCHAN
 
 ln -s /dev/dsp1/* /etc/acq400/14/
 
-nice /usr/local/CARE/monitor_dsp1 &
+nice /usr/local/CARE/monitor_s14 &
 
 
 # MODULE ENABLE
