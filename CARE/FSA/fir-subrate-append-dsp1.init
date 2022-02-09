@@ -18,6 +18,7 @@ for site in 1 2; do
 	fi
 done
 echo $nchan > /etc/acq400/14/NCHAN
+echo $nchan > /etc/acq400/14/active_chan
 
 ln -s /dev/dsp1/* /etc/acq400/14/
 

@@ -49,7 +49,7 @@ monitor() {
 	done
 }
 
-if [ "$(basename $0)" = "monitor_dsp1" ]; then
+if [ "$(basename $0)" = "monitor_s14" ]; then
 	if [ -d $DIR ]; then
 		monitor
 	else
