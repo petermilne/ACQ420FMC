@@ -5,7 +5,20 @@ WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
 
 cat /usr/local/CARE/FSA/fsa-dsp-regdef >/dev/dsp1/.create
 mkdir -p /etc/acq400/14/
+echo 1 > /etc/acq400/14/data32
+
+nchan=0
+for site in 1 2; do
+	if [ -e /etc/acq400/$site/MODEL ] && [ "$(cat /etc/acq400/$site/MODEL)" = "ACQ435ELF" ]; then
+# assume 32 channels with /32, we have nchan=1 per 32ch in site. Assume all AI sites in aggregator	
+		nchan=$((nchan+1))	
+	fi
+done
+echo $nchan > /etc/acq400/14/NCHAN
+
 ln -s /dev/dsp1/* /etc/acq400/14/
+
+nice /usr/local/CARE/monitor_dsp1 &
 
 
 # MODULE ENABLE
@@ -20,10 +33,3 @@ cat >/etc/inetd.dsp.conf - <<EOF
 EOF
 
 inetd /etc/inetd.dsp.conf
-
-
-cat - >> $WEB_APPEND_JOB <<EOF
-/usr/local/bin/add_webpage_site acq400.14 14
-EOF
-chmod a+rx $WEB_APPEND_JOB
-
