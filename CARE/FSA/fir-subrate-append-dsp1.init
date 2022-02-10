@@ -1,11 +1,11 @@
 #!/bin/sh
 # custom_qds.init
 
-WEB_APPEND_JOB=${WEB_APPEND_JOB:-/tmp/acq420-web-append.job}
-
+S14=/etc/acq400/14
 cat /usr/local/CARE/FSA/fsa-dsp-regdef >/dev/dsp1/.create
-mkdir -p /etc/acq400/14/
-echo 1 > /etc/acq400/14/data32
+
+mkdir -p ${S14}/
+echo 1 > ${S14}/data32
 
 sed -ie 's/$/,14/' /etc/sites
 sed -ie 's/$/,14=FSA/' /etc/acq400/0/SITELIST 
@@ -17,17 +17,18 @@ for site in 1 2; do
 		nchan=$((nchan+1))	
 	fi
 done
-echo $nchan > /etc/acq400/14/NCHAN
-echo $nchan > /etc/acq400/14/active_chan
-echo FSA > /etc/acq400/14/module_name
+echo $nchan > ${S14}/NCHAN
+echo $nchan > ${S14}/active_chan
+echo FSA > ${S14}/module_name
 
-ln -s /dev/dsp1/* /etc/acq400/14/
+ln -s /dev/dsp1/* ${S14}/
 
 nice /usr/local/CARE/monitor_s14 &
 
 
 # MODULE ENABLE
-echo 0x11 > /dev/dsp1/FSA_CSR
+echo 1 > ${S14}/FSA_CSR.MOD_EN
+echo 1 > ${S14}/FSA_CSR.FSA_EN
 
 echo "DSP sites 14, 15 active on 4224, 4225"
 /usr/local/init/acq400_knobs.init start
