@@ -453,6 +453,7 @@ static ssize_t show_agg_reg(
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
 	u32 regval = mgt400rd32(mdev, offset);
 	char mod_group[80];
+	char spad_buf[8];
 	int site;
 
 	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
@@ -470,8 +471,9 @@ static ssize_t show_agg_reg(
 		sprintf(mod_group, "sites=none");
 	}
 
-	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s\n",
-			regval, mod_group, regval&DATA_MOVER_EN? "on": "off");
+	show_spad(dev, attr, spad_buf);
+	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s spad=%s",
+			regval, mod_group, regval&DATA_MOVER_EN? "on": "off", spad_buf);
 }
 
 extern int good_sites[];
@@ -535,6 +537,9 @@ static ssize_t store_agg_reg(
 			}
 		}
 		pass = 1;
+	}
+	if ((match = strstr(buf, "spad=")) != 0){
+		store_spad(dev, attr, match+strlen("spad="), 1);
 	}
 	if ((match = strstr(buf, "on")) != 0){
 		regval |= DATA_MOVER_EN;

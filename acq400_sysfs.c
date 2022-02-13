@@ -2710,6 +2710,7 @@ static ssize_t show_agg_reg(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 regval = acq400rd32(adev, offset);
 	char mod_group[80];
+	char spad_buf[16];
 	int site;
 
 	for (site = 1, mod_group[0] = '\0'; site <= 6; ++site){
@@ -2737,8 +2738,9 @@ static ssize_t show_agg_reg(
 				get_agg_threshold_bytes(adev, regval));
 	}
 
-	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s\n",
-			regval, mod_group, regval&DATA_MOVER_EN? "on": "off");
+	show_spad(dev, attr, spad_buf);
+	return sprintf(buf, "reg=0x%08x %s DATA_MOVER_EN=%s spad=%s",
+			regval, mod_group, regval&DATA_MOVER_EN? "on": "off", spad_buf);
 }
 
 
@@ -2846,6 +2848,8 @@ static ssize_t store_agg_reg(
 		}
 	}else if (mshift == AGGREGATOR_MSHIFT){
 		char *th_sel = strstr(buf, TH_SEL);
+		char *spad_sel = strstr(buf, "spad=");
+
 		if (th_sel){
 			int thbytes = 0;
 			if (sscanf(th_sel, TH_SEL"%d", &thbytes) == 1){
@@ -2860,6 +2864,10 @@ static ssize_t store_agg_reg(
 				dev_err(dev, "arg not integer (%s)", th_sel);
 				return -1;
 			}
+		}
+		if (spad_sel){
+			char* cursor = spad_sel+strlen("spad=");
+			store_spad(dev, attr, cursor, strlen(cursor));
 		}
 	}
 	if ((match = strstr(buf, "on")) != 0){
