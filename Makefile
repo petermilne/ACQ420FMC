@@ -214,7 +214,7 @@ tblock2file: tblock2file.o
 is_ramp: is_ramp.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 	
-acq400_knobs: acq400_knobs.o tcp_server.o
+acq400_knobs: acq400_knobs.o tcp_server.o Env.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 anatrg: anatrg.o 

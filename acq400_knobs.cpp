@@ -60,6 +60,7 @@ What does acq400_knobs do?.
 #include "popt.h"
 
 #include "tcp_server.h"
+#include "Env.h"
 
 const char* pattern = "";
 
@@ -962,7 +963,27 @@ int interpreter(FILE* fin, FILE* fout)
 	return 0;
 }
 
+#define INET_ADDRSTRLEN 20
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+class ServerInfoVerbose: public ServerInfo {
+	const char* ip_addr(struct sockaddr_in& s_in){
+		static char buffer[INET_ADDRSTRLEN];
+		return inet_ntop( AF_INET, &s_in.sin_addr, buffer, sizeof( buffer ));
+	}
+	int port(struct sockaddr_in& s_in) {
+		return ntohs(s_in.sin_port);
+	}
+public:
+	virtual void onConnect(pid_t child, struct sockaddr_in& s_in) {
+		printf("onConnect %u %s %d\n", child, ip_addr(s_in), port(s_in));
+	}
+	virtual void onReap(pid_t child) {
+		printf("onReap    %u\n", child);
+	}
+};
 
 int main(int argc, const char* argv[])
 {
@@ -970,7 +991,11 @@ int main(int argc, const char* argv[])
 	do_scan();
 	if (is_tcp_server){
 		printf("call tcp_server\n");
-		return tcp_server(host, port, interpreter);
+		ServerInfo* serverInfo = 0;
+		if (Env::getenv("ACQ400_KNOBS_VERBOSE", 0)){
+			serverInfo = new ServerInfoVerbose;
+		}
+		return tcp_server(host, port, interpreter, serverInfo);
 	}else{
 		return interpreter(stdin, stdout);
 	}
