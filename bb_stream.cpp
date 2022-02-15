@@ -17,6 +17,8 @@ using namespace std;
 
 #include "local.h"
 
+class BufferReader;
+
 namespace G {
 	unsigned play_bufferlen;		// Change bufferlen on play
 	char* port = 0;				// 0 no server (inetd), else make a server
@@ -27,6 +29,7 @@ namespace G {
 	int auto_soft_trigger = false;
 	int ab_swap;
 	char* file_loop;
+	BufferReader *reader;
 	FILE* fp;
 };
 
@@ -59,26 +62,68 @@ struct poptOption opt_table[] = {
 	POPT_TABLEEND
 };
 
-int read_buffers(unsigned descriptors[], int ndesc)
-{
-	int totbytes = 0;
+class BufferReader {
+protected:
+	FILE* fp;
+public:
+	BufferReader(FILE* _fp): fp(_fp) {}
 
-	for (int id = 0; id < ndesc; ++id){
-		char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
-		int nb = fread(bp, 1, G::play_bufferlen, G::fp);
-		if (nb <= 0){
-			if (G::file_loop){
-				rewind(G::fp);
-				continue;
+	// read FULL buffers
+	virtual int read_buffers(unsigned descriptors[], int ndesc) {
+		int totbytes = 0;
+
+		for (int id = 0; id < ndesc; ++id){
+			char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
+			// @todo : ASSUMES G::play_bufferlen is available!
+			int nb = fread(bp, 1, G::play_bufferlen, fp);
+			if (nb <= 0){
+				fprintf(stderr, "read_buffers fread returned %d\n", nb);
+				return 0;
+			}else{
+				totbytes += nb;
 			}
-			fprintf(stderr, "read_buffers fread returned %d\n", nb);
-			return 0;
-		}else{
-			totbytes += nb;
+		}
+		return totbytes;
+	}
+};
+
+class LoopFileReader: public BufferReader {
+public:
+	LoopFileReader(const char* fname):
+		BufferReader(fopen(fname, "r"))
+	{
+		if (fp == 0){
+			fprintf(stderr, "ERROR failed to open file \"%s\"\n", fname);
+			exit(1);
 		}
 	}
-	return totbytes;
-}
+
+	virtual int read_buffers(unsigned descriptors[], int ndesc) {
+		int totbytes = 0;
+
+		for (int id = 0; id < ndesc; ++id){
+			char* bp = Buffer::the_buffers[0]->getBase() + descriptors[id]*Buffer::bufferlen;
+			unsigned nbuf = 0;
+			int nb;
+
+			for (int nb0 = 999; nbuf < G::play_bufferlen; nb0 = nb){
+				nb = fread(bp+nbuf, 1, G::play_bufferlen-nbuf, fp);
+				if (nb <= 0){
+					if (nb0 <= 0){
+						fprintf(stderr, "ERROR two strikes and out at %d %d %d\n", nbuf, nb0, nb);
+						exit(1);
+					}
+					rewind(fp);
+					continue;
+				}
+				nbuf += nb;
+			}
+			totbytes += nbuf;
+		}
+		return totbytes;
+	}
+};
+
 
 class SUCC {
 	int max_val;
@@ -146,7 +191,7 @@ int playloop() {
 			return -1;
 		}
 
-		int nbytes = read_buffers(descriptors, 2);
+		int nbytes = G::reader->read_buffers(descriptors, 2);
 		if (nbytes <= 0){
 			return nbytes;
 		}
@@ -205,15 +250,8 @@ void ui(int argc, const char** argv)
 			;
 		}
 	}
-	G::fp = stdin;
 
-	if (G::file_loop){
-		G::fp = fopen(G::file_loop, "r");
-		if (G::fp == 0){
-			fprintf(stderr, "ERROR failed to open file \"%s\"\n", G::file_loop);
-			exit(1);
-		}
-	}
+
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
 	if (G::play_bufferlen == 0 || G::play_bufferlen > Buffer::bufferlen){
@@ -230,6 +268,11 @@ void ui(int argc, const char** argv)
 	}else{
 		fprintf(stderr, "ERROR: distributor not set");
 		exit(-1);
+	}
+	if (G::file_loop){
+		G::reader = new LoopFileReader(G::file_loop);
+	}else{
+		G::reader = new BufferReader(stdin);
 	}
 }
 int main(int argc, const char* argv[]) {

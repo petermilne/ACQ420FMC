@@ -5,7 +5,7 @@
 
 pkill bb_stream
 
-if [ "x$VERBOSE" != "" ]; then
+if [ "x$VERBOSE" != "x" ]; then
 	ARGS=-v1
 fi
 bb_stream $ARGS -f $1
