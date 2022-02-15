@@ -1,0 +1,8 @@
+#!/bin/sh
+DAT=${1:-/mnt/local/dat_files/4CH_10V_16384_POFFSET_PRODTEST.dat}
+# pattern MUST be 4 buffers (4MB with 1MB buffers, so 32x132k)
+RPT=${2:-32}   
+
+for x in $(seq $RPT); do cat $DAT; done | nc localhost 54205
+
+
