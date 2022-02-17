@@ -16,11 +16,10 @@ if [ $SITE -eq 14 ]; then
 	for s in $(echo $vg_sites | tr , \  ); do
 	    kd=/etc/acq400/$s
 		if [ -e ${kd}/is_adc ] && [ $(cat ${kd}/is_adc | awk '{print $1}') -eq 1 ]; then
-			nc=$(($(cat ${kd}/NCHAN)*2))
-			echo +++ ddc site $s NCHAN set $nc
-			echo $nc > ${kd}/NCHAN
-    		rm ${kd}/active_chan
+			nc=$(($(cat ${kd}/NCHAN)*2))			
+			echo $nc > ${kd}/NCHAN    		
     		echo $nc > ${kd}/active_chan
+    		echo +++ ddc site $s NCHAN set $nc
     	fi
     done
 fi
