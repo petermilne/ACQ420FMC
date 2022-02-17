@@ -11,6 +11,18 @@ if [ $SITE -eq 14 ]; then
 	/usr/local/CARE/DDC/ddc-dsp1.init
 	MAJOR=$(grep dsp1 /proc/devices | awk '{ print $1 }')
 	mknod /dev/acq400.14.dsp1 c $MAJOR 14
+
+	source /etc/sites
+	for s in $(echo $vg_sites | tr , \  ); do
+	    kd=/etc/acq400/$s
+		if [ -e ${kd}/is_adc ] && [ $(cat ${kd}/is_adc | awk '{print $1}') -eq 1 ]; then
+			nc=$(($(cat ${kd}/NCHAN)*2))
+			echo +++ ddc site $s NCHAN set $nc
+			echo $nc > ${kd}/NCHAN
+    		rm ${kd}/active_chan
+    		echo $nc > ${kd}/active_chan
+    	fi
+    done
 fi
 
 echo +++ ddc 99
