@@ -1009,6 +1009,8 @@ case $(/usr/local/CARE/get-fpga-extra) in
 	/usr/local/init/anatrg.init 14;;
 9804)
 	/usr/local/init/fir-subrate-append.init 14;;
+9801)
+	/usr/local/init/ddc.init 14;;
 esac
 
 start_knob_services
