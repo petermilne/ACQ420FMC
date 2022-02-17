@@ -24,4 +24,11 @@ if [ $SITE -eq 14 ]; then
     done
 fi
 
+cat - >/sysconfig/acq400_streamd.0.init <<EOF
+set.site 14 DDC_CSR.DDC_RESET 1
+/usr/bin/logger -t acq400_streamd.0.init DDC RESET
+set.site 14 DDC_CSR.DDC_RESET 0
+EOF
+
+
 echo +++ ddc 99

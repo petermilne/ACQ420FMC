@@ -1,4 +1,4 @@
-# atd-dsp-regdef : analog threshold detect register definitions
+# fsa-dsp-regdef : FIR Subrate Append register definitions
 # NB: use spaces
 @MODULE_ID     		0x000 0xffffffff r %08x
 @MODULE_ID.MT  		0x000 0xff000000 r %02x

@@ -1,4 +1,4 @@
-# ddc-dsp-regdef : analog threshold detect register definitions
+# ddc-dsp-regdef : Digital Down Converter reg defs
 # NB: use spaces
 @MODULE_ID     		0x000 0xffffffff r %08x
 @MODULE_ID.MT  		0x000 0xff000000 r %02x
@@ -6,6 +6,6 @@
 
 DDC_CSR				0x004 0xffffffff r %08x
 DDC_CSR.MOD_EN		0x004 0x00000001 rw %d
-DDC_CSR.FSA_RESET	0x004 0x00000008 rw %d
-DDC_CSR.FSA_EN		0x004 0x00000010 rw %d
+DDC_CSR.DDC_RESET	0x004 0x00000008 rw %d
+DDC_CSR.DDC_EN		0x004 0x00000010 rw %d
 
