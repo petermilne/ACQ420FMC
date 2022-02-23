@@ -538,9 +538,6 @@ static ssize_t store_agg_reg(
 		}
 		pass = 1;
 	}
-	if ((match = strstr(buf, "spad=")) != 0){
-		store_spad(dev, attr, match+strlen("spad="), 1);
-	}
 	if ((match = strstr(buf, "on")) != 0){
 		regval |= DATA_MOVER_EN;
 		pass = 1;
@@ -552,8 +549,11 @@ static ssize_t store_agg_reg(
 	if (!pass && sscanf(buf, "%x", &regval) != 1){
 		return -1;
 	}
-
 	mgt400wr32(mdev, offset, regval);
+
+	if ((match = strstr(buf, "spad=")) != 0){
+		store_spad(dev, attr, match+strlen("spad="), 1);
+	}
 	return count;
 }
 
