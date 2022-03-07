@@ -165,9 +165,10 @@ protected:
 
 	        sendcommon();
 	}
-	virtual int printLast() {
-		return printf("%s %16s mask=%x seq=%u sec=%u ns=%u\n", msg.hw_detect, msg.event_id,
-					msg.event_id[IMASK()], msg.seq, msg.ts_sec, msg.ts_ns);
+	virtual int printLast(const char* pfx = "printLast():") {
+		return printf("%s %s %16s mask=%x seq=%u sec=%u ns=%u\n",
+				pfx, msg.hw_detect, msg.event_id,
+				     msg.event_id[IMASK()], msg.seq, msg.ts_sec, msg.ts_ns);
 	}
 	virtual TS recvfrom() {
 		while(true){
@@ -177,8 +178,7 @@ protected:
 			}
 			if (is_for_us(msg)){
 				if (G::verbose){
-					fprintf(stderr, "%s FOR US %08x %08x\n", PFN, msg.ts_ns, TS_QUICK);
-					printLast();
+					printLast("FOR US:");
 				}
 				if (msg.ts_ns == TS_QUICK){
 					TS ts(TS_QUICK);
@@ -188,17 +188,16 @@ protected:
 					}
 					return ts;
 				}else{
+					TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
+					ts.mask = msg.event_id[IMASK()];
 					if (G::verbose){
 						fprintf(stderr, "%s TS TIME ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
 					}
-					TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
-					ts.mask = msg.event_id[IMASK()];
 					return ts;
 				}
 			}else{
 				if (G::verbose){
-					fprintf(stderr, "%s NOT FOR US %08x\n", PFN, msg.ts_ns);
-					printLast();
+					printLast("NOT FOR US:");
 				}
 			}
 		}

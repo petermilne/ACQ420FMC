@@ -115,13 +115,12 @@ public:
 		fprintf(stderr, "ts1:%s ts2:%s diff:%ld\n", ts1.toStr(), ts2.toStr(), ts1.diff(ts2));
 		return 0;
 	}
-	TS& next_second() {
+	TS next_second() {
 		int add_sec = 1;
 		if (ticks() + G::delta_ticks >= TICKS_MASK){
 			add_sec += 1;
 		}
-		raw = (secs() + add_sec) << SECONDS_SHL;
-		return *this;
+		return TS(secs() + add_sec, 0);
 	}
 
 	static TS ts_quick;

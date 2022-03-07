@@ -474,7 +474,8 @@ class Transmitter {
 public:
 	Transmitter(const char* dev, int _sleep_us = 0) :
 		fp(::fopen_safe(dev)), sleep_us(_sleep_us)
-	{}
+	{
+	}
 	virtual ~Transmitter(){
 		fclose(fp);
 	}
