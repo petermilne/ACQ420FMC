@@ -10,6 +10,7 @@
 
 #define SECONDS_SHL	28
 #define SECONDS_MASK	0x7
+#define MIN_TAI		59				// > this value -> absolute time
 #define TICKS_MASK	0x0fffffff
 #define TS_EN		(1<<31)
 
@@ -34,7 +35,7 @@ struct TS {
 
 private:
 	void make_raw(unsigned _secs, unsigned _ticks, bool en=true) {
-		tai_s = _secs>SECONDS_MASK? _secs: 0;
+		tai_s = _secs>MIN_TAI? _secs: 0;
 		mask = 0;
 		raw = (_secs&SECONDS_MASK) << SECONDS_SHL | (_ticks&TICKS_MASK) | (en?TS_EN:0);
 	}
@@ -75,6 +76,7 @@ public:
 			ss += 1;
 		}
 		ss += dsecs;
+
 		return TS(ss, tt);
 	}
 	TS operator+ (unsigned dticks) {
