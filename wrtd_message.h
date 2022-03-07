@@ -132,22 +132,13 @@ class WrtdCaster : public TSCaster {
 		msg.hw_detect[0] = 'L';
 		msg.hw_detect[1] = 'X';
 		msg.hw_detect[2] = 'I';
-		msg.seq = ++*seq
+		msg.seq = ++*seq;
 
 	        mc.sendto(&msg, sizeof(msg));
 	        if (G::verbose) printLast();
 	}
-protected:
-	WrtdCaster(MultiCast& _mc, MessageFilter& filter) : TSCaster(_mc), seq(0), is_for_us(filter)
-	{
-		memset(&msg, 0, sizeof(msg));
-		if (G::tx_id){
-			strncpy((char*)msg.event_id, G::tx_id, WRTD_ID_LEN-1);
-		}else{
-			gethostname(hn, sizeof(hn));
-			snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
-		}
-		int fd = shm_open(shmpath, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+	void map_seq(void){
+		fd = shm_open("wrtd.seq", O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
 		if (fd == -1){
 			perror("shm_open");
 			exit(1);
@@ -156,11 +147,23 @@ protected:
 			perror("ftruncate");
 			exit(1);
 		}
-		seq = mmap(NULL, sizeof(uint32_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+		seq = (int*)mmap(NULL, sizeof(uint32_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 		if (seq == MAP_FAILED){
 			perror("mmap");
 			exit(1);
 		}
+	}
+protected:
+	WrtdCaster(MultiCast& _mc, MessageFilter& filter) : TSCaster(_mc), is_for_us(filter)
+	{
+		memset(&msg, 0, sizeof(msg));
+		if (G::tx_id){
+			strncpy((char*)msg.event_id, G::tx_id, WRTD_ID_LEN-1);
+		}else{
+			gethostname(hn, sizeof(hn));
+			snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
+		}
+		map_seq();
 	}
 	virtual ~WrtdCaster() {
 		close(fd);

@@ -273,12 +273,12 @@ mgtdram_descgen: 	mgtdram_descgen.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 wrtd: 	wrtd.o Multicast.o  knobs.o
-	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq -lrt
 	
 soft_wrtd: 	soft_wrtd.o Multicast.o  knobs.o
-	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq	
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt -lacq -lrt	
 	
-soft_wrtd_x86: 	soft_wrtd.cpp Multicast.cpp  knobs.cpp
+soft_wrtd_x86: 	soft_wrtd.cpp Multicast.cpp  knobs.cpp -lrt
 	$(CXX) -std=c++11 -O3 -o $@ $^ -lpopt
 	
 soft_wrtd_x86_clean: 
