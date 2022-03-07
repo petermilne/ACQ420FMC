@@ -120,8 +120,9 @@ MessageFilter& MessageFilter::factory() {
 }
 
 class WrtdCaster : public TSCaster {
-	int seq;
+	int* seq;
 	char hn[13];			// acq2106_[n]nnn
+	int fd;
 
 	MessageFilter& is_for_us;
 	struct wrtd_message msg;
@@ -131,7 +132,7 @@ class WrtdCaster : public TSCaster {
 		msg.hw_detect[0] = 'L';
 		msg.hw_detect[1] = 'X';
 		msg.hw_detect[2] = 'I';
-		msg.seq = seq++;
+		msg.seq = ++*seq
 
 	        mc.sendto(&msg, sizeof(msg));
 	        if (G::verbose) printLast();
@@ -146,6 +147,23 @@ protected:
 			gethostname(hn, sizeof(hn));
 			snprintf((char*)msg.event_id, WRTD_ID_LEN, "%s.%c", hn, '0');
 		}
+		int fd = shm_open(shmpath, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+		if (fd == -1){
+			perror("shm_open");
+			exit(1);
+		}
+		if (ftruncate(fd, sizeof(uint32_t)) == -1){
+			perror("ftruncate");
+			exit(1);
+		}
+		seq = mmap(NULL, sizeof(uint32_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+		if (seq == MAP_FAILED){
+			perror("mmap");
+			exit(1);
+		}
+	}
+	virtual ~WrtdCaster() {
+		close(fd);
 	}
 	friend class TSCaster;
 
