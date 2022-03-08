@@ -274,7 +274,7 @@ const char* ui(int argc, const char** argv)
 
 
 
-TS _adjust_ts(TS ts0)
+TS _adjust_ts(TS& ts0)
 {
 	int rem = ts0.ticks() % G::local_clkdiv;
 	unsigned ticks = ts0.ticks();
@@ -292,7 +292,7 @@ TS _adjust_ts(TS ts0)
 
 	return TS(ts0.secs(), ticks);
 }
-TS adjust_ts(TS ts0)
+TS adjust_ts(TS& ts0)
 {
 	if (ts0 != TS::ts_quick && (G::local_clkdiv > 1 || G::local_clkoffset != 0)){
 		return _adjust_ts(ts0);
@@ -324,7 +324,7 @@ protected:
 	char* report_fname;
 	char* report;
 
-	ACQ400Receiver(int _ntriggers = 2) :  ntriggers(_ntriggers), dms(G::dns/M1), report_fname(new char[80]), report(new char[128]) {
+	ACQ400Receiver(int _ntriggers = 2) :  ntriggers(_ntriggers), dms(G::dns/M1), report_fname(new char[80]), report(new char[256]) {
 		sprintf(report_fname, "/etc/acq400/%d/WRTD_REPORT", G::site);
 		fp_trg = new FILE* [ntriggers];
 		memset(fp_trg, 0, ntriggers*sizeof(FILE*));
@@ -332,7 +332,7 @@ protected:
 		fp_trg[1] = fopen_safe(DEV_TRG1, "w");
 		fp_cur = fopen_safe(DEV_CUR, "r");
 	}
-	virtual void onAction(TS ts, TS ts_adj){
+	virtual void onAction(TS& ts, TS& ts_adj){
 		if (G::verbose){
 			fprintf(stderr, "%s ts:%s ts_adj:%s mask:%x\n", PFN, ts.toStr(), ts_adj.toStr(), ts.mask);
 		}
@@ -349,8 +349,9 @@ protected:
 			_write_trg(fp_trg[G::trg], ts_adj);
 		}else{							/* DOUBLE TAP */
 			if (ts_adj != TS::ts_quick){
+				TS ts2 = ts + G::delay01;
 				_write_trg(fp_trg[0], ts_adj);
-				_write_trg(fp_trg[1], adjust_ts( ts + G::delay01));
+				_write_trg(fp_trg[1], adjust_ts(ts2));
 			}else{
 				_write_trg(fp_trg[0], TS_QUICK);
 				usleep(G::delay01*G::ns_per_tick/1000);
@@ -360,7 +361,7 @@ protected:
 
 	}
 
-	void deferredAction(TS ts, int nrx = 0)
+	void deferredAction(TS& ts, int nrx = 0)
 	{
 		if (fork() == 0){
 			/* read wr_wait, tick up to within 1s, call action() */
@@ -390,7 +391,8 @@ public:
 		delete [] report;
 		delete [] report_fname;
 	}
-	virtual void action(TS ts, int nrx = 0){
+	virtual void action(TS& ts, int nrx = 0){
+		if (G::verbose > 1) fprintf(stderr, "%s() TS:%s %08x\n", PFN, ts.toStr(), ts.raw);
 		if (ts.is_abs_tai()){
 			return deferredAction(ts, nrx);
 		}
@@ -401,7 +403,7 @@ public:
 
 		long dt = ts.diff(ts_cur);
 
-		snprintf(report, 128, "Receiver:%d nrx:%u cur:%s ts:%s adj:%s diff:%ld %s\n",
+		snprintf(report, 256, "Receiver:%d nrx:%u cur:%s ts:%s adj:%s diff:%ld %s\n",
 				G::trg, nrx, ts_cur.toStr(), ts.toStr(), ts_adj.toStr(), dt, dt<0? "ERROR": "OK");
 
 		FILE *fp_report = fopen(report_fname, "w");
@@ -570,6 +572,7 @@ protected:
 	{
 		unsigned tai_sec = getvalue<unsigned>(DEV_TAI, "r") + 1; // round up to next second
 
+		// @todo .. added 1 twice ..
 		return TS(tai_sec+1+sec, ns/G::ns_per_tick);
 	}
 

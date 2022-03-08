@@ -212,7 +212,8 @@ protected:
 					TS ts(msg.ts_sec, msg.ts_ns/G::ns_per_tick);
 					ts.mask = msg.event_id[IMASK()];
 					if (G::verbose){
-						fprintf(stderr, "%s TS TIME ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
+						fprintf(stderr, "%s TS TIME ts:%s mask:%x tai_s:%u\n",
+								PFN, ts.toStr(), ts.mask, ts.tai_s);
 					}
 					return ts;
 				}
@@ -244,10 +245,10 @@ public:
 	{}
 	virtual ~Receiver()
 	{}
-	virtual void onAction(TS ts, TS ts_adj)
+	virtual void onAction(TS& ts, TS& ts_adj)
 	{}
 
-	virtual void action(TS ts, int nrx = 0) {
+	virtual void action(TS& ts, int nrx = 0) {
 		fprintf(stderr, "%s ts:%s mask:%x\n", PFN, ts.toStr(), ts.mask);
 	}
 	virtual int event_loop(TSCaster& comms) {

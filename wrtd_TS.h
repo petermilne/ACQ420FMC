@@ -48,8 +48,11 @@ private:
 public:
 	unsigned tai_s;			/* if non-zero, we have an absolute TS */
 	unsigned raw;
-	char repr[16];
+	char repr[32];
 	unsigned char mask;		/* possible, multiple receivers */
+
+	TS(const TS& ts) : tai_s(ts.tai_s), raw(ts.raw), mask(ts.mask)
+	{}
 
 	TS(unsigned _raw = 0): tai_s(0), raw(_raw), mask(0)
 	{}
@@ -108,7 +111,7 @@ public:
 	}
 
 	const char* toStr(void) {
-		sprintf(repr, "%d:%07d", secs(), ticks());
+		snprintf(repr, 32, "%d:%07d m:%02x", secs(), ticks(), mask);
 		return repr;
 	}
 	static int do_ts_diff(const char* _ts1, const char* _ts2){
