@@ -537,9 +537,9 @@ build_site0() {
 	    if [ -e ${dk}/has_axi_dma_stack ] && [ $(cat ${dk}/has_axi_dma_stack) != "0" ]; then
 	       ln -s /usr/local/CARE/stack_480 /etc/acq400/0
 	    fi 
-	    ln -s /usr/local/CARE/LLC_instrument_latency ${ek}
+	    ln -s /usr/local/CARE/LLC_instrument_latency ${ek};;
 	z7io)
-		/usr/local/bin/load.cpld_spi_overlay;;
+		/usr/local/init/z7io_late_init;;
 	esac
 }
 
