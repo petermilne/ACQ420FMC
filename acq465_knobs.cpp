@@ -585,7 +585,7 @@ public:
 			if (regval >= 256){
 				return -2;
 			}
-			if (G::verbose){
+			if (G_verbose){
 				printf("%02x:=%04x", reg, regval); PRSEP;
 			}
 			module.cache()[reg] = regval;
