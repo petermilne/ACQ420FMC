@@ -585,6 +585,9 @@ public:
 			if (regval >= 256){
 				return -2;
 			}
+			if (G::verbose){
+				printf("%02x:=%04x", reg, regval); PRSEP;
+			}
 			module.cache()[reg] = regval;
 			return COMMAND_FLUSH;
 		}
@@ -652,10 +655,13 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 				int rc = command(*this, argc, arg0);
 				switch(rc){
 				default:
+					fprintf(stderr, "ERROR:%d\n", rc);
+					return -1;
 				case COMMAND_OK:
 					break;
 				case COMMAND_FLUSH:
 					flush();
+					break;
 				case COMMAND_QUIT:
 					return 0;
 				}
