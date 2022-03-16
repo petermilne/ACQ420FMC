@@ -17,6 +17,8 @@ args="$args -t1"
 
 export SITE=${SITE:-1}
 
+echo "++ acq465_adc.init SITE:$SITE 01"
+
 reset=${2:-1}
 
 acq465_reg() {
@@ -89,7 +91,7 @@ acq465_reg 0x42
 
 echo
 
-
+echo "++ acq465_adc.init SITE:$SITE 99"
 # MCLK Monitor
 #echo -e "\n"
 #acq465_mclkmon

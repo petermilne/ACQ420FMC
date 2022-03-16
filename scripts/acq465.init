@@ -48,8 +48,6 @@ grep acq465 /proc/devices | build_nodes
 
 acq465_knobs makeLinks >/tmp/makeLinks
 
-(cd /usr/local/bin; /tmp/makeLinks)
-
 cat - >/tmp/acq465_init.job <<EOF
 #!/bin/sh
 while [ ! -e  /var/www/d-tacq/rc-user-complete ]; do
@@ -61,7 +59,7 @@ EOF
 for site in $*; do	
 	ek=/etc/acq400/${site}	
 	dk=/dev/acq400.${site}.knobs
-	
+
 	rm $ek/data32
 	cat - >$ek/data32 <<EOF
 #!/bin/sh

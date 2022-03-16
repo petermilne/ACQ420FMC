@@ -243,6 +243,11 @@ const unsigned char Acq465ELF::cmap[8][4] = {
 
 
 
+enum {
+	COMMAND_OK = 0,
+	COMMAND_FLUSH = 1,
+	COMMAND_QUIT = 2,
+};
 struct Command {
 	const char* cmd;
 	const char* args_help;
@@ -273,8 +278,7 @@ public:
 		for (VCI it = module.commands.begin(); it != module.commands.end(); ++it){
 			printf("%s\n", (*it)->help());
 		}
-		exit(0);	// so that --all doesn't force a repeat 8x!
-		return 0;
+		return COMMAND_QUIT;
 	}
 };
 
@@ -289,7 +293,7 @@ public:
 				printf("ln -s %s acq465_%s\n", "/usr/local/bin/acq465_knobs", (*it)->cmd);
 			}
 		}
-		return 0;
+		return COMMAND_QUIT;
 	}
 };
 class ResetCommand: public Command {
@@ -337,9 +341,9 @@ public:
 			printf("%02d=%d\n", ch, ad7134->gain(chx));
 		}else{
 			ad7134->gain(chx, strtol(argv[2], 0, 0));
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -364,9 +368,9 @@ public:
 			printf("%02d=%d\n", ch, ad7134->offset(chx));
 		}else{
 			ad7134->offset(chx, strtol(argv[2], 0, 0));
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -390,9 +394,9 @@ public:
 			reg |= sel;
 
 			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -421,9 +425,9 @@ public:
 			reg |= sel << 4;
 
 			module.cache()[Ad7134::DIGITAL_INTERFACE_CONFIG] = reg;
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -453,13 +457,13 @@ public:
 			unsigned sel = argv[1][0] - '0';
 			reg = sel | sel<<2 | sel<<4 | sel<<6;
 			module.cache()[Ad7134::CHAN_DIG_FILTER_SEL] = reg;
-			return 1;
+			return COMMAND_FLUSH;
 		}else{
 			reg = strtoul(argv[1], 0, 16);
 			module.cache()[Ad7134::CHAN_DIG_FILTER_SEL] = reg;
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 
 };
@@ -477,9 +481,9 @@ public:
 			double odr = strtod(argv[1], 0);
 			double dr = MCLK/odr;
 			module.chip()->ODR(dr);
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -515,7 +519,7 @@ public:
 			}
 		}
 
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -541,7 +545,7 @@ public:
 			exit(rc);
 		}
 		printf("MCLK: chip=%c count=%u freq=%.3e\n", module.lcs+'A', mcm.count, (double)mcm.count*12000/sec);
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -582,9 +586,9 @@ public:
 				return -2;
 			}
 			module.cache()[reg] = regval;
-			return 1;
+			return COMMAND_FLUSH;
 		}
-		return 0;
+		return COMMAND_OK;
 	}
 };
 
@@ -645,12 +649,16 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 		if (strcmp(verb, command.cmd) == 0){
 			for (const char* cursor = chips; *cursor; ++cursor){
 				lcs = *cursor - 'A';
-				if (command(*this, argc, arg0) > 0){
+				int rc = command(*this, argc, arg0);
+				switch(rc){
+				default:
+				case COMMAND_OK:
+					break;
+				case COMMAND_FLUSH:
 					flush();
+				case COMMAND_QUIT:
+					return 0;
 				}
-			}
-			if (G_terse){
-
 			}
 			return 0;
 		}
