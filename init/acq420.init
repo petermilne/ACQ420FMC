@@ -1017,8 +1017,6 @@ esac
 
 start_knob_services
 
-ls -l /etc/acq400/0/sync_out_cable_det
-
 [ -e /tmp/acq420.init-postpowerup-action ] && 
 	source /tmp/acq420.init-postpowerup-action
 
