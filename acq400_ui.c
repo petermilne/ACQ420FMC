@@ -44,6 +44,11 @@ int defer_stream_dac_task_init = 1;
 module_param(defer_stream_dac_task_init, int, 0644);
 MODULE_PARM_DESC(defer_stream_dac_task_init, "delay starting stream_dac task until we have data in buffer");
 
+
+int subrate_wr_timing = 0;
+module_param(subrate_wr_timing, int, 0644);
+MODULE_PARM_DESC(subrate_wr_timing, "set true for WR_TAI timing, else use ADC SAMPLE COUNT");
+
 int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
@@ -1294,22 +1299,155 @@ ssize_t acq400_nacc_subrate_read(
 
 #define SUBRATE_TO_MS 10
 
+#define MAX_DESC	(6+2)
+#define PD_GATHER_DESC(pdesc) (pdesc->client_private)
 
 
+void acq400_sc_nacc_service(unsigned *lbuf, struct GatherDesc* gd0, int imax)
+{
+	struct GatherDesc *gd = gd0;
+
+	for (gd = gd0; gd-gd0 < imax; ++gd){
+		unsigned *ubuf = lbuf + gd->dst_idx;
+		struct acq400_dev *sdev = gd->adev;
+		unsigned imax = gd->n32;
+		unsigned ii;
+		for (ii = 0; ii < imax; ++ii){
+			ubuf[ii] = acq400rd32(sdev, gd->src_off+ii);
+		}
+	}
+}
+
+ssize_t acq400_sc_nacc_subrate_read(
+	struct file *file, char *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct GatherDesc *gd = (struct GatherDesc *)PD_GATHER_DESC(pdesc);
+	int idesc;
+	int n32 = 0;
+	size_t ss;
+	ssize_t rc;
+	for (idesc = MAX_DESC-1; idesc >= 0; --idesc){
+		if (gd[idesc].adev){
+			n32 = gd[idesc].dst_idx + gd[idesc].n32;
+			break;
+		}
+	}
+	ss = n32 * sizeof(unsigned);
+
+	if (count != ss){
+		if (count < ss){
+			dev_err(DEVP(adev), "ERROR: count %d less than ss %d", count, ss);
+			return -1;
+		}
+		if (count > ss){
+			if (*f_pos == 0){
+				dev_warn(DEVP(adev), "ERROR: count %d not a multiple of ss %d", count, ss);
+			}
+			count = ss;
+		}
+	}
+	acq400_sc_nacc_service((unsigned*)pdesc->lbuf, gd, idesc+1);
+
+	rc = copy_to_user(buf, pdesc->lbuf, count);
+
+	if (rc){
+		return -1;
+	}
+	*f_pos += count;
+	return count;
+}
 
 int acq400_subrate_release(struct inode *inode, struct file *file)
 {
 	return acq400_release(inode, file);
 }
+
+int acq400_sc_nacc_subrate_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	kfree((void*)PD_GATHER_DESC(pdesc));
+	return acq400_release(inode, file);
+}
+
+int _acq400_nacc_subrate_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+
+int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = ACQ400_DEV(file);
+	struct acq400_sc_dev* sc_dev = container_of(adev, struct acq400_sc_dev, adev);
+	struct GatherDesc* gd = kzalloc(MAX_DESC*sizeof(struct GatherDesc), GFP_KERNEL);
+	struct GatherDesc* gd0 = gd;
+	int idev = 0;
+	unsigned dst_idx = 0;
+
+	if (subrate_wr_timing){
+		struct GatherDesc tmp = {
+			.adev = adev,
+			.src_off = WR_CUR_VERNR,
+			.n32 = 1,
+			.dst_idx = dst_idx
+		};
+		dst_idx += 1;
+		*gd++ = tmp;
+	}else{
+		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
+		struct GatherDesc tmp = {
+			.adev = slave,
+			.src_off = ADC_SAMPLE_CTR,
+			.n32 = 1,
+			.dst_idx = dst_idx
+		};
+		dst_idx += 1;
+		*gd++ = tmp;
+	}
+
+	for (idev = 0; idev < MAXDEVICES; ++idev){
+		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
+		if (!slave){
+			break;
+		}else{
+			unsigned n32 = adev->nchan_enabled >> adev->data32;
+			struct GatherDesc tmp = {
+				.adev = slave,
+				.src_off = ADC_SAMPLE_CTR,
+				.n32 = n32,
+				.dst_idx = dst_idx
+			};
+			dst_idx += n32;
+			*gd++ = tmp;
+		}
+	}
+	*gd = *gd0; gd->dst_idx = dst_idx;
+	PD_GATHER_DESC(pdesc) = (unsigned)gd0;
+	return 0;
+}
 int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
 {
+	struct acq400_dev* adev = ACQ400_DEV(file);
 	static struct file_operations acq400_fops_subrate = {
-
+		.open = _acq400_nacc_subrate_open,
 		.read = acq400_nacc_subrate_read,
 		.release = acq400_subrate_release
 	};
-	file->f_op = &acq400_fops_subrate;
-	return 0;
+	static struct file_operations acq400_sc_fops_subrate = {
+		.open = acq400_sc_nacc_subrate_open,
+		.read = acq400_sc_nacc_subrate_read,
+		.release = acq400_subrate_release
+	};
+
+	if (IS_SC(adev)){
+		file->f_op = &acq400_sc_fops_subrate;
+	}else{
+		file->f_op = &acq400_fops_subrate;
+	}
+	return file->f_op->open(inode, file);
 }
 
 

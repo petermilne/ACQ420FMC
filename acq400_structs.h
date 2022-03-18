@@ -131,6 +131,13 @@ struct Subrate {
 	int raw[SITE_MAX_AI];		/** latest raw value (could/should be DMA @@todo) */
 };
 
+struct GatherDesc {
+	struct acq400_dev* adev;
+	unsigned src_off;   /* source offset, bytes */
+	unsigned n32;
+	unsigned dst_idx;   /* dest, longs */
+};
+
 /** acq400_dev one descriptor per device */
 struct acq400_dev {
 	dev_t devno;
