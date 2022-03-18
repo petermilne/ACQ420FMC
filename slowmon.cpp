@@ -21,7 +21,7 @@
 namespace G {
 	unsigned usec = 250000;
 	FILE* fp;
-	unsigned ndata = 64+8;
+	unsigned ndata = 64+4;
 	short *data;
 }
 void onSample(int sig)
