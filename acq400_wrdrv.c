@@ -448,23 +448,23 @@ int acq400_wr_open(struct inode *inode, struct file *file)
 
 	switch(pdesc->minor){
 	case ACQ400_MINOR_WR_CUR:
-		PD_REG(pdesc) = WR_CUR_VERNR; 	break;
-	case ACQ400_MINOR_WR_CUR_TRG0:
-		PD_REG(pdesc) =  WR_TAI_TRG0; 	break;
-	case ACQ400_MINOR_WR_CUR_TRG1:
-		PD_REG(pdesc) =  WR_TAI_TRG1; 	break;
-	default:
-		PD_REG(pdesc) =  WR_TAI_CUR_L;
-	}
-	switch(PD(file)->minor){
-	case ACQ400_MINOR_WR_CUR:
+		PD_REG(pdesc) = WR_CUR_VERNR;
+		file->f_op = &acq400_fops_wr_cur;
+		break;
 	case ACQ400_MINOR_WR_CUR_TAI:
-		dev_dbg(DEVP(ACQ400_DEV(file)), "acq400_wr_open() %d minor %d ", __LINE__, PD(file)->minor);
+		PD_REG(pdesc) =  WR_TAI_CUR_L;
+		file->f_op = &acq400_fops_wr_cur;
+		break;
+	case ACQ400_MINOR_ADC_SAMPLE_COUNT:
+		PD_REG(pdesc) = ADC_SAMPLE_CTR;
 		file->f_op = &acq400_fops_wr_cur;
 		break;
 	case ACQ400_MINOR_WR_CUR_TRG0:
+		PD_REG(pdesc) =  WR_TAI_TRG0;
+		file->f_op = &acq400_fops_wr_trg;
+		break;
 	case ACQ400_MINOR_WR_CUR_TRG1:
-		dev_dbg(DEVP(ACQ400_DEV(file)), "acq400_wr_open() %d minor %d ", __LINE__, PD(file)->minor);
+		PD_REG(pdesc) =  WR_TAI_TRG1;
 		file->f_op = &acq400_fops_wr_trg;
 		break;
 	default:

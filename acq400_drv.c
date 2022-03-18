@@ -24,7 +24,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.674"
+#define REVID 			"3.675"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -2268,12 +2268,7 @@ static struct acq400_dev* _acq400_init_dev(struct acq400_dev* adev)
 
 void acq400_subrate_init(struct Subrate* subrate)
 {
-	subrate->nmax = subrate_nmax;;
-	for (; (1<<subrate->shr) < subrate->nmax; ++subrate->shr)
-		;
-	init_waitqueue_head(&subrate->sr_waitq);
-	init_waitqueue_head(&subrate->sr_tq);
-	/* timer init */
+
 }
 static struct acq400_dev*
 acq400_allocate_module_device(struct acq400_dev* adev)
