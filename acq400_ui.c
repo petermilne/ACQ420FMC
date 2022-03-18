@@ -1296,10 +1296,10 @@ ssize_t acq400_nacc_subrate_read(
 			return -1;
 		}
 		if (count > ss){
-			count = ss;
 			if (*f_pos == 0){
 				dev_warn(DEVP(adev), "ERROR: count %d not a multiple of ss %d", count, ss);
 			}
+			count = ss;
 		}
 	}
 	if (wait_event_interruptible(subrate->sr_waitq, subrate->sr_result_ready)){
