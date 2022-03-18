@@ -21,7 +21,7 @@
 namespace G {
 	unsigned usec = 250000;
 	FILE* fp;
-	unsigned ndata = 32;
+	unsigned ndata = 64+8;
 	short *data;
 }
 void onSample(int sig)
@@ -37,7 +37,7 @@ void onSample(int sig)
 void init(int argc, const char* argv[])
 {
 	G::data = new short[G::ndata];
-	G::fp = fopen("/dev/acq400.1.subr", "r");
+	G::fp = fopen("/dev/acq400.0.subr", "r");
 }
 
 int main(int argc, const char* argv[])
