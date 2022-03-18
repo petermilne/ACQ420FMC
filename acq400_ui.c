@@ -1281,6 +1281,7 @@ ssize_t acq400_nacc_subrate_read(
 			count = ss;
 		}
 	}
+	acq400_nacc_service(adev);
 	rc = copy_to_user(buf, subrate->raw, count);
 
 	if (rc){
