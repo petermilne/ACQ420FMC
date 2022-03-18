@@ -1410,9 +1410,9 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 
 	for (idev = 0; idev < MAXDEVICES; ++idev){
 		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
-		dev_dbg(DEVP(adev), "%s idev:%d slave:%p dst_idx %d", __FUNCTION__, idev, slave, dst_idx);
+		dev_dbg(DEVP(adev), "%s idev:%d slave:%s dst_idx %d", __FUNCTION__, idev, slave? slave->site_no: "x", dst_idx);
 		if (slave){
-			unsigned n32 = adev->nchan_enabled >> adev->data32;
+			unsigned n32 = slave->nchan_enabled >> (slave->data32? 0: 1);
 			struct GatherDesc tmp = {
 				.adev = slave,
 				.src_off = ADC_SAMPLE_CTR,
@@ -1424,7 +1424,6 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 		}else{
 			break;
 		}
-		dev_dbg(DEVP(adev), "%s idev:%d slave:%p dst_idx %d", __FUNCTION__, idev, slave, dst_idx);
 	}
 	*gd = *gd0; gd->dst_idx = dst_idx;
 	PD_GATHER_DESC(pdesc) = (unsigned)gd0;
