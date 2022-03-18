@@ -1244,22 +1244,23 @@ int acq400_bq_open(struct inode *inode, struct file *file, int backlog)
 	return 0;
 }
 
-int acq400_nacc_service(struct acq400_dev* adev)
+int acq400_nacc_service(struct acq400_dev* adev, struct Subrate* subrate)
 {
-	struct ADC_dev *adc_dev = container_of(adev, struct ADC_dev, adev);
-	struct Subrate* subrate = &adc_dev->subrate;
-	int ii;
 	int imax = adev->nchan_enabled;
+	int ii;
+
 	if (!adev->data32){
 		imax >>= 1;
 	}
+	adev->RW32_debug = 1;
 	for (ii = 0; ii < imax; ++ii){
 		subrate->raw[ii] = acq400rd32(adev, ADC_NACC_SAMPLES+ii);
 	}
+	adev->RW32_debug = 0;
 	return 0;
 }
 
-/** @todo .. direct read, no timer yet, no block */
+/** keep it simple: read one sample, no block */
 ssize_t acq400_nacc_subrate_read(
 	struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
@@ -1281,7 +1282,7 @@ ssize_t acq400_nacc_subrate_read(
 			count = ss;
 		}
 	}
-	acq400_nacc_service(adev);
+	acq400_nacc_service(adev, subrate);
 	rc = copy_to_user(buf, subrate->raw, count);
 
 	if (rc){

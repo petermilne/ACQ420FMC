@@ -84,7 +84,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	soft_atd \
 	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
-	channel_mapping
+	channel_mapping slowmon
 	
 # data_sink	
 # dropped
@@ -288,6 +288,9 @@ multicast: 	multicast.o Multicast.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 		
 trigger_at: trigger_at.o knobs.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
+	
+slowmon: slowmon.o knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ -L../lib -lpopt
 			
 rtpackage:
