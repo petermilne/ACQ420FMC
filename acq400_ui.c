@@ -1415,7 +1415,7 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 			unsigned n32 = slave->nchan_enabled >> (slave->data32? 0: 1);
 			struct GatherDesc tmp = {
 				.adev = slave,
-				.src_off = ADC_SAMPLE_CTR,
+				.src_off = ADC_NACC_SAMPLES,
 				.n32 = n32,
 				.dst_idx = dst_idx
 			};
