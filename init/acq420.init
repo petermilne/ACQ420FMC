@@ -484,6 +484,8 @@ build_site0() {
 	ln -s $1 ${dk}
 	web_append acq400.0 0
 	echo 0 > /dev/shm/state; fix_state
+	echo 1 > $ek/slowmon_fs
+	echo 1 > $ek/slowmon_fin
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
 		${dk}/soft_trigger ${dk}/bufferlen ${ek}
