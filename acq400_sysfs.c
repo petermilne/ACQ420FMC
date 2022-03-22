@@ -2110,8 +2110,8 @@ static ssize_t show_nacc(
 				getSHL(ADC_ACC_DEC_SHIFT_MASK);
 	unsigned start = (acc_dec&ADC_ACC_DEC_START_MASK)>>
 				getSHL(ADC_ACC_DEC_START_MASK);
-	unsigned prescale = (acc_dec&ADC_ACC_DEC_PRESCALE_MASK)>>
-				getSHL(ADC_ACC_DEC_PRESCALE_MASK);
+	unsigned ps_shl = (acc_dec&ADC_ACC_DEC_PRESCALE_MASK)>>getSHL(ADC_ACC_DEC_PRESCALE_MASK);
+	unsigned prescale =  1 << ps_shl;
 	return sprintf(buf, "%u,%u,%u,%u\n",
 			(acc_dec&ADC_ACC_DEC_LEN)+1, shift, start, prescale);
 }
@@ -2132,6 +2132,7 @@ static ssize_t store_nacc(
 		u32 acdc = 0;
 
 		if (nacc > 0){
+			unsigned ps_shl = 0;
 			nacc = min(nacc, ADC_MAX_NACC);
 			start = min(start,nacc-1);
 
@@ -2143,12 +2144,17 @@ static ssize_t store_nacc(
 				}
 				start = nacc - (1<<shift);
 			}
+
+			for (prescale = min(prescale, 128U); (1<<ps_shl) < prescale; ++ps_shl){
+				;
+			}
+
 			shift = min(shift, ADC_ACC_DEC_SHIFT_MAX);
 
 			acdc = nacc-1;
 			acdc |= shift<<getSHL(ADC_ACC_DEC_SHIFT_MASK);
 			acdc |= start<<getSHL(ADC_ACC_DEC_START_MASK);
-			acdc |= prescale<<getSHL(ADC_ACC_DEC_PRESCALE_MASK);
+			acdc |= ps_shl<<getSHL(ADC_ACC_DEC_PRESCALE_MASK);
 		}
 		acq400wr32(adev, ADC_ACC_DEC, acdc);
 		return count;
