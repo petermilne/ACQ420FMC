@@ -452,8 +452,8 @@ public:
 		vector<string>* peer_names = new vector<string>();
 
 		if (hasPeers(knob)){
-			VPRINTF("fillPeerNames() %d\n", peer_names->size());
 			fillPeerNames(peer_names, knob);
+			VPRINTF("fillPeerNames() %s %d\n", knob.c_str(), peer_names->size());
 		}
 		return peer_names;
 	}
