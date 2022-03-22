@@ -44,6 +44,7 @@ What does acq400_knobs do?.
 #include <dirent.h>
 #include <errno.h>
 #include <fnmatch.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -315,6 +316,7 @@ public:
 class KnobX : public Knob {
 	int runcmd(const char* cmd, char* buf, int maxbuf);
 	char attr[4];
+	const int site;
 protected:
 	virtual int _set(char* buf, int maxbuf, const char* args) {
 		if (!isValid(buf, maxbuf, args)){
@@ -323,6 +325,7 @@ protected:
 		int maxlen = strlen(name) + strlen(args) + 1;
 		if (maxlen < 128){
 			char cmd[128];
+			VPRINTF("%s SITE:%s cmd:%s\n", __FUNCTION__, getenv("SITE"), cmd);
 			snprintf(cmd, 128, "%s %s", name, args);
 			return runcmd(cmd, buf, maxbuf);
 		}else{
@@ -334,8 +337,22 @@ protected:
 		}
 
 	}
+	static int get_site(const char* _name) {
+		char _nn[128];
+		strncpy(_nn, _name, 128);
+		char* ss = basename(dirname(_nn));
+		if (strlen(ss) > 0 && strlen(ss) <= 2){
+			for (char* pc = ss; *pc; ++pc){
+				if (!isalnum(*pc)){
+					return 0;
+				}
+			}
+			return atoi(ss);
+		}
+		return 0;
+	}
 public:
-	KnobX(const char* _name) : Knob(_name) {
+	KnobX(const char* _name) : Knob(_name), site(get_site(_name)) {
 		struct stat sb;
 		int ic = 0; attr[ic] = '\0';
 		if (stat(name, &sb) != -1){
@@ -347,6 +364,8 @@ public:
 				fprintf(stderr, "ERROR: KnobX \"%s\" is not executable\n", _name);
 			}
 			attr[ic] = '\0';
+
+			VPRINTF("%s %s\n", __FUNCTION__, name);
 		}else{
 			fprintf(stderr, "ERROR: KnobX \"%s\" does not exist\n", _name);
 		}
@@ -364,6 +383,12 @@ public:
 };
 
 int KnobX::runcmd(const char* cmd, char* buf, int maxbuf){
+	char cmd2[128];
+	if (site){
+		snprintf(cmd2, 128, "SITE=%d %s", site, cmd);
+		cmd = cmd2;
+		VPRINTF("%s cmd %s\n", __FUNCTION__, cmd);
+	}
 	Pipe knob(cmd, "r");
 	if (knob.fp == NULL) {
 		return -snprintf(buf, maxbuf,
