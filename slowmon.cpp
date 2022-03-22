@@ -81,7 +81,7 @@ void ui()
 
 	getKnob(0, "/etc/acq400/0/slowmon_fs", &fs);
 	getKnob(0, "/etc/acq400/0/slowmon_fin", &fin);
-	G::nacc = fs/fin;
+	G::nacc = fin/fs;
 	usec = 1000000/fs;
 
 	if (usec != G::usec){
