@@ -49,6 +49,7 @@ public:
 
 		SCRATCHPAD = 0x0a,	// 1 byte
 
+		DEVICE_STATUS = 0x15,	 // 1 byte
 		ODR_VAL_INT_LSB = 0x16,	 // 3 bytes
 		ODR_VAL_FLT_LSB = 0x19,  // 4 bytes
 
@@ -62,6 +63,8 @@ public:
 		CH2_OFFSET_LSB 	= 0x36,  // 3 bytes
 		CH3_GAIN_LSB 	= 0x39,  // 3 bytes
 		CH3_OFFSET_LSB 	= 0x3c,  // 3 bytes
+		INTERNAL_ERROR  = 0x42,  // 1 byte
+		AIN_OR_ERROR    = 0x48   // 1 byte
 	};
 
 	static const unsigned char ch_gain_lut[4];
@@ -595,6 +598,37 @@ public:
 	}
 };
 
+class DeviceStatusQuery: public Command {
+public:
+	DeviceStatusQuery():
+		Command("status", "read from cache readall first..") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		printf("%x", module.cache()[Ad7134::DEVICE_STATUS]);
+		return COMMAND_OK;
+	}
+};
+
+class InternalErrorQuery: public Command {
+public:
+	InternalErrorQuery():
+		Command("error", "read from cache readall first..") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		printf("%x", module.cache()[Ad7134::INTERNAL_ERROR]);
+		return COMMAND_OK;
+	}
+};
+
+class OvervoltageQuery: public Command {
+public:
+	OvervoltageQuery():
+		Command("overvoltage", "read from cache readall first..") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		unsigned reg = module.cache()[Ad7134::AIN_OR_ERROR];
+		printf("%d %d %d %d", reg&0x1, reg&0x2, reg&0x4, reg&0x8);
+		return COMMAND_OK;
+	}
+};
+
 struct CompareCommands {
 	bool operator() (Command* a, Command *b) {
 		return strcmp(a->cmd, b->cmd) < 0;
@@ -619,6 +653,10 @@ void Acq465ELF::init_commands()
 
 	commands.push_back(new HelpCommand);
 	commands.push_back(new MakeLinksCommand);
+
+	commands.push_back(new DeviceStatusQuery);
+	commands.push_back(new InternalErrorQuery);
+	commands.push_back(new OvervoltageQuery);
 	std::sort(commands.begin(), commands.end(), compareCommands);
 }
 
