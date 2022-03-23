@@ -313,7 +313,9 @@ public:
 	ReadAllCommand() : Command("readall", "readall") {}
 
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
-		return module.invalidate();
+		int rc = module.invalidate();
+		printf("%d ", rc);
+		return rc;
 	}
 };
 class FlushCommand: public Command {
