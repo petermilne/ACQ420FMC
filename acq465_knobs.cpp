@@ -603,7 +603,7 @@ public:
 	DeviceStatusQuery():
 		Command("status", "read from cache readall first..") {}
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
-		printf("%x", module.cache()[Ad7134::DEVICE_STATUS]);
+		printf("%x ", module.cache()[Ad7134::DEVICE_STATUS]);
 		return COMMAND_OK;
 	}
 };
@@ -613,7 +613,7 @@ public:
 	InternalErrorQuery():
 		Command("error", "read from cache readall first..") {}
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
-		printf("%x", module.cache()[Ad7134::INTERNAL_ERROR]);
+		printf("%x ", module.cache()[Ad7134::INTERNAL_ERROR]);
 		return COMMAND_OK;
 	}
 };
@@ -624,7 +624,7 @@ public:
 		Command("overvoltage", "read from cache readall first..") {}
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		unsigned reg = module.cache()[Ad7134::AIN_OR_ERROR];
-		printf("%d %d %d %d", reg&0x1, reg&0x2, reg&0x4, reg&0x8);
+		printf("%d %d %d %d ", reg&0x1, reg&0x2, reg&0x4, reg&0x8);
 		return COMMAND_OK;
 	}
 };
