@@ -77,9 +77,9 @@ public:
 	void offset(unsigned ch, int offset) {
 		assert(ch >=0 && ch < 4);
 
-		regs[ch_offset_lut[ch]+0] =   offset	 & 0x00ff;
-		regs[ch_offset_lut[ch]+1] =  (offset>>=8)& 0x00ff;
-		regs[ch_offset_lut[ch]+2] = ((offset>>=8)& 0x007f) | 1<<7;
+		regs[ch_offset_lut[ch]+0] =   offset	 & 0x00ff;		// LSB
+		regs[ch_offset_lut[ch]+1] =  (offset>>=8)& 0x00ff;              // MID
+		regs[ch_offset_lut[ch]+2] = ((offset>>=8)& 0x007f) | 1<<7;      // MSB+CAL_EN
 	}
 	int offset(unsigned ch) {
 		assert(ch >=0 && ch < 4);
@@ -95,9 +95,9 @@ public:
 	void gain(unsigned ch, int gain) {
 		assert(ch >=0 && ch < 4);
 
-		regs[ch_gain_lut[ch]+0] =   gain     & 0x00ff;
-		regs[ch_gain_lut[ch]+1] =  (gain>>=8)& 0x00ff;
-		regs[ch_gain_lut[ch]+2] = ((gain>>=8)& 0x000f) | 1<<4;
+		regs[ch_gain_lut[ch]+0] =   gain     & 0x00ff;          // LSB
+		regs[ch_gain_lut[ch]+1] =  (gain>>=8)& 0x00ff;          // MID
+		regs[ch_gain_lut[ch]+2] = ((gain>>=8)& 0x000f) | 1<<4;  // MSB+CAL_EN
 	}
 	int gain(unsigned ch) {
 		assert(ch >=0 && ch < 4);
