@@ -63,6 +63,7 @@ public:
 		CH2_OFFSET_LSB 	= 0x36,  // 3 bytes
 		CH3_GAIN_LSB 	= 0x39,  // 3 bytes
 		CH3_OFFSET_LSB 	= 0x3c,  // 3 bytes
+		MCLK_COUNTER    = 0x3f,  // 1 byte
 		INTERNAL_ERROR  = 0x42,  // 1 byte
 		AIN_OR_ERROR    = 0x48   // 1 byte
 	};
@@ -626,7 +627,17 @@ public:
 		Command("overvoltage", "read from cache readall first..") {}
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		unsigned reg = module.cache()[Ad7134::AIN_OR_ERROR];
-		printf("%d %d %d %d ", reg&0x1, reg&0x2, reg&0x4, reg&0x8);
+		printf("%d %d %d %d ", (reg&0x1)!=0, (reg&0x2)!=0, (reg&0x4)!=0, (reg&0x8)!=0);
+		return COMMAND_OK;
+	}
+};
+
+class HeartbeatQuery: public Command {
+public:
+	HeartbeatQuery():
+		Command("heartbeat", "read from cache readall first..") {}
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		printf("%u ", module.cache()[Ad7134::MCLK_COUNTER]);
 		return COMMAND_OK;
 	}
 };
@@ -659,6 +670,7 @@ void Acq465ELF::init_commands()
 	commands.push_back(new DeviceStatusQuery);
 	commands.push_back(new InternalErrorQuery);
 	commands.push_back(new OvervoltageQuery);
+	commands.push_back(new HeartbeatQuery);
 	std::sort(commands.begin(), commands.end(), compareCommands);
 }
 
