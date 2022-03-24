@@ -42,8 +42,9 @@ struct Command;
 
 
 class Ad7134 {
-	unsigned char* regs;
 public:
+	unsigned char* regs;
+
 	enum REGS {
 		DIGITAL_INTERFACE_CONFIG = 0x12,
 
@@ -145,7 +146,7 @@ class Acq465ELF {
 public:
 	FILE* fp;
 	int site;
-	unsigned lcs;
+	unsigned lcs;				// local chip select
 	const char* chips;
 
 	Acq465ELF(int _site, const char* _chips) : site(_site), chips(_chips)
@@ -246,8 +247,8 @@ const unsigned char Acq465ELF::cmap[8][4] = {
 };
 
 
-
-enum {
+enum COMMAND {
+	COMMAND_ERR = -1,
 	COMMAND_OK = 0,
 	COMMAND_FLUSH = 1,
 	COMMAND_QUIT = 2,
@@ -255,13 +256,14 @@ enum {
 struct Command {
 	const char* cmd;
 	const char* args_help;
+	bool isChannelCommand;
 
 	char* _help;
 	virtual int operator() (class Acq465ELF& module, int argc, const char** argv) = 0;
 	/* return > 0 if flush recommended */
 
 	Command(const char* _cmd, const char* _args_help = "") :
-		cmd(_cmd), args_help(_args_help) {
+		cmd(_cmd), args_help(_args_help), isChannelCommand(false) {
 		_help = new char[25 + strlen(args_help) + 2];
 		sprintf(_help, "%-25s %s", cmd, args_help);
 	}
@@ -270,6 +272,7 @@ struct Command {
 		return _help;
 	}
 };
+
 
 
 typedef vector<Command*>::iterator VCI;
@@ -331,7 +334,7 @@ public:
 class GainCommand: public Command {
 public:
 	GainCommand() :
-		Command("gain", "CH [VALUE]") {}
+		Command("gain", "CH [VALUE]") { isChannelCommand = true; }
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
 		unsigned ch = strtoul(argv[1], 0, 0);
@@ -356,7 +359,7 @@ public:
 class OffsetCommand: public Command {
 public:
 	OffsetCommand() :
-		Command("offset", "CH [VALUE]") {}
+		Command("offset", "CH [VALUE]") { isChannelCommand = true; }
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
 		unsigned ch = strtoul(argv[1], 0, 0);
@@ -368,7 +371,7 @@ public:
 		unsigned chx;
 		Ad7134 *ad7134 = module.chip(ch, chx);
 
-		printf("ch:%d chx set:%u\n", ch, chx);
+		//printf("ch:%d chx set:%u\n", ch,chx);
 
 		if (argc == 2){
 			printf("%02d=%d\n", ch, ad7134->offset(chx));
@@ -624,10 +627,29 @@ public:
 class OvervoltageQuery: public Command {
 public:
 	OvervoltageQuery():
-		Command("overvoltage", "read from cache readall first..") {}
+		Command("overvoltage", "read from cache readall first..") { isChannelCommand = true; }
+
+	/*
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		unsigned reg = module.cache()[Ad7134::AIN_OR_ERROR];
 		printf("%d %d %d %d ", (reg&0x1)!=0, (reg&0x2)!=0, (reg&0x4)!=0, (reg&0x8)!=0);
+		return COMMAND_OK;
+	}
+	*/
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		if (argc < 2) die(help());
+		unsigned ch = strtoul(argv[1], 0, 0);
+
+		if (ch < 1 || ch > 32){
+			return -COMMAND_ERR;
+		}
+
+		unsigned chx;
+		Ad7134 *ad7134 = module.chip(ch, chx);
+		unsigned reg = ad7134->regs[Ad7134::AIN_OR_ERROR];
+		unsigned mask = 1<<chx;
+
+		printf("%d ", (reg&mask) != 0);
 		return COMMAND_OK;
 	}
 };
@@ -676,16 +698,17 @@ void Acq465ELF::init_commands()
 
 int  Acq465ELF::operator() (int argc, const char** argv)
 {
-	const char** arg0 = argv;
 	char argv0[80];
 	strncpy(argv0, argv[0], 80);
 	const char* verb = basename(argv0);
 
 	if (strcmp(verb, "acq465_knobs") == 0){
-		arg0 = &argv[1];
-		verb = arg0[0];
+		argv = &argv[1];
+		verb = argv[0];
 		argc--;
 	}
+	bool is_query = argc == 1;
+
 
 	if (argc == 0){
 		printf("usage: acq465_knobs command [acq465_help]\n");
@@ -697,14 +720,14 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 		verb += 7;
 	}
 
+	/* channel commands: set: MUST be for single ch at argv[1], but bulk get possible */
 
 
 	for (VCI it = commands.begin(); it != commands.end(); ++it){
 		Command &command = *(*it);
 		if (strcmp(verb, command.cmd) == 0){
-			for (const char* cursor = chips; *cursor; ++cursor){
-				lcs = *cursor - 'A';
-				int rc = command(*this, argc, arg0);
+			if (command.isChannelCommand && !is_query){		// first arg assumed ch 1..32
+				int rc = command(*this, argc, argv);
 				switch(rc){
 				default:
 					fprintf(stderr, "ERROR:%d\n", rc);
@@ -713,9 +736,52 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 					break;
 				case COMMAND_FLUSH:
 					flush();
-					break;
+				break;
 				case COMMAND_QUIT:
 					return 0;
+				}
+			}else if (command.isChannelCommand){
+				const char** ch_argv = new const char* [argc+1];    // new set of args with ch at ch_argv[1]
+				char chid[4];					    // string with channel number 1..32
+				ch_argv[0] = argv[0];
+				ch_argv[1] = chid;
+				for (int ii = 1; ii < argc; ++ii){
+					ch_argv[ii+1] = argv[ii];
+				}
+				argc += 1;
+				for (int ch = 1; ch <= 32; ++ch){
+					snprintf(chid, 4, "%d", ch);
+					int rc = command(*this, argc, ch_argv);
+					switch(rc){
+						default:
+						fprintf(stderr, "ERROR:%d\n", rc);
+						return -1;
+					case COMMAND_OK:
+						break;
+					case COMMAND_FLUSH:
+						flush();
+						break;
+					case COMMAND_QUIT:
+						return 0;
+					}
+				}
+				delete [] ch_argv;
+			}else{
+				for (const char* cursor = chips; *cursor; ++cursor){
+					lcs = *cursor - 'A';
+					int rc = command(*this, argc, argv);
+					switch(rc){
+					default:
+						fprintf(stderr, "ERROR:%d\n", rc);
+						return -1;
+					case COMMAND_OK:
+						break;
+					case COMMAND_FLUSH:
+						flush();
+						break;
+					case COMMAND_QUIT:
+						return 0;
+					}
 				}
 			}
 			return 0;
