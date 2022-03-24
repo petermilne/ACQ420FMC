@@ -65,6 +65,8 @@ public:
 		CH3_GAIN_LSB 	= 0x39,  // 3 bytes
 		CH3_OFFSET_LSB 	= 0x3c,  // 3 bytes
 		MCLK_COUNTER    = 0x3f,  // 1 byte
+		DIG_FILTER_OFUF = 0x40,  // 1 byte
+		DIG_FILTER_SETTLED = 0x41, // 1 byte
 		INTERNAL_ERROR  = 0x42,  // 1 byte
 		AIN_OR_ERROR    = 0x48   // 1 byte
 	};
@@ -624,6 +626,36 @@ public:
 	}
 };
 
+class FilterSettledQuery: public Command {
+public:
+	FilterSettledQuery():
+		Command("filter_settled", "read from cache readall first..") { isChannelCommand = true; }
+
+	/*
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		unsigned reg = module.cache()[Ad7134::AIN_OR_ERROR];
+		printf("%d %d %d %d ", (reg&0x1)!=0, (reg&0x2)!=0, (reg&0x4)!=0, (reg&0x8)!=0);
+		return COMMAND_OK;
+	}
+	*/
+	int operator() (class Acq465ELF& module, int argc, const char** argv) {
+		if (argc < 2) die(help());
+		unsigned ch = strtoul(argv[1], 0, 0);
+
+		if (ch < 1 || ch > 32){
+			return -COMMAND_ERR;
+		}
+
+		unsigned chx;
+		Ad7134 *ad7134 = module.chip(ch, chx);
+		unsigned reg = ad7134->regs[Ad7134::DIG_FILTER_SETTLED];
+		unsigned mask = 1<<chx;
+
+		printf("%d ", (reg&mask) != 0);
+		return COMMAND_OK;
+	}
+};
+
 class OvervoltageQuery: public Command {
 public:
 	OvervoltageQuery():
@@ -691,6 +723,7 @@ void Acq465ELF::init_commands()
 
 	commands.push_back(new DeviceStatusQuery);
 	commands.push_back(new InternalErrorQuery);
+	commands.push_back(new FilterSettledQuery);
 	commands.push_back(new OvervoltageQuery);
 	commands.push_back(new HeartbeatQuery);
 	std::sort(commands.begin(), commands.end(), compareCommands);
