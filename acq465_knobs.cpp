@@ -453,7 +453,7 @@ public:
 
 		if (argc == 1){
 			bool all_for_one = true;
-			for (int shl = 2; shl <= 6; shl += 1){
+			for (int shl = 2; shl <= 6; shl += 2){
 				if ((reg&3) != (reg&(3<<shl))){
 					all_for_one = false;
 					break;
