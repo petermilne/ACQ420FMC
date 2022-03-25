@@ -459,13 +459,17 @@ install_cal() {
 			cp ${calcal} ${caldef}
 		else			
 			PN="${FRU_PART_NUM%% *}"
-			TYP="${PN%%-*}"
-			defcal=/usr/local/cal/${TYP}-defcal.xml
-			
-			V5=$(echo $FRU_PART_NUM | sed -e 's/.*-5V.*/-5V/')
-			if [ "x$V5" = "x-5V" ]; then
-				_defcal=/usr/local/cal/${TYP}-5V.xml
-				[ -e $_defcal ] && defcal=$_defcal
+			defcal=/usr/local/cal/${PN}-defcal.xml
+			if [ ! -e $defcal]; then
+				TYP="${PN%%-*}"
+				defcal=/usr/local/cal/${TYP}-defcal.xml
+				if [ ! -e $defcal ]; then
+					V5=$(echo $FRU_PART_NUM | sed -e 's/.*-5V.*/-5V/')
+					if [ "x$V5" = "x-5V" ]; then
+						_defcal=/usr/local/cal/${TYP}-5V.xml
+						[ -e $_defcal ] && defcal=$_defcal
+					fi
+				fi
 			fi
 			if [ -e ${defcal} ]; then
 				cp ${defcal} ${caldef}
