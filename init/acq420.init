@@ -460,7 +460,7 @@ install_cal() {
 		else			
 			PN="${FRU_PART_NUM%% *}"
 			defcal=/usr/local/cal/${PN}-defcal.xml
-			if [ ! -e $defcal]; then
+			if [ ! -e $defcal ]; then
 				TYP="${PN%%-*}"
 				defcal=/usr/local/cal/${TYP}-defcal.xml
 				if [ ! -e $defcal ]; then
