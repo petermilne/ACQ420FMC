@@ -120,9 +120,6 @@ public:
 		gain |= regs[ch_gain_lut[ch]+0];
 		gain |= regs[ch_gain_lut[ch]+1]<<8;
 		gain |= (regs[ch_gain_lut[ch]+2]&0x0f)<<16;
-		if (gain&0x80000){
-			gain = -gain;
-		}
 		return gain;
 	}
 
