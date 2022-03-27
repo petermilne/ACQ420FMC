@@ -40,6 +40,7 @@ void die(const char *fmt)
 
 struct Command;
 
+#define CAL_DISABLE 	0xffffffff
 
 class Ad7134 {
 public:
@@ -79,16 +80,22 @@ public:
 	void offset(unsigned ch, int offset) {
 		assert(ch >=0 && ch < 4);
 
-		regs[ch_offset_lut[ch]+0] =   offset	 & 0x00ff;		// LSB
-		regs[ch_offset_lut[ch]+1] =  (offset>>=8)& 0x00ff;              // MID
-		regs[ch_offset_lut[ch]+2] = ((offset>>=8)& 0x007f) | 1<<7;      // MSB+CAL_EN
+		if ((unsigned)offset == CAL_DISABLE){
+			regs[ch_offset_lut[ch]+0] =
+			regs[ch_offset_lut[ch]+1] =
+			regs[ch_offset_lut[ch]+2] = 0;
+		}else{
+			regs[ch_offset_lut[ch]+0] =   offset	 & 0x00ff;		// LSB
+			regs[ch_offset_lut[ch]+1] =  (offset>>=8)& 0x00ff;              // MID
+			regs[ch_offset_lut[ch]+2] = ((offset>>=8)& 0x007f) | 1<<7;      // MSB+CAL_EN
+		}
 	}
 	int offset(unsigned ch) {
 		assert(ch >=0 && ch < 4);
 		int offset = 0;
 		offset |= regs[ch_offset_lut[ch]+0];
 		offset |= regs[ch_offset_lut[ch]+1]<<8;
-		offset |= regs[ch_offset_lut[ch]+2]<<16;
+		offset |= (regs[ch_offset_lut[ch]+2]&0x7f)<<16;
 		if (offset&0x400000){
 			offset = -offset;
 		}
@@ -97,16 +104,22 @@ public:
 	void gain(unsigned ch, int gain) {
 		assert(ch >=0 && ch < 4);
 
-		regs[ch_gain_lut[ch]+0] =   gain     & 0x00ff;          // LSB
-		regs[ch_gain_lut[ch]+1] =  (gain>>=8)& 0x00ff;          // MID
-		regs[ch_gain_lut[ch]+2] = ((gain>>=8)& 0x000f) | 1<<4;  // MSB+CAL_EN
+		if ((unsigned)gain == CAL_DISABLE){
+			regs[ch_gain_lut[ch]+0] =
+			regs[ch_gain_lut[ch]+1] =
+			regs[ch_gain_lut[ch]+2] = 0;
+		}else{
+			regs[ch_gain_lut[ch]+0] =   gain     & 0x00ff;          // LSB
+			regs[ch_gain_lut[ch]+1] =  (gain>>=8)& 0x00ff;          // MID
+			regs[ch_gain_lut[ch]+2] = ((gain>>=8)& 0x000f) | 1<<4;  // MSB+CAL_EN
+		}
 	}
 	int gain(unsigned ch) {
 		assert(ch >=0 && ch < 4);
 		int gain = 0;
 		gain |= regs[ch_gain_lut[ch]+0];
 		gain |= regs[ch_gain_lut[ch]+1]<<8;
-		gain |= regs[ch_gain_lut[ch]+2]<<16;
+		gain |= (regs[ch_gain_lut[ch]+2]&0x0f)<<16;
 		if (gain&0x80000){
 			gain = -gain;
 		}
