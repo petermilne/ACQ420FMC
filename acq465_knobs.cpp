@@ -352,7 +352,7 @@ public:
 		Command("gain", "CH [VALUE]") { isChannelCommand = true; }
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
-		unsigned ch = strtoul(argv[1], 0, 0);
+		unsigned ch = strtoul(argv[1], 0, 10);
 
 		if (ch < 1 || ch > 32){
 			return -1;
@@ -377,7 +377,7 @@ public:
 		Command("offset", "CH [VALUE]") { isChannelCommand = true; }
 	int operator() (class Acq465ELF& module, int argc, const char** argv) {
 		if (argc < 2) die(help());
-		unsigned ch = strtoul(argv[1], 0, 0);
+		unsigned ch = strtoul(argv[1], 0, 10);
 
 		if (ch < 1 || ch > 32){
 			return -1;
