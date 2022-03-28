@@ -1299,7 +1299,7 @@ ssize_t acq400_nacc_subrate_read(
 
 #define SUBRATE_TO_MS 10
 
-#define MAX_DESC	(6+2)
+#define MAX_DESC	(6+4)                         // 6 sites, 4 element "spad"
 #define PD_GATHER_DESC(pdesc) (pdesc->client_private)
 
 
@@ -1387,26 +1387,7 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 	int idev = 0;
 	unsigned dst_idx = 0;
 
-	if (subrate_wr_timing){
-		struct GatherDesc tmp = {
-			.adev = adev,
-			.src_off = WR_CUR_VERNR,
-			.n32 = 1,
-			.dst_idx = dst_idx
-		};
-		dst_idx += 1;
-		*gd++ = tmp;
-	}else{
-		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
-		struct GatherDesc tmp = {
-			.adev = slave,
-			.src_off = ADC_SAMPLE_CTR,
-			.n32 = 1,
-			.dst_idx = dst_idx
-		};
-		dst_idx += 1;
-		*gd++ = tmp;
-	}
+	gd++;  				// skip first descriptor
 
 	for (idev = 0; idev < MAXDEVICES; ++idev){
 		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
@@ -1425,7 +1406,53 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 			break;
 		}
 	}
-	*gd = *gd0; gd->dst_idx = dst_idx;
+	/* now make a fake "SPAD". First descriptor is first reading */
+
+	{
+		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
+		struct GatherDesc tmp0 = {						// SPAD[0] : ADC_SAMPLE_CTR
+			.adev = slave,
+			.src_off = ADC_SAMPLE_CTR,
+			.n32 = 1,
+			.dst_idx = dst_idx
+		};
+		*gd0 = tmp0; dst_idx += 1;
+
+		if (subrate_wr_timing){						/* IF WR */
+			struct GatherDesc tmp1 = {					// SPAD[1] WR_TAI_CUR_L
+				.adev = adev,
+				.src_off = WR_TAI_CUR_L,
+				.n32 = 1,
+				.dst_idx = dst_idx
+			};
+			struct GatherDesc tmp2 = {					// SPAD[2] WR_CUR_VERNR
+				.adev = adev,
+				.src_off = WR_CUR_VERNR,
+				.n32 = 1,
+				.dst_idx = dst_idx+1
+			};
+			*gd++ = tmp1; dst_idx += 1;
+			*gd++ = tmp2; dst_idx += 1;
+		}else{								/* OR */
+			struct GatherDesc tmp1 = {					// SPAD[1] : ADC_CLOCK_CTR
+				.adev = slave,
+				.src_off = ADC_CLK_CTR,
+				.n32 = 1,
+				.dst_idx = dst_idx
+			};
+			struct GatherDesc tmp2 = {					// SPAD[2] : SPAD[2] (USER)
+				.adev = adev,
+				.src_off = SPADN(2),
+				.n32 = 1,
+				.dst_idx = dst_idx+1
+			};
+			*gd++ = tmp1; dst_idx += 1;
+			*gd++ = tmp2; dst_idx += 1;
+		}
+		tmp0.dst_idx = dst_idx;
+		*gd++ = tmp0; dst_idx += 1;					// SPAD[3] ADC_SAMPLE_CTR again: measure cost of collection
+	}
+
 	PD_GATHER_DESC(pdesc) = (unsigned)gd0;
 	return 0;
 }
