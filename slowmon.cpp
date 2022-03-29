@@ -37,6 +37,7 @@ class Sampler {
 public:
 	virtual void onSample(int sig) = 0;
 	virtual ~Sampler() {}
+	virtual void clear_sums() = 0;
 };
 
 Sampler* G_sampler;
@@ -53,9 +54,7 @@ class SamplerImpl: public Sampler {
 	FILE* fp;
 	unsigned isam;
 
-	void clear_sums() {
-		memset(sums, 0, ndata*sizeof(long));
-	}
+
 	ssize_t len(){
 		return (ndata+SPADLEN/sizeof(T))*sizeof(T);
 	}
@@ -69,6 +68,10 @@ public:
 		delete [] data;
 		delete [] sums;
 		fclose(fp);
+	}
+	virtual void clear_sums() {
+		memset(sums, 0, ndata*sizeof(long));
+		isam = 0;
 	}
 	void sumUp(bool copy_back, unsigned nacc) {
 		for (int ii = 0; ii < ndata; ++ii){
@@ -96,7 +99,6 @@ public:
 			if (copy_back){
 				write(1, data, len());
 				clear_sums();
-				isam = 0;
 			}
 		}
 	}
@@ -159,6 +161,7 @@ void ui()
 
 	if (G::nacc != nacc){
 		G::nacc = nacc;
+		G_sampler->clear_sums();
 		setKnob(0, "/etc/acq400/0/slowmon_nacc", nacc);
 	}
 
