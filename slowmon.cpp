@@ -109,7 +109,8 @@ template<> void SamplerImpl<int>::sumUp(bool copy_back, unsigned nacc) {
 	for (int ii = 0; ii < ndata; ++ii){
 		sums[ii] += data[ii] >> 8;
 		if (copy_back){
-			data[ii] = sums[ii]/nacc << 8 | (data[ii]&0x000000ff);
+			int inacc = static_cast<int>(nacc);  // because -signed/unsigned => garbage
+			data[ii] = sums[ii]/inacc << 8 | (data[ii]&0x000000ff);
 		}
 	}
 }
