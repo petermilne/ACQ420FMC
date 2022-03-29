@@ -25,10 +25,8 @@
 #define META2	sizeof(long)
 
 namespace G {
-	unsigned usec = 250000;
+	unsigned usec = 0xffffffff;
 	unsigned nacc = 1;
-
-	unsigned isam = 0;
 }
 
 #define NSPAD	4
@@ -53,6 +51,7 @@ class SamplerImpl: public Sampler {
 	T* data;			// ndata elements of T + SPAD
 	long* sums;			// ndata elements of long;
 	FILE* fp;
+	unsigned isam;
 
 	void clear_sums() {
 		memset(sums, 0, ndata*sizeof(long));
@@ -61,7 +60,7 @@ class SamplerImpl: public Sampler {
 		return (ndata+SPADLEN/sizeof(T))*sizeof(T);
 	}
 public:
-	SamplerImpl(unsigned ssb): ndata(ssb/sizeof(T)) {
+	SamplerImpl(unsigned ssb): ndata(ssb/sizeof(T)), isam(0) {
 		data = new T[ndata+SPADLEN/sizeof(T)];
 		sums = new long[ndata];
 		fp = fopen("/dev/acq400.0.subr", "r");
@@ -71,9 +70,12 @@ public:
 		delete [] sums;
 		fclose(fp);
 	}
-	void sumUp(void) {
+	void sumUp(bool copy_back, unsigned nacc) {
 		for (int ii = 0; ii < ndata; ++ii){
 			sums[ii] += data[ii];
+			if (copy_back){
+				data[ii] = sums[ii] / nacc;
+			}
 		}
 	}
 
@@ -88,24 +90,25 @@ public:
 		if (G::nacc == 1){
 			write(1,data, len());
 		}else{
-			sumUp();
+			bool copy_back = ++isam == G::nacc;
+			sumUp(copy_back, G::nacc);
 
-			if (++G::isam == G::nacc){
-				for (int ii = 0; ii < ndata; ++ii){
-					data[ii] = sums[ii] / G::nacc;
-				}
+			if (copy_back){
 				write(1, data, len());
 				clear_sums();
-				G::isam = 0;
+				isam = 0;
 			}
 		}
 	}
 };
 
 // specialized version of sumUp() no overflow up to 256x
-template<> void SamplerImpl<int>::sumUp(void) {
+template<> void SamplerImpl<int>::sumUp(bool copy_back, unsigned nacc) {
 	for (int ii = 0; ii < ndata; ++ii){
 		sums[ii] += data[ii] >> 8;
+		if (copy_back){
+			data[ii] = sums[ii]/nacc << 8 | (data[ii]&0x000000ff);
+		}
 	}
 }
 
@@ -142,18 +145,24 @@ void init(int argc, const char* argv[])
 
 void ui()
 {
-	unsigned usec;
 	unsigned fs;
 	unsigned fin;
 
 	getKnob(0, "/etc/acq400/0/slowmon_fs", &fs);
 	getKnob(0, "/etc/acq400/0/slowmon_fin", &fin);
-	G::nacc = fin/fs;
-	usec = 1000000/fs;
+
+	unsigned nacc = fin/fs;
+	unsigned usec = 1000000/fs;
+
+	if (G::nacc != nacc){
+		G::nacc = nacc;
+		setKnob(0, "/etc/acq400/0/slowmon_nacc", nacc);
+	}
 
 	if (usec != G::usec){
 		G::usec = usec;
-		ualarm(G::usec, G::usec);
+		ualarm(G::usec, G::usec); //alarm in a second, and every second after that.
+		setKnob(0, "/etc/acq400/0/slowmon_us", usec);
 	}
 }
 
@@ -161,11 +170,10 @@ int main(int argc, const char* argv[])
 {
 	init(argc, argv);
 	signal(SIGALRM, onSample);
-	ualarm(G::usec, G::usec); //alarm in a second, and every second after that.
 
 	for(;;){
-		pause();
 		ui();
+		pause();
 	}
 	return 0;
 }

@@ -490,6 +490,8 @@ build_site0() {
 	echo 0 > /dev/shm/state; fix_state
 	echo 1 > $ek/slowmon_fs
 	echo 1 > $ek/slowmon_fin
+	echo 0 > $ek/slowmon_us
+	echo 0 > $ek/slowmon_nacc
 	
 	ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
 		${dk}/soft_trigger ${dk}/bufferlen ${ek}
