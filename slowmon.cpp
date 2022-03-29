@@ -62,7 +62,6 @@ class SamplerImpl: public Sampler {
 	}
 public:
 	SamplerImpl(unsigned ssb): ndata(ssb/sizeof(T)) {
-		fprintf(stderr, "SamplerImpl %d * %d\n", ssb, sizeof(T));
 		data = new T[ndata+SPADLEN/sizeof(T)];
 		sums = new long[ndata];
 		fp = fopen("/dev/acq400.0.subr", "r");
