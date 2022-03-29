@@ -1333,6 +1333,9 @@ ssize_t acq400_sc_nacc_subrate_read(
 	int n32 = 0;
 	size_t ss;
 	ssize_t rc;
+
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
+
 	for (idesc = MAX_DESC-1; idesc >= 0; --idesc, --gdp){
 		if (gdp->adev){
 			n32 = gdp->dst_idx + gdp->n32;
@@ -1359,9 +1362,11 @@ ssize_t acq400_sc_nacc_subrate_read(
 	rc = copy_to_user(buf, pdesc->lbuf, count);
 
 	if (rc){
+		dev_dbg(DEVP(adev), "%s 88", __FUNCTION__);
 		return -1;
 	}
 	*f_pos += count;
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return count;
 }
 
@@ -1393,6 +1398,7 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 	int idev = 0;
 	unsigned dst_idx = 0;
 
+	dev_dbg(DEVP(adev), "%s 01", __FUNCTION__);
 	gd++;  				// skip first descriptor
 
 	for (idev = 0; idev < MAXDEVICES; ++idev){
@@ -1415,7 +1421,7 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 	/* now make a fake "SPAD". First descriptor is first reading */
 
 	{
-		struct acq400_dev* slave = sc_dev->aggregator_set[idev];
+		struct acq400_dev* slave = sc_dev->aggregator_set[0];
 		struct GatherDesc tmp0 = {						// SPAD[0] : ADC_SAMPLE_CTR
 			.adev = slave,
 			.src_off = ADC_SAMPLE_CTR,
@@ -1457,15 +1463,20 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 		}
 		tmp0.dst_idx = dst_idx;
 		*gd++ = tmp0; dst_idx += 1;					// SPAD[3] ADC_SAMPLE_CTR again: measure cost of collection
-
-		if (subrate_verbose){
-			for (gd = gd0; gd->adev; ++gd){
+	}
+	if (subrate_verbose){
+		dev_dbg(DEVP(adev), "%s subrate_verbose", __FUNCTION__);
+		for (gd = gd0; gd-gd0 < MAX_DESC; ++gd){
+			if (gd->adev){
 				dev_info(DEVP(adev), "[%2u] %s 0x%04x dst:%d len:%d", gd-gd0, gd->adev->dev_name, gd->src_off, gd->dst_idx, gd->n32);
+			}else{
+				dev_info(DEVP(adev), "[%2u]", gd-gd0);
 			}
 		}
 	}
 
 	PD_GATHER_DESC(pdesc) = (unsigned)gd0;
+	dev_dbg(DEVP(adev), "%s 99", __FUNCTION__);
 	return 0;
 }
 int acq400_nacc_subrate_open(struct inode *inode, struct file *file)
