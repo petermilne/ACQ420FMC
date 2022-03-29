@@ -15,6 +15,7 @@
 
 #include "split2.h"
 
+#include <assert.h>
 #include <unistd.h>
 #include <signal.h>
 
@@ -61,6 +62,7 @@ class SamplerImpl: public Sampler {
 	}
 public:
 	SamplerImpl(unsigned ssb): ndata(ssb/sizeof(T)) {
+		fprintf(stderr, "SamplerImpl %d * %d\n", ssb, sizeof(T));
 		data = new T[ndata+SPADLEN/sizeof(T)];
 		sums = new long[ndata];
 		fp = fopen("/dev/acq400.0.subr", "r");
@@ -70,7 +72,11 @@ public:
 		delete [] sums;
 		fclose(fp);
 	}
-	void sumUp(void);
+	void sumUp(void) {
+		for (int ii = 0; ii < ndata; ++ii){
+			sums[ii] += data[ii];
+		}
+	}
 
 	void onSample(int sig)
 	{
@@ -83,20 +89,26 @@ public:
 		if (G::nacc == 1){
 			write(1,data, len());
 		}else{
-			for (int ii = 0; ii < ndata; ++ii){
-				sums[ii] += data[ii];
+			sumUp();
+
+			if (++G::isam == G::nacc){
+				for (int ii = 0; ii < ndata; ++ii){
+					data[ii] = sums[ii] / G::nacc;
+				}
+				write(1, data, len());
+				clear_sums();
+				G::isam = 0;
 			}
-		}
-		if (++G::isam == G::nacc){
-			for (int ii = 0; ii < ndata; ++ii){
-				data[ii] = sums[ii] / G::nacc;
-			}
-			write(1, data, len());
-			clear_sums();
-			G::isam = 0;
 		}
 	}
 };
+
+// specialized version of sumUp() no overflow up to 256x
+template<> void SamplerImpl<int>::sumUp(void) {
+	for (int ii = 0; ii < ndata; ++ii){
+		sums[ii] += data[ii] >> 8;
+	}
+}
 
 
 typedef std::vector<std::string> VS;
@@ -111,19 +123,19 @@ void init(int argc, const char* argv[])
 	split2(sites, sitelist, ',');
 	for (std::string st: sitelist){
 		int site = atoi(st.c_str());
-		unsigned _ssb;
+		unsigned nc;
 		unsigned _data32;
-		char _ssb_knob[32];
-		snprintf(_ssb_knob, 32, "/etc/acq400/%d/ssb", site);
-		getKnob(0, _ssb_knob, &_ssb);
-		ssb += _ssb;
+
+		assert(getKnob(site, "active_chan", &nc) > 0);
+
 		getKnob(site, "data32", &_data32);
 		if (_data32){
 			data32 = true;
 		}
+		ssb += nc * (_data32? 4: 2);
 	}
 	if (data32){
-		G_sampler = new SamplerImpl<unsigned>(ssb);
+		G_sampler = new SamplerImpl<int>(ssb);
 	}else{
 		G_sampler = new SamplerImpl<short>(ssb);
 	}
