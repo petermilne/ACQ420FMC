@@ -1317,7 +1317,7 @@ void acq400_sc_nacc_service(unsigned *lbuf, struct GatherDesc* gd0, int imax)
 		unsigned imax = gd->n32;
 		unsigned ii;
 		for (ii = 0; ii < imax; ++ii){
-			ubuf[ii] = acq400rd32(sdev, gd->src_off+ii);
+			ubuf[ii] = acq400rd32(sdev, gd->src_off+ii*sizeof(unsigned));
 		}
 	}
 }
@@ -1447,8 +1447,8 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 			*gd++ = tmp2; dst_idx += 1;
 		}else{								/* OR */
 			struct GatherDesc tmp1 = {					// SPAD[1] : ADC_CLOCK_CTR
-				.adev = slave,
-				.src_off = ADC_CLK_CTR,
+				.adev = adev,
+				.src_off = SPADN(1),
 				.n32 = 1,
 				.dst_idx = dst_idx
 			};
