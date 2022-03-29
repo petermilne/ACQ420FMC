@@ -283,6 +283,7 @@ cold_start_wr() {
 	/usr/local/CARE/load.ttyPS1
 	start_wr
 	cold_start_wrtd &
+	set.sys /sys/module/acq420fmc/parameters/subrate_wr_timing 1
 }
 stop_wrtd() {
 	for pidf in /var/run/wrtd*; do
