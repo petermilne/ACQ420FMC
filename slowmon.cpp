@@ -151,8 +151,11 @@ void ui()
 	getKnob(0, "/etc/acq400/0/slowmon_fs", &fs);
 	getKnob(0, "/etc/acq400/0/slowmon_fin", &fin);
 
+	fs = std::max(fs, 1U);
 	unsigned nacc = fin/fs;
-	unsigned usec = 1000000/fs;
+
+	nacc = std::max(nacc, 1U);
+	unsigned usec = 1000000/fs/nacc;
 
 	if (G::nacc != nacc){
 		G::nacc = nacc;
