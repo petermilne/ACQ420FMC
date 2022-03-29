@@ -13,6 +13,8 @@
 #include "knobs.h"
 
 
+#include "split2.h"
+
 #include <unistd.h>
 #include <signal.h>
 
@@ -24,53 +26,107 @@
 namespace G {
 	unsigned usec = 250000;
 	unsigned nacc = 1;
-	FILE* fp;
-	unsigned ndata = 64+4;
-	short *data;
-	long *sums;
+
 	unsigned isam = 0;
 }
 
-void clear_sums()
-{
-	memset(G::sums, 0, G::ndata*sizeof(long));
+#define NSPAD	4
+#define SPADLEN	(NSPAD*sizeof(unsigned))
+
+
+class Sampler {
+public:
+	virtual void onSample(int sig) = 0;
+	virtual ~Sampler() {}
+};
+
+Sampler* G_sampler;
+
+void onSample(int sig){
+	return G_sampler->onSample(sig);
 }
-void onSample(int sig)
-{
-	ssize_t len = G::ndata*sizeof(short);
-	ssize_t nread = read(fileno(G::fp), G::data, len);
-	if (nread != len){
-		perror("read fail");
-		exit(1);
+
+template <class T>
+class SamplerImpl: public Sampler {
+	const int ndata;		// number of T elements in data
+	T* data;			// ndata elements of T + SPAD
+	long* sums;			// ndata elements of long;
+	FILE* fp;
+
+	void clear_sums() {
+		memset(sums, 0, ndata*sizeof(long));
 	}
+	ssize_t len(){
+		return (ndata+SPADLEN/sizeof(T))*sizeof(T);
+	}
+public:
+	SamplerImpl(unsigned ssb): ndata(ssb/sizeof(T)) {
+		data = new T[ndata+SPADLEN/sizeof(T)];
+		sums = new long[ndata];
+		fp = fopen("/dev/acq400.0.subr", "r");
+	}
+	virtual ~SamplerImpl() {
+		delete [] data;
+		delete [] sums;
+		fclose(fp);
+	}
+	void sumUp(void);
 
-	if (G::nacc == 1){
-		write(1, G::data, len);
-	}else{
-		const int last = G::ndata-META2/sizeof(short);
-		const int first = G::ndata-META1/sizeof(short);
-
-		for (int ii = first; ii < last; ++ii){
-			G::sums[ii] += G::data[ii];
+	void onSample(int sig)
+	{
+		ssize_t nread = read(fileno(fp), data, len());
+		if (nread != len()){
+			perror("read fail");
+			exit(1);
 		}
 
-		if (++G::isam == G::nacc){
-			for (int ii = first; ii < last; ++ii){
-				G::data[ii] = G::sums[ii] / G::nacc;
+		if (G::nacc == 1){
+			write(1,data, len());
+		}else{
+			for (int ii = 0; ii < ndata; ++ii){
+				sums[ii] += data[ii];
 			}
-			write(1, G::data, len);
+		}
+		if (++G::isam == G::nacc){
+			for (int ii = 0; ii < ndata; ++ii){
+				data[ii] = sums[ii] / G::nacc;
+			}
+			write(1, data, len());
 			clear_sums();
 			G::isam = 0;
 		}
 	}
-}
+};
+
+
+typedef std::vector<std::string> VS;
 
 void init(int argc, const char* argv[])
 {
-	G::data = new short[G::ndata];
-	G::sums = new long[G::ndata];
-	clear_sums();
-	G::fp = fopen("/dev/acq400.0.subr", "r");
+	unsigned ssb = 0;
+	bool data32 = false;
+	char sites[16];
+	VS sitelist;
+	getKnob(0, "/etc/acq400/0/sites", sites);
+	split2(sites, sitelist, ',');
+	for (std::string st: sitelist){
+		int site = atoi(st.c_str());
+		unsigned _ssb;
+		unsigned _data32;
+		char _ssb_knob[32];
+		snprintf(_ssb_knob, 32, "/etc/acq400/%d/ssb", site);
+		getKnob(0, _ssb_knob, &_ssb);
+		ssb += _ssb;
+		getKnob(site, "data32", &_data32);
+		if (_data32){
+			data32 = true;
+		}
+	}
+	if (data32){
+		G_sampler = new SamplerImpl<unsigned>(ssb);
+	}else{
+		G_sampler = new SamplerImpl<short>(ssb);
+	}
 }
 
 void ui()

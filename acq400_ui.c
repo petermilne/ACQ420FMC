@@ -49,6 +49,10 @@ int subrate_wr_timing = 0;
 module_param(subrate_wr_timing, int, 0644);
 MODULE_PARM_DESC(subrate_wr_timing, "set true for WR_TAI timing, else use ADC SAMPLE COUNT");
 
+int subrate_verbose = 0;
+module_param(subrate_verbose, int, 0644);
+MODULE_PARM_DESC(subrate_verbose, "view subrate gather pattern");
+
 int xo400_awg_open(struct inode *inode, struct file *file)
 /* if write mode, reset length */
 {
@@ -1324,13 +1328,15 @@ ssize_t acq400_sc_nacc_subrate_read(
 	struct acq400_path_descriptor* pdesc = PD(file);
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	struct GatherDesc *gd = (struct GatherDesc *)PD_GATHER_DESC(pdesc);
+	struct GatherDesc *gdp = gd+MAX_DESC-1;
 	int idesc;
 	int n32 = 0;
 	size_t ss;
 	ssize_t rc;
-	for (idesc = MAX_DESC-1; idesc >= 0; --idesc){
-		if (gd[idesc].adev){
-			n32 = gd[idesc].dst_idx + gd[idesc].n32;
+	for (idesc = MAX_DESC-1; idesc >= 0; --idesc, --gdp){
+		if (gdp->adev){
+			n32 = gdp->dst_idx + gdp->n32;
+			dev_dbg(DEVP(adev), "idesc:%d setting %d + %d = %d", idesc, gdp->dst_idx, gdp->n32, n32);
 			break;
 		}
 	}
@@ -1451,6 +1457,12 @@ int acq400_sc_nacc_subrate_open(struct inode *inode, struct file *file)
 		}
 		tmp0.dst_idx = dst_idx;
 		*gd++ = tmp0; dst_idx += 1;					// SPAD[3] ADC_SAMPLE_CTR again: measure cost of collection
+
+		if (subrate_verbose){
+			for (gd = gd0; gd->adev; ++gd){
+				dev_info(DEVP(adev), "[%2u] %s 0x%04x dst:%d len:%d", gd-gd0, gd->adev->dev_name, gd->src_off, gd->dst_idx, gd->n32);
+			}
+		}
 	}
 
 	PD_GATHER_DESC(pdesc) = (unsigned)gd0;
