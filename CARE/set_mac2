@@ -40,13 +40,13 @@ if { [ file exists /sys/class/net/eth1 ] } {
 	exit 1
 }
 
-proc set_mac {macaddr} {
+proc set_eth1_mac {macaddr} {
 	global EDEV
 	puts "ifconfig $EDEV hw ether $macaddr"
 	exec ifconfig $EDEV hw ether $macaddr
 }
 
-proc calc_mac {eth0_macaddr} {
+proc calc_eth1_mac {eth0_macaddr} {
 	set octets [split $eth0_macaddr :]
 	set b3 [lindex $octets 3]
 	set b32 [format %02x [expr 0x$b3 + 0x80] ]
