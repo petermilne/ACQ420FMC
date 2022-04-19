@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1039"
+#define VERID	"B1040"
 
 #define NCHAN	4
 
@@ -4596,9 +4596,10 @@ class MultiEventServer {
 
 			if (pre_bytes > linear_pre){
 				fwrite(b1-(pre_bytes-linear_pre), 1, pre_bytes-linear_pre, fp);
-				pre_bytes -= linear_pre;
+				fwrite(esp-linear_pre, 1, linear_pre, fp);
+			}else{
+				fwrite(esp-pre_bytes, 1, pre_bytes, fp);
 			}
-			fwrite(esp-pre_bytes, 1, pre_bytes, fp);
 
 			for(unsigned pb = post_buffers(); delta_hb(hb0, get_hb_last()) < pb; ){
 				usleep(10000);
