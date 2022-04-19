@@ -2425,6 +2425,7 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 	void getSampleInterval();
 	void startSampleIntervalWatcher();
 
+
 	static bool getPram(const char* pf, unsigned* pram)
 	{
 		FILE *fp = fopen(pf, "r");
@@ -4542,6 +4543,21 @@ class MultiEventServer {
 	const int maxfiles_limit;
 	int ev_count;
 
+	static unsigned get_hb_last() {
+		unsigned hb_last;
+		getKnob(0, "hb_last", &hb_last);
+		return hb_last;
+	}
+	static unsigned delta_hb(unsigned hb0, unsigned hb1){
+		if (hb1 > hb0){
+			return hb1 - hb0;
+		}else{
+			return Buffer::nbuffers - hb1 + hb0;
+		}
+	}
+	unsigned post_buffers() {
+		return post/(Buffer::bufferlen/Buffer::sample_size);
+	}
 	static long df(int fd)
 	{
 		struct statvfs buf;
@@ -4559,7 +4575,7 @@ class MultiEventServer {
 	void handle_event(int ev, int ibuf, char* esp){
 		char fn[80];
 		sprintf(fn, "event-%03d-%lu-%u-%u.dat", ev, time(0), pre, post);
-
+		unsigned hb0 = get_hb_last();
 		if (verbose) fprintf(stderr, "MultiEventServer::handle_event() %s\n", fn);
 
 		char fn0[80];
@@ -4584,6 +4600,9 @@ class MultiEventServer {
 			}
 			fwrite(esp-pre_bytes, 1, pre_bytes, fp);
 
+			for(unsigned pb = post_buffers(); delta_hb(hb0, get_hb_last()) < pb; ){
+				usleep(10000);
+			}
 			if (post_bytes > linear_post){
 				fwrite(esp, 1, linear_post, fp);
 				fwrite(b0, 1, post_bytes-linear_post, fp);
