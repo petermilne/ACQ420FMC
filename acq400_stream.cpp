@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1040"
+#define VERID	"B1041"
 
 #define NCHAN	4
 
@@ -4543,16 +4543,17 @@ class MultiEventServer {
 	const int maxfiles_limit;
 	int ev_count;
 
-	static unsigned get_hb_last() {
+	unsigned get_hb_last() {
 		unsigned hb_last;
 		getKnob(0, "hb_last", &hb_last);
+		if (verbose > 1) fprintf(stderr, "%s hb_last %u\n", __FUNCTION__, hb_last);
 		return hb_last;
 	}
 	static unsigned delta_hb(unsigned hb0, unsigned hb1){
-		if (hb1 > hb0){
+		if (hb1 >= hb0){
 			return hb1 - hb0;
 		}else{
-			return Buffer::nbuffers - hb1 + hb0;
+			return Buffer::nbuffers - hb0 + hb1;
 		}
 	}
 	unsigned post_buffers() {
@@ -4601,7 +4602,9 @@ class MultiEventServer {
 				fwrite(esp-pre_bytes, 1, pre_bytes, fp);
 			}
 
-			for(unsigned pb = post_buffers(); delta_hb(hb0, get_hb_last()) < pb; ){
+			unsigned dhb;
+			for(unsigned pb = post_buffers(); (dhb = delta_hb(hb0, get_hb_last())) < pb+1; ){
+				if (verbose) fprintf(stderr, "%s wait post %u < %u\n", __FUNCTION__, dhb, pb);
 				usleep(10000);
 			}
 			if (post_bytes > linear_post){
