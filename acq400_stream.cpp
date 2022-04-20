@@ -4618,7 +4618,7 @@ class MultiEventServer {
 		char fn1[80];
 		sprintf(fn1, "/tmp/%s", fn);
 		rename(fn0, fn1);				/* atomic, file safe to use */
-		setKnob(1, "multi_event_latest", fn);
+		setKnob(0, "/etc/acq400/1/multi_event_latest", fn);
 	}
 	void set_maxfiles(int _maxfiles){
 		maxfiles = _maxfiles > maxfiles_limit? maxfiles_limit: _maxfiles;
