@@ -560,6 +560,11 @@ static void acq465_init_defaults(struct acq400_dev *adev)
 	adev->onStop = acq420_disable_fifo;
 }
 
+static void acq494_init_defaults(struct acq400_dev *adev)
+{
+	dev_info(DEVP(adev), "%s device init STUB", "acq494elf");
+}
+
 int _ao420_getFifoSamples(struct acq400_dev* adev) {
 	return acq400rd32(adev, DAC_FIFO_SAMPLES)&DAC_FIFO_SAMPLES_MASK;
 }
@@ -1004,6 +1009,8 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			break;
 		case MOD_ID_ACQ465ELF:
 			acq465_init_defaults(adev);
+		case MOD_ID_ACQ494FMC:
+			acq494_init_defaults(adev);
 			break;
 		case MOD_ID_ACQ480FMC:
 			acq480_init_defaults(adev);
