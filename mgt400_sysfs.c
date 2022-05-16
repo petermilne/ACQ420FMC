@@ -727,6 +727,10 @@ static const struct attribute *sysfs_mgtdram_attrs[] = {
 	&dev_attr_fpga_rev.attr,
 	NULL
 };
+
+static const struct attribute *sysfs_hudp_attrs[] = {
+	NULL
+};
 void mgt400_createSysfs(struct device *dev)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
@@ -734,9 +738,13 @@ void mgt400_createSysfs(struct device *dev)
 	dev_info(dev, "mgt400_createSysfs()");
 	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
 		dev_err(dev, "failed to create sysfs");
+	}else if (IS_MGT_HUDP(mdev)){
+		if (sysfs_create_files(&dev->kobj, sysfs_hudp_attrs)){
+			dev_err(dev, "failed to create sysfs_hudp_attrs");
+		}
 	}else if (IS_MGT_DRAM(mdev)){
 		if (sysfs_create_files(&dev->kobj, sysfs_mgtdram_attrs)){
-			dev_err(dev, "failed to create sysfs2");
+			dev_err(dev, "failed to create sysfs_mgtdram_attrs");
 		}
 	}
 }

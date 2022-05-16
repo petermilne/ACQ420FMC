@@ -60,6 +60,8 @@
 #define MOD_ID_DUMMY		0x00ff
 
 
+#define MOD_ID_HUDP		0x97
+
 /* ACQ480 variants */
 #define MOD_ID_TYPE_ACQ480DIV4	0x1
 #define MOD_ID_TYPE_ACQ480DIV10 0x2

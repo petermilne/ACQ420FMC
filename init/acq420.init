@@ -879,7 +879,10 @@ load_mgt() {
 	909*)
 		/usr/local/CARE/load.acq2106_quadcomms;;
 	*)
-		;;
+	    grep -q HUDP /tmp/fpga_status
+	    if [ $? -eq 0 ]; then
+	        /usr/local/CARE/load.acq2106_hudp
+	    fi;;
 	esac
 }
 

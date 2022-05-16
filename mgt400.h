@@ -186,5 +186,20 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define MOD_ID_MGT_DRAM		0x95
 
 #define IS_MGT_DRAM(mdev)	(GET_MOD_ID(mdev) == MOD_ID_MGT_DRAM)
+#define IS_MGT_HUDP(mdev)	(GET_MOD_ID(mdev) == MOD_ID_HUDP)
+
+#define HUDP_CON		0x0004
+#define HUDP_IP_ADDR		0x0008
+#define HUDP_GW_ADDR		0x000c
+#define HUDP_NETMASK		0x0010
+#define HUDP_MAC		0x0014		/* 00:21:ww:xx:yy:zz  ww should be 54 */
+#define HUDP_SRC_PORT		0x0018
+#define HUDP_TX_PKT_SZ		0x001c
+#define HUDP_RX_PORT		0x0020
+
+#define HUDP_DEST_ADDR		0x0108
+#define HUDP_DEST_PORT		0x0110
+
+
 
 #endif /* MGT400_H_ */
