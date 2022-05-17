@@ -666,6 +666,13 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
 	&dev_attr_enable.attr,
+	&dev_attr_name.attr,
+	&dev_attr_site.attr,
+	&dev_attr_dev.attr,
+	NULL
+};
+
+static const struct attribute *sysfs_aurora_attrs[] = {
 	&dev_attr_aurora_enable.attr,
 	&dev_attr_aurora_lane_up.attr,
 	&dev_attr_aurora_errors.attr,
@@ -674,9 +681,6 @@ static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_alat_avg.attr,
 	&dev_attr_alat_min_max.attr,
 	&dev_attr_heartbeat.attr,
-	&dev_attr_name.attr,
-	&dev_attr_site.attr,
-	&dev_attr_dev.attr,
 	&dev_attr_dma_stat_desc_pull.attr,
 	&dev_attr_dma_stat_desc_push.attr,
 	&dev_attr_dma_stat_data_pull.attr,
@@ -728,7 +732,141 @@ static const struct attribute *sysfs_mgtdram_attrs[] = {
 	NULL
 };
 
+#define MAC_TOP3 0x002154
+
+static ssize_t show_coloned_hex(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 mac_bot4 = mgt400rd32(mdev, HUDP_MAC);
+	u8 hexb[6];
+
+	hexb[0] = (MAC_TOP3>>16) & 0xff;
+	hexb[1] = (MAC_TOP3>>8)  & 0xff;
+	hexb[2] = (MAC_TOP3)     & 0xff;
+	hexb[3] = (mac_bot4>>16) & 0xff;
+	hexb[4] = (mac_bot4>>8)  & 0xff;
+	hexb[5] = (mac_bot4)     & 0xff;
+
+	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+			hexb[0], hexb[1], hexb[2], hexb[3], hexb[4], hexb[5]);
+}
+
+static ssize_t store_coloned_hex(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	u32 hexb[6];
+
+	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+			hexb+0, hexb+1, hexb+2, hexb+3, hexb+4, hexb+5) == 6 ){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 mac32 = 0;
+		int ii;
+		int lsl = 24;
+		for (ii = 2; ii < 6; ++ii, lsl-= 8){
+			mac32 |= hexb[ii] << lsl;
+		}
+		mgt400wr32(mdev, HUDP_MAC, mac32);
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(mac, S_IRUGO|S_IWUSR, show_coloned_hex, store_coloned_hex);
+
+static ssize_t show_dotted_quad(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int REG)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 ipaddr = mgt400rd32(mdev, REG);
+	u8 decb[4];
+
+	decb[0] = (ipaddr>>24) & 0xff;
+	decb[1] = (ipaddr>>16) & 0xff;
+	decb[2] = (ipaddr>>8)  & 0xff;
+	decb[3] = (ipaddr)     & 0xff;
+
+	return sprintf(buf, "%d.%d.%d.%d\n",
+			decb[0], decb[1], decb[2], decb[3]);
+}
+
+static ssize_t store_dotted_quad(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int REG)
+{
+	u32 decb[4];
+
+	if (sscanf(buf, "%d.%d.%d.%d", decb+0, decb+1, decb+2, decb+3) == 4 ){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 ipaddr = 0;
+		int ii;
+		int lsl = 24;
+		for (ii = 0; ii < 4; ++ii, lsl-= 8){
+			ipaddr |= decb[ii] << lsl;
+		}
+		mgt400wr32(mdev, REG, ipaddr);
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+#define MAKE_DOTTED_QUAD(NAME, REG) 				\
+static ssize_t show_dotted_quad##NAME(				\
+	struct device * dev,					\
+	struct device_attribute *attr,				\
+	char * buf)						\
+{								\
+	return show_dotted_quad(dev, attr, buf, REG);		\
+}								\
+								\
+static ssize_t store_dotted_quad##NAME(				\
+	struct device * dev,					\
+	struct device_attribute *attr,				\
+	const char * buf,					\
+	size_t count)						\
+{								\
+	return store_dotted_quad(dev, attr, buf, count, REG);	\
+}								\
+static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dotted_quad##NAME, store_dotted_quad##NAME)
+
+MAKE_DOTTED_QUAD(ip, HUDP_IP_ADDR);
+MAKE_DOTTED_QUAD(gw, HUDP_GW_ADDR);
+MAKE_DOTTED_QUAD(netmask, HUDP_NETMASK);
+MAKE_DOTTED_QUAD(dst_ip, HUDP_DEST_ADDR);
+
+MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
+MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
+MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
+MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0xffff);
+
+MAKE_BITS(ctrl, HUDP_CON, 0, 0xffffffff);
+
 static const struct attribute *sysfs_hudp_attrs[] = {
+	&dev_attr_mac.attr,
+	&dev_attr_ip.attr,
+	&dev_attr_gw.attr,
+	&dev_attr_netmask.attr,
+	&dev_attr_dst_ip.attr,
+	&dev_attr_src_port.attr,
+	&dev_attr_dst_port.attr,
+	&dev_attr_rx_port.attr,
+	&dev_attr_tx_pkt_sz.attr,
+	&dev_attr_ctrl.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
@@ -738,13 +876,20 @@ void mgt400_createSysfs(struct device *dev)
 	dev_info(dev, "mgt400_createSysfs()");
 	if (sysfs_create_files(&dev->kobj, sysfs_base_attrs)){
 		dev_err(dev, "failed to create sysfs");
-	}else if (IS_MGT_HUDP(mdev)){
+		return;
+	}
+	if (IS_MGT_HUDP(mdev)){
+		dev_info(dev, "MGT_HUDP");
 		if (sysfs_create_files(&dev->kobj, sysfs_hudp_attrs)){
 			dev_err(dev, "failed to create sysfs_hudp_attrs");
 		}
-	}else if (IS_MGT_DRAM(mdev)){
-		if (sysfs_create_files(&dev->kobj, sysfs_mgtdram_attrs)){
-			dev_err(dev, "failed to create sysfs_mgtdram_attrs");
+	}else{
+		if (sysfs_create_files(&dev->kobj, sysfs_aurora_attrs)){
+			dev_err(dev, "failed to create sysfs");
+		}else if (IS_MGT_DRAM(mdev)){
+			if (sysfs_create_files(&dev->kobj, sysfs_mgtdram_attrs)){
+				dev_err(dev, "failed to create sysfs_mgtdram_attrs");
+			}
 		}
 	}
 }
