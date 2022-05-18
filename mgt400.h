@@ -200,6 +200,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define HUDP_DEST_ADDR		0x0108
 #define HUDP_DEST_PORT		0x0110
 
-
+void mgt400wr32(struct mgt400_dev *mdev, int offset, u32 value);
+u32 mgt400rd32(struct mgt400_dev *mdev, int offset);
 
 #endif /* MGT400_H_ */

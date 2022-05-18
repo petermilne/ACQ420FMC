@@ -26,7 +26,12 @@
 
 #include "acq400.h"
 #include "mgt400.h"
+#include "mgt400_sysfs.h"
 #include "acq400_sysfs.h"
+
+
+
+
 
 static ssize_t show_module_type(
 	struct device * dev,
@@ -844,10 +849,15 @@ static ssize_t store_dotted_quad##NAME(				\
 }								\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dotted_quad##NAME, store_dotted_quad##NAME)
 
+
+
 MAKE_DOTTED_QUAD(ip, HUDP_IP_ADDR);
 MAKE_DOTTED_QUAD(gw, HUDP_GW_ADDR);
 MAKE_DOTTED_QUAD(netmask, HUDP_NETMASK);
 MAKE_DOTTED_QUAD(dst_ip, HUDP_DEST_ADDR);
+
+
+
 
 MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
 MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);

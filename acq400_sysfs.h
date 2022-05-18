@@ -184,6 +184,12 @@ static ssize_t show_bitN##NAME(						\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bitN##NAME, store_bitN##NAME)
 
+#ifndef SHOW_BITS
+#define SHOW_BITS	acq400_show_bits
+#endif
+#ifndef STORE_BITS
+#define STORE_BITS	acq400_store_bits
+#endif
 
 #define _MAKE_BITS(NAME, REG, SHL, MASK, WD)				\
 static ssize_t show_bits##NAME(						\
@@ -193,9 +199,9 @@ static ssize_t show_bits##NAME(						\
 {									\
 	if (SHL==MAKE_BITS_FROM_MASK){					\
 		unsigned shl = getSHL(MASK);				\
-		return acq400_show_bits(d, a, b, REG, shl, (MASK)>>shl);\
+		return SHOW_BITS(d, a, b, REG, shl, (MASK)>>shl);\
 	}else{								\
-		return acq400_show_bits(d, a, b, REG, SHL, MASK);	\
+		return SHOW_BITS(d, a, b, REG, SHL, MASK);	\
 	}								\
 }									\
 static ssize_t store_bits##NAME(					\
@@ -206,9 +212,9 @@ static ssize_t store_bits##NAME(					\
 {									\
 	if (SHL==MAKE_BITS_FROM_MASK){					\
 		unsigned shl = getSHL(MASK);					\
-		return acq400_store_bits(d, a, b, c, REG, shl, (MASK)>>shl, WD);\
+		return STORE_BITS(d, a, b, c, REG, shl, (MASK)>>shl, WD);\
 	}else{								\
-		return acq400_store_bits(d, a, b, c, REG, SHL, MASK, WD);\
+		return STORE_BITS(d, a, b, c, REG, SHL, MASK, WD);\
 	}								\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
@@ -217,6 +223,13 @@ static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_bits##NAME, store_bits##NAME)
 #define MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 0)
 #define DEPRECATED_MAKE_BITS(NAME, REG, SHL, MASK)	_MAKE_BITS(NAME, REG, SHL, MASK, 1)
 
+#ifndef SHOW_DNUM
+#define SHOW_DNUM	acq400_show_dnum
+#endif
+#ifndef STORE_DNUM
+#define STORE_DNUM	acq400_store_dnum
+#endif
+
 #define MAKE_DNUM(NAME, REG, MASK)					\
 static ssize_t show_dnum##NAME(						\
 	struct device *d,						\
@@ -224,7 +237,7 @@ static ssize_t show_dnum##NAME(						\
 	char *b)							\
 {									\
 	unsigned shl = getSHL(MASK);				\
-	return acq400_show_dnum(d, a, b, REG, shl, (MASK)>>shl);\
+	return SHOW_DNUM(d, a, b, REG, shl, (MASK)>>shl);\
 }									\
 static ssize_t store_dnum##NAME(					\
 	struct device * d,						\
@@ -233,7 +246,7 @@ static ssize_t store_dnum##NAME(					\
 	size_t c)							\
 {									\
 	unsigned shl = getSHL(MASK);					\
-	return acq400_store_dnum(d, a, b, c, REG, shl, (MASK)>>shl);	\
+	return STORE_DNUM(d, a, b, c, REG, shl, (MASK)>>shl);	\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dnum##NAME, store_dnum##NAME)
 

@@ -26,8 +26,7 @@ monitor() {
         do
                 (
                 	cd ${HK}
-#                	for k in ip gw rx_port src_port dst_ip dst_port mac; do
-                    for k in ip gw dst_ip mac; do                	
+                	for k in ip gw rx_port src_port dst_ip dst_port mac; do             	
                 		get_knob $k
                 	done                                        
                 )| fs2xml -k '' -o /dev/shm/hudp-new.xml -s $C2R20
