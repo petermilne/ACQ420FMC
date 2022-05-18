@@ -166,12 +166,13 @@ web_append()
 
 
 build_etc_site() {
+    site=$1
 	ek=/etc/acq400/${site}
 	mkdir -p ${ek}
 	dk=/dev/acq400.${site}.knobs
 	for src in ${dk}/*; do
 		case $(basename $src) in
-		driver|subsystem|power|uevent|dacspi|dacreset|RW32_debug)
+		driver*|subsystem|power|uevent|dacspi|dacreset|RW32_debug)
 			;;
 		*)
 			ln -s ${src} ${ek};;
@@ -577,6 +578,7 @@ build_mgt400() {
 	mkdir /etc/acq400/${site}
 
 	ln -s /etc/acq400/C/* /etc/acq400/${site}	;# MODEL MAN MTYPE
+	build_etc_site ${site}
 	ln -s $knobs/* /etc/acq400/${site}
 	ch=$(cat /etc/acq400/${site}/name )
 	ch=${ch#*.}
@@ -599,9 +601,8 @@ build_mgt400() {
                 set.sys $knobs/ident 0x${mtyp}${name##*.}${snx};;
             esac;;
         esac
+        build_mgt400_node $(cat $knobs/name $knobs/dev)
     fi
-
-	build_mgt400_node $(cat $knobs/name $knobs/dev)
 }
 
 build_knobs() {

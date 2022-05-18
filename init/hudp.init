@@ -2,7 +2,7 @@
 
 export WEB_APPEND_JOB=/tmp/hudp-web-append.job
 
-HK=/dev/acq400.9.knobs
+HK=/dev/acq400.10.knobs
 
 web_append()
 {
@@ -17,7 +17,7 @@ EOF
 }
 
 get_knob() {
-	printf "%30s %s\n" $1 "$(cat ${HK}}/$1)"	
+	printf "%30s %s\n" $1 "$(cat ${HK}/$1)"	
 }
 monitor() {
         echo monitor hudp.xml
