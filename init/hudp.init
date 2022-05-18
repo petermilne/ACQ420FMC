@@ -29,7 +29,7 @@ monitor() {
                     for k in ip gw netmask mac -- rx_port rx_pkt_count -- src_port dst_ip dst_port tx_pkt_sz tx_pkt_count; do
                         case $k in
                         --)
-                            echo -- --;;
+                            printf "%30s %s\n" ------- -------;;
                         *)
                 		    get_knob $k;;
                         esac
