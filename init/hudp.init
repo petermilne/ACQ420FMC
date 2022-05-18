@@ -26,8 +26,13 @@ monitor() {
         do
                 (
                 	cd ${HK}
-                    for k in ip gw rx_port src_port dst_ip dst_port mac tx_pkt_count rx_pkt_count; do
-                		get_knob $k
+                    for k in ip gw netmask mac -- rx_port rx_pkt_count -- src_port dst_ip dst_port tx_pkt_sz tx_pkt_count; do
+                        case $k in
+                        --)
+                            echo -- --;;
+                        *)
+                		    get_knob $k;;
+                        esac
                 	done                                        
                 )| fs2xml -k '' -o /dev/shm/hudp-new.xml -s $C2R20
                 mv /dev/shm/hudp-new.xml  /dev/shm/hudp.xml

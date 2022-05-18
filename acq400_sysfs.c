@@ -2936,11 +2936,15 @@ static ssize_t show_aggregator_set(
 }
 static DEVICE_ATTR(aggregator_set, S_IRUGO, show_aggregator_set, 0);
 enum DistComms {
-	DC_A9 = '9', DC_COMMS_B = 'B', DC_COMMS_A = 'A', DC_A9_ALT = '0', DC_COMMS_B_ALT = '1', DC_COMMS_A_ALT = '2'
+	DC_A9 = '9', DC_COMMS_B = 'B', DC_COMMS_A = 'A', DC_A9_ALT = '0', DC_COMMS_B_ALT = '1', DC_COMMS_A_ALT = '2', DC_COMMS_UDP = 'U'
 };
+
+#define DIST_COMMS_UDP DIST_COMMS_MASK
 static enum DistComms fromDistCommsFudge(u32 reg)
 {
 	switch(reg&DIST_COMMS_MASK){
+	case DIST_COMMS_UDP:
+		return DC_COMMS_UDP;
 	case DIST_COMMS_A:
 		return DC_COMMS_A;
 	case DIST_COMMS_B:
@@ -2962,6 +2966,8 @@ static u32 toDistCommsFudge(enum DistComms dc)
 	case DC_COMMS_A:
 	case DC_COMMS_A_ALT:
 		return DIST_COMMS_A;
+	case DC_COMMS_UDP:
+		return DIST_COMMS_UDP;
 	}
 }
 static ssize_t show_dist_reg(
