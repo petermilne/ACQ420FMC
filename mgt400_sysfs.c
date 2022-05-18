@@ -864,6 +864,9 @@ MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
 MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
 MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0xffff);
 
+MAKE_DNUM(tx_pkt_count, HUDP_TX_PKT_COUNT, 0xffffffff);
+MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
+
 MAKE_BITS(ctrl, HUDP_CON, 0, 0xffffffff);
 
 static const struct attribute *sysfs_hudp_attrs[] = {
@@ -877,6 +880,10 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_rx_port.attr,
 	&dev_attr_tx_pkt_sz.attr,
 	&dev_attr_ctrl.attr,
+
+	&dev_attr_tx_pkt_count.attr,
+	&dev_attr_rx_pkt_count.attr,
+
 	&dev_attr_clear_stats.attr,
 	NULL
 };
