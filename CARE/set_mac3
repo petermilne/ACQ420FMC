@@ -1,11 +1,11 @@
 #!/usr/bin/expect
-# configure eth1 mac using u-boot eth1addr if set or based on ethaddr
-# for ethaddr, set high bit of 3rd octet index from zero
+# generate "eth2" mac using u-boot ethaddr
+# for ethaddr, set high bits of 3rd octet index from zero
 # eg
 # acq2106_132> cat /sys/class/net/eth0/address 
 # 00:21:54:13:00:84
 # acq2106_132> cat /sys/class/net/eth1/address 
-# 00:21:54:93:00:84
+# 00:21:54:d3:00:84
 
 
 

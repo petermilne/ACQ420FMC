@@ -42,6 +42,7 @@ monitor() {
 
 
 start_hudp() {
+    echo $(/usr/local/CARE/set_mac3) > ${HK}/mac 
     web_append hudp nomon
     nice daemon $WEB_APPEND_JOB
     nice daemon /usr/local/init/hudp.init monitor
