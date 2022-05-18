@@ -867,6 +867,7 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_rx_port.attr,
 	&dev_attr_tx_pkt_sz.attr,
 	&dev_attr_ctrl.attr,
+	&dev_attr_clear_stats.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
