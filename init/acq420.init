@@ -579,7 +579,7 @@ build_mgt400() {
 
 	ln -s /etc/acq400/C/* /etc/acq400/${site}	;# MODEL MAN MTYPE
 	build_etc_site ${site}
-	ln -s $knobs/* /etc/acq400/${site}
+
 	ch=$(cat /etc/acq400/${site}/name )
 	ch=${ch#*.}
 	
