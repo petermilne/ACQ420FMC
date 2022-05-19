@@ -586,8 +586,8 @@ build_mgt400() {
 	ln -s $knobs /dev/acq400.${ch}.knobs
 	ln -s /etc/acq400/${site} /etc/acq400/${ch}
 	
-	if [ -e /dev/acq400.$SITE.knobs/module_type ]; then
-	    mt=$(cat /dev/acq400.$SITE.knobs/module_type)
+	if [ -e /dev/acq400.${site}.knobs/module_type ]; then
+	    mt=$(cat /dev/acq400.${site}.knobs/module_type)
 	    case ${mt} in
 	    90)
 	        let snd="1${SN##CE4??}-10000"
