@@ -196,6 +196,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define HUDP_SRC_PORT		0x0018
 #define HUDP_TX_PKT_SZ		0x001c
 #define HUDP_RX_PORT		0x0020
+#define HUDP_RX_SRC_ADDR	0x0024
 
 #define HUDP_TX_PKT_COUNT	0x0030
 #define HUDP_RX_PKT_COUNT	0x0034

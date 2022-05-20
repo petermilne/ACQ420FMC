@@ -855,6 +855,7 @@ MAKE_DOTTED_QUAD(ip, HUDP_IP_ADDR);
 MAKE_DOTTED_QUAD(gw, HUDP_GW_ADDR);
 MAKE_DOTTED_QUAD(netmask, HUDP_NETMASK);
 MAKE_DOTTED_QUAD(dst_ip, HUDP_DEST_ADDR);
+MAKE_DOTTED_QUAD(rx_src_ip, HUDP_RX_SRC_ADDR);
 
 
 
@@ -878,6 +879,7 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_src_port.attr,
 	&dev_attr_dst_port.attr,
 	&dev_attr_rx_port.attr,
+	&dev_attr_rx_src_ip.attr,
 	&dev_attr_tx_pkt_sz.attr,
 	&dev_attr_ctrl.attr,
 
