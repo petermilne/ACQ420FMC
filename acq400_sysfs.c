@@ -3045,8 +3045,10 @@ static ssize_t store_dist_reg(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	unsigned regval = acq400rd32(adev, offset);
-	char* match;
+	int enable_on  = strstr(buf, "on")  != 0;
+	int enable_off = strstr(buf, "off") != 0;
 	int pass = 0;
+	char* match;
 
 	dev_dbg(DEVP(adev), "store_dist_reg \"%s\"", buf);
 
@@ -3125,17 +3127,18 @@ static ssize_t store_dist_reg(
 		}
 	}
 
-
-	if (pass){
-		acq400wr32(adev, offset, regval);
-		if ((match = strstr(buf, "on")) != 0){
+	if (pass || enable_on || enable_off ){
+		if (pass){
+			acq400wr32(adev, offset, regval);
+		}
+		if (enable_on){
 			onDistributorEnable(adev, offset);
-		}else if ((match = strstr(buf, "off")) != 0){
+		}else if (enable_off){
 			onDistributorDisable(adev, offset);
 		}
 		return count;
 	}else{
-		/* aggregator= passes this paragraph, so put it LAST! */
+		/* distributor= passes this paragraph, so put it LAST! */
 		if (sscanf(buf, "%x", &regval) == 1){
 			acq400wr32(adev, offset, regval);
 			return count;
