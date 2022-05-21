@@ -93,3 +93,36 @@ ssize_t mgt400_store_dnum(
 }
 
 
+ssize_t mgt400_show_u(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	unsigned SHL,
+	unsigned MASK)
+{
+	u32 regval = mgt400rd32(mgt400_devices[dev->id], REG);
+	u32 field = (regval>>SHL)&MASK;
+
+	return sprintf(buf, "%u\n", field);
+}
+ssize_t mgt400_store_u(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		unsigned SHL,
+		unsigned MASK)
+{
+	unsigned field;
+	if (sscanf(buf, "%u", &field) == 1){
+		u32 regval = mgt400rd32(mgt400_devices[dev->id], REG);
+		regval &= ~(MASK << SHL);
+		regval |= (field&MASK) << SHL;
+		mgt400wr32(mgt400_devices[dev->id], REG, regval);
+		return count;
+	}else{
+		return -1;
+	}
+}
