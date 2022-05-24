@@ -870,6 +870,10 @@ MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
 
 MAKE_BITS(ctrl, HUDP_CON, 0, 0xffffffff);
 
+MAKE_BITS(disco_en, 	HUDP_DISCO_COUNT, 0, HUDP_DISCO_EN);
+MAKE_DNUM(disco_idx, 	HUDP_DISCO_COUNT, HUDP_DISCO_INDEX);
+MAKE_DNUM(disco_count, 	HUDP_DISCO_COUNT, HUDP_DISCO_COUNT_COUNT);
+
 static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_mac.attr,
 	&dev_attr_ip.attr,
@@ -886,7 +890,12 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_tx_pkt_count.attr,
 	&dev_attr_rx_pkt_count.attr,
 
+	&dev_attr_disco_en.attr,
+	&dev_attr_disco_idx.attr,
+	&dev_attr_disco_count.attr,
+
 	&dev_attr_clear_stats.attr,
+
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
