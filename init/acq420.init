@@ -599,7 +599,8 @@ build_mgt400() {
                 set.sys $knobs/ident 0x21${name##*.}6${snx}  ;;
             *)
                 set.sys $knobs/ident 0x${mtyp}${name##*.}${snx};;
-            esac;;
+            esac
+            echo "aggregator sites=none off" >$knobs/aggregator;;
         esac
         build_mgt400_node $(cat $knobs/name $knobs/dev)
     fi

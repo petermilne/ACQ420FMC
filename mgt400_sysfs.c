@@ -30,9 +30,6 @@
 #include "acq400_sysfs.h"
 
 
-
-
-
 static ssize_t show_module_type(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -511,54 +508,68 @@ static ssize_t store_agg_reg(
 	const unsigned mshift)
 {
 	struct mgt400_dev *mdev = mgt400_devices[dev->id];
-	char* match;
-	int pass = 0;
 	unsigned regval = mgt400rd32(mdev, offset);
+	char* lbuf = kmalloc(strlen(buf)+1, GFP_KERNEL);
+	char* crsr = lbuf;
+	int pass = 0;
+	char* tok;
+
+	strcpy(lbuf, buf);
 
 	dev_dbg(DEVP(mdev), "store_agg_reg \"%s\"", buf);
 
-	if ((match = strstr(buf, "sites=")) != 0){
-		char* cursor = match+strlen("sites=");
-		int site;
+	while((tok = strsep(&crsr, " ")) != NULL){
+		char* match;
 
-		regval &= ~(AGG_SITES_MASK << mshift);
+		if ((match = strstr(tok, "sites=")) != 0){
+			int site;
+			char* cursor = match+strlen("sites=");
 
-		if (strncmp(cursor, "none", 4) != 0){
-			for (; *cursor && *cursor != ' '; ++cursor){
-				switch(*cursor){
-				case ',':
-				case ' ':	continue;
-				case '\n':  	break;
-				default:
-					site = get_site(*cursor);
-					if (site > 0){
-						regval |= AGG_MOD_EN(site, mshift);
-						break;
-					}else{
-						dev_err(dev, "bad site designator: %c", *cursor);
-						return -1;
+			regval &= ~(AGG_SITES_MASK << mshift);
+
+			if (strncmp(cursor, "none", 4) != 0){
+				for (; *cursor && *cursor != ' '; ++cursor){
+					switch(*cursor){
+					case ',':
+					case ' ':	continue;
+					case '\n':  	break;
+					default:
+						site = get_site(*cursor);
+						if (site > 0){
+							regval |= AGG_MOD_EN(site, mshift);
+							break;
+						}else{
+							dev_err(dev, "bad site designator: %c", *cursor);
+							count = -1;
+							goto store99;
+						}
 					}
 				}
 			}
+
+			pass = 1;
+		}else if ((match = strstr(tok, "on")) != 0){
+			dev_dbg(DEVP(mdev), "%d store_agg_reg %08x \"%s\"", __LINE__, regval, buf);
+			regval |= DATA_MOVER_EN;
+			pass = 1;
+		}else if ((match = strstr(tok, "off")) != 0){
+			dev_dbg(DEVP(mdev), "%d store_agg_reg %08x \"%s\"", __LINE__, regval, buf);
+			regval &= ~DATA_MOVER_EN;
+			pass = 1;
+		}else if ((match = strstr(tok, "spad=")) != 0){
+			store_spad(dev, attr, match+strlen("spad="), 1);
 		}
-		pass = 1;
-	}
-	if ((match = strstr(buf, "on")) != 0){
-		regval |= DATA_MOVER_EN;
-		pass = 1;
-	}else if ((match = strstr(buf, "off")) != 0){
-		regval &= ~DATA_MOVER_EN;
-		pass = 1;
 	}
 
 	if (!pass && sscanf(buf, "%x", &regval) != 1){
-		return -1;
+		count = -1;
+		goto store99;
 	}
+	dev_dbg(DEVP(mdev), "%d store_agg_reg %08x \"%s\"", __LINE__, regval, buf);
 	mgt400wr32(mdev, offset, regval);
 
-	if ((match = strstr(buf, "spad=")) != 0){
-		store_spad(dev, attr, match+strlen("spad="), 1);
-	}
+store99:
+	kfree(lbuf);
 	return count;
 }
 
