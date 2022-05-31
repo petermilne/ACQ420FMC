@@ -242,6 +242,16 @@ void acq465_createDebugfs(struct acq400_dev* adev, char* pcursor)
 void acq494_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	adc_createDebugfs(adev, pcursor);
+	DBG_REG_CREATE(TDC_CR);
+	DBG_REG_CREATE(TDC_FIFO_COUNT);
+	DBG_REG_CREATE(TDC_FIFO_STATUS);
+	DBG_REG_CREATE(TDC_CH1_EVT_COUNT);
+	DBG_REG_CREATE(TDC_CH2_EVT_COUNT);
+	DBG_REG_CREATE(TDC_CH3_EVT_COUNT);
+	DBG_REG_CREATE(TDC_CH4_EVT_COUNT);
+	DBG_REG_CREATE(TDC_TRAIN_HI_VAL);
+	DBG_REG_CREATE(TDC_TRAIN_LO_VAL);
+	DBG_REG_CREATE(TDC_CH_MASK);
 }
 
 void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
