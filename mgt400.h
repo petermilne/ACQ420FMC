@@ -201,6 +201,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define HUDP_TX_PKT_COUNT	0x0030
 #define HUDP_RX_PKT_COUNT	0x0034
 #define HUDP_DISCO_COUNT	0x0038
+#define HUDP_RX_PKT_LEN		0x003c     	/* R/O detected packet lenght */
 
 #define HUDP_DEST_ADDR		0x0108
 #define HUDP_DEST_PORT		0x0118

@@ -48,8 +48,10 @@ void hudp_createDebugfs(struct mgt400_dev* mdev,char* pcursor)
 	DBG_REG_CREATE_RW(HUDP_TX_PKT_COUNT);
 	DBG_REG_CREATE_RW(HUDP_RX_PKT_COUNT);
 	DBG_REG_CREATE_RW(HUDP_DISCO_COUNT);
+	DBG_REG_CREATE_RW(HUDP_RX_PKT_LEN);
 	DBG_REG_CREATE_RW(HUDP_DEST_ADDR);
 	DBG_REG_CREATE_RW(HUDP_DEST_PORT);
+
 }
 
 void mgt400_createDebugfs(struct mgt400_dev* mdev)
