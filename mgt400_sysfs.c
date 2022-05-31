@@ -881,8 +881,11 @@ MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_len,   HUDP_RX_PKT_LEN,   0x000003ff);
 
 MAKE_BITS(ctrl, 	HUDP_CON, 0, 0xffffffff);
+MAKE_BITS(tx_ctrl, 	HUDP_CON, 0, 0x0000000f);
 MAKE_BITS(tx_reset, 	HUDP_CON, 0, (1<<3));
-MAKE_BITS(rx_reset, 	HUDP_CON, 0, (1<<3));
+MAKE_BITS(rx_reset, 	HUDP_CON, 0, (1<<(3+8)));
+MAKE_BITS(tx_en,        HUDP_CON, 0, (1<<4));
+MAKE_BITS(rx_en,        HUDP_CON, 0, (1<<(4+8)));
 MAKE_DNUM(decim,  	HUDP_CON, 0x0f000000);
 
 MAKE_BITS(disco_en, 	HUDP_DISCO_COUNT, MAKE_BITS_FROM_MASK, HUDP_DISCO_EN);
@@ -904,6 +907,9 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_tx_reset.attr,
 	&dev_attr_rx_reset.attr,
 	&dev_attr_decim.attr,
+	&dev_attr_tx_en.attr,
+	&dev_attr_rx_en.attr,
+	&dev_attr_tx_ctrl.attr,
 
 	&dev_attr_tx_pkt_count.attr,
 	&dev_attr_rx_pkt_count.attr,
