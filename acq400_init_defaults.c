@@ -562,7 +562,9 @@ static void acq465_init_defaults(struct acq400_dev *adev)
 
 static void acq494_init_defaults(struct acq400_dev *adev)
 {
-	dev_info(DEVP(adev), "%s device init STUB", "acq494elf");
+	u32 adc_ctrl = acq400rd32(adev, ADC_CTRL);
+	dev_info(DEVP(adev), "%s device init MODULE_EN", "acq494elf");
+	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
 }
 
 int _ao420_getFifoSamples(struct acq400_dev* adev) {
