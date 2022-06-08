@@ -19,7 +19,7 @@
 #include <linux/spi/spi.h>
 #include <linux/platform_device.h>
 
-#define REVID 		"0.1.0"
+#define REVID 		"0.1.1"
 #define MODULE_NAME	"acq494"
 
 extern void acq480_hook_spi(void);
@@ -34,6 +34,12 @@ module_param(n_acq494, int, 0444);
 
 static int spi_bus_num = 1;
 module_param(spi_bus_num, int, 0444);
+
+static int SPI_MODE = SPI_MODE_1;
+module_param(SPI_MODE, int, 0644);
+
+static int do_signon;
+module_param(do_signon, int, 0644);
 
 int site2cs(int site)
 {
@@ -56,14 +62,14 @@ int tdc_gpx2_spi_write_then_read(struct spi_device *spi,
 {
 	int rc;
 	spi->mode &= ~SPI_MODE_3;
-	spi->mode |= SPI_MODE_1;
+	spi->mode |= SPI_MODE;
 
 	rc = spi_write_then_read(spi, txbuf, n_tx, rxbuf, n_rx);
 	if (rc == 0){
 		if (n_rx){
-			dev_dbg(&spi->dev, "tdc_gpx2_spi_write_then_read() 0x%02x R %2d = 0x%02x", *(char*)txbuf, *(char*)txbuf&0x1f, *(char*)rxbuf);
+			dev_dbg(&spi->dev, "tdc_gpx2_spi_write_then_read() m:%d 0x%02x R %2d = 0x%02x", spi->mode&SPI_MODE_3, *(char*)txbuf, *(char*)txbuf&0x1f, *(char*)rxbuf);
 		}else{
-			dev_dbg(&spi->dev, "tdc_gpx2_spi_write_then_read() 0x%02x W %2d", *(char*)txbuf, *(char*)txbuf&0x1f);
+			dev_dbg(&spi->dev, "tdc_gpx2_spi_write_then_read() m:%d 0x%02x W %2d", spi->mode&SPI_MODE_3, *(char*)txbuf, *(char*)txbuf&0x1f);
 		}
 		return 0;
 	}else{
@@ -221,13 +227,6 @@ void tdc_sign_on(struct spi_device *spi)
 		dev_err(&spi->dev, "tdc_sign_on RESET fail");
 		return;
 	}
-/*
-	tx = TDC_INIT;
-	if (tdc_gpx2_spi_write_then_read(spi, &tx, 1, 0, 0) != 0){
-		dev_err(&spi->dev, "tdc_sign_on INIT fail");
-		return;
-	}
-*/
 	for (reg = 0; reg <= 16; ++reg){
 		char rx;
 
@@ -248,7 +247,9 @@ static int tdc_gpx2spi_probe(struct spi_device *spi)
 	dev_info(&spi->dev, "ads5294spi_probe() bus:%d cs:%d",
 			spi->master->bus_num, spi->chip_select);
 
-	tdc_sign_on(spi);
+	if (do_signon){
+		tdc_sign_on(spi);
+	}
 
 	if (sysfs_create_files(&dev->kobj, tdc_gpx2_attrs)){
 		dev_err(dev, "tdc_gpx2spi_probe() failed to create knobs");
