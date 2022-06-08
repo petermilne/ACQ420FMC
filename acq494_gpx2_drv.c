@@ -19,7 +19,7 @@
 #include <linux/spi/spi.h>
 #include <linux/platform_device.h>
 
-#define REVID 		"0.1.1"
+#define REVID 		"0.1.2"
 #define MODULE_NAME	"acq494"
 
 extern void acq480_hook_spi(void);
@@ -85,20 +85,31 @@ ssize_t store_byte(
 	size_t count,
 	const unsigned REG)
 {
+	char tmps[16];
 	char data[2];
-
-	data[0] = TDC_WRITE_CONFIG|REG;
-	data[1] = kstrtoul(buf, 16, 0);
+	unsigned long tmp;
+	int rc;
 
 	dev_dbg(dev, "store_byte REG:%x DATA:%x", REG, data[1]);
 
-	if (tdc_gpx2_spi_write_then_read(to_spi_device(dev), data, 2, 0, 0) == 0){
+	strncpy(tmps, buf, 16-1);
+	rc = kstrtoul(tmps, 16, &tmp);
+	if (rc != 0){
+		dev_err(dev, "store_byte unable to convert \"%s\"", tmps);
+		return rc;
+	}
+
+	data[0] = TDC_WRITE_CONFIG|REG;
+	data[1] = tmp;
+
+	if ((rc = tdc_gpx2_spi_write_then_read(to_spi_device(dev), data, 2, 0, 0)) == 0){
 		return count;
 	}else{
 		dev_err(dev, "store_byte fail");
-		return -1;
+		return rc;
 	}
 }
+
 static ssize_t show_byte(
 	struct device * dev,
 	struct device_attribute *attr,
