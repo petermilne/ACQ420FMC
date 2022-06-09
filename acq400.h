@@ -388,7 +388,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_ACQ465(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ465ELF)
 
-#define IS_ACQ494(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ494ELF)
+#define IS_ACQ494(adev)	(GET_MOD_ID(adev) == MOD_ID_ACQ494FMC)
 
 #define IS_ACQ42X(adev) _is_acq42x(adev)
 

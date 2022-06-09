@@ -2024,6 +2024,7 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_ACQ437ELF,	"acq437elf"	},
 		{ MOD_ID_ACQ465ELF,     "acq465elf"	},
 		{ MOD_ID_ACQ480FMC,   	"acq480fmc"	},
+		{ MOD_ID_ACQ494FMC,	"acq494fmc"	},
 		{ MOD_ID_AO420FMC,	"ao420fmc"	},
 		{ MOD_ID_AO420FMC_CS2,	"ao420fmc"	},
 		{ MOD_ID_AO424ELF,	"ao424elf"	},
@@ -3888,6 +3889,19 @@ const struct attribute *dio482_pg_attrs[] = {
 		NULL
 };
 
+SCOUNT_KNOB(evt_ch1, 	TDC_CH1_EVT_COUNT);
+SCOUNT_KNOB(evt_ch2, 	TDC_CH2_EVT_COUNT);
+SCOUNT_KNOB(evt_ch3, 	TDC_CH3_EVT_COUNT);
+SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
+
+const struct attribute *acq494_attrs[] = {
+	&dev_attr_scount_evt_ch1.attr,
+	&dev_attr_scount_evt_ch2.attr,
+	&dev_attr_scount_evt_ch3.attr,
+	&dev_attr_scount_evt_ch4.attr,
+	0
+};
+
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
@@ -3995,6 +4009,8 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = acq435_attrs;
 		}else if (IS_ACQ465(adev)){
 			specials[nspec++] = acq465_attrs;
+		}else if (IS_ACQ494(adev)){
+			specials[nspec++] = acq494_attrs;
 		}else if (IS_AO420(adev)||IS_AO428(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dacspi_attrs;

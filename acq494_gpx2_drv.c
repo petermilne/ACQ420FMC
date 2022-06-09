@@ -19,7 +19,7 @@
 #include <linux/spi/spi.h>
 #include <linux/platform_device.h>
 
-#define REVID 		"0.1.2"
+#define REVID 		"0.2.0"
 #define MODULE_NAME	"acq494"
 
 extern void acq480_hook_spi(void);
@@ -51,9 +51,11 @@ int cs2site(int cs)
 }
 
 #define TDC_WRITE_CONFIG 0x80
+#define TDC_READ_RESULT	 0x60
 #define TDC_READ_CONFIG	 0x40
 #define TDC_POWER	 0x30
 #define TDC_INIT	 0x18
+
 
 
 int tdc_gpx2_spi_write_then_read(struct spi_device *spi,
@@ -166,6 +168,47 @@ TDC_GPX2_REG(cfg15, 15);
 TDC_GPX2_REG(cfg16, 16);
 TDC_GPX2_REG(cfg17, 17);
 
+static ssize_t show_result_triplet(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const unsigned REG)
+{
+	char cmd = TDC_READ_RESULT|REG;
+	char data[3];
+	int ii;
+
+	for (ii = 0; ii < 3; ++ii){
+		dev_dbg(dev, "show_byte REG:%d", REG);
+		cmd = TDC_READ_RESULT|(REG+ii);
+		if (tdc_gpx2_spi_write_then_read(to_spi_device(dev), &cmd, 1, &data+ii, 1) != 0){
+			return -1;
+		}
+	}
+
+	return sprintf(buf, "0x%02x%02x%02x\n", data[0], data[1], data[2]);
+}
+
+#define TDC_GPX2_RESULT(name, REG) 					\
+static ssize_t show_result##name(					\
+	struct device *dev,						\
+	struct device_attribute *attr,					\
+	char* buf)							\
+{									\
+	return show_result_triplet(dev, attr, buf, REG);		\
+}									\
+									\
+static DEVICE_ATTR(tdc_gpx2_##name, S_IRUGO, show_result##name, 0);
+
+TDC_GPX2_RESULT(ch01_ref,   8);
+TDC_GPX2_RESULT(ch01_stop, 11);
+TDC_GPX2_RESULT(ch02_ref,  14);
+TDC_GPX2_RESULT(ch02_stop, 17);
+TDC_GPX2_RESULT(ch03_ref,  20);
+TDC_GPX2_RESULT(ch03_stop, 23);
+TDC_GPX2_RESULT(ch04_ref,  26);
+TDC_GPX2_RESULT(ch04_stop, 29);
+
 static ssize_t store_power(
 	struct device *dev,
 	struct device_attribute *attr,
@@ -226,6 +269,14 @@ const struct attribute *tdc_gpx2_attrs[] = {
 	&dev_attr_tdc_gpx2_cfg17.attr,
 	&dev_attr_tdc_gpx2_power.attr,
 	&dev_attr_tdc_gpx2_init.attr,
+	&dev_attr_tdc_gpx2_ch01_ref.attr,
+	&dev_attr_tdc_gpx2_ch01_stop.attr,
+	&dev_attr_tdc_gpx2_ch02_ref.attr,
+	&dev_attr_tdc_gpx2_ch02_stop.attr,
+	&dev_attr_tdc_gpx2_ch03_ref.attr,
+	&dev_attr_tdc_gpx2_ch03_stop.attr,
+	&dev_attr_tdc_gpx2_ch04_ref.attr,
+	&dev_attr_tdc_gpx2_ch04_stop.attr,
 	0
 };
 
