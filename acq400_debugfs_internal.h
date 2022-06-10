@@ -71,6 +71,9 @@ struct dentry *debugfs_create_axi_s16(const char *name, umode_t mode,
 struct dentry* acq400_debug_root;
 
 
+/*
+ * Use DBG_REG_CREATE_NAME[_NC] for "clock" registers ie part of the clk cache, with precise sample time.
+ */
 #define DBG_REG_CREATE_NAME(name, reg) do {				\
 	int rc = dev_rc_register(&adev->clk_reg_cache, reg);\
 	void* va = rc==0? adev->clk_reg_cache.data: adev->dev_virtaddr; \
