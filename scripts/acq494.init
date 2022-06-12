@@ -77,7 +77,7 @@ proc clr_acq400_knob {site knob} {
 	close $fileId
 }
 
-proc write_knob{knob value} {
+proc write_knob {knob value} {
 	set kb [open $knob w]
 	puts $kb $value
 	close $kb
@@ -114,9 +114,6 @@ proc print {args} {
 trace add execution source enterstep print
 
 if { $::argc > 0 } {
-	set i 1
-	set FINETD [open /etc/inetd.conf a]
-
 	foreach site $::argv {
 		if { [string length $SITES] > 0 } {
 			set SITES "$SITES,"
