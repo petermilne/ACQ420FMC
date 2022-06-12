@@ -406,7 +406,7 @@ build_knobs_device() {
         ACQ465_SITES="${ACQ465_SITES} $site";;
     B)
         set_max_min_khz ${site} 10000 10000
-        ACQ494_SITES="${ACQ494_SITES} site";; 
+        ACQ494_SITES="${ACQ494_SITES} ${site}";; 
     40|42|6A)   
         case $mtype in
         6A)
