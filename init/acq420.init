@@ -707,7 +707,8 @@ build_knobs() {
 				echo "WARNING ACQ1001 non ACQ480 : BUS SPEED $bs check BOOT.bin"
 			fi;;
 		esac
-	elif [ "x${ACQ465_SITES}" != "x" ]; then
+	fi
+	if [ "x${ACQ465_SITES}" != "x" ]; then
 	    for site in $ACQ465_SITES; do
 			web_append acq465.$site nomon
 		done		

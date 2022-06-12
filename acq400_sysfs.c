@@ -3889,12 +3889,28 @@ const struct attribute *dio482_pg_attrs[] = {
 		NULL
 };
 
+MAKE_BITS(tdc_en, TDC_CR, MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
+MAKE_BITS(tdc_train, TDC_CR, MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
+
+MAKE_BITS(tdc_disable_ch1, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
+MAKE_BITS(tdc_disable_ch2, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH2);
+MAKE_BITS(tdc_disable_ch3, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH3);
+MAKE_BITS(tdc_disable_ch4, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH4);
+
 SCOUNT_KNOB(evt_ch1, 	TDC_CH1_EVT_COUNT);
 SCOUNT_KNOB(evt_ch2, 	TDC_CH2_EVT_COUNT);
 SCOUNT_KNOB(evt_ch3, 	TDC_CH3_EVT_COUNT);
 SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
 
 const struct attribute *acq494_attrs[] = {
+	&dev_attr_tdc_en.attr,
+	&dev_attr_tdc_train.attr,
+
+	&dev_attr_tdc_disable_ch1.attr,
+	&dev_attr_tdc_disable_ch2.attr,
+	&dev_attr_tdc_disable_ch3.attr,
+	&dev_attr_tdc_disable_ch4.attr,
+
 	&dev_attr_scount_evt_ch1.attr,
 	&dev_attr_scount_evt_ch2.attr,
 	&dev_attr_scount_evt_ch3.attr,

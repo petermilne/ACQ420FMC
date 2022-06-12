@@ -356,7 +356,13 @@
 
 #define TDC_CH_MASK		(ADC_BASE+0x044)
 
+#define TDC_CR_TRAIN		(1<<6)
+#define TDC_CR_ENABLE		(1<<4)
 
+#define TDC_CH_MASK_CH4		(1<<3)
+#define TDC_CH_MASK_CH3		(1<<2)
+#define TDC_CH_MASK_CH2		(1<<1)
+#define TDC_CH_MASK_CH1		(1<<0)
 
 enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
