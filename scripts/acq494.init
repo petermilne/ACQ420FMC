@@ -79,8 +79,10 @@ proc clr_acq400_knob {site knob} {
 
 proc write_knob {knob value} {
 	set kb [open $knob w]
+#	puts "write_knob $value to $kb $knob"
 	puts $kb $value
 	close $kb
+#	puts "write_knob 99"
 }
 
 set CFG { 3f 0f 32 a0 86 01 c0 73 a1 13 00 0a cc cc f1 7d 00 }
@@ -89,10 +91,24 @@ set CFG { 3f 0f 32 a0 86 01 c0 73 a1 13 00 0a cc cc f1 7d 00 }
 proc spi_device_init {idev} {
 	global CFG
 	set cfg_len [llength $CFG]
-	set root [format "/sys/bus/spi/devices/sp1.%d" $idev]
+	set root [format "/sys/bus/spi/devices/spi1.%d" $idev]
+	set power [format "%s/tdc_gpx2_power" $root]
+	
+	set pollcat 0
+	while {[file exists $power] != 1} {			
+		incr pollcat
+		if { $pollcat >= 10 } {
+			puts "failed to see $power"
+			exit 1
+		} else {
+			puts "waiting for $power"	
+		}
+		after 100
+	}
+
 	write_knob [format "%s/tdc_gpx2_power" $root] 1
 	
-	for { set reg 0 } { $reg <= $cfg_len } { incr reg } {
+	for { set reg 0 } { $reg < $cfg_len } { incr reg } {
 		write_knob [format "%s/tdc_gpx2_cfg%02d" $root $reg] [lindex $CFG $reg]
 	}
 	write_knob [format "%s/tdc_gpx2_init" $root] 1
