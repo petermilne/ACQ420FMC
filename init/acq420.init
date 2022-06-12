@@ -710,7 +710,7 @@ build_knobs() {
         done        
         $ULB/acq465.init ${ACQ465_SITES}
     elif [ "x${ACQ494_SITES}" != "x" ]; then
-        $ULB/acq494.init ${ACQ494_SITES} &
+        [ -z $ACQ494_STUB ] || $ULB/acq494.init ${ACQ494_SITES} &
     elif [ "x${ACQ400T_SITES}" != "x" ]; then
         echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
         $ULB/acq400t.init ${ACQ400T_SITES}
