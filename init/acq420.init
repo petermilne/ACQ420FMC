@@ -406,7 +406,7 @@ build_knobs_device() {
         ACQ465_SITES="${ACQ465_SITES} $site";;
     B)
         set_max_min_khz ${site} 10000 10000
-        ACQ494_SITES=${ACQ494_SITES} "site";; 
+        ACQ494_SITES="${ACQ494_SITES} site";; 
     40|42|6A)   
         case $mtype in
         6A)
@@ -621,46 +621,7 @@ build_knobs() {
             build_knobs_device ${dir}
         fi
     done
-    
-    if [ "x${ACQ423_SITES}" != "x" ]; then
-        $ULB/acq423.init ${ACQ423_SITES}
-        # use /mnt/local/acq420_custom
-        #       BLEN=4194304
-        #       NBUF=128
-    fi
-    if [ "x${ACQ425_SITES}" != "x" ]; then
-        $ULB/acq425.init ${ACQ425_SITES}
-        # use /mnt/local/acq420_custom
-        #       BLEN=4194304
-        #       NBUF=128
-    fi
-    if [ "x${ACQ427_SITES}" != "x" ]; then
-        $ULB/acq427.init ${ACQ427_SITES}
-        for a427s in ${ACQ427_SITES}; do
-            if [ $a427s -eq 1 ]; then
-                if [ "$IS_ACQ427" = "01" ]; then
-                    echo "model 01, no DAC"
-                else 
-                    echo "link dac_range from ACQ427.1 to AO420.2"
-                    for dac in 1 2 3 4; do
-                        rm -f /etc/acq400/2/dac_range_0${dac}
-                        ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
-                    done
-                    echo 1 > /dev/acq400.2.knobs/dac_range_REF
-                fi
-            fi
-        done
-        # use /mnt/local/acq420_custom
-        #       BLEN=4194304
-        #       NBUF=128
-    fi
-
-    if [ "x${ACQ437_SITES}" != "x" ]; then
-        $ULB/acq437.init ${ACQ437_SITES}
-        # use /mnt/local/acq420_custom
-        #       BLEN=4194304
-        #       NBUF=128
-    fi  
+     
     if [ "x${ACQ480_SITES}" != "x" ]; then      
         case $MODEL in
         acq1*)
@@ -708,7 +669,42 @@ build_knobs() {
             fi;;
         esac
     fi
-    if [ "x${ACQ465_SITES}" != "x" ]; then
+    if [ "x${ACQ423_SITES}" != "x" ]; then
+        $ULB/acq423.init ${ACQ423_SITES}
+        # use /mnt/local/acq420_custom
+        #       BLEN=4194304
+        #       NBUF=128
+    fi
+    if [ "x${ACQ425_SITES}" != "x" ]; then
+        $ULB/acq425.init ${ACQ425_SITES}
+        # use /mnt/local/acq420_custom
+        #       BLEN=4194304
+        #       NBUF=128
+    elif [ "x${ACQ427_SITES}" != "x" ]; then
+        $ULB/acq427.init ${ACQ427_SITES}
+        for a427s in ${ACQ427_SITES}; do
+            if [ $a427s -eq 1 ]; then
+                if [ "$IS_ACQ427" = "01" ]; then
+                    echo "model 01, no DAC"
+                else 
+                    echo "link dac_range from ACQ427.1 to AO420.2"
+                    for dac in 1 2 3 4; do
+                        rm -f /etc/acq400/2/dac_range_0${dac}
+                        ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
+                    done
+                    echo 1 > /dev/acq400.2.knobs/dac_range_REF
+                fi
+            fi
+        done
+        # use /mnt/local/acq420_custom
+        #       BLEN=4194304
+        #       NBUF=128
+    elif [ "x${ACQ437_SITES}" != "x" ]; then
+        $ULB/acq437.init ${ACQ437_SITES}
+        # use /mnt/local/acq420_custom
+        #       BLEN=4194304
+        #       NBUF=128
+    elif [ "x${ACQ465_SITES}" != "x" ]; then
         for site in $ACQ465_SITES; do
             web_append acq465.$site nomon
         done        
