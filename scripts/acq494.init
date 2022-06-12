@@ -129,6 +129,19 @@ proc print {args} {
 
 trace add execution source enterstep print
 
+proc wait_clock {} {
+	while {[file exists /etc/acq400/0/SIG:CLK_MB:READY] != 1} {
+		puts "acq494.init wait_clock 1"
+		after 1000
+	}
+	
+	while {[lindex [split [exec get.site 0 SIG:CLK_MB:READY]] 1] != 1} {
+		puts "acq494.init wait_clock 2"
+		after 200
+	}
+}
+
+
 if { $::argc > 0 } {
 	foreach site $::argv {
 		if { [string length $SITES] > 0 } {
@@ -144,8 +157,10 @@ if { $::argc > 0 } {
 			build_50R $site			
 		}
 	}
-	set idev 0
+
+	wait_clock
 	
+	set idev 0
 	foreach site $::argv {
 		spi_device_init $idev
 		incr idev
