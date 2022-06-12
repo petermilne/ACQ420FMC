@@ -18,8 +18,9 @@
 
 #include <linux/spi/spi.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/pca953x.h>
 
-#define REVID 		"0.2.0"
+#define REVID 		"0.3.0"
 #define MODULE_NAME	"acq494"
 
 extern void acq480_hook_spi(void);
@@ -31,6 +32,9 @@ module_param_array(acq494_sites, int, &acq494_sites_count, 0644);
 
 static int n_acq494;
 module_param(n_acq494, int, 0444);
+
+static int claim_0x20 = 1;
+module_param(claim_0x20, int, 0444);
 
 static int spi_bus_num = 1;
 module_param(spi_bus_num, int, 0444);
@@ -325,6 +329,35 @@ static int tdc_gpx2spi_remove(struct spi_device *spi)
 }
 
 
+#define I2C_CHAN(site) 	((site)+1)
+#define NGPIO_CHIP	8
+
+static struct i2c_client* new_device(
+		struct i2c_adapter *adap,
+		const char* name, unsigned short addr, int gpio_base)
+{
+	struct pca953x_platform_data pca_data = {};
+	struct i2c_board_info info = {};
+
+	strlcpy(info.type, name, I2C_NAME_SIZE);
+	info.addr = addr;
+	pca_data.gpio_base = gpio_base;
+	pca_data.irq_base = -1;
+	info.platform_data = &pca_data;
+	return i2c_new_device(adap, &info);
+}
+
+
+static void __init acq494_i2c_create(int site)
+{
+	struct i2c_adapter *i2c_adapter = i2c_get_adapter(I2C_CHAN(site));
+	if (claim_0x20){
+		if (new_device(i2c_adapter, "pca9534", 0x20, -1) == 0){
+			printk("acq494_i2c_create(%d) 50R switch NOT found\n", site);
+		}
+	}
+}
+
 static void __init acq494_init_site(int site)
 {
 	static struct spi_board_info tdc_gpx2spi_spi_slave_info = {
@@ -338,6 +371,8 @@ static void __init acq494_init_site(int site)
 	tdc_gpx2spi_spi_slave_info.bus_num = spi_bus_num;
 	tdc_gpx2spi_spi_slave_info.chip_select = site2cs(site);
 	spi_register_board_info(&tdc_gpx2spi_spi_slave_info, 1);
+
+	acq494_i2c_create(site);
 }
 
 static void __init acq494_remove_site(int site)
