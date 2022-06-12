@@ -404,6 +404,9 @@ build_knobs_device() {
 	A)
 		set_max_min_khz ${site} 1400 1
 		ACQ465_SITES="${ACQ465_SITES} $site";;
+	B)
+	    set_max_min_khz ${site} 10000 10000
+	    ACQ494_SITES=${ACQ494_SITES} "site";; 
 	40|42|6A)	
 		case $mtype in
 		6A)
@@ -704,14 +707,14 @@ build_knobs() {
 				echo "WARNING ACQ1001 non ACQ480 : BUS SPEED $bs check BOOT.bin"
 			fi;;
 		esac
-	fi
-	if [ "x${ACQ465_SITES}" != "x" ]; then
+	elif [ "x${ACQ465_SITES}" != "x" ]; then
 	    for site in $ACQ465_SITES; do
 			web_append acq465.$site nomon
 		done		
 		$ULB/acq465.init ${ACQ465_SITES}
-	fi
-	if [ "x${ACQ400T_SITES}" != "x" ]; then
+    elif [ "x${ACQ494_SITES}" != "x" ]; then
+        $ULB/acq494.init ${ACQ494_SITES}
+	elif [ "x${ACQ400T_SITES}" != "x" ]; then
 		echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
 		$ULB/acq400t.init ${ACQ400T_SITES}
 	fi
