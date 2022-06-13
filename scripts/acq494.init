@@ -79,7 +79,7 @@ proc clr_acq400_knob {site knob} {
 
 proc write_knob {knob value} {
 	set kb [open $knob w]
-#	puts "write_knob $value to $kb $knob"
+	puts "write_knob $value to $kb $knob"
 	puts $kb $value
 	close $kb
 #	puts "write_knob 99"
@@ -93,6 +93,9 @@ proc spi_device_init {idev} {
 	set cfg_len [llength $CFG]
 	set root [format "/sys/bus/spi/devices/spi1.%d" $idev]
 	set power [format "%s/tdc_gpx2_power" $root]
+	set init [format "%s/tdc_gpx2_init" $root]
+	
+	puts "spi_device_init $idev"
 	
 	set pollcat 0
 	while {[file exists $power] != 1} {			
@@ -106,12 +109,12 @@ proc spi_device_init {idev} {
 		after 100
 	}
 
-	write_knob [format "%s/tdc_gpx2_power" $root] 1
+	write_knob $power 1
 	
 	for { set reg 0 } { $reg < $cfg_len } { incr reg } {
 		write_knob [format "%s/tdc_gpx2_cfg%02d" $root $reg] [lindex $CFG $reg]
 	}
-	write_knob [format "%s/tdc_gpx2_init" $root] 1
+	write_knob $init 1
 }
 
 
@@ -132,12 +135,12 @@ trace add execution source enterstep print
 proc wait_clock {} {
 	while {[file exists /etc/acq400/0/SIG:CLK_MB:READY] != 1} {
 		puts "acq494.init wait_clock 1"
-		after 1000
+		after 2000
 	}
 	
 	while {[lindex [split [exec get.site 0 SIG:CLK_MB:READY]] 1] != 1} {
 		puts "acq494.init wait_clock 2"
-		after 200
+		after 500
 	}
 }
 
@@ -162,7 +165,10 @@ if { $::argc > 0 } {
 	
 	set idev 0
 	foreach site $::argv {
+		set site [lindex $::argv $idev]
+		exec set.site 0 "SYS:CLK:OE_CLK1_ELF$site" 1
 		spi_device_init $idev
+		exec set.site $site tdc_en 1
 		incr idev
 	}
 } else {
