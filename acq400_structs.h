@@ -587,7 +587,18 @@ static inline int _is_acq42x(struct acq400_dev *adev) {
 	default:
 		return false;
 	}
+}
 
+static inline int _has_variable_data32(struct acq400_dev *adev) {
+	switch(GET_MOD_ID(adev)){
+	case MOD_ID_ACQ420FMC:
+	case MOD_ID_ACQ425ELF:
+	case MOD_ID_ACQ427ELF:
+	case MOD_ID_ACQ465ELF:
+		return true;
+	default:
+		return false;
+	}
 }
 
 

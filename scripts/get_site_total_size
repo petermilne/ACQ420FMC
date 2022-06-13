@@ -22,7 +22,9 @@ do
 		site_d32=$(cat /dev/acq400.${site}.knobs/data32)
 		active_chan=$(cat ${s_root}/active_chan)
 		ncc=$(($ncc+$active_chan))
-		if [ $site_d32 -eq 1 ]; then
+		if [ $site_d32 -eq 2 ]; then
+			d32c=$(($d32c+$active_chan*2))
+		elif [ $site_d32 -eq 1 ]; then
 			d32c=$(($d32c+$active_chan))
 		else
 			d16c=$(($d16c+$active_chan))
