@@ -4,7 +4,14 @@
 
 set LNAMES1 { T50R_1 T50R_2 T50R_3 T50R_4  }
 set DIR1    { out    out    out	   out     }
-	 
+
+
+set VERBOSE 0
+if { [info exists ::env(ACQ494_VERBOSE) ] } {
+	set VERBOSE $::env(ACQ494_VERBOSE)
+}
+
+
 proc link_gpio {lnames outputs root gpio1 ngpio} {
 	set nc [llength $lnames]
 	set ngpio [expr min ($ngpio, $nc ) ]
@@ -78,8 +85,11 @@ proc clr_acq400_knob {site knob} {
 }
 
 proc write_knob {knob value} {
+	global VERBOSE
 	set kb [open $knob w]
-	puts "write_knob $value to $kb $knob"
+	if { $VERBOSE } {
+		puts "write_knob $value to $kb $knob"
+	}
 	puts $kb $value
 	close $kb
 #	puts "write_knob 99"
@@ -133,14 +143,18 @@ proc print {args} {
 trace add execution source enterstep print
 
 proc wait_clock {} {
+	set pollcat 0
 	while {[file exists /etc/acq400/0/SIG:CLK_MB:READY] != 1} {
-		puts "acq494.init wait_clock 1"
-		after 2000
+		puts "acq494.init wait_clock 1 $pollcat"
+		incr pollcat
+		after 2500
 	}
 	
+	set pollcat 0
 	while {[lindex [split [exec get.site 0 SIG:CLK_MB:READY]] 1] != 1} {
-		puts "acq494.init wait_clock 2"
-		after 500
+		puts "acq494.init wait_clock 2 $pollcat"
+		incr pollcat
+		after 900
 	}
 }
 
