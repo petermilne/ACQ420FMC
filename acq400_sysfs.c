@@ -773,6 +773,9 @@ MAKE_BITS(wr_clk_pv3, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV3);
 
 MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
 
+MAKE_BITS(wr_link_up, 	 WR_TAI_CUR_H, MAKE_BITS_FROM_MASK, WR_TAI_CUR_H_LINKUP);
+MAKE_BITS(wr_time_valid, WR_TAI_CUR_H, MAKE_BITS_FROM_MASK, WR_TAI_CUR_H_TIMEVALID);
+
 #define MAKE_WR_EVENT_COUNT(FUN) 								\
 static ssize_t store_wr_##FUN##count(								\
 	struct device * dev,									\
@@ -820,6 +823,9 @@ static const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_ts_client_count.attr,
 	&dev_attr_wr_wrtt_client0_count.attr,
 	&dev_attr_wr_wrtt_client1_count.attr,
+
+	&dev_attr_wr_link_up.attr,
+	&dev_attr_wr_time_valid.attr,
 	NULL
 };
 
@@ -3889,8 +3895,9 @@ const struct attribute *dio482_pg_attrs[] = {
 		NULL
 };
 
-MAKE_BITS(tdc_en, TDC_CR, MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
-MAKE_BITS(tdc_train, TDC_CR, MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
+MAKE_BITS(tdc_en, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
+MAKE_BITS(tdc_train, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
+MAKE_BITS(tdc_load_cal, TDC_LOADED_CALIB, MAKE_BITS_FROM_MASK, 0xffffffff);
 
 MAKE_BITS(tdc_disable_ch1, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
 MAKE_BITS(tdc_disable_ch2, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH2);
@@ -3905,6 +3912,7 @@ SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
 const struct attribute *acq494_attrs[] = {
 	&dev_attr_tdc_en.attr,
 	&dev_attr_tdc_train.attr,
+	&dev_attr_tdc_load_cal.attr,
 
 	&dev_attr_tdc_disable_ch1.attr,
 	&dev_attr_tdc_disable_ch2.attr,
