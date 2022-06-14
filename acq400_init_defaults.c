@@ -569,6 +569,8 @@ static void acq494_init_defaults(struct acq400_dev *adev)
 	adev->nchan_enabled = 4;
 	adev->word_size = 8;
 	adev->data32 = 2;
+	adev->onStart = acq420_onStart;
+	adev->onStop = acq420_disable_fifo;
 }
 
 int _ao420_getFifoSamples(struct acq400_dev* adev) {
