@@ -1580,9 +1580,16 @@ static ssize_t store_data32(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	u32 data32;
-	if (HAS_VARIABLE_DATA32(adev) && sscanf(buf, "%u", &data32) == 1){
+	if (sscanf(buf, "%u", &data32) == 1){
+#if 0
+		if (HAS_VARIABLE_DATA32(adev)){
+			adev->data32 = data32 != 0;
+			adev->word_size = data32? 4: 2;
+		}
+#else
 		adev->data32 = data32 != 0;
 		adev->word_size = data32? 4: 2;
+#endif
 		return count;
 	}else{
 		return -1;

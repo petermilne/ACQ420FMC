@@ -566,9 +566,16 @@ static void acq494_init_defaults(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "%s device init MODULE_EN", "acq494elf");
 	acq400wr32(adev, ADC_CTRL, adc_ctrl|ADC_CTRL_MODULE_EN);
 
-	adev->nchan_enabled = 4;
+#if 0
+	adev->nchan_enabled = 1;		// because the data _is_ one channel at a time
 	adev->word_size = 8;
 	adev->data32 = 2;
+#else
+	dev_info(DEVP(adev), "%s try some previously used values: 2x4", __FUNCTION__);
+	adev->nchan_enabled = 2;
+	adev->word_size = 4;
+	adev->data32 = 1;
+#endif
 	adev->onStart = acq420_onStart;
 	adev->onStop = acq420_disable_fifo;
 }
