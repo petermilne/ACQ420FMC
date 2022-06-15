@@ -181,7 +181,7 @@ if { $::argc > 0 } {
 	foreach site $::argv {
 		set site [lindex $::argv $idev]
 		exec set.site 0 "SYS:CLK:OE_CLK1_ELF$site" 1
-		spi_device_init $idev
+		spi_device_init $site
 		exec set.site $site tdc_en 1
 		incr idev
 	}
