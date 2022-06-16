@@ -257,7 +257,7 @@ static ssize_t show_clk_count_##name(						\
 	char * buf)								\
 {										\
 	u32 counter = acq400_devices[dev->id]->clk_reg_cache.data[reg/sizeof(int)]; \
-	return sprintf(buf, "%u\n", counter);					\
+	return sprintf(buf, "%u\n", counter&0x7fffffff);			\
 }										\
 static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
 
