@@ -2,7 +2,7 @@
 # acq494 T50R termination and jitter cleaner JC
 
 
-set LNAMES1 { T50R_1 T50R_2 T50R_3 T50R_4  }
+set LNAMES1 { T50R_4 T50R_3 T50R_2 T50R_1  }
 set DIR1    { out    out    out	   out     }
 
 
