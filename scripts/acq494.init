@@ -61,7 +61,7 @@ proc build_50R {site} {
 	link_gpio $lnames1 $DIR1 "/dev/acq494/$site" $gpio1 $ngpio
 	
 	for {set ic 1} {$ic <= $ngpio} {incr ic} {
-		file delete -force /etc/acq400/$site/T50R_$ic
+		#file delete -force /etc/acq400/$site/T50R_$ic
 		set tname [lindex $LNAMES1 [expr $ic - 1]]			
 		exec ln -s /dev/acq494/$site/$tname \
 			/etc/acq400/$site/$tname
