@@ -3890,6 +3890,7 @@ static DEVICE_ATTR(num_pg, S_IRUGO|S_IWUSR, show_num_pg, store_num_pg);
 MAKE_BITS(chain_PG,   DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
 MAKE_BITS(trgout_PG4, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
 MAKE_BITS(bypass_trg_debounce, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_BYPASS_TRG);
+MAKE_BITS(active_low, DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_INVERT);
 
 const struct attribute *dio482_pg_attrs[] = {
 		&dev_attr_DO32.attr,
@@ -3899,6 +3900,7 @@ const struct attribute *dio482_pg_attrs[] = {
 		&dev_attr_chain_PG.attr,
 		&dev_attr_num_pg.attr,
 		&dev_attr_bypass_trg_debounce.attr,
+		&dev_attr_active_low.attr,
 		NULL
 };
 

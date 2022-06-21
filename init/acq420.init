@@ -436,6 +436,11 @@ build_knobs_device() {
     61|62|6B)
         case $mtype in
         6B)
+            source  /dev/sites/${site}/details
+            if [ "$FRU_PART_NUM" != "${FRU_PART_NUM#*FBR}" ]; then
+               echo "FBR part detected in site ${site}: $FRU_PART_NUM"
+               echo 1 > ${dk}/active_low
+            fi
             set_max_min_khz ${site} 25000 10;;
         *)
             set_max_min_khz ${site} 1000 10;;
