@@ -95,7 +95,7 @@ proc write_knob {knob value} {
 #	puts "write_knob 99"
 }
 
-set CFG { 3f 0f 32 a0 86 01 c0 73 a1 13 00 0a cc cc f1 7d 00 }
+set CFG { bf 0f 32 a0 86 01 c0 73 a1 13 00 0a cc cc f1 7d 00 }
 
 
 proc spi_device_init {idev} {
