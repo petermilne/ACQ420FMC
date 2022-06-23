@@ -1430,7 +1430,7 @@ static void default_wait_on_sigterm(int signo)
 
 	while ((wpid = wait(&status)) > 0){
 		if (verbose){
-			fprintf(stderr, "%s %d reaps %d\n", _PFN, getpid(), wpid);
+			fprintf(stderr, "%s %d reaps %d status:%d\n", _PFN, getpid(), wpid, status);
 		}
 	}
 	exit(0);
@@ -1442,6 +1442,7 @@ static void wait_and_cleanup_sighandler(int signo)
 static void wait_and_cleanup(pid_t child)
 {
 	sigset_t  emptyset, blockset;
+	int error_rc = 0;
 
 	if (verbose) fprintf(stderr, "%s 01 pid %d\n", _PFN, getpid());
 
@@ -1482,6 +1483,7 @@ static void wait_and_cleanup(pid_t child)
 		}else if (FD_ISSET(0, &exceptfds)){
 			if (verbose) fprintf(stderr, "exception on stdin\n");
 			finished = true;
+			error_rc = 1;
 		}else if (FD_ISSET(0, &readfds)){
 			if (feof(stdin)){
 				if (verbose) fprintf(stderr,"EOF\n");
@@ -1489,6 +1491,7 @@ static void wait_and_cleanup(pid_t child)
 			}else if (ferror(stdin)){
 				if (verbose) fprintf(stderr, "ERROR\n");
 				finished = true;
+				error_rc = 2;
 			}else{
 				char stuff[80];
 				fgets(stuff, 80, stdin);
@@ -1519,7 +1522,7 @@ static void wait_and_cleanup(pid_t child)
 		verbose && fprintf(stderr, "%d waited for %d\n", nwait, wpid);
 	}
 
-    exit(0);
+	exit(error_rc);
 }
 
 static void hold_open(int site)
