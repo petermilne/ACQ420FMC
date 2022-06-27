@@ -323,6 +323,26 @@ fake_fmc2_leds()
     echo 1 >/dev/gpio/LED/FMC2_G
 }
 
+make_acq494_spi_fields() {
+    ek=$1
+    for ch in 1 2 3 4; do       
+        mspec=$(printf "M=0x%02x" $((1<<($ch-1))))
+        cat - >$ek/gpx2_hit_ena$ch <<EOF
+#!/bin/sh
+exec reg_rw 1 M=$mspec \$1    
+EOF   
+    done
+    cat - >$ek/gpx2_channel_combine <<EOF
+#!/bin/sh
+exec reg_rw 1 M=0x30 \$1    
+EOF
+   cat - >$ek/gpx2_hi_res <<EOF
+#!/bin/sh
+exec reg_rw 1 M=0xc0 \$1    
+EOF
+    chmod a+rx $ek/gpx2_hit_ena* $ek/gpx2_channel_combine $ek/gpx2_hi_res
+}
+
 build_knobs_device() {
     dir=$1
     site=$(cat $dir/site)
@@ -406,6 +426,7 @@ build_knobs_device() {
         ACQ465_SITES="${ACQ465_SITES} $site";;
     B)
         set_max_min_khz ${site} 10000 10000
+        make_acq494_spi_fields $ek
         ACQ494_SITES="${ACQ494_SITES} ${site}";; 
     40|42|6A)   
         case $mtype in
