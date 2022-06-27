@@ -4,20 +4,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 namespace G {
 	int site = 1;
 	unsigned mask = 0xff;
 	int verbose;
+	const char* root = "/sys/bus/spi/devices/spi1";
 };
 
-#define ROOT "spi1"
+
 
 struct File {
 	FILE *fp;
 	File(unsigned reg, const char* mode) {
 		char fname[128];
-		sprintf(fname, "%s.%d/config_%d", ROOT, G::site-1, reg);
+		sprintf(fname, "%s.%d/tdc_gpx2_cfg%02d", G::root, G::site-1, reg);
 		fp = fopen(fname, mode);
 		if (!fp){
 			printf("FAILED to open %s mode %s\n", fname, mode);
@@ -99,6 +99,9 @@ int main(int argc, char* argv[])
 	unsigned reg, value;
 	bool value_set = false;
 
+	if (getenv("SITE")){
+		G::site = atoi(getenv("SITE"));
+	}
 	if (argc <= 1){
 		fprintf(stderr, "USAGE: reg_rw reg [M=mask] [value]");
 		return 1;
