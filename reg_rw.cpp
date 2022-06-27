@@ -63,6 +63,18 @@ unsigned get_reg(unsigned reg) {
 	File rreg(reg, "r");
 	return (rreg.getKnob()&G::mask) >> first_bit(G::mask);
 }
+
+void set_init(void) {
+	char fname[128];
+	sprintf(fname, "%s.%d/tdc_gpx2_init", G::root, G::site-1);
+	FILE *fp = fopen(fname, "w");
+	if (!fp){
+		printf("FAILED to open %s mode %s\n", fname, "w");
+		exit(1);
+	}
+	fprintf(fp, "1\n");
+	fclose(fp);
+}
 /*
 template <int WS>
 class RegRW {
@@ -127,10 +139,12 @@ int main(int argc, char* argv[])
 		printf("set: SITE:%d reg:%d mask:0x%02x value:0x%02x\n", 
 			G::site, reg, G::mask, value);
 		set_reg(reg, value);
+		set_init();
 	}else{
 		G::verbose &&
 		printf("get: SITE:%d reg:%d mask:0x%02x\n",
 			G::site, reg, G::mask);
 		printf("0x%02x\n", get_reg(reg));
 	}
+	return 0;
 }
