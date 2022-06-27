@@ -326,11 +326,11 @@ fake_fmc2_leds()
 make_acq494_spi_fields() {
     ek=$1
     for ch in 1 2 3 4; do       
-        mspec=$(printf "M=0x%02x" $((1<<($ch-1))))
+        mspec=$(printf "0x%02x" $((1<<($ch-1))))
         cat - >$ek/gpx2_hit_ena$ch <<EOF
 #!/bin/sh
 exec reg_rw 1 M=$mspec \$1    
-EOF   
+EOF
     done
     cat - >$ek/gpx2_channel_combine <<EOF
 #!/bin/sh
