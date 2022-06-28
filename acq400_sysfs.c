@@ -3906,6 +3906,7 @@ const struct attribute *dio482_pg_attrs[] = {
 
 MAKE_BITS(tdc_en, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
 MAKE_BITS(tdc_train, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
+MAKE_BITS(tdc_pad_en,   TDC_CR,           MAKE_BITS_FROM_MASK, TDC_CR_PAD_EN);
 MAKE_BITS(tdc_load_cal, TDC_LOADED_CALIB, MAKE_BITS_FROM_MASK, 0xffffffff);
 
 MAKE_BITS(tdc_disable_ch1, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
@@ -3920,6 +3921,7 @@ SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
 
 const struct attribute *acq494_attrs[] = {
 	&dev_attr_tdc_en.attr,
+	&dev_attr_tdc_pad_en.attr,
 	&dev_attr_tdc_train.attr,
 	&dev_attr_tdc_load_cal.attr,
 

@@ -357,6 +357,7 @@
 #define TDC_LOADED_CALIB	(ADC_BASE+0x034)
 #define TDC_CH_MASK		(ADC_BASE+0x044)
 
+#define TDC_CR_PAD_EN		(1<<7)
 #define TDC_CR_TRAIN		(1<<6)
 #define TDC_CR_ENABLE		(1<<4)
 
