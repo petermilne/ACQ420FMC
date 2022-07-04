@@ -182,7 +182,12 @@ static ssize_t show_clkdiv(
 	struct device_attribute *attr,
 	char * buf)
 {
-	u32 clkdiv = acq400rd32(acq400_devices[dev->id], ADC_CLKDIV);
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 clkdiv = 1;
+
+	if (!HAS_FIXED_CLKDIV(adev)){
+		clkdiv = acq400rd32(adev, ADC_CLKDIV);
+	}
 	return sprintf(buf, "%u\n", clkdiv);
 }
 
@@ -195,7 +200,9 @@ static ssize_t store_clkdiv(
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 clkdiv;
 
-	if (sscanf(buf, "%u", &clkdiv) == 1 &&
+	if (HAS_FIXED_CLKDIV(adev)){
+		return -2;
+	}else if (sscanf(buf, "%u", &clkdiv) == 1 &&
 	    clkdiv >= 1 && clkdiv <= adev->clkdiv_mask){
 		acq400wr32(adev, ADC_CLKDIV, clkdiv);
 		return count;

@@ -516,6 +516,8 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define HAS_FPGA_FIR(adev) (IS_ACQ480(adev) && GET_MOD_IDV(adev) != 0)
 
+#define HAS_FIXED_CLKDIV(adev)	(IS_ACQ480(adev)||IS_ACQ494(adev))
+
 #define FPGA_REV(adev)	((adev)->mod_id&0x00ff)
 
 #define SYSCLK_M100	100000000
