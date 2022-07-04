@@ -246,17 +246,17 @@ int acq400_dma_mmap_host(struct file* file, struct vm_area_struct* vma)
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	int ibuf = BUFFER(PD(file)->minor);
-	struct HBM *hb = adev->hb[ibuf];
+	struct HBM *hbm = adev->hb[ibuf];
 	unsigned long vsize = vma->vm_end - vma->vm_start;
-	unsigned long psize = hb->len;
-	unsigned pfn = hb->pa >> PAGE_SHIFT;
+	unsigned long psize = hbm->len;
+	unsigned pfn = hbm->pa >> PAGE_SHIFT;
 
 	if (!IS_BUFFER(PD(file)->minor)){
 		dev_warn(DEVP(adev), "ERROR: device node not a buffer");
 		return -1;
 	}
 	dev_dbg(&adev->pdev->dev, "%c [%d] 0x%08x vsize %lu psize %lu %s",
-		'D', hb->ix,hb->pa,
+		'D', hbm->ix,hbm->pa,
 		vsize, psize, vsize>psize? "EINVAL": "OK");
 
 	if (vsize > psize){
@@ -275,31 +275,65 @@ ssize_t acq400_hb_read(
 {
 	struct acq400_dev* adev = ACQ400_DEV(file);
 	int ibuf = BUFFER(PD(file)->minor);
-	struct HBM *hb = adev->hb[ibuf];
+	struct HBM *hbm = adev->hb[ibuf];
 	unsigned cursor = *f_pos;	/* f_pos counts in bytes */
 	int rc;
+	size_t copy_count;
 
+/*
 	dev_dbg(DEVP(adev), "acq400_hb_read() cursor:%u len:%u count:%u",
-			cursor, hb->len, count);
-	if (cursor >= hb->len){
+			cursor, hbm->len, count);
+*/
+	if (cursor >= hbm->len){
 		return 0;
 	}else{
-		int headroom = hb->len - cursor;
+		int headroom = hbm->len - cursor;
 		if (count > headroom){
 			count = headroom;
 		}
+		if (count == headroom){
+			copy_count = count - POISON_SZ;
+		}else{
+			copy_count = count;
+		}
 	}
-
+/*
 	dev_dbg(DEVP(adev), "acq400_hb_read() copy_to [%d] %p %d",
-			ibuf, (char*)hb->va+cursor, count);
-	rc = copy_to_user(buf, (char*)hb->va + cursor, count);
+			ibuf, (char*)hbm->va+cursor, count);
+*/
+	rc = copy_to_user(buf, (char*)hbm->va + cursor, copy_count);
 	if (rc){
 		return -1;
 	}
+	if (copy_count == count-POISON_SZ){
+		unsigned po_bytes = poison_offset(adev);
+		unsigned first_word = FIRST_POISON_WORD(po_bytes);
+		unsigned px[2];
+		px[0] = hbm->va[first_word+0];
+		if (px[0] == POISON0){
+			dev_dbg(DEVP(adev),
+				"acq400_hb_read() poison replaced %08x:%08x",
+							px[0], hbm->poison_data[0]);
+			px[0] = hbm->poison_data[0];
+		}
+		px[1] = hbm->va[first_word+1];
+		if (px[1] == POISON1){
+			dev_dbg(DEVP(adev),
+				"acq400_hb_read() poison replaced %08x:%08x",
+							px[1], hbm->poison_data[1]);
+			px[1] = hbm->poison_data[1];
+		}
+
+		rc = copy_to_user(buf+copy_count, (char*)px, POISON_SZ);
+		if (rc){
+			return -1;
+		}
+	}
 
 	*f_pos += count;
-
+/*
 	dev_dbg(DEVP(adev), "acq400_hb_read() return count:%u", count);
+*/
 	return count;
 }
 

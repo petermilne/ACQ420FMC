@@ -35,10 +35,6 @@
 #include "acq400_debugfs.h"
 #include "acq400_lists.h"
 
-#define POISON0 0xc0de0000
-#define POISON1 0xc1de0000
-
-#define USZ	sizeof(u32)
 
 unsigned AXI_POISON_OFFSET = 0;
 module_param(AXI_POISON_OFFSET, uint, 0644);
@@ -102,8 +98,7 @@ unsigned poison_offset(struct acq400_dev *adev)
 	}
 }
 
-#define FIRST_POISON_WORD(pob) ((pob)/USZ-2)
-#define POISON_SZ		(2*USZ)
+
 
 void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm)
 {

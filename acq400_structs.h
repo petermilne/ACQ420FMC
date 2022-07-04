@@ -820,6 +820,17 @@ extern int check_all_buffers_are_poisoned(struct acq400_dev *adev);
 extern int dma_done(struct acq400_dev *adev, struct HBM* hbm);
 extern int poison_overwritten(struct acq400_dev *adev, struct HBM* hbm);
 extern void clear_poison_all_buffers(struct acq400_dev *adev);
+
+
+extern unsigned poison_offset(struct acq400_dev *adev);
+#define POISON0 0xc0de0000
+#define POISON1 0xc1de0000
+
+#define USZ	sizeof(u32)
+
+#define FIRST_POISON_WORD(pob) ((pob)/USZ-2)
+#define POISON_SZ		(2*USZ)
+
 extern void poison_one_buffer(struct acq400_dev *adev, struct HBM* hbm);
 
 extern struct acq400_dev* acq400_lookupSite(int site);
