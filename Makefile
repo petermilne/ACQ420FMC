@@ -87,7 +87,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	soft_atd \
 	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
-	channel_mapping slowmon reg_rw
+	channel_mapping slowmon reg_rw hudp_config
 	
 # data_sink	
 # dropped
@@ -256,6 +256,9 @@ bigcat: bigcat.cpp
 
 lilmac: lilmac.o
 	$(CXX) -O3 -o lilmac lilmac.o -L../lib -lpopt
+
+hudp_config: hudp_config.o knobs.o
+	$(CXX) -O3 -o $@ $^ -L../lib -lpopt
 
 mr_offload: mr_offload.o knobs.o connect_to.o
 	$(CXX) -O3 -o $@ $^ -L../lib -lpopt

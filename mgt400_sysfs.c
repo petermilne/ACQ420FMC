@@ -874,7 +874,9 @@ MAKE_DOTTED_QUAD(rx_src_ip, HUDP_RX_SRC_ADDR);
 MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
 MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
 MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
-MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0xffff);
+MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0x7800);
+MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0x03ff);		// deprecated
+MAKE_DNUM(tx_sample_sz, HUDP_TX_PKT_SZ, 0x03ff);
 
 MAKE_DNUM(tx_pkt_count, HUDP_TX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
@@ -891,6 +893,7 @@ MAKE_DNUM(decim,  	HUDP_CON, 0x0f000000);
 MAKE_BITS(disco_en, 	HUDP_DISCO_COUNT, MAKE_BITS_FROM_MASK, HUDP_DISCO_EN);
 MAKE_DNUM(disco_idx, 	HUDP_DISCO_COUNT, HUDP_DISCO_INDEX);
 MAKE_DNUM(disco_count, 	HUDP_DISCO_COUNT, HUDP_DISCO_COUNT_COUNT);
+MAKE_BITS(hudp_status,       HUDP_STATUS, MAKE_BITS_FROM_MASK, 0xffffffff);
 
 static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_mac.attr,
@@ -903,6 +906,8 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_rx_port.attr,
 	&dev_attr_rx_src_ip.attr,
 	&dev_attr_tx_pkt_sz.attr,
+	&dev_attr_tx_pkt_ns.attr,
+	&dev_attr_tx_sample_sz.attr,
 	&dev_attr_ctrl.attr,
 	&dev_attr_tx_reset.attr,
 	&dev_attr_rx_reset.attr,
@@ -920,7 +925,7 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_disco_count.attr,
 
 	&dev_attr_clear_stats.attr,
-
+	&dev_attr_hudp_status.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)
