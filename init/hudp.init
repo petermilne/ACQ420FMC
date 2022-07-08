@@ -33,7 +33,8 @@ monitor() {
                         *)
                 		    get_knob $k;;
                         esac
-                	done                                        
+                    done
+		    hudp_config
                 )| fs2xml -k '' -o /dev/shm/hudp-new.xml -s $C2R20
                 mv /dev/shm/hudp-new.xml  /dev/shm/hudp.xml
                 sleep 1

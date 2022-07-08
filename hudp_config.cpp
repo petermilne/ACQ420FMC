@@ -2,14 +2,14 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "Knob.h"
+#include "knobs.h"
 
 int main(int argc, char* argv[])
 {
-	Knob k(10, "hudp_status");
 	unsigned status;
-	k.get(&status);
+	getKnob(10, "hudp_status", &status, "%x");
 
+	printf("%20s:0x%08x\n", "STATUS", 	status);
 	printf("%20s:%s\n", "DUPLEX_MODE", 	(status&(1<<28))? "FULL": "HALF");
 	printf("%20s:%s\n", "SPEED",       	(status&(3<<26)) == (2<<26)? "1000": "100");
 	printf("%20s:%d\n", "PHY_LINK_STATUS",  (status&(1<<23)) != 0);
