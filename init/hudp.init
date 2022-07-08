@@ -4,6 +4,19 @@ export WEB_APPEND_JOB=/tmp/hudp-web-append.job
 
 HK=/dev/acq400.10.knobs
 
+cCrR() {
+cat - <<EOF
+        <pageFormat>
+                <noCols>$1</noCols>
+                <colItems>$2</colItems>
+        </pageFormat>
+EOF
+}
+
+C2R15=/dev/shm/c2rR15
+
+[ -e $C2R15 ] || cCrR 2 15 > $C2R15
+
 web_append()
 {
 	if [ ! -e $WEB_APPEND_JOB ]; then
@@ -35,7 +48,7 @@ monitor() {
                         esac
                     done
 		    hudp_config
-                )| fs2xml -k '' -o /dev/shm/hudp-new.xml -s $C2R20
+                )| fs2xml -k '' -o /dev/shm/hudp-new.xml -s $C2R15
                 mv /dev/shm/hudp-new.xml  /dev/shm/hudp.xml
                 sleep 1
         done
