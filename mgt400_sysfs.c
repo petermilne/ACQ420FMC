@@ -878,6 +878,46 @@ MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0x7800);
 MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0x03ff);		// deprecated
 MAKE_DNUM(tx_sample_sz, HUDP_TX_PKT_SZ, 0x03ff);
 
+
+#define TX_SPP_MSK 0x7800
+#define TX_SPP_SHL 11
+
+static ssize_t show_tx_spp(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 tx_spp = (mgt400rd32(mdev, HUDP_TX_PKT_SZ)&TX_SPP_MSK) >> TX_SPP_SHL;
+	return sprintf(buf, "%u\n", tx_spp+1);
+}
+
+static ssize_t store_tx_spp(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	unsigned tx_spp;
+
+	if (sscanf(buf, "%u", &tx_spp) == 1){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 pkt_sz = mgt400rd32(mdev, HUDP_TX_PKT_SZ);
+		pkt_sz &= ~TX_SPP_MSK;
+
+		if (tx_spp > 0) tx_spp -= 1;   // hw guys count from zero, but defend against entry 0
+
+		pkt_sz |= ((tx_spp<<TX_SPP_SHL)&TX_SPP_MSK);
+
+		mgt400wr32(mdev, HUDP_TX_PKT_SZ, pkt_sz);
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(tx_spp, S_IRUGO|S_IWUSR, show_tx_spp, store_tx_spp);
+
 MAKE_DNUM(tx_pkt_count, HUDP_TX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_len,   HUDP_RX_PKT_LEN,   0x000003ff);
@@ -895,6 +935,8 @@ MAKE_DNUM(disco_idx, 	HUDP_DISCO_COUNT, HUDP_DISCO_INDEX);
 MAKE_DNUM(disco_count, 	HUDP_DISCO_COUNT, HUDP_DISCO_COUNT_COUNT);
 MAKE_BITS(hudp_status,       HUDP_STATUS, MAKE_BITS_FROM_MASK, 0xffffffff);
 
+MAKE_DNUM(tx_calc_pkt_sz, HUDP_CALC_PKT_SZ, 0xffffffff);
+
 static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_mac.attr,
 	&dev_attr_ip.attr,
@@ -907,7 +949,9 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_rx_src_ip.attr,
 	&dev_attr_tx_pkt_sz.attr,
 	&dev_attr_tx_pkt_ns.attr,
+	&dev_attr_tx_spp.attr,
 	&dev_attr_tx_sample_sz.attr,
+	&dev_attr_tx_calc_pkt_sz.attr,
 	&dev_attr_ctrl.attr,
 	&dev_attr_tx_reset.attr,
 	&dev_attr_rx_reset.attr,
