@@ -2375,14 +2375,21 @@ void StreamHeadHB0::stream() {
 	char buf[80];
 	int rc;
 	int nb = 0;
+	bool quit_at_end_loop = false;
 
 	while((rc = read(fc, buf, 80)) > 0){
 		buf[rc] = '\0';
 
 		unsigned ib[2];
 		int nscan = sscanf(buf, "%d %d", ib, ib+1);
+
 		assert(nscan >= 1);
 		if (nscan > 0) assert(ib[0] >= 0 && ib[0] < Buffer::nbuffers);
+		if (nscan > 1 && !(ib[1] >= 0 && ib[1] < Buffer::nbuffers)){
+			fprintf(stderr, "ASSERT: ib[0]=%d ib[1]=%d nb:%d\n", ib[0], ib[1], Buffer::nbuffers);
+			nscan = 1;
+			quit_at_end_loop = true;
+		}
 		if (nscan > 1) assert(ib[1] >= 0 && ib[1] < Buffer::nbuffers);
 
 		if (verbose) fprintf(stderr, "\n\n\nUPDATE:%4d nscan:%d read: %s",
@@ -2407,6 +2414,10 @@ void StreamHeadHB0::stream() {
 			b0->writeBuffer(1, Buffer::BO_START|Buffer::BO_FINISH);
 		}
 		if (verbose) fprintf(stderr, "UPDATE:%4d finished\n", nb);
+
+		if (quit_at_end_loop){
+			break;
+		}
 	}
 }
 
