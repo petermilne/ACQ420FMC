@@ -22,12 +22,16 @@ acq400_bq	4237/tcp
 acq400_ev	4238/tcp
 acq400_intmon	4239/tcp
 
-acq400_seg_load 4250/tcp
-acq400_seg_show	4251/tcp
-
 acq400_bos	4240/tcp	# deprecated
 acq400_crb	4241/tcp	# cat raw buffers prefer bigcat
 acq400_bigcat   4242/tcp	# download all capture data 
+
+acq400_seg_load 4250/tcp
+acq400_seg_show	4251/tcp
+
+dsp1_event	4252/tcp
+dsp2_event 	4253/tcp
+
 acq400_sum	4270/tcp	# check it works
 
 wrtd_tx		4280/tcp
@@ -38,6 +42,7 @@ SFP1		4291/tcp
 SFP2		4292/tcp
 SFP3		4293/tcp
 SFP4		4294/tcp
+
 acq400_slowmon	53666/tcp	# check me
 
-
+dramcat         53999/tcp       # dump entire DRAM
