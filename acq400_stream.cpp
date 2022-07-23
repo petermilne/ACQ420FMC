@@ -189,7 +189,7 @@ namespace G {
 
 
 
-int verbose;
+int verbose = getenv_default("VERBOSE");
 unsigned nb_cat =1;	/* number of buffers to concatenate */
 
 
@@ -2496,18 +2496,15 @@ class StreamHeadLivePP : public StreamHeadHB0 {
 
 	int  _stream();
 	static int verbose;
-	bool show_es;
+	static bool show_es;
 public:
 	StreamHeadLivePP():
 			pre(0), post(4096),
 			sample_size(G::nchan*G::wordsize) {
-		const char* vs = getenv("StreamHeadLivePPVerbose");
-		vs && (verbose = atoi(vs));
-		if (verbose) fprintf(stderr, "StreamHeadLivePP() verbose=%d\n", verbose);
-		const char* ses = getenv("StreamHeadLivePPShowES");
-		ses && (show_es = atoi(ses));
 
-		fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() verbose=%d\n", verbose);
+
+		if (verbose) fprintf(stderr, "StreamHeadLivePP() pid:%d\n", getpid());
 		startEventWatcher();
 		startSampleIntervalWatcher();
 
@@ -2528,7 +2525,8 @@ public:
 	virtual void stream();
 };
 
-int StreamHeadLivePP::verbose;
+int StreamHeadLivePP::verbose = getenv_default("StreamHeadLivePPVerbose");
+bool StreamHeadLivePP::show_es = getenv_default("StreamHeadLivePPShowES");
 
 bool StreamHead::has_pre_post_live_demux(void) {
 	return StreamHeadLivePP::hasPP();
@@ -2771,7 +2769,6 @@ protected:
 	/* watch out for end of source buffer ! */
 	virtual int _demux(void* start, int nbytes) = 0;
 	Demuxer(int _wordsize, int _cbb) : wordsize(_wordsize), bufstep(1), dst(_cbb) {
-		verbose = getenv_default("DemuxerVerbose");
 		if (verbose) fprintf(stderr, "Demuxer: verbose=%d\n", verbose);
 	}
 public:
@@ -2799,7 +2796,7 @@ public:
 	static Demuxer* instance(enum DemuxBufferType N, unsigned WS = sizeof(short));
 };
 
-int Demuxer::verbose;
+int Demuxer::verbose = getenv_default("DemuxerVerbose");
 
 
 
@@ -3513,7 +3510,7 @@ public:
 		post_fits(headroom >= G::post),
 		bd_scale(_bd_scale)
 	{
-		verbose = getenv_default("BufferDistributionVerbose");
+		if (verbose) fprintf(stderr, "BufferDistributionVerbose\n");
 	}
 	void show() {
 		fprintf(stderr, "%s pre_fits:%d post_fits:%d\n", _PFN, pre_fits, post_fits);
@@ -3612,7 +3609,7 @@ public:
 	vector<Segment>& getSegments();
 };
 
-int BufferDistribution::verbose;
+int BufferDistribution::verbose = getenv_default("BufferDistributionVerbose");
 
 void StreamHeadImpl::report(const char* id, int ibuf, char *esp){
 	if (!G::report_es) return;
@@ -3790,7 +3787,7 @@ struct BufferSeq {
 	}
 };
 
-int BufferSeq::verbose = getenv("BufferSeqVerbose")? atoi(getenv("BufferSeqVerbose")): 0;
+int BufferSeq::verbose = getenv_default("BufferSeqVerbose");
 
 
 void BufferDistribution::sortToLinearBuffer(char* start, char* finish)
@@ -4243,7 +4240,6 @@ protected:
 		setKnob(0, "estop", "1");
 	}
 	static void initVerbose() {
-		verbose = getenv_default("StreamHeadPrePostVerbose");
 		if (verbose) fprintf(stderr, "StreamHeadPrePostVerbose set %d\n", verbose);
 	}
 
@@ -4332,7 +4328,7 @@ public:
 	}
 };
 
-int StreamHeadPrePost::verbose;
+int StreamHeadPrePost::verbose = getenv_default("StreamHeadPrePostVerbose");
 
 
 class SubrateStreamHead: public StreamHead {

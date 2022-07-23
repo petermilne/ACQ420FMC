@@ -63,6 +63,8 @@ What does acq400_knobs do?.
 #include "tcp_server.h"
 #include "Env.h"
 
+#include "acq-util.h"
+
 const char* pattern = "";
 
 using namespace std;
@@ -75,7 +77,7 @@ char* port = 0;
 
 int site;
 
-int verbose = 0;
+int verbose = getenv_default("VERBOSE");
 
 #define MAXOUTBUF	16384
 
@@ -871,9 +873,6 @@ void cli(int argc, const char** argv)
 			is_tcp_server = true;
 			break;
 		}
-	}
-	if (getenv("VERBOSE")){
-		verbose = atoi(getenv("VERBOSE"));
 	}
 	VPRINTF("%s verbose set %d\n", VERID, verbose);
 
