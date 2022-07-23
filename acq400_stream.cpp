@@ -164,7 +164,7 @@ namespace G {
 	FILE* state_fp;
 	char* pre_demux_script;
 	int show_first_sample;
-	int es_diagnostic;
+	int es_diagnostic = getenv_default("ES_DIAGNOSTIC");
 	int report_es;
 	int nsites;
 	int the_sites[6];
@@ -1236,12 +1236,9 @@ struct Progress {
 		memset(this, 0, sizeof(Progress));
 		name = _name;
 		status_fp = stderr;
-		if (getenv("MIN_REPORT_INTERVAL_MS")){
-			min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-			if (verbose){
-				fprintf(status_fp, "min_report_interval set %ld\n",
-						min_report_interval);
-			}
+
+		if (verbose){
+			fprintf(status_fp, "min_report_interval set %ld\n", min_report_interval);
 		}
 		clock_gettime(CLOCK_REALTIME_COARSE, &last_time);
 
@@ -1688,8 +1685,7 @@ void init_globs(void)
 	getKnob(0, "/etc/acq400/0/data32", &data32);
 	G::wordsize = data32? sizeof(int): sizeof(short);
 
-	if(getenv("ES_DIAGNOSTIC")){
-		G::es_diagnostic = atoi(getenv("ES_DIAGNOSTIC"));
+	if (G::es_diagnostic){
 		fprintf(stderr, "set ES_DIAGNOSTIC:%d\n", G::es_diagnostic);
 	}
 }
@@ -3219,7 +3215,7 @@ int Demuxer::demux(void* start, int nbytes)
 
 
 
-long Progress::min_report_interval = MIN_REPORT_INTERVAL_MS;
+long Progress::min_report_interval = getenv_default("MIN_REPORT_INTERVAL_MS", MIN_REPORT_INTERVAL_MS);
 
 Progress& Progress::instance(FILE *fp) {
 	static Progress* _instance;
@@ -3246,14 +3242,6 @@ Progress& Progress::instance(FILE *fp) {
 				Progress *p = new ProgressImpl(fp? fp: stdout);
 				_instance = (Progress*)shm;
 				memcpy(_instance, p, sizeof(Progress));
-
-				if (getenv("MIN_REPORT_INTERVAL_MS")){
-					min_report_interval = atoi(getenv("MIN_REPORT_INTERVAL_MS"));
-					fprintf(stderr,"min_report_interval set %ld\n",
-							min_report_interval);
-				}
-				if (verbose) fprintf(stderr,"min_report_interval set %ld\n",
-						min_report_interval);
 			}
 		}
 
@@ -4453,12 +4441,11 @@ public:
 		}
 	}
 	DemuxingStreamHeadPrePostDualBuffer(Progress& progress, Demuxer& _demuxer, int _pre, int _post) :
-		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post), bale_out(false)
+		DemuxingStreamHeadPrePost(progress, _demuxer, _pre, _post),
+		bale_out(getenv_default("DemuxingStreamHeadPrePostDualBufferBaleOut"))
 	{
 		bd_scale = 2;
 		samples_buffer *= 2;
-		char* bo = getenv("DemuxingStreamHeadPrePostDualBufferBaleOut");
-		if (bo) bale_out = atoi(bo);
 		fprintf(stderr, "%s %s samples_buffer %d\n", _PFN, bale_out? "bale_out": "", samples_buffer);
 	}
 };
