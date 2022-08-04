@@ -1024,6 +1024,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			break;
 		case MOD_ID_ACQ465ELF:
 			acq465_init_defaults(adev);
+			break;
 		case MOD_ID_ACQ494FMC:
 			acq494_init_defaults(adev);
 			break;
