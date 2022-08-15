@@ -150,8 +150,7 @@ const unsigned char Ad7134::ch_offset_lut[4] = {
 class Acq465ELF {
 	unsigned char* clibuf;
 
-	vector<Command*> commands;
-
+	static vector<Command*> commands;
 
 	void init_commands();
 
@@ -715,29 +714,32 @@ struct CompareCommands {
 
 void Acq465ELF::init_commands()
 {
-	commands.push_back(new MCLK_Monitor);
-	commands.push_back(new ODR_Command);
-	commands.push_back(new FilterCommand);
-	commands.push_back(new WordSizeCommand);
-	commands.push_back(new DclkFreqCommand);
-	commands.push_back(new GainCommand);
-	commands.push_back(new OffsetCommand);
-	commands.push_back(new SetReg);
-	commands.push_back(new FlushCommand);
-	commands.push_back(new ReadAllCommand);
-	commands.push_back(new ResetCommand);
-	commands.push_back(new ScratchpadTest);
-
-	commands.push_back(new HelpCommand);
-	commands.push_back(new MakeLinksCommand);
-
-	commands.push_back(new DeviceStatusQuery);
-	commands.push_back(new InternalErrorQuery);
-	commands.push_back(new FilterSettledQuery);
-	commands.push_back(new OvervoltageQuery);
-	commands.push_back(new HeartbeatQuery);
 	std::sort(commands.begin(), commands.end(), compareCommands);
 }
+
+vector<Command*> Acq465ELF::commands = {
+	new MCLK_Monitor,
+	new ODR_Command,
+	new FilterCommand,
+	new WordSizeCommand,
+	new DclkFreqCommand,
+	new GainCommand,
+	new OffsetCommand,
+	new SetReg,
+	new FlushCommand,
+	new ReadAllCommand,
+	new ResetCommand,
+	new ScratchpadTest,
+
+	new HelpCommand,
+	new MakeLinksCommand,
+
+	new DeviceStatusQuery,
+	new InternalErrorQuery,
+	new FilterSettledQuery,
+	new OvervoltageQuery,
+	new HeartbeatQuery
+};
 
 int  Acq465ELF::operator() (int argc, const char** argv)
 {
