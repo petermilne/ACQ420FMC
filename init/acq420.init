@@ -625,7 +625,7 @@ build_mgt400() {
     if [ -e /dev/acq400.${site}.knobs/module_type ]; then
         mt=$(cat /dev/acq400.${site}.knobs/module_type)
         case ${mt} in
-        90)
+        9[01234])
             let snd="1${SN##CE4??}-10000"
             snx=$(printf "%04x" $snd)
             let mtyp=${dtsn#CE*}/10000
