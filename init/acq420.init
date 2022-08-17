@@ -168,6 +168,9 @@ web_append()
 build_etc_site() {
     site=$1
     ek=/etc/acq400/${site}
+    
+#    PS1="build_etc_site $1 \>" sh
+     
     mkdir -p ${ek}
     dk=/dev/acq400.${site}.knobs
     for src in ${dk}/*; do
@@ -606,8 +609,12 @@ build_mgt400() {
     ln -s $1  $knobs
     mkdir /etc/acq400/${site}
 
-    ln -s /etc/acq400/C/* /etc/acq400/${site}   ;# MODEL MAN MTYPE
+#    PS1="build_mgt400 612 $1 \>" sh
+
+    [ -e /etc/acq400/C/MODEL ] && ln -s /etc/acq400/C/* /etc/acq400/${site}   ;# MODEL MAN MTYPE
     build_etc_site ${site}
+    
+#    PS1="build_mgt400 617 $1 \>" sh
 
     ch=$(cat /etc/acq400/${site}/name )
     ch=${ch#*.}
