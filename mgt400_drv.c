@@ -26,7 +26,7 @@
 #include "mgt400.h"
 #include "dmaengine.h"
 
-#define REVID "0.144"
+#define REVID "0.146"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -56,6 +56,10 @@ int maxdevices = MAXDEVICES;
 int mgt_reset_on_close = 0;
 module_param(mgt_reset_on_close, int , 0644);
 MODULE_PARM_DESC(mgt_reset_on_close, "1: close resets FIFO");
+
+int mgt400_cr_init = 0;
+module_param(mgt400_cr_init, int , 0444);
+MODULE_PARM_DESC(mgt_reset_on_close, "0: no CR init. 1: enable 2: enable+full sites");
 
 /* index from 0. There's only one physical MGT400, but may have 2 channels */
 struct mgt400_dev* mgt400_devices[MAXDEVICES+2];
@@ -593,8 +597,19 @@ struct file_operations mgt400_fops = {
 
 static void enableZDMA(struct mgt400_dev* mdev)
 {
-        unsigned zdma_cr = mgt400rd32(mdev, ZDMA_CR);
-        mgt400wr32(mdev, ZDMA_CR, zdma_cr|ZDMA_CR_ENABLE);
+	if (mgt400_cr_init == 0){
+		return;
+	}else{
+		unsigned zdma_cr = mgt400rd32(mdev, ZDMA_CR);
+		unsigned enables = ZDMA_CR_ENABLE;
+		if (mgt400_cr_init > 1){
+			enables |= AGG_SITES_MASK << AGGREGATOR_MSHIFT;
+		}
+		mgt400wr32(mdev, ZDMA_CR, zdma_cr|enables);
+		dev_info(DEVP(mdev),
+				"mod_id 0x%02x enabling comms aggregator 0x%08x",
+				mdev->mod_id, mgt400rd32(mdev, ZDMA_CR));
+	}
 }
 static int mgt400_probe(struct platform_device *pdev)
 {

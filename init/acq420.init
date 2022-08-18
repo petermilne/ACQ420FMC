@@ -915,7 +915,7 @@ load_mgt() {
         MGTMOD=/mnt/local/mgt400.ko
         echo "using override module $MGTMOD"
     fi
-    /sbin/insmod $MGTMOD MODEL=$1
+    /sbin/insmod $MGTMOD MODEL=$1 $MGT400_PRAMS
     COMMS4=$(grep filename /tmp/fpga_status | awk '{ print $5 } ' | awk -F _ '{ print $9 }')
     case $COMMS4 in
     909*)
