@@ -4035,6 +4035,9 @@ protected:
 				blt(es, s2b(G::post));
 			}
 		}
+		char cmd[80];
+		snprintf(cmd, 80, "cp /etc/acq400/%c/shot /etc/acq400/0/shot", G::aggregator_sites[0]);
+		system(cmd);
 	}
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
