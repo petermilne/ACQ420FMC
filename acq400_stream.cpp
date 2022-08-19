@@ -3990,6 +3990,7 @@ protected:
 
 	bool cooked;
 	char* typestring;
+	static bool clear_data_on_arm;
 	static int verbose;
 
 	unsigned ib;
@@ -3997,6 +3998,7 @@ protected:
 	EventController event0;
 
 	/* COOKED=1 NSAMPLES=1999 NCHAN=128 >/dev/acq400/data/.control */
+	/* setting NSAMPLES > 0 makes data available to clients, NSAMPLES==0 : no data */
 
 	void notify_result(int nsamples) {
 		char resbuf[128];
@@ -4014,6 +4016,19 @@ protected:
 	}
 	void notify_result() {
 		notify_result(G::pre+G::post);
+	}
+	void report_shot() {
+		unsigned last_armed_shot, last_completed_shot, last_successful_shot;
+		getEtcKnob(G::aggregator_sites[0]-'0', "shot", &last_armed_shot);
+		getEtcKnob(0, "shot_complete", &last_completed_shot);
+		getEtcKnob(0, "shot", &last_successful_shot);
+		printf("SHOT=%u,%u,%u,%u\n", actual.state, last_armed_shot, last_completed_shot, last_successful_shot);
+	}
+	void update_last_successful_shot() {
+		char cmd[80];
+		snprintf(cmd, 80, "cp /etc/acq400/%c/shot /etc/acq400/0/shot", G::aggregator_sites[0]);
+		printf("updating site 0 shot: \"%s\"\n", cmd);
+		system(cmd);
 	}
 	virtual void postProcess(int ibuf, char* es) {
 		BLT blt(MapBuffer::get_ba0());
@@ -4035,9 +4050,7 @@ protected:
 				blt(es, s2b(G::post));
 			}
 		}
-		char cmd[80];
-		snprintf(cmd, 80, "cp /etc/acq400/%c/shot /etc/acq400/0/shot", G::aggregator_sites[0]);
-		system(cmd);
+
 	}
 	virtual void onStreamStart() 		 {}
 	virtual void onStreamBufferStart(int ib) {
@@ -4065,7 +4078,9 @@ protected:
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
 		}
+		update_last_successful_shot();
 		notify_result();
+		report_shot();
 	}
 
 	virtual int bufferSkip(unsigned &ib) {
@@ -4158,7 +4173,9 @@ protected:
 
 			switch(actual.state){
 			case ST_ARM:
-				notify_result(0);
+				if (!clear_data_on_arm){
+					notify_result(0);	// clear on first buffer, the data really has GONE
+				}
 				setState(pre? ST_RUN_PRE: ST_RUN_POST);
 			default:
 				;
@@ -4296,7 +4313,11 @@ public:
 
 
 	virtual void stream() {
+		if (clear_data_on_arm){
+			notify_result(0);    // result data is cleared regardless of whether any data flows or not.
+		}
 		setState(ST_ARM);
+		report_shot();
 		for (IT it = peers.begin(); it != peers.end(); ++it){
 			(*it)->onStreamStart();
 		}
@@ -4318,6 +4339,8 @@ public:
 		close();
 	}
 };
+
+bool StreamHeadPrePost::clear_data_on_arm = ::getenv_default("ClearDataOnArm", 1);
 
 int StreamHeadPrePost::verbose = getenv_default("StreamHeadPrePostVerbose");
 

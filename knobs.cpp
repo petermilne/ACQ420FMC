@@ -113,6 +113,24 @@ int getKnob(int idev, const char* knob, unsigned* value, const char* fmt)
 	}
 }
 
+int getEtcKnob(int idev, const char* knob, unsigned* value, const char* fmt)
+{
+	char kpath[MAXPATH+1];
+	if (knob[0] == '/'){
+		strncpy(kpath, knob, MAXPATH);
+	}else{
+		snprintf(kpath, MAXPATH, "/etc/acq400/%d/%s", idev, knob);
+	}
+	FILE *fp = fopen(kpath, "r");
+	if (fp){
+		int rc = fscanf(fp, fmt, value);
+		fclose(fp);
+		return rc;
+	} else {
+		return -1;
+	}
+}
+
 int getKnob(int idev, const char* knob, char* value)
 {
 	char kpath[128];
