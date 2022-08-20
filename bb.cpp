@@ -449,7 +449,7 @@ unsigned getSpecificBufferlen(int ibuf)
 	return bl;
 }
 #define MODPRAMS "/sys/module/acq420fmc/parameters/"
-#define DFB	 MODPRAMS "distributor_first_buffer"
+#define DFB	 "/dev/acq400.0.knobs/first_distributor_buffer"
 #define BUFLEN	 MODPRAMS "bufferlen"
 #define NBUF	 MODPRAMS "nbuffers"
 

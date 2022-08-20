@@ -3472,6 +3472,8 @@ static DEVICE_ATTR(distributor_stats, S_IRUGO, show_distributor_stats, 0);
 MAKE_BITS(axi64_max_desc_limit, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_MAXDESCRIPTORS);
 MAKE_BITS(force_dma0_only, DATA_ENGINE_0, MAKE_BITS_FROM_MASK, DE_FORCE_SINGLE_DMA);
 
+
+
 static const struct attribute *axi64_attrs[] = {
 	&dev_attr_axi_dma_fail.attr,
 	&dev_attr_axi_buffers_over.attr,
@@ -3495,6 +3497,15 @@ static DEVICE_ATTR(hb_last, S_IRUGO, \
 		show_hb_last, 0);
 
 extern struct device_attribute dev_attr_task_active;
+
+static ssize_t show_first_distributor_buffer(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	return sprintf(buf, "%d\n", firstDistributorBuffer());
+}
+static DEVICE_ATTR(first_distributor_buffer, S_IRUGO, show_first_distributor_buffer, 0);
 
 static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_aggregator.attr,
@@ -3542,6 +3553,7 @@ static const struct attribute *sc_common_attrs[] = {
 	&dev_attr_jettison_buffers_from.attr,
 	&dev_attr_fpga_rev.attr,
 	&dev_attr_rt_status.attr,
+	&dev_attr_first_distributor_buffer.attr,
 	NULL
 };
 
