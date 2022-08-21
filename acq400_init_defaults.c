@@ -250,7 +250,7 @@ void _dio432_DO_onStart(struct acq400_dev *adev)
 	}else{
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 20");
 	}
-	acq400wr32(adev, DIO432_DIO_CTRL, acq400rd32(adev, DIO432_DIO_CTRL)|DIO432_CTRL_DIO_EN);
+	acq400wr32(adev, DIO432_CTRL, acq400rd32(adev, DIO432_CTRL)|DIO432_CTRL_DIO_EN);
 	dev_dbg(DEVP(adev), "_dio432_DO_onStart() 99");
 }
 
@@ -848,7 +848,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	//set_debugs("on");
 	dac_ctrl |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;
-	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
+	dac_ctrl |= DIO432_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
 	dev_info(DEVP(adev), "dio432_init_defaults %d dac_ctrl=%08x",
@@ -960,7 +960,7 @@ void dio482_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 	struct PG_dev* pg_dev = container_of(adev, struct PG_dev, adev);
 	u32 dac_ctrl = acq400rd32(adev, DAC_CTRL);
 	dac_ctrl |= DIO432_CTRL_PG_CLK_IS_DO;  /* avoid possible bogus CLK output on PG5 line */
-	dac_ctrl |= DIO432_CTRL_MODULE_EN | DIO432_CTRL_DIO_EN;
+	dac_ctrl |= DIO432_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 
 	init_gpg_buffer(adev, &pg_dev->gpg, DIO482_PG_GPGMEM, DIO482_PG_GPGDR);

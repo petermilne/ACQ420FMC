@@ -31,6 +31,8 @@ extern const struct attribute *acq436_upper_half_attrs_master[];
 
 extern const struct attribute *dio432_attrs[];
 
+extern const struct attribute *dio_attrs[];
+
 extern const struct attribute *pig_celf_attrs[];
 extern const struct attribute *acq400t_attrs[];
 

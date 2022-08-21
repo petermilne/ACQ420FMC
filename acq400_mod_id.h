@@ -35,12 +35,19 @@
 #define MOD_ID_BOLO8		0x60
 #define MOD_ID_DIO432FMC	0x61
 #define MOD_ID_DIO432PMOD	0x62
+
 #define MOD_ID_PMODADC1		0x63
 #define MOD_ID_BOLO8B		0x64
 #define MOD_ID_PMODGPS_CELF	0x65
 #define MOD_ID_PMODGPS_FMC	0x66
 
 #define MOD_ID_DIO_BISCUIT	0x67
+#define MOD_ID_PIG_CELF		0x68
+#define MOD_ID_RAD_CELF		0x69
+#define MOD_ID_DAC_CELF		0x6a
+
+#define MOD_ID_DIO482FMC	0x6b
+
 #define MOD_ID_ACQ436ELF	0x6d
 #define MOD_ID_TIMBUS		0x6e
 
@@ -77,10 +84,8 @@
 #define MOD_IDV_QEN		0x2
 #define MOD_IDV_ACQ1014		0x14
 
-#define MOD_ID_PIG_CELF		0x68
-#define MOD_ID_RAD_CELF		0x69
-#define MOD_ID_DAC_CELF		0x6a
-#define MOD_ID_DIO482FMC	0x6b
+
+
 
 
 

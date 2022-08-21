@@ -1219,7 +1219,6 @@ const struct attribute *sysfs_diobiscuit_attrs[] = {
 };
 
 
-MAKE_BITS(dpg_abort,    DIO432_DIO_CTRL,      MAKE_BITS_FROM_MASK,	DIO432_CTRL_AWG_ABORT);
 
 static ssize_t show_byte_is_output(
 	struct device * dev,
@@ -1296,7 +1295,7 @@ static ssize_t show_ext_clk_from_sync(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+	u32 ctrl = acq400rd32(adev, DIO432_CTRL);
 	return sprintf(buf, "%d\n",
 			(ctrl&DIO432_CTRL_EXT_CLK_SYNC) != 0);
 
@@ -1312,13 +1311,13 @@ static ssize_t store_ext_clk_from_sync(
 	unsigned ext_clk_from_sync = 0;
 
 	if (sscanf(buf, "%u", &ext_clk_from_sync) == 1){
-		u32 ctrl = acq400rd32(adev, DIO432_DIO_CTRL);
+		u32 ctrl = acq400rd32(adev, DIO432_CTRL);
 		if (ext_clk_from_sync){
 			ctrl |= DIO432_CTRL_EXT_CLK_SYNC;
 		}else{
 			ctrl &= ~DIO432_CTRL_EXT_CLK_SYNC;
 		}
-		acq400wr32(adev, DIO432_DIO_CTRL, ctrl);
+		acq400wr32(adev, DIO432_CTRL, ctrl);
 		return count;
 	}else{
 		return -1;
@@ -1425,8 +1424,15 @@ static ssize_t store_mode(
 
 static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR, show_mode, store_mode);
 
+MAKE_BITS(dio_en,       DIO432_CTRL, MAKE_BITS_FROM_MASK,	DIO432_CTRL_DIO_EN);
+MAKE_BITS(dpg_abort,    DIO432_CTRL, MAKE_BITS_FROM_MASK,	DIO432_CTRL_AWG_ABORT);
+MAKE_BITS(active_low, 	DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_INVERT);
 
-
+const struct attribute *dio_attrs[] = {
+	&dev_attr_active_low.attr,
+	&dev_attr_dio_en.attr,
+	NULL
+};
 
 const struct attribute *dio432_attrs[] = {
 	&dev_attr_dpg_abort.attr,

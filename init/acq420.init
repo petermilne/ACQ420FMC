@@ -457,19 +457,27 @@ build_knobs_device() {
         echo 16 > ${ek}/NCHAN
         BOLO8_SITES="${BOLO8_SITES}$site"
         CLKDIV=100;; 
-    61|62|6B)
+    61|62|6B|7B)
         case $mtype in
+        7B)
+            ;;
         6B)
             source  /dev/sites/${site}/details
             if [ "$FRU_PART_NUM" != "${FRU_PART_NUM#*FBR}" ]; then
                echo "FBR part detected in site ${site}: $FRU_PART_NUM"
                echo 1 > ${dk}/active_low
             fi
+            ln -s $ULB/clocks_to_first_edge ${ek}/
             set_max_min_khz ${site} 25000 10;;
         *)
+            ln -s $ULB/clocks_to_first_edge ${ek}/
             set_max_min_khz ${site} 1000 10;;
         esac
-        ln -s $ULB/clocks_to_first_edge ${ek}/;;
+        if [ ! -z $DIO_ACTIVE_LOW_SITES ]; then
+            echo $DIO_ACTIVE_LOW_SITES | grep -q $site
+            [ $? -eq 0 ] && echo 1 > ${dk}/active_low
+        fi
+        echo 1 > ${dk}/dio_en;;
     *)
         CLKDIV=200;;
     esac

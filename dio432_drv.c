@@ -92,12 +92,12 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 
 	syscon &= ~DIO432_CTRL_DIO_EN;
 
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_MODULE_EN);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon | DIO432_CTRL_RST);
+	_acq400wr32(adev, DIO432_CTRL, syscon);
+	_acq400wr32(adev, DIO432_CTRL, syscon |= DIO432_CTRL_MODULE_EN);
+	_acq400wr32(adev, DIO432_CTRL, syscon | DIO432_CTRL_RST);
 
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |= DIO432_CTRL_FIFO_EN);
+	_acq400wr32(adev, DIO432_CTRL, syscon);
+	_acq400wr32(adev, DIO432_CTRL, syscon |= DIO432_CTRL_FIFO_EN);
 	dio432_set_direction(adev, xo_dev->dio432.byte_is_output);
 
 	_acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
@@ -106,7 +106,7 @@ void dio432_init(struct acq400_dev *adev, int immediate)
 		_acq400wr32(adev, DIO432_DIO_ICR, 1);
 	}
 	if (immediate){
-		_acq400wr32(adev, DIO432_DIO_CTRL, syscon|DIO432_CTRL_DIO_EN);
+		_acq400wr32(adev, DIO432_CTRL, syscon|DIO432_CTRL_DIO_EN);
 	}
 }
 
@@ -154,10 +154,10 @@ void dio432_init_clocked(struct acq400_dev* adev)
 }
 void dio432_disable(struct acq400_dev* adev)
 {
-	u32 syscon = _acq400rd32(adev, DIO432_DIO_CTRL);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon &= ~DIO432_CTRL_DIO_EN);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon |  DIO432_CTRL_FIFO_RST);
-	_acq400wr32(adev, DIO432_DIO_CTRL, syscon);
+	u32 syscon = _acq400rd32(adev, DIO432_CTRL);
+	_acq400wr32(adev, DIO432_CTRL, syscon &= ~DIO432_CTRL_DIO_EN);
+	_acq400wr32(adev, DIO432_CTRL, syscon |  DIO432_CTRL_FIFO_RST);
+	_acq400wr32(adev, DIO432_CTRL, syscon);
 
 	_acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	_acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
