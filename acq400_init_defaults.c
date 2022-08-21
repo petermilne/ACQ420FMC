@@ -609,7 +609,7 @@ static void ao428_init_defaults(struct acq400_dev *adev)
 	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 1024;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	dac_ctrl |= DAC_CTRL_MODULE_EN;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	if (measure_ao_fifo_ok){
 		measure_ao_fifo(adev);
@@ -634,7 +634,7 @@ static void ao420_init_defaults(struct acq400_dev *adev, int data32)
 
 	dev_info(DEVP(adev), "AO420 device init NCHAN %d", adev->nchan_enabled);
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	dac_ctrl |= DAC_CTRL_MODULE_EN;
 	if (data32){
 		dac_ctrl |= ADC_CTRL32B_data;
 	}
@@ -680,7 +680,7 @@ static void ao424_init_defaults(struct acq400_dev *adev)
 	xo_dev->xo.fsr = DAC_FIFO_STA;
 	adev->lotide = 1024;
 
-	dac_ctrl |= ADC_CTRL_MODULE_EN;
+	dac_ctrl |= DAC_CTRL_MODULE_EN;
 	xo_dev->ao424_device_settings.encoded_twocmp = 0;
 	acq400wr32(adev, DAC_CTRL, dac_ctrl);
 	ao424_set_spans(adev);
