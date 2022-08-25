@@ -64,6 +64,7 @@
 #include "local.h"		/* chomp() hopefully, not a lot of other garbage */
 #include "knobs.h"
 
+#include "Env.h"
 #include "File.h"
 
 #include "tcp_server.h"
@@ -73,6 +74,11 @@ using namespace std;
 
 /* copy from driver .. */
 enum AO_playloop_oneshot { AO_continuous, AO_oneshot, AO_oneshot_rearm };
+
+#define G_LOAD_THRESHOLD_DEFAULT 2
+#define G_PAD_NONE 0
+#define G_PAD_LAST 1
+#define G_PAD_ZERO 2
 
 namespace G {
 	unsigned sample_size = sizeof(unsigned);	// bytes per sample
@@ -89,11 +95,11 @@ namespace G {
 	int minbufs = 4;
 	int max_samples;
 	int TO = 1;					// Timeout, seconds
-	int load_threshold = 2;
+	int load_threshold = G_LOAD_THRESHOLD_DEFAULT;
 	unsigned play_bufferlen;			// Change bufferlen on play
 	unsigned initval = 0;				// M_INIT, set all mem this value
 
-	int pad = 1;
+	int pad = 1;					// 0: no pad, 1: pad last, 2: pad 0
 
 	char* port = 0;				// 0 no server (inetd), else make a server
 	char* host = 0;
@@ -172,15 +178,21 @@ int pad(int nsamples, int pad_samples)
 	char* end = base + nsamples*G::sample_size;
 	char* last = end - G::sample_size;
 
+	nsamples += pad_samples;
+
 	if (G::pad){
+		if (G::pad == G_PAD_ZERO){
+			last = new char[G::sample_size];
+			memset(last, 0, G::sample_size);
+		}
+		pad_samples += G::play_bufferlen/G::sample_size;	// fill an extra buffer
 		while(pad_samples--){
 			memcpy(end, last, G::sample_size);
 			end += G::sample_size;
-			nsamples++;
 		}
-	}else{
-		end += G::sample_size*pad_samples;
-		nsamples += pad_samples;
+		if (G::pad == G_PAD_ZERO){
+			delete [] last;
+		}
 	}
 	return nsamples;
 }
@@ -226,6 +238,8 @@ int _load_pad(int nsamples)
 	}
 
 	if (padsam){
+
+		MARK;
 		nsamples = pad(nsamples, padsam);
 	}
 	if (G::verbose) fprintf(stderr, "return nsamples %d\n", nsamples);
@@ -467,19 +481,14 @@ RUN_MODE ui(int argc, const char** argv)
 {
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
-	const char* evar;
+	G::verbose 		= Env::getenv("VERBOSE", 0);
+	G::load_threshold 	= Env::getenv("BB_LOAD_THRESHOLD", G_LOAD_THRESHOLD_DEFAULT);
+	G::pad			= Env::getenv("BB_PAD",  G_PAD_LAST);
 
-	if ((evar = getenv("VERBOSE"))){
-		G::verbose = atoi(evar);
-	}
-	if ((evar = getenv("BB_LOAD_THRESHOLD"))){
-		G::load_threshold = atoi(evar);
-	}
 	getKnob(-1, NBUF,  &Buffer::nbuffers);
 	getKnob(-1, DFB, 	&G::buffer0);
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
-
 
 	int rc;
 
