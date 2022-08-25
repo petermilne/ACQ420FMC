@@ -234,6 +234,7 @@ void _dio432_DO_onStart(struct acq400_dev *adev)
 
 	x400_disable_interrupt(adev);
 	acq400wr32(adev, DIO432_DO_LOTIDE, adev->lotide);
+	acq400wr32(adev, DIO432_DI_HITIDE, adev->hitide);
 
 	if (xo_use_distributor){
 		dev_dbg(DEVP(adev), "_dio432_DO_onStart() 05");
