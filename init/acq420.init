@@ -477,6 +477,9 @@ build_knobs_device() {
             echo $DIO_ACTIVE_LOW_SITES | grep -q $site
             [ $? -eq 0 ] && echo 1 > ${dk}/active_low
         fi
+        if [ ! -z $DIO_WDT ]; then
+            echo $DIO_WDT > ${dk}/wdt
+        fi
         echo 1 > ${dk}/dio_en;;
     *)
         CLKDIV=200;;
