@@ -457,9 +457,9 @@ build_knobs_device() {
         echo 16 > ${ek}/NCHAN
         BOLO8_SITES="${BOLO8_SITES}$site"
         CLKDIV=100;; 
-    61|62|6B|7B)
+    61|62|6B|7A|7B)
         case $mtype in
-        7B)
+        7A|7B)
             ;;
         6B)
             source  /dev/sites/${site}/details
