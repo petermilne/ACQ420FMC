@@ -75,9 +75,9 @@ module_param(dio432_rowback, int, 0644);
 MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
 
-unsigned DIO484_PG_OUTPUTS = 0x7;
+unsigned DIO484_PG_OUTPUTS = 0xf;
 module_param(DIO484_PG_OUTPUTS, int, 0444);
-MODULE_PARM_DESC(dio432_rowback, "PG output bytes");
+MODULE_PARM_DESC(DIO484_PG_OUTPUTS, "PG output bytes");
 
 
 void acq420_onStart(struct acq400_dev *adev);
