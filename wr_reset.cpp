@@ -132,6 +132,7 @@ void wr_load(char* wrbase, const char* fname)
 		wrbase[ii] = buf[ii];
 		sched_yield();
 	}
+	delete [] buf;
 }
 
 void set_mac(char* wrbase)
