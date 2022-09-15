@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1041"
+#define VERID	"B1042"
 
 #define NCHAN	4
 
@@ -3992,6 +3992,7 @@ protected:
 	char* typestring;
 	static bool clear_data_on_arm;
 	static int verbose;
+	static bool always_fail_to_find_event;
 
 	unsigned ib;
 	bool accepting_events;
@@ -4065,20 +4066,24 @@ protected:
 		setState(ST_POSTPROCESS); actual.print();
 		Demuxer::_msync(MapBuffer::get_ba_lo(),
 			MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
+		bool success = true;
 		if (pre){
 			int ibuf;
 			char* es;
 
-			if (findEvent(&ibuf, &es)){
+			if (!always_fail_to_find_event && findEvent(&ibuf, &es)){
 				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
 				postProcess(ibuf, es);
 			}else{
 				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
+				success = false;
 			}
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
 		}
-		update_last_successful_shot();
+		if (success){
+			update_last_successful_shot();
+		}
 		notify_result();
 		report_shot();
 	}
@@ -4341,9 +4346,8 @@ public:
 };
 
 bool StreamHeadPrePost::clear_data_on_arm = ::getenv_default("ClearDataOnArm", 1);
-
+bool StreamHeadPrePost::always_fail_to_find_event = getenv_default("StreamHeadPrePostAlwaysFailToFindEvent", 0);
 int StreamHeadPrePost::verbose = getenv_default("StreamHeadPrePostVerbose");
-
 
 class SubrateStreamHead: public StreamHead {
 	static int createOutfile() {
