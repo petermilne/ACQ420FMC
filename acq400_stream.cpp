@@ -1207,6 +1207,21 @@ long diffmsec(struct timespec* t0, struct timespec *t1){
 
 #define 	PRINT_WHEN_YOU_CAN	false
 
+class Timer {
+
+	const char* id;
+	struct timespec t0;
+public:
+	Timer(const char* _id): id(_id) {
+		clock_gettime(CLOCK_REALTIME_COARSE, &t0);
+	}
+	~Timer() {
+		struct timespec time_now;
+		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
+		fprintf(stderr, "Timer:: %s %ld msec\n", id, diffmsec(&t0, &time_now));
+	}
+};
+
 struct Progress {
 	enum STATE state;
 	unsigned pre;
@@ -2211,6 +2226,46 @@ protected:
 		if (verbose) fprintf(stderr, "findEvent 99 NOT FOUND\n");
 
 		return 0;
+	}
+	bool findEventSearchAll(int *ibuf, char** espp) {
+		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
+		unsigned *base = reinterpret_cast<unsigned*>(MapBuffer::get_ba_lo());
+		unsigned *top  = reinterpret_cast<unsigned*>(MapBuffer::get_ba_hi());
+		int length_all  = top - base;
+		int len32 = Buffer::the_buffers[2]->getLen()/sizeof(unsigned);
+		int sample_offset = 0;
+		unsigned *cursor = base;
+
+		buffers_searched = 0;
+
+		Buffer* the_buffer = MapBuffer::getBuffer(cursor);
+		reportFindEvent(the_buffer, FE_SEARCH);
+		if (verbose) fprintf(stderr, "%s 01 base:%p lenw %d len32 %d\n", _PFN,
+				base, the_buffer->getLen()/G::wordsize, len32);
+
+
+
+		for (; cursor - base < length_all; cursor += stride, sample_offset += 1){
+			if (verbose > 2) fprintf(stderr, "%s cursor:%p\n", _PFN, cursor);
+			if (evA.isES(cursor)){
+				the_buffer = MapBuffer::getBuffer(cursor);
+				*ibuf = the_buffer->ib();
+				*espp = reinterpret_cast<char*>(cursor);
+				reportFindEvent(the_buffer, FE_FOUND);
+				if (verbose){
+					fprintf(stderr, "%s FOUND: %d offset %d %08x %08x %08x %08x\n",
+						_PFN,
+						the_buffer->ib(), (cursor-base)*sizeof(int),
+						cursor[0], cursor[1], cursor[2], cursor[3]);
+				}
+				esDiagnostic(the_buffer, cursor);
+				return reinterpret_cast<char*>(cursor);
+			}
+		}
+		reportFindEvent(the_buffer = MapBuffer::getBuffer(cursor), FE_NOTFOUND);
+		if (verbose) fprintf(stderr, "%s 99 NOT FOUND\n", _PFN);
+
+		return false;
 	}
 	virtual int getBufferId() {
 		int ib = StreamHead::getBufferId();
@@ -3992,7 +4047,8 @@ protected:
 	char* typestring;
 	static bool clear_data_on_arm;
 	static int verbose;
-	static bool always_fail_to_find_event;
+	static bool skip_roi_search;
+	static bool full_search;
 
 	unsigned ib;
 	bool accepting_events;
@@ -4066,24 +4122,30 @@ protected:
 		setState(ST_POSTPROCESS); actual.print();
 		Demuxer::_msync(MapBuffer::get_ba_lo(),
 			MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo(), MS_SYNC);
-		bool success = true;
+
 		if (pre){
 			int ibuf;
 			char* es;
 
-			if (!always_fail_to_find_event && findEvent(&ibuf, &es)){
-				if (verbose) fprintf(stderr, "%s call postProcess\n", _PFN);
+			if (!skip_roi_search && findEvent(&ibuf, &es)){
+				Timer roiTime("ROI");
+				if (verbose) fprintf(stderr, "%s %s call postProcess\n", _PFN, "ROI");
 				postProcess(ibuf, es);
-			}else{
-				fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
-				success = false;
+				goto on_success;
+			}else if (full_search && findEventSearchAll(&ibuf, &es)){
+				Timer fullTime("ALL");
+				if (verbose) fprintf(stderr, "%s %s call postProcess\n", _PFN, "ALL");
+				postProcess(ibuf, es);
+				goto on_success;
 			}
+			fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
+			goto on_fail;
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
 		}
-		if (success){
-			update_last_successful_shot();
-		}
+  on_success:
+		update_last_successful_shot();
+  on_fail:
 		notify_result();
 		report_shot();
 	}
@@ -4346,8 +4408,9 @@ public:
 };
 
 bool StreamHeadPrePost::clear_data_on_arm = ::getenv_default("ClearDataOnArm", 1);
-bool StreamHeadPrePost::always_fail_to_find_event = getenv_default("StreamHeadPrePostAlwaysFailToFindEvent", 0);
+bool StreamHeadPrePost::skip_roi_search = getenv_default("StreamHeadPrePostSkipRoiSearch", 0);
 int StreamHeadPrePost::verbose = getenv_default("StreamHeadPrePostVerbose");
+bool StreamHeadPrePost::full_search = getenv_default("StreamHeadPrePostFullSearch", 1);
 
 class SubrateStreamHead: public StreamHead {
 	static int createOutfile() {

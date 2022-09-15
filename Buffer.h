@@ -143,6 +143,14 @@ public:
 			return (pb-ba0)/bufferlen;
 		}
 	}
+	static Buffer* getBuffer(unsigned* pb) {
+		int ib = getBuffer((char*)pb);
+		if (ib >= 0){
+			return Buffer::the_buffers[ib];
+		}else{
+			return 0;
+		}
+	}
 	static const char* listBuffers(char* p0, char* p1, bool show_ba = false);
 	static void reserve() {
 		ba_lo = ba0 + 2*bufferlen;
