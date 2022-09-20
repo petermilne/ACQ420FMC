@@ -79,7 +79,7 @@
 #include <sched.h>
 
 //#define BUFFER_IDENT 6
-#define VERID	"B1042"
+#define VERID	"B1043"
 
 #define NCHAN	4
 
@@ -4138,15 +4138,16 @@ protected:
 				postProcess(ibuf, es);
 				goto on_success;
 			}
-			fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID\n", _PFN);
+			fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID RAW offloads entire DRAM\n", _PFN);
+			notify_result((MapBuffer::get_ba_hi()-MapBuffer::get_ba_lo())/sample_size() - sizeof(unsigned));
 			goto on_fail;
 		}else{
 			postProcess(0, MapBuffer::get_ba_lo());
 		}
   on_success:
 		update_last_successful_shot();
-  on_fail:
 		notify_result();
+  on_fail:
 		report_shot();
 	}
 
@@ -4407,10 +4408,10 @@ public:
 	}
 };
 
-bool StreamHeadPrePost::clear_data_on_arm = ::getenv_default("ClearDataOnArm", 1);
-bool StreamHeadPrePost::skip_roi_search = getenv_default("StreamHeadPrePostSkipRoiSearch", 0);
-int StreamHeadPrePost::verbose = getenv_default("StreamHeadPrePostVerbose");
-bool StreamHeadPrePost::full_search = getenv_default("StreamHeadPrePostFullSearch", 1);
+bool StreamHeadPrePost::clear_data_on_arm 	= ::getenv_default("ClearDataOnArm", 1);
+bool StreamHeadPrePost::skip_roi_search 	= ::getenv_default("StreamHeadPrePostSkipRoiSearch", 0);
+bool StreamHeadPrePost::full_search 		= ::getenv_default("StreamHeadPrePostFullSearch", 1);
+int StreamHeadPrePost::verbose 			= ::getenv_default("StreamHeadPrePostVerbose");
 
 class SubrateStreamHead: public StreamHead {
 	static int createOutfile() {
