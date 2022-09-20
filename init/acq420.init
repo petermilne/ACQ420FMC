@@ -549,7 +549,9 @@ build_site0() {
     ln -s $ULB/set.site ${ek}/SS
     ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush $ULB/awg_abort \
         $ULB/run0 $ULB/play0 $ULB/get.xdt \
-        $ULB/streamtonowhered $ULB/set.sync_role ${ek}
+        $ULB/streamtonowhered $ULB/set.sync_role \
+	$ULB/datals \
+	${ek}
 
     ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
     ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
