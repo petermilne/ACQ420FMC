@@ -1189,17 +1189,21 @@ enum STATE {
 #define NSinMS	1000000
 #define MSinS	1000
 
-long diffmsec(struct timespec* t0, struct timespec *t1){
-	long msec;
 
-	if (t1->tv_nsec > t0->tv_nsec){
-		msec = (t1->tv_nsec - t0->tv_nsec)/NSinMS;
-		msec += (t1->tv_sec - t0->tv_sec)*MSinS;
-	}else{
-		msec  = (NSinMS + t1->tv_nsec - t0->tv_nsec)/NSinMS;
-		msec += (t1->tv_sec - t0->tv_sec - 1)*MSinS;
-	}
-	return msec;
+static inline void timespec_diff(struct timespec *a, struct timespec *b,
+    struct timespec *result) {
+    result->tv_sec  = a->tv_sec  - b->tv_sec;
+    result->tv_nsec = a->tv_nsec - b->tv_nsec;
+    if (result->tv_nsec < 0) {
+        --result->tv_sec;
+        result->tv_nsec += 1000000000L;
+    }
+}
+static long diffmsec(struct timespec* t0, struct timespec* t1){
+	struct timespec result;
+	timespec_diff(t1, t0, &result);
+
+	return result.tv_sec * 1000 + result.tv_nsec/1000000;
 }
 
 #define MIN_REPORT_INTERVAL_MS	200
@@ -1208,17 +1212,22 @@ long diffmsec(struct timespec* t0, struct timespec *t1){
 #define 	PRINT_WHEN_YOU_CAN	false
 
 class Timer {
-
 	const char* id;
 	struct timespec t0;
+
 public:
 	Timer(const char* _id): id(_id) {
 		clock_gettime(CLOCK_REALTIME_COARSE, &t0);
 	}
-	~Timer() {
+	long diffmsec() {
 		struct timespec time_now;
 		clock_gettime(CLOCK_REALTIME_COARSE, &time_now);
-		fprintf(stderr, "Timer:: %s %ld msec\n", id, diffmsec(&t0, &time_now));
+		return ::diffmsec(&t0, &time_now);
+	}
+	long report(int seq = 0) {
+		long rc = diffmsec();
+		fprintf(stderr, "Timer::report(%d) %s %ld msec\n", seq, id, rc);
+		return rc;
 	}
 };
 
@@ -1230,7 +1239,6 @@ struct Progress {
 	struct timespec last_time;
 	static long min_report_interval;
 	const char* name;
-
 	char previous[80];
 
 	FILE* status_fp;
@@ -4126,16 +4134,20 @@ protected:
 		if (pre){
 			int ibuf;
 			char* es;
+			Timer roiTime("ROI");
+			Timer fullTime("ALL");
 
 			if (!skip_roi_search && findEvent(&ibuf, &es)){
-				Timer roiTime("ROI");
+				roiTime.report();
 				if (verbose) fprintf(stderr, "%s %s call postProcess\n", _PFN, "ROI");
 				postProcess(ibuf, es);
+				roiTime.report(1);
 				goto on_success;
 			}else if (full_search && findEventSearchAll(&ibuf, &es)){
-				Timer fullTime("ALL");
+				fullTime.report();
 				if (verbose) fprintf(stderr, "%s %s call postProcess\n", _PFN, "ALL");
 				postProcess(ibuf, es);
+				fullTime.report(1);
 				goto on_success;
 			}
 			fprintf(stderr, "%s ERROR EVENT NOT FOUND, DATA NOT VALID RAW offloads entire DRAM\n", _PFN);
