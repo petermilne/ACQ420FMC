@@ -480,10 +480,11 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO482ELF_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) ==MOD_IDV_PG)
 #define IS_DIO482TD_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD_PG)
 #define IS_DIO482TD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD)
+#define IS_DIO422ELF(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF)
 
 #define IS_DIO482_PG(adev)	(IS_DIO482ELF_PG(adev)||IS_DIO482TD_PG(adev))
 
-#define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)||IS_DIO482FMC(adev)||IS_DIO482TD(adev))
+#define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)||IS_DIO482FMC(adev)||IS_DIO482TD(adev)||IS_DIO422ELF(adev))
 
 #define IS_XO(adev)		(IS_DIO432X(adev) || IS_AO42X(adev))
 

@@ -52,6 +52,7 @@
 #define MOD_ID_TIMBUS		0x6e
 
 #define MOD_ID_DDS_WERA		0x70
+#define MOD_ID_DIO422ELF	0x71
 
 #define MOD_ID_DIO482TD		0x7a	// Vanilla DIO version
 #define MOD_ID_DIO482TD_PG	0x7b
