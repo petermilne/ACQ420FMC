@@ -373,7 +373,7 @@ protected:
 				if (ts.secs() > tai_sec && ts.secs() - tai_sec < 7){
 					ts.strip();
 					action(ts, nrx);
-					return;
+					exit(0);
 				}
 				sleep(1);
 			}
