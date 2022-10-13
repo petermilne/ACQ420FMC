@@ -4,6 +4,7 @@
 CHIPS=${CHIPS:-ABCDEFGH}
 VERBOSE=${VERBOSE:-0}
 LIVE=${LIVE:-1}
+DATA32=${DATA32:-1}
 
 if [ "x$1" == "--all" ]; then
 	export args="--all"
@@ -16,6 +17,8 @@ fi
 args="$args -t1"
 
 export SITE=${SITE:-1}
+
+DATA32=$(cat /dev/acq400.${SITE}.knobs/data32)
 
 echo "++ acq465_adc.init SITE:$SITE 01"
 
@@ -66,8 +69,7 @@ acq465_filter_all $FILTER
 
 
 # Data bitwidth
-#acq465_reg 0x11 0x00; set.site 1 data32 0; # 16-bit
-acq465_reg 0x11 0x20;set.site 1 data32 1; # 24-bit
+acq465_reg 0x11 0x20;set.site 1 data32 $DATA32; # 24-bit:1, 16-bit:0
 
 
 sleep 1

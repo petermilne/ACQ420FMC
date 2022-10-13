@@ -17,6 +17,18 @@ else
 	MODFILE=/usr/local/lib/modules/acq465.ko
 fi
 
+[ -e /mnt/local/sysconfig/acq400.sh ] && source /mnt/local/sysconfig/acq400.sh
+ACQ465_DATA32=${ACQ465_DATA32:-1}
+FILTER_WB=0
+FILTER_S3=2
+if [ $ACQ465_DATA32 -eq 1 ]; then
+    ACQ465_FILTER=$FILTER_WB
+else
+    ACQ465_FILTER=$FILTER_S3
+fi
+
+echo "acq465.init ACQ465_DATA32:$ACQ465_DATA32 ACQ465_FILTER:$ACQ465_FILTER"
+
 
 echo  /sbin/insmod $MODFILE acq465_sites=${SITES} HW=1
 /sbin/insmod $MODFILE acq465_sites=${SITES} HW=1
@@ -60,6 +72,7 @@ for site in $*; do
 	ek=/etc/acq400/${site}	
 	dk=/dev/acq400.${site}.knobs
 
+    echo $ACQ465_DATA32 > $dk/data32
 	rm $ek/data32
 	cat - >$ek/data32 <<EOF
 #!/bin/sh
@@ -78,7 +91,7 @@ EOF
 
 	chmod a+rx $ek/data32
 	ln -s /usr/local/CARE/acq465_adc.init ${ek} 
-	echo 0 > ${ek}/acq465_filter_default
+	echo $ACQ465_FILTER > ${ek}/acq465_filter_default
 	(cd ${ek};source /tmp/makeLinks)
 	echo "SITE=$site /usr/local/CARE/acq465_adc.init" >>/tmp/acq465_init.job
 done
