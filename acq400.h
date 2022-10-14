@@ -255,8 +255,11 @@
 
 
 #define ACQ465_LCS		(ADC_BASE+0x2c)
+#define ACQ465_BANK_MODE	(ADC_BASE+0x44)
 
 #define ACQ465_LCS_MASK		0x000000ff
+
+#define ACQ465_BANK_FILTER_MASK 0x00000300
 
 /* enable both event sources, clear both status, ready to run .. */
 #define ADC_INT_CSR_COS_EN_ALL \

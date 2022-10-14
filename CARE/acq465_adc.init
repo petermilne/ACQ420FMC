@@ -66,6 +66,8 @@ if [ -e /etc/acq400/${SITE}/acq465_filter_default ]; then
 	FILTER=$(cat /etc/acq400/${SITE}/acq465_filter_default)
 fi
 acq465_filter_all $FILTER
+echo $FILTER > /dev/acq400.${SITE}.knobs/filter_sel
+
 
 
 # Data bitwidth

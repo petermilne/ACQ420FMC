@@ -2509,7 +2509,10 @@ static ssize_t store_adc_reset(
 
 static DEVICE_ATTR(adc_reset, S_IWUSR, 0, store_adc_reset);
 
+MAKE_BITS(filter_sel, ACQ465_BANK_MODE, MAKE_BITS_FROM_MASK, ACQ465_BANK_FILTER_MASK);
+
 static const struct attribute *acq465_attrs[] = {
+	&dev_attr_filter_sel.attr,
 	&dev_attr_adc_reset.attr,
 	NULL
 };
