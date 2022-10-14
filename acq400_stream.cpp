@@ -1501,7 +1501,11 @@ static void wait_and_cleanup(pid_t child)
 				finished = true;
 			}
 		}else if (FD_ISSET(0, &exceptfds)){
-			if (verbose) fprintf(stderr, "exception on stdin\n");
+			if (verbose) fprintf(stderr, "exception on stdin why? feof:%d ferror:%d\n", feof(stdin), ferror(stdin));
+			if (feof(stdin) || ferror(stdin)){
+				clearerr(stdin);
+				continue;
+			}
 			finished = true;
 			error_rc = 1;
 		}else if (FD_ISSET(0, &readfds)){
