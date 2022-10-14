@@ -17,9 +17,9 @@ INP=/dev/shm/streamd.in
 (
 if [ ! -e $LOG ]; then
         grep -q emlog /proc/modules; [ $? -ne 0 ] && /sbin/insmod /usr/local/lib/modules/emlog.ko
-        [ -e $LOG ] || mkemlog $LOG
-        [ -e $INP ] || mkemlog $INP
+        [ -e $LOG ] || mkemlog $LOG        
 fi
+[ -e $INP ] || mkemlog $INP 1
 ) 2>&1 >/dev/null
 
 
