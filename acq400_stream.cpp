@@ -2248,8 +2248,8 @@ protected:
 
 		Buffer* the_buffer = MapBuffer::getBuffer(cursor);
 		reportFindEvent(the_buffer, FE_SEARCH);
-		if (verbose) fprintf(stderr, "%s 01 base:%p lenw %d len32 %d\n", _PFN,
-				base, the_buffer->getLen()/G::wordsize, len32);
+		if (verbose) fprintf(stderr, "%s 01 base:%p lenw %d len32 %d length_all %d stride %d\n", _PFN,
+				base, the_buffer->getLen()/G::wordsize, len32, length_all, stride);
 
 
 
@@ -2271,7 +2271,7 @@ protected:
 			}
 		}
 		reportFindEvent(the_buffer = MapBuffer::getBuffer(cursor), FE_NOTFOUND);
-		if (verbose) fprintf(stderr, "%s 99 NOT FOUND\n", _PFN);
+		if (verbose) fprintf(stderr, "%s 99 NOT FOUND sample_offset %d\n", _PFN, sample_offset);
 
 		return false;
 	}
