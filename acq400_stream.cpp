@@ -1492,16 +1492,25 @@ static void wait_and_cleanup(pid_t child)
 	FD_ZERO(&readfds);
 	FD_SET(0, &readfds);
 
+	fprintf(stderr, "%s 01\n", _PFN);
+
 	for(bool finished = false; !finished;){
 		int ready = pselect(1, &readfds, NULL, &exceptfds, NULL, &emptyset);
 
-		if (ready == -1 && errno != EINTR){
-			if (it_was_sig_term){
-				perror("pselect");
+		if (ready == -1){
+			if (errno == EINTR){
+				if (it_was_sig_term){
+					fprintf(stderr, "%s sig_term detected, quit\n", _PFN);
+					finished = true;
+				}else{
+					fprintf(stderr, "%s pselect return EINTR but no signal detected, continue\n", _PFN);
+				}
+			}else{
+				fprintf(stderr, "ERROR %s pselect %d\n", _PFN, errno);
 				finished = true;
 			}
 		}else if (FD_ISSET(0, &exceptfds)){
-			if (verbose) fprintf(stderr, "exception on stdin why? feof:%d ferror:%d\n", feof(stdin), ferror(stdin));
+			if (verbose) fprintf(stderr, "%s exception on stdin why? feof:%d ferror:%d\n", _PFN, feof(stdin), ferror(stdin));
 			if (feof(stdin) || ferror(stdin)){
 				clearerr(stdin);
 				finished = true;
@@ -1511,17 +1520,17 @@ static void wait_and_cleanup(pid_t child)
 			}
 		}else if (FD_ISSET(0, &readfds)){
 			if (feof(stdin)){
-				if (verbose) fprintf(stderr,"EOF\n");
+				if (verbose) fprintf(stderr,"%s EOF\n", _PFN);
 				finished = true;
 			}else if (ferror(stdin)){
-				if (verbose) fprintf(stderr, "ERROR\n");
+				if (verbose) fprintf(stderr, "%s ERROR\n", _PFN);
 				finished = true;
 				error_rc = 2;
 			}else{
 				char stuff[80];
 				fgets(stuff, 80, stdin);
 
-				if (verbose) fprintf(stderr, "data on stdin %s\n", stuff);
+				if (verbose) fprintf(stderr, "%s data on stdin %s\n", _PFN, stuff);
 				if (strncmp(stuff, "quit", 4) == 0){
 					finished = true;
 				}else{
@@ -1529,9 +1538,11 @@ static void wait_and_cleanup(pid_t child)
 				}
 			}
 		}else{
-			if (verbose) fprintf(stderr, "out of pselect, not sure why\n");
+			if (verbose) fprintf(stderr, "%s out of pselect, not sure why\n", _PFN);
 		}
 	}
+
+	fprintf(stderr, "%s 50\n", _PFN);
 	sigaddset(&blockset, SIGTERM);
 	sigdelset(&blockset, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &blockset, NULL);
@@ -1547,6 +1558,7 @@ static void wait_and_cleanup(pid_t child)
 		verbose && fprintf(stderr, "%d waited for %d\n", nwait, wpid);
 	}
 
+	fprintf(stderr, "%s 99\n", _PFN);
 	exit(error_rc);
 }
 
