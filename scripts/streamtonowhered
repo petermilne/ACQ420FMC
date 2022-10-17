@@ -14,7 +14,7 @@ start() {
 }
 
 ACQ400_MAIN_PIDF=/var/run/acq400_stream.0.pid
-INP=/dev/shm/streamd.in
+INP=$(/usr/local/CARE/acq400_stream_inp id)
 
 stop() {
     echo "no go" > /dev/shm/nopostshot
@@ -36,8 +36,7 @@ stop() {
         sleep 1
         [ -r ${PDIF} ] && kill -${SIGTERM} $(cat ${PIDF}) 2>/dev/null
     fi
-    rm $INP
-    mkemlog $INP
+    /usr/local/CARE/acq400_stream_inp clear
 }
 
 status() {

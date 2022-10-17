@@ -12,14 +12,14 @@ source /usr/local/bin/init_stream
 
 SITE=${1:-0}
 LOG=/var/log/acq400_streamd_$SITE.log
-INP=/dev/shm/streamd.in
+INP=$(/usr/local/CARE/acq400_stream_inp id)
 
 (
 if [ ! -e $LOG ]; then
         grep -q emlog /proc/modules; [ $? -ne 0 ] && /sbin/insmod /usr/local/lib/modules/emlog.ko
         [ -e $LOG ] || mkemlog $LOG        
 fi
-[ -e $INP ] || mkemlog $INP 1
+/usr/local/CARE/acq400_stream_inp create
 ) 2>&1 >/dev/null
 
 
