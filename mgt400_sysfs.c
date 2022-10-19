@@ -557,7 +557,12 @@ static ssize_t store_agg_reg(
 			regval &= ~DATA_MOVER_EN;
 			pass = 1;
 		}else if ((match = strstr(tok, "spad=")) != 0){
-			store_spad(dev, attr, match+strlen("spad="), 1);
+			if ((match+strlen("spad="))[0] == '1'){
+				regval |= AGG_SPAD_EN;
+			}else{
+				regval &= ~AGG_SPAD_EN;
+			}
+			pass = 1;
 		}
 	}
 
