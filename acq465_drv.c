@@ -66,9 +66,25 @@
         if (copy_to_user(to, from, len)) { return -EFAULT; }
 
 
+/*
+ * acq1001_301> cat /mnt/local/apply_dig_if_reset
+map /usr/local/acq1002.map
+
+mm $s1+2c 8
+sleep 0.1
+acq465_knobs -A reg 0x01 0x82
+sleep 0.1
+#acq465_knobs -A reg 0x01 0x80
+sleep 0.1
+mm $s1+2c 0
+ *
+ */
+
+#define ACQ465_LCS_BROADCAST	0x00000008
+
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.1.6"
+#define REVID 		"0.2.0"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -384,7 +400,26 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 	return rc;
 }
 
+static long acq465_dig_if_release(struct acq465_dev* adev)
+{
 
+	char dig_if_release[3] 	= { 0x01, 0x80, 0x0 };
+	acq465_spi_write(adev, ACQ465_LCS_BROADCAST, dig_if_release, CMDLEN);
+	acq465_lcs(get_site(adev), 0);
+	return 0;
+}
+
+static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
+{
+	acq465_lcs(get_site(adev), ACQ465_LCS_BROADCAST);
+
+	if (do_it){
+		char dig_if_reset[3] 	= { 0x01, 0x82, 0x0 };
+		acq465_spi_write(adev, ACQ465_LCS_BROADCAST, dig_if_reset, CMDLEN);
+	}
+	// clean up on release(), allow potentially multiple ACQ465 to be init at once.
+	return 0;
+}
 
 #define acq465_of_match 0
 
@@ -410,6 +445,16 @@ int acq465_open(struct inode *inode, struct file *file)
 {
         file->private_data = container_of(inode->i_cdev, struct acq465_dev, cdev);
         return 0;
+}
+
+int acq465_release(struct inode *inode, struct file *file)
+{
+	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
+	if (mutex_is_locked(&adev->sem)){
+		acq465_dig_if_release(adev);
+		mutex_unlock(&adev->sem);
+	}
+	return 0;
 }
 
 int acq465_cli_buffer_mmap(struct file* file, struct vm_area_struct* vma)
@@ -469,7 +514,12 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		COPY_TO_USER(varg, &mcm, sizeof(struct MCM));
 		break;
 	}
-	default:
+	case ACQ465_DIG_IF_RESET: {
+		unsigned do_it;
+		COPY_FROM_USER(&do_it, varg, sizeof(do_it));
+		rc = acq465_dig_if_reset(adev, do_it);
+		return rc;					/* leave release() to clean up the mutex */
+	} default:
 		rc = -ENODEV;
 		break;
 	}
@@ -482,7 +532,8 @@ struct file_operations acq465_fops = {
         .owner = THIS_MODULE,
         .open = acq465_open,
         .mmap = acq465_cli_buffer_mmap,
-        .unlocked_ioctl = acq465_unlocked_ioctl
+        .unlocked_ioctl = acq465_unlocked_ioctl,
+	.release = acq465_release
 };
 
 #define CHIPFMT	" - - - - - - - - - - - - chip:%c - - - - - - - - - - - -\n"

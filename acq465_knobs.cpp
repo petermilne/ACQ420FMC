@@ -176,6 +176,11 @@ public:
 		}
 		init_commands();
 	}
+	virtual ~Acq465ELF()
+	{
+		munmap(clibuf, TOTAL_SPI_BUFFER_LEN);
+		fclose(fp);
+	}
 
 	int operator() (int argc, const char** argv);
 
@@ -187,6 +192,9 @@ public:
 	}
 	int invalidate() {
 		return invalidate(lcs);
+	}
+	int dig_if_reset(unsigned doit){
+		return ioctl(fileno(fp), ACQ465_DIG_IF_RESET, doit);
 	}
 	int flush(unsigned chip) {
 		return ioctl(fileno(fp), ACQ465_CACHE_FLUSH, chip);
@@ -837,7 +845,32 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 }
 
 
+#include <vector>
+
+int dig_if_reset(const char* sites)
+/* sent a broadcast DIG_IF_RESET to all chips (and, in future, all sites) */
+{
+	const char* cursor = sites;
+	std::vector<Acq465ELF*> modules;
+
+	while(*cursor){
+		if (cursor[0] >= '1' && cursor[0] <= '6'){
+			int site = cursor[0] - '0';
+			Acq465ELF* module = new Acq465ELF(site, 0);
+			modules.push_back(module);
+			unsigned doit = cursor[1] == ','? 0: 1;
+			module->dig_if_reset(doit);
+		}
+	}
+
+	for (Acq465ELF* module: modules){
+		delete module;
+	}
+	return 0;
+}
+
 const char* G_chips = "ABCDEFGH";
+const char* G_sites;
 
 
 struct poptOption opt_table[] = {
@@ -845,6 +878,7 @@ struct poptOption opt_table[] = {
 	{ "chips", 	'c', POPT_ARG_STRING, 	&G_chips, 	0, 	"access selected chips [ABCDEFG]"	},
 	{ "verbose",   	'v', POPT_ARG_INT, 	&G_verbose, 	0,	"set verbosity"	    			},
 	{ "terse",      't', POPT_ARG_INT,      &G_terse,       0,      "limit output lines"                    },
+	{ "dig_if_reset",'r', POPT_ARG_STRING,  &G_sites,       'r',    "digital interface reset, all chips, all sites" },
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -863,6 +897,8 @@ int main(int argc, const char** argv)
 	int rc;
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'r':
+			return dig_if_reset(G_sites);
 		case 'A':
 			G_chips = "ABCDEFGH";
 			break;

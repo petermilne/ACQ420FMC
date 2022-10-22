@@ -37,6 +37,7 @@ SEQ=10
 
 
 CPPFLAGS += -O3 -Wall
+CXXFLAGS += -std=c++11
 
 acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o dma_shims.o \
 	acq400_core.o acq400_init_defaults.o \

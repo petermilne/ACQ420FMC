@@ -25,6 +25,7 @@ struct MCM {
 #define ACQ465_CACHE_INVALIDATE	_IOW(MAGIC, 2, LCS)
 #define ACQ465_CACHE_FLUSH	_IOW(MAGIC, 3, LCS)
 #define ACQ465_MCLK_MONITOR	_IOWR(MAGIC, 4, struct MCM)   /* LCS out, count back */
+#define ACQ465_DIG_IF_RESET	_IOWR(MAGIC, 5,LCS)
 
 #define REGS_LEN	0x80
 #define NCHIPS		8
