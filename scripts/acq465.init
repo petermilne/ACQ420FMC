@@ -9,7 +9,13 @@ for s in $*; do
     fi
 done
 
+# sourced by init_stream
+cat - >/etc/sysconfig/acq400_streamd.0.conf_acq465 <<EOF
+logger -t acq400_streamd.0.conf_acq465 -- /usr/local/bin/acq465_knobs --dig_if_reset=$SITES
+/usr/local/bin/acq465_knobs --dig_if_reset=$SITES
+EOF
 
+ 
 
 if [ -e /mnt/local/acq465.ko ]; then
 	MODFILE=/mnt/local/acq465.ko

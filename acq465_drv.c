@@ -491,9 +491,12 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	void* varg = (void*)arg;        // for ioctls with structure arg
 	long rc;
 
+	dev_dbg(DEVP(adev), "%s cmd:%u arg:%lu\n", __FUNCTION__, cmd, arg);
+
 	rc = mutex_lock_interruptible(&adev->sem);
 
 	if (rc){
+		dev_dbg(DEVP(adev), "%s mutex is locked already, drop out\n", __FUNCTION__);
 		return rc;
 	}
 	/* inside mutex */
@@ -516,8 +519,9 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case ACQ465_DIG_IF_RESET: {
-		unsigned do_it;
-		COPY_FROM_USER(&do_it, varg, sizeof(do_it));
+		unsigned do_it = arg;
+
+		dev_dbg(DEVP(adev), "%s ACQ465_DIG_IF_RESET\n", __FUNCTION__);
 		rc = acq465_dig_if_reset(adev, do_it);
 		return rc;					/* leave release() to clean up the mutex */
 	} default:
@@ -526,6 +530,7 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	mutex_unlock(&adev->sem);
+	dev_dbg(DEVP(adev), "%s 99 cmd:%u arg:%lu rc:%ld\n", __FUNCTION__, cmd, arg, rc);
 	return rc;
 }
 

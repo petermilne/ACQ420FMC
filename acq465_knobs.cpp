@@ -21,6 +21,7 @@
 #include <algorithm>    // std::sort
 
 #include <ctype.h>
+#include <vector>
 
 using namespace std;
 
@@ -845,17 +846,19 @@ int  Acq465ELF::operator() (int argc, const char** argv)
 }
 
 
-#include <vector>
+
 
 int dig_if_reset(const char* sites)
 /* sent a broadcast DIG_IF_RESET to all chips (and, in future, all sites) */
 {
-	const char* cursor = sites;
 	std::vector<Acq465ELF*> modules;
 
-	while(*cursor){
+	printf("%s 01\n", __FUNCTION__);
+	for (const char* cursor = sites; *cursor; ++cursor){
+		printf("%s 01 %c\n", __FUNCTION__, *cursor);
 		if (cursor[0] >= '1' && cursor[0] <= '6'){
 			int site = cursor[0] - '0';
+			printf("%s 01 site=%d\n", __FUNCTION__, site);
 			Acq465ELF* module = new Acq465ELF(site, 0);
 			modules.push_back(module);
 			unsigned doit = cursor[1] == ','? 0: 1;
