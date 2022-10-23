@@ -860,6 +860,10 @@ int dig_if_reset(const char* sites)
 			modules.push_back(module);
 			unsigned doit = cursor[1] == ','? 0: 1;
 			module->dig_if_reset(doit);
+			if (G_verbose > 1){
+				fprintf(stderr, "waiting for input\n");
+				getchar();
+			}
 		}
 	}
 

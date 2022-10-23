@@ -402,15 +402,16 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 
 static long acq465_dig_if_release(struct acq465_dev* adev)
 {
-
 	char dig_if_release[3] 	= { 0x01, 0x80, 0x0 };
 	acq465_spi_write(adev, ACQ465_LCS_BROADCAST, dig_if_release, CMDLEN);
 	acq465_lcs(get_site(adev), 0);
+	dev_dbg(&adev->pdev->dev, "%s 99\n", __FUNCTION__);
 	return 0;
 }
 
 static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
 {
+	dev_dbg(&adev->pdev->dev, "%s 01 do_it:%d\n", __FUNCTION__, do_it);
 	acq465_lcs(get_site(adev), ACQ465_LCS_BROADCAST);
 
 	if (do_it){
