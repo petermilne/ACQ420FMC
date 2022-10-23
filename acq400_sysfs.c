@@ -2494,8 +2494,10 @@ static ssize_t store_adc_reset(
 	int reset;
 
 	if (sscanf(buf, "%d", &reset) == 1 && reset == 1){
-		u32 ctrl;
-		acq400wr32(adev, ADC_CTRL, ctrl = 0);
+		u32 ctrl = acq400rd32(adev, ADC_CTRL);
+		ctrl &= ~(ADC_CTRL_MODULE_EN|ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST|ADC_CTRL_ADC_EN);
+
+		acq400wr32(adev, ADC_CTRL, ctrl );
 		acq400wr32(adev, ADC_CTRL, ctrl |= ADC_CTRL_MODULE_EN);
 		acq400wr32(adev, ADC_CTRL, ctrl |  ADC_CTRL_ADC_RST|ADC_CTRL_FIFO_RST);
 		msleep(acq465_reset_msleep);
