@@ -2219,7 +2219,7 @@ protected:
 		fprintf(fp, "%u,%u\n", FE_HISTO[FE_FOUND], FE_HISTO[FE_NOTFOUND]);
 		fclose(fp);
 
-		if (verbose) fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
+		fprintf(stderr, "findEvent=%d,%d,%d\n", festa, ib, buffers_searched);
 	}
 	virtual char* findEvent(Buffer* the_buffer) {
 		unsigned stride = G::nchan*G::wordsize/sizeof(unsigned);
