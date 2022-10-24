@@ -862,9 +862,13 @@ int dig_if_reset(const char* sites)
 			Acq465ELF* module = new Acq465ELF(site, 0);
 			modules.push_back(module);
 			unsigned doit = cursor[1] == ','? 0: 1;
+			if (G_verbose > 1){
+				fprintf(stderr, "waiting for go, doit=%d\n", doit);
+				getchar();
+			}
 			module->dig_if_reset(doit);
 			if (G_verbose > 1){
-				fprintf(stderr, "waiting for input\n");
+				fprintf(stderr, "waiting for continue\n");
 				getchar();
 			}
 		}
