@@ -84,7 +84,7 @@ mm $s1+2c 0
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.2.0"
+#define REVID 		"0.2.1"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -403,8 +403,10 @@ static long ad7134_monitor_mclk(struct acq465_dev* adev, struct MCM* mcm)
 
 static long acq465_dig_if_release(struct acq465_dev* adev)
 {
+#ifdef AD7134_LIKES_IT
 	char dig_if_release[3] 	= { 0x01, 0x80, 0x0 };
 	acq465_spi_write(adev, ACQ465_LCS_BROADCAST, dig_if_release, CMDLEN);
+#endif
 	acq465_lcs(get_site(adev), 0);
 	dev_dbg(&adev->pdev->dev, "%s 99\n", __FUNCTION__);
 	return 0;
@@ -413,7 +415,6 @@ static long acq465_dig_if_release(struct acq465_dev* adev)
 static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
 {
 	dev_dbg(&adev->pdev->dev, "%s 01 do_it:%d\n", __FUNCTION__, do_it);
-	acq465_lcs(get_site(adev), ACQ465_LCS_BROADCAST);
 
 	if (do_it){
 		char buf[16];
