@@ -159,6 +159,7 @@ struct acq465_dev {
 
 	struct spi_device *spi;
 	struct mutex sem;
+	void* owner;
 };
 
 
@@ -451,7 +452,7 @@ int acq465_open(struct inode *inode, struct file *file)
 int acq465_release(struct inode *inode, struct file *file)
 {
 	struct acq465_dev* adev = (struct acq465_dev*)file->private_data;
-	if (mutex_is_locked(&adev->sem)){
+	if (mutex_is_locked(&adev->sem) && adev->owner == current){
 		acq465_dig_if_release(adev);
 		mutex_unlock(&adev->sem);
 	}
@@ -498,6 +499,8 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	if (rc){
 		dev_dbg(DEVP(adev), "%s mutex is locked already, drop out\n", __FUNCTION__);
 		return rc;
+	}else{
+		adev->owner = current;
 	}
 	/* inside mutex */
 	switch(cmd){
@@ -529,7 +532,15 @@ acq465_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
-	mutex_unlock(&adev->sem);
+	{
+		unsigned long flags;
+		spinlock_t lock;
+		spin_lock_init(&lock);
+		spin_lock_irqsave(&lock, flags);
+		adev->owner = 0;		// race here.. so we made it atomic ..
+		mutex_unlock(&adev->sem);
+		spin_unlock_irqrestore(&lock, flags);
+	}
 	dev_dbg(DEVP(adev), "%s 99 cmd:%u arg:%lu rc:%ld\n", __FUNCTION__, cmd, arg, rc);
 	return rc;
 }
