@@ -1070,6 +1070,7 @@ void acq465_lcs(int site, unsigned value)
 {
 	struct acq400_dev* adev = acq400_sites[site];
 	BUG_ON(adev == 0);
+	dev_dbg(DEVP(adev), "%s site:%d value:%02x", __FUNCTION__, site, value);
 	{
 		u32 lcs = acq400rd32(adev, ACQ465_LCS);
 		lcs &=~ ACQ465_LCS_MASK;

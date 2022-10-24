@@ -416,8 +416,11 @@ static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
 	acq465_lcs(get_site(adev), ACQ465_LCS_BROADCAST);
 
 	if (do_it){
-		char dig_if_reset[3] 	= { 0x01, 0x82, 0x0 };
-		acq465_spi_write(adev, ACQ465_LCS_BROADCAST, dig_if_reset, CMDLEN);
+		char buf[16];
+		unsigned char cmd[3] 	= { 0x01, 0x82, 0x0 };
+		int chip = ACQ465_LCS_BROADCAST;
+		int status = acq465_spi_write(adev, chip, cmd, CMDLEN);
+		dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, CMDLEN), status);
 	}
 	// clean up on release(), allow potentially multiple ACQ465 to be init at once.
 	return 0;
