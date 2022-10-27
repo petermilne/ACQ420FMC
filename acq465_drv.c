@@ -84,7 +84,7 @@ mm $s1+2c 0
 
 extern void acq465_lcs(int site, unsigned value);
 
-#define REVID 		"0.2.2"
+#define REVID 		"0.2.5"
 #define MODULE_NAME	"acq465"
 
 int acq465_sites[6] = { 0,  };
@@ -117,6 +117,10 @@ int mclk_counts[2] = { 0,  };
 int mclk_counts_entries = 2;
 module_param_array(mclk_counts, int, &mclk_counts_entries, 0644);
 MODULE_PARM_DESC(mclk_counts, "[0] rollover_counts [1] regular_counts expect [1] = [0]*3 or better");
+
+int spi_clr = 0;
+module_param(spi_clr, int, 0644);
+MODULE_PARM_DESC(spi_clr, "send a clear command to spi before reset");
 
 #define CMDLEN (USE_CRC? 3: 2)
 
@@ -418,14 +422,20 @@ static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
 
 	if (do_it){
 		char buf[16];
-		unsigned char clr[3] 	= { 0x01, 0x82, 0x0 };
+		unsigned char clr[3] 	= { 0x01, 0x00, 0x0 };
 		unsigned char cmd[3] 	= { 0x01, 0x82, 0x0 };
 		int chip = ACQ465_LCS_BROADCAST;
 		int status;
 
-		status = acq465_spi_write(adev, chip, clr, CMDLEN);
-		dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, clr, CMDLEN), status);
+		if (spi_clr==1){
+			status = acq465_spi_write(adev, chip, clr, CMDLEN);
+			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, clr, CMDLEN), status);
+		}
 		status = acq465_spi_write(adev, chip, cmd, CMDLEN);
+		if (spi_clr==2){
+			status = acq465_spi_write(adev, chip, clr, CMDLEN);
+			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, clr, CMDLEN), status);
+		}
 		dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, cmd, CMDLEN), status);
 	}
 	// clean up on release(), allow potentially multiple ACQ465 to be init at once.
