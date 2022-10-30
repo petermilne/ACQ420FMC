@@ -1284,10 +1284,7 @@ struct Progress {
 Progress Progress::null_progress(stderr);
 
 
-struct ProgressImpl: public Progress {
-
-	ProgressImpl(FILE *_fp) : Progress(_fp, "ProgressImpl") {
-	}
+class ProgressImpl: public Progress {
 	virtual void printState(char current[]) {
 		if (G::state_fp){
 			rewind(G::state_fp);
@@ -1295,11 +1292,13 @@ struct ProgressImpl: public Progress {
 			fflush(G::state_fp);
 		}
 	}
+public:
+	ProgressImpl(FILE *_fp) : Progress(_fp, "ProgressImpl") {
+	}
+
 	virtual void print(bool ignore_ratelimit = true, int extra = 0) {
 		char current[128];
-		snprintf(current, 128, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
-		char* cp = current+strlen(current);
-		snprintf(cp, 128-(cp-current), "STX=%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+		snprintf(current, 128, "STX=%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
 
 		if ((ignore_ratelimit || !isRateLimited()) && strcmp(current, previous)){
 			fputs(current, status_fp);
