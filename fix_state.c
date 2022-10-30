@@ -11,7 +11,7 @@
 #define SF	"/dev/shm/state"
 
 #define MAXLEN 128
-#define DEFSTR "0 0 0 0 0"
+#define DEFSTR "STX 0 0 0 0 0"
 
 int main(int argc, char* argv[])
 {
