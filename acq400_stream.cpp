@@ -1296,8 +1296,10 @@ struct ProgressImpl: public Progress {
 		}
 	}
 	virtual void print(bool ignore_ratelimit = true, int extra = 0) {
-		char current[80];
-		snprintf(current, 80, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+		char current[128];
+		snprintf(current, 128, "%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
+		char* cp = current+strlen(current);
+		snprintf(cp, 128-(cp-current), "STX=%d %d %d %llu %d\n", state, pre, post, elapsed, extra);
 
 		if ((ignore_ratelimit || !isRateLimited()) && strcmp(current, previous)){
 			fputs(current, status_fp);
