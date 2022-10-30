@@ -53,7 +53,11 @@
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
 
+#ifdef READY_FOR_CRC8
+/* kernel CONFIG_CRC8 set */
 #include <linux/crc8.h>
+#endif
+
 
 
 
@@ -222,16 +226,24 @@ char* make_cmd_string(char buf[], unsigned char cmd[], int ncmd)
 #define CRC_POLY	0x83     /* x8 + x2 + x1 */
 #define CRC_SEED	0xa5
 
+#ifdef READY_FOR_CRC8	
 static u8 crc8_table[256];
 
 void init_crc(void)
 {
 	crc8_populate_lsb(crc8_table, CRC_POLY);
 }
+#else
+void init_crc(void) {}
+#endif	
 unsigned char CRC3(unsigned char cmd[])
 /* set 3rd byte to CRC of first 2 bytes */
 {
+#ifdef READY_FOR_CRC8	
 	return cmd[2] = crc8(crc8_table, cmd, 2, CRC_SEED);
+#else
+	return cmd[2] = '\0';
+#endif	
 }
 
 int acq465_spi_write(struct acq465_dev* adev, unsigned chip, unsigned char cmd[], int ncmd)
