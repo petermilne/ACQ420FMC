@@ -53,6 +53,8 @@
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
 
+#include <linux/crc8.h>
+
 
 
 #include "hbm.h"
@@ -217,15 +219,21 @@ char* make_cmd_string(char buf[], unsigned char cmd[], int ncmd)
 	return buf;
 }
 
-unsigned char CRC3(unsigned char cmd[])
-{
-	/* CRC WORKTODO :
-	 * The SPI CRC is calculated with the x8 + x2 + x + 1 polynomial
-	 * with an initial seed value of 0xA5.
-	 */
+#define CRC_POLY	0x83     /* x8 + x2 + x1 */
+#define CRC_SEED	0xa5
 
-	return cmd[2] = 0;
+static u8 crc8_table[256];
+
+void init_crc(void)
+{
+	crc8_populate_lsb(crc8_table, CRC_POLY);
 }
+unsigned char CRC3(unsigned char cmd[])
+/* set 3rd byte to CRC of first 2 bytes */
+{
+	return cmd[2] = crc8(crc8_table, cmd, 2, CRC_SEED);
+}
+
 int acq465_spi_write(struct acq465_dev* adev, unsigned chip, unsigned char cmd[], int ncmd)
 {
 	char buf[16];
@@ -427,12 +435,12 @@ static long acq465_dig_if_reset(struct acq465_dev* adev, unsigned do_it)
 		int chip = ACQ465_LCS_BROADCAST;
 		int status;
 
-		if (spi_clr==1){
+		if (spi_clr&1){
 			status = acq465_spi_write(adev, chip, clr, CMDLEN);
 			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, clr, CMDLEN), status);
 		}
 		status = acq465_spi_write(adev, chip, cmd, CMDLEN);
-		if (spi_clr==2){
+		if (spi_clr&2){
 			status = acq465_spi_write(adev, chip, clr, CMDLEN);
 			dev_dbg(DEVP(adev), "%s %s lcs:%02x cmd: %s status:%d", __FUNCTION__, HW? "HW": "sim", chip, make_cmd_string(buf, clr, CMDLEN), status);
 		}
@@ -813,6 +821,7 @@ static int __init acq465_init(void)
 
 	printk("D-TACQ ACQ465 Driver %s\n", REVID);
 
+	init_crc();
 	platform_driver_register(&acq465_driver);
 	acq465_proc_root = proc_mkdir("driver/acq465", 0);
 
