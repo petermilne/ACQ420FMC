@@ -1000,6 +1000,8 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 		}else{
 			dio432_init_defaults(adev);
 		}
+	}else if (IS_DIO422AQB(adev)){
+		qen_init_defaults(adev);
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_ACQ430FMC:

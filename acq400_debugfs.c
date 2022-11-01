@@ -336,11 +336,16 @@ void dio_biscuit_createDebugfs(struct acq400_dev* adev, char* pcursor)
 void qen_createDebugfs(struct acq400_dev* adev, char* pcursor)
 {
 	DBG_REG_CREATE(QEN_CTRL);
-	DBG_REG_CREATE(ADC_FIFO_SAMPLES);
-	DBG_REG_CREATE(ADC_FIFO_STA);
-	DBG_REG_CREATE(ADC_INT_CSR);
-	DBG_REG_CREATE(ADC_CLK_CTR);
-	DBG_REG_CREATE(ADC_SAMPLE_CTR);
+	DBG_REG_CREATE(QEN_FIFO_SAMPLES);
+	DBG_REG_CREATE(QEN_FIFO_STA);
+	DBG_REG_CREATE(QEN_INT_CSR);
+	DBG_REG_CREATE(QEN_CLK_CTR);
+	DBG_REG_CREATE(QEN_SAMPLE_CTR);
+	DBG_REG_CREATE(QEN_SAMPLE_CLK_CTR);
+	DBG_REG_CREATE(QEN_CLKDIV);
+	DBG_REG_CREATE(QEN_TRANSLEN);
+	DBG_REG_CREATE(QEN_INDEX_HOME);
+
 	DBG_REG_CREATE(QEN_DIO_CTRL);
 	DBG_REG_CREATE(QEN_ENC_COUNT);
 }
@@ -407,6 +412,8 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 		acq420_createDebugfs(adev, pcursor);
 	}else if (IS_DIO432X(adev) || IS_DIO482TD_PG(adev)){
 		dio432_createDebugfs(adev, pcursor);
+	}else if (IS_DIO422AQB(adev)){
+		qen_createDebugfs(adev, pcursor);
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_BOLO8:

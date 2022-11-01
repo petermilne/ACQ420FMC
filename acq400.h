@@ -503,7 +503,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO_BISCUIT_GENERIC(adev)  (GET_MOD_ID(adev) == MOD_ID_DIO_BISCUIT)
 #define IS_DIO_BISCUIT(adev)	(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_DIO)
 #define IS_V2F(adev)		(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_V2F)
-#define IS_QEN(adev)		(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_QEN)
+#define IS_QEN(adev)		((IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev)==MOD_IDV_QEN)   || IS_DIO422AQB(adev))
 /* @@todo there's already IS_ACQ1014 tied to sc .. */
 #define IS_ACQ1014_M(adev)	(IS_DIO_BISCUIT_GENERIC(adev) && GET_MOD_IDV(adev) == MOD_IDV_ACQ1014)
 
@@ -1049,11 +1049,24 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_CTRL_FIFO_RST	ADC_CTRL_FIFO_RST
 #define QEN_CTRL_MODULE_EN	ADC_CTRL_MODULE_EN
 
+#define QEN_FIFO_SAMPLES	(ADC_BASE+0x10)
+#define QEN_FIFO_STA		(ADC_BASE+0x14)
+#define QEN_INT_CSR		(ADC_BASE+0x18)
+#define QEN_CLK_CTR		(ADC_BASE+0x1C)
+#define QEN_SAMPLE_CTR		(ADC_BASE+0x20)
+#define QEN_SAMPLE_CLK_CTR	(ADC_BASE+0x24)
+
+#define QEN_CLKDIV		(ADC_BASE+0x40)
+#define QEN_TRANSLEN		(ADC_BASE+0x50)
+#define QEN_INDEX_HOME		(ADC_BASE+0x54)
+
 #define QEN_DIO_CTRL		0x5c
 #define QEN_ENC_COUNT		0x60
 
+#define QEN_DIO_CTRL_SNAP32	(1<<14)
 #define QEN_DIO_CTRL_MSBDIRECT	(1<<13)		// Count MSB is DI2, DI4 respectively
 #define QEN_DIO_CTRL_ZCOUNT	(1<<12)		// Include Z input as a separate counter
+#define QEN_DIO_CTRL_CTR_RESET	(1<<11)
 #define QEN_DIO_CTRL_ZSEL	(3<<10)
 #define QEN_DIO_CTRL_PB_EN	(1<<9)
 #define QEN_DIO_CTRL_PA_EN	(1<<8)
