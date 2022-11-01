@@ -80,6 +80,10 @@
 #define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
 #define MOD_IDV_PG		0x0f	/* DIO482-PG */
 
+/* known DIO422 variants */
+#define MOD_IDV_DIO422_DIO	0x00
+#define MOD_IDV_DIO422_AQB	0x01	/* AquadB input */
+
 /* known Biscuit Variants, switch on MOD_ID_VERSION */
 #define MOD_IDV_V2F		0x0
 #define MOD_IDV_DIO		0x1
