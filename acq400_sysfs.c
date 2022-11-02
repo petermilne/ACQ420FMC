@@ -1958,6 +1958,13 @@ static ssize_t show_active_chan(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (IS_DIO422AQB(adev)){
+		u32 qen_dio = acq400rd32(adev, QEN_DIO_CTRL);
+		int snap32 = qen_dio&QEN_DIO_CTRL_SNAP32? 1: 0;
+		int zcount = qen_dio&QEN_DIO_CTRL_ZCOUNT? 1: 0;
+
+		adev->nchan_enabled = 1 + snap32 + zcount;
+	}
 	return sprintf(buf, "%d\n", adev->nchan_enabled);
 }
 

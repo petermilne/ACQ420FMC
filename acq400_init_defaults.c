@@ -403,22 +403,37 @@ static void _qen_onStart(struct acq400_dev *adev)
 	dev_info(DEVP(adev), "99");
 }
 
-static void qen_init_defaults(struct acq400_dev *adev)
+static void dio422aqb_init_defaults(struct acq400_dev *adev)
 {
-	struct acq400_dev *adev1 = acq400_devices[1];
-	if (adev1 && adev1->data32 == 0){
-		adev->data32 = 0;
-		adev->word_size = 2;
-		adev->nchan_enabled = 2;
-	}else{
-		adev->data32 = 1;
-		adev->word_size = 1;
-		adev->nchan_enabled = 1;
-	}
+	u32 qen_dio = acq400rd32(adev, QEN_DIO_CTRL);
+	int snap32 = qen_dio&QEN_DIO_CTRL_SNAP32? 1: 0;
+	int zcount = qen_dio&QEN_DIO_CTRL_ZCOUNT? 1: 0;
+
+	adev->data32 = 1;
+	adev->word_size = 2;
+	adev->nchan_enabled = 1 + snap32 + zcount;
 
 	acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN);
 	adev->onStart = _qen_onStart;
 	adev->onStop = _qen_onStop;
+}
+
+static void qen_init_defaults(struct acq400_dev *adev)
+{
+       struct acq400_dev *adev1 = acq400_devices[1];
+       if (adev1 && adev1->data32 == 0){
+               adev->data32 = 0;
+               adev->word_size = 2;
+               adev->nchan_enabled = 2;
+       }else{
+               adev->data32 = 1;
+               adev->word_size = 1;
+               adev->nchan_enabled = 1;
+       }
+        acq400wr32(adev, QEN_CTRL, QEN_CTRL_MODULE_EN);
+        adev->onStart = _qen_onStart;
+        adev->onStop = _qen_onStop;
+
 }
 
 static void acq1014_init_defaults(struct acq400_dev *adev)
@@ -1002,7 +1017,7 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			dio432_init_defaults(adev);
 		}
 	}else if (IS_DIO422AQB(adev)){
-		qen_init_defaults(adev);
+		dio422aqb_init_defaults(adev);
 	}else{
 		switch(GET_MOD_ID(adev)){
 		case MOD_ID_ACQ430FMC:
