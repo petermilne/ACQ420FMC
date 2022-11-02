@@ -398,8 +398,9 @@ static void _qen_onStop(struct acq400_dev *adev)
 
 static void _qen_onStart(struct acq400_dev *adev)
 {
-	acq420_enable_fifo(adev);
-	acq420_reset_fifo(adev);
+	dev_info(DEVP(adev), "01");
+	acq420_onStart(adev);
+	dev_info(DEVP(adev), "99");
 }
 
 static void qen_init_defaults(struct acq400_dev *adev)
