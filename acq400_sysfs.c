@@ -3977,6 +3977,9 @@ void acq400_createSysfs(struct device *dev)
 
 	if (IS_DUMMY(adev)){
 		return;
+	}else if (IS_RAD_CELF(adev)){
+		sysfs_radcelf_create_files(dev);
+		return;
 	}else if (IS_DIO_BISCUIT_GENERIC(adev)){
 		if (IS_DIO_BISCUIT(adev)){
 			specials[nspec++] = sysfs_diobiscuit_attrs;
@@ -3989,9 +3992,6 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = sysfs_qen_attrs;
 			specials[nspec++] = es_enable_attrs;
 		}
-	}else if (IS_RAD_CELF(adev)){
-		sysfs_radcelf_create_files(dev);
-		return;
 	}else if IS_SC(adev){
 		if (sysfs_create_files(&dev->kobj, sc_common_attrs)){
 			dev_err(dev, "failed to create sysfs");
@@ -4060,6 +4060,10 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = dio_attrs;
 			specials[nspec++] = dio482_pg_attrs;
 			specials[nspec++] = gpg_attrs;
+		}else if (IS_DIO422AQB(adev)){
+			dev_info(dev, "IS_DIO422AQB");
+			specials[nspec++] = sysfs_qen_attrs;
+			specials[nspec++] = es_enable_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_emulate_attrs;
 			specials[nspec++] = acq423_attrs;
