@@ -273,8 +273,7 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	if (IS_DIO482_PG(adev)){
 		DBG_REG_CREATE_NAME_N(DIO482_PG_WDT);
 	}
-	DBG_REG_CREATE( DIO_CLKDIV );
-	DBG_REG_CREATE( DIO432_DIO_CPLD_CTRL);
+	DBG_REG_CREATE( DIO_CLKDIV);
 	if (IS_DIO422ELF(adev)){
 		DBG_REG_CREATE(DIO422_OE_CONFIG);
 	}else{
