@@ -245,9 +245,9 @@ static ssize_t show_qen_count(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	int count = acq400rd32(adev, QEN_ENC_COUNT);
+	u32 count = acq400rd32(adev, QEN_ENC_COUNT);
 
-	return sprintf(buf, "%d\n", count);
+	return sprintf(buf, "%u\n", count);
 }
 
 static ssize_t store_qen_count(
@@ -273,6 +273,7 @@ MAKE_BITS(Zcount_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZCOUNT);
 MAKE_BITS(zsel,       QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZSEL );
 MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
 MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
+MAKE_BITS(di4_mon,    QEN_DI_MON,   MAKE_BITS_FROM_MASK, 0x0f);
 
 const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_phaseA_en.attr,
@@ -285,6 +286,7 @@ const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_qen_count.attr,
 	&dev_attr_snap32.attr,
 	&dev_attr_ctr_reset.attr,
+	&dev_attr_di4_mon.attr,
 	NULL
 };
 
