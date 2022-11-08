@@ -13,7 +13,7 @@ else
 		quit)
 			echo quit > $INP;;
 		create|clear)
-			rm -f $INP; mkemlog $INP 1;;
+			rm -f $INP; mkemlog $INP 1 >/dev/null;;
 		*)
 			echo "arg $1 not supported, please use quit,create,clear";;
 		esac
