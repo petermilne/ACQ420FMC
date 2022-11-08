@@ -550,7 +550,7 @@ build_site0() {
     ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush $ULB/awg_abort \
         $ULB/run0 $ULB/play0 $ULB/get.xdt \
         $ULB/streamtonowhered $ULB/set.sync_role \
-	$ULB/datals \
+		$ULB/datals ${ULB}/cstate \
 	${ek}
 
     ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
