@@ -30,6 +30,7 @@ extern const struct attribute *acq436_upper_half_attrs_master[];
 #define acq436_upper_half_attrs &acq436_upper_half_attrs_master[1]
 
 extern const struct attribute *dio432_attrs[];
+extern const struct attribute *dio422_attrs[];
 
 extern const struct attribute *dio_attrs[];
 

@@ -1445,6 +1445,23 @@ const struct attribute *dio432_attrs[] = {
 	NULL
 };
 
+
+MAKE_BITS(dio422_config, DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
+MAKE_BITS(dio422_TxENn,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_ENn);
+MAKE_BITS(dio422_TxEN,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_EN);
+MAKE_BITS(dio422_snoop_tx, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xff<<16);
+MAKE_BITS(dio422_snoop_rx, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xff<<0);
+
+const struct attribute *dio422_attrs[] = {
+	&dev_attr_dio422_config.attr,
+	&dev_attr_dio422_TxENn.attr,
+	&dev_attr_dio422_TxEN.attr,
+	&dev_attr_dio422_snoop_tx.attr,
+	&dev_attr_dio422_snoop_rx.attr,
+	0
+};
+
+
 MAKE_BITS(pig_psu_en,     PIG_CTL,    		0, PIG_CTL_PSU_EN);
 MAKE_BITS(pig_master, 	  PIG_CTL,		0, PIG_CTL_MASTER);
 MAKE_BITS(pig_imu_rst,    PIG_CTL,              0, PIG_CTL_IMU_RST);

@@ -3971,20 +3971,6 @@ const struct attribute *acq494_attrs[] = {
 	0
 };
 
-MAKE_BITS(dio422_config, DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
-MAKE_BITS(dio422_TxENn,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_ENn);
-MAKE_BITS(dio422_TxEN,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_EN);
-MAKE_BITS(dio422_snoop_tx, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xff<<16);
-MAKE_BITS(dio422_snoop_rx, DIO432_DI_SNOOP, MAKE_BITS_FROM_MASK, 0xff<<0);
-
-const struct attribute *dio422_attrs[] = {
-	&dev_attr_dio422_config.attr,
-	&dev_attr_dio422_TxENn.attr,
-	&dev_attr_dio422_TxEN.attr,
-	&dev_attr_dio422_snoop_tx.attr,
-	&dev_attr_dio422_snoop_rx.attr,
-	0
-};
 
 void acq400_createSysfs(struct device *dev)
 {
@@ -4120,10 +4106,10 @@ void acq400_createSysfs(struct device *dev)
 		}else if (IS_DIO432X(adev)){
 			specials[nspec++] = playloop_attrs;
 			specials[nspec++] = dio_attrs;
-			specials[nspec++] = dio432_attrs;
 			if (IS_DIO422ELF(adev)){
 				specials[nspec++] = dio422_attrs;
 			}else{
+				specials[nspec++] = dio432_attrs;
 				if (IS_DIO482FMC(adev)){
 					specials[nspec++] = dio482_attrs;
 					if (GET_MOD_IDV(adev)==MOD_IDV_PWM2){
