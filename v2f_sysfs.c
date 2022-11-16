@@ -285,6 +285,9 @@ MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
 MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
 MAKE_BITS(di4_mon,    QEN_DI_MON,   MAKE_BITS_FROM_MASK, 0x0f);
 
+MAKE_DNUM(zcount, 	QEN_ZCOUNT, 0xffffffff);
+MAKE_DNUM(ecount, 	QEN_ECOUNT, 0xffffffff);
+
 const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_phaseA_en.attr,
 	&dev_attr_phaseB_en.attr,
@@ -298,6 +301,8 @@ const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_ctr_reset.attr,
 	&dev_attr_di4_mon.attr,
 	&dev_attr_qen_count64.attr,
+	&dev_attr_zcount.attr,
+	&dev_attr_ecount.attr,
 	NULL
 };
 
