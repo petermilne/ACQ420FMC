@@ -1072,7 +1072,13 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define QEN_ZCOUNT		(ADC_BASE+0x64)
 #define QEN_DI_MON		(ADC_BASE+0x68)
 #define QEN_ECOUNT		(ADC_BASE+0x6c)
+#define QEN_POS_ABS_TRG		(ADC_BASE+0x70)
+#define QEN_POS_PRD_TRG		(ADC_BASE+0x74)
+#define QEN_POS_PRD_HYST	(ADC_BASE+0x78)
+#define QEN_POS_PRD_CNT		(ADC_BASE+0x7c)
 
+#define QEN_DIO_CTRL_PRD_TRG_EN (1<<16)
+#define QEN_DIO_CTRL_ABS_TRG_EN (1<<15)
 #define QEN_DIO_CTRL_SNAP32	(1<<14)
 #define QEN_DIO_CTRL_MSBDIRECT	(1<<13)		// Count MSB is DI2, DI4 respectively
 #define QEN_DIO_CTRL_ZCOUNT	(1<<12)		// Include Z input as a separate counter

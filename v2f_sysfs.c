@@ -285,24 +285,39 @@ MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
 MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
 MAKE_BITS(di4_mon,    QEN_DI_MON,   MAKE_BITS_FROM_MASK, 0x0f);
 
-MAKE_DNUM(zcount, 	QEN_ZCOUNT, 0xffffffff);
-MAKE_DNUM(ecount, 	QEN_ECOUNT, 0xffffffff);
+MAKE_BITS(abs_trg_en, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ABS_TRG_EN);
+MAKE_BITS(prd_trg_en, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PRD_TRG_EN);
+
+MAKE_DNUM(zcount, 	 QEN_ZCOUNT, 		0xffffffff);
+MAKE_DNUM(ecount, 	 QEN_ECOUNT, 		0xffffffff);
+MAKE_DNUM(abs_trg_count, QEN_POS_ABS_TRG,	0xffffffff);
+MAKE_DNUM(prd_trg_count, QEN_POS_PRD_TRG,	0xffffffff);
+MAKE_DNUM(prd_hyst_count, QEN_POS_PRD_HYST,	0xffffffff);
+MAKE_DNUM(pos_prd_count, QEN_POS_PRD_CNT, 	0xffffffff);
 
 const struct attribute *sysfs_qen_attrs[] = {
-	&dev_attr_phaseA_en.attr,
-	&dev_attr_phaseB_en.attr,
-	&dev_attr_Zcount_en.attr,
-	&dev_attr_msb_direct.attr,
-	&dev_attr_zsel.attr,
 	&dev_attr_dio_outputs.attr,
 	&dev_attr_DO4.attr,
-	&dev_attr_qen_count.attr,
-	&dev_attr_DImon_snap.attr,
+
+	&dev_attr_phaseA_en.attr,
+	&dev_attr_phaseB_en.attr,
+	&dev_attr_zsel.attr,
 	&dev_attr_ctr_reset.attr,
+	&dev_attr_Zcount_en.attr,
+	&dev_attr_msb_direct.attr,
+	&dev_attr_DImon_snap.attr,
+	&dev_attr_abs_trg_en.attr,
+	&dev_attr_prd_trg_en.attr,
+
 	&dev_attr_di4_mon.attr,
+	&dev_attr_qen_count.attr,
 	&dev_attr_qen_count64.attr,
 	&dev_attr_zcount.attr,
 	&dev_attr_ecount.attr,
+	&dev_attr_abs_trg_count.attr,
+	&dev_attr_prd_trg_count.attr,
+	&dev_attr_prd_hyst_count.attr,
+	&dev_attr_pos_prd_count.attr,
 	NULL
 };
 
