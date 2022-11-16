@@ -354,7 +354,9 @@ void qen_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 	DBG_REG_CREATE(QEN_DIO_CTRL);
 	DBG_REG_CREATE(QEN_ENC_COUNT);
+	DBG_REG_CREATE(QEN_ZCOUNT);
 	DBG_REG_CREATE(QEN_DI_MON);
+	DBG_REG_CREATE(QEN_ECOUNT);
 }
 
 void acq1014_createDebugfs(struct acq400_dev* adev, char* pcursor)
