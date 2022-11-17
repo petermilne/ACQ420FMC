@@ -274,16 +274,16 @@ static ssize_t store_qen_count(
 }
 static DEVICE_ATTR(qen_count, S_IRUGO|S_IWUSR, show_qen_count, store_qen_count);
 
-MAKE_BITS(ctr_reset,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_CTR_RESET);
-MAKE_BITS(msb_direct, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_MSBDIRECT);
-MAKE_BITS(phaseA_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
-MAKE_BITS(phaseB_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
-MAKE_BITS(Zcount_en,  QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZCOUNT);
-MAKE_BITS(DImon_snap, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_SNAP32);
-MAKE_BITS(zsel,       QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZSEL );
-MAKE_BITS(dio_outputs,QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
-MAKE_BITS(DO4,	      QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
-MAKE_BITS(di4_mon,    QEN_DI_MON,   MAKE_BITS_FROM_MASK, 0x0f);
+MAKE_BITS(ctr_reset,  	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_CTR_RESET);
+MAKE_BITS(msb_direct, 	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_MSBDIRECT);
+MAKE_BITS(phaseA_en,  	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PA_EN);
+MAKE_BITS(phaseB_en,  	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PB_EN);
+MAKE_BITS(Zcount_en,  	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZCOUNT);
+MAKE_BITS(DImon_snap, 	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_SNAP32);
+MAKE_BITS(index_home_en, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ZSEL );
+MAKE_BITS(dio_outputs,	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DIR_OUT);
+MAKE_BITS(DO4,	      	QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_DO_IMM);
+MAKE_BITS(di4_mon,    	QEN_DI_MON,   MAKE_BITS_FROM_MASK, 0x0f);
 
 MAKE_BITS(abs_trg_en, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_ABS_TRG_EN);
 MAKE_BITS(prd_trg_en, QEN_DIO_CTRL, MAKE_BITS_FROM_MASK, QEN_DIO_CTRL_PRD_TRG_EN);
@@ -294,6 +294,7 @@ MAKE_DNUM(abs_trg_count, QEN_POS_ABS_TRG,	0xffffffff);
 MAKE_DNUM(prd_trg_count, QEN_POS_PRD_TRG,	0xffffffff);
 MAKE_DNUM(prd_hyst_count, QEN_POS_PRD_HYST,	0xffffffff);
 MAKE_DNUM(pos_prd_count, QEN_POS_PRD_CNT, 	0xffffffff);
+MAKE_DNUM(index_home,    QEN_INDEX_HOME,        0xffffffff);
 
 const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_dio_outputs.attr,
@@ -301,7 +302,7 @@ const struct attribute *sysfs_qen_attrs[] = {
 
 	&dev_attr_phaseA_en.attr,
 	&dev_attr_phaseB_en.attr,
-	&dev_attr_zsel.attr,
+	&dev_attr_index_home_en.attr,
 	&dev_attr_ctr_reset.attr,
 	&dev_attr_Zcount_en.attr,
 	&dev_attr_msb_direct.attr,
@@ -318,6 +319,7 @@ const struct attribute *sysfs_qen_attrs[] = {
 	&dev_attr_prd_trg_count.attr,
 	&dev_attr_prd_hyst_count.attr,
 	&dev_attr_pos_prd_count.attr,
+	&dev_attr_index_home.attr,
 	NULL
 };
 
