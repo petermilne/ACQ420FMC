@@ -966,6 +966,7 @@ MAKE_BITS(ctrl, 	HUDP_CON, 0, 0xffffffff);
 MAKE_BITS(tx_ctrl, 	HUDP_CON, 0, 0x0000000f);
 MAKE_BITS(tx_reset, 	HUDP_CON, 0, (1<<3));
 MAKE_BITS(rx_reset, 	HUDP_CON, 0, (1<<(3+8)));
+MAKE_BITS(udp_data_src, HUDP_CON, 0, (3<<5));
 MAKE_BITS(tx_en,        HUDP_CON, 0, (1<<4));
 MAKE_BITS(rx_en,        HUDP_CON, 0, (1<<(4+8)));
 
@@ -975,6 +976,28 @@ MAKE_DNUM(disco_count, 	HUDP_DISCO_COUNT, HUDP_DISCO_COUNT_COUNT);
 MAKE_BITS(hudp_status,       HUDP_STATUS, MAKE_BITS_FROM_MASK, 0xffffffff);
 
 MAKE_DNUM(tx_calc_pkt_sz, HUDP_CALC_PKT_SZ, 0xffffffff);
+MAKE_DNUM(slice_len,      UDP_SLICE, 0x0000ff00);
+MAKE_DNUM(slice_off,      UDP_SLICE, 0x000000ff);
+
+
+#define LOWBYTE(reg, shl)  (((reg)>>(shl))&0x00ff)
+
+static ssize_t show_arp_mac_resp(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 upper = mgt400rd32(mdev, ARP_RESP_MAC_UPPER);
+	u32 lower = mgt400rd32(mdev, ARP_RESP_MAC_LOWER);
+
+	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+			LOWBYTE(upper,  8),  LOWBYTE(upper,  0),
+			LOWBYTE(lower, 24),  LOWBYTE(lower, 16),
+			LOWBYTE(lower,  8),  LOWBYTE(lower,  0) );
+}
+
+static DEVICE_ATTR(arp_mac_resp, S_IRUGO, show_arp_mac_resp, 0);
 
 static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_mac.attr,
@@ -997,6 +1020,7 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_tx_en.attr,
 	&dev_attr_rx_en.attr,
 	&dev_attr_tx_ctrl.attr,
+	&dev_attr_udp_data_src.attr,
 
 	&dev_attr_tx_pkt_count.attr,
 	&dev_attr_rx_pkt_count.attr,
@@ -1008,6 +1032,10 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 
 	&dev_attr_clear_stats.attr,
 	&dev_attr_hudp_status.attr,
+
+	&dev_attr_arp_mac_resp.attr,
+	&dev_attr_slice_len.attr,
+	&dev_attr_slice_off.attr,
 	NULL
 };
 void mgt400_createSysfs(struct device *dev)

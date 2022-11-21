@@ -204,6 +204,9 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define HUDP_RX_PKT_LEN		0x003c     	/* R/O detected packet lenght */
 #define HUDP_STATUS		0x0040
 #define HUDP_CALC_PKT_SZ	0x0044
+#define ARP_RESP_MAC_UPPER	0x0048
+#define ARP_RESP_MAC_LOWER	0x004c
+#define UDP_SLICE		0x0050
 
 #define HUDP_DEST_ADDR		0x0108
 #define HUDP_DEST_PORT		0x0118
