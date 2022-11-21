@@ -880,7 +880,6 @@ MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
 MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
 MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
 MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0x7800);
-MAKE_DNUM(tx_pkt_sz, HUDP_TX_PKT_SZ, 0x03ff);		// deprecated
 MAKE_DNUM(tx_sample_sz, HUDP_TX_PKT_SZ, 0x03ff);
 
 
@@ -923,6 +922,42 @@ static ssize_t store_tx_spp(
 
 static DEVICE_ATTR(tx_spp, S_IRUGO|S_IWUSR, show_tx_spp, store_tx_spp);
 
+
+static ssize_t show_hudp_decim(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct mgt400_dev *mdev = mgt400_devices[dev->id];
+	u32 hudp_con = mgt400rd32(mdev, HUDP_CON);
+	return sprintf(buf, "%u\n", ((hudp_con>>AGG_DECIM_SHL)&AGG_DECIM_MASK)+1);
+}
+
+static ssize_t store_hudp_decim(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count)
+{
+	unsigned decimate;
+
+	if (sscanf(buf, "%u", &decimate) == 1 && decimate){
+		struct mgt400_dev *mdev = mgt400_devices[dev->id];
+		u32 hudp_con = mgt400rd32(mdev, ZDMA_CR);
+		hudp_con &= ~(AGG_DECIM_MASK<<AGG_DECIM_SHL);
+
+		if (--decimate > AGG_DECIM_MASK) decimate = AGG_DECIM_MASK;
+		hudp_con |= (decimate&AGG_DECIM_MASK) << AGG_DECIM_SHL;
+		mgt400wr32(mdev, HUDP_CON, hudp_con);
+
+		return count;
+	}else{
+		return -1;
+	}
+}
+
+static DEVICE_ATTR(hudp_decim, S_IRUGO|S_IWUSR, show_hudp_decim, store_hudp_decim);
+
 MAKE_DNUM(tx_pkt_count, HUDP_TX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_count, HUDP_RX_PKT_COUNT, 0xffffffff);
 MAKE_DNUM(rx_pkt_len,   HUDP_RX_PKT_LEN,   0x000003ff);
@@ -933,7 +968,6 @@ MAKE_BITS(tx_reset, 	HUDP_CON, 0, (1<<3));
 MAKE_BITS(rx_reset, 	HUDP_CON, 0, (1<<(3+8)));
 MAKE_BITS(tx_en,        HUDP_CON, 0, (1<<4));
 MAKE_BITS(rx_en,        HUDP_CON, 0, (1<<(4+8)));
-MAKE_DNUM(decim,  	HUDP_CON, 0x0f000000);
 
 MAKE_BITS(disco_en, 	HUDP_DISCO_COUNT, MAKE_BITS_FROM_MASK, HUDP_DISCO_EN);
 MAKE_DNUM(disco_idx, 	HUDP_DISCO_COUNT, HUDP_DISCO_INDEX);
@@ -952,7 +986,6 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_dst_port.attr,
 	&dev_attr_rx_port.attr,
 	&dev_attr_rx_src_ip.attr,
-	&dev_attr_tx_pkt_sz.attr,
 	&dev_attr_tx_pkt_ns.attr,
 	&dev_attr_tx_spp.attr,
 	&dev_attr_tx_sample_sz.attr,
@@ -960,7 +993,7 @@ static const struct attribute *sysfs_hudp_attrs[] = {
 	&dev_attr_ctrl.attr,
 	&dev_attr_tx_reset.attr,
 	&dev_attr_rx_reset.attr,
-	&dev_attr_decim.attr,
+	&dev_attr_hudp_decim.attr,
 	&dev_attr_tx_en.attr,
 	&dev_attr_rx_en.attr,
 	&dev_attr_tx_ctrl.attr,

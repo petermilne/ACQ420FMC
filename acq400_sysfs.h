@@ -250,6 +250,8 @@ static ssize_t store_dnum##NAME(					\
 }									\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, show_dnum##NAME, store_dnum##NAME)
 
+
+
 #define SCOUNT_KNOB(name, reg) 							\
 static ssize_t show_clk_count_##name(						\
 	struct device * dev,							\
