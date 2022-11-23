@@ -1269,24 +1269,6 @@ static ssize_t store_byte_is_output(
 
 DEVICE_ATTR(byte_is_output, S_IRUGO|S_IWUSR, show_byte_is_output, store_byte_is_output);
 
-static ssize_t show_dpg_status(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	unsigned do_count = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
-	unsigned fifsta = acq400rd32(adev, DIO432_DO_FIFO_STATUS);
-	unsigned state =
-		xo_dev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
-		do_count > 0? 2: 1: 0;	/* RUN, ARM, IDLE */
-
-	return sprintf(buf, "%d %d\n", state, do_count);
-}
-
-
-static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUSR, show_dpg_status, 0);
 
 
 static ssize_t show_ext_clk_from_sync(
@@ -1431,16 +1413,15 @@ MAKE_BITS(active_low, 	DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_INVERT);
 const struct attribute *dio_attrs[] = {
 	&dev_attr_active_low.attr,
 	&dev_attr_dio_en.attr,
-	&dev_attr_dpg_abort.attr,
-	&dev_attr_DI32.attr,
-	&dev_attr_DO32.attr,
-	&dev_attr_mode.attr,
-	&dev_attr_dpg_status.attr,
 	NULL
 };
 
 
 const struct attribute *dio432_attrs[] = {
+	&dev_attr_dpg_abort.attr,
+	&dev_attr_DI32.attr,
+	&dev_attr_DO32.attr,
+	&dev_attr_mode.attr,
 	&dev_attr_byte_is_output.attr,
 	&dev_attr_ext_clk_from_sync.attr,
 	NULL
