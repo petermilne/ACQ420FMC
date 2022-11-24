@@ -1218,7 +1218,8 @@ const struct attribute *sysfs_diobiscuit_attrs[] = {
 	NULL
 };
 
-
+extern void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output);
+extern u32 dio432_get_direction(struct acq400_dev *adev);
 
 static ssize_t show_byte_is_output(
 	struct device * dev,
@@ -1227,7 +1228,7 @@ static ssize_t show_byte_is_output(
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	u32 byte_is_output = xo_dev->dio432.byte_is_output;
+	u32 byte_is_output = IS_DIO482_PG(adev)? dio432_get_direction(adev): xo_dev->dio432.byte_is_output;
 
 	return sprintf(buf, "%d,%d,%d,%d\n",
 			byte_is_output&DIO432_CPLD_CTRL_OUTPUT(0),
@@ -1259,7 +1260,11 @@ static ssize_t store_byte_is_output(
 					byte_is_output |= DIO432_CPLD_CTRL_OUTPUT(ib);
 				}
 			}
-			xo_dev->dio432.byte_is_output = byte_is_output;
+			if (IS_DIO482_PG(adev)){
+				dio432_set_direction(adev, byte_is_output);
+			}else{
+				xo_dev->dio432.byte_is_output = byte_is_output;
+			}
 			return count;
 		}else{
 			return -EINVAL;

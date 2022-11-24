@@ -79,6 +79,10 @@ void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output)
 	}
 	_acq400wr32(adev, DIO432_DIO_CPLD_CTRL, byte_is_output);
 }
+u32 dio432_get_direction(struct acq400_dev *adev)
+{
+	return _acq400rd32(adev, DIO432_DIO_CPLD_CTRL);
+}
 
 void dio432_init(struct acq400_dev *adev, int immediate)
 {
