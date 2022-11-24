@@ -498,12 +498,12 @@ build_knobs_device() {
             echo $DIO_WDT > ${dk}/wdt
         fi
         echo +++ setting dio_en
-        echo 1 > ${dk}/dio_en;;
-        if [ -e dev/acq400.${site}.knobs/num_pg ]; then
+        echo 1 > ${dk}/dio_en
+        if [ -e /dev/acq400.${site}.knobs/num_pg ]; then
         	echo +++ setting PG outputs num_pg $num_pg
         	echo $num_pg >/dev/acq400.${site}.knobs/num_pg
         	echo 1,1,1,1 > /dev/acq400.${site}.knobs/byte_is_output
-        fi
+        fi;;
     *)
         CLKDIV=200;;
     esac

@@ -1413,6 +1413,7 @@ MAKE_BITS(active_low, 	DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_INVERT);
 const struct attribute *dio_attrs[] = {
 	&dev_attr_active_low.attr,
 	&dev_attr_dio_en.attr,
+	&dev_attr_byte_is_output.attr,
 	NULL
 };
 
@@ -1422,7 +1423,7 @@ const struct attribute *dio432_attrs[] = {
 	&dev_attr_DI32.attr,
 	&dev_attr_DO32.attr,
 	&dev_attr_mode.attr,
-	&dev_attr_byte_is_output.attr,
+
 	&dev_attr_ext_clk_from_sync.attr,
 	NULL
 };
