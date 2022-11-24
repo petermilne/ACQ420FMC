@@ -4085,11 +4085,10 @@ void acq400_createSysfs(struct device *dev)
 			acq400_clearDelTrg(adev);
 		}
 		if (IS_DIO482_PG(adev)) {
-			int nspec1 = nspec;
+			dev_info(dev, "IS_DIO482_PG");
 			specials[nspec++] = dio_attrs;
 			specials[nspec++] = dio482_pg_attrs;
 			specials[nspec++] = gpg_attrs;
-			dev_info(dev, "IS_DIO482_PG count PG_attrs %d", nspec-nspec1);
 		}else if (IS_DIO422AQB(adev)){
 			dev_info(dev, "IS_DIO422AQB");
 			specials[nspec++] = sysfs_qen_attrs;
