@@ -457,15 +457,29 @@ build_knobs_device() {
         echo 16 > ${ek}/NCHAN
         BOLO8_SITES="${BOLO8_SITES}$site"
         CLKDIV=100;; 
-    61|62|6B|7A|7B)
+    61|62|6B|7A|7B) 
         case $mtype in
-        7A|7B)
-            ;;
+        7A)
+        	;;
+        7B)
+        	num_pg=4;
+        	if [ ! -z $DIO482TD_PG5 ] && [ "$DIO482TD_PG5" != "no" ]; then
+        		num_pg=5;
+        	elif [ -e /mnt/local/sysconfig/epics.sh ]; then
+        		source /mnt/local/sysconfig/epics.sh
+        		if [ ! -z $DIO482TD_PG5 ] && [ "$DIO482TD_PG5" != "no" ]; then
+        			echo "DIO482TD_PG5 in /mnt/local/sysconfig/epics.sh deprecated, please move to /mnt/local/sysconfig/acq400.sh"
+        			num_pg=5
+        		fi
+        	fi;;
         6B)
             source  /dev/sites/${site}/details
             if [ "$FRU_PART_NUM" != "${FRU_PART_NUM#*FBR}" ]; then
-               echo "FBR part detected in site ${site}: $FRU_PART_NUM"
-               echo 1 > ${dk}/active_low
+            	echo "FBR part detected in site ${site}: $FRU_PART_NUM"
+            	echo 1 > ${dk}/active_low
+            	num_pg=16
+            else
+            	num_pg=32
             fi
             ln -s $ULB/clocks_to_first_edge ${ek}/
             set_max_min_khz ${site} 25000 10;;
@@ -475,12 +489,21 @@ build_knobs_device() {
         esac
         if [ ! -z $DIO_ACTIVE_LOW_SITES ]; then
             echo $DIO_ACTIVE_LOW_SITES | grep -q $site
-            [ $? -eq 0 ] && echo 1 > ${dk}/active_low
+            if [ $? -eq 0 ]; then
+            	echo +++ setting active_low
+            	echo 1 > ${dk}/active_low
+            fi
         fi
         if [ ! -z $DIO_WDT ]; then
             echo $DIO_WDT > ${dk}/wdt
         fi
+        echo +++ setting dio_en
         echo 1 > ${dk}/dio_en;;
+        if [ -e dev/acq400.${site}.knobs/num_pg ]; then
+        	echo +++ setting PG outputs num_pg $num_pg
+        	echo $num_pg >/dev/acq400.${site}.knobs/num_pg
+        	echo 1,1,1,1 > /dev/acq400.${site}.knobs/byte_is_output
+        fi
     *)
         CLKDIV=200;;
     esac

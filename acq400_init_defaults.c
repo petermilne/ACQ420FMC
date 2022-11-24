@@ -75,9 +75,6 @@ module_param(dio432_rowback, int, 0644);
 MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
 
-unsigned DIO484_PG_OUTPUTS = 0xf;
-module_param(DIO484_PG_OUTPUTS, int, 0444);
-MODULE_PARM_DESC(DIO484_PG_OUTPUTS, "PG output bytes");
 
 
 void acq420_onStart(struct acq400_dev *adev);
@@ -985,13 +982,10 @@ void dio482_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 	if (gpg32){
 		init_gpg_buffer(adev, &pg_dev->gpg32, DIO482_PG_GPGMEM32, 0xffff);
 	}
-	dev_info(DEVP(adev), "direction set %x", DIO484_PG_OUTPUTS);
-	dio432_set_direction(adev, DIO484_PG_OUTPUTS);
 }
 
 void dio482td_init_defaults(struct acq400_dev* adev)
 {
-	DIO484_PG_OUTPUTS = 0xf;
 	dio482_pg_init_defaults(adev, 0);
 	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PG_PG_DOx);
 	adev->clkdiv_mask = 0xffffffff;
