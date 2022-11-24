@@ -3959,6 +3959,15 @@ const struct attribute *dio482_pg_attrs[] = {
 		NULL
 };
 
+const struct attribute *dio482_pg32_attrs[] = {
+		&dev_attr_DO32.attr,
+		&dev_attr_DO32_immediate_mask.attr,
+		&dev_attr_wdt.attr,
+		&dev_attr_bypass_trg_debounce.attr,
+		&dev_attr_dpg_status.attr,
+		NULL
+};
+
 MAKE_BITS(tdc_en, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
 MAKE_BITS(tdc_train, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
 MAKE_BITS(tdc_pad_en,   TDC_CR,           MAKE_BITS_FROM_MASK, TDC_CR_PAD_EN);
@@ -4087,7 +4096,11 @@ void acq400_createSysfs(struct device *dev)
 		if (IS_DIO482_PG(adev)) {
 			dev_info(dev, "IS_DIO482_PG");
 			specials[nspec++] = dio_attrs;
-			specials[nspec++] = dio482_pg_attrs;
+			if (IS_DIO482TD_PG(adev)){
+				specials[nspec++] = dio482_pg_attrs;
+			}else{
+				specials[nspec++] = dio482_pg32_attrs;
+			}
 			specials[nspec++] = gpg_attrs;
 		}else if (IS_DIO422AQB(adev)){
 			dev_info(dev, "IS_DIO422AQB");

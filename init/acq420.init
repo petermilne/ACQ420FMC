@@ -471,7 +471,8 @@ build_knobs_device() {
         			echo "DIO482TD_PG5 in /mnt/local/sysconfig/epics.sh deprecated, please move to /mnt/local/sysconfig/acq400.sh"
         			num_pg=5
         		fi
-        	fi;;
+        	fi
+        	echo $num_pg >${ek}/num_pg;;
         6B)
             source  /dev/sites/${site}/details
             if [ "$FRU_PART_NUM" != "${FRU_PART_NUM#*FBR}" ]; then
@@ -480,7 +481,8 @@ build_knobs_device() {
             	num_pg=16
             else
             	num_pg=32
-            fi
+			fi
+			echo $num_pg >${ek}/num_pg
             ln -s $ULB/clocks_to_first_edge ${ek}/
             set_max_min_khz ${site} 25000 10;;
         *)
@@ -499,10 +501,9 @@ build_knobs_device() {
         fi
         echo +++ setting dio_en
         echo 1 > ${dk}/dio_en
-        if [ -e /dev/acq400.${site}.knobs/num_pg ]; then
+        if [ -e ${ek}/num_pg ]; then
         	echo +++ setting PG outputs num_pg $num_pg
-        	echo $num_pg >/dev/acq400.${site}.knobs/num_pg
-        	echo 1,1,1,1 > /dev/acq400.${site}.knobs/byte_is_output
+			echo 1,1,1,1 > ${dk}/byte_is_output
         fi;;
     *)
         CLKDIV=200;;
