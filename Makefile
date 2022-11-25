@@ -88,7 +88,7 @@ APPS := mmap acq400_stream permute acq435_decode \
 	soft_atd \
 	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
-	channel_mapping slowmon reg_rw hudp_config
+	channel_mapping slowmon reg_rw hudp_config tai_server
 	
 # data_sink	
 # dropped
