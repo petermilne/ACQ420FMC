@@ -973,9 +973,10 @@ load_mgt() {
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
-# finalize the name please.
+# WHITE_RABBIT=-1: disable, if 0 or 1, attempt to use it.
     WHITE_RABBIT=${WHITE_RABBIT:-0}
-    if [ $WHITE_RABBIT -eq 0 ]; then
+    if [ $WHITE_RABBIT -ge 0 ]; then
+    	WHITE_RABBIT=0
     	grep filename /tmp/fpga_status | egrep -q -e WHR -e WR
     	[ $? -eq 0 ] && WHITE_RABBIT=1
     fi
