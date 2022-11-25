@@ -3917,26 +3917,6 @@ static ssize_t store_num_pg(
 	}
 }
 
-
-static ssize_t show_dpg_status(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
-	unsigned do_count = acq400rd32(adev, DIO432_DIO_SAMPLE_COUNT);
-	unsigned fifsta = acq400rd32(adev, DIO432_DO_FIFO_STATUS);
-	unsigned state =
-		xo_dev->AO_playloop.length > 0 && (fifsta&ADC_FIFO_STA_EMPTY)==0?
-		do_count > 0? 2: 1: 0;	/* RUN, ARM, IDLE */
-
-	return sprintf(buf, "%d %d\n", state, do_count);
-}
-
-
-static DEVICE_ATTR(dpg_status, S_IRUGO|S_IWUSR, show_dpg_status, 0);
-
 static DEVICE_ATTR(num_pg, S_IRUGO|S_IWUSR, show_num_pg, store_num_pg);
 
 MAKE_BITS(chain_PG,   DIO432_CTRL, MAKE_BITS_FROM_MASK, DIO432_CTRL_CHAIN_PG);
@@ -3955,7 +3935,6 @@ const struct attribute *dio482_pg_attrs[] = {
 		&dev_attr_num_pg.attr,
 		&dev_attr_wdt.attr,
 		&dev_attr_bypass_trg_debounce.attr,
-		&dev_attr_dpg_status.attr,
 		NULL
 };
 
@@ -3964,7 +3943,6 @@ const struct attribute *dio482_pg32_attrs[] = {
 		&dev_attr_DO32_immediate_mask.attr,
 		&dev_attr_wdt.attr,
 		&dev_attr_bypass_trg_debounce.attr,
-		&dev_attr_dpg_status.attr,
 		NULL
 };
 
