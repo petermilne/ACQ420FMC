@@ -22,6 +22,8 @@ monitor() {
         echo monitor wr.xml
         TPL=/dev/shm/si5326_tune_phase.log
         
+        tai_server &
+        
         while [ 1 ]
         do
                 (
@@ -114,7 +116,7 @@ init_wrtd() {
 	done
 	[ $site -eq 11 ] && ln -s /dev/gpio/MGT482/SFP3/TX_DISABLE /etc/acq400/11/sfp_tx_disable
  
- 	[ -e /etc/acq400/${site}/tai_date ] || echo xxx > /etc/acq400/${site}/tai_date
+ 	
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/${site}
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/${site}
 #	ln -s /usr/local/CARE/wrtd_txi 			/etc/acq400/${site}
@@ -173,13 +175,13 @@ init_wr_onetime() {
 	init_wrsh
 	
 	nice daemon $WEB_APPEND_JOB
-	nice daemon tai_server
+	
 	nice daemon /usr/local/init/wr.init monitor
 	
 	(cd /etc/acq400; ln -s C 11)
 	ln -s /usr/local/bin/wr_reset /etc/acq400/11
 	
-	ln -s /usr/local/CARE/tai_date			/etc/acq400/0
+	[ -e /etc/acq400/${site}/tai_date ] || echo xxx > /etc/acq400/${site}/tai_date	
 	ln -s /usr/local/CARE/wrtd_tx 			/etc/acq400/0
 	ln -s /usr/local/CARE/wrtd_tx_immediate /etc/acq400/0
 	ln -s /usr/local/bin/wrtd 				/etc/acq400/0/wrtd_txi
