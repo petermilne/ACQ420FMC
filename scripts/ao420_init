@@ -49,7 +49,7 @@ for gx in ${KNOBS}/G?; do
 done
 
 for rch in 1 2 3 4; do
-	[ ! -e ${EK}/dac_range_0${rch} ] && ln -s $KNOBS/dac_range_0${rch} ${EK}/dac_range_0${rch}
+	[ -L ${EK}/dac_range_0${rch} ] || ln -s $KNOBS/dac_range_0${rch} ${EK}/dac_range_0${rch}
 done
 
 case $MODEL in
