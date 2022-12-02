@@ -542,6 +542,11 @@ install_cal() {
                         _defcal=/usr/local/cal/${TYP}-5V.xml
                         [ -e $_defcal ] && defcal=$_defcal
                     fi
+                    V25=$(echo $FRU_PART_NUM | sed -e 's/.*-2V5.*/-2V5/')
+                    if [ "x$V5" = "x-5V" ]; then
+                        _defcal=/usr/local/cal/${TYP}-2V5.xml
+                        [ -e $_defcal ] && defcal=$_defcal
+                    fi
                 fi
             fi
             if [ -e ${defcal} ]; then
