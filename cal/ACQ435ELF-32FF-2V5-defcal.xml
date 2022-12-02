@@ -12,7 +12,7 @@
     </Info>
      <Data AICHAN="32" code_min="-8388608" code_max="8388607" SW="hi_res_mode,gain%d">
 		<Range name="HI_RES_2V5" sw="1,0">		
-			<Nominal min="-2.5" max="2.5" eoff="0" eslo="0.29847322-06" roff="0"/>
+			<Nominal min="-2.5" max="2.5" eoff="0" eslo="0.29847322e-06" roff="0"/>
         </Range>
         <Range name="HI_SPEED_2V5" sw="0,0">
  			<Nominal min="-2.5" max="2.5" eoff="0" eslo="0.29847322e-06" roff="0"/>
