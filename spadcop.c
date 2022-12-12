@@ -30,7 +30,7 @@ enum hrtimer_restart _spadCopTime(struct hrtimer* hrt, ktime_t _kt)
 	uint64_t kt = (uint64_t)_kt;	// do not use before 1970!
 	struct SpadCop *sc = container_of(hrt, struct SpadCop, timer);
 	unsigned ns = do_div(kt, 1000000000);
-	unsigned secs = kt&0xfffff;	/* truncated to 16b */
+	unsigned secs = kt&0xfffff;	/* truncated to 20b */
 	unsigned short ms = ns/1000000;
 
 	secs = (secs << 12) | ms;
