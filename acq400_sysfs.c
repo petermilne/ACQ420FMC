@@ -22,9 +22,7 @@
 
 #include "acq400.h"
 #include "hbm.h"
-
 #include "acq400_sysfs.h"
-
 #include "sysfs_attrs.h"
 
 #define MAXSPEC	8	/* groups of special attrs */
@@ -39,26 +37,13 @@ int reset_fifo_verbose;
 module_param(reset_fifo_verbose, int, 0644);
 
 
-int TIM_CTRL_LOCK;
-module_param(TIM_CTRL_LOCK, int, 0644);
-MODULE_PARM_DESC(dds_strobe_msec, "disable usr access when set");
 
 
 int acq465_reset_msleep = 1000;
 module_param(acq465_reset_msleep, int, 0644);
 MODULE_PARM_DESC(acq465_reset_msleep, "slows down reset to suit AD7134");
 
-MAKE_TRIPLET(fmc_clk_out_src, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
-MAKE_TRIPLET(fmc_trg_out_src, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
 
-MAKE_BITS(fmc_lemo_role_trg, FMC_DSR, MAKE_BITS_FROM_MASK, FMC_DSR_LEMO_ROLE_TRG);
-
-static const struct attribute *fmc_fp_attrs[] = {
-	&dev_attr_fmc_clk_out_src.attr,
-	&dev_attr_fmc_trg_out_src.attr,
-	&dev_attr_fmc_lemo_role_trg.attr,
-	NULL
-};
 
 
 
@@ -382,134 +367,6 @@ MAKE_GAIN(2);
 MAKE_GAIN(3);
 MAKE_GAIN(4);
 
-static ssize_t show_signal(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf,
-	unsigned REG,
-	int shl, int mbit,
-	const char*signame, const char* mbit_hi, const char* mbit_lo)
-{
-	u32 adc_ctrl = acq400rd32(acq400_devices[dev->id], REG);
-	if (adc_ctrl&mbit){
-		u32 sel = (adc_ctrl >> shl) & CTRL_SIG_MASK;
-		unsigned dx = sel&CTRL_SIG_SEL;
-		int rising = ((adc_ctrl >> shl) & CTRL_SIG_RISING) != 0;
-
-		return sprintf(buf, "%s=%d,%d,%d %s d%u %s\n",
-				signame, (adc_ctrl&mbit)>>getSHL(mbit), dx, rising,
-				mbit_hi, dx, rising? "RISING": "FALLING");
-	}else{
-		return sprintf(buf, "%s=0,0,0 %s\n", signame, mbit_lo);
-	}
-}
-
-int store_signal3(struct acq400_dev* adev,
-		unsigned REG,
-		int shl, int mbit,
-		unsigned imode, unsigned dx, unsigned rising)
-{
-	u32 adc_ctrl = acq400rd32(adev, REG);
-
-	adc_ctrl &= ~mbit;
-	if (imode != 0){
-		if (dx > 7){
-			dev_warn(DEVP(adev), "rejecting \"%u\" dx > 7", dx);
-			return -1;
-		}
-		adc_ctrl &= ~(CTRL_SIG_MASK << shl);
-		adc_ctrl |=  (dx|(rising? CTRL_SIG_RISING:0))<<shl;
-		adc_ctrl |= imode << getSHL(mbit);
-	}
-	acq400wr32(adev, REG, adc_ctrl);
-	return 0;
-
-}
-
-int lock_action(struct device * dev, const char* buf)
-{
-	wait_queue_head_t _waitq;
-
-	dev_warn(dev, "pid %d attempted to write to TIM_CTRL with LOCK ON: \"%s\"", current->pid, buf);
-
-	init_waitqueue_head(&_waitq);
-	if (TIM_CTRL_LOCK > 1){
-		wait_event_interruptible_timeout(_waitq, 0, TIM_CTRL_LOCK);
-		dev_warn(dev, "pid %d return", current->pid);
-	}
-	return -EBUSY;
-}
-static ssize_t store_signal(
-		struct device * dev,
-		struct device_attribute *attr,
-		const char * buf,
-		size_t count,
-		unsigned REG,
-		int shl, int mbit, const char* mbit_hi, const char* mbit_lo,
-		int not_while_busy)
-{
-	char sense;
-	char mode[16];
-	char* edge = mode;
-	unsigned imode, dx, rising;
-	struct acq400_dev* adev = acq400_devices[dev->id];
-
-	if (not_while_busy && adev->busy){
-		return -EBUSY;
-	}
-
-	if (REG == TIM_CTRL && shl == TIM_CTRL_TRIG_SHL && TIM_CTRL_LOCK){
-		return lock_action(dev, buf);
-
-	}
-	/* first form: imode,dx,rising : easiest with auto eg StreamDevice */
-	if (sscanf(buf, "%u,%u,%u", &imode, &dx, &rising) == 3){
-		if (store_signal3(adev, REG, shl, mbit, imode, dx, rising)){
-			return -1;
-		}else{
-			return count;
-		}
-	}
-
-	/* second form: 1,dX,rising : sync_role uses this */
-	if (sscanf(buf, "%u,d%u,%s", &imode, &dx, edge) == 3){
-		rising = get_edge_sense(edge, 0);
-		if (store_signal3(adev, REG, shl, mbit, imode, dx, rising)){
-			return -1;
-		}else{
-			return count;
-		}
-	}
-
-	/* third form: mode dDX sense : better for human scripting */
-	switch(sscanf(buf, "%10s d%u %c", mode, &dx, &sense)){
-	case 1:
-		if (strcmp(mode, mbit_lo) == 0){
-			return store_signal3(adev, REG, shl, mbit, 0, 0, 0);
-		}
-		dev_warn(dev, "single arg must be:\"%s\"", mbit_lo);
-		return -1;
-	case 3:
-		if (strcmp(mode, mbit_hi) == 0){
-			unsigned falling = strchr("Ff-Nn", sense) != NULL;
-			rising 	= strchr("Rr+Pp", sense) != NULL;
-
-			if (!rising && !falling){
-				dev_warn(dev,
-				 "rejecting \"%s\" sense must be R or F", buf);
-				return -1;
-			}else if (store_signal3(adev, REG, shl, mbit, 1, dx, rising)){
-				return -1;
-			}else{
-				return count;
-			}
-		}
-		/* else fall thru */
-	default:
-		dev_warn(dev, "%s|%s dX R|F", mbit_lo, mbit_hi);
-		return -1;
-	}
-}
 
 
 MAKE_SIGNAL(event1, TIM_CTRL, TIM_CTRL_EVENT1_SHL, TIM_CTRL_MODE_EV1_EN, ENA, DIS,	0);
@@ -3429,123 +3286,20 @@ const struct attribute *sysfs_sc_remaining_clocks[] = {
 };
 
 
-MAKE_BITS(pwm_clkdiv, PWM_SOURCE_CLK_CTRL, MAKE_BITS_FROM_MASK, 0xffff<<PWM_SOURCE_CLK_CTRL_DIV_SHL);
-MAKE_SIGNAL(pwm_src, PWM_SOURCE_CLK_CTRL, PWM_SOURCE_CLK_CTRL_SHL, PWM_SOURCE_CLK_CTRL_EN, ENA, DIS, 1);
+MAKE_TRIPLET(fmc_clk_out_src, FMC_DSR, FMC_DSR_CLK_BUS, FMC_DSR_CLK_BUS_DX, FMC_DSR_CLK_DIR);
+MAKE_TRIPLET(fmc_trg_out_src, FMC_DSR, FMC_DSR_TRG_BUS, FMC_DSR_TRG_BUS_DX, FMC_DSR_TRG_DIR);
+MAKE_BITS(fmc_lemo_role_trg, FMC_DSR, MAKE_BITS_FROM_MASK, FMC_DSR_LEMO_ROLE_TRG);
 
-
-const struct attribute *pwm2_attrs[] = {
-	&dev_attr_pwm_src.attr,
-	&dev_attr_pwm_clkdiv.attr,
+static const struct attribute *fmc_fp_attrs[] = {
+	&dev_attr_fmc_clk_out_src.attr,
+	&dev_attr_fmc_trg_out_src.attr,
+	&dev_attr_fmc_lemo_role_trg.attr,
 	NULL
 };
-
-
-
-static ssize_t show_bits_cos_en(
-	struct device *d,
-	struct device_attribute *a,
-	char *b)
-{
-	return acq400_show_bits(d, a, b, DIO482_COS_EN, 0, 0xffffffff);
-}
-static ssize_t store_bits_cos_en(
-	struct device * d,
-	struct device_attribute *a,
-	const char * b,
-	size_t c)
-{
-	ssize_t rc = acq400_store_bits(d, a, b, c, DIO482_COS_EN, 0, 0xffffffff, 0);
-
-	if (rc > 0) {
-		struct acq400_dev *adev = acq400_devices[d->id];
-		u32 ctrl = acq400rd32(adev, DIO482_COS_EN);
-		u32 icr =  x400_get_interrupt(adev);
-		if (ctrl){
-			icr |= DIO_INT_CSR_COS_EN;
-		}else{
-			icr &= ~DIO_INT_CSR_COS_EN;
-		}
-		x400_set_interrupt(adev, icr);
-	}
-	return rc;
-}
-static DEVICE_ATTR(cos_en, S_IRUGO|S_IWUSR, show_bits_cos_en, store_bits_cos_en);
-
-
-static ssize_t show_status_latch(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev *adev = acq400_devices[dev->id];
-	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
-	unsigned src = xtd_dev->atd.event_source;
-
-	xtd_dev->atd.event_source = 0;
-	return sprintf(buf, "%08x\n", src);
-}
-
-static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
-
-
-static ssize_t show_di_snoop(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev *adev = acq400_devices[dev->id];
-
-	return sprintf(buf, "%08x\n", acq400rd32(adev, DIO432_DI_SNOOP));
-}
-
-static DEVICE_ATTR(di_snoop, S_IRUGO, show_di_snoop, 0);
-
-
-const struct attribute *dio482_attrs[] = {
-	&dev_attr_di_snoop.attr,
-	&dev_attr_status_latch.attr,
-	&dev_attr_cos_en.attr,
-	NULL
-};
-
-
 
 
 extern const struct attribute *spadcop_attrs[];
 
-
-MAKE_BITS(tdc_en, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
-MAKE_BITS(tdc_train, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
-MAKE_BITS(tdc_pad_en,   TDC_CR,           MAKE_BITS_FROM_MASK, TDC_CR_PAD_EN);
-MAKE_BITS(tdc_load_cal, TDC_LOADED_CALIB, MAKE_BITS_FROM_MASK, 0xffffffff);
-
-MAKE_BITS(tdc_disable_ch1, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
-MAKE_BITS(tdc_disable_ch2, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH2);
-MAKE_BITS(tdc_disable_ch3, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH3);
-MAKE_BITS(tdc_disable_ch4, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH4);
-
-SCOUNT_KNOB(evt_ch1, 	TDC_CH1_EVT_COUNT);
-SCOUNT_KNOB(evt_ch2, 	TDC_CH2_EVT_COUNT);
-SCOUNT_KNOB(evt_ch3, 	TDC_CH3_EVT_COUNT);
-SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
-
-const struct attribute *acq494_attrs[] = {
-	&dev_attr_tdc_en.attr,
-	&dev_attr_tdc_pad_en.attr,
-	&dev_attr_tdc_train.attr,
-	&dev_attr_tdc_load_cal.attr,
-
-	&dev_attr_tdc_disable_ch1.attr,
-	&dev_attr_tdc_disable_ch2.attr,
-	&dev_attr_tdc_disable_ch3.attr,
-	&dev_attr_tdc_disable_ch4.attr,
-
-	&dev_attr_scount_evt_ch1.attr,
-	&dev_attr_scount_evt_ch2.attr,
-	&dev_attr_scount_evt_ch3.attr,
-	&dev_attr_scount_evt_ch4.attr,
-	0
-};
 
 
 void acq400_createSysfs(struct device *dev)
@@ -3728,5 +3482,3 @@ void acq400_delSysfs(struct device *dev)
 	sysfs_remove_files(&dev->kobj, sysfs_base_attrs);
 	// @@todo .. undoing the rest will be interesting .. */
 }
-
-

@@ -23,6 +23,11 @@
  * TODO
  * ------------------------------------------------------------------------- */
 
+
+#ifndef __ACQ400_SYSFS_H__
+#define __ACQ400_SYSFS_H__
+
+
 #define DEVICE_CREATE_FILE(dev, attr) 							\
 	do {										\
 		if (device_create_file(dev, attr)){ 					\
@@ -303,4 +308,21 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUSR, 				\
 #define SOFT	"soft"
 #define INT	"internal"
 
+ssize_t store_signal(
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count,
+		unsigned REG,
+		int shl, int mbit, const char* mbit_hi, const char* mbit_lo,
+		int not_while_busy);
 
+ssize_t show_signal(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	int shl, int mbit,
+	const char*signame, const char* mbit_hi, const char* mbit_lo);
+
+#endif 	/* #ifndef __ACQ400_SYSFS_H__ */

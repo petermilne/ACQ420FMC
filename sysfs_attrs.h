@@ -51,4 +51,9 @@ extern const struct attribute *acq2106_tiga_attrs[];
 extern const struct attribute *dio482_pg_attrs[];
 extern const struct attribute *dio482_pg32_attrs[];
 
+extern const struct attribute *acq494_attrs[];
+
+extern const struct attribute *dio482_attrs[];
+extern const struct attribute *pwm2_attrs[];
+
 #endif /* SYSFS_ATTRS_H_ */

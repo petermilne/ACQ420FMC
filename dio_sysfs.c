@@ -176,3 +176,123 @@ const struct attribute *dio482_pg32_attrs[] = {
 		NULL
 };
 
+
+MAKE_BITS(pwm_clkdiv, PWM_SOURCE_CLK_CTRL, MAKE_BITS_FROM_MASK, 0xffff<<PWM_SOURCE_CLK_CTRL_DIV_SHL);
+MAKE_SIGNAL(pwm_src, PWM_SOURCE_CLK_CTRL, PWM_SOURCE_CLK_CTRL_SHL, PWM_SOURCE_CLK_CTRL_EN, ENA, DIS, 1);
+
+
+const struct attribute *pwm2_attrs[] = {
+	&dev_attr_pwm_src.attr,
+	&dev_attr_pwm_clkdiv.attr,
+	NULL
+};
+
+
+
+static ssize_t show_bits_cos_en(
+	struct device *d,
+	struct device_attribute *a,
+	char *b)
+{
+	return acq400_show_bits(d, a, b, DIO482_COS_EN, 0, 0xffffffff);
+}
+static ssize_t store_bits_cos_en(
+	struct device * d,
+	struct device_attribute *a,
+	const char * b,
+	size_t c)
+{
+	ssize_t rc = acq400_store_bits(d, a, b, c, DIO482_COS_EN, 0, 0xffffffff, 0);
+
+	if (rc > 0) {
+		struct acq400_dev *adev = acq400_devices[d->id];
+		u32 ctrl = acq400rd32(adev, DIO482_COS_EN);
+		u32 icr =  x400_get_interrupt(adev);
+		if (ctrl){
+			icr |= DIO_INT_CSR_COS_EN;
+		}else{
+			icr &= ~DIO_INT_CSR_COS_EN;
+		}
+		x400_set_interrupt(adev, icr);
+	}
+	return rc;
+}
+static DEVICE_ATTR(cos_en, S_IRUGO|S_IWUSR, show_bits_cos_en, store_bits_cos_en);
+
+
+static ssize_t show_status_latch(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	struct XTD_dev *xtd_dev = container_of(adev, struct XTD_dev, adev);
+	unsigned src = xtd_dev->atd.event_source;
+
+	xtd_dev->atd.event_source = 0;
+	return sprintf(buf, "%08x\n", src);
+}
+
+static DEVICE_ATTR(status_latch, S_IRUGO, show_status_latch, 0);
+
+
+static ssize_t show_di_snoop(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+
+	return sprintf(buf, "%08x\n", acq400rd32(adev, DIO432_DI_SNOOP));
+}
+
+static DEVICE_ATTR(di_snoop, S_IRUGO, show_di_snoop, 0);
+
+
+const struct attribute *dio482_attrs[] = {
+	&dev_attr_di_snoop.attr,
+	&dev_attr_status_latch.attr,
+	&dev_attr_cos_en.attr,
+	NULL
+};
+
+
+
+
+/* TDC ... is a dio! */
+
+MAKE_BITS(tdc_en, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_ENABLE);
+MAKE_BITS(tdc_train, 	TDC_CR, 	  MAKE_BITS_FROM_MASK, TDC_CR_TRAIN);
+MAKE_BITS(tdc_pad_en,   TDC_CR,           MAKE_BITS_FROM_MASK, TDC_CR_PAD_EN);
+MAKE_BITS(tdc_load_cal, TDC_LOADED_CALIB, MAKE_BITS_FROM_MASK, 0xffffffff);
+
+MAKE_BITS(tdc_disable_ch1, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
+MAKE_BITS(tdc_disable_ch2, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH2);
+MAKE_BITS(tdc_disable_ch3, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH3);
+MAKE_BITS(tdc_disable_ch4, TDC_CH_MASK, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH4);
+
+SCOUNT_KNOB(evt_ch1, 	TDC_CH1_EVT_COUNT);
+SCOUNT_KNOB(evt_ch2, 	TDC_CH2_EVT_COUNT);
+SCOUNT_KNOB(evt_ch3, 	TDC_CH3_EVT_COUNT);
+SCOUNT_KNOB(evt_ch4, 	TDC_CH4_EVT_COUNT);
+
+const struct attribute *acq494_attrs[] = {
+	&dev_attr_tdc_en.attr,
+	&dev_attr_tdc_pad_en.attr,
+	&dev_attr_tdc_train.attr,
+	&dev_attr_tdc_load_cal.attr,
+
+	&dev_attr_tdc_disable_ch1.attr,
+	&dev_attr_tdc_disable_ch2.attr,
+	&dev_attr_tdc_disable_ch3.attr,
+	&dev_attr_tdc_disable_ch4.attr,
+
+	&dev_attr_scount_evt_ch1.attr,
+	&dev_attr_scount_evt_ch2.attr,
+	&dev_attr_scount_evt_ch3.attr,
+	&dev_attr_scount_evt_ch4.attr,
+	0
+};
+
+
+
