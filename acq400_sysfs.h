@@ -276,3 +276,31 @@ static ssize_t show_clk_count_##name(						\
 static DEVICE_ATTR(scount_##name, S_IRUGO, show_clk_count_##name, 0)
 
 extern u32 get_edge_sense(char edge[], u32 vv);
+
+#define MAKE_SIGNAL(SIGNAME, REG, shl, mbit, HI, LO, NWB)		\
+static ssize_t show_##SIGNAME(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_signal(dev, attr, buf, REG, shl, mbit, #SIGNAME, HI, LO);\
+}									\
+									\
+static ssize_t store_##SIGNAME(						\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_signal(dev, attr, buf, count, REG, shl, mbit, HI, LO, NWB);\
+}									\
+static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUSR, 				\
+		show_##SIGNAME, store_##SIGNAME)
+
+#define ENA	"enable"
+#define DIS	"disable"
+#define EXT	"external"
+#define SOFT	"soft"
+#define INT	"internal"
+
+
