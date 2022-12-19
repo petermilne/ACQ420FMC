@@ -45,7 +45,7 @@ acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o dma_shims.o \
 	acq400_proc.o hbm.o zynq-timer.o \
 	bolo8_core.o bolo_ui.o bolo8_sysfs.o \
 	dio432_drv.o  ao424_drv.o acq400_sewfifo.o \
-	xo_workers.o xo_sysfs.o \
+	dio_sysfs.o xo_workers.o xo_sysfs.o \
 	wr_sysfs.o acq423_sysfs.o acq480_sysfs.o v2f_sysfs.o \
 	acq400_xilinx_axidma.o acq400_deltrg.o \
 	acq400_set.o acq400_sysfs_utils.o  \

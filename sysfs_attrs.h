@@ -47,4 +47,8 @@ extern void sysfs_radcelf_create_files(struct device *dev);
 extern const struct attribute *acq2106_wr_attrs[];
 extern const struct attribute *acq2106_tiga_attrs[];
 
+
+extern const struct attribute *dio482_pg_attrs[];
+extern const struct attribute *dio482_pg32_attrs[];
+
 #endif /* SYSFS_ATTRS_H_ */
