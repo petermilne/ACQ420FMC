@@ -296,3 +296,49 @@ const struct attribute *acq494_attrs[] = {
 
 
 
+
+
+#define KNOB_FUN_REG(fun, chan, REG, FIELDS) 						\
+ssize_t show_##fun##chan(								\
+	struct device * dev,								\
+	struct device_attribute *attr,							\
+	char * buf)									\
+{											\
+	return show_fields(dev, attr, buf, REG, FIELDS);				\
+}											\
+ssize_t store_##fun##chan(								\
+	struct device * dev,								\
+	struct device_attribute *attr,							\
+	const char * buf,								\
+	size_t count)									\
+{											\
+	return store_fields(dev, attr, buf, count, REG, FIELDS);			\
+}											\
+static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
+
+const unsigned PX1_TRG_FIELDS[] = { PX1_TRG_BUS, PX1_TRG_BIT, 0 };
+const unsigned PX1_PWM_FIELDS[] = { PX1_PWM_IS, PX1_PWM_ICOUNT, PX1_PWM_OCOUNT, PX1_PWM_PRD, 0 };
+const unsigned PX1_REP_FIELDS[] = { PX1_REP_FIELD, 0 };
+
+#define PX1_FUNS(CH) \
+	KNOB_FUN_REG(px1_trg, CH, PX1_TRG(CH), PX1_TRG_FIELDS); \
+	KNOB_FUN_REG(px1_pwm, CH, PX1_PWM(CH), PX1_PWM_FIELDS); \
+	KNOB_FUN_REG(px1_rep, CH, PX1_REP(CH), PX1_REP_FIELDS)
+
+PX1_FUNS(1);
+PX1_FUNS(2);
+PX1_FUNS(3);
+PX1_FUNS(4);
+PX1_FUNS(5);
+PX1_FUNS(6);
+
+const struct attribute *dio482px1_attrs[] = {
+	&dev_attr_px1_trg1.attr, &dev_attr_px1_pwm1.attr, &dev_attr_px1_rep1.attr,
+	&dev_attr_px1_trg2.attr, &dev_attr_px1_pwm2.attr, &dev_attr_px1_rep2.attr,
+	&dev_attr_px1_trg3.attr, &dev_attr_px1_pwm3.attr, &dev_attr_px1_rep3.attr,
+	&dev_attr_px1_trg4.attr, &dev_attr_px1_pwm4.attr, &dev_attr_px1_rep4.attr,
+	&dev_attr_px1_trg5.attr, &dev_attr_px1_pwm5.attr, &dev_attr_px1_rep5.attr,
+	&dev_attr_px1_trg6.attr, &dev_attr_px1_pwm6.attr, &dev_attr_px1_rep6.attr,
+	0
+};
+

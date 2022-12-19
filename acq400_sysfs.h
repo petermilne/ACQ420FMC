@@ -309,13 +309,13 @@ static DEVICE_ATTR(SIGNAME, S_IRUGO|S_IWUSR, 				\
 #define INT	"internal"
 
 ssize_t store_signal(
-		struct device * dev,
-		struct device_attribute *attr,
-		const char * buf,
-		size_t count,
-		unsigned REG,
-		int shl, int mbit, const char* mbit_hi, const char* mbit_lo,
-		int not_while_busy);
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	unsigned REG,
+	int shl, int mbit, const char* mbit_hi, const char* mbit_lo,
+	int not_while_busy);
 
 ssize_t show_signal(
 	struct device * dev,
@@ -324,5 +324,23 @@ ssize_t show_signal(
 	unsigned REG,
 	int shl, int mbit,
 	const char*signame, const char* mbit_hi, const char* mbit_lo);
+
+
+ssize_t store_fields(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	unsigned REG,
+	const unsigned* FIELDS)			/* zero terminated for count */;
+
+ssize_t show_fields(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	unsigned REG,
+	const unsigned* FIELDS);
+
+
 
 #endif 	/* #ifndef __ACQ400_SYSFS_H__ */

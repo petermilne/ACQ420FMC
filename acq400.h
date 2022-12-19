@@ -485,7 +485,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO482TD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD)
 #define IS_DIO422ELF(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) == MOD_IDV_DIO422_DIO)
 #define IS_DIO422AQB(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) == MOD_IDV_DIO422_AQB)
-#define IS_DIO482XP1(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD && GET_MOD_IDV(adev) ==MOD_IDV_XP1)
+#define IS_DIO482PX1(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD && GET_MOD_IDV(adev) ==MOD_IDV_XP1)
 
 #define IS_DIO482_PG(adev)	(IS_DIO482ELF_PG(adev)||IS_DIO482TD_PG(adev))
 
@@ -1107,6 +1107,18 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define PX1_MIN	1
 #define PX1_MAX 6
+
+#define PX1_TRG_BUS		0x03U
+#define PX1_TRG_BIT   		0x1cU
+
+#define PX1_PWM_ICOUNT		0x000001ffU
+#define PX1_PWM_OCOUNT		0x000ffe00U
+#define PX1_PWM_PRD		0x7ff00000U
+#define PX1_PWM_IS		0x80000000U
+
+#define PX1_REP_FIELD		0x0000ffffU
+#define PX1_REP_SINGLE		0
+#define PX1_REP_FREE		0x0000ffff
 
 
 #include "acq400_structs.h"

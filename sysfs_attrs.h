@@ -56,4 +56,6 @@ extern const struct attribute *acq494_attrs[];
 extern const struct attribute *dio482_attrs[];
 extern const struct attribute *pwm2_attrs[];
 
+extern const struct attribute *dio482px1_attrs[];
+
 #endif /* SYSFS_ATTRS_H_ */

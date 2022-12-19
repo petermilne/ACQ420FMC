@@ -345,3 +345,78 @@ ssize_t store_signal(
 		return -1;
 	}
 }
+
+const char* __show_fields(const unsigned* FIELDS)
+{
+	static char buf[80];
+	int ii;
+	char* cursor = buf;
+	for (ii = 0; FIELDS[ii]; ++ii){
+		sprintf(cursor, "%08x,", FIELDS[ii]);
+		cursor += strlen(cursor);
+	}
+	sprintf(cursor, "len=%d", ii);
+	return buf;
+}
+
+ssize_t show_fields(
+		struct device * dev,
+		struct device_attribute *attr,
+		char * buf,
+		unsigned REG,
+		const unsigned* FIELDS)
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 regval = acq400rd32(adev, REG);
+	int ii;
+	char* cursor = buf;
+
+	dev_dbg(DEVP(adev), "%s %02x fields:%s", __FUNCTION__, REG, __show_fields(FIELDS));
+	for (ii = 0; FIELDS[ii]; ++ii){
+		unsigned shl = getSHL(FIELDS[ii]);
+		int last = FIELDS[ii+1] == '\0';
+		sprintf(cursor, "%d%c", (regval&FIELDS[ii])>>shl, last? '\n':',');
+		dev_dbg(DEVP(adev), "%d value:%08x mask:%08x shl:%d last:%d result:%s\n", ii, regval, FIELDS[ii], shl, last, cursor);
+		cursor += strlen(cursor);
+	}
+	dev_dbg(DEVP(adev), "%s %02xii:%d", __FUNCTION__, REG, ii);
+	return cursor-buf;
+}
+
+ssize_t store_fields(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	unsigned REG,
+	const unsigned* FIELDS)			/* zero terminated for count */
+
+{
+	struct acq400_dev* adev = acq400_devices[dev->id];
+	u32 regval = acq400rd32(adev, REG);
+	const char* cursor = buf;
+	int ii;
+	unsigned xx;
+	unsigned pos = 0;
+
+	dev_dbg(DEVP(adev), "%s %02x fields:%s", __FUNCTION__, REG, __show_fields(FIELDS));
+
+	for (ii = 0; FIELDS[ii]; ++ii){
+		if (sscanf(cursor, "%u%n", &xx, &pos)){
+			unsigned shl = getSHL(FIELDS[ii]);
+			dev_dbg(DEVP(adev), "%s %02x shl:%u xx:%u pos:%u", __FUNCTION__, REG, shl, xx, pos);
+			regval &= ~FIELDS[ii];
+			regval |= (xx << shl)&FIELDS[ii];
+			cursor += pos;
+			dev_dbg(DEVP(adev), "%s %02x cursor:\"%s\"", __FUNCTION__, REG, cursor);
+			if (*cursor++ != ','){
+				break;
+			}
+		}
+	}
+	acq400wr32(adev, REG, regval);
+	dev_dbg(DEVP(adev), "%s %02xii:%d value:%08x", __FUNCTION__, REG, ii, regval);
+	return count;
+}
+
+

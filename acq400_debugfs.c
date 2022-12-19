@@ -283,7 +283,7 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE_NAME_N( DIO432_DIO_SAMPLE_COUNT );
 	DBG_REG_CREATE( DIO432_DI_SNOOP );
 
-	if (IS_DIO482XP1(adev)){
+	if (IS_DIO482PX1(adev)){
 		int px;
 		DBG_REG_CREATE(DIO482_PG_IMM_MASK);
 		for (px = PX1_MIN; px <= PX1_MAX; ++px){
