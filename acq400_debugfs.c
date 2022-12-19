@@ -282,6 +282,19 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 	DBG_REG_CREATE_NAME_N( DIO432_DIO_SAMPLE_COUNT );
 	DBG_REG_CREATE( DIO432_DI_SNOOP );
+
+	if (IS_DIO482XP1(adev)){
+		int px;
+		DBG_REG_CREATE(DIO482_PG_IMM_MASK);
+		for (px = PX1_MIN; px <= PX1_MAX; ++px){
+			DBG_REG_CREATE_NAME_NC_NUM("px1", px, "TRG", PX1_TRG(px));
+			DBG_REG_CREATE_NAME_NC_NUM("px1", px, "PWM", PX1_PWM(px));
+			DBG_REG_CREATE_NAME_NC_NUM("px1", px, "REP", PX1_REP(px));
+			DBG_REG_CREATE_NAME_NC_NUM("px1", px, "STA", PX1_STA(px));
+		}
+		DBG_REG_CREATE(DIO482_PG_IMM_DO);
+		return;
+	}
 	if (IS_DIO432FMC(adev)){
 		DBG_REG_CREATE(DIO432_DEBUG);
 		DBG_REG_CREATE(DIO432_CMD_DEBUG);

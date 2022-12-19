@@ -90,7 +90,8 @@
 #define MOD_IDV_QEN		0x2
 #define MOD_IDV_ACQ1014		0x14
 
-
+/* known DIO482TD Variants, switch on MOD_ID_VERSION */
+#define MOD_IDV_XP1		0x0e
 
 
 

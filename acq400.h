@@ -480,11 +480,12 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO432FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432FMC)
 #define IS_DIO432PMOD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO432PMOD)
 #define IS_DIO482FMC(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC)
-#define IS_DIO482ELF_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) ==MOD_IDV_PG)
+#define IS_DIO482ELF_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) == MOD_IDV_PG)
 #define IS_DIO482TD_PG(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD_PG)
 #define IS_DIO482TD(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD)
-#define IS_DIO422ELF(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) ==MOD_IDV_DIO422_DIO)
-#define IS_DIO422AQB(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) ==MOD_IDV_DIO422_AQB)
+#define IS_DIO422ELF(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) == MOD_IDV_DIO422_DIO)
+#define IS_DIO422AQB(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO422ELF && GET_MOD_IDV(adev) == MOD_IDV_DIO422_AQB)
+#define IS_DIO482XP1(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482TD && GET_MOD_IDV(adev) ==MOD_IDV_XP1)
 
 #define IS_DIO482_PG(adev)	(IS_DIO482ELF_PG(adev)||IS_DIO482TD_PG(adev))
 
@@ -1096,6 +1097,17 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define PWM_SOURCE_CLK_CTRL_DIV_SHL	16
 #define PWM_SOURCE_CLK_CTRL_EN		(1<<4)
 #define PWM_SOURCE_CLK_CTRL_SHL		0
+
+/* PX1 */
+#define PX1_CHANNEL(n)		(0xa0+(0x10*(n-1)))
+#define PX1_TRG(n)		(PX1_CHANNEL(n)+0x0)
+#define PX1_PWM(n)		(PX1_CHANNEL(n)+0x4)
+#define PX1_REP(n)		(PX1_CHANNEL(n)+0x8)
+#define PX1_STA(n)		(PX1_CHANNEL(n)+0xc)
+
+#define PX1_MIN	1
+#define PX1_MAX 6
+
 
 #include "acq400_structs.h"
 

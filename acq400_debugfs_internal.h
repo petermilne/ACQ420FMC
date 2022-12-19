@@ -91,6 +91,13 @@ struct dentry* acq400_debug_root;
 	pcursor += strlen(pcursor) + 1; 				\
 	} while(0)
 
+#define DBG_REG_CREATE_NAME_NC_NUM(root, num, name, reg) do {		\
+	void* va = adev->dev_virtaddr; 					\
+	sprintf(pcursor, "%s.%d.%s.0x%02x", root, num, name, reg);	\
+	debugfs_create_x32(pcursor, S_IRUGO, adev->debug_dir, va+(reg));\
+	pcursor += strlen(pcursor) + 1; 				\
+	} while(0)
+
 #if 0
 #define DBG_REG_CREATE(reg) do {					\
 	int rc = dev_rc_register(&adev->reg_cache, reg);	\
