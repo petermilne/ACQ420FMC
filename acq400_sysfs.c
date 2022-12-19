@@ -21,7 +21,6 @@
 #include <linux/ctype.h>
 
 #include "acq400.h"
-#include "bolo.h"
 #include "hbm.h"
 
 #include "acq400_sysfs.h"

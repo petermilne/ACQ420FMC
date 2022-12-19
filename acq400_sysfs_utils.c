@@ -26,8 +26,6 @@
 #include <linux/ctype.h>
 
 #include "acq400.h"
-#include "bolo.h"
-
 #include "acq400_sysfs.h"
 
 ssize_t acq400_show_triplet(
