@@ -91,6 +91,8 @@ namespace G {
 	const char* rhost = 0;
 	const char* rport = 0;
 	Socket *sender;
+	int stdout;			// FIN FS NACC
+	int packets_per_buffer;
 };
 struct poptOption opt_table[] = {
 	{ "samples_per_packet", 'S', POPT_ARG_INT, &G::samples_per_packet, 0,
@@ -101,6 +103,14 @@ struct poptOption opt_table[] = {
 	},
 	{ "max_samples", 'm', POPT_ARG_INT, &G::max_samples, 0,
 			"max samples to send (0: infinity)"
+	},
+	{
+	  "packets_per_buffer", 'p', POPT_ARG_INT, &G::packets_per_buffer, 0,
+	  	  	 "send evenly spaced packets per buffer"
+	},
+	{
+	  "stdout",   's', POPT_ARG_INT, &G::stdout, 0,
+	  	  	 "slowmon FIN FS NACC"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -162,18 +172,32 @@ void ui(int argc, const char** argv)
 		fprintf(stderr, "usage bbq_send_ai [opts] HOST PORT\n");
 		exit(1);
 	}
-	G::sender = Socket::createIpSocket(G::use_udp? "udp": "tcp", G::rhost, G::rport);
+	if (G::stdout){
+		G::sender = Socket::createIpSocket("stdout", 0, 0);
+	}else{
+		G::sender = Socket::createIpSocket(G::use_udp? "udp": "tcp", G::rhost, G::rport);
+	}
 }
 
 void send(int ib)
 {
 	char* bp = Buffer::the_buffers[ib]->getBase();
 	char* cursor = bp;
-	int len = G::buffer_sample_size*G::samples_per_packet;
-	int imax = G::buffer_data_bytes/(len);
 
-	for (int ii = 0; ii < imax; ++ii, cursor += len){
-		G::sender->send(cursor, len);
+	if (G::packets_per_buffer > 0){
+		int len = G::buffer_sample_size;
+		int stride = G::buffer_data_bytes/G::packets_per_buffer;
+
+		for (int pkt = 0; pkt < G::packets_per_buffer; ++pkt, cursor += stride){
+			G::sender->send(cursor, len);
+		}
+	}else{
+		int len = G::buffer_sample_size*G::samples_per_packet;
+		int imax = G::buffer_data_bytes/(len);
+
+		for (int ii = 0; ii < imax; ++ii, cursor += len){
+			G::sender->send(cursor, len);
+		}
 	}
 }
 int run(void)

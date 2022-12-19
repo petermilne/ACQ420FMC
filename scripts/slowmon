@@ -1,0 +1,13 @@
+#!/bin/sh
+
+while [ ! -e /etc/acq400/0/slowmon_hw ]; do
+	sleep 1
+done
+
+SLOWMON_HW=$(cat /etc/acq400/0/slowmon_hw)
+
+[ $SLOWMON_HW -eq 1 ] && exec slowmon_hw
+SPB=$(cat /etc/acq400/0/slowmon_fin /etc/acq400/0/slowmon_fs | awk '{ nb=int($2/$1); print nb>0? nb: 1 }')
+[ $SLOWMON_HW -ne 1 ] && exec bbq_send_ai --stdout=1 --samples_per_packet=$(cat /etc/acq400/0/slowmon_nacc --packets_per_buffer=$SPB)
+
+
