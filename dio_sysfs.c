@@ -333,6 +333,8 @@ PPW_FUNS(5);
 PPW_FUNS(6);
 
 const struct attribute *dio482ppw_attrs[] = {
+	&dev_attr_DO32.attr,
+	&dev_attr_DO32_immediate_mask.attr,
 	&dev_attr_ppw_trg1.attr, &dev_attr_ppw_pwm1.attr, &dev_attr_ppw_rep1.attr,
 	&dev_attr_ppw_trg2.attr, &dev_attr_ppw_pwm2.attr, &dev_attr_ppw_rep2.attr,
 	&dev_attr_ppw_trg3.attr, &dev_attr_ppw_pwm3.attr, &dev_attr_ppw_rep3.attr,

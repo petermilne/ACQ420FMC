@@ -984,6 +984,12 @@ void dio482_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 	}
 }
 
+void dio482_ppw_init_defaults(struct acq400_dev* adev)
+{
+	dio432_set_direction(adev, 0x03);
+	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PPW_PPW_DOx);
+}
+
 void dio482td_init_defaults(struct acq400_dev* adev)
 {
 	dio482_pg_init_defaults(adev, 0);
@@ -1007,6 +1013,8 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 	}else if (IS_DIO432X(adev)){
 		if (IS_DIO482ELF_PG(adev)){
 			dio482_pg_init_defaults(adev, 1);
+		}else if (IS_DIO482PPW(adev)){
+			dio482_ppw_init_defaults(adev);
 		}else{
 			dio432_init_defaults(adev);
 		}
