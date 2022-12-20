@@ -316,7 +316,7 @@ ssize_t store_##fun##chan(								\
 }											\
 static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
 
-const unsigned PPW_TRG_FIELDS[] = { PPW_TRG_BUS, PPW_TRG_BIT, 0 };
+const unsigned PPW_TRG_FIELDS[] = { PPW_TRG_BUS, PPW_TRG_BIT, PPW_TRG_RISING, 0 };
 const unsigned PPW_PWM_FIELDS[] = { PPW_PWM_IS, PPW_PWM_ICOUNT, PPW_PWM_OCOUNT, PPW_PWM_PRD, 0 };
 const unsigned PPW_REP_FIELDS[] = { PPW_REP_FIELD, 0 };
 
