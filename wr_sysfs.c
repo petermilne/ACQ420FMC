@@ -151,8 +151,7 @@ static DEVICE_ATTR(wr_cur_vernier, S_IRUGO, show_wr_cur_vernier, 0);
 MAKE_BITS(wr_clk_pv, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV);
 MAKE_BITS(wr_clk_pv3, WR_CLK_GEN, MAKE_BITS_FROM_MASK, WR_CLK_GEN_PV3);
 
-
-//MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
+MAKE_SIGNAL(wr_trg_src, WR_CTRL, WR_CTRL_TRG_SRC_SHL, WR_CTRL_TS_INTEN, ENA, DIS, 1);
 
 MAKE_BITS(wr_link_up, 	 WR_TAI_CUR_H, MAKE_BITS_FROM_MASK, WR_TAI_CUR_H_LINKUP);
 MAKE_BITS(wr_time_valid, WR_TAI_CUR_H, MAKE_BITS_FROM_MASK, WR_TAI_CUR_H_TIMEVALID);
@@ -193,7 +192,7 @@ MAKE_WR_EVENT_COUNT(wrtt_client1);
 const struct attribute *acq2106_wr_attrs[] = {
 	&dev_attr_wr_clk_pv.attr,
 	&dev_attr_wr_clk_pv3.attr,
-//	/&dev_attr_wr_trg_src.attr,
+	&dev_attr_wr_trg_src.attr,
 	&dev_attr_wr_tai_cur.attr,
 	&dev_attr_wr_tai_cur_raw.attr,
 	&dev_attr_wr_tai_trg.attr,

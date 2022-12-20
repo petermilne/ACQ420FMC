@@ -3392,7 +3392,6 @@ void acq400_createSysfs(struct device *dev)
 		}
 		if (IS_DIO482_PG(adev)) {
 			dev_info(dev, "IS_DIO482_PG");
-			has_device_attrs = 0;
 			specials[nspec++] = dio_attrs;
 			if (IS_DIO482TD_PG(adev)){
 				specials[nspec++] = dio482_pg_attrs;
@@ -3405,7 +3404,6 @@ void acq400_createSysfs(struct device *dev)
 			specials[nspec++] = sysfs_qen_attrs;
 			specials[nspec++] = es_enable_attrs;
 		}else if (IS_DIO482PPW(adev)){
-			has_device_attrs = 0;
 			specials[nspec++] = dio_attrs;
 			specials[nspec++] = dio482ppw_attrs;
 		}else if (IS_ACQ423(adev)){
