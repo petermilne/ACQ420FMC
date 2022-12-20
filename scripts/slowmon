@@ -8,9 +8,12 @@ SLOWMON_HW=$(cat /etc/acq400/0/slowmon_hw)
 #echo SLOWMON_HW $SLOWMON_HW
 [ $SLOWMON_HW -eq 1 ] && exec slowmon_hw
 
-SPB=$(echo $(cat /etc/acq400/0/slowmon_fin /etc/acq400/0/slowmon_fs) | awk '{ nb=int($2/$1); print(nb>0? nb: 1) }')
-#echo SPB $SPB
-#echo bbq_send_ai --stdout=1 --samples_per_packet=$(cat /etc/acq400/0/slowmon_nacc) --packets_per_buffer=$SPB
-[ $SLOWMON_HW -ne 1 ] && exec bbq_send_ai --stdout=1 --samples_per_packet=$(cat /etc/acq400/0/slowmon_nacc) --packets_per_buffer=$SPB --spad=$(get.site 0 spad)
+FIN=$(cat /etc/acq400/0/slowmon_fin)
+FS=$(cat /etc/acq400/0/slowmon_fs)
+SPB=$(echo $FIN $FS | awk '{ nb=int($2/$1); print(nb>0? nb: 1) }')
+SPP=$(cat /etc/acq400/0/slowmon_nacc)
+SPAD=$(cat /etc/acq400/0/spad)
+#echo exec bbq_send_ai --stdout=1 --samples_per_packet=$SPP --packets_per_buffer=$SPB --spad=$SPAD
+[ $SLOWMON_HW -ne 1 ] && exec bbq_send_ai --stdout=1 --samples_per_packet=$SPP --packets_per_buffer=$SPB --spad=$SPAD 2>/dev/null
 
 
