@@ -168,13 +168,13 @@ void ui(int argc, const char** argv)
 		fprintf(stderr, " send using %s to %s:%s\n", G::use_udp? "UDP": "TCP", G::rhost, G::rport);
 	}
 
-	if (G::rhost == 0 || G::rport == 0){
-		fprintf(stderr, "usage bbq_send_ai [opts] HOST PORT\n");
-		exit(1);
-	}
 	if (G::stdout){
 		G::sender = Socket::createIpSocket("stdout", 0, 0);
 	}else{
+		if (G::rhost == 0 || G::rport == 0){
+			fprintf(stderr, "usage bbq_send_ai [opts] HOST PORT\n");
+			exit(1);
+		}
 		G::sender = Socket::createIpSocket(G::use_udp? "udp": "tcp", G::rhost, G::rport);
 	}
 }
