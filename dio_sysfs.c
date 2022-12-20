@@ -316,29 +316,29 @@ ssize_t store_##fun##chan(								\
 }											\
 static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
 
-const unsigned PX1_TRG_FIELDS[] = { PX1_TRG_BUS, PX1_TRG_BIT, 0 };
-const unsigned PX1_PWM_FIELDS[] = { PX1_PWM_IS, PX1_PWM_ICOUNT, PX1_PWM_OCOUNT, PX1_PWM_PRD, 0 };
-const unsigned PX1_REP_FIELDS[] = { PX1_REP_FIELD, 0 };
+const unsigned PPW_TRG_FIELDS[] = { PPW_TRG_BUS, PPW_TRG_BIT, 0 };
+const unsigned PPW_PWM_FIELDS[] = { PPW_PWM_IS, PPW_PWM_ICOUNT, PPW_PWM_OCOUNT, PPW_PWM_PRD, 0 };
+const unsigned PPW_REP_FIELDS[] = { PPW_REP_FIELD, 0 };
 
-#define PX1_FUNS(CH) \
-	KNOB_FUN_REG(px1_trg, CH, PX1_TRG(CH), PX1_TRG_FIELDS); \
-	KNOB_FUN_REG(px1_pwm, CH, PX1_PWM(CH), PX1_PWM_FIELDS); \
-	KNOB_FUN_REG(px1_rep, CH, PX1_REP(CH), PX1_REP_FIELDS)
+#define PPW_FUNS(CH) \
+	KNOB_FUN_REG(ppw_trg, CH, PPW_TRG(CH), PPW_TRG_FIELDS); \
+	KNOB_FUN_REG(ppw_pwm, CH, PPW_PWM(CH), PPW_PWM_FIELDS); \
+	KNOB_FUN_REG(ppw_rep, CH, PPW_REP(CH), PPW_REP_FIELDS)
 
-PX1_FUNS(1);
-PX1_FUNS(2);
-PX1_FUNS(3);
-PX1_FUNS(4);
-PX1_FUNS(5);
-PX1_FUNS(6);
+PPW_FUNS(1);
+PPW_FUNS(2);
+PPW_FUNS(3);
+PPW_FUNS(4);
+PPW_FUNS(5);
+PPW_FUNS(6);
 
-const struct attribute *dio482px1_attrs[] = {
-	&dev_attr_px1_trg1.attr, &dev_attr_px1_pwm1.attr, &dev_attr_px1_rep1.attr,
-	&dev_attr_px1_trg2.attr, &dev_attr_px1_pwm2.attr, &dev_attr_px1_rep2.attr,
-	&dev_attr_px1_trg3.attr, &dev_attr_px1_pwm3.attr, &dev_attr_px1_rep3.attr,
-	&dev_attr_px1_trg4.attr, &dev_attr_px1_pwm4.attr, &dev_attr_px1_rep4.attr,
-	&dev_attr_px1_trg5.attr, &dev_attr_px1_pwm5.attr, &dev_attr_px1_rep5.attr,
-	&dev_attr_px1_trg6.attr, &dev_attr_px1_pwm6.attr, &dev_attr_px1_rep6.attr,
+const struct attribute *dio482ppw_attrs[] = {
+	&dev_attr_ppw_trg1.attr, &dev_attr_ppw_pwm1.attr, &dev_attr_ppw_rep1.attr,
+	&dev_attr_ppw_trg2.attr, &dev_attr_ppw_pwm2.attr, &dev_attr_ppw_rep2.attr,
+	&dev_attr_ppw_trg3.attr, &dev_attr_ppw_pwm3.attr, &dev_attr_ppw_rep3.attr,
+	&dev_attr_ppw_trg4.attr, &dev_attr_ppw_pwm4.attr, &dev_attr_ppw_rep4.attr,
+	&dev_attr_ppw_trg5.attr, &dev_attr_ppw_pwm5.attr, &dev_attr_ppw_rep5.attr,
+	&dev_attr_ppw_trg6.attr, &dev_attr_ppw_pwm6.attr, &dev_attr_ppw_rep6.attr,
 	0
 };
 

@@ -3406,8 +3406,8 @@ void acq400_createSysfs(struct device *dev)
 			dev_info(dev, "IS_DIO422AQB");
 			specials[nspec++] = sysfs_qen_attrs;
 			specials[nspec++] = es_enable_attrs;
-		}else if (IS_DIO482PX1(adev)){
-			specials[nspec++] = dio482px1_attrs;
+		}else if (IS_DIO482PPW(adev)){
+			specials[nspec++] = dio482ppw_attrs;
 		}else if (IS_ACQ423(adev)){
 			specials[nspec++] = acq423_emulate_attrs;
 			specials[nspec++] = acq423_attrs;
