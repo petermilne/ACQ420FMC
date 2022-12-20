@@ -93,6 +93,8 @@ namespace G {
 	Socket *sender;
 	int stdout;			// FIN FS NACC
 	int packets_per_buffer;
+	const char* spad;
+	unsigned spadlen;
 };
 struct poptOption opt_table[] = {
 	{ "samples_per_packet", 'S', POPT_ARG_INT, &G::samples_per_packet, 0,
@@ -111,6 +113,10 @@ struct poptOption opt_table[] = {
 	{
 	  "stdout",   's', POPT_ARG_INT, &G::stdout, 0,
 	  	  	 "slowmon FIN FS NACC"
+	},
+	{
+	  "spad",     'S', POPT_ARG_STRING, &G::spad, 0,
+	  	  	  "current spad condition. replace SPAD[2] with SPAD[0]-SPAD[0]n1, SPAD[3] with b"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -177,6 +183,24 @@ void ui(int argc, const char** argv)
 		}
 		G::sender = Socket::createIpSocket(G::use_udp? "udp": "tcp", G::rhost, G::rport);
 	}
+	if (G::spad){
+		sscanf(G::spad, "1,%u,%*d", &G::spadlen);
+	}
+}
+
+#define NLSPAD		4
+#define LSPADLEN 	(NLSPAD*sizeof(unsigned))
+
+char* instrument_spad(int ib, char* cursor, unsigned* local_spad)
+{
+	unsigned spad0m1 = local_spad[0];
+	unsigned spad0   = ((unsigned*)(cursor+G::buffer_sample_size-4*sizeof(unsigned)))[0];
+	unsigned spad1   = ((unsigned*)(cursor+G::buffer_sample_size-4*sizeof(unsigned)))[1];
+	local_spad[0] = spad0;
+	local_spad[1] = spad1;
+	local_spad[2] = spad0 - spad0m1;
+	local_spad[3] = ib;
+	return (char*)local_spad;
 }
 
 void send(int ib)
@@ -187,9 +211,16 @@ void send(int ib)
 	if (G::packets_per_buffer > 0){
 		int len = G::buffer_sample_size;
 		int stride = G::buffer_data_bytes/G::packets_per_buffer;
+		static unsigned local_spad[NLSPAD];
 
 		for (int pkt = 0; pkt < G::packets_per_buffer; ++pkt, cursor += stride){
-			G::sender->send(cursor, len);
+
+			if (G::spad == 0){
+				G::sender->send(cursor, len);
+			}else{
+				G::sender->send(cursor, len-LSPADLEN);
+				G::sender->send(instrument_spad(ib, cursor, local_spad), LSPADLEN);
+			}
 		}
 	}else{
 		int len = G::buffer_sample_size*G::samples_per_packet;
