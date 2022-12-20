@@ -86,7 +86,7 @@ namespace G {
 	int verbose = 0;
 	int devnum = 0;
 	unsigned buffer_data_bytes;
-	unsigned buffer_sample_size;
+	unsigned sample_size_bytes;
 	unsigned max_samples = SAMPLE_FOREVER;
 	const char* rhost = 0;
 	const char* rport = 0;
@@ -144,7 +144,7 @@ void ui(int argc, const char** argv)
 		Buffer::nbuffers -= distributor_first_buffer;
 	}
 	getKnob(G::devnum, "bufferlen", &G::buffer_data_bytes);
-	getKnob(-1, SSB, &G::buffer_sample_size);
+	getKnob(-1, SSB, &G::sample_size_bytes);
 
 	int rc;
 
@@ -166,11 +166,11 @@ void ui(int argc, const char** argv)
 			fprintf(stderr, " send samples %u\n", G::max_samples? G::max_samples:0xffffffff);
 		}
 		fprintf(stderr, " sample size: %d, samples_per_packet:%d, message size: %d\n",
-				G::buffer_sample_size, G::samples_per_packet,
-				G::buffer_sample_size*G::samples_per_packet);
+				G::sample_size_bytes, G::samples_per_packet,
+				G::sample_size_bytes*G::samples_per_packet);
 		fprintf(stderr, " bytes per buffer:%d, messages per buffer:%d\n",
 				G::buffer_data_bytes,
-				G::buffer_data_bytes/(G::buffer_sample_size*G::samples_per_packet));
+				G::buffer_data_bytes/(G::sample_size_bytes*G::samples_per_packet));
 		fprintf(stderr, " send using %s to %s:%s\n", G::use_udp? "UDP": "TCP", G::rhost, G::rport);
 	}
 
@@ -194,8 +194,8 @@ void ui(int argc, const char** argv)
 char* instrument_spad(int ib, char* cursor, unsigned* local_spad)
 {
 	unsigned spad0m1 = local_spad[0];
-	unsigned spad0   = ((unsigned*)(cursor+G::buffer_sample_size-4*sizeof(unsigned)))[0];
-	unsigned spad1   = ((unsigned*)(cursor+G::buffer_sample_size-4*sizeof(unsigned)))[1];
+	unsigned spad0   = ((unsigned*)(cursor+G::sample_size_bytes-4*sizeof(unsigned)))[0];
+	unsigned spad1   = ((unsigned*)(cursor+G::sample_size_bytes-4*sizeof(unsigned)))[1];
 	local_spad[0] = spad0;
 	local_spad[1] = spad1;
 	local_spad[2] = spad0 - spad0m1;
@@ -209,23 +209,22 @@ void send(int ib)
 	char* cursor = bp;
 
 	if (G::packets_per_buffer > 0){
-		int len = G::buffer_sample_size;
+		int len = G::sample_size_bytes;
 		int stride = G::buffer_data_bytes/G::packets_per_buffer;
 		static unsigned local_spad[NLSPAD];
 
 		for (int pkt = 0; pkt < G::packets_per_buffer; ++pkt, cursor += stride){
 			for (int ii = 0; ii < G::samples_per_packet; ++ii){
-				unsigned soff = ii*G::samples_per_packet;
 				if (G::spad == 0){
-					G::sender->send(cursor+soff, len);
+					G::sender->send(cursor+ii*len, len);
 				}else{
-					G::sender->send(cursor+soff, len-LSPADLEN);
-					G::sender->send(instrument_spad(ib, cursor+soff, local_spad), LSPADLEN);
+					G::sender->send(cursor+ii*len, len-LSPADLEN);
+					G::sender->send(instrument_spad(ib, cursor+ii*len, local_spad), LSPADLEN);
 				}
 			}
 		}
 	}else{
-		int len = G::buffer_sample_size*G::samples_per_packet;
+		int len = G::sample_size_bytes*G::samples_per_packet;
 		int imax = G::buffer_data_bytes/(len);
 
 		for (int ii = 0; ii < imax; ++ii, cursor += len){
