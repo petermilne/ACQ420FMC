@@ -214,12 +214,14 @@ void send(int ib)
 		static unsigned local_spad[NLSPAD];
 
 		for (int pkt = 0; pkt < G::packets_per_buffer; ++pkt, cursor += stride){
-
-			if (G::spad == 0){
-				G::sender->send(cursor, len);
-			}else{
-				G::sender->send(cursor, len-LSPADLEN);
-				G::sender->send(instrument_spad(ib, cursor, local_spad), LSPADLEN);
+			for (int ii = 0; ii < G::samples_per_packet; ++ii){
+				unsigned soff = ii*G::samples_per_packet;
+				if (G::spad == 0){
+					G::sender->send(cursor+soff, len);
+				}else{
+					G::sender->send(cursor+soff, len-LSPADLEN);
+					G::sender->send(instrument_spad(ib, cursor+soff, local_spad), LSPADLEN);
+				}
 			}
 		}
 	}else{
