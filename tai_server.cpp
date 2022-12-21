@@ -18,8 +18,8 @@
 
 void publish(unsigned t1)
 {
-	char cmd[80];
-	snprintf(cmd, 80, "date -ud @%u >/tmp/tai_date; mv /tmp/tai_date /etc/acq400/0/tai_date", t1);
+	char cmd[128];
+	snprintf(cmd, 128, "echo tai_date $(date -ud @%u) >/tmp/tai_date; mv /tmp/tai_date /etc/acq400/0/tai_date", t1);
 	system(cmd);
 }
 void missed_alarm(int signum)
