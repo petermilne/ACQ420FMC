@@ -986,7 +986,12 @@ void dio482_pg_init_defaults(struct acq400_dev* adev, int gpg32)
 
 void dio482_ppw_init_defaults(struct acq400_dev* adev)
 {
+	u32 dac_ctrl;
 	dev_info(DEVP(adev), "%s", __FUNCTION__);
+	dac_ctrl = acq400rd32(adev, DAC_CTRL);
+	dac_ctrl |= DIO432_CTRL_MODULE_EN;
+	acq400wr32(adev, DAC_CTRL, dac_ctrl);
+
 	dio432_set_direction(adev, 0x03);
 	acq400wr32(adev, DIO482_PG_IMM_MASK, ~DIO482_PPW_PPW_DOx);
 }
