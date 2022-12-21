@@ -363,6 +363,7 @@ ssize_t show_fields(
 		struct device * dev,
 		struct device_attribute *attr,
 		char * buf,
+		const char* signal,
 		unsigned REG,
 		const unsigned* FIELDS)
 {
@@ -370,6 +371,9 @@ ssize_t show_fields(
 	u32 regval = acq400rd32(adev, REG);
 	int ii;
 	char* cursor = buf;
+
+	sprintf(cursor, "%s=", signal);
+	cursor += strlen(cursor);
 
 	dev_dbg(DEVP(adev), "%s %02x fields:%s", __FUNCTION__, REG, __show_fields(FIELDS));
 	for (ii = 0; FIELDS[ii]; ++ii){
@@ -398,6 +402,7 @@ ssize_t store_fields(
 	int ii;
 	unsigned xx;
 	unsigned pos = 0;
+
 
 	dev_dbg(DEVP(adev), "%s %02x fields:%s", __FUNCTION__, REG, __show_fields(FIELDS));
 

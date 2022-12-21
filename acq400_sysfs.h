@@ -338,6 +338,7 @@ ssize_t show_fields(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf,
+	const char* signal,
 	unsigned REG,
 	const unsigned* FIELDS);
 

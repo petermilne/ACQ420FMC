@@ -304,7 +304,7 @@ ssize_t show_##fun##chan(								\
 	struct device_attribute *attr,							\
 	char * buf)									\
 {											\
-	return show_fields(dev, attr, buf, REG, FIELDS);				\
+	return show_fields(dev, attr, buf, #fun#chan, REG, FIELDS);			\
 }											\
 ssize_t store_##fun##chan(								\
 	struct device * dev,								\
@@ -312,7 +312,7 @@ ssize_t store_##fun##chan(								\
 	const char * buf,								\
 	size_t count)									\
 {											\
-	return store_fields(dev, attr, buf, count, REG, FIELDS);			\
+	return store_fields(dev, attr, buf, count, REG, FIELDS);		\
 }											\
 static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
 
