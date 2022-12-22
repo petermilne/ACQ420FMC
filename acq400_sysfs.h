@@ -332,7 +332,8 @@ ssize_t store_fields(
 	const char * buf,
 	size_t count,
 	unsigned REG,
-	const unsigned* FIELDS)			/* zero terminated for count */;
+	const unsigned* FIELDS,
+	const int zero_based)			/* zero terminated for count */;
 
 ssize_t show_fields(
 	struct device * dev,
@@ -340,8 +341,9 @@ ssize_t show_fields(
 	char * buf,
 	const char* signal,
 	unsigned REG,
-	const unsigned* FIELDS);
+	const unsigned* FIELDS,
+	const int zero_based);
 
-
+#define ZERO_BASED 1
 
 #endif 	/* #ifndef __ACQ400_SYSFS_H__ */

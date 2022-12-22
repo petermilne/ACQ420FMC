@@ -298,13 +298,13 @@ const struct attribute *acq494_attrs[] = {
 
 
 
-#define KNOB_FUN_REG(fun, chan, REG, FIELDS) 						\
+#define KNOB_FUN_REG(fun, chan, REG, FIELDS, ZB)					\
 ssize_t show_##fun##chan(								\
 	struct device * dev,								\
 	struct device_attribute *attr,							\
 	char * buf)									\
 {											\
-	return show_fields(dev, attr, buf, #fun#chan, REG, FIELDS);			\
+	return show_fields(dev, attr, buf, #fun#chan, REG, FIELDS, ZB);			\
 }											\
 ssize_t store_##fun##chan(								\
 	struct device * dev,								\
@@ -312,7 +312,7 @@ ssize_t store_##fun##chan(								\
 	const char * buf,								\
 	size_t count)									\
 {											\
-	return store_fields(dev, attr, buf, count, REG, FIELDS);		\
+	return store_fields(dev, attr, buf, count, REG, FIELDS, ZB);			\
 }											\
 static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
 
@@ -321,9 +321,9 @@ const unsigned PPW_PWM_FIELDS[] = { PPW_PWM_IS, PPW_PWM_ICOUNT, PPW_PWM_OCOUNT, 
 const unsigned PPW_REP_FIELDS[] = { PPW_REP_FIELD, 0 };
 
 #define PPW_FUNS(CH) \
-	KNOB_FUN_REG(ppw_trg, CH, PPW_TRG(CH), PPW_TRG_FIELDS); \
-	KNOB_FUN_REG(ppw_pwm, CH, PPW_PWM(CH), PPW_PWM_FIELDS); \
-	KNOB_FUN_REG(ppw_rep, CH, PPW_REP(CH), PPW_REP_FIELDS)
+	KNOB_FUN_REG(ppw_trg, CH, PPW_TRG(CH), PPW_TRG_FIELDS, !ZERO_BASED); \
+	KNOB_FUN_REG(ppw_pwm, CH, PPW_PWM(CH), PPW_PWM_FIELDS, !ZERO_BASED); \
+	KNOB_FUN_REG(ppw_rep, CH, PPW_REP(CH), PPW_REP_FIELDS, ZERO_BASED)
 
 PPW_FUNS(1);
 PPW_FUNS(2);

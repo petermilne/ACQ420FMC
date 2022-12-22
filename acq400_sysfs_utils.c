@@ -359,13 +359,24 @@ const char* __show_fields(const unsigned* FIELDS)
 	return buf;
 }
 
+/* after Kernighan .. */
+int count_set_bits(int n){
+	int count = 0; // count accumulates the total bits set
+	while(n != 0){
+		n &= (n-1); // clear the least significant bit set
+		count++;
+	}
+	return count;
+}
+
 ssize_t show_fields(
 		struct device * dev,
 		struct device_attribute *attr,
 		char * buf,
 		const char* signal,
 		unsigned REG,
-		const unsigned* FIELDS)
+		const unsigned* FIELDS,
+		const int zero_based)
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
 	u32 regval = acq400rd32(adev, REG);
@@ -377,9 +388,10 @@ ssize_t show_fields(
 
 	dev_dbg(DEVP(adev), "%s %02x fields:%s", __FUNCTION__, REG, __show_fields(FIELDS));
 	for (ii = 0; FIELDS[ii]; ++ii){
+		int zb = (zero_based && count_set_bits(FIELDS[ii]) > 1)? 1: 0;
 		unsigned shl = getSHL(FIELDS[ii]);
 		int last = FIELDS[ii+1] == '\0';
-		sprintf(cursor, "%d%c", (regval&FIELDS[ii])>>shl, last? '\n':',');
+		sprintf(cursor, "%d%c", ((regval&FIELDS[ii])>>shl)+zb, last? '\n':',');
 		dev_dbg(DEVP(adev), "%d value:%08x mask:%08x shl:%d last:%d result:%s\n", ii, regval, FIELDS[ii], shl, last, cursor);
 		cursor += strlen(cursor);
 	}
@@ -393,7 +405,8 @@ ssize_t store_fields(
 	const char * buf,
 	size_t count,
 	unsigned REG,
-	const unsigned* FIELDS)			/* zero terminated for count */
+	const unsigned* FIELDS,
+	const int zero_based)			/* zero terminated for count */
 
 {
 	struct acq400_dev* adev = acq400_devices[dev->id];
@@ -408,10 +421,11 @@ ssize_t store_fields(
 
 	for (ii = 0; FIELDS[ii]; ++ii){
 		if (sscanf(cursor, "%u%n", &xx, &pos)){
+			int zb = (zero_based && count_set_bits(FIELDS[ii]) > 1)? 1: 0;
 			unsigned shl = getSHL(FIELDS[ii]);
 			dev_dbg(DEVP(adev), "%s %02x shl:%u xx:%u pos:%u", __FUNCTION__, REG, shl, xx, pos);
 			regval &= ~FIELDS[ii];
-			regval |= (xx << shl)&FIELDS[ii];
+			regval |= ((xx-zb) << shl)&FIELDS[ii];
 			cursor += pos;
 			dev_dbg(DEVP(adev), "%s %02x cursor:\"%s\"", __FUNCTION__, REG, cursor);
 			if (*cursor++ != ','){
