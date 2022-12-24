@@ -4653,6 +4653,7 @@ class MultiEventServer {
 	const char* b1;
 	FILE* fp_in;
 	int verbose;
+	int suppress_event;
 	int pre;
 	int post;
 	int maxfiles;
@@ -4728,11 +4729,12 @@ class MultiEventServer {
 				if (verbose) fprintf(stderr, "%s wait post %u < %u\n", __FUNCTION__, dhb, pb);
 				usleep(10000);
 			}
+			int ss = sample_size() * suppress_event;
 			if (post_bytes > linear_post){
-				fwrite(esp, 1, linear_post, fp);
+				fwrite(esp+ss, 1, linear_post-ss, fp);
 				fwrite(b0, 1, post_bytes-linear_post, fp);
 			}else{
-				fwrite(esp, 1, post_bytes, fp);
+				fwrite(esp+ss, 1, post_bytes-ss, fp);
 			}
 		}
 		fclose(fp);
@@ -4796,6 +4798,7 @@ public:
 	{
 		ident("acq400_stream_MES");
 		verbose = getenv_default("MultiEventServerVerbose");
+		suppress_event = getenv_default("MultiEventServerSuppressEvent");
 		if (verbose) fprintf(stderr, "MultiEventServer\n");
 
 		update_prams(def);
