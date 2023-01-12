@@ -746,15 +746,7 @@ public:
 class Help2: public Help {
 protected:
 	virtual int query(Knob* knob, char* buf, int buflen){
-		char cmd[128];
-		char reply[128];
-		sprintf(cmd, "grep -m1 ^%s %s/acq400_help* | cut -f2 -",
-					knob->getName(), HROOT);
-		Pipe grep(cmd, "r");
-		if (fgets(reply, 128, grep.fp)){
-			snprintf(buf, buflen, "%-20s : %s\n\t%s",
-				knob->getName(), knob->getAttr(), reply);
-		}
+		snprintf(buf, buflen, "help2 is deprecated, please contact D-TACQ for a copy of your device specific command reference\n");
 		return 1;
 	}
 public:
