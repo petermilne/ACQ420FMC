@@ -445,34 +445,6 @@ static ssize_t show_gpg_debug(
 
 static DEVICE_ATTR(gpg_debug, S_IRUGO, show_gpg_debug, 0);
 
-static ssize_t show_gpg_timescaler(
-	struct device * dev,
-	struct device_attribute *attr,
-	char * buf)
-{
-	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev, 0);
-	return sprintf(buf, "%u\n", gpg->gpg_timescaler);
-}
-
-static ssize_t store_gpg_timescaler(
-	struct device * dev,
-	struct device_attribute *attr,
-	const char * buf,
-	size_t count)
-{
-	struct acq400_dev* adev = acq400_devices[dev->id];
-	struct GPG_buffer* gpg = get_gpg(adev, 0);
-
-	if (sscanf(buf, "%u", &gpg->gpg_timescaler) == 1){
-		return count;
-	}else{
-		return -1;
-	}
-}
-
-static DEVICE_ATTR(gpg_timescaler, S_IRUGO|S_IWUSR, show_gpg_timescaler, store_gpg_timescaler);
-
 static ssize_t show_axi_freq(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3153,7 +3125,6 @@ static const struct attribute *gpg_attrs[] = {
 	&dev_attr_gpg_enable.attr,
 	&dev_attr_gpg_top_count.attr,
 	&dev_attr_gpg_debug.attr,
-	&dev_attr_gpg_timescaler.attr,
 	NULL
 };
 static const struct attribute *acq2006sc_attrs[] = {
