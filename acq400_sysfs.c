@@ -3273,7 +3273,6 @@ static const struct attribute *fmc_fp_attrs[] = {
 extern const struct attribute *spadcop_attrs[];
 
 
-
 void acq400_createSysfs(struct device *dev)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
@@ -3332,6 +3331,9 @@ void acq400_createSysfs(struct device *dev)
 			}else{
 				specials[nspec++] = acq1001sc_attrs;
 			}
+		}else if (IS_Z7IO_SC(adev)){
+			dev_warn(dev, "IS_Z7IO_SC using kmcx attrs");
+			specials[nspec++] = kmcx_sc_attrs;
 		}else if (IS_KMCx_SC(adev)){
 			specials[nspec++] = kmcx_sc_attrs;
 		}
