@@ -1007,6 +1007,8 @@ else
     case $MODEL in
     kmcu*)
         load_mgt $MODEL;;
+    z7io*)
+    	load_mgt $MODEL;;
     esac
 fi
 
