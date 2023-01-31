@@ -701,9 +701,9 @@ build_knobs() {
             else
                 echo "ERROR ACQ1001 + ACQ480 : BUS SPEED $bs check BOOT.bin"
             fi;;
-        acq22*)
+        acq2206*)
             echo "ACQ2206 + ACQ480 : OK";;
-        acq21*)
+        acq2106*)
             echo "ACQ2106 + ACQ480 : OK";;
         *zc706*)
             echo "ZC706 + ACQ480 : OK";;
