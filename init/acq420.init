@@ -709,6 +709,8 @@ build_knobs() {
             echo "ZC706 + ACQ480 : OK";;
         kmcuz30)
             echo "KMCUZ30 + ACQ480 : EXPERIMENTAL";;
+        z7io)
+            echo "Z7IO + ACQ480 : EXPERIMENTAL";;
         *)
             echo "ERROR: ACQ480 found, but not compatible with BASE $MODEL"
             exit 1;;
