@@ -48,7 +48,7 @@ enum hrtimer_restart _spadCopSec(struct hrtimer* hrt, ktime_t _kt)
 	do_div(kt, 1000000000);
 	secs = kt;
 
-	*sc->dst = secs;				// 20 bits seconds, 12 bits msec
+	*sc->dst = secs;
 	hrtimer_forward_now(hrt, sc->kt_period);
 	return HRTIMER_RESTART;
 }
