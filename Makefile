@@ -1,5 +1,5 @@
 # Cross compiler makefile for FIFO DMA example
-KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
+#KERN_SRC=~/PROJECTS/ACQ400/linux-xlnx
 obj-m += xilinx_devcfg.o
 obj-m += dmaengine314.o
 obj-m += pl330.o
