@@ -42,6 +42,9 @@ do
 		ACQ424*)
 			echo "# ACQ424 DETECTED set VRANGE HI"
 			VRANGE=13;;
+		ACQ465*)
+			echo "# ACQ465 DETECTED set VRANGE 10"
+			VRANGE=10;;
 		BOLO*)
 			echo "# BOLO DETECTED set VRANGE 12"
 			VRANGE=12;;
