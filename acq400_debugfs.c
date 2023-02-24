@@ -238,6 +238,7 @@ void acq465_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE(ACQ465_LCS);
 	DBG_REG_CREATE(ACQ465_BANK_MODE);
 	DBG_REG_CREATE(ADC_TRANSLEN);
+	DBG_REG_CREATE(ACQ465_DEBUG);
 }
 
 void acq494_createDebugfs(struct acq400_dev* adev, char* pcursor)

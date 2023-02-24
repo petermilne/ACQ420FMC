@@ -295,7 +295,6 @@ void acq480_onStart(struct acq400_dev *adev)
 
 void acq465_onStart(struct acq400_dev *adev)
 {
-	u32 ctrl;
 	u32 status = acq400rd32(adev, ADC_FIFO_STA);
 
 	dev_dbg(DEVP(adev), "acq465_onStart()");
