@@ -668,11 +668,13 @@ build_mgt400() {
             let mtyp=${dtsn#CE*}/10000
             case $mtyp in
             416)
-                echo set.sys $knobs/ident 0x21${name##*.}6${snx}
-                set.sys $knobs/ident 0x21${name##*.}6${snx}  ;;
+                set.sys $knobs/ident 0x21${name##*.}6${snx};;
+            426)
+                set.sys $knobs/ident 0x22${name##*.}6${snx};;
             *)
                 set.sys $knobs/ident 0x${mtyp}${name##*.}${snx};;
             esac
+            echo set ident $(cat $knobs/ident)
             echo "aggregator sites=none off" >$knobs/aggregator;;
         93)
 			HN=$(hostname)
