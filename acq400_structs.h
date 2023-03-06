@@ -435,6 +435,13 @@ struct ADC_dev {
 	int acq480_train;
 };
 
+#define ABCDE_LEN	256
+
+#define xo_abcde_buf_empty(cb)	((cb)->head == (cb)->tail)
+#define xo_abcde_buf_count(cb)  CIRC_CNT((cb)->head, (cb)->tail, ABCDE_LEN)
+#define xo_abcde_buf_space(cb)	CIRC_SPACE((cb)->head, (cb)->tail, ABCDE_LEN)
+#define xo_abcde_incr(p)	(((p)+1)&(ABCDE_LEN-1))
+
 struct XO_dev {
 	/* woo-ah - are we using site0 playloop_length or site1 wait for testing..*/
 	char id[16];
@@ -486,7 +493,19 @@ struct XO_dev {
 		} u;
 		int encoded_twocmp;
 	} ao424_device_settings;
+
+	struct AWG_ABCDE {
+		struct circ_buf queue;
+		wait_queue_head_t waitq;
+	} awg_abcde;
 };
+
+#define AWG_ABCDE_LEN	4096
+
+#define buf_empty(cb)		((cb)->head == (cb)->tail)
+#define buf_count(cb, len)   	CIRC_CNT((cb)->head, (cb)->tail, (len))
+#define buf_space(cb, len)	CIRC_SPACE((cb)->head, (cb)->tail, (len))
+#define buf_incr(p, len)	(((p)+1)&((len)-1))
 
 struct PG_dev {
 	char id[16];
@@ -528,9 +547,25 @@ struct acq400_path_descriptor {
 
 
 
+static inline void init_cb_empty(struct circ_buf* cb, const unsigned len)
+{
+	cb->head = cb->tail = 0;
+	if (cb->buf == 0){
+		cb->buf = kmalloc(len, GFP_KERNEL);
+	}
+}
+static inline void buf_put(struct circ_buf* cb, u8 xx, const unsigned len)
+{
+	cb->buf[cb->head] = xx;
+	cb->head = buf_incr(cb->head, len);
+}
 
-
-
+static inline u8 buf_get(struct circ_buf* cb, const unsigned len)
+{
+	unsigned char xx = cb->buf[cb->tail];
+	cb->tail = buf_incr(cb->tail, len);
+	return xx;
+}
 
 
 void event_isr(unsigned long data);

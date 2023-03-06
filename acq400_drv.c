@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.757"
+#define REVID 			"3.758"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1218,6 +1218,24 @@ void xo_check_fiferr(struct acq400_dev* adev, unsigned fsr)
 	}
 }
 
+
+void _update_abcde_status(struct XO_dev *xo_dev){
+	char bx = buf_get(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
+	if (bx >= 'A' && bx <= 'E'){
+		distributor_first_buffer = (bx-'A')*100;
+	}
+	wake_up_interruptible(&xo_dev->awg_abcde.waitq);
+
+}
+void update_abcde_status(struct XO_dev *xo_dev)
+{
+	dev_dbg(DEVP(&xo_dev->adev), "%s count:%d", __FUNCTION__, buf_count(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN));
+	if (buf_count(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN)){
+		_update_abcde_status(xo_dev);
+	}
+}
+
+
 int ao_auto_rearm(void *clidat)
 /* poll for AWG complete, then rearm it */
 {
@@ -1246,6 +1264,7 @@ int ao_auto_rearm(void *clidat)
 		xo_dev->AO_playloop.oneshot == AO_oneshot_rearm){
 		dev_dbg(DEVP(adev), "ao_auto_rearm() reset %d", xo_dev->AO_playloop.length);
 		xo_dev->AO_playloop.cursor = 0;
+		update_abcde_status(xo_dev);
 		xo400_reset_playloop(adev, xo_dev->AO_playloop.length);
 	}
 	dev_dbg(DEVP(adev), "ao_auto_rearm() 99");
@@ -2309,6 +2328,8 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 	}else if (IS_XO(adev)){
 		struct XO_dev *xo_dev;
 		SPECIALIZE(xo_dev, adev, struct XO_dev, "XO");
+		init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
+		init_waitqueue_head(&xo_dev->awg_abcde.waitq);
 	}else if (IS_BOLO8(adev)){
 		struct acq400_bolo_dev *b8_dev;
 		SPECIALIZE(b8_dev, adev, struct acq400_bolo_dev, "bolo8");

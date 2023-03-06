@@ -1780,6 +1780,68 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 }
 
 
+ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct AWG_ABCDE* abcde = &xo_dev->awg_abcde;
+	int cursor = 0;
+	int rc = 0;
+	u8 lbuf;
+
+	while(count > 0){
+		int headroom = buf_space(&abcde->queue, AWG_ABCDE_LEN);
+		int c0 = cursor;
+		if (count < headroom){
+			headroom = count;
+		}
+		for ( ; cursor < c0+headroom; ++cursor){
+			rc = copy_from_user(&lbuf, buf+cursor, sizeof(char));
+			dev_dbg(DEVP(adev), "acq400_awg_abcde_write count:%d cursor:%d cc:%c", count, cursor, lbuf);
+			if (likely(rc == 0)){
+				buf_put(&abcde->queue, lbuf, AWG_ABCDE_LEN);
+			}else{
+				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
+				return -rc;
+			}
+		}
+		count -= headroom;
+		if (count){
+			if (wait_event_interruptible(abcde->waitq, buf_space(&abcde->queue, AWG_ABCDE_LEN)) != 0){
+				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
+				return -EINTR;
+			}
+		}
+	}
+
+
+	if (rc > 0){
+		*f_pos += cursor;
+	}
+	return cursor;
+}
+
+int acq400_awg_abcde_release(struct inode *inode, struct file *file)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct XO_dev* xo_dev = container_of(pdesc->dev, struct XO_dev, adev);
+	init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
+	return acq400_release(inode, file);
+}
+int acq400_awg_abcde_open(struct inode *inode, struct file *file)
+{
+	static struct file_operations acq400_fops_awg_abcde = {
+			.write = acq400_awg_abcde_write,
+			.release = acq400_awg_abcde_release,
+	};
+	file->f_op = &acq400_fops_awg_abcde;
+	if (file->f_op->open){
+		return file->f_op->open(inode, file);
+	}else{
+		return 0;
+	}
+}
 
 int acq400_open_ui(struct inode *inode, struct file *file)
 {
@@ -1861,6 +1923,9 @@ int acq400_open_ui(struct inode *inode, struct file *file)
         		break;
         	case ACQ400_MINOR_ADC_NACC_SUBRATE:
         		rc = acq400_nacc_subrate_open(inode, file);
+        		break;
+        	case ACQ400_MINOR_AWG_ABCDE:
+        		rc = acq400_awg_abcde_open(inode, file);
         		break;
             	default:
         		if (minor >= ACQ400_MINOR_MAP_PAGE &&
