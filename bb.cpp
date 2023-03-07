@@ -140,7 +140,7 @@ struct poptOption opt_table[] = {
 	  "host", 'H', POPT_ARG_STRING, &G::host, 0, "server host 0: allow any host"
 	},
 	{
-	  "abcde", 'A', POPT_ARG_STRING, &G::abcde, 0, "awg segment to load"
+	  "abcde", 'A', POPT_ARG_STRING, &G::abcde, 'A', "awg segment to load"
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
@@ -484,6 +484,11 @@ void set_segment_start(int seg)
 
 	G::buffer0 = seg * seg_bufs;
 	setKnob(-1, DFB_SET, G::buffer0);
+	if (G::verbose){
+		unsigned check;
+		getKnob(-1, DFB, &check);
+		fprintf(stderr, "seg_segment_start(%d) set G::buffer0:%u knob %u\n", seg, G::buffer0, check);
+	}
 }
 
 void set_dist_awg(unsigned dist_s1)
