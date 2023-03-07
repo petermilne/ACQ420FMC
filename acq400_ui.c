@@ -1781,7 +1781,7 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 
 
 
-extern int awg_seg;
+extern char awg_seg[];
 
 ssize_t acq400_awg_abcde_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
@@ -1791,13 +1791,13 @@ ssize_t acq400_awg_abcde_read(struct file *file, char __user *buf, size_t count,
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	struct AWG_ABCDE* abcde = &xo_dev->awg_abcde;
 
-	int awg_seg0 = awg_seg;
+	char awg_seg0 = *awg_seg;
 
-	if (wait_event_interruptible(abcde->waitq, awg_seg != awg_seg0)){
+	if (wait_event_interruptible(abcde->waitq, *awg_seg != awg_seg0)){
 		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 		return -EINTR;
 	}else{
-		char tmp = awg_seg + 'A';
+		char tmp = *awg_seg;
 		int rc = copy_to_user(buf, &tmp, sizeof(char));
 
 		if (rc){

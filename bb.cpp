@@ -470,6 +470,7 @@ unsigned getSpecificBufferlen(int ibuf)
 #define BUFLEN	 	MODPRAMS "bufferlen"
 #define NBUF	 	MODPRAMS "nbuffers"
 #define AWG_SEG_BUFS	MODPRAMS "awg_seg_bufs"
+#define DFB_SET		MODPRAMS "distributor_first_buffer"
 
 #define PAGESZ	 4096
 #define PAGEM    (PAGESZ-1)
@@ -482,7 +483,7 @@ void set_segment_start(int seg)
 	getKnob(-1, AWG_SEG_BUFS, &seg_bufs);
 
 	G::buffer0 = seg * seg_bufs;
-	setKnob(-1, DFB, G::buffer0);
+	setKnob(-1, DFB_SET, G::buffer0);
 }
 
 void set_dist_awg(unsigned dist_s1)

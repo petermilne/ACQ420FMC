@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.759"
+#define REVID 			"3.760"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -248,9 +248,12 @@ int awg_seg_bufs = 100;
 module_param(awg_seg_bufs, int, 0644);
 MODULE_PARM_DESC(awg_seg_bufs, "awg abcde segments: number of buffers in segment");
 
-int awg_seg;
-module_param(awg_seg, int, 0444);
+char awg_seg[2] = { '0' };
+module_param_string(awg_seg, awg_seg, 2, 0444);
 MODULE_PARM_DESC(awg_seg, "current awg_segment: 0..5");
+
+static char species[2];
+module_param_string(specifies, species, 2, 0);
 
 
 int firstDistributorBuffer(void)
@@ -1232,7 +1235,8 @@ void _update_abcde_status(struct XO_dev *xo_dev){
 	char bx = buf_get(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
 	if (bx >= 'A' && bx <= 'E'){
 		distributor_first_buffer = (bx-'A')*awg_seg_bufs;
-		awg_seg = bx;
+		*awg_seg = bx;
+		dev_dbg(DEVP(&xo_dev->adev), "%s count:%c", __FUNCTION__, bx);
 	}
 	wake_up_interruptible(&xo_dev->awg_abcde.waitq);
 
