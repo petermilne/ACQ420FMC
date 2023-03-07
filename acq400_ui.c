@@ -1780,6 +1780,38 @@ int acq400_open_streamdac(struct inode *inode, struct file *file)
 }
 
 
+
+extern int awg_seg;
+
+ssize_t acq400_awg_abcde_read(struct file *file, char __user *buf, size_t count,
+        loff_t *f_pos)
+{
+	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	struct AWG_ABCDE* abcde = &xo_dev->awg_abcde;
+
+	int awg_seg0 = awg_seg;
+
+	if (wait_event_interruptible(abcde->waitq, awg_seg != awg_seg0)){
+		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+		return -EINTR;
+	}else{
+		char tmp = awg_seg + 'A';
+		int rc = copy_to_user(buf, &tmp, sizeof(char));
+
+		if (rc){
+			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
+			return -rc;
+		}
+	}
+
+	*f_pos += 1;
+	return 1;
+}
+
+
+
 ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t count, loff_t *f_pos)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
@@ -1832,6 +1864,7 @@ int acq400_awg_abcde_release(struct inode *inode, struct file *file)
 int acq400_awg_abcde_open(struct inode *inode, struct file *file)
 {
 	static struct file_operations acq400_fops_awg_abcde = {
+			.read = acq400_awg_abcde_read,
 			.write = acq400_awg_abcde_write,
 			.release = acq400_awg_abcde_release,
 	};
