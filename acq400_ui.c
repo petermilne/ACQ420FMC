@@ -1791,14 +1791,12 @@ ssize_t acq400_awg_abcde_read(struct file *file, char __user *buf, size_t count,
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 	struct AWG_ABCDE* abcde = &xo_dev->awg_abcde;
 
-	char awg_seg0 = *awg_seg;
-
-	if (wait_event_interruptible(abcde->waitq, *awg_seg != awg_seg0)){
+	if (wait_event_interruptible(abcde->ret_waitq, buf_count(&xo_dev->awg_abcde.ret_queue, AWG_ABCDE_LEN))){
 		dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
 		return -EINTR;
 	}else{
-		char tmp = *awg_seg;
-		int rc = copy_to_user(buf, &tmp, sizeof(char));
+		char bx = buf_get(&xo_dev->awg_abcde.ret_queue, AWG_ABCDE_LEN);
+		int rc = copy_to_user(buf, &bx, sizeof(char));
 
 		if (rc){
 			dev_err(DEVP(adev), "%s %d", __FUNCTION__, __LINE__);
@@ -1823,7 +1821,7 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 	u8 lbuf;
 
 	while(count > 0){
-		int headroom = buf_space(&abcde->queue, AWG_ABCDE_LEN);
+		int headroom = buf_space(&abcde->new_queue, AWG_ABCDE_LEN);
 		int c0 = cursor;
 		if (count < headroom){
 			headroom = count;
@@ -1832,7 +1830,7 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 			rc = copy_from_user(&lbuf, buf+cursor, sizeof(char));
 			dev_dbg(DEVP(adev), "acq400_awg_abcde_write count:%d cursor:%d cc:%c", count, cursor, lbuf);
 			if (likely(rc == 0)){
-				buf_put(&abcde->queue, lbuf, AWG_ABCDE_LEN);
+				buf_put(&abcde->new_queue, lbuf, AWG_ABCDE_LEN);
 			}else{
 				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
 				return -rc;
@@ -1840,9 +1838,9 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 		}
 		count -= headroom;
 		if (count){
-			if (wait_event_interruptible(abcde->waitq, buf_space(&abcde->queue, AWG_ABCDE_LEN)) != 0){
+			if (wait_event_interruptible(abcde->new_waitq, buf_space(&abcde->new_queue, AWG_ABCDE_LEN)) != 0){
 				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
-				init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
+				init_cb_empty(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
 				return -EINTR;
 			}
 		}
@@ -1857,6 +1855,10 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 int acq400_awg_abcde_release(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
+	struct acq400_dev* adev = pdesc->dev;
+	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+	xo_dev->awg_abcde.pid = 0;
+	init_cb_empty(&xo_dev->awg_abcde.ret_queue, AWG_ABCDE_LEN);
 	return acq400_release(inode, file);
 }
 int acq400_awg_abcde_open(struct inode *inode, struct file *file)
@@ -1866,16 +1868,21 @@ int acq400_awg_abcde_open(struct inode *inode, struct file *file)
 			.write = acq400_awg_abcde_write,
 			.release = acq400_awg_abcde_release,
 	};
+	struct acq400_path_descriptor* pdesc = PD(file);
 
-	if (PD(file)->pid != task_pid_nr(current)){
+	if (pdesc->pid != task_pid_nr(current)){
 		return -EBUSY;
-	}
-
-	file->f_op = &acq400_fops_awg_abcde;
-	if (file->f_op->open){
-		return file->f_op->open(inode, file);
 	}else{
-		return 0;
+		struct acq400_dev* adev = pdesc->dev;
+		struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
+
+		xo_dev->awg_abcde.pid = PD(file)->pid;
+		file->f_op = &acq400_fops_awg_abcde;
+		if (file->f_op->open){
+			return file->f_op->open(inode, file);
+		}else{
+			return 0;
+		}
 	}
 }
 

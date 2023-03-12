@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.760"
+#define REVID 			"3.761"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -1232,19 +1232,21 @@ void xo_check_fiferr(struct acq400_dev* adev, unsigned fsr)
 
 
 void _update_abcde_status(struct XO_dev *xo_dev){
-	char bx = buf_get(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
+	char bx = buf_get(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
+	char obx = *awg_seg;
 	if (bx >= 'A' && bx <= 'E'){
 		distributor_first_buffer = (bx-'A')*awg_seg_bufs;
 		*awg_seg = bx;
 		dev_dbg(DEVP(&xo_dev->adev), "%s count:%c", __FUNCTION__, bx);
 	}
-	wake_up_interruptible(&xo_dev->awg_abcde.waitq);
-
+	wake_up_interruptible(&xo_dev->awg_abcde.new_waitq);
+	buf_put(&xo_dev->awg_abcde.ret_queue, obx, AWG_ABCDE_LEN);
+	wake_up_interruptible(&xo_dev->awg_abcde.ret_waitq);
 }
 void update_abcde_status(struct XO_dev *xo_dev)
 {
-	dev_dbg(DEVP(&xo_dev->adev), "%s count:%d", __FUNCTION__, buf_count(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN));
-	if (buf_count(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN)){
+	dev_dbg(DEVP(&xo_dev->adev), "%s count:%d", __FUNCTION__, buf_count(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN));
+	if (buf_count(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN)){
 		_update_abcde_status(xo_dev);
 	}
 }
@@ -2342,8 +2344,10 @@ acq400_allocate_module_device(struct acq400_dev* adev)
 	}else if (IS_XO(adev)){
 		struct XO_dev *xo_dev;
 		SPECIALIZE(xo_dev, adev, struct XO_dev, "XO");
-		init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
-		init_waitqueue_head(&xo_dev->awg_abcde.waitq);
+		init_cb_empty(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
+		init_cb_empty(&xo_dev->awg_abcde.ret_queue, AWG_ABCDE_LEN);
+		init_waitqueue_head(&xo_dev->awg_abcde.new_waitq);
+		init_waitqueue_head(&xo_dev->awg_abcde.ret_waitq);
 	}else if (IS_BOLO8(adev)){
 		struct acq400_bolo_dev *b8_dev;
 		SPECIALIZE(b8_dev, adev, struct acq400_bolo_dev, "bolo8");

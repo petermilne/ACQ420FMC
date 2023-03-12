@@ -495,8 +495,11 @@ struct XO_dev {
 	} ao424_device_settings;
 
 	struct AWG_ABCDE {
-		struct circ_buf queue;
-		wait_queue_head_t waitq;
+		struct circ_buf new_queue;
+		struct circ_buf ret_queue;
+		pid_t pid;
+		wait_queue_head_t new_waitq;
+		wait_queue_head_t ret_waitq;
 	} awg_abcde;
 };
 
