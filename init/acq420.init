@@ -20,7 +20,7 @@ DROOT=/sys/kernel/debug
 
 SYSCONF=/mnt/local/sysconfig
 ULB=/usr/local/bin
-MODP=/sys/module/acq420fmc/parameters
+export MODP=/sys/module/acq420fmc/parameters
 
 HAS_MGTDRAM=none
 
@@ -580,7 +580,6 @@ build_site0() {
 
     ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
     ln -s ${MODP}/xo_distributor_sample_size ${ek}/dssb
-    ln -s ${MODP}/awg_seq ${ek}/awg_seg
     ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
     ln -s /usr/local/bin/channel_mapping ${ek}
     echo $HAS_MGTDRAM > ${ek}/has_mgtdram
