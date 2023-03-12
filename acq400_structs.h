@@ -526,6 +526,7 @@ struct EventInfo {
 struct acq400_path_descriptor {
 	struct acq400_dev* dev;
 	int minor;
+	pid_t pid;
 	struct list_head RESERVED;
 	struct list_head bq_list;
 	wait_queue_head_t waitq;

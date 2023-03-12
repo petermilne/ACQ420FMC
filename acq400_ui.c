@@ -1842,11 +1842,11 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 		if (count){
 			if (wait_event_interruptible(abcde->waitq, buf_space(&abcde->queue, AWG_ABCDE_LEN)) != 0){
 				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
+				init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
 				return -EINTR;
 			}
 		}
 	}
-
 
 	if (rc > 0){
 		*f_pos += cursor;
@@ -1857,8 +1857,6 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 int acq400_awg_abcde_release(struct inode *inode, struct file *file)
 {
 	struct acq400_path_descriptor* pdesc = PD(file);
-	struct XO_dev* xo_dev = container_of(pdesc->dev, struct XO_dev, adev);
-	init_cb_empty(&xo_dev->awg_abcde.queue, AWG_ABCDE_LEN);
 	return acq400_release(inode, file);
 }
 int acq400_awg_abcde_open(struct inode *inode, struct file *file)
@@ -1868,6 +1866,11 @@ int acq400_awg_abcde_open(struct inode *inode, struct file *file)
 			.write = acq400_awg_abcde_write,
 			.release = acq400_awg_abcde_release,
 	};
+
+	if (PD(file)->pid != task_pid_nr(current)){
+		return -EBUSY;
+	}
+
 	file->f_op = &acq400_fops_awg_abcde;
 	if (file->f_op->open){
 		return file->f_op->open(inode, file);

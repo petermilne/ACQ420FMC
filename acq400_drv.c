@@ -1041,7 +1041,7 @@ int acq400_init_descriptor(struct acq400_path_descriptor** pd)
 {
 	struct acq400_path_descriptor* pdesc = kzalloc(PDSZ, GFP_KERNEL);
 	init_waitqueue_head(&pdesc->waitq);
-
+	pdesc->pid = task_pid_nr(current);
 	*pd = pdesc;
 	return 0;
 }
