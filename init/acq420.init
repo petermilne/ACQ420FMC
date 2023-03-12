@@ -20,6 +20,7 @@ DROOT=/sys/kernel/debug
 
 SYSCONF=/mnt/local/sysconfig
 ULB=/usr/local/bin
+MODP=/sys/module/acq420fmc/parameters
 
 HAS_MGTDRAM=none
 
@@ -417,7 +418,7 @@ build_knobs_device() {
             ACQ437_SITES="${ACQ437_SITES}$site";;
         esac
         echo WORKAROUND: clear FIFERR
-        echo 0 >/sys/module/acq420fmc/parameters/FIFERR
+        echo 0 >${MODP}/FIFERR
         echo 4 >${ek}/SAMPLE_SIZE
         set_max_min_khz ${site} 128 4
         CLKDIV=8;;
@@ -578,7 +579,7 @@ build_site0() {
 	${ek}
 
     ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
-    ln -s /sys/module/acq420fmc/parameters/xo_distributor_sample_size ${ek}/dssb
+    ln -s ${MODP}/xo_distributor_sample_size ${ek}/dssb
     ln -s /usr/local/CARE/est_buf_size.sh ${ek}/optimise_bufferlen_burst
     ln -s /usr/local/bin/channel_mapping ${ek}
     echo $HAS_MGTDRAM > ${ek}/has_mgtdram
@@ -587,7 +588,7 @@ build_site0() {
     echo $IS_TIGA > ${ek}/is_tiga
     
     
-    lck=/sys/module/acq420fmc/parameters/TIM_CTRL_LOCK
+    lck=${MODP}/TIM_CTRL_LOCK
     [ -e $lck ] && ln -s $lck ${ek}
     
     for k in live_post live_pre live_mode; do
@@ -1074,7 +1075,7 @@ fi
 
 echo ++ Enable counter monitors
 CACHE_SITES_MASK=${CACHE_SITES_MASK:-0}
-set.sys /sys/module/acq420fmc/parameters/cache_sites_mask $CACHE_SITES_MASK
+set.sys ${MODP}/cache_sites_mask $CACHE_SITES_MASK
 
 echo ++ Enable analog power..
 
