@@ -46,7 +46,7 @@ acq465_filter_all() {
 ### ACTION
 
 logger -t acq465_adc.init 01
-caput  acq1001_301:0:ACQ465:POLL 0
+caput  $(hostname):0:ACQ465:POLL 0
 
 [ $reset -eq 1 ] && set.site ${SITE} adc_reset 1
 # Read all the registers, this initial read seems to ensure the first writes are successful
