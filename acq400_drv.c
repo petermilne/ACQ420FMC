@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.761"
+#define REVID 			"3.763"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -258,7 +258,9 @@ module_param_string(specifies, species, 2, 0);
 
 int firstDistributorBuffer(void)
 {
-	return distributor_first_buffer + reserve_buffers;
+	int rc = distributor_first_buffer + reserve_buffers;
+	dev_dbg(DEVP(acq400_devices[0]), "%s return %d", __FUNCTION__, rc);
+	return rc;
 }
 int lastDistributorBuffer(void)
 {
@@ -1234,10 +1236,12 @@ void xo_check_fiferr(struct acq400_dev* adev, unsigned fsr)
 void _update_abcde_status(struct XO_dev *xo_dev){
 	char bx = buf_get(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
 	char obx = *awg_seg;
-	if (bx >= 'A' && bx <= 'E'){
+	if (VALID_ABCDE(bx)){
 		distributor_first_buffer = (bx-'A')*awg_seg_bufs;
 		*awg_seg = bx;
-		dev_dbg(DEVP(&xo_dev->adev), "%s count:%c", __FUNCTION__, bx);
+		dev_dbg(DEVP(&xo_dev->adev), "%s seg:%c", __FUNCTION__, bx);
+	}else{
+		dev_err(DEVP(&xo_dev->adev), "%s REJECT:%c %02x", __FUNCTION__, bx, bx);
 	}
 	wake_up_interruptible(&xo_dev->awg_abcde.new_waitq);
 	buf_put(&xo_dev->awg_abcde.ret_queue, obx, AWG_ABCDE_LEN);
@@ -1279,8 +1283,8 @@ int ao_auto_rearm(void *clidat)
 	if (xo_dev->AO_playloop.length > 0 &&
 		xo_dev->AO_playloop.oneshot == AO_oneshot_rearm){
 		dev_dbg(DEVP(adev), "ao_auto_rearm() reset %d", xo_dev->AO_playloop.length);
-		xo_dev->AO_playloop.cursor = 0;
 		update_abcde_status(xo_dev);
+		xo_dev->AO_playloop.cursor = 0;
 		xo400_reset_playloop(adev, xo_dev->AO_playloop.length);
 	}
 	dev_dbg(DEVP(adev), "ao_auto_rearm() 99");

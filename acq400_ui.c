@@ -1828,12 +1828,16 @@ ssize_t acq400_awg_abcde_write(struct file *file, const char __user *buf, size_t
 		}
 		for ( ; cursor < c0+headroom; ++cursor){
 			rc = copy_from_user(&lbuf, buf+cursor, sizeof(char));
-			dev_dbg(DEVP(adev), "acq400_awg_abcde_write count:%d cursor:%d cc:%c", count, cursor, lbuf);
-			if (likely(rc == 0)){
-				buf_put(&abcde->new_queue, lbuf, AWG_ABCDE_LEN);
+			if (VALID_ABCDE(lbuf)){
+				dev_dbg(DEVP(adev), "acq400_awg_abcde_write count:%d cursor:%d cc:%c", count, cursor, lbuf);
+				if (likely(rc == 0)){
+					buf_put(&abcde->new_queue, lbuf, AWG_ABCDE_LEN);
+				}else{
+					dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
+					return -rc;
+				}
 			}else{
-				dev_err(DEVP(adev), "%s %d rc:%d", __FUNCTION__, __LINE__, rc);
-				return -rc;
+				dev_dbg(DEVP(adev), "%s rejected d:%d c:%c", __FUNCTION__, lbuf, lbuf);
 			}
 		}
 		count -= headroom;
