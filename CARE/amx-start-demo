@@ -1,0 +1,37 @@
+# AMX demo
+# RTM mode. DEC10 FPGA, 1MSPS output rate
+# 48ch x 2b x 16384 = 2M => match to host buffer size
+# 50Hz trigger, 50 buffers per sec, 25MB/s
+
+USE_WRTT1=${1:-0}
+set -x
+
+set.site 1 es_enable=0
+set.site 1 rgm=3,0,1 
+# for 16384 samples:
+set.site 1 RTM_TRANSLEN 16384
+
+
+# trigger local usec count on FP, may not be great for WRTT1
+set.site 0 spad1_us=1,0,1
+
+# set the TRG.d0 source to FP, NOT WR. Start trigger: SOFT
+set.site 0 SIG:SRC:TRG:0 EXT
+set.site 0 SIG:SRC:TRG:1 STRIG
+
+if [ $USE_WRTT1 -eq 1 ]; then
+	# for WR global trigger, use WRTT1 and
+	set.site 0 SIG:SRC:TRG:1 WRTT1
+	# start counters on WRTT1
+	set.site 0 spad1_us=1,1,1
+	echo "USE_WRTT1 set. example global trigger, set WRTT1 on next second:"
+	echo "set.site 11 wrtd_txi --tx_mask=2 --on_next_second=1"
+fi
+
+# show TAI STAMP every trigger
+#set.site 0 spadcop3 1,0,0x214,1000a
+# Show TAI seconds
+set.site 0 spadcop3 1,0,0x208,1000
+
+run0 1,2,3,4,5,6 1,8,0
+
