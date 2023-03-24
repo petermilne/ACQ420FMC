@@ -3,10 +3,17 @@
 # 48ch x 2b x 16384 = 2M => match to host buffer size
 # 50Hz trigger, 50 buffers per sec, 25MB/s
 
+if [ -z $1 ]; then
+	echo "amx-start-demo 0: 1: USE WRTT1 0: SOFT_TRIGGER
+	exit 0
+fi
 USE_WRTT1=${1:-0}
+echo amx-start-demo USE_WRTT1=$USE_WRTT1
+
 set -x
 
 set.site 1 es_enable=0
+sleep 2
 set.site 1 rgm=3,0,1 
 # for 16384 samples:
 set.site 1 RTM_TRANSLEN 16384
