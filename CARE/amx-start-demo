@@ -4,7 +4,7 @@
 # 50Hz trigger, 50 buffers per sec, 25MB/s
 
 if [ -z $1 ]; then
-	echo "amx-start-demo 0: 1: USE WRTT1 0: SOFT_TRIGGER
+	echo "amx-start-demo 0: 1: USE WRTT1 0: SOFT_TRIGGER"
 	exit 0
 fi
 USE_WRTT1=${1:-0}
