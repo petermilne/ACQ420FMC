@@ -37,7 +37,7 @@ proc readCoeffs {fp} {
 if { $::argc > 0 } {
 	set cfile [lindex $::argv 0]
 	if { $::argc == 1 && [file exists $cfile] } {
-		puts "using file $cfile"
+		puts "site $SITE using file $cfile"
 		readCoeffs [open $cfile r]
 	} else {
 		puts "using args immediate $::argv"
