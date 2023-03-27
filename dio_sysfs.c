@@ -317,13 +317,19 @@ ssize_t store_##fun##chan(								\
 static DEVICE_ATTR(fun##chan, S_IRUGO|S_IWUSR, show_##fun##chan, store_##fun##chan)
 
 const unsigned PPW_TRG_FIELDS[] = { PPW_TRG_BUS, PPW_TRG_BIT, PPW_TRG_RISING, 0 };
-const unsigned PPW_PWM_FIELDS[] = { PPW_PWM_IS, PPW_PWM_ICOUNT, PPW_PWM_OCOUNT, PPW_PWM_PRD, 0 };
 const unsigned PPW_REP_FIELDS[] = { PPW_REP_FIELD, 0 };
+const unsigned PPW_PWM_GP_FIELDS[] = { PPW_PWM_PRD, 0 };
+const unsigned PPW_PWM_IC_FIELDS[] = { PPW_PWM_IS, PPW_PWM_ICOUNT, 0 };
+const unsigned PPW_PWM_OC_FIELDS[] = { PPW_PWM_OCOUNT, 0 };
+
+
 
 #define PPW_FUNS(CH) \
 	KNOB_FUN_REG(ppw_trg, CH, PPW_TRG(CH), PPW_TRG_FIELDS, !ZERO_BASED); \
-	KNOB_FUN_REG(ppw_pwm, CH, PPW_PWM(CH), PPW_PWM_FIELDS, !ZERO_BASED); \
 	KNOB_FUN_REG(ppw_rep, CH, PPW_REP(CH), PPW_REP_FIELDS, ZERO_BASED);  \
+	KNOB_FUN_REG(ppw_pwm_gp, CH, PPW_PWM_GP(CH), PPW_PWM_GP_FIELDS, !ZERO_BASED); \
+	KNOB_FUN_REG(ppw_pwm_ic, CH, PPW_PWM_IC(CH), PPW_PWM_IC_FIELDS, !ZERO_BASED); \
+	KNOB_FUN_REG(ppw_pwm_oc, CH, PPW_PWM_OC(CH), PPW_PWM_OC_FIELDS, !ZERO_BASED); \
 	MAKE_DNUM(ppw_cnt##CH, PPW_STA(CH), 0x0000ffff);
 
 PPW_FUNS(1);
@@ -334,7 +340,9 @@ PPW_FUNS(5);
 PPW_FUNS(6);
 
 #define PDA(kb)  &dev_attr_##kb.attr
-#define PPW_KNOBS(ch) PDA(ppw_trg##ch), PDA(ppw_pwm##ch), PDA(ppw_rep##ch), PDA(ppw_cnt##ch)
+#define PPW_KNOBS(ch) \
+	PDA(ppw_trg##ch), PDA(ppw_rep##ch), PDA(ppw_cnt##ch), \
+	PDA(ppw_pwm_gp##ch), PDA(ppw_pwm_ic##ch), PDA(ppw_pwm_oc##ch)
 
 const struct attribute *dio482ppw_attrs[] = {
 	&dev_attr_DO32.attr,
