@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.766"
+#define REVID 			"3.768"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -669,21 +669,56 @@ int over_open_backlog(struct acq400_dev *adev)
 }
 
 
+ssize_t _acq400_continuous_read(struct acq400_dev *adev,
+		char* lbuf, char __user *buf, size_t count, struct HBM *hbm)
+{
+	/* update every hb0 or at least once per second */
+	unsigned long now = get_seconds();
+	int rc = 0;
+	int nread = sprintf(lbuf, "%02d\n", hbm->ix);
+
+	/* rate-limited to 1Hz - client gets current and previous hbm
+	 * set hb0_no_rate_limit negative to increase this ..
+	 */
+	if (adev->rt.hbm_m1 != 0 && (now + hb0_no_ratelimit) > adev->rt.hb0_last){
+		adev->rt.hb0_count++;
+		adev->rt.hb0_ix[0] = adev->rt.hbm_m1->ix;
+		adev->rt.hb0_ix[1] = hbm->ix;
+		adev->rt.hb0_last = now;
+		dev_dbg(DEVP(adev), "hb0 %d now:%lu", adev->rt.hb0_count, now);
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
+		wake_up_interruptible(&adev->hb0_marker);
+	}else if (sync_continuous){
+		/* this operation is surprisingly expensive. Use sparingly */
+		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
+	}
+	adev->rt.hbm_m1 = hbm;
+
+	acq400_bq_notify(adev, hbm);
+#if 0
+	/* pick off any other queued buffers ..
+	 * enable only when acq400_stream can handle multiple responses..
+	 */
+	while(getFull(adev, &hbm, GF_NOWAIT) == GET_FULL_OK){
+		acq400_bq_notify(adev, hbm);
+		nread += sprintf(lbuf+nread, "%02d\n", hbm->ix);
+		if (nread + 10 > MAXLBUF){
+			break;
+		}
+	}
+#endif
+	rc = copy_to_user(buf, lbuf, nread);
+	return rc? -rc: nread;
+}
 ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count,
         loff_t *f_pos)
 /* NB: waits for a full buffer to ARRIVE, but only returns the 2 char ID */
 {
 	struct acq400_dev *adev = ACQ400_DEV(file);
-	char* lbuf = PD(file)->lbuf;
 	int rc = 0;
-	struct HBM *hbm;
-	int nread;
-	unsigned long now;
-
+	struct HBM *hbm = 0;
 
 	adev->stats.reads++;
-
-	set_continuous_reader(adev);
 
 	if (adev->rt.please_stop){
 		return -1;		/* EOF ? */
@@ -708,50 +743,17 @@ ssize_t acq400_continuous_read(struct file *file, char __user *buf, size_t count
 		return rc;
 	}
 
+	if (hbm == 0){
+		dev_err(DEVP(adev), "acq400_continuous_read() null hbm");
+		return -1;
+	}
 	if (list_empty(&adev->OPENS)){
 		dev_warn(DEVP(adev), "no buffer available");
 		return -1;
 	}
 
-
 	dev_dbg(DEVP(adev), "acq400_continuous_read():getFull() : %d", hbm->ix);
-
-	/* update every hb0 or at least once per second */
-	now = get_seconds();
-	/* ratelimited to 1Hz - client gets current and previous hbm
-	 * set hb0_no_rate_limit negative to increase this ..
-	 */
-	if (adev->rt.hbm_m1 != 0 && (now + hb0_no_ratelimit) > adev->rt.hb0_last){
-		adev->rt.hb0_count++;
-		adev->rt.hb0_ix[0] = adev->rt.hbm_m1->ix;
-		adev->rt.hb0_ix[1] = hbm->ix;
-		adev->rt.hb0_last = now;
-		dev_dbg(DEVP(adev), "hb0 %d now:%lu", adev->rt.hb0_count, now);
-		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
-		wake_up_interruptible(&adev->hb0_marker);
-	}else if (sync_continuous){
-		/* this operation is surprisingly expensive. Use sparingly */
-		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
-	}
-
-	nread = sprintf(lbuf, "%02d\n", hbm->ix);
-	adev->rt.hbm_m1 = hbm;
-
-	acq400_bq_notify(adev, hbm);
-#if 0
-	/* pick off any other queued buffers ..
-	 * enable only when acq400_stream can handle multiple responses..
-	 */
-	while(getFull(adev, &hbm, GF_NOWAIT) == GET_FULL_OK){
-		acq400_bq_notify(adev, hbm);
-		nread += sprintf(lbuf+nread, "%02d\n", hbm->ix);
-		if (nread + 10 > MAXLBUF){
-			break;
-		}
-	}
-#endif
-	rc = copy_to_user(buf, lbuf, nread);
-	return rc? -rc: nread;
+	return _acq400_continuous_read(adev, PD(file)->lbuf, buf, count, hbm);
 }
 
 
@@ -909,6 +911,7 @@ int acq420_open_continuous(struct inode *inode, struct file *file)
 	if (rc){
 		return rc;
 	}
+	set_continuous_reader(adev);
 	if (IS_SC(adev)){
 		file->f_op = &acq2006_fops_continuous;
 	}else{
