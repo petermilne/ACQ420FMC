@@ -1,6 +1,6 @@
 #!/bin/bash
 # $1 is the datecode
-REL=$(cat ../linux-xlnx/include/config/kernel.release)
+REL=$(cat ${KERN_SRC}/include/config/kernel.release)
 PKO="packageko-$REL-$1.img"
 echo Building $PKO
 rm -Rf modules_output
@@ -17,7 +17,7 @@ handle_ext_modules() {
 handle_ext_modules ../DRIVERS-OOK
 
 
-cp $(find ../linux-xlnx -name \*.ko) modules_output
+cp $(find ${KERN_SRC} -name \*.ko) modules_output
 cp *.ko modules_output
 mksquashfs modules_output/* release/$PKO 2>&1 >squashfs.log
 rm packageko*img
