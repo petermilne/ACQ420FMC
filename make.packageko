@@ -4,7 +4,7 @@ REL=$(cat ${KERN_SRC}/include/config/kernel.release)
 PKO="packageko-$REL-$1.img"
 echo Building $PKO
 rm -Rf modules_output
-mkdir -p modules_output
+mkdir -p modules_output release
 
 
 
@@ -20,7 +20,7 @@ handle_ext_modules ../DRIVERS-OOK
 cp $(find ${KERN_SRC} -name \*.ko) modules_output
 cp *.ko modules_output
 mksquashfs modules_output/* release/$PKO 2>&1 >squashfs.log
-rm packageko*img
+rm -f packageko*img
 cp release/$PKO .
 if [ $? -ne 0 ]; then
 	echo ERROR: check squashfs.log
