@@ -1,15 +1,4 @@
 #!/bin/bash
 
-KS=$PWD/../acq400_kernel
-if [ ! -d $KS ]; then
-	KS=~/PROJECTS/ACQ400/linux-xlnx
-	if [ ! -d $KS ]; then
-		echo "KS $KS NOT FOUND"
-		exit 1
-	fi
-fi
-echo "build with KS $KS"
-
-STUFF=${*:-all}
-export CROSS_COMPILE=arm-linux-gnueabihf-
-CC=${CROSS_COMPILE}gcc CXX=${CROSS_COMPILE}g++ make ARCH=arm ${STUFF} KERN_SRC=${KS}
+source ./setenv.zynq
+make ${*:-all}
