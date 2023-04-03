@@ -669,14 +669,10 @@ int over_open_backlog(struct acq400_dev *adev)
 }
 
 
-ssize_t _acq400_continuous_read(struct acq400_dev *adev,
-		char* lbuf, char __user *buf, size_t count, struct HBM *hbm)
+void _acq400_continuous_read_update_hb0(struct acq400_dev *adev, struct HBM *hbm)
 {
 	/* update every hb0 or at least once per second */
 	unsigned long now = get_seconds();
-	int rc = 0;
-	int nread = sprintf(lbuf, "%02d\n", hbm->ix);
-
 	/* rate-limited to 1Hz - client gets current and previous hbm
 	 * set hb0_no_rate_limit negative to increase this ..
 	 */
@@ -693,7 +689,16 @@ ssize_t _acq400_continuous_read(struct acq400_dev *adev,
 		dma_sync_single_for_cpu(DEVP(adev), hbm->pa, hbm->len, hbm->dir);
 	}
 	adev->rt.hbm_m1 = hbm;
+}
 
+ssize_t _acq400_continuous_read(struct acq400_dev *adev,
+		char* lbuf, char __user *buf, size_t count, struct HBM *hbm)
+{
+
+	int rc = 0;
+	int nread = sprintf(lbuf, "%02d\n", hbm->ix);
+
+	_acq400_continuous_read_update_hb0(adev, hbm);
 	acq400_bq_notify(adev, hbm);
 #if 0
 	/* pick off any other queued buffers ..
