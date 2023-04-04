@@ -562,29 +562,31 @@ build_site0() {
     ln -s $1 ${dk}
     web_append acq400.0 0
     fix_state
-    echo 1 > $ek/slowmon_fs
-    echo 1 > $ek/slowmon_fin
-    echo 0 > $ek/slowmon_us
-    echo 0 > $ek/slowmon_nacc
-    
+
+	for k in  slowmon_fs  slowmon_fin; do
+		echo 1> $k
+	done
+
+    for k in slowmon_us slowmon_nacc ssb live_post live_pre live_mode NCHAN data32 shot shot_complete; do
+        echo 0 > ${ek}/$k
+    done
     ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
         ${dk}/soft_trigger ${dk}/bufferlen ${ek}
         
     [ -e ${dk}/counter_latch ] && ln -s ${dk}/counter_latch ${ek}
 
-    ln -s $ULB/get.site $ULB/set.site ${ek}
-    ln -s $ULB/set.site ${ek}/SS
-    ln -s $ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush $ULB/awg_abort \
+    ln -s $ULB/get.site $ULB/set.site $ULB/awg_abort \
+		$ULB/fit_rtm_translen_to_buffer $ULB/rgm_flush \
         $ULB/run0 $ULB/play0 $ULB/get.xdt \
         $ULB/streamtonowhered $ULB/set.sync_role \
-		$ULB/datals ${ULB}/cstate \
-	${ek}
+		$ULB/datals ${ULB}/cstate $ULB/channel_mapping ${ek}
+	ln -s $ULB/set.site ${ek}/SS
 
     ln -s /proc/driver/acq400/0/stats /proc/driver/acq400/0/Qstats ${ek}
     ln -s ${MODP}/xo_distributor_sample_size ${ek}/dssb
     ln -s ${ULC}/est_buf_size.sh ${ek}/optimise_bufferlen_burst
-    ln -s /usr/local/bin/channel_mapping ${ek}
     ln -s ${ULC}/preset? ${ek}
+    ln -s ${ULC}/get_data_size ${ek}/raw_data_size
     echo $HAS_MGTDRAM > ${ek}/has_mgtdram
     IS_TIGA=none
     [ -e /dev/acq400.0.knobs/wr_ts_s1_count ] && IS_TIGA=1
@@ -593,36 +595,25 @@ build_site0() {
     
     lck=${MODP}/TIM_CTRL_LOCK
     [ -e $lck ] && ln -s $lck ${ek}
-    
-    for k in live_post live_pre live_mode; do
-        echo 0 > ${ek}/$k
-    done
-    
-    
+
     [ "x$REBOOT_KNOB" = "xy" ] && ln -s $ULB/reboot ${ek}
-    
-    
+
     for k in ${dk}/data_engine_? ${dk}/gpg_* ${dk}/fpctl* ${dk}/spad* \
         ${dk}/di4_? ${dk}/do4_? ${dk}/data32 ${dk}/bq* ${dk}/dist_s1 \
         ${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route* ${dk}/wr* ${dk}/rt_status; do
         [ -e $k ] && ln -s $k ${ek}
     done
-    for knob in NCHAN data32 shot shot_complete; do
-        echo 0 > /etc/acq400/0/$knob
-    done
-    ln -s ${ULC}/get_data_size ${ek}/raw_data_size
     
     echo "+++ build_site0 model $MODEL"
     case $MODEL in
     acq2?06*)
         [ "x$ETH1_E1000X" = "xy" ] && ${ULC}/load.acq2106_1000X
         rm /etc/acq400/0/sync_out_cable_det
-        ln -s /dev/gpio/SYNC_CABLE_DET /etc/acq400/0/sync_out_cable_det
-        ls -l /etc/acq400/0/sync_out_cable_det
-        ln -s $ULB/load.si5326 /etc/acq400/0
-        ln -s $ULB/si5326_tune_phase /etc/acq400/0/
+        ln -s /dev/gpio/SYNC_CABLE_DET ${ek}/sync_out_cable_det
+        ln -s $ULB/load.si5326 $ULB/si5326_tune_phase ${ek}
+
         if [ -e ${dk}/has_axi_dma_stack ] && [ $(cat ${dk}/has_axi_dma_stack) != "0" ]; then
-           ln -s ${ULC}/stack_480 /etc/acq400/0
+           ln -s ${ULC}/stack_480 ${ek}
         fi 
         ln -s ${ULC}/LLC_instrument_latency ${ek};;
     z7io)
