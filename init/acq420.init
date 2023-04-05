@@ -563,13 +563,6 @@ build_site0() {
     web_append acq400.0 0
     fix_state
 
-	for k in  slowmon_fs  slowmon_fin; do
-		echo 1> $k
-	done
-
-    for k in slowmon_us slowmon_nacc ssb live_post live_pre live_mode NCHAN data32 shot shot_complete; do
-        echo 0 > ${ek}/$k
-    done
     ln -s ${dk}/aggregator ${dk}/distributor ${dk}/decimate ${dk}/zclk_sel \
         ${dk}/soft_trigger ${dk}/bufferlen ${ek}
         
@@ -603,6 +596,14 @@ build_site0() {
         ${dk}/sync_* ${dk}/evt_* ${dk}/sig_src_route* ${dk}/wr* ${dk}/rt_status; do
         [ -e $k ] && ln -s $k ${ek}
     done
+
+	for k in  slowmon_fs  slowmon_fin; do
+		echo 1> $k
+	done
+
+	for k in slowmon_us slowmon_nacc ssb live_post live_pre live_mode NCHAN data32 shot shot_complete; do
+	    echo 0 > ${ek}/$k
+	done
     
     echo "+++ build_site0 model $MODEL"
     case $MODEL in
