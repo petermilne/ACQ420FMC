@@ -114,6 +114,9 @@ packageko:
 	./make.packageko $(DC)
 
 
+opkg_clean:
+	rm -Rf opkg
+
 opkg:
 	mkdir -p opkg/usr/local/bin \
 		opkg/usr/share opkg/usr/local/CARE opkg/usr/local/map \
@@ -145,7 +148,7 @@ emlog:
 	$(CROSS_COMPILE)strip --strip-debug opkg/usr/local/bin/nbcat opkg/usr/local/bin/mkemlog
 
 	
-package: all opkg opkgcp emlog packageko
+package: all opkg_clean opkg opkgcp emlog packageko
 	echo do NOT rm -Rf opkg/*
 	mkdir -p release
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
