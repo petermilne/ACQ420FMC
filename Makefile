@@ -99,14 +99,30 @@ APPS := mmap acq400_stream permute acq435_decode \
 # dropped
 # multi_event 
 
-
+LIBINC = acq-util.h Buffer.h ES.h
 LIBACQSO = libacq.so
 LIBACQSONAME = libacq.so.1
 
-LIBS = $(LIBACQSONAME)
 
-all: modules  $(LIBS) apps
-	
+ifeq (arm, ${ARCH})
+ARCHD = linux-arm
+LIBS = ./lib/$(ARCHD)/$(LIBACQSONAME)
+$(info ARCH $(ARCH) ARCHD $(ARCHD))
+libs: $(LIBS) ../include
+all: modules libs apps
+
+else
+ARCH = linux-x86_64
+ARCHD = linux-x86_64
+LIBS = ./lib/$(ARCHD)/$(LIBACQSONAME)
+
+libs: $(LIBS) ../include
+
+all: libs
+
+endif
+
+
 date:
 	echo $(DC)
 
@@ -313,21 +329,21 @@ rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
 
 LIBSRCS = acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp ES.cpp
-$(LIBACQSONAME): $(LIBSRCS)
-	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
-	-ln -s $(LIBACQSONAME) $(LIBACQSO)
-	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib
-	$(shell mkdir -p ../lib/linux-arm; cd ../lib/linux-arm/; ln -s $(LIBACQSONAME) $(LIBACQSO))
-	cp -a $(LIBACQSONAME) $(LIBACQSO) ../lib/linux-arm
-	
 
-$(LIBACQSONAME)-x86: $(LIBSRCS)
-	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
-	$(shell mkdir -p ../lib/linux-x86_64; cd ../lib/linux-x86_64/; ln -s $(LIBACQSONAME) $(LIBACQSO))	
-	cp -a $(LIBACQSONAME)-x86 ../lib/linux-x86_64/$(LIBACQSONAME)
-	
+../include:
+	mkdir -p ../include
+	cp $(LIBINC) ../include
 
-		
+./lib/$(ARCHD)/$(LIBACQSONAME): $(LIBSRCS)
+	mkdir -p ./lib/$(ARCHD)
+	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
+	cd ./lib/$(ARCHD); ln -s $(LIBACQSONAME) $(LIBACQSO)
+	echo lib for local use:
+	ls -l ./lib/$(ARCHD)
+	mkdir -p ../lib/$(ARCHD); cp -a ./lib/$(ARCHD)/*  ../lib/$(ARCHD)
+	echo lib for external use
+	ls -l ../lib/$(ARCHD)
+
 zynq:
 	./make.zynq
 		
