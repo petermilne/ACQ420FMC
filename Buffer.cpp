@@ -127,7 +127,7 @@ MapBuffer::MapBuffer(const char* _fname, int _buffer_len) :
 		fprintf(stderr, "mmap() failed to get the hint:%p actual %p errno:%d\n", ba1, pdata, errno);
 		exit(1);
 	}
-	if (verbose > 2) fprintf(stderr, "MapBuffer[%d] %s, %p\n",
+	if (verbose > 2) fprintf(stderr, "MapBuffer[%ld] %s, %p\n",
 			the_buffers.size()-1, fname, pdata);
 
 	ba_hi = ba1 += _buffer_len;

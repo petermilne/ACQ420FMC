@@ -337,7 +337,7 @@ LIBSRCS = acq-util.c knobs.cpp acq_rt.cpp Buffer.cpp ES.cpp
 ./lib/$(ARCHD)/$(LIBACQSONAME): $(LIBSRCS)
 	mkdir -p ./lib/$(ARCHD)
 	$(CXX) -shared -Wl,-soname,$(LIBACQSONAME) -fPIC -o $@ $^
-	cd ./lib/$(ARCHD); ln -s $(LIBACQSONAME) $(LIBACQSO)
+	cd ./lib/$(ARCHD); ln -fs $(LIBACQSONAME) $(LIBACQSO)
 	echo lib for local use:
 	ls -l ./lib/$(ARCHD)
 	mkdir -p ../lib/$(ARCHD); cp -a ./lib/$(ARCHD)/*  ../lib/$(ARCHD)
