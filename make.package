@@ -1,0 +1,6 @@
+#!/bin/bash
+# build for ACQ400_ESW_TOP
+source ../setenv
+make libs
+./make.zynq libs all package
+

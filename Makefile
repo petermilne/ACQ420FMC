@@ -39,9 +39,6 @@ SEQ=10
 CPPFLAGS += -O3 -Wall
 CXXFLAGS += -std=c++11
 
-LDFLAGS += -L../lib
-LDFLAGS += -L../acq400_buildroot/output/target/lib/
-LDFLAGS += -L../acq400_buildroot/output/target/usr/lib/
 
 acq420fmc-objs := acq400_drv.o  acq400_ui.o acq400_fs.o dma_shims.o \
 	acq400_core.o acq400_init_defaults.o \
@@ -107,6 +104,10 @@ LIBACQSONAME = libacq.so.1
 ifeq (arm, ${ARCH})
 ARCHD = linux-arm
 LIBS = ./lib/$(ARCHD)/$(LIBACQSONAME)
+LDFLAGS += -L./lib/$(ARCHD)
+LDFLAGS += -L../acq400_buildroot/output/target/lib/
+LDFLAGS += -L../acq400_buildroot/output/target/usr/lib/
+
 $(info ARCH $(ARCH) ARCHD $(ARCHD))
 libs: $(LIBS) ../include
 all: modules libs apps
@@ -115,6 +116,7 @@ else
 ARCH = linux-x86_64
 ARCHD = linux-x86_64
 LIBS = ./lib/$(ARCHD)/$(LIBACQSONAME)
+LDFLAGS += -L./lib/$(ARCHD)
 
 libs: $(LIBS) ../include
 
