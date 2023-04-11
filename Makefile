@@ -145,7 +145,7 @@ opkg:
 opkgcp:
 	cp cal/* opkg/usr/local/cal
 	cp -a $(APPS) scripts/* opkg/usr/local/bin
-	cp -a *.so* opkg/usr/local/lib
+	cp -a lib/$(ARCHD)/*.so* opkg/usr/local/lib
 	cp -a doc opkg/usr/share
 	cp bos.sh opkg/etc/profile.d
 	cp -r CARE/* opkg/usr/local/CARE
