@@ -166,7 +166,7 @@ emlog:
 	
 package: all opkg_clean opkg opkgcp emlog packageko
 	echo do NOT rm -Rf opkg/*
-	mkdir -p release
+	mkdir -p release ../PACKAGES
 	tar czf release/$(SEQ)-acq420-$(DC).tgz -C opkg .
 	@echo created package release/$(SEQ)-acq420-$(DC).tgz
 	rm -f ../PACKAGES/$(SEQ)-acq420*
