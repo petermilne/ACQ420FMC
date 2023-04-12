@@ -412,6 +412,14 @@ build_knobs_device() {
         return;;
     2|3|6)
         case $mtype in
+        2)
+			source  /dev/sites/${site}/details
+        	eval $(echo $FRU_PART_NUM|awk '{print $2}')
+        	case $N in
+			 8) echo A > ${dk}/bank_mask;;
+			16) echo AB > ${dk}/bank_mask;;
+			24) echo ABC > ${dk}/bank_mask;;
+        	esac;;
         6)
             create_gx ${ek}/ 16
             if [ "x$ACQ437_SITES" != "x" ]; then
