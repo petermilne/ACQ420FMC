@@ -182,6 +182,12 @@ static void acq420_enable_fifo(struct acq400_dev *adev)
 	acq400wr32(adev, ADC_CTRL, ctrl|ADC_CTRL_ENABLE_FIFO);
 }
 
+void acq420_set_data32(struct acq400_dev *adev)
+{
+	u32 ctrl = acq420_set_fmt(adev, acq400rd32(adev, ADC_CTRL));
+	acq400wr32(adev, ADC_CTRL, ctrl);
+}
+
 
 void _ao420_stop(struct acq400_dev* adev)
 {

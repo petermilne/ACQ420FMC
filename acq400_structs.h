@@ -985,5 +985,6 @@ extern int streamdac_data_loop(void *data);
 
 extern int firstDistributorBuffer(void);
 extern int lastDistributorBuffer(void);
+extern void acq420_set_data32(struct acq400_dev *adev);
 
 #endif /* ACQ400_STRUCTS_H_ */
