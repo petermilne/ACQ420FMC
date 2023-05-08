@@ -606,7 +606,7 @@ build_site0() {
     done
 
 	for k in  slowmon_fs  slowmon_fin; do
-		echo 1> $k
+		echo 1 > $k
 	done
 
 	for k in slowmon_us slowmon_nacc ssb live_post live_pre live_mode NCHAN data32 shot shot_complete; do
