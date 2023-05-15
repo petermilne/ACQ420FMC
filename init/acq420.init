@@ -1027,9 +1027,11 @@ if [ -e /etc/acq400/C/MTYPE ]; then
 else
     case $MODEL in
     kmcu*)
-        load_mgt $MODEL;;
-    z7io*)
     	load_mgt $MODEL;;
+    z7io*)
+	grep filename /tmp/fpga_status | grep -q _9[0-9][0-9][0-9]
+	[ $? -eq 0 ] && load_mgt $MODEL
+	;;
     esac
 fi
 
