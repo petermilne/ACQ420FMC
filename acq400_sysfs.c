@@ -3441,6 +3441,8 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 	}else if (IS_BOLO8(adev)){
 		specials[nspec++] = dacspi_attrs;
 		specials[nspec++] = bolo8_attrs;
+	}else if (IS_DIO482_CNTR(adev)){
+		specials[nspec++] = dio482_cntr_attrs;
 	}else if (IS_DIO432X(adev)){
 		specials[nspec++] = playloop_attrs;
 		specials[nspec++] = dio_attrs;

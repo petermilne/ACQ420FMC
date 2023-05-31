@@ -1454,6 +1454,7 @@ const struct attribute *dio432_attrs[] = {
 };
 
 
+
 MAKE_BITS(dio422_config, DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, TDC_CH_MASK_CH1);
 MAKE_BITS(dio422_TxENn,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_ENn);
 MAKE_BITS(dio422_TxEN,  DIO422_OE_CONFIG, MAKE_BITS_FROM_MASK, DIO422_OE_CONFIG_Tx_EN);
@@ -1477,6 +1478,13 @@ MAKE_BITS(dds_dac_clkdiv, PC_DDS_DAC_CLKDIV, 	0, 0x0000ffff);
 MAKE_BITS(adc_clkdiv,	  PC_ADC_CLKDIV,	0, 0x0000ffff);
 MAKE_BITS(dds_phase_inc,  PC_DDS_PHASE_INC,	0, 0xffffffff);
 
+
+MAKE_DNUM(dwell, DIO482_DI_DWELL, 0x000fffff);
+
+const struct attribute *dio482_cntr_attrs[] = {
+	&dev_attr_dwell.attr,
+	0
+};
 
 const struct attribute *pig_celf_attrs[] = {
 	&dev_attr_pig_psu_en.attr,

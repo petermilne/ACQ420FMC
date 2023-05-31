@@ -883,6 +883,11 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	if ((IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)) && FPGA_REV(adev) < 5){
 		dev_warn(DEVP(adev), "OUTDATED FPGA PERSONALITY, please update");
 	}
+
+	if (IS_DIO482_CNTR(adev)){
+		adev->nchan_enabled = 32;
+		acq400wr32(adev, DIO482_DI_DWELL, 500);   // 10Khz update with 5MHz CLK
+	}
 	//set_debugs("on");
 	dac_ctrl |= IS_DIO432PMOD(adev)?
 		DIO432_CTRL_SHIFT_DIV_PMOD: DIO432_CTRL_SHIFT_DIV_FMC;

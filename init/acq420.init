@@ -490,7 +490,9 @@ build_knobs_device() {
         	echo $num_pg >${ek}/num_pg;;
         6B)
             source  /dev/sites/${site}/details
-			if [ "$(cat ${dk}/module_variant)" = "F" ]; then
+            mv=$(cat ${dk}/module_variant)
+            case $mv in
+			F)
 				if [ "$FRU_PART_NUM" != "${FRU_PART_NUM#*FBR}" ]; then
 					echo "FBR part detected in site ${site}: $FRU_PART_NUM"
 					echo 1 > ${dk}/active_low
@@ -498,10 +500,19 @@ build_knobs_device() {
 				else
 					num_pg=32
 				fi
-				echo $num_pg >${ek}/num_pg
-			fi
-            ln -s $ULB/clocks_to_first_edge ${ek}/
-            set_max_min_khz ${site} 25000 10;;
+				echo $num_pg >${ek}/num_pg;;
+			20|21)
+				echo 32 > ${ek}/NCHAN
+				if [ "$mv" = "20" ]; then
+					_maxkhz=50000
+				else
+					_maxkhz=250000
+				fi
+				set_max_min_khz ${site} $_maxkhz 10;;
+			*)
+				ln -s $ULB/clocks_to_first_edge ${ek}/
+				set_max_min_khz ${site} 25000 10;;
+            esac;;
         *)
             ln -s $ULB/clocks_to_first_edge ${ek}/
             set_max_min_khz ${site} 1000 10;;

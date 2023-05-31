@@ -78,10 +78,12 @@
 #define MOD_ID_TYPE_ACQ480DIV4	0x1
 #define MOD_ID_TYPE_ACQ480DIV10 0x2
 
-/* known DIO432 variants */
+/* known DIO482 variants */
 #define MOD_IDV_PWM		0x01
 #define MOD_IDV_PWM2		0x02	/* "SLOW PWM, with external CLOCK REG */
 #define MOD_IDV_PG		0x0f	/* DIO482-PG */
+#define MOD_IDV_CNTR		0x20
+#define MOD_IDV_HSCNTR		0x21
 
 /* known DIO422 variants */
 #define MOD_IDV_DIO422_DIO	0x00
