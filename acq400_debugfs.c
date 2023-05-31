@@ -277,16 +277,18 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 	DBG_REG_CREATE( DIO_CLKDIV);
 	if (IS_DIO422ELF(adev)){
 		DBG_REG_CREATE(DIO422_OE_CONFIG);
-	}else{
+	}else if (IS_DIO432FMC(adev)){
 		DBG_REG_CREATE( DIO432_DIO_CPLD_CTRL);
+	}
+
+
+	if (IS_DIO482_CNTR(adev)){
+		DBG_REG_CREATE(DIO482_DI_DWELL);
+		return;
 	}
 
 	DBG_REG_CREATE_NAME_N( DIO432_DIO_SAMPLE_COUNT );
 	DBG_REG_CREATE( DIO432_DI_SNOOP );
-
-	if (IS_DIO482_CNTR(adev)){
-		DBG_REG_CREATE(DIO482_DI_DWELL);
-	}
 
 	if (IS_DIO482PPW(adev)){
 		int px;

@@ -3371,6 +3371,7 @@ int _acq400_createSysfsSC(struct device *dev, struct acq400_dev *adev, const str
 int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const struct attribute **specials[], int nspec)
 {
 	int has_device_attrs = 1;
+
 	if (HAS_AI(adev)){
 		if (sysfs_create_files(&dev->kobj, sysfs_adc_device_attrs)){
 			dev_err(dev, "failed to create sysfs");
@@ -3408,6 +3409,7 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 		specials[nspec++] = sysfs_qen_attrs;
 		specials[nspec++] = es_enable_attrs;
 	}else if (IS_DIO482PPW(adev)){
+		dev_info(dev, "IS_DIO482PPW");
 		specials[nspec++] = dio_attrs;
 		specials[nspec++] = dio482ppw_attrs;
 	}else if (IS_ACQ423(adev)){
@@ -3442,8 +3444,10 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 		specials[nspec++] = dacspi_attrs;
 		specials[nspec++] = bolo8_attrs;
 	}else if (IS_DIO482_CNTR(adev)){
+		dev_info(dev, "IS_DIO484_CNTR");
 		specials[nspec++] = dio482_cntr_attrs;
 	}else if (IS_DIO432X(adev)){
+		dev_info(dev, "IS_DIO432X");
 		specials[nspec++] = playloop_attrs;
 		specials[nspec++] = dio_attrs;
 		if (IS_DIO422ELF(adev)){

@@ -885,6 +885,7 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	}
 
 	if (IS_DIO482_CNTR(adev)){
+		dev_info(DEVP(adev), "dio432_init_defaults() IS_DIO482_CNTR()");
 		adev->nchan_enabled = 32;
 		acq400wr32(adev, DIO482_DI_DWELL, 500);   // 10Khz update with 5MHz CLK
 	}
