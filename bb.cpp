@@ -516,8 +516,8 @@ RUN_MODE ui(int argc, const char** argv)
 	while ( (rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'A':
-			if (!(*G::abcde >= 'A' && *G::abcde <= 'E')){
-				fprintf(stderr, "ERROR bad pram abcde must be A..E \%s\"\n", G::abcde);
+			if (!(*G::abcde >= 'A' && *G::abcde <= 'H')){
+				fprintf(stderr, "ERROR bad pram abcde must be A..H \%s\"\n", G::abcde);
 				exit(1);
 			}
 			set_segment_start(*G::abcde - 'A');
