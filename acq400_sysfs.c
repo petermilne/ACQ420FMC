@@ -1529,7 +1529,7 @@ static ssize_t show_module_variant(
 	char * buf)
 {
 	struct acq400_dev *adev = acq400_devices[dev->id];
-	return sprintf(buf, "%X\n", GET_MOD_ID_VERSION(adev));
+	return sprintf(buf, "%X\n", GET_MOD_IDV(adev));
 }
 
 
