@@ -1479,9 +1479,11 @@ MAKE_BITS(adc_clkdiv,	  PC_ADC_CLKDIV,	0, 0x0000ffff);
 MAKE_BITS(dds_phase_inc,  PC_DDS_PHASE_INC,	0, 0xffffffff);
 
 
+MAKE_BITS(free_run, MCR, 0, CNT_DIO_CTRL_FREE_RUN);
 MAKE_DNUM(dwell, DIO482_DI_DWELL, 0x000fffff);
 
 const struct attribute *dio482_cntr_attrs[] = {
+	&dev_attr_free_run.attr,
 	&dev_attr_dwell.attr,
 	0
 };

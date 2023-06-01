@@ -74,7 +74,9 @@ int dio432_rowback = 256/4;
 module_param(dio432_rowback, int, 0644);
 MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
 
-
+int dio482_cntr_shorts = 0;
+module_param(dio482_cntr_shorts, int , 0644);
+MODULE_PARM_DESC(dio482_cntr_shorts, "set TRYUE for 16 bit count, else 32 bit");
 
 
 void acq420_onStart(struct acq400_dev *adev);
@@ -886,7 +888,9 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 
 	if (IS_DIO482_CNTR(adev)){
 		dev_info(DEVP(adev), "dio432_init_defaults() IS_DIO482_CNTR()");
+		adev->word_size = dio482_cntr_shorts? 2: 4;
 		adev->nchan_enabled = 32;
+		adev->data32 = dio482_cntr_shorts? 0: 1;
 		acq400wr32(adev, DIO482_DI_DWELL, 500);   // 10Khz update with 5MHz CLK
 	}
 	//set_debugs("on");

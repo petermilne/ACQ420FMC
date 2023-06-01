@@ -1149,6 +1149,7 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define PPW_REP_SINGLE		0
 #define PPW_REP_FREE		0x0000ffff
 
+#define CNT_DIO_CTRL_FREE_RUN	(1<<23)
 
 #include "acq400_structs.h"
 
