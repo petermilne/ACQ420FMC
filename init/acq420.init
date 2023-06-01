@@ -809,13 +809,18 @@ build_knobs() {
     elif [ "x${ACQ465_SITES}" != "x" ]; then
         for site in $ACQ465_SITES; do
             web_append acq465.$site nomon
-        done        
-        $ULB/acq465.init ${ACQ465_SITES}
+        done
+        acq465_init=$ULB/acq465.init
+        if [ -e /mnt/local/acq465.init ]; then
+        	acq465_init=/mnt/local/acq465.init
+        	echo "++ Warning using patch $acq465_init"
+        fi
+        $acq465_init ${ACQ465_SITES}
     elif [ "x${ACQ494_SITES}" != "x" ]; then
         [ -z $ACQ494_STUB ] && nice $ULB/acq494.init ${ACQ494_SITES} &
     elif [ "x${ACQ400T_SITES}" != "x" ]; then
-        echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
-        $ULB/acq400t.init ${ACQ400T_SITES}
+		echo ACQ400T : "calling $ULB/acq400t.init ${ACQ400T_SITES}"
+		$ULB/acq400t.init ${ACQ400T_SITES}
     fi
     has_sfp=0
     for dir in ${spd}/*mgt400; do
