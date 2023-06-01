@@ -1483,6 +1483,7 @@ MAKE_BITS(free_run, MCR, 0, CNT_DIO_CTRL_FREE_RUN);
 MAKE_DNUM(dwell, DIO482_DI_DWELL, 0x000fffff);
 
 const struct attribute *dio482_cntr_attrs[] = {
+	&dev_attr_dio_en.attr,
 	&dev_attr_free_run.attr,
 	&dev_attr_dwell.attr,
 	0
