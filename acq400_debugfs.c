@@ -267,6 +267,7 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE_RW( DIO432_DI_FIFO_STATUS);
 	}
 	DBG_REG_CREATE( DIO432_DIO_ICR);
+	DBG_REG_CREATE_NAME_N(DIO_SAMPLE_CTR);
 	DBG_REG_CREATE_NAME_N( ADC_CLK_CTR);
 	if (IS_DIO482TD_PG(adev)){
 		DBG_REG_CREATE_NAME_N(DIO482_PG_FPTRG_COUNT);
@@ -283,6 +284,7 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 
 
 	if (IS_DIO482_CNTR(adev)){
+
 		DBG_REG_CREATE(DIO482_DI_DWELL);
 		return;
 	}
