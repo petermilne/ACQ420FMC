@@ -1241,7 +1241,7 @@ const struct attribute *sysfs_diobiscuit_attrs[] = {
 extern void dio432_set_direction(struct acq400_dev *adev, unsigned byte_is_output);
 extern u32 dio432_get_direction(struct acq400_dev *adev);
 
-static ssize_t show_byte_is_output(
+static ssize_t _show_byte_is_output(
 	struct device * dev,
 	struct device_attribute *attr,
 	char * buf)
@@ -1258,6 +1258,18 @@ static ssize_t show_byte_is_output(
 	);
 }
 
+static ssize_t show_byte_is_output(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	if (IS_DIO482_CNTR(adev)){
+		return sprintf(buf, "0,0,0,0");
+	}else{
+		return _show_byte_is_output(dev, attr, buf);
+	}
+}
 static ssize_t store_byte_is_output(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -1267,7 +1279,9 @@ static ssize_t store_byte_is_output(
 	struct acq400_dev *adev = acq400_devices[dev->id];
 	struct XO_dev* xo_dev = container_of(adev, struct XO_dev, adev);
 
-	if (xo_dev->dio432.mode != DIO432_DISABLE){
+	if (IS_DIO482_CNTR(adev)){
+		return -ENODEV;
+	}else if (xo_dev->dio432.mode != DIO432_DISABLE){
 		return -EBUSY;
 	}else{
 		int bytes[4];
@@ -1486,6 +1500,7 @@ const struct attribute *dio482_cntr_attrs[] = {
 	&dev_attr_dio_en.attr,
 	&dev_attr_acc_not_reset.attr,
 	&dev_attr_dwell.attr,
+	&dev_attr_byte_is_output.attr,
 	0
 };
 
