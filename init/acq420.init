@@ -503,7 +503,6 @@ build_knobs_device() {
 				echo $num_pg >${ek}/num_pg;;
 			20|21)
 				echo 32 > ${ek}/NCHAN
-				ln -s ${dk}/acc_not_reset ${ek}
 				if [ "$mv" = "20" ]; then
 					_maxkhz=50000
 				else
@@ -560,7 +559,7 @@ install_cal() {
         else            
             PN="${FRU_PART_NUM%% *}"
             defcal=/usr/local/cal/${PN}-defcal.xml
-            echo Hello $defcal
+#            echo Hello $defcal
             if [ ! -e $defcal ]; then
                 TYP="${PN%%-*}"
                 defcal=/usr/local/cal/${TYP}-defcal.xml               

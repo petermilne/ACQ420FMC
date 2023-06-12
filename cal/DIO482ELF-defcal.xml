@@ -1,0 +1,26 @@
+<?xml version="1.0" standalone="no" ?>
+<ACQ>
+<!-- DIO482 DUMMY: no calibration for DIO -->
+<!-- calibration data -->
+<AcqCalibration>
+    <Info>
+        <CalDate>20230612</CalDate>
+        <Version>B1007</Version>
+        <Model>DIO482</Model>
+	<SerialNum>E48220000</SerialNum>
+    </Info>
+</AcqCalibration>
+<ModelSpec>
+        <ChannelBlockMask>
+                <BlockWidth>1</BlockWidth>
+                <BlockSet>"1"</BlockSet>
+        </ChannelBlockMask>
+        <MaxAggregateRate>100 MB/sec</MaxAggregateRate>
+        <MaxDeviceRate>2 MS/sec</MaxDeviceRate>
+        <MinDeviceRate>0 MS/sec</MinDeviceRate>
+        <CalClock>1000000</CalClock>
+        <CalMeanN>1024000</CalMeanN>
+</ModelSpec>
+</ACQ>
+
+
