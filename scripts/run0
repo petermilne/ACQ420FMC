@@ -59,6 +59,6 @@ DECIM=$(get.sys $S0KB/decimate)
 set.sys $S0KB/aggregator 	0
 set.sys $S0KB/data_engine_0 0
 set.sys $S0KB/data_engine_0 aggregator=1 
-set.sys $S0KB/aggregator 	threshold=16384 sites=${sitelist%*,14}
+set.sys $S0KB/aggregator 	sites=${sitelist%*,14}
 set.sys $S0KB/decimate 		$DECIM
 set.sys $ETC0/run0_ready    1

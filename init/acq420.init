@@ -1066,6 +1066,7 @@ fi
 AXI_COUNT=0
 
 if [ -e  ${DK0}/has_axi_dma ]; then
+	threshold=2048
     AXI_COUNT=$(cat ${DK0}/has_axi_dma)
     AXIMOD=${MODLIB}/xilinx_axidma.ko
     if [ -e /mnt/local/xilinx_axidma.ko ]; then
@@ -1090,7 +1091,10 @@ if [ -e  ${DK0}/has_axi_dma ]; then
         fi
         echo $SO >> /etc/sysconfig/acq400_streamd.conf
     fi
+else
+	threshold=16384
 fi
+echo threshold=${threshold} > ${DK0}/aggregator
 
 if [ $AXI_COUNT -eq 0 ]; then
     [ ! -z "$STREAM_OPTS" ] && \

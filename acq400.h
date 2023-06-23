@@ -433,6 +433,10 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 
 #define IS_AO420_HALF436(adev)	((GET_MOD_IDV(adev)&1) != 0)
 
+/* SC MOD_ID only ! */
+#define IS_AXI(adev)	((GET_MOD_ID_VERSION(adev)&0x2) != 0)
+#define IS_AXI_32(adev)	(IS_AXI(adev) && (GET_MOD_ID_VERSION(adev)&0x10) != 0)
+#define IS_AXI_64(adev)	(IS_AXI(adev) && (GET_MOD_ID_VERSION(adev)&0x10) == 0)
 
 #define IS_ACQ2006SC(adev) (GET_MOD_ID(adev) == MOD_ID_ACQ2006SC)
 #define IS_ACQ2006B(adev) \
@@ -697,10 +701,11 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define AGG_SIZE_SHL		8
 #define AGG_SIZE_UNIT_OLD	512
 #define AGG_SIZE_UNIT_NEW	128
+#define AGG_SIZE_UNIT_AXI	256
 
 #define AGG_SIZE_UNIT(adev)	\
-	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? \
-		AGG_SIZE_UNIT_OLD: AGG_SIZE_UNIT_NEW)
+	(IS_ACQ2006SC(adev)&&FPGA_REV(adev)<=8? AGG_SIZE_UNIT_OLD: \
+	 IS_AXI(adev)? AGG_SIZE_UNIT_AXI: AGG_SIZE_UNIT_NEW)
 
 
 #define DIST_COMMS_MASK		(0x3<<28)
