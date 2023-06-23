@@ -49,6 +49,12 @@ then
 	set.sys $ETC0/data32 $D32
 	/usr/local/bin/ai_monitor_all start	
 fi
+
+if [ -e $S0KB/has_axi_dma ]; then
+    threshold=2048
+else
+    threshold=16384
+fi
 set.sys $ETC0/sites 	${sitelist}
 set.sys $ETC0/ssb 		$SSB
 set.sys $ETC0/spadstart	$(($SSB-$nspad*4))
@@ -59,6 +65,6 @@ DECIM=$(get.sys $S0KB/decimate)
 set.sys $S0KB/aggregator 	0
 set.sys $S0KB/data_engine_0 0
 set.sys $S0KB/data_engine_0 aggregator=1 
-set.sys $S0KB/aggregator 	sites=${sitelist%*,14}
+set.sys $S0KB/aggregator 	threshold=${threshold} sites=${sitelist%*,14}
 set.sys $S0KB/decimate 		$DECIM
 set.sys $ETC0/run0_ready    1
