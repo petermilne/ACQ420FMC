@@ -21,6 +21,7 @@ DROOT=/sys/kernel/debug
 SYSCONF=/mnt/local/sysconfig
 ULB=/usr/local/bin
 ULC=/usr/local/CARE
+DK0=/dev/acq400.0.knobs
 
 export MODP=/sys/module/acq420fmc/parameters
 
@@ -575,7 +576,7 @@ install_cal() {
 }
 
 build_site0() {
-    dk=/dev/acq400.0.knobs
+    dk=${DK0}
     ek=/etc/acq400/0/
     echo "MOTHERBOARD" > $ek/module_role
     ln -s $1 ${dk}
@@ -601,7 +602,7 @@ build_site0() {
     ln -s ${ULC}/get_data_size ${ek}/raw_data_size
     echo $HAS_MGTDRAM > ${ek}/has_mgtdram
     IS_TIGA=none
-    [ -e /dev/acq400.0.knobs/wr_ts_s1_count ] && IS_TIGA=1
+    [ -e ${DK0}/wr_ts_s1_count ] && IS_TIGA=1
     echo $IS_TIGA > ${ek}/is_tiga
     
     
@@ -844,7 +845,7 @@ echo $ULB/set.fanspeed created
 
 set_fans() {
     if [ ! -x $ULB/set.fanspeed ]; then
-        if [ -e /dev/acq400.0.knobs/fan_percent ]; then
+        if [ -e ${DK0}/fan_percent ]; then
             create_set_fanspeed
         fi  
     fi
@@ -1063,8 +1064,9 @@ if [ "x${EBREAK}" = "xyes" ]; then
 fi
 
 AXI_COUNT=0
-if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
-    AXI_COUNT=$(cat /dev/acq400.0.knobs/has_axi_dma)
+
+if [ -e  ${DK0}/has_axi_dma ]; then
+    AXI_COUNT=$(cat ${DK0}/has_axi_dma)
     AXIMOD=${MODLIB}/xilinx_axidma.ko
     if [ -e /mnt/local/xilinx_axidma.ko ]; then
         AXIMOD=/mnt/local/xilinx_axidma.ko
@@ -1072,7 +1074,7 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
     fi
     if [ $AXI_COUNT -ge 1 ]; then    
         /sbin/insmod $AXIMOD maxdev=$AXI_COUNT
-        echo $AXI_COUNT > /dev/acq400.0.knobs/has_axi_dma
+        echo $AXI_COUNT > ${DK0}/has_axi_dma
         for file in $DROOT/acq400_axi_dma/adma?
         do
             fn=$(basename $file)
@@ -1089,6 +1091,7 @@ if [ -e  /dev/acq400.0.knobs/has_axi_dma ]; then
         echo $SO >> /etc/sysconfig/acq400_streamd.conf
     fi
 fi
+
 if [ $AXI_COUNT -eq 0 ]; then
     [ ! -z "$STREAM_OPTS" ] && \
         echo "STREAM_OPTS=\"$STREAM_OPTS\"" >> /etc/sysconfig/acq400_streamd.conf       
@@ -1103,8 +1106,8 @@ echo ++ Enable analog power..
 
 set.sys /dev/gpio/15VA_EN 1
         
-if [ -e /dev/acq400.0.knobs/celf_power_en ]; then
-    set.sys /dev/acq400.0.knobs/celf_power_en 1 
+if [ -e ${DK0}/celf_power_en ]; then
+    set.sys ${DK0}/celf_power_en 1
 fi
 
 
