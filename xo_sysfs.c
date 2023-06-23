@@ -563,6 +563,46 @@ static ssize_t store_ao_GO(
 	}
 }
 
+
+static ssize_t store_ao_RAMP(
+		const int CH, const int SHL,
+		struct device * dev,
+		struct device_attribute *attr,
+		const char * buf,
+		size_t count, int ao_min, int ao_max)
+{
+	struct acq400_dev *adev = acq400_devices[dev->id];
+	int start, stop, step, usec, reps = 1;
+
+	if (sscanf(buf, "%d,%d,%d,%d,%d", &start, &stop, &step, &usec, &reps) >= 4){
+		u32 go = acq400rd32(acq400_devices[dev->id], DAC_GAIN_OFF(CH));
+		int xx;
+		int rep;
+
+		if (stop > ao_max) stop = ao_max;
+		if (start < ao_min) start = ao_min;
+
+		for (rep = 0; rep < reps; ++rep){
+			for (xx = start; xx < stop; xx += step){
+				go &= ~(0x0000ffff << SHL);
+				go |= (xx&0x0000ffff) << SHL;
+
+				acq400wr32(adev, DAC_GAIN_OFF(CH), go);
+
+				if (abs(hook_dac_gx_to_spad) == adev->of_prams.site){
+					set_spad_gx(acq400_devices[0], CH-1, go);
+				}
+				usleep_range(usec, usec+1);
+			}
+		}
+		return count;
+	}else{
+		dev_warn(dev, "rejecting input args != 4");
+		return -1;
+	}
+}
+
+
 #define _MAKE_AO_GO(NAME, SHL, CHAN, AO_MIN, AO_MAX)			\
 static ssize_t show_ao_GO##NAME(					\
 	struct device * dev,						\
@@ -583,9 +623,24 @@ static ssize_t store_ao_GO##NAME(					\
 static DEVICE_ATTR(NAME, S_IRUGO|S_IWUSR, 			        \
 		show_ao_GO##NAME, store_ao_GO##NAME)
 
+#define _MAKE_AO_RAMP(NAME, SHL, CHAN, AO_MIN, AO_MAX)			\
+static ssize_t store_ao_RAMP##NAME(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_ao_RAMP(CHAN, SHL, dev, attr, buf, count, AO_MIN, AO_MAX);\
+}									\
+static DEVICE_ATTR(NAME, S_IWUSR, 			        	\
+		0, store_ao_RAMP##NAME)
+
 #define MAKE_AO_GO(CHAN) \
 	_MAKE_AO_GO(G##CHAN, DAC_MATH_GAIN_SHL, CHAN, 0, 32768);    \
-	_MAKE_AO_GO(D##CHAN, DAC_MATH_OFFS_SHL, CHAN, -32767, 32768)
+	_MAKE_AO_GO(D##CHAN, DAC_MATH_OFFS_SHL, CHAN, -32767, 32768); \
+	_MAKE_AO_RAMP(GR##CHAN, DAC_MATH_GAIN_SHL, CHAN, 0, 32768);   \
+	_MAKE_AO_RAMP(DR##CHAN, DAC_MATH_OFFS_SHL, CHAN, -32767, 32768);
+
 
 MAKE_AO_GO(1);
 MAKE_AO_GO(2);
@@ -1148,6 +1203,11 @@ const struct attribute *ao420_attrs[] = {
 /* subset 2 channels only .. */
 	&dev_attr_G1.attr, &dev_attr_D1.attr, &dev_attr_AO_01.attr, &dev_attr_dac_range_01.attr,
 	&dev_attr_G2.attr, &dev_attr_D2.attr, &dev_attr_AO_02.attr, &dev_attr_dac_range_02.attr,
+
+	&dev_attr_GR1.attr, &dev_attr_DR1.attr,
+	&dev_attr_GR2.attr, &dev_attr_DR2.attr,
+	&dev_attr_GR3.attr, &dev_attr_DR3.attr,
+	&dev_attr_GR4.attr, &dev_attr_DR4.attr,
 
 	&dev_attr_dac_range_REF.attr,
 	&dev_attr_dacreset_device.attr,
