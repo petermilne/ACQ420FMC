@@ -50,7 +50,7 @@ then
 	/usr/local/bin/ai_monitor_all start	
 fi
 
-if [ -e $S0KB/has_axi_dma ]; then
+if [ -e $S0KB/has_axi_dma ] && [ $(cat $S0KB/has_axi_dma) -ge 1 ]; then
     threshold=2048
 else
     threshold=16384
