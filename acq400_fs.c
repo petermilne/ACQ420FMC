@@ -81,6 +81,8 @@ struct CaptureData {
 	char typ[8];	/* "short" or "long" */
 } CAPDAT;
 
+static struct file_operations a400fs_chan_file_muxdata_ops;
+
 struct InodeMap* lookup_ino(unsigned ino)
 {
 	int ii;
@@ -209,6 +211,7 @@ int get_buffer_offset_b(int word_offset)
 static int a400fs_open(struct inode *inode, struct file *file)
 {
 	struct A400_FS_PDESC* pd = kzalloc(sizeof(struct A400_FS_PDESC), GFP_KERNEL);
+	struct acq400_dev* adev0 = FSN.site0->adev;
 	int rc = 0;
 #define RETERR(errcode) do { 						 	\
 		rc = errcode;								\
@@ -217,15 +220,21 @@ static int a400fs_open(struct inode *inode, struct file *file)
 
 	if (pd == 0){
 		RETERR(-ENODEV);
+	}else if (IS_RAW(pd->map)){
+		dev_err(DEVP(adev0), "%s this method does not handle RAW", __FUNCTION__);
+		RETERR(-ENODEV);
 	}else if ((pd->map = lookup_ino(inode->i_ino)) == 0){
 		RETERR(-ENODEV);
+	}else if (CAPDAT.is_cooked == 0){
+		file->f_op = &a400fs_chan_file_muxdata_ops;
+		return file->f_op->open(inode, file);
 	}else if ((pd->word_offset = IS_RAW(pd->map)? 0: chan_offset_w(pd->map)) < 0){
 		RETERR(-ENODEV);
 	}else{
 		pd->buffer_offset = get_buffer_offset_b(pd->word_offset);
 		pd->stride = 1;
 
-		dev_dbg(DEVP(pd->map->adev), "a400fs_open() %d.%d wo:%d bo:%d",
+		dev_dbg(DEVP(pd->map->adev), "%s %d.%d wo:%d bo:%d", __FUNCTION__,
 				pd->map->site, pd->map->channel, pd->word_offset, pd->buffer_offset);
 
 		file->private_data = pd;
@@ -235,6 +244,11 @@ static int a400fs_open(struct inode *inode, struct file *file)
 	dev_err(0, "a400fs_open FAIL\n");
 	if (pd) kfree(pd);
 	return rc;
+}
+
+static int a400fs_open_chan_file_muxdata(struct inode *inode, struct file *file)
+{
+	return -ENODEV;
 }
 
 int _a400fs_open_raw(struct inode *inode, struct file *file)
@@ -417,6 +431,12 @@ static ssize_t a400fs_read_chan_file(struct file *file, char *buf,
 		return count;
 	}
 }
+
+static ssize_t a400fs_read_chan_file_muxdata(struct file *file, char *buf,
+		size_t count, loff_t *offset)
+{
+	return -ENODEV;
+}
 /*
  * Write a file.
  */
@@ -453,7 +473,14 @@ a400fs_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 /*
  * Now we can put together our file operations structure.
+ *
+ * assume
+ * demux=0  rawdat[NSAM][NCHAN]
+ * demux=1  cooked[NCHAN][NSAM]
+ *
  */
+
+/* returns data for one channel post-demux, result cooked[ch][:] */
 static struct file_operations a400fs_chan_file_ops = {
 	.open	= a400fs_open,
 	.read 	= a400fs_read_chan_file,
@@ -463,12 +490,26 @@ static struct file_operations a400fs_chan_file_ops = {
 	.release= a400fs_release
 };
 
+/* returns raw data (all channels, no demux), result rawdat[:][:] */
 static struct file_operations a400fs_raw_file_ops = {
 	.open	= a400fs_open_raw,
 	.read 	= a400fs_read_raw_file,
 	.write  = a400fs_write_file,
 	.release= a400fs_release
 };
+
+/* returns channel data without demux, result rawdat[:][ch] */
+static struct file_operations a400fs_chan_file_muxdata_ops = {
+	.open	= a400fs_open_chan_file_muxdata,
+	.read 	= a400fs_read_chan_file_muxdata,
+	.write  = a400fs_write_file,
+	.unlocked_ioctl = a400fs_unlocked_ioctl,
+	.llseek = generic_file_llseek,
+	.release= a400fs_release
+};
+
+
+
 /*
  * Create a file mapping a name to a counter.
  */
