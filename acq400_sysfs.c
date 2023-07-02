@@ -44,6 +44,9 @@ module_param(acq465_reset_msleep, int, 0644);
 MODULE_PARM_DESC(acq465_reset_msleep, "slows down reset to suit AD7134");
 
 
+int allow_rtm_translen_in_shot = 0;
+module_param(allow_rtm_translen_in_shot, int, 0644);
+MODULE_PARM_DESC(allow_rtm_translen_in_shot, "allow change in-shot. WARNING: ONLY do this if you have control of the EVENT");
 
 
 
@@ -838,6 +841,8 @@ static ssize_t show_reg_rtm_translen(
 	return show_reg(dev, attr, buf, ADC_TRANSLEN, "%u\n", 0);
 }
 
+
+
 static ssize_t store_reg_rtm_translen(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -850,7 +855,7 @@ static ssize_t store_reg_rtm_translen(
 		u32 ctrl = acq400rd32(adev, ADC_CTRL);
 		int rc;
 
-		if ((ctrl&ADC_CTRL_ADC_EN) != 0){
+		if (!allow_rtm_translen_in_shot || (ctrl&ADC_CTRL_ADC_EN) != 0){
 			dev_warn(DEVP(adev), "store_reg_rtm_translen ADC_CTRL_ADC_EN up: STUB");
 			return -1;
 		}
