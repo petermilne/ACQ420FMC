@@ -107,19 +107,11 @@ static unsigned update_inode_stats(struct inode *inode)
 	}else if (pmap->channel > pmap->adev->nchan_enabled){
 		return 0;
 	}else{
-		loff_t i_size = 0;
-		if (CAPDAT.is_cooked){
-			if (pmap->site == XX){
-				i_size = 0;
-			}else{
-				i_size = CAPDAT.nsamples * pmap->adev->word_size;
-			}
-		}else{
-			if (pmap->site == XX && pmap->site == 0){
-				/* valid site 0 only .. */
-				i_size = CAPDAT.nsamples *
-						pmap->adev->word_size *
-						CAPDAT.nchan;
+		loff_t i_size = CAPDAT.nsamples * pmap->adev->word_size; /* valid for CH */
+
+		if (pmap->site == XX && pmap->site == 0){
+			if (!CAPDAT.is_cooked){
+				i_size *= CAPDAT.nchan;			/* XX valid RAW only */
 			}else{
 				i_size = 0;
 			}
