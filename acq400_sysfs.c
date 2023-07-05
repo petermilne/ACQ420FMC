@@ -48,7 +48,9 @@ int allow_rtm_translen_in_shot = 0;
 module_param(allow_rtm_translen_in_shot, int, 0644);
 MODULE_PARM_DESC(allow_rtm_translen_in_shot, "allow change in-shot. WARNING: ONLY do this if you have control of the EVENT");
 
-
+int legacy_emulate_acq196 = 0;
+module_param(legacy_emulate_acq196, int, 0644);
+MODULE_PARM_DESC(legacy_emulate_acq196, "enable legacy acq196 emulation DEPRECATED: may be removed from FPGA");
 
 MAKE_BITS(gate_sync,    ADC_CTRL,      MAKE_BITS_FROM_MASK,	ADC_CTRL_435_GATE_SYNC);
 MAKE_BITS(sync_in_clk,  HDMI_SYNC_DAT, HDMI_SYNC_IN_CLKb, 	0x1);
@@ -2000,10 +2002,11 @@ static const struct attribute *sysfs_adc_device_attrs[] = {
 
 MAKE_BITS(emulate_acq196, ADC_CTRL, MAKE_BITS_FROM_MASK, ADC_CTRL_424_EMUL_196);
 
+
 static const struct attribute *acq424_attrs[] = {
+	&dev_attr_emulate_acq196.attr,			/* MUST be first */
 	&dev_attr_clk_min_max.attr,
 	&dev_attr_adc_conv_time.attr,
-	&dev_attr_emulate_acq196.attr,
 	NULL
 };
 
@@ -3421,7 +3424,7 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 		specials[nspec++] = acq423_emulate_attrs;
 		specials[nspec++] = acq423_attrs;
 	}else if (IS_ACQ424(adev)){
-		specials[nspec++] = acq424_attrs;
+		specials[nspec++] = acq424_attrs + (legacy_emulate_acq196==1? 0: 1);
 	}else if (IS_ACQ42X(adev)){
 		specials[nspec++] =
 			IS_ACQ425(adev) ? acq425_attrs: ACQ420_ATTRS;
