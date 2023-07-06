@@ -1608,6 +1608,7 @@ static const char* _lookup_id(struct acq400_dev *adev)
 		{ MOD_ID_DIO432PMOD,	"dio432"	},
 		{ MOD_ID_DIO482FMC,  	"dio432"	},	/* logically same */
 		{ MOD_ID_DIO482TD,      "dio482td"      },
+		{ MOD_ID_DI460ELF,     "di460elf"      },
 		{ MOD_ID_TIMBUS,        "timbus"        },
 	};
 #define NID	(sizeof(idlut)/sizeof(struct IDLUT_ENTRY))
@@ -3454,6 +3455,8 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 	}else if (IS_DIO482_CNTR(adev)){
 		dev_info(dev, "IS_DIO484_CNTR");
 		specials[nspec++] = dio482_cntr_attrs;
+	}else if (IS_DI460ELF(adev)){
+		dev_info(dev, "IS_DI460");
 	}else if (IS_DIO432X(adev)){
 		dev_info(dev, "IS_DIO432X");
 		specials[nspec++] = playloop_attrs;

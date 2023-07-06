@@ -53,6 +53,7 @@
 
 #define MOD_ID_DDS_WERA		0x70
 #define MOD_ID_DIO422ELF	0x71
+#define MOD_ID_DI460ELF		0x72
 
 #define MOD_ID_DIO482TD		0x7a	// Vanilla DIO version
 #define MOD_ID_DIO482TD_PG	0x7b

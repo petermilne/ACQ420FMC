@@ -441,6 +441,14 @@ static void dio422aqb_init_defaults(struct acq400_dev *adev)
 	adev->onStop = _qen_onStop;
 }
 
+static void di460elf_init_defaults(struct acq400_dev *adev)
+{
+	adev->data32 = 1;
+	adev->word_size = 2;
+	adev->nchan_enabled = 6;
+	acq400wr32(adev, MCR, MCR_MOD_EN);
+}
+
 static void qen_init_defaults(struct acq400_dev *adev)
 {
        struct acq400_dev *adev1 = acq400_devices[1];
@@ -1055,6 +1063,8 @@ void acq400_mod_init_defaults(struct acq400_dev* adev)
 			dio482_pg_init_defaults(adev, 1);
 		}else if (IS_DIO482PPW(adev)){
 			dio482_ppw_init_defaults(adev);
+		}else if (IS_DI460ELF(adev)){
+			di460elf_init_defaults(adev);
 		}else{
 			dio432_init_defaults(adev);
 		}

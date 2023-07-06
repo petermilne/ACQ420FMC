@@ -450,7 +450,7 @@ void acq400_createDebugfs(struct acq400_dev* adev)
 
 	if (IS_ACQ42X(adev)){
 		acq420_createDebugfs(adev, pcursor);
-	}else if (IS_DIO432X(adev) || IS_DIO482TD_PG(adev)){
+	}else if (IS_DIO432X(adev) || IS_DIO482TD_PG(adev) || IS_DI460ELF(adev)){
 		dio432_createDebugfs(adev, pcursor);
 	}else if (IS_DIO422AQB(adev)){
 		qen_createDebugfs(adev, pcursor);
