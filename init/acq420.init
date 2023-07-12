@@ -290,6 +290,7 @@ ACQ427_SITES=""
 ACQ437_SITES=""
 ACQ400T_SITES=""
 ACQ465_SITES=""
+DI460_SITES=""
 
 start_knob_services()
 {
@@ -534,6 +535,8 @@ build_knobs_device() {
         	echo +++ setting PG outputs num_pg $num_pg
 			echo 1,1,1,1 > ${dk}/byte_is_output
         fi;;
+    72)
+		DI460_SITES="${DI460_SITES} ${site}";;
     *)
         CLKDIV=200;;
     esac
@@ -777,6 +780,9 @@ build_knobs() {
         # use /mnt/local/acq420_custom
         #       BLEN=4194304
         #       NBUF=128
+    fi
+    if [ "x${DI460_SITES}" != "x" ]; then
+		$ULB/di460.init ${DI460_SITES}
     fi
     if [ "x${ACQ425_SITES}" != "x" ]; then
         $ULB/acq425.init ${ACQ425_SITES}

@@ -1,0 +1,59 @@
+#!/bin/sh
+
+mount | grep -q configfs || mount -t configfs none /sys/kernel/config/
+mkdir -p /sys/kernel/config/device-tree/overlays/di460
+cat /mnt/dtb.d/acq2x06_di460_overlay.dtb > /sys/kernel/config/device-tree/overlays/di460/dtbo
+
+source /usr/local/bin/acq400_init_gpio_common.sh
+
+# newstyle: good for groups gpiolib
+get_gpiodescr() {
+	chip=$(ls /sys/bus/i2c/devices/$1-$2/ | grep gpiochip)
+	echo ${chip#gpiochip*}
+}
+
+# old style: good for individual bits
+get_gpiochip() {
+	chip=$(ls /sys/bus/i2c/devices/$1-$2/gpio)
+	echo ${chip#gpiochip*}
+}
+
+configure_di460() {
+	site=$1
+	i2c=$2
+	
+	chip20=$(get_gpiochip $i2c 0020)
+
+	mkdir -p /etc/acq400/$site
+	mkdir -p /dev/gpio/DI460/$site
+	
+	(
+	cd /sys/class/gpio
+
+	pin=$(($chip20))
+	for poscon in HDMI_1_POS_CON  HDMI_2_POS_CON HDMI_3_POS_CON HDMI_4_POS_CON HDMI_5_POS_CON HDMI_6_POS_CON; do
+		export_gpio $pin
+		ln -s /sys/class/gpio/gpio$pin/value /dev/gpio/DI460/$site/$poscon
+		ln -s /dev/gpio/DI460/$site/$poscon /etc/acq400/$site
+		pin=$(($pin+1))
+	done
+
+	)
+	
+	hwmon=/sys/class/hwmon/hwmon$((site+1))
+	ln -s $hwmon/temp1_input /etc/acq400/$site
+	ln -s $hwmon/in1_input /etc/acq400/$site/vadj
+	ln -s $hwmon/in2_input /etc/acq400/$site/hdmi_1_vin
+	ln -s $hwmon/in2_input /etc/acq400/$site/hdmi_2_vin
+}
+
+for site in 1 2 3; do
+	if [ $(cat /dev/gpio/fmc${site}_present) -eq 1 ]; then
+		i2c=$(($site+1))
+		if [ -e /sys/bus/i2c/devices/${i2c}-0020/gpio ]; then
+			echo "DI460 site $site gpio detected at 0x20"
+			configure_di460 $site $i2c
+		fi
+	fi
+done
+
