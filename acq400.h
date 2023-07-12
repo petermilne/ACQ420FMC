@@ -509,9 +509,12 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define IS_DIO482_SS_CNTR(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) == MOD_IDV_CNTR)
 #define IS_DIO482_HS_CNTR(adev)	(GET_MOD_ID(adev) == MOD_ID_DIO482FMC && GET_MOD_IDV(adev) == MOD_IDV_HSCNTR)
 #define IS_DI460ELF(adev)	(GET_MOD_ID(adev) == MOD_ID_DI460ELF)
+#define IS_DI460_HS_CNTR(adev)  (GET_MOD_ID(adev) == MOD_ID_DI460ELF && GET_MOD_IDV(adev) == MOD_IDV_HSCNTR)
 
 #define IS_DIO482_PG(adev)	(IS_DIO482ELF_PG(adev)||IS_DIO482TD_PG(adev))
 #define IS_DIO482_CNTR(adev)	(IS_DIO482_SS_CNTR(adev) || IS_DIO482_HS_CNTR(adev))
+
+#define IS_DI_CNTR(adev)	(IS_DIO482_CNTR(adev) || IS_DI460_HS_CNTR(adev))
 
 #define IS_DIO432X(adev)	(IS_DIO432FMC(adev)||IS_DIO432PMOD(adev)||IS_DIO482FMC(adev)||IS_DIO482TD(adev)||IS_DIO422ELF(adev)||IS_DI460ELF(adev))
 
@@ -1157,6 +1160,9 @@ enum DIO432_MODE { DIO432_DISABLE, DIO432_IMMEDIATE, DIO432_CLOCKED };
 #define PPW_REP_FREE		0x0000ffff
 
 #define DIO_CTRL_ACCUM_NOT_RESET	(1<<23)            // known by FPGA as ACCUM_MODE
+
+/* CNT */
+#define CNTR(ch)		(ADC_BASE+0x100+((ch)-1)*4)
 
 #include "acq400_structs.h"
 

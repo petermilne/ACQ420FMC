@@ -332,6 +332,20 @@ void dio432_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		DBG_REG_CREATE(DIO482_PG_IMM_MASK);
 		DBG_REG_CREATE(DIO482_PG_IMM_DO);
 	}
+
+	if (IS_DI_CNTR(adev)){
+		int ch;
+		int chmax = IS_DI460_HS_CNTR(adev)? 6: IS_DIO482_HS_CNTR(adev)? 16: 32;
+		for (ch = 1; ch <= chmax; ++ch){
+			DBG_REG_CREATE_NAME_NC_NUM("cnt", ch, "CNTR", CNTR(ch));
+		}
+	}else if (IS_DI460ELF(adev)){
+		/* hopefully temporary */
+		int ch;
+		for (ch = 1; ch <= 6; ++ch){
+			DBG_REG_CREATE_NAME_NC_NUM("cnt", ch, "CNTR", CNTR(ch));
+		}
+	}
 }
 
 #define V2F_FREQ_OFF_1		V2F_FREQ_OFF
