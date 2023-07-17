@@ -36,7 +36,9 @@ extern const struct attribute *dio460_stim_attrs[];
 
 extern const struct attribute *dio_attrs[];
 
+#ifdef INCLUDE_PIG
 extern const struct attribute *pig_celf_attrs[];
+#endif
 extern const struct attribute *acq400t_attrs[];
 
 extern struct device_attribute dev_attr_bank_mask;

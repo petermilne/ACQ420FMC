@@ -3481,8 +3481,10 @@ int _acq400_createSysfsMOD(struct device *dev, struct acq400_dev *adev, const st
 		specials[nspec++] = acq400t_attrs;
 	}else if (IS_ACQ480(adev)){
 		specials[nspec++] = HAS_FPGA_FIR(adev)?	acq480_ffir_attrs: acq480_attrs;
+#ifdef INCLUDE_PIG
 	}else if (IS_PIG_CELF(adev)){
 		specials[nspec++] = pig_celf_attrs;
+#endif
 	}else{
 		return -1;
 	}
