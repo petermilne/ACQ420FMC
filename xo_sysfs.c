@@ -1564,6 +1564,13 @@ const struct attribute *dio482_cntr_attrs[] = {
 	0
 };
 
+MAKE_BITS(stim_bits, DI460_DO_STIM, MAKE_BITS_FROM_MASK, 0xffffffff);
+
+const struct attribute *dio460_stim_attrs[] = {
+	&dev_attr_stim_bits.attr,
+	0
+};
+
 const struct attribute *pig_celf_attrs[] = {
 	&dev_attr_pig_psu_en.attr,
 	&dev_attr_pig_master.attr,

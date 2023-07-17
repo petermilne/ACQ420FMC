@@ -99,6 +99,13 @@
 /* known DIO482TD Variants, switch on MOD_ID_VERSION */
 #define MOD_IDV_PPW		0x0e
 
+/* DI460  */
+#define MOD_IDV_DI460_DIO	MOD_IDV_DIO422_DIO
+#define MOD_IDV_DI460_AQB 	MOD_IDV_DIO422_AQB
+#define MOD_IDV_DI460_STIM	0x3f
+
+
+
 
 
 

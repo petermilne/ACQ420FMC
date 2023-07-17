@@ -443,9 +443,24 @@ static void dio422aqb_init_defaults(struct acq400_dev *adev)
 
 static void di460elf_init_defaults(struct acq400_dev *adev)
 {
-	adev->data32 = 1;
-	adev->word_size = 2;
-	adev->nchan_enabled = 6;
+	dev_info(DEVP(adev), "%s flavour %s", __FUNCTION__,
+				IS_DI460ELF_DIO(adev)? "IS_DI460ELF_DIO":
+				IS_DI460_AQB(adev)? "IS_DI460ELF_AqB":
+				IS_DI460_HS_CNTR(adev)? "IS_DI460_HS_CNTR":
+				IS_DI460_STIM(adev)? "IS_DI460_STIM": "undefined");
+
+	if (IS_DI460_HS_CNTR(adev)){
+		dev_info(DEVP(adev), "%s IS_DI460_HS_CNTR()", __FUNCTION__);
+		adev->word_size = dio482_cntr_shorts? 2: 4;
+		adev->nchan_enabled = 12;
+		adev->data32 = dio482_cntr_shorts? 0: 1;
+		acq400wr32(adev, DIO482_DI_DWELL, 500);   // 10Khz update with 50MHz CLK ??
+	}else{
+
+		adev->data32 = 1;
+		adev->word_size = 2;
+		adev->nchan_enabled = 6;
+	}
 	acq400wr32(adev, MCR, MCR_MOD_EN);
 }
 
