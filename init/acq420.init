@@ -355,6 +355,29 @@ EOF
     chmod a+rx $ek/gpx2_hit_ena* $ek/gpx2_channel_combine $ek/gpx2_hi_res
 }
 
+init_scaler() {
+	ek=$1
+	site=$2
+	mv=$3
+	nc=$4
+
+	echo $nc > ${ek}/NCHAN
+	if [ "$mv" = "20" ]; then
+		_maxkhz=50000
+	else
+		_maxkhz=250000
+	fi
+	set_max_min_khz ${site} $_maxkhz 10
+
+	for cnt in /sys/kernel/debug/acq400/acq400.${site}/cnt*; do
+		if [ -e $cnt ]; then
+			fb=$(basename $cnt)
+			kb=${fb%.CNTR*}
+			ln -s $cnt ${ek}/${kb}
+		fi
+	done
+}
+
 build_knobs_device() {
     dir=$1
     site=$(cat $dir/site)
@@ -504,13 +527,10 @@ build_knobs_device() {
 				fi
 				echo $num_pg >${ek}/num_pg;;
 			20|21)
-				echo 32 > ${ek}/NCHAN
-				if [ "$mv" = "20" ]; then
-					_maxkhz=50000
-				else
-					_maxkhz=250000
-				fi
-				set_max_min_khz ${site} $_maxkhz 10;;
+				nc=32
+				[ $mv -eq 21 ] && nc=16
+
+				init_scaler $ek $site $mv $nc;;
 			*)
 				ln -s $ULB/clocks_to_first_edge ${ek}/
 				set_max_min_khz ${site} 25000 10;;
@@ -536,6 +556,10 @@ build_knobs_device() {
 			echo 1,1,1,1 > ${dk}/byte_is_output
         fi;;
     72)
+		case $mv in
+		21)
+			init_scaler $ek $site $mv 12;;
+		esac
 		DI460_SITES="${DI460_SITES} ${site}";;
     *)
         CLKDIV=200;;
