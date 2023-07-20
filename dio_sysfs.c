@@ -250,12 +250,13 @@ static DEVICE_ATTR(di_snoop, S_IRUGO, show_di_snoop, 0);
 
 
 const struct attribute *dio482_attrs[] = {
-	&dev_attr_di_snoop.attr,
 	&dev_attr_status_latch.attr,
 	&dev_attr_cos_en.attr,
+	&dev_attr_di_snoop.attr,		/* must be last */
 	NULL
 };
 
+const struct attribute **dio4xx_snoop_attrs = dio482_attrs+2;
 
 
 

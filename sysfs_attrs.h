@@ -31,6 +31,9 @@ extern const struct attribute *acq436_upper_half_attrs_master[];
 
 extern const struct attribute *dio432_attrs[];
 extern const struct attribute *dio422_attrs[];
+
+extern const struct attribute **dio4xx_snoop_attrs;
+
 extern const struct attribute *dio482_cntr_attrs[];
 extern const struct attribute *dio460_stim_attrs[];
 
