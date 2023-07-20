@@ -556,6 +556,7 @@ build_knobs_device() {
 			echo 1,1,1,1 > ${dk}/byte_is_output
         fi;;
     72)
+		mv=$(cat ${dk}/module_variant)
 		case $mv in
 		21)
 			init_scaler $ek $site $mv 12;;
