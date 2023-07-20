@@ -1317,6 +1317,7 @@ public:
 
 int shuffle_test;
 int fill_ramp_incr;
+int fill_zero;
 
 struct poptOption opt_table[] = {
 	{ "wrbuflen", 0, POPT_ARG_INT, &Buffer::bufferlen, 0,
@@ -1378,7 +1379,8 @@ struct poptOption opt_table[] = {
 	{ "shuffle_test", 0, POPT_ARG_INT, &shuffle_test, 0,
 			"time buffer shuffle"
 	},
-	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data, negitive means fill and drop out"},
+	{ "fill_ramp", 0, POPT_ARG_INT, &fill_ramp_incr, 'R', "fill with test data, negative means fill and drop out"},
+	{ "fill_zero", 0, POPT_ARG_INT, &fill_zero, 'Z', "fill with zeros, negative means fill and drop out"},
 	{ "pre-demux-script", 0, POPT_ARG_STRING, &G::pre_demux_script, 0,
 			"breakout before demux"
 	},
@@ -1706,14 +1708,14 @@ void do_shuffle_test(int level)
 	exit(0);
 }
 
-void do_fill_ramp()
+void do_fill_ramp(int inc)
 {
 	unsigned* cursor = reinterpret_cast<unsigned*>(MapBuffer::get_ba0());
 	unsigned* ba99 = reinterpret_cast<unsigned*>(MapBuffer::get_ba_hi());
 	unsigned xx = 0;
 
 	while(cursor < ba99){
-		*cursor++ = xx += fill_ramp_incr;
+		*cursor++ = xx += inc;
 	}
 }
 
@@ -1870,11 +1872,16 @@ void init(int argc, const char** argv) {
 	if (shuffle_test){
 		do_shuffle_test(shuffle_test);
 	}
-	if (fill_ramp){
+	if (fill_zero){
+		do_fill_ramp(0);
+		if (fill_zero < 0){
+			exit(0);
+		}
+	}else if (fill_ramp){
 		bool quit_on_fill = fill_ramp_incr < 0;
 		fill_ramp_incr = abs(fill_ramp_incr);
 
-		do_fill_ramp();
+		do_fill_ramp(fill_ramp_incr);
 		if (quit_on_fill){
 			exit(0);
 		}
