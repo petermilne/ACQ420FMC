@@ -48,7 +48,26 @@ proc get_gpio1 {site addr} {
 	return $pin1
 }
 
+
+proc hook_aosite {ai_site ao_site} {
+	puts "link dac_range from ACQ427.${ai_site} to AO420.${ao_site}"
+	foreach dac { 1 2 3 4 } {
+		exec rm -f /etc/acq400/${ao_site}/dac_range_0${dac}
+		exec ln -s /dev/acq425/${ai_site}/DAC_${dac}_RANGE /etc/acq400/${ao_site}/dac_range_0${dac}
+		exec echo 1 > /dev/acq400.${ao_site}.knobs/dac_range_REF
+	}
+}
+
+
+
+
 set SITES ""
+
+set AO420_SITES 0
+if { [info exists ::env(AO420_SITES) ] } {
+        set AO420_SITES $::env(AO420_SITES)
+}
+
 
 if { $::argc > 0 } {
 	set i 1
@@ -80,6 +99,12 @@ if { $::argc > 0 } {
 
 		set gpio2 [expr $gpio1 + 16]
 		link_gpio $site $LNAMES2 $OUTPUTS2 $gpio2
+
+		foreach ao_site $AO420_SITES {
+		    if { $ao_site > $site } {
+		        hook_aosite $site $ao_site
+		    }
+		}
 	} 	
 } else {
 	puts "usage acq427.init site1[ site 2...]	

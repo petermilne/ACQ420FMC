@@ -291,6 +291,7 @@ ACQ437_SITES=""
 ACQ400T_SITES=""
 ACQ465_SITES=""
 DI460_SITES=""
+AO420_SITES=""
 
 start_knob_services()
 {
@@ -409,9 +410,7 @@ build_knobs_device() {
     
     case $mtype in
     7|A7)
-        if [ "x$ACQ427_SITES" != "x" ]; then
-            ACQ427_SITES="${ACQ427_SITES} " 
-        fi
+        [ "x$ACQ427_SITES" != "x" ] && ACQ427_SITES="${ACQ427_SITES} "
         ACQ427_SITES="${ACQ427_SITES}$site"
         create_gx ${ek}/ 8
         customize_acq420 $site;;
@@ -475,6 +474,10 @@ build_knobs_device() {
         case $mtype in
         6A)
             set_max_min_khz ${site} 250 10;;
+        40)
+            [ "x$AO420_SITES" != "x" ] && AO420_SITES="${AO420_SITES} "
+            AO420_SITES="${AO420_SITES}$site"
+            set_max_min_khz ${site} 1000 10;;
         *)
             set_max_min_khz ${site} 1000 10;;
         esac
@@ -815,21 +818,15 @@ build_knobs() {
         #       BLEN=4194304
         #       NBUF=128
     elif [ "x${ACQ427_SITES}" != "x" ]; then
+        case $IS_ACQ427 in
+        02|03)
+            export AO420_SITES;;
+        01)
+            ;;
+        *)
+            echo "ERROR: unknown type ACQ427:${IS_ACQ427}";;
+        esac
         $ULB/acq427.init ${ACQ427_SITES}
-        for a427s in ${ACQ427_SITES}; do
-            if [ $a427s -eq 1 ]; then
-                if [ "$IS_ACQ427" = "01" ]; then
-                    echo "model 01, no DAC"
-                else 
-                    echo "link dac_range from ACQ427.1 to AO420.2"
-                    for dac in 1 2 3 4; do
-                        rm -f /etc/acq400/2/dac_range_0${dac}
-                        ln -s /dev/acq425/1/DAC_${dac}_RANGE /etc/acq400/2/dac_range_0${dac}
-                    done
-                    echo 1 > /dev/acq400.2.knobs/dac_range_REF
-                fi
-            fi
-        done
         # use /mnt/local/acq420_custom
         #       BLEN=4194304
         #       NBUF=128
