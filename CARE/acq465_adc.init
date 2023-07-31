@@ -49,6 +49,7 @@ logger -t acq465_adc.init 01
 caput  $(hostname):0:ACQ465:POLL 0
 
 [ $reset -eq 1 ] && set.site ${SITE} adc_reset 1
+set.site $SITE data32 $DATA32 
 # Read all the registers, this initial read seems to ensure the first writes are successful
 acq465_readall
 # set hi speed filter to avoid range errors
@@ -87,22 +88,24 @@ acq465_reg 0x11 $REG11
 
 usleep 100000
 
-# Read all the registers
-acq465_knobs readall
+#exit # Executing the readall command seems to be harmful! #SAR
 
-echo -e "\nOutput Mode; 1=Dual, 2=Quad"
-acq465_reg 0x12
-
-echo -e "\nBitwidth; 00=16, 20=24"
-acq465_reg 0x11
-
-# Read DEVICE_STATUS
-echo -e "\nLook for LOCK 0001: success"
-acq465_reg 0x15
-
-# Read DEVICE_STATUS
-echo -e "\nLook for errors 0000: good"
-acq465_reg 0x42
+#### Read all the registers
+###acq465_knobs readall
+###
+###echo -e "\nOutput Mode; 1=Dual, 2=Quad"
+###acq465_reg 0x12
+###
+###echo -e "\nBitwidth; 00=16, 20=24"
+###acq465_reg 0x11
+###
+#### Read DEVICE_STATUS
+###echo -e "\nLook for LOCK 0001: success"
+###acq465_reg 0x15
+###
+#### Read DEVICE_STATUS
+###echo -e "\nLook for errors 0000: good"
+###acq465_reg 0x42
 
 echo
 
@@ -111,7 +114,7 @@ echo "++ acq465_adc.init SITE:$SITE 99"
 # adc_status == ffff is good
 adc_status=0
 set retry=0
-while [ "$adc_status" != "ffff" ]; do 
+#while [ "$adc_status" != "ffff" ]; do 
         retry=$((retry+1))
         logger -t acq465_adc.init retry $retry
         if [ $retry -gt 3 ]; then
@@ -124,7 +127,7 @@ while [ "$adc_status" != "ffff" ]; do
 	usleep 100000
 	adc_status=$(get.site $SITE adc_status)
         logger -t acq465_adc.init adc_status $adc_status
-done
+#done
 
 
 logger -t acq465_adc.init 99
