@@ -40,6 +40,13 @@ namespace G {
 	unsigned skip;
 	unsigned finished = FINISHED;
 	unsigned timeout = 0;
+
+	unsigned long long clocks[NBITS] = {};
+
+	unsigned long long clk;
+
+	unsigned fin = 0;
+	unsigned timed_out;
 };
 
 
@@ -63,23 +70,18 @@ int readw(unsigned *xx)
 	return 1;
 }
 
-unsigned long long clocks[NBITS] = {};
 
-unsigned long long clk;
-
-unsigned fin = 0;
-unsigned timed_out;
 
 #define SHOW_TIMEOUT	9999999999
 
 void alarm_handler(int sig)
 {
-	timed_out = 1;
+	G::timed_out = 1;
 }
 
 void print_clocks(void) {
 	for (int ib = 0; ib < NBITS; ++ib){
-		printf("%llu%c", clocks[ib], ib+1 == NBITS? '\n': ',');
+		printf("%llu%c", G::clocks[ib], ib+1 == NBITS? '\n': ',');
 	}
 }
 
@@ -103,14 +105,14 @@ void count_clocks(void)
 			exit(1);
 		}
 	}
-	for (; !timed_out && fin != G::finished && readw(&x1) == 1; ++clk, x0 = x1){
+	for (; !G::timed_out && G::fin != G::finished && readw(&x1) == 1; ++G::clk, x0 = x1){
 		unsigned change = (x1 ^ x0);
-		if (change & ~fin){
+		if (change & ~G::fin){
 			for (unsigned ib = 0; ib < NBITS; ++ib){
 				unsigned bit = 1<<ib;
-				if ((fin&bit) == 0 && (change&bit) != 0){
-					clocks[ib] = clk;
-					fin |= bit;
+				if ((G::fin&bit) == 0 && (change&bit) != 0){
+					G::clocks[ib] = clk;
+					G::fin |= bit;
 				}
 			}
 		}
@@ -120,18 +122,21 @@ void count_clocks(void)
 }
 
 
-void onChange(unsigned x0, unsigned x1)
+bool onChange(unsigned x0, unsigned x1)
 {
 	unsigned change = (x1 ^ x0);
-	if (change & ~fin){
+	bool changes = false;
+	if (change & ~G::fin){
 		for (unsigned ib = 0; ib < NBITS; ++ib){
 			unsigned bit = 1<<ib;
-			if ((fin&bit) == 0 && (change&bit) != 0){
-				clocks[ib] = clk;
-				fin |= bit;
+			if ((G::fin&bit) == 0 && (change&bit) != 0){
+				G::clocks[ib] = G::clk;
+				G::fin |= bit;
+				changes = true;
 			}
 		}
 	}
+	return changes;
 }
 
 void count_clocks_live() {
@@ -148,13 +153,9 @@ void count_clocks_live() {
 		alarm(G::timeout);
 	}
 
-	for (clk = 1; !timed_out && fin != G::finished; ++clk){
+	for (G::clk = 1; !G::timed_out && G::fin != G::finished; ++G::clk, x0 = x1){
 		readw(&x1);
-		if (x1 != x0){
-			onChange(x0, x1);
-		}else{
-			x0 = x1;
-		}
+		(x1 != x0) && onChange(x0, x1);
 	}
 }
 
@@ -167,10 +168,14 @@ int ui(int argc, const char** argv)
 	if (getenv("SKIP") != 0){
 		G::skip = atoi(getenv("SKIP"));
 	}
-	if (getenv("FINISHED")){
+	if (getenv("TOP_FINISHED")){
+		G::finished = strtoul(getenv("TOP_FINISHED"), 0, 16);
+	}else if (getenv("FINISHED")){
 		G::finished = strtoul(getenv("FINISHED"), 0, 16);
 	}
-	if (getenv("TIMEOUT")){
+	if (getenv("TOP_TIMEOUT")){
+		G::timeout = atoi(getenv("TOP_TIMEOUT"));
+	}else if (getenv("TIMEOUT")){
 		G::timeout = atoi(getenv("TIMEOUT"));
 	}
 	if (argc > 0 && argv[1][0] == '-'){
