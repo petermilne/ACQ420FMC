@@ -49,7 +49,7 @@ namespace G {
 
 	unsigned long long clk;
 
-	unsigned fin = 0;
+	unsigned fin = 0;              // mask shows inputs that have had a transition
 	unsigned timed_out;
 	bool heartbeat;		       // print 1s heartbeat if set
 	bool before_first_last;        // sample before trigger, first sample from trigger, last sample
@@ -82,7 +82,8 @@ void alarm_handler(int sig)
 {
 	G::seconds += 1;
 	if (G::heartbeat){
-		printf("HEARTBEAT=%u,%llu\n", G::seconds, G::clk);
+		printf("HEARTBEAT=%u,%llu FIN:0x%08x != 0x%08x\n",
+				G::seconds, G::clk, G::fin, G::finished);
 		fflush(stdout);
 	}
 	if (G::seconds > G::timeout){
@@ -183,7 +184,7 @@ void count_clocks_live() {
 		alarm(1);
 	}
 
-	for (G::clk = 1; !G::timed_out && G::fin != G::finished; ++G::clk, x0 = x1){
+	for (G::clk = 1; !G::timed_out && (G::fin&G::finished) != G::finished; ++G::clk, x0 = x1){
 		readw(&x1);
 		(x1 != x0) && onChange(x0, x1);
 	}
