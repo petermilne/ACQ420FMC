@@ -28,6 +28,9 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <assert.h>
+
+#include "Knob.h"
 
 #define NBITS	32
 
@@ -39,7 +42,8 @@ namespace G {
 	FILE *fp_in;
 	unsigned skip;
 	unsigned finished = FINISHED;
-	unsigned timeout = 0;
+	unsigned timeout = 0;			// timeout value : s
+	unsigned seconds = 0;
 
 	unsigned long long clocks[NBITS] = {};
 
@@ -47,6 +51,9 @@ namespace G {
 
 	unsigned fin = 0;
 	unsigned timed_out;
+	bool heartbeat;		       // print 1s heartbeat if set
+	bool before_first_last;        // sample before trigger, first sample from trigger, last sample
+	unsigned before, first, last;  // values at before, first, last
 };
 
 
@@ -71,17 +78,28 @@ int readw(unsigned *xx)
 }
 
 
-
-#define SHOW_TIMEOUT	9999999999
-
 void alarm_handler(int sig)
 {
-	G::timed_out = 1;
+	G::seconds += 1;
+	if (G::heartbeat){
+		printf("HEARTBEAT=%u,%llu\n", G::seconds, G::clk);
+		fflush(stdout);
+	}
+	if (G::seconds > G::timeout){
+		G::timed_out = 1;
+	}else{
+		alarm(1);
+	}
 }
 
 void print_clocks(void) {
 	for (int ib = 0; ib < NBITS; ++ib){
 		printf("%llu%c", G::clocks[ib], ib+1 == NBITS? '\n': ',');
+	}
+	if (G::before_first_last){
+		printf("BEFORE_FIRST_LAST=0x%08x,0x%08x,0x%08x\n", G::before, G::first, G::last);
+		printf("LAST_CLOCK=%llu\n", G::clk);
+		printf("TIMED_OUT=%d\n", G::timed_out);
 	}
 }
 
@@ -139,24 +157,37 @@ bool onChange(unsigned x0, unsigned x1)
 	return changes;
 }
 
+
+
+unsigned read_value_before_trigger(int site){
+	char value[32];
+	Knob knob(site, "di_snoop");
+	assert(knob.get(value) == 1);
+
+	return strtoul(value, 0, 16);
+}
+
 void count_clocks_live() {
-	unsigned x0;
-	unsigned x1;
+	unsigned x0 = 0;
+	unsigned x1 = 0;
+
 
 	if (readw(&x0) != 1){
 		perror("failed to read first word");
 		exit(1);
 	}
+	G::first = x0;
 
 	if (G::timeout){
 		signal(SIGALRM, alarm_handler);
-		alarm(G::timeout);
+		alarm(1);
 	}
 
 	for (G::clk = 1; !G::timed_out && G::fin != G::finished; ++G::clk, x0 = x1){
 		readw(&x1);
 		(x1 != x0) && onChange(x0, x1);
 	}
+	G::last = x1;
 }
 
 int ui(int argc, const char** argv)
@@ -178,6 +209,13 @@ int ui(int argc, const char** argv)
 	}else if (getenv("TIMEOUT")){
 		G::timeout = atoi(getenv("TIMEOUT"));
 	}
+	if (getenv("TOP_HEARTBEAT")){
+		G::heartbeat = atoi(getenv("TOP_HEARTBEAT"));
+	}
+	if (getenv("TOP_BEFORE_FIRST_LAST")){
+		G::before_first_last = true;
+		G::before = read_value_before_trigger(site);
+	}
 	if (argc > 0 && argv[1][0] == '-'){
 		G::fp_in = stdin;
 		return 1;
@@ -189,6 +227,8 @@ int ui(int argc, const char** argv)
 		perror(fname);
 		exit(1);
 	}
+
+
 	return 0;
 }
 

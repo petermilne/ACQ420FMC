@@ -324,6 +324,9 @@ multicast: 	multicast.o Multicast.o
 trigger_at: trigger_at.o knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ $(LDFLAGS) -lpopt
 	
+clocks_to_first_edge: clocks_to_first_edge.o knobs.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ $(LDFLAGS)	
+	
 slowmon_hw: slowmon_hw.o knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ $(LDFLAGS) -lpopt
 			
