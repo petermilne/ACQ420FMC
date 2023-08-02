@@ -94,6 +94,7 @@ void alarm_handler(int sig)
 }
 
 void print_clocks(void) {
+	printf("FIRST_TRANSITION=");
 	for (int ib = 0; ib < NBITS; ++ib){
 		printf("%llu%c", G::clocks[ib], ib+1 == NBITS? '\n': ',');
 	}
@@ -237,10 +238,13 @@ int main(int argc, const char** argv)
 {
 	if (ui(argc, argv)){
 		count_clocks_live();
+		system("kill -9 $(cat /var/run/acq400_stream_headImpl.0.pid)");
+		sleep(2);
 	}else{
 		count_clocks();
 	}
 	print_clocks();
+
 	return 0;
 }
 
