@@ -238,6 +238,7 @@ int main(int argc, const char** argv)
 {
 	if (ui(argc, argv)){
 		count_clocks_live();
+		sleep(2);
 		system("kill -9 $(cat /var/run/acq400_stream_headImpl.0.pid)");
 		sleep(2);
 	}else{
