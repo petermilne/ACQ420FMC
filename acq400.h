@@ -12,6 +12,8 @@
 #include "acq400_mod_id.h"
 
 
+
+
 /* Offsets for control registers in the AXI MM2S FIFO */
 
 #define AXI_FIFO              	0x1000
@@ -102,6 +104,8 @@
 #define DAC_READ_LAT_AC		(ADC_BASE+0x70)
 #define DAC_READ_LAT_MM		(ADC_BASE+0x74)
 
+
+
 #define ACQ480_TRAIN_CTRL	(ADC_BASE+0x28)
 #define ACQ480_TRAIN_HI_VAL	(ADC_BASE+0x2C)
 #define ACQ480_TRAIN_LO_VAL	(ADC_BASE+0x30)
@@ -133,6 +137,8 @@
 
 #define SPADN(ix)		(ADC_BASE+0x80+(ix)*sizeof(u32))
 #define SPADMAX			8
+
+#define CUSTOM_FLASH_DELTA_SP   (ADC_BASE+0xc0)
 
 #define XO_SPADN(ix)		(ADC_BASE+0xC0+(ix)*sizeof(u32))
 

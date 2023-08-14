@@ -1194,6 +1194,7 @@ const struct attribute *ao428_attrs[] = {
 	NULL
 };
 
+MAKE_DNUM(delta_dac_setpoint, CUSTOM_FLASH_DELTA_SP, 0xffffffff);
 
 
 const struct attribute *ao420_attrs[] = {
@@ -1217,6 +1218,7 @@ const struct attribute *ao420_attrs[] = {
 	&dev_attr_delay66.attr,
 	&dev_attr_read_latency.attr,
 	&dev_attr_dac_dec.attr,
+	&dev_attr_delta_dac_setpoint.attr,
 	NULL
 };
 

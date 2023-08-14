@@ -147,6 +147,7 @@ void ao420_createDebugfs(struct acq400_dev* adev, char* pcursor)
 		ao424_create_spans(adev, pcursor);
 	}
 	DBG_REG_CREATE(AO_DELAY66);
+	DBG_REG_CREATE(CUSTOM_FLASH_DELTA_SP);
 }
 
 void adc_createDebugfs(struct acq400_dev* adev, char* pcursor)
