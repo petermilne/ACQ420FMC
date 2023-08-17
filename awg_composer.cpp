@@ -19,10 +19,11 @@ Generic Binary file interface:
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
+#include <sys/stat.h>
 #include <assert.h>
 #include <string>
 #include <vector>
+#include <errno.h>
 
 #include "popt.h"
 #include "split2.h"
@@ -36,6 +37,8 @@ namespace G {
 	const char* root = "/tmp/AWG";
 	int verbose;
 	int nreps = 1;
+	FILE* out = stdout;
+	const char* outfile;
 };
 
 
@@ -55,6 +58,9 @@ struct poptOption opt_table[] = {
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
 	},
+	{
+	  "outfile", 'o', POPT_ARG_STRING, &G::outfile, 'o', "set output file, default stdout"
+	},
 	POPT_AUTOHELP
 	POPT_TABLEEND
 };
@@ -71,48 +77,13 @@ struct Segment {
 		delete [] name;
 	}
 
+	virtual void action (void) = 0;
+
 	static Segment* factory(const char* segdef);
 	static std::vector<Segment*> segments;
 };
 std::vector<Segment*> Segment::segments;
 
-template<class T>
-struct ConcreteSegment: public Segment {
-	T* data;
-	struct ChFile {
-		int ch;
-		char* fname;
-		int len;
-	};
-	std::vector<ChFile*> files;
-
-	void get_files()
-	{
-
-	}
-	ConcreteSegment(int _reps, const char* _name): Segment(_reps, _name), data(0)
-	{
-		get_files();
-	}
-};
-
-Segment* Segment::factory(const char* segdef){
-	char _segname[128];
-	int reps = 1;
-	const char* segname = _segname;
-	if (sscanf(segdef, "%d*%s", &reps, _segname) == 2) {
-		;
-	}else{
-		segname = segdef;
-	}
-	if (G::data32){
-		return new ConcreteSegment<int>(reps, segname);
-	}else{
-		return new ConcreteSegment<short>(reps, segname);
-	}
-}
-
-#define MAXNAME 128
 
 struct TemplateFile;
 typedef std::vector<TemplateFile*> VTF;
@@ -136,6 +107,121 @@ struct TemplateFile {
 };
 
 VTF template_files;
+
+template<class T>
+struct ConcreteSegment: public Segment {
+	T* data;
+	int ndata;
+	VTF templates;
+
+	static int lenw(std::string fname){
+                struct stat buf;
+                const char* path = fname.c_str();
+                if (stat(path, &buf) != 0){
+                        perror(path);
+                        exit(1);
+                }
+                return buf.st_size/sizeof(T);
+	}
+	void get_templates()
+	{
+		int max_lenw = 0;
+		T** channels = new T* [G::nchan];		// index from 1
+		int* ch_len = new int [G::nchan];
+
+		memset(channels, 0, sizeof(T)*G::nchan+1);
+		memset(ch_len, 0, sizeof(int)*G::nchan+1);
+
+		for (auto tt: ::template_files){
+			if (strcmp(tt->seg.c_str(), name) == 0){
+				templates.push_back(tt);
+			}
+		}
+
+		for (auto tt: templates){
+			const char* tt_fname = tt->fname.c_str();
+			int tt_len = lenw(tt->fname);
+			if (tt_len > max_lenw){
+				max_lenw = tt_len;
+			}
+			FILE* fp = fopen(tt_fname, "r");
+			if (fp == 0){
+				perror(tt_fname);
+				exit(errno);
+			}
+			assert(tt->chan <= G::nchan);
+			assert(tt->chan > 0);
+			int ic = tt->chan -1;
+
+			channels[ic] = new T[tt_len];
+			int nread = fread(channels[ic], sizeof(T), tt_len, fp);
+			if (nread != tt_len){
+				fprintf(stderr, "ERROR: read %s returned %d wanted %d\n", tt_fname, nread, tt_len);
+				exit(1);
+			}
+			fclose(fp);
+			ch_len[ic] = nread;
+		}
+		data = new T[ndata = max_lenw*G::nchan];
+
+		// create mux data set for G::nchan, use last value in ch data set if data set is short.
+		for (int sam = 0; sam < max_lenw; ++sam){
+			for (int ic = 0; ic < G::nchan; ++ic){
+				int yy;
+
+				if (ch_len[ic] == 0){
+					yy = 0;
+				}else if (sam >= ch_len[ic]){
+					yy = channels[ic][ch_len[ic]-1];
+				}else{
+					yy = channels[ic][sam];
+				}
+				data[sam*G::nchan + ic] = yy;
+			}
+		}
+
+		delete [] channels;
+	}
+	std::string toString() {
+		return "ConcreteSegment<" + std::to_string(sizeof(T)) + "> " + name +" *" + std::to_string(reps) + " ndata:" + std::to_string(ndata);
+	}
+	ConcreteSegment(int _reps, const char* _name): Segment(_reps, _name), data(0), ndata(0)
+	{
+		get_templates();
+	}
+	virtual ~ConcreteSegment() {
+		delete [] data;
+	}
+
+	void emit_segment() {
+		fwrite(data, sizeof(T), ndata, G::out);
+	}
+	virtual void action (void) {
+		if (G::verbose){
+			std::cerr << toString() << std::endl;
+		}
+		emit_segment();
+	}
+};
+
+Segment* Segment::factory(const char* segdef){
+	char _segname[128];
+	int reps = 1;
+	const char* segname = _segname;
+	if (sscanf(segdef, "%d*%s", &reps, _segname) == 2) {
+		;
+	}else{
+		segname = segdef;
+	}
+	if (G::data32){
+		return new ConcreteSegment<int>(reps, segname);
+	}else{
+		return new ConcreteSegment<short>(reps, segname);
+	}
+
+}
+
+
 
 #define MAXLS	65536
 
@@ -166,7 +252,6 @@ void do_scan()
 
 	std::string manline;
 	while(std::getline(fp, manline)){
-		//std::cout << "Hello:" << manline << "\n";
 		VS fields;
 		split2(manline, fields, ' ');
 		if (fields[0][0] == '#'){
@@ -188,18 +273,25 @@ void ui(int argc, const char** argv)
 
 	while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'o':
+			G::out = fopen(G::outfile, "w");
+			assert(G::out);
+			break;
 		default:
 			;
 		}
 	}
+
+	do_scan();
+
 	const char* segdef;
 	while ((segdef = poptGetArg(opt_context)) != 0){
 		Segment::segments.push_back(Segment::factory(segdef));
 	}
-	do_scan();
-
-	for (auto tt: template_files){
-		std::cout << tt->toString() << std::endl;
+	if (G::verbose){
+		for (auto tt: template_files){
+			std::cerr << tt->toString() << std::endl;
+		}
 	}
 }
 
@@ -210,7 +302,7 @@ int main(int argc, const char* argv[])
 	for (int rep = 0; rep < G::nreps; ++rep){
 		for (Segment* segment: Segment::segments){
 			for (int segrep = 0; segrep < segment->reps; ++segrep){
-
+				segment->action();
 			}
 		}
 	}
