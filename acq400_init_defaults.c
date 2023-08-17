@@ -68,11 +68,10 @@ module_param_array(ao420_mapping, int, &ao420_mapping_count, 0644);
 int no_ao42x_llc_ever = 0;
 module_param(no_ao42x_llc_ever, int, 0644);
 MODULE_PARM_DESC(no_ao42x_llc_ever, "refuse to set LLC mode on exit AWG. Won't work anyway if distributor set");
-
-/* KLUDGE ALERT .. remove me now? */
+/* KLUDGE ALERT .. remove me now? .. because some scripts will still try to set it */
 int dio432_rowback = 256/4;
 module_param(dio432_rowback, int, 0644);
-MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much");
+MODULE_PARM_DESC(dio432_rowback, "stop short filling FIFO by this much [REMOVEME]");
 
 int dio482_cntr_shorts = 0;
 module_param(dio482_cntr_shorts, int , 0644);
@@ -927,17 +926,6 @@ static void dio432_init_defaults(struct acq400_dev *adev)
 	//acq400wr32(adev, DAC_INT_CSR, 0);
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_RST|DIO432_CTRL_DIO_RST);
 	acq400wr32(adev, DAC_CTRL, dac_ctrl|DIO432_CTRL_FIFO_EN);
-
-	if (measure_ao_fifo_ok){
-		dev_info(DEVP(adev), "dio432_init_defaults() 60 measure_ao_fifo()");
-		measure_ao_fifo(adev);
-		dev_info(DEVP(adev), "dio432 max fifo samples %d", xo_dev->xo.max_fifo_samples);
-		if (dio432_rowback){
-			xo_dev->xo.max_fifo_samples -= dio432_rowback;
-			dev_info(DEVP(adev), "dio432 max fifo samples %d dio432_rowback",
-					xo_dev->xo.max_fifo_samples);
-		}
-	}
 
 	acq400wr32(adev, DIO432_DI_FIFO_STATUS, DIO432_FIFSTA_CLR);
 	acq400wr32(adev, DIO432_DO_FIFO_STATUS, DIO432_FIFSTA_CLR);
