@@ -90,7 +90,8 @@ APPS := mmap acq400_stream permute acq435_decode \
 	soft_atd \
 	wr_reset wrtd soft_wrtd wrtt_mon multicast \
 	mr_offload trigger_at bb_stream reduce \
-	channel_mapping slowmon_hw reg_rw hudp_config tai_server
+	channel_mapping slowmon_hw reg_rw hudp_config tai_server \
+	awg_composer
 	
 # data_sink	
 # dropped
@@ -329,6 +330,9 @@ clocks_to_first_edge: clocks_to_first_edge.o knobs.o
 	
 slowmon_hw: slowmon_hw.o knobs.o
 	$(CXX) -std=c++11 -O3 -o $@ $^ $(LDFLAGS) -lpopt
+	
+awg_composer: awg_composer.o knobs.o
+	$(CXX) -std=c++11 -O3 -o $@ $^ $(LDFLAGS) -lpopt	
 			
 rtpackage:
 	tar cvzf dmadescfs-$(DC).tgz dmadescfs* scripts/load.dmadescfs
