@@ -39,8 +39,51 @@ namespace G {
 	int nreps = 1;
 	FILE* out = stdout;
 	const char* outfile;
+	const char* awg_mode;
+	bool output_is_pipe;
 };
 
+/*
+record (mbbi, "${UUT}:${SITE}:AWG:MODE") {
+        field(DTYP, "Soft Channel")
+        field(ZRST, "continuous")
+        field(ONST, "oneshot")
+        field(TWST, "oneshot_rearm")
+        field(DESC, "AWG operating mode")
+        field(NOBT, "2")
+}
+
+acq1001_590> grep 542 /etc/in*
+/etc/inetd.conf:54200 stream tcp nowait root bb.sha1sum bb.sha1sum 1
+/etc/inetd.conf:54201 stream tcp nowait root bb bb load --mode 1
+/etc/inetd.conf:54202 stream tcp nowait root bb bb load --mode 2
+/etc/inetd.conf:54205 stream tcp nowait root bb bb load --mode 0
+
+*/
+
+struct ModeMap {
+	const char* mode;
+	const int port;
+};
+
+ModeMap modeMap[] = {
+		{ "continuous",    54205 },
+		{ "oneshot",       54201 },
+		{ "oneshot_rearm", 54202 },
+		{ "0",             54205 },
+		{ "1",             54201 },
+		{ "2",             54202 },
+};
+#define NMAP	(sizeof(modeMap)/sizeof(ModeMap))
+
+int awgmode2port(const char* mode){
+	for (unsigned ii = 0; ii < NMAP; ++ii){
+		if (strcmp(modeMap[ii].mode, mode) == 0){
+			return modeMap[ii].port;
+		}
+	}
+	return -1;
+}
 
 struct poptOption opt_table[] = {
 	{
@@ -57,6 +100,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "verbose", 'v', POPT_ARG_INT, &G::verbose, 0, "debug"
+	},
+	{
+	  "awg_mode", 'a', POPT_ARG_STRING, &G::awg_mode, 'a', "awg mode: continuous|oneshot|oneshot_rearm"
 	},
 	{
 	  "outfile", 'o', POPT_ARG_STRING, &G::outfile, 'o', "set output file, default stdout"
@@ -273,7 +319,28 @@ void ui(int argc, const char** argv)
 
 	while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
+		case 'a': {
+			int port = awgmode2port(G::awg_mode);
+			if (port == -1){
+				fprintf(stderr, "ERROR, mode \"%s\" not supported\n", G::awg_mode);
+				exit(1);
+			}else{
+				char cmd[132];
+				snprintf(cmd, 132, "nc localhost %d", port);
+				G::out = popen(cmd, "w");
+				if (G::out == 0){
+					perror(cmd);
+					exit(1);
+				}
+				G::output_is_pipe = true;
+			}
+			break;
+		}
 		case 'o':
+			if (G::awg_mode){
+				fprintf(stderr, "ERROR: output stdout not compatible with output awg\n");
+				exit(1);
+			}
 			G::out = fopen(G::outfile, "w");
 			assert(G::out);
 			break;
@@ -305,5 +372,9 @@ int main(int argc, const char* argv[])
 				segment->action();
 			}
 		}
+	}
+
+	if (G::output_is_pipe){
+		pclose(G::out);
 	}
 }
