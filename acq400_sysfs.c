@@ -543,6 +543,57 @@ static ssize_t store_gpg_enable(
 
 static DEVICE_ATTR(gpg_enable, S_IRUGO|S_IWUSR, show_gpg_enable, store_gpg_enable);
 
+
+/* STUB: @@todo: get gpg entry pointer, I/O. translate time/state?. What about state32? */
+static ssize_t show_gpg_entry_N(
+	struct device * dev,
+	struct device_attribute *attr,
+	char * buf,
+	const int IX)
+{
+	return snprintf(buf, 128, "STUB%d\n", IX);
+}
+
+static ssize_t store_gpg_entry_N(
+	struct device * dev,
+	struct device_attribute *attr,
+	const char * buf,
+	size_t count,
+	const int IX)
+{
+	return -1;
+}
+
+#define MAKE_GPG_ENTRY(IX)						\
+static ssize_t show_gpg_entry##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	char * buf)							\
+{									\
+	return show_gpg_entry_N(dev, attr, buf, IX);			\
+}									\
+									\
+static ssize_t store_gpg_entry##IX(					\
+	struct device * dev,						\
+	struct device_attribute *attr,					\
+	const char * buf,						\
+	size_t count)							\
+{									\
+	return store_gpg_entry_N(dev, attr, buf, count, IX); 		\
+}									\
+static DEVICE_ATTR(gpg_entry##IX, S_IRUGO|S_IWUSR, 			\
+		show_gpg_entry##IX, store_gpg_entry##IX)
+
+MAKE_GPG_ENTRY(0);
+/*
+MAKE_GPG_ENTRY(1);
+MAKE_GPG_ENTRY(2);
+MAKE_GPG_ENTRY(3);
+MAKE_GPG_ENTRY(4);
+MAKE_GPG_ENTRY(5);
+MAKE_GPG_ENTRY(6);
+MAKE_GPG_ENTRY(7);
+*/
 static ssize_t show_simulate(
 	struct device * dev,
 	struct device_attribute *attr,
@@ -3127,6 +3178,7 @@ static const struct attribute *gpg_attrs[] = {
 	&dev_attr_gpg_sync.attr,
 	&dev_attr_gpg_mode.attr,
 	&dev_attr_gpg_enable.attr,
+	&dev_attr_gpg_entry0.attr,
 	&dev_attr_gpg_top_count.attr,
 	&dev_attr_gpg_debug.attr,
 	NULL
