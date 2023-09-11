@@ -18,17 +18,21 @@ spad2nchan() {
 	esac
 }
 
-if [ "x$1" = "x" ]; then
+case x$1 in
+x)
+	get.sys $S0KB/aggregator;;
+default)
 	source /etc/sites
 	sitelist=$sites
-	echo using default sitelist $sitelist
-else
+	echo using default sitelist $sitelist;;
+*)
 	sitelist=$1
 	if [ "x$2" != "x" ]; then
 		set.site 0 spad=$2
 		echo spad set $(get.site 0 spad)
-	fi
-fi
+	fi;;
+esac
+
 sites="$(echo $sitelist | tr , \ )"
 
 echo sitelist: $sitelist
