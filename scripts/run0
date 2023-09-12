@@ -20,8 +20,10 @@ spad2nchan() {
 
 case x$1 in
 x)
-	get.sys $S0KB/aggregator;;
-default)
+	get.sys $S0KB/aggregator
+	exit 0;;
+xdefault)
+	shift
 	source /etc/sites
 	sitelist=$sites
 	echo using default sitelist $sitelist;;
