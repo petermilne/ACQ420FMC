@@ -16,16 +16,29 @@ show_state() {
 	printf '%2d %20s %2d :%s %d %d\n' $1 $2 $3 $4 $busy $good | tee /dev/shm/si5326_tune_phase.state
 }
 
+wr_is_active() {
+	echo $(get.site 0 wr_pps_client_count)
+}
+
+
 (
-STATE=ST_COARSE_TO_X01
+STATE=ST_ZERO_PPS
 iter=0
-show_state $iter $STATE 0 0
+jump=--
+PVC=0
+show_state $iter $STATE $PVC $jump
 
 while [ "$STATE" != "ST_FINISHED" ]; do
 	iter=$(($iter+1))
 	NSTATE=$STATE
 
 	case $STATE in
+	ST_ZERO_PPS)
+		if [ $(wr_is_active) -ne 0 ]; then
+		        STATE=ST_COARSE_TO_X01
+		else
+			sleep 3
+		fi;;
 	ST_COARSE_TO_X01)
 		PVC=$(adjust -3)
 		case $PVC in
