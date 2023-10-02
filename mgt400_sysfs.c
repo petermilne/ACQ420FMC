@@ -876,15 +876,18 @@ MAKE_DOTTED_QUAD(rx_src_ip, HUDP_RX_SRC_ADDR);
 
 
 
+#define TX_SPP_MSK 0xff800
+#define TX_SPP_SHL 11
+
 MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
 MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
 MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
-MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0xff800);
+MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, TX_SPP_MSK);
 MAKE_DNUM(tx_sample_sz, HUDP_TX_PKT_SZ, 0x03ff);
 
 
-#define TX_SPP_MSK 0x7800
-#define TX_SPP_SHL 11
+
+
 
 static ssize_t show_tx_spp(
 	struct device * dev,
