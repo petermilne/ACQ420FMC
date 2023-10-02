@@ -879,7 +879,7 @@ MAKE_DOTTED_QUAD(rx_src_ip, HUDP_RX_SRC_ADDR);
 MAKE_DNUM(src_port, HUDP_SRC_PORT,  0xffff);
 MAKE_DNUM(dst_port, HUDP_DEST_PORT, 0xffff);
 MAKE_DNUM(rx_port,  HUDP_RX_PORT,   0xffff);
-MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0x7800);
+MAKE_DNUM(tx_pkt_ns, 	HUDP_TX_PKT_SZ, 0xff800);
 MAKE_DNUM(tx_sample_sz, HUDP_TX_PKT_SZ, 0x03ff);
 
 
