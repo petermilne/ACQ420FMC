@@ -50,7 +50,7 @@ if { $::argc > 0 } {
 
 proc set_knob {knob value} {
 	global SITE
-	set kpath "/dev/acq400.$SITE.knobs/$knob"
+	set kpath "/etc/acq400/$SITE/$knob"
         vprint  1 "set_knob $kpath $value"
 	if {[catch {
 		set fp [open $kpath w]
@@ -63,7 +63,7 @@ proc set_knob {knob value} {
 	
 proc get_knob {knob} {
 	global SITE
-	set fp [open "/dev/acq400.$SITE.knobs/$knob" r]
+	set fp [open "/etc/acq400/$SITE/$knob" r]
 	if { [gets $fp line] >= 0 } {
 		close $fp
 		return $line
