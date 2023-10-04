@@ -21,7 +21,7 @@ else
 fi
 
 echo loading overlay..
-mount -t configfs none /sys/kernel/config
+mount | grep -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
 mkdir -p /sys/kernel/config/device-tree/overlays/dsp1
 cat /mnt/dtb.d/acq400dsp1_overlay.dtb > /sys/kernel/config/device-tree/overlays/dsp1/dtbo
 mkdir -p /sys/kernel/config/device-tree/overlays/dsp2
