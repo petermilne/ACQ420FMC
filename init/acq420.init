@@ -1013,23 +1013,20 @@ insmod $MOD bufferlen=$BLEN nbuffers=$NBUF $GS $DRVR_CUSTOM
 HAS_HUDP=n
 
 load_mgt() {
-    MGTMOD=/usr/local/lib/modules/mgt400.ko
-    if [ -e /mnt/local/mgt400.ko ]; then
-        MGTMOD=/mnt/local/mgt400.ko
-        echo "using override module $MGTMOD"
-    fi
-    /sbin/insmod $MGTMOD MODEL=$1 $MGT400_PRAMS
     COMMS4=$(grep filename /tmp/fpga_status | awk '{ print $5 } ' | awk -F _ '{ print $9 }')
     case $COMMS4 in
+    908*)
+    	echo No MGT/Aurora Function
+    	return;;
     909*)
         ${ULC}/load.acq2106_quadcomms;;
+    95*)
+    	echo MGTDRAM;;
     *)
-        grep -q UDP /tmp/fpga_status
-        if [ $? -eq 0 ]; then
-            ${ULC}/load.acq2106_hudp
-            HAS_HUDP=y
-        fi;;
+        echo Normal MGT;;
     esac
+    ${ULC}/load.mgtAB_enable
+
 }
 
 if [ -e /etc/acq400/C/MTYPE ]; then
@@ -1044,6 +1041,11 @@ if [ -e /etc/acq400/C/MTYPE ]; then
     grep filename /tmp/fpga_status | grep -q _9[05][0-9][0-9]
     if [ $? -eq 0 ]; then
         load_mgt
+        grep -q UDP /tmp/fpga_status
+        if [ $? -eq 0 ]; then
+            ${ULC}/load.acq2106_hudp
+            HAS_HUDP=y
+        fi
         cmt=$(cat /etc/acq400/C/MTYPE)
         case $cmt in
         90)
@@ -1064,6 +1066,12 @@ if [ -e /etc/acq400/C/MTYPE ]; then
                 echo "WARNING: site C unsupported MTYPE $cmt"
             fi ;;
         esac
+    	MGTMOD=/usr/local/lib/modules/mgt400.ko
+    	if [ -e /mnt/local/mgt400.ko ]; then
+        	MGTMOD=/mnt/local/mgt400.ko
+        	echo "using override module $MGTMOD"
+        fi
+        /sbin/insmod $MGTMOD MODEL=$1 $MGT400_PRAMS
     elif [ "x$WHITE_RABBIT" = "x1" ]; then
         echo +++ WHITE_RABBIT: skipping mgt device driver load..
         echo +++ init MGT482
