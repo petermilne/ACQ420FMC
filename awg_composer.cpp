@@ -41,6 +41,8 @@ namespace G {
 	const char* outfile;
 	const char* awg_mode;
 	bool output_is_pipe;
+
+	int macs;
 };
 
 /*
@@ -123,7 +125,7 @@ struct Segment {
 		delete [] name;
 	}
 
-	virtual void action (void) = 0;
+	virtual void action (int) = 0;
 
 	static Segment* factory(const char* segdef);
 	static std::vector<Segment*> segments;
@@ -156,6 +158,8 @@ VTF template_files;
 
 template<class T>
 struct ConcreteSegment: public Segment {
+	T** channels;
+	int* ch_len;
 	T* data;
 	int ndata;
 	VTF templates;
@@ -172,11 +176,6 @@ struct ConcreteSegment: public Segment {
 	void get_templates()
 	{
 		int max_lenw = 0;
-		T** channels = new T* [G::nchan];		// index from 1
-		int* ch_len = new int [G::nchan];
-
-		memset(channels, 0, sizeof(T)*G::nchan+1);
-		memset(ch_len, 0, sizeof(int)*G::nchan+1);
 
 		for (auto tt: ::template_files){
 			if (strcmp(tt->seg.c_str(), name) == 0){
@@ -225,28 +224,71 @@ struct ConcreteSegment: public Segment {
 				data[sam*G::nchan + ic] = yy;
 			}
 		}
-
-		delete [] channels;
 	}
-	std::string toString() {
+	virtual std::string toString() {
 		return "ConcreteSegment<" + std::to_string(sizeof(T)) + "> " + name +" *" + std::to_string(reps) + " ndata:" + std::to_string(ndata);
 	}
 	ConcreteSegment(int _reps, const char* _name): Segment(_reps, _name), data(0), ndata(0)
 	{
+		channels = new T* [G::nchan];		// index from 1
+		ch_len = new int [G::nchan];
+
+		memset(channels, 0, sizeof(T)*G::nchan+1);
+		memset(ch_len, 0, sizeof(int)*G::nchan+1);
+
 		get_templates();
 	}
 	virtual ~ConcreteSegment() {
+		delete [] ch_len;
+		delete [] channels;
 		delete [] data;
 	}
 
-	void emit_segment() {
+	virtual void emit_segment() {
 		fwrite(data, sizeof(T), ndata, G::out);
 	}
-	virtual void action (void) {
-		if (G::verbose){
+	virtual void action (int rep) {
+		if (G::verbose > 1){
 			std::cerr << toString() << std::endl;
 		}
 		emit_segment();
+	}
+};
+
+
+#include <cmath>
+
+
+
+template<class T>
+struct Segment2D: public ConcreteSegment<T> {
+	const int channel_2d;
+
+	Segment2D(int _reps, const char* _name, int _channel_2d):
+		ConcreteSegment<T>(_reps, _name), channel_2d(_channel_2d)
+	{}
+	virtual std::string toString() {
+		return "Segment2D<" + std::to_string(sizeof(T)) + "> " + this->name +" *" + std::to_string(this->reps) + " ndata:" + std::to_string(this->ndata) + " channel_2d:" + std::to_string(channel_2d);
+	}
+	virtual void action (int rep) {
+
+		int max_sam = this->ch_len[channel_2d];
+
+		if (rep < max_sam){
+			if (G::verbose > 1){
+				std::cerr << this->toString() << " rep:" << rep << " max_sam:" << max_sam << std::endl;
+			}
+			long scale = this->channels[channel_2d][rep];
+
+			for (int sam = 0; sam < max_sam; ++sam){
+
+				T yy = (T)std::sqrt(this->channels[channel_2d][sam]*scale);
+
+				this->data[sam*G::nchan + channel_2d] = yy;
+				++G::macs;
+			}
+		}
+		this->emit_segment();
 	}
 };
 
@@ -254,15 +296,23 @@ Segment* Segment::factory(const char* segdef){
 	char _segname[128];
 	int reps = 1;
 	const char* segname = _segname;
+	int channel_2d = -1;
 	if (sscanf(segdef, "%d*%s", &reps, _segname) == 2) {
 		;
 	}else{
 		segname = segdef;
 	}
+	if (getenv("CHANNEL_2D") != 0){
+		channel_2d = atoi(getenv("CHANNEL_2D"));
+	}
 	if (G::data32){
 		return new ConcreteSegment<int>(reps, segname);
 	}else{
-		return new ConcreteSegment<short>(reps, segname);
+		if (channel_2d >= 0){
+			return new Segment2D<short>(reps, segname, channel_2d);
+		}else{
+			return new ConcreteSegment<short>(reps, segname);
+		}
 	}
 
 }
@@ -369,12 +419,15 @@ int main(int argc, const char* argv[])
 	for (int rep = 0; rep < G::nreps; ++rep){
 		for (Segment* segment: Segment::segments){
 			for (int segrep = 0; segrep < segment->reps; ++segrep){
-				segment->action();
+				segment->action(segrep);
 			}
 		}
 	}
 
 	if (G::output_is_pipe){
 		pclose(G::out);
+	}
+	if (G::verbose){
+		std::cerr << "mathops:" << G::macs << std::endl;
 	}
 }
