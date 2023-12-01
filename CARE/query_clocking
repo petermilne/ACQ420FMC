@@ -1,0 +1,29 @@
+#!/bin/sh
+# query relevant clocks for HDMI daisychain
+
+echo "nchan " $(get.site  0 NCHAN)
+get.site  0 SIG:SRC:TRG:0
+get.site  1 trg
+
+echo "sync_role " $(get.site  0 sync_role)
+get.site  1 clk
+get.site  0 SYS:CLK:FPMUX
+get.site  0 SIG:CLK_MB:FIN
+get.site  0 SIG:CLK_MB:FREQ
+get.site  0 SIG:CLK_S1:FREQ
+
+get.site  0 SYS:CLK:BYPASS
+get.site  0 SYS:CLK:OE_CLK1_ZYNQ
+get.site  0 SIG:SRC:CLK:1
+get.site  1 CLKDIV
+echo "nacc " $(get.site 1 nacc)
+echo "dna "  $(get.site 1 dna)
+
+OSR=$(get.site  0 SIG:CLK_S1:FREQ | awk '{ printf "%d", $2 }')
+if [ $(get.site 1 dna) -eq 0 ]; then
+	nacc=$(get.site 1 nacc | awk -F, '{ print $1 }')
+	OSR=$((OSR/nacc))
+fi
+echo "OSR " $OSR
+
+
