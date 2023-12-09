@@ -112,6 +112,10 @@ int distributor_first_buffer = 0;
 module_param(distributor_first_buffer, int, 0644);
 MODULE_PARM_DESC(distributor_first_buffer, "use in mixed aggregator/distributor systems to avoid buffer overlap");
 
+int distributor_segment_offset = 0;
+module_param(distributor_segment_offset, int, 0644);
+MODULE_PARM_DESC(distributor_segment_offset, "xwg clients may chose to partition the distributor buffer space");
+
 int reserve_buffers = 2;
 module_param(reserve_buffers, int, 0444);
 MODULE_PARM_DESC(reserve_buffers, "buffers held out of shot, used post shot data start");
@@ -258,7 +262,7 @@ module_param_string(specifies, species, 2, 0);
 
 int firstDistributorBuffer(void)
 {
-	int rc = distributor_first_buffer + reserve_buffers;
+	int rc = distributor_first_buffer + reserve_buffers + distributor_segment_offset;
 	dev_dbg(DEVP(acq400_devices[0]), "%s return %d", __FUNCTION__, rc);
 	return rc;
 }
@@ -1245,7 +1249,7 @@ void _update_abcde_status(struct XO_dev *xo_dev){
 	char bx = buf_get(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
 	char obx = *awg_seg;
 	if (VALID_ABCDE(bx)){
-		distributor_first_buffer = (bx-'A')*awg_seg_bufs;
+		distributor_segment_offset = (bx-'A')*awg_seg_bufs;
 		*awg_seg = bx;
 		dev_dbg(DEVP(&xo_dev->adev), "%s seg:%c", __FUNCTION__, bx);
 	}else{

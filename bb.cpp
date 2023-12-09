@@ -90,7 +90,8 @@ namespace G {
 
 	int mode = AO_oneshot;
 	int verbose;
-	unsigned buffer0;				// index from here
+	unsigned buffer0;				// index from here (volatile)
+	unsigned buffer00;				// nonvolatile
 	int concurrent;
 	int minbufs = 4;
 	int max_samples;
@@ -467,11 +468,11 @@ unsigned getSpecificBufferlen(int ibuf)
 	return bl;
 }
 #define MODPRAMS 	"/sys/module/acq420fmc/parameters/"
-#define DFB	 	"/dev/acq400.0.knobs/first_distributor_buffer"
 #define BUFLEN	 	MODPRAMS "bufferlen"
 #define NBUF	 	MODPRAMS "nbuffers"
 #define AWG_SEG_BUFS	MODPRAMS "awg_seg_bufs"
-#define DFB_SET		MODPRAMS "distributor_first_buffer"
+#define DFB		MODPRAMS "distributor_first_buffer"
+#define DSO		MODPRAMS "distributor_segment_offset"
 
 #define PAGESZ	 4096
 #define PAGEM    (PAGESZ-1)
@@ -483,13 +484,8 @@ void set_segment_start(int seg)
 
 	getKnob(-1, AWG_SEG_BUFS, &seg_bufs);
 
-	G::buffer0 = seg * seg_bufs;
-	setKnob(-1, DFB_SET, G::buffer0);
-	if (G::verbose){
-		unsigned check;
-		getKnob(-1, DFB, &check);
-		fprintf(stderr, "seg_segment_start(%d) set G::buffer0:%u knob %u\n", seg, G::buffer0, check);
-	}
+	G::buffer0 = G::buffer00 + seg * seg_bufs;
+	setKnob(-1, DSO, seg);
 }
 
 void set_dist_awg(unsigned dist_s1)
@@ -508,7 +504,8 @@ RUN_MODE ui(int argc, const char** argv)
 	G::pad			= Env::getenv("BB_PAD",  G_PAD_LAST);
 
 	getKnob(-1, NBUF,  &Buffer::nbuffers);
-	getKnob(-1, DFB, 	&G::buffer0);
+	getKnob(-1, DFB, 	&G::buffer00);
+	G::buffer0 = G::buffer00;
 	getKnob(-1, BUFLEN, &Buffer::bufferlen);
 	getKnob(-1, "/etc/acq400/0/dist_bufferlen_play", &G::play_bufferlen);
 

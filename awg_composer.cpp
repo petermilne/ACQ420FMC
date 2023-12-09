@@ -31,6 +31,8 @@ Generic Binary file interface:
 #include <iostream>
 #include <fstream>
 
+#include "knobs.h"
+
 namespace G {
 	int nchan = 4;
 	int data32;
@@ -40,8 +42,8 @@ namespace G {
 	FILE* out = stdout;
 	const char* outfile;
 	const char* awg_mode;
+	const char* abcde;
 	bool output_is_pipe;
-
 	int macs;
 };
 
@@ -78,6 +80,15 @@ ModeMap modeMap[] = {
 };
 #define NMAP	(sizeof(modeMap)/sizeof(ModeMap))
 
+int abcde2port(const char* abcde) {
+	char bx = abcde[0];
+	if (bx >= 'A' && bx <= 'E'){
+		return 54212 + abcde[0] - 'A';
+	}else{
+		fprintf(stderr, "ERROR: valude --abcde A,B,C,D,E not %c\n", bx);
+		exit(1);
+	}
+}
 int awgmode2port(const char* mode){
 	for (unsigned ii = 0; ii < NMAP; ++ii){
 		if (strcmp(modeMap[ii].mode, mode) == 0){
@@ -86,6 +97,7 @@ int awgmode2port(const char* mode){
 	}
 	return -1;
 }
+
 
 struct poptOption opt_table[] = {
 	{
@@ -105,6 +117,9 @@ struct poptOption opt_table[] = {
 	},
 	{
 	  "awg_mode", 'a', POPT_ARG_STRING, &G::awg_mode, 'a', "awg mode: continuous|oneshot|oneshot_rearm"
+	},
+	{
+	  "abcde", 'A', POPT_ARG_STRING, &G::abcde, 'a', "buffer abcde"
 	},
 	{
 	  "outfile", 'o', POPT_ARG_STRING, &G::outfile, 'o', "set output file, default stdout"
@@ -370,7 +385,7 @@ void ui(int argc, const char** argv)
 	while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'a': {
-			int port = awgmode2port(G::awg_mode);
+			int port = G::abcde? abcde2port(G::abcde): awgmode2port(G::awg_mode);
 			if (port == -1){
 				fprintf(stderr, "ERROR, mode \"%s\" not supported\n", G::awg_mode);
 				exit(1);
