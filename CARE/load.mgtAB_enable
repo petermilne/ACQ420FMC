@@ -1,8 +1,4 @@
 #!/bin/sh
 
-mount -t configfs none /sys/kernel/config
-mkdir -p /sys/kernel/config/device-tree/overlays/acq2x06_enable_mgtAB
-cat /mnt/dtb.d/acq2x06_enable_mgtAB.dtb > \
-	/sys/kernel/config/device-tree/overlays/acq2x06_enable_mgtAB/dtbo
-
-
+source /usr/local/CARE/load.overlay
+load_overlay acq2x06_enable_mgtAB

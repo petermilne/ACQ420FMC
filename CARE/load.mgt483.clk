@@ -1,4 +1,6 @@
 
+source /usr/local/CARE/load.overlay
+
 #overlay=${1:-mgt48x_clk_overlay_156M25}
 overlay=${1:-mgt48x_clk_overlay}
 
@@ -9,11 +11,4 @@ case $overlay in
 	overlay=mgt48x_clk_overlay;;
 esac
 
-[ -e /sys/kernel/config/device-tree ] || mount -t configfs none /sys/kernel/config
-mkdir -p /sys/kernel/config/device-tree/overlays/$overlay
-cat /mnt/dtb.d/$overlay.dtb > \
-	/sys/kernel/config/device-tree/overlays/$overlay/dtbo
-
-
-
-
+load_overlay $overlay

@@ -29,10 +29,8 @@ if [ ! -e $ovl ]; then
     exit 1
 fi
 
-mount | grep -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
+source /usr/local/CARE/load.overlay
 echo enable USB mode $mode
-mkdir -p /sys/kernel/config/device-tree/overlays/acq400_usb_${mode}
-cat $ovl > /sys/kernel/config/device-tree/overlays/acq400_usb_${mode}/dtbo
-
+load_overlay acq400_usb_${mode} $ovl
 
 

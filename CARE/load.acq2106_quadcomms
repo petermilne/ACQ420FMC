@@ -1,8 +1,4 @@
+#!/bin/sh
 
-
-mount -t configfs none /sys/kernel/config
-mkdir -p /sys/kernel/config/device-tree/overlays/acq2106_quadcomms
-cat /mnt/dtb.d/acq2106_quadcomms_overlay.dtb > \
-	/sys/kernel/config/device-tree/overlays/acq2106_quadcomms/dtbo
-
-
+source /usr/local/CARE/load.overlay
+load_overlay acq2106_quadcomms
