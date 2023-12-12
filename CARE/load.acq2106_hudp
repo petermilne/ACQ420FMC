@@ -2,3 +2,5 @@
 
 source /usr/local/CARE/load.overlay
 load_overlay acq2106_hudp
+
+grep -q UDPX /tmp/fpga_status && /usr/local/CARE/load.mgt483.clk 156M25
