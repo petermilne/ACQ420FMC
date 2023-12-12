@@ -1,0 +1,19 @@
+
+#overlay=${1:-mgt48x_clk_overlay_156M25}
+overlay=${1:-mgt48x_clk_overlay}
+
+case $overlay in
+156M25)
+	overlay=mgt48x_clk_overlay_156M25;;
+200M)
+	overlay=mgt48x_clk_overlay;;
+esac
+
+[ -e /sys/kernel/config/device-tree ] || mount -t configfs none /sys/kernel/config
+mkdir -p /sys/kernel/config/device-tree/overlays/$overlay
+cat /mnt/dtb.d/$overlay.dtb > \
+	/sys/kernel/config/device-tree/overlays/$overlay/dtbo
+
+
+
+
