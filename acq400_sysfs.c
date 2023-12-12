@@ -36,7 +36,9 @@ MODULE_PARM_DESC(modify_spad_access, "1: force read before, 2: force read after"
 int reset_fifo_verbose;
 module_param(reset_fifo_verbose, int, 0644);
 
-
+int soft_trigger_udelay = 0;
+module_param(soft_trigger_udelay, int, 0644);
+MODULE_PARM_DESC(soft_trigger_udelay, "stretch soft trigger flat top by N usecs 0: no delay");
 
 
 int acq465_reset_msleep = 1000;
@@ -2295,6 +2297,9 @@ static ssize_t show_soft_trigger(
 
 	acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
 	acq400wr32(adev, MOD_CON, mod_con | MCR_SOFT_TRIG);
+	if (soft_trigger_udelay){
+		udelay(soft_trigger_udelay);
+	}
 	acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
 
 
@@ -2321,6 +2326,9 @@ static ssize_t store_soft_trigger(
 
 		while(ntriggers--){
 			acq400wr32(adev, MOD_CON, mod_con | MCR_SOFT_TRIG);
+			if (soft_trigger_udelay){
+				udelay(soft_trigger_udelay);
+			}
 			acq400wr32(adev, MOD_CON, mod_con & ~MCR_SOFT_TRIG);
 			usleep_range(5, 20);
 		}
