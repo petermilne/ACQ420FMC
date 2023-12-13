@@ -25,5 +25,4 @@ load_overlay() {
 	dto=$CFG/device-tree/overlays/$1
 	mkdir -p $dto
 	cat $fn > $dto/dtbo
-	exit 0
 }
