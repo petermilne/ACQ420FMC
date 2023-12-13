@@ -1245,7 +1245,7 @@ void _update_abcde_status(struct XO_dev *xo_dev){
 	char bx = buf_get(&xo_dev->awg_abcde.new_queue, AWG_ABCDE_LEN);
 	char obx = *awg_seg;
 	if (VALID_ABCDE(bx)){
-		distributor_segment_offset = (bx-'A')*awg_seg_bufs;
+		distributor_segment_offset = (bx-'A');
 		*awg_seg = bx;
 		dev_dbg(DEVP(&xo_dev->adev), "%s seg:%c", __FUNCTION__, bx);
 	}else{
@@ -1444,7 +1444,7 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 			"%s.xo", adev->dev_name);
 		while(!adev->task_active){
 			msleep(10);
-			if (++pollcat > 100){
+			if (++pollcat%100 == 0){
 				dev_warn(DEVP(adev), "waiting for task start");
 			}
 		}
@@ -1454,7 +1454,7 @@ void xo400_distributor_feeder_control(struct acq400_dev* adev, int enable)
 		}
 		while(adev->task_active){
 			msleep(10);
-			if (++pollcat > 100){
+			if (++pollcat%100 == 0){
 				dev_warn(DEVP(adev), "waiting for task stop");
 			}
 		}
