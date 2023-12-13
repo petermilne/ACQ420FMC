@@ -12,3 +12,14 @@ case $overlay in
 esac
 
 load_overlay $overlay
+
+for CX in A B C; do
+	knob=/dev/acq400.$CX.knobs/gt_reset
+	if [ -e $knob ]; then
+		echo 1 > $knob 
+		echo 0 > $knob
+		echo reset $knob
+	fi
+done
+
+

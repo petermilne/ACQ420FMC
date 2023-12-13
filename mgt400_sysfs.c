@@ -683,6 +683,8 @@ static ssize_t store_decim(
 
 static DEVICE_ATTR(decimate, S_IRUGO|S_IWUSR, show_decim, store_decim);
 
+MAKE_BITS(gt_reset,    AURORA_CR,      MAKE_BITS_FROM_MASK,	AURORA_GT_RESET);
+
 static const struct attribute *sysfs_base_attrs[] = {
 	&dev_attr_module_type.attr,
 	&dev_attr_module_name.attr,
@@ -701,6 +703,7 @@ static const struct attribute *sysfs_aurora_attrs[] = {
 	&dev_attr_astats2.attr,
 	&dev_attr_alat_avg.attr,
 	&dev_attr_alat_min_max.attr,
+	&dev_attr_gt_reset.attr,
 	&dev_attr_heartbeat.attr,
 	&dev_attr_dma_stat_desc_pull.attr,
 	&dev_attr_dma_stat_desc_push.attr,

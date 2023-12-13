@@ -102,6 +102,7 @@ int mgt400_clear_histo(struct mgt400_dev *mdev, int minor);
 #define ZDMA_CR_ENABLE		(1<<0)
 
 #define AURORA_CR_ENA		(1<<31)
+#define AURORA_GT_RESET		(1<<15)
 #define AURORA_CR_CLR		(1<<7)
 #define AURORA_CR_PWR_DWN	(1<<4)
 #define AURORA_CR_LOOPBACK	(0x7)
