@@ -80,15 +80,6 @@ ModeMap modeMap[] = {
 };
 #define NMAP	(sizeof(modeMap)/sizeof(ModeMap))
 
-int abcde2port(const char* abcde) {
-	char bx = abcde[0];
-	if (bx >= 'A' && bx <= 'E'){
-		return 54212 + abcde[0] - 'A';
-	}else{
-		fprintf(stderr, "ERROR: valude --abcde A,B,C,D,E not %c\n", bx);
-		exit(1);
-	}
-}
 int awgmode2port(const char* mode){
 	for (unsigned ii = 0; ii < NMAP; ++ii){
 		if (strcmp(modeMap[ii].mode, mode) == 0){
@@ -96,6 +87,16 @@ int awgmode2port(const char* mode){
 		}
 	}
 	return -1;
+}
+
+int abcde2port(int mode_port, const char* abcde) {
+	char bx = abcde[0];
+	if (bx >= 'A' && bx <= 'E'){
+		return mode_port + 10*(abcde[0] - 'A' + 1);
+	}else{
+		fprintf(stderr, "ERROR: valude --abcde A,B,C,D,E not %c\n", bx);
+		exit(1);
+	}
 }
 
 
@@ -381,24 +382,12 @@ void ui(int argc, const char** argv)
 	poptContext opt_context =
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
+	bool G_awg_mode_set = false;
 
 	while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
 		case 'a': {
-			int port = G::abcde? abcde2port(G::abcde): awgmode2port(G::awg_mode);
-			if (port == -1){
-				fprintf(stderr, "ERROR, mode \"%s\" not supported\n", G::awg_mode);
-				exit(1);
-			}else{
-				char cmd[132];
-				snprintf(cmd, 132, "nc localhost %d", port);
-				G::out = popen(cmd, "w");
-				if (G::out == 0){
-					perror(cmd);
-					exit(1);
-				}
-				G::output_is_pipe = true;
-			}
+			G_awg_mode_set = true;
 			break;
 		}
 		case 'o':
@@ -412,6 +401,32 @@ void ui(int argc, const char** argv)
 		default:
 			;
 		}
+	}
+
+	if (G_awg_mode_set){
+		int port = awgmode2port(G::awg_mode);
+		if (port == -1){
+			fprintf(stderr, "ERROR, mode \"%s\" not supported\n", G::awg_mode);
+			exit(1);
+		}else if (G::abcde){
+			port = abcde2port(port, G::abcde);
+			if (port == -1){
+				fprintf(stderr, "ERROR, segment \"%s\" not supported\n", G::abcde);
+				exit(1);
+			}
+		}
+
+		char cmd[132];
+		snprintf(cmd, 132, "nc localhost %d", port);
+		if (G::verbose){
+			fprintf(stderr, "cmd:%s\n", cmd);
+		}
+		G::out = popen(cmd, "w");
+		if (G::out == 0){
+			perror(cmd);
+			exit(1);
+		}
+		G::output_is_pipe = true;
 	}
 
 	do_scan();
