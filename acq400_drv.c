@@ -23,7 +23,7 @@
 #include "dmaengine.h"
 
 
-#define REVID 			"3.806"
+#define REVID 			"3.807"
 #define MODULE_NAME             "acq420"
 
 /* Define debugging for use during our driver bringup */
@@ -256,13 +256,9 @@ char awg_seg[2] = { '0' };
 module_param_string(awg_seg, awg_seg, 2, 0444);
 MODULE_PARM_DESC(awg_seg, "current awg_segment: 0..5");
 
-static char species[2];
-module_param_string(specifies, species, 2, 0);
-
-
 int firstDistributorBuffer(void)
 {
-	int rc = distributor_first_buffer + reserve_buffers + distributor_segment_offset;
+	int rc = distributor_first_buffer + reserve_buffers + distributor_segment_offset*awg_seg_bufs;
 	dev_dbg(DEVP(acq400_devices[0]), "%s return %d", __FUNCTION__, rc);
 	return rc;
 }
