@@ -4,7 +4,7 @@
 /sbin/insmod /usr/local/lib/modules/z7_eth1_1000X_en.ko
 
 source /usr/local/CARE/load.overlay
-load_overlay acq2106_100X
+load_overlay acq2106_1000X
 
 /usr/local/CARE/set_mac2
 #ifconfig eth1 192.168.0.84 up
