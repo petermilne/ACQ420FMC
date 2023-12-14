@@ -39,7 +39,7 @@ monitor() {
         do
                 (
                 	cd ${HK}
-                    for k in ip gw netmask mac -- rx_src_ip rx_port rx_pkt_len rx_pkt_count -- src_port dst_ip dst_port tx_sample_sz tx_spp tx_calc_pkt_sz tx_pkt_count; do
+                    for k in ip gw netmask mac -- rx_src_ip rx_port rx_pkt_len rx_pkt_count -- src_port dst_ip arp_mac_resp dst_port tx_sample_sz tx_spp tx_calc_pkt_sz tx_pkt_count; do
                         case $k in
                         --)
                             printf "%30s %s\n" ------- -------;;
