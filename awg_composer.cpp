@@ -383,6 +383,7 @@ void ui(int argc, const char** argv)
 			poptGetContext(argv[0], argc, argv, opt_table, 0);
 	int rc;
 	bool G_awg_mode_set = false;
+	bool G_output_set = false;
 
 	while ((rc = poptGetNextOpt( opt_context )) >= 0 ){
 		switch(rc){
@@ -397,13 +398,14 @@ void ui(int argc, const char** argv)
 			}
 			G::out = fopen(G::outfile, "w");
 			assert(G::out);
+			G_output_set = true;
 			break;
 		default:
 			;
 		}
 	}
 
-	if (G_awg_mode_set){
+	if (G_awg_mode_set && !G_output_set){
 		int port = awgmode2port(G::awg_mode);
 		if (port == -1){
 			fprintf(stderr, "ERROR, mode \"%s\" not supported\n", G::awg_mode);
